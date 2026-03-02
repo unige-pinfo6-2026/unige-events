@@ -1,10 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [hello, setHello] = useState("Loading...");
+
+  useEffect(() => {
+    fetch("/api/hello")
+      .then(res => {
+        if(!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`)
+        }
+
+        return res.text()
+      })
+      .then(data => setHello(data))
+      .catch(err => console.error("Backend error:", err.message));
+  }, []);
 
   return (
     <>
@@ -17,6 +31,7 @@ function App() {
         </a>
       </div>
       <h1>Vite + React</h1>
+      <p>Call from backend: {hello}</p>
       <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
