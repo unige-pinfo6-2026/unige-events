@@ -1,4 +1,4 @@
-# UNIGE Events
+# UNIGE Events API
 
 Centralized event platform for the UNIGE community : discover, create and manage university events.
 
@@ -15,11 +15,10 @@ Centralized event platform for the UNIGE community : discover, create and manage
 
 ### Prerequisites
 - Java 21+
-- Node.js 18+
 - Maven
 
 ### Setup environment variables
-- Copy `.env.example` to `.env` and fill the variables. In `backend/` and `frontend/` too.
+- Copy `.env.example` to `.env` and fill the variables.
 
 ### Setup database
 
@@ -29,12 +28,7 @@ docker compose up -d db
 
 ### Run the project
 
-**Backend**: http://localhost:8080
+http://localhost:8080/api
 ```bash
-cd backend && ./mvnw quarkus:dev
-```
-
-**Frontend**: http://localhost:5173
-```bash
-cd frontend && npm install && npm run dev
+./mvnw quarkus:dev
 ```
