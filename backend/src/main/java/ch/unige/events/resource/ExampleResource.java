@@ -1,11 +1,11 @@
-package ch.unige.events;
+package ch.unige.events.resource;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-@Path("/api/hello")
+@Path("/hello")
 public class ExampleResource {
 
     @GET

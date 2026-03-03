@@ -18,6 +18,15 @@ Centralized event platform for the UNIGE community : discover, create and manage
 - Node.js 18+
 - Maven
 
+### Setup environment variables
+- Copy `.env.example` to `.env` and fill the variables. In `backend/` and `frontend/` too.
+
+### Setup database
+
+```bash
+docker compose up -d db
+```
+
 ### Run the project
 
 **Backend**: http://localhost:8080
