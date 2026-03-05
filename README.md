@@ -20,12 +20,6 @@ Centralized event platform for the UNIGE community : discover, create and manage
 ### Setup environment variables
 - Copy `.env.example` to `.env` and fill the variables.
 
-### Setup database
-
-```bash
-docker compose up -d db
-```
-
 ### Run the project
 
 http://localhost:8080/api
