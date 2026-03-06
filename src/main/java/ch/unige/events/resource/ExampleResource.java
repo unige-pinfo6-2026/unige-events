@@ -1,8 +1,6 @@
 package ch.unige.events.resource;
 
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
 @Path("/hello")
@@ -12,5 +10,12 @@ public class ExampleResource {
     @Produces(MediaType.TEXT_PLAIN)
     public String hello() {
         return "Hello from Quarkus REST";
+    }
+
+    @POST
+    @Consumes(MediaType.TEXT_PLAIN)
+    public String post(String test) {
+        if(test.isBlank()) throw new BadRequestException("Test is null");
+        return test + " POSTED ! Hello from Quarkus REST";
     }
 }
