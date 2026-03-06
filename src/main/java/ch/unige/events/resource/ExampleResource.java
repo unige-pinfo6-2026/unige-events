@@ -15,6 +15,7 @@ public class ExampleResource {
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
     public String post(String test) {
+        if(test.isBlank()) throw new BadRequestException("Test is null");
         return test + " POSTED ! Hello from Quarkus REST";
     }
 }
