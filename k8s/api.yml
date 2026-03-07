@@ -16,6 +16,7 @@ spec:
       containers:
         - name: api
           image: ghcr.io/unige-pinfo6-2026/unige-events-api:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 8080
           env:
