@@ -15,22 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            # Pull latest image
-            microk8s ctr image pull ghcr.io/${{ github.repository }}:latest
+      - name: Pull image
+        run: echo ${{ secrets.GITHUB_TOKEN }} | microk8s ctr image pull --user ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} ghcr.io/${{ github.repository }}:latest
 
-            # Apply manifests
-            echo '${{ secrets.DB_SECRET }}' | microk8s kubectl apply -f -
-            microk8s kubectl apply -f https://raw.githubusercontent.com/${{ github.repository }}/main/k8s/namespace.yml
-            microk8s kubectl apply -f https://raw.githubusercontent.com/${{ github.repository }}/main/k8s/db.yml
-            microk8s kubectl apply -f https://raw.githubusercontent.com/${{ github.repository }}/main/k8s/api.yml
+      - name: Apply manifests
+        run: microk8s kubectl apply -f k8s/
 
-            # Restart API to pick up new image
-            microk8s kubectl rollout restart deployment/api -n unige-events
-            microk8s kubectl rollout status deployment/api -n unige-events --timeout=120s
+      - name: Restart deployment
+        run: |
+          microk8s kubectl rollout restart deployment/api -n unige-events
+          microk8s kubectl rollout status deployment/api -n unige-events --timeout=120s
