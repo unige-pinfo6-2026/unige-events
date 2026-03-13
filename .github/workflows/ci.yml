@@ -16,9 +16,6 @@ jobs:
   build-test:
     name: Build & Tests
     runs-on: self-hosted
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v6
@@ -76,6 +73,9 @@ jobs:
     runs-on: self-hosted
     needs: code-quality
     if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v6
