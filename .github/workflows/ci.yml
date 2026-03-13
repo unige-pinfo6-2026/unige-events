@@ -8,6 +8,7 @@ on:
 
 env:
   JAVA_VERSION: 21
+  JAVA_DISTRIBUTION: "temurin"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -23,21 +24,17 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
-          distribution: "temurin"
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Build with Maven
-        run: ./mvnw -B compile
+      - name: Build & Test
+        run: ./mvnw -B verify
 
-      - name: Run tests
-        run: ./mvnw -B test
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v7
-        if: always()
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: target/surefire-reports/
+          name: app-jar
+          path: target/*.jar
 
   # Job 2 : Code Quality
   code-quality:
@@ -53,13 +50,19 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
-          distribution: "temurin"
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target/
 
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw verify sonar:sonar -B
+        run: ./mvnw sonar:sonar -B
 
   # Job 3 : Build Docker Image
   build-image:
@@ -80,8 +83,11 @@ jobs:
           distribution: "temurin"
           cache: maven
 
-      - name: Build JAR
-        run: ./mvnw -B package -DskipTests
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
