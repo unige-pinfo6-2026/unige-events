@@ -6,6 +6,9 @@ on:
     types: [completed]
     branches: [main]
 
+env:
+  NAMESPACE: unige-events
+
 jobs:
   deploy:
     name: Deploy to MicroK8s
@@ -14,15 +17,35 @@ jobs:
     environment: production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Pull image
-        run: echo ${{ secrets.GITHUB_TOKEN }} | microk8s ctr image pull --user ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} ghcr.io/${{ github.repository }}:latest
+      - name: Create GHCR secret
+        uses: azure/k8s-create-secret@v4
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-name: ghcr-secret
+          secret-type: docker-registry
+          container-registry-url: ghcr.io
+          container-registry-username: ${{ github.actor }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create DB secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-type: generic
+          secret-name: db-secret
+          string-data: |
+            {
+              "DB_NAME": "${{ secrets.DB_NAME }}",
+              "DB_USER": "${{ secrets.DB_USER }}",
+              "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
+            }
 
       - name: Apply manifests
         run: microk8s kubectl apply -f k8s/
 
       - name: Restart deployment
         run: |
-          microk8s kubectl rollout restart deployment/api -n unige-events
-          microk8s kubectl rollout status deployment/api -n unige-events --timeout=120s
+          microk8s kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
+          microk8s kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=120s

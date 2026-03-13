@@ -18,7 +18,9 @@
 				"redhat.java",
 				"vscjava.vscode-java-pack",
 				"vscjava.vscode-quarkus",
-				"sonarsource.sonarlint-vscode"
+				"sonarsource.sonarlint-vscode",
+				"github.copilot",
+				"github.vscode-github-actions"
 			]
 		},
         "jetbrains": {
