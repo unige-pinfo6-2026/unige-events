@@ -20,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Nécessaire pour SonarQube
 
       - uses: actions/setup-java@v5
         with:
@@ -40,6 +42,7 @@ jobs:
         with:
           name: quarkus-app
           path: target/quarkus-app/
+          retention-days: 1
 
   # Job 2 : Build Docker Image
   build-image:
