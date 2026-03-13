@@ -33,7 +33,7 @@ jobs:
           secret-type: docker-registry
           container-registry-url: ghcr.io
           container-registry-username: ${{ github.actor }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          container-registry-password: ${{ secrets.GHCR_PAT }}
 
       - name: Create DB secret
         uses: azure/k8s-create-secret@v5
