@@ -19,8 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
       - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v4
+        uses: azure/k8s-create-secret@v5
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
@@ -43,9 +49,9 @@ jobs:
             }
 
       - name: Apply manifests
-        run: microk8s kubectl apply -f k8s/
+        run: kubectl apply -f k8s/
 
       - name: Restart deployment
         run: |
-          microk8s kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
-          microk8s kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=120s
