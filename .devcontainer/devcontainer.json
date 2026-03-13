@@ -1,7 +1,6 @@
 {
     "name": "UNIGE Events API",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
-
     "features": {
 		"ghcr.io/devcontainers/features/java:1": {
 			"version": "21"
@@ -11,11 +10,8 @@
         },
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
-
 	"forwardPorts": [8080, 5005],
-
 	"postCreateCommand": "./mvnw dependency:go-offline -B",
-
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -32,6 +28,5 @@
 			]
 		}
 	},
-
 	"remoteUser": "vscode"
 }
