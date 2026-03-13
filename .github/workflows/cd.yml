@@ -1,8 +1,8 @@
-name: Deploy
+name: CD Pipeline
 
 on:
   workflow_run:
-    workflows: ["Build"]
+    workflows: ["CI Pipeline"]
     types: [completed]
     branches: [main]
 
@@ -10,8 +10,9 @@ env:
   NAMESPACE: unige-events
 
 jobs:
+  # Job 1 : Deploy to Production
   deploy:
-    name: Deploy to MicroK8s
+    name: Deploy to Production
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: self-hosted
     environment: production
@@ -23,7 +24,7 @@ jobs:
         uses: azure/k8s-set-context@v4
         with:
           method: kubeconfig
-          kubeconfig: ${{ secrets.KUBECONFIG }}
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
       - name: Create GHCR secret
         uses: azure/k8s-create-secret@v4
