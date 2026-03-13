@@ -68,7 +68,7 @@ jobs:
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw sonar:sonar -B
+        run: ./mvnw verify sonar:sonar -B
 
   # Job 3 : Build Docker Image
   build-image:
