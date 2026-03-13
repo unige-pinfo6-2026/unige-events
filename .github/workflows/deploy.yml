@@ -30,7 +30,6 @@ jobs:
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
-          secret-type: docker-registry
           container-registry-url: ghcr.io
           container-registry-username: ${{ github.actor }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
