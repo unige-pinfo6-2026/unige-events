@@ -54,4 +54,4 @@ jobs:
       - name: Restart deployment
         run: |
           kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
