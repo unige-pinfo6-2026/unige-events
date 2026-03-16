@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # Dépendances Maven (Java/Quarkus)
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    groups:
+      quarkus:
+        patterns:
+          - "io.quarkus*"
+          - "io.quarkus.platform*"
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Zurich
+
+  # Images Docker (docker-compose.yml)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Zurich
