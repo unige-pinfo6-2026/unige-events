@@ -43,7 +43,7 @@ jobs:
           secret-name: db-secret
           string-data: |
             {
-              "DB_NAME": "${{ secrets.DB_NAME }}",
+              "DB_NAME": "${{ vars.DB_NAME }}",
               "DB_USER": "${{ secrets.DB_USER }}",
               "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
             }
