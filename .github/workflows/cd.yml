@@ -27,7 +27,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
       - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v4
+        uses: azure/k8s-create-secret@v5
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
@@ -36,7 +36,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create DB secret
-        uses: azure/k8s-create-secret@v4
+        uses: azure/k8s-create-secret@v5
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-type: generic
