@@ -52,12 +52,7 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f k8s/
 
-      - name: Restart DB deployment
-        run: |
-          kubectl rollout restart deployment/db -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/db -n ${{ env.NAMESPACE }} --timeout=180s
-
-      - name: Restart API deployment
+      - name: Restart deployment
         run: |
           kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
