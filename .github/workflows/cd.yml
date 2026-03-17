@@ -52,7 +52,6 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f k8s/
 
-      - name: Restart deployment
+      - name: Wait for deployment
         run: |
-          kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
