@@ -8,6 +8,7 @@ on:
 
 env:
   NAMESPACE: unige-events
+  CONTAINER_IMAGE_REGISTRY: ghcr.io
 
 jobs:
   # Job 1 : Deploy to Production
@@ -31,7 +32,7 @@ jobs:
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
-          container-registry-url: ghcr.io
+          container-registry-url: ${{ env.CONTAINER_IMAGE_REGISTRY }}
           container-registry-username: ${{ github.actor }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -51,7 +52,12 @@ jobs:
       - name: Apply manifests
         run: kubectl apply -f k8s/
 
-      - name: Restart deployment
+      - name: Restart DB deployment
+        run: |
+          kubectl rollout restart deployment/db -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/db -n ${{ env.NAMESPACE }} --timeout=180s
+
+      - name: Restart API deployment
         run: |
           kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
