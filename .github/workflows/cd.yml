@@ -50,13 +50,12 @@ jobs:
               "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
             }
       
-            
+      - name: Apply manifests
+        run: kubectl apply -f k8s/
+
       - name: Update image tag in manifests
         run: |
           kubectl set image deployment/api api=${{ env.CONTAINER_IMAGE_REGISTRY }}/${{ env.CONTAINER_IMAGE_NAME }}:${{ github.sha }} -n ${{ env.NAMESPACE }}
-
-      - name: Apply manifests
-        run: kubectl apply -f k8s/
 
       - name: Wait for deployment
         run: |
