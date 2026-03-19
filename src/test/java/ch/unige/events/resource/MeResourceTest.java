@@ -45,7 +45,7 @@ class MeResourceTest {
     @Test
     @TestSecurity(user = "auth0|alice")
     void testMeAuthenticatedReturnsExistingProfile() {
-        String firstId = userServiceMock.seedUser("auth0|alice", "alice@example.com").id.toString();
+        String firstId = userServiceMock.seedUser("auth0|alice", "alice@example.com").getId().toString();
 
         given()
             .when().get("/users/me")

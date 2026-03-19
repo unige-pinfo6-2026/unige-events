@@ -31,18 +31,18 @@ public record UserProfileResponse(
 ) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
-            user.id,
-            user.auth0Id,
-            user.email,
-            user.displayName,
-            user.faculty,
-            user.studyLevel,
-            user.bio,
-            user.interests,
-            user.avatarUrl,
-            user.isProfilePublic,
-            user.isAdmin,
-            user.createdAt
+            user.getId(),
+            user.getAuth0Id(),
+            user.getEmail(),
+            user.getDisplayName(),
+            user.getFaculty(),
+            user.getStudyLevel(),
+            user.getBio(),
+            user.getInterests(),
+            user.getAvatarUrl(),
+            user.isProfilePublic(),
+            user.isAdmin(),
+            user.getCreatedAt()
         );
     }
 }

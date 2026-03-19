@@ -32,8 +32,14 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
-    @Inject SecurityIdentity identity;
-    @Inject UserService  userService;
+    private final SecurityIdentity identity;
+    private final UserService userService;
+
+    @Inject
+    public UserResource(SecurityIdentity identity, UserService userService) {
+        this.identity = identity;
+        this.userService = userService;
+    }
 
     /**
      * GET /api/users/{id}

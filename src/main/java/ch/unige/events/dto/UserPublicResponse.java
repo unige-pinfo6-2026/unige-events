@@ -14,8 +14,8 @@ public record UserPublicResponse(
 ) {
     public static UserPublicResponse from(User u) {
         return new UserPublicResponse(
-            u.id, u.displayName, u.faculty,
-            u.studyLevel, u.bio, u.interests, u.avatarUrl
+            u.getId(), u.getDisplayName(), u.getFaculty(),
+            u.getStudyLevel(), u.getBio(), u.getInterests(), u.getAvatarUrl()
         );
     }
 }

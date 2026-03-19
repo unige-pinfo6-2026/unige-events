@@ -19,8 +19,12 @@ import java.util.UUID;
 @ApplicationScoped
 public class UserService {
 
+    private final Instance<EntityManager> entityManager;
+
     @Inject
-    Instance<EntityManager> entityManager;
+    public UserService(Instance<EntityManager> entityManager) {
+        this.entityManager = entityManager;
+    }
 
     /**
      * Appelé à chaque requête authentifiée.
@@ -39,10 +43,10 @@ public class UserService {
 
         try {
             User newUser = new User();
-            newUser.auth0Id = auth0Id;
-            newUser.email = email;
-            newUser.isProfilePublic = false;
-            newUser.isAdmin = false;
+            newUser.setAuth0Id(auth0Id);
+            newUser.setEmail(email);
+            newUser.setIsProfilePublic(false);
+            newUser.setIsAdmin(false);
             newUser.persist();
             flushEntityManager();
             return newUser;
@@ -58,7 +62,7 @@ public class UserService {
         User user = (User) User.findByIdOptional(id)
             .orElseThrow(NotFoundException::new);
 
-        if (!user.isProfilePublic) {
+        if (!user.isProfilePublic()) {
             throw new ForbiddenException("This profile is private");
         }
         return user;
@@ -81,13 +85,13 @@ public class UserService {
         User user = User.findByAuth0Id(auth0Id)
             .orElseThrow(NotFoundException::new);
 
-        if (req.displayName()    != null) user.displayName    = req.displayName();
-        if (req.faculty()        != null) user.faculty        = req.faculty();
-        if (req.studyLevel()     != null) user.studyLevel     = req.studyLevel();
-        if (req.bio()            != null) user.bio            = req.bio();
-        if (req.interests()      != null) user.interests      = req.interests();
-        if (req.avatarUrl()      != null) user.avatarUrl      = req.avatarUrl();
-        if (req.isProfilePublic()!= null) user.isProfilePublic= req.isProfilePublic();
+        if (req.displayName()    != null) user.setDisplayName(req.displayName());
+        if (req.faculty()        != null) user.setFaculty(req.faculty());
+        if (req.studyLevel()     != null) user.setStudyLevel(req.studyLevel());
+        if (req.bio()            != null) user.setBio(req.bio());
+        if (req.interests()      != null) user.setInterests(req.interests());
+        if (req.avatarUrl()      != null) user.setAvatarUrl(req.avatarUrl());
+        if (req.isProfilePublic()!= null) user.setIsProfilePublic(req.isProfilePublic());
 
         try {
             flushEntityManager();

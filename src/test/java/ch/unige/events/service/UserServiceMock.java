@@ -4,6 +4,9 @@ import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
@@ -24,6 +27,15 @@ public class UserServiceMock extends UserService {
     private volatile boolean forceForbiddenOnUpdate = false;
     private volatile boolean forceConflictOnUpdate = false;
 
+    @Inject
+    public UserServiceMock(Instance<EntityManager> entityManager) {
+        super(entityManager);
+    }
+
+    public UserServiceMock() {
+        super(null);
+    }
+
     public void reset() {
         usersByAuth0Id.clear();
         usersById.clear();
@@ -42,7 +54,7 @@ public class UserServiceMock extends UserService {
     public User seedUser(String auth0Id, String email) {
         User user = newUser(auth0Id, email);
         usersByAuth0Id.put(auth0Id, user);
-        usersById.put(user.id, user);
+        usersById.put(user.getId(), user);
         return user;
     }
 
@@ -59,7 +71,7 @@ public class UserServiceMock extends UserService {
 
         return usersByAuth0Id.computeIfAbsent(auth0Id, key -> {
             User user = newUser(key, email);
-            usersById.put(user.id, user);
+            usersById.put(user.getId(), user);
             return user;
         });
     }
@@ -70,7 +82,7 @@ public class UserServiceMock extends UserService {
         if (user == null) {
             throw new NotFoundException();
         }
-        if (!user.isProfilePublic) {
+        if (!user.isProfilePublic()) {
             throw new ForbiddenException("This profile is private");
         }
         return user;
@@ -102,13 +114,13 @@ public class UserServiceMock extends UserService {
             throw new NotFoundException();
         }
 
-        if (req.displayName() != null) user.displayName = req.displayName();
-        if (req.faculty() != null) user.faculty = req.faculty();
-        if (req.studyLevel() != null) user.studyLevel = req.studyLevel();
-        if (req.bio() != null) user.bio = req.bio();
-        if (req.interests() != null) user.interests = req.interests();
-        if (req.avatarUrl() != null) user.avatarUrl = req.avatarUrl();
-        if (req.isProfilePublic() != null) user.isProfilePublic = req.isProfilePublic();
+        if (req.displayName() != null) user.setDisplayName(req.displayName());
+        if (req.faculty() != null) user.setFaculty(req.faculty());
+        if (req.studyLevel() != null) user.setStudyLevel(req.studyLevel());
+        if (req.bio() != null) user.setBio(req.bio());
+        if (req.interests() != null) user.setInterests(req.interests());
+        if (req.avatarUrl() != null) user.setAvatarUrl(req.avatarUrl());
+        if (req.isProfilePublic() != null) user.setIsProfilePublic(req.isProfilePublic());
 
         return user;
     }
@@ -119,13 +131,13 @@ public class UserServiceMock extends UserService {
         }
 
         User user = new User();
-        user.id = UUID.randomUUID();
-        user.auth0Id = auth0Id;
-        user.email = email;
-        user.isAdmin = false;
-        user.isProfilePublic = false;
-        user.createdAt = LocalDateTime.now();
-        user.version = 0L;
+        user.setId(UUID.randomUUID());
+        user.setAuth0Id(auth0Id);
+        user.setEmail(email);
+        user.setIsAdmin(false);
+        user.setIsProfilePublic(false);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setVersion(0L);
         return user;
     }
 }
