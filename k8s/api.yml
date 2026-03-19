@@ -13,10 +13,12 @@ spec:
       labels:
         app: api
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: api
           image: ghcr.io/unige-pinfo6-2026/unige-events-api:latest
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:

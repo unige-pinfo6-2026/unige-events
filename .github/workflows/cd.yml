@@ -1,0 +1,58 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
+
+env:
+  NAMESPACE: unige-events
+  CONTAINER_IMAGE_REGISTRY: ghcr.io
+
+jobs:
+  # Job 1 : Deploy to Production
+  deploy:
+    name: Deploy to Production
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: self-hosted
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Create GHCR secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-name: ghcr-secret
+          container-registry-url: ${{ env.CONTAINER_IMAGE_REGISTRY }}
+          container-registry-username: ${{ github.actor }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create DB secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-type: generic
+          secret-name: db-secret
+          string-data: |
+            {
+              "DB_NAME": "${{ vars.DB_NAME }}",
+              "DB_USER": "${{ secrets.DB_USER }}",
+              "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
+            }
+      
+      - name: Apply manifests
+        run: kubectl apply -f k8s/
+
+      - name: Restart deployment
+        run: |
+          kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
