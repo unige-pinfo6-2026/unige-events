@@ -48,6 +48,20 @@ jobs:
               "DB_USER": "${{ secrets.DB_USER }}",
               "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
             }
+
+      - name: Create API secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-type: generic
+          secret-name: api-secret
+          string-data: |
+            {
+              "OIDC_AUTH_SERVER_URL": "${{ vars.OIDC_AUTH_SERVER_URL }}",
+              "OIDC_CLIENT_ID": "${{ vars.OIDC_CLIENT_ID }}",
+              "OIDC_CLIENT_SECRET": "${{ secrets.OIDC_CLIENT_SECRET }}",
+              "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}"
+            }
       
       - name: Apply manifests
         run: kubectl apply -f k8s/
