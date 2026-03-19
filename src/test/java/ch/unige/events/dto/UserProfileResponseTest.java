@@ -1,0 +1,51 @@
+package ch.unige.events.dto;
+
+import ch.unige.events.entity.User;
+import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@QuarkusTest
+class UserProfileResponseTest {
+
+    @Test
+    void fromMapsAllFields() {
+        User user = new User();
+        UUID id = UUID.randomUUID();
+        LocalDateTime createdAt = LocalDateTime.of(2026, 3, 19, 13, 15, 0);
+
+        user.setId(id);
+        user.setAuth0Id("auth0|alice");
+        user.setEmail("alice@example.com");
+        user.setDisplayName("Alice");
+        user.setFaculty("Science");
+        user.setStudyLevel("Bachelor");
+        user.setBio("Student at UNIGE");
+        user.setInterests("AI, football");
+        user.setAvatarUrl("https://cdn.example.com/avatar.png");
+        user.setIsProfilePublic(true);
+        user.setIsAdmin(false);
+        user.setCreatedAt(createdAt);
+
+        UserProfileResponse response = UserProfileResponse.from(user);
+
+        assertEquals(id, response.id());
+        assertEquals("auth0|alice", response.auth0Id());
+        assertEquals("alice@example.com", response.email());
+        assertEquals("Alice", response.displayName());
+        assertEquals("Science", response.faculty());
+        assertEquals("Bachelor", response.studyLevel());
+        assertEquals("Student at UNIGE", response.bio());
+        assertEquals("AI, football", response.interests());
+        assertEquals("https://cdn.example.com/avatar.png", response.avatarUrl());
+        assertTrue(response.isProfilePublic());
+        assertFalse(response.isAdmin());
+        assertEquals(createdAt, response.createdAt());
+    }
+}
