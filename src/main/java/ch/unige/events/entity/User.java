@@ -14,7 +14,10 @@ public class User extends PanacheEntityBase {
     @GeneratedValue
     public UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, updatable = false)
+    public String auth0Id;
+
+    @Column(nullable = false, unique = true, updatable = false)
     public String email;
 
     public String displayName;
@@ -33,12 +36,16 @@ public class User extends PanacheEntityBase {
     public boolean isAdmin = false;
 
     @Column(nullable = false)
-    public boolean isProfilePublic = true;
+    public boolean isProfilePublic = false;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     public LocalDateTime createdAt = LocalDateTime.now();
 
     // ── Helpers ──────────────────────────────────────────
+
+    public static Optional<User> findByAuth0Id(String auth0Id) {
+        return find("auth0Id", auth0Id).firstResultOptional();
+    }
 
     public static Optional<User> findByEmail(String email) {
         return find("email", email).firstResultOptional();

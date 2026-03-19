@@ -4,8 +4,10 @@ import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -16,11 +18,13 @@ public class UserService {
      * Crée le profil si c'est la 1ère connexion.
      */
     @Transactional
-    public User getOrCreateUser(String email) {
-        return User.findByEmail(email).orElseGet(() -> {
+    public User getOrCreateUser(String auth0Id, String email) {
+        return User.findByAuth0Id(auth0Id).orElseGet(() -> {
             User newUser = new User();
+            newUser.auth0Id = auth0Id;
             newUser.email = email;
-            newUser.displayName = email.split("@")[0]; // valeur par défaut
+            newUser.isProfilePublic = false;
+            newUser.isAdmin = false;
             newUser.persist();
             return newUser;
         });
@@ -37,8 +41,20 @@ public class UserService {
     }
 
     @Transactional
-    public User updateMyProfile(String email, UpdateProfileRequest req) {
-        User user = User.findByEmail(email)
+    public User updateMyProfile(String authenticatedAuth0Id, String targetAuth0Id, UpdateProfileRequest req) {
+        if (!Objects.equals(authenticatedAuth0Id, targetAuth0Id)) {
+            throw new ForbiddenException("Cannot modify another user's profile");
+        }
+        return updateMyProfile(targetAuth0Id, req);
+    }
+
+    @Transactional
+    public User updateMyProfile(String auth0Id, UpdateProfileRequest req) {
+        if (req == null) {
+            throw new BadRequestException("Request body must not be null");
+        }
+
+        User user = User.findByAuth0Id(auth0Id)
             .orElseThrow(NotFoundException::new);
 
         if (req.displayName()    != null) user.displayName    = req.displayName();
