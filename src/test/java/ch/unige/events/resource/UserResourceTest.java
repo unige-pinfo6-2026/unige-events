@@ -80,6 +80,24 @@ class UserResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|alice")
+    void updateMeInvalidBodyValidation() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {
+                  "avatar_url": "ftp://invalid.example.com/avatar.png"
+                }
+                """)
+            .when().put("/users/me")
+            .then()
+            .statusCode(400)
+            .body("error", equalTo("validation_error"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
     void updateMeForbidden() {
         userServiceMock.seedUser("auth0|alice", "alice@example.com");
         userServiceMock.setForceForbiddenOnUpdate(true);
@@ -91,6 +109,21 @@ class UserResourceTest {
             .then()
             .statusCode(403)
             .body("error", equalTo("forbidden"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMeConflict() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        userServiceMock.setForceConflictOnUpdate(true);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("{}")
+            .when().put("/users/me")
+            .then()
+            .statusCode(409)
+            .body("error", equalTo("conflict"));
     }
 
     @Test

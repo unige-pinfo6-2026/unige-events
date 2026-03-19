@@ -4,8 +4,10 @@ import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.time.LocalDateTime;
@@ -20,15 +22,21 @@ public class UserServiceMock extends UserService {
     private final Map<String, User> usersByAuth0Id = new ConcurrentHashMap<>();
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
     private volatile boolean forceForbiddenOnUpdate = false;
+    private volatile boolean forceConflictOnUpdate = false;
 
     public void reset() {
         usersByAuth0Id.clear();
         usersById.clear();
         forceForbiddenOnUpdate = false;
+        forceConflictOnUpdate = false;
     }
 
     public void setForceForbiddenOnUpdate(boolean forceForbiddenOnUpdate) {
         this.forceForbiddenOnUpdate = forceForbiddenOnUpdate;
+    }
+
+    public void setForceConflictOnUpdate(boolean forceConflictOnUpdate) {
+        this.forceConflictOnUpdate = forceConflictOnUpdate;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -40,6 +48,15 @@ public class UserServiceMock extends UserService {
 
     @Override
     public User getOrCreateUser(String auth0Id, String email) {
+        User existing = usersByAuth0Id.get(auth0Id);
+        if (existing != null) {
+            return existing;
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new NotAuthorizedException("Missing required claim: email");
+        }
+
         return usersByAuth0Id.computeIfAbsent(auth0Id, key -> {
             User user = newUser(key, email);
             usersById.put(user.id, user);
@@ -64,6 +81,9 @@ public class UserServiceMock extends UserService {
         if (forceForbiddenOnUpdate) {
             throw new ForbiddenException("Cannot modify another user's profile");
         }
+        if (forceConflictOnUpdate) {
+            throw new OptimisticLockException("Profile was updated by another request. Please retry.");
+        }
         return super.updateMyProfile(authenticatedAuth0Id, targetAuth0Id, req);
     }
 
@@ -71,6 +91,10 @@ public class UserServiceMock extends UserService {
     public User updateMyProfile(String auth0Id, UpdateProfileRequest req) {
         if (req == null) {
             throw new BadRequestException("Request body must not be null");
+        }
+
+        if (forceConflictOnUpdate) {
+            throw new OptimisticLockException("Profile was updated by another request. Please retry.");
         }
 
         User user = usersByAuth0Id.get(auth0Id);
@@ -90,13 +114,18 @@ public class UserServiceMock extends UserService {
     }
 
     private User newUser(String auth0Id, String email) {
+        if (email == null || email.isBlank()) {
+            throw new NotAuthorizedException("Missing required claim: email");
+        }
+
         User user = new User();
         user.id = UUID.randomUUID();
         user.auth0Id = auth0Id;
-        user.email = email != null && !email.isBlank() ? email : auth0Id + "@example.com";
+        user.email = email;
         user.isAdmin = false;
         user.isProfilePublic = false;
         user.createdAt = LocalDateTime.now();
+        user.version = 0L;
         return user;
     }
 }

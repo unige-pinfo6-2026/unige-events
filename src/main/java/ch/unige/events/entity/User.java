@@ -41,6 +41,10 @@ public class User extends PanacheEntityBase {
     @Column(nullable = false, updatable = false)
     public LocalDateTime createdAt = LocalDateTime.now();
 
+    @Version
+    @Column(nullable = false)
+    public long version = 0L;
+
     // ── Helpers ──────────────────────────────────────────
 
     public static Optional<User> findByAuth0Id(String auth0Id) {

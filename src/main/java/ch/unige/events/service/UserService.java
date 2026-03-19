@@ -3,9 +3,15 @@ package ch.unige.events.service;
 import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import java.util.Objects;
 import java.util.UUID;
@@ -13,21 +19,39 @@ import java.util.UUID;
 @ApplicationScoped
 public class UserService {
 
+    @Inject
+    Instance<EntityManager> entityManager;
+
     /**
      * Appelé à chaque requête authentifiée.
      * Crée le profil si c'est la 1ère connexion.
      */
     @Transactional
     public User getOrCreateUser(String auth0Id, String email) {
-        return User.findByAuth0Id(auth0Id).orElseGet(() -> {
+        User existing = User.findByAuth0Id(auth0Id).orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new NotAuthorizedException("Missing required claim: email");
+        }
+
+        try {
             User newUser = new User();
             newUser.auth0Id = auth0Id;
             newUser.email = email;
             newUser.isProfilePublic = false;
             newUser.isAdmin = false;
             newUser.persist();
+            flushEntityManager();
             return newUser;
-        });
+        } catch (PersistenceException exception) {
+            if (isUniqueAuth0Conflict(exception)) {
+                return User.findByAuth0Id(auth0Id).orElseThrow(() -> exception);
+            }
+            throw exception;
+        }
     }
 
     public User getPublicProfile(UUID id) {
@@ -65,6 +89,48 @@ public class UserService {
         if (req.avatarUrl()      != null) user.avatarUrl      = req.avatarUrl();
         if (req.isProfilePublic()!= null) user.isProfilePublic= req.isProfilePublic();
 
+        try {
+            flushEntityManager();
+        } catch (OptimisticLockException exception) {
+            throw new OptimisticLockException("Profile was updated by another request. Please retry.");
+        } catch (PersistenceException exception) {
+            if (isOptimisticLockConflict(exception)) {
+                throw new OptimisticLockException("Profile was updated by another request. Please retry.");
+            }
+            throw exception;
+        }
+
         return user;
+    }
+
+    private void flushEntityManager() {
+        entityManager.get().flush();
+    }
+
+    private boolean isUniqueAuth0Conflict(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains("users_auth0_id_unique")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean isOptimisticLockConflict(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof OptimisticLockException) {
+                return true;
+            }
+            String className = current.getClass().getName();
+            if (className.contains("OptimisticLock") || className.contains("StaleState")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

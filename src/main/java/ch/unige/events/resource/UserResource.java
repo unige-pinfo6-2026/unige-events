@@ -11,6 +11,7 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -51,7 +52,7 @@ public class UserResource {
     @Authenticated
     @Operation(
         summary = "Get authenticated user profile",
-        description = "Auth REQUIRED: valid Bearer JWT. On first login, a profile is created from JWT `sub` and `email`, then the full profile is returned."
+        description = "Auth REQUIRED: valid Bearer JWT. On first login, a profile is created from JWT `sub` and required `email` claim, then the full profile is returned."
     )
     @SecurityRequirement(name = "bearerAuth")
     @APIResponses(value = {
@@ -82,12 +83,12 @@ public class UserResource {
     })
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
-        String email = extractEmail(auth0Id);
+        String email = extractEmail();
         User user = userService.getOrCreateUser(auth0Id, email);
         return UserProfileResponse.from(user);
     }
 
-    private String extractEmail(String auth0Id) {
+    private String extractEmail() {
         var principal = identity.getPrincipal();
         if (principal instanceof JsonWebToken jwt) {
             String email = jwt.getClaim("email");
@@ -95,7 +96,13 @@ public class UserResource {
                 return email;
             }
         }
-        return auth0Id + "@example.com";
+
+        String securityAttributeEmail = identity.getAttribute("email");
+        if (securityAttributeEmail != null && !securityAttributeEmail.isBlank()) {
+            return securityAttributeEmail;
+        }
+
+        return null;
     }
 
     /**
@@ -181,9 +188,21 @@ public class UserResource {
                     value = "{\"error\":\"not_found\",\"message\":\"Profile not found\"}"
                 )
             )
+        ),
+        @APIResponse(
+            responseCode = "409",
+            description = "Profile update conflict",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ApiErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "conflict",
+                    value = "{\"error\":\"conflict\",\"message\":\"Profile was updated by another request. Please retry.\"}"
+                )
+            )
         )
     })
-    public Response updateMe(UpdateProfileRequest req) {
+    public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
         return Response.ok(UserProfileResponse.from(updated)).build();
