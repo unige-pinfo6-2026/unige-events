@@ -20,6 +20,7 @@
         <sonar.organization>unige-pinfo6-2026</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>unige-pinfo6-2026_unige-events-api</sonar.projectKey>
+        <sonar.projectName>unige-events-api</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/jacoco-report/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
