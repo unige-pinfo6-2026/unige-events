@@ -1,7 +1,9 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.OpenApiSecurityConfig;
 import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.ValidationErrorResponse;
+import ch.unige.events.exception.mapper.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.persistence.OptimisticLockException;

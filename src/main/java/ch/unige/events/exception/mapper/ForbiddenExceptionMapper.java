@@ -1,24 +1,24 @@
-package ch.unige.events.resource;
+package ch.unige.events.exception.mapper;
 
 import ch.unige.events.dto.ApiErrorResponse;
-import jakarta.persistence.OptimisticLockException;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
 @Provider
-public class ConflictExceptionMapper implements ExceptionMapper<OptimisticLockException> {
+public class ForbiddenExceptionMapper implements ExceptionMapper<ForbiddenException> {
 
     @Override
-    public Response toResponse(OptimisticLockException exception) {
+    public Response toResponse(ForbiddenException exception) {
         String message = exception.getMessage() == null || exception.getMessage().isBlank()
-            ? "Profile update conflict. Please retry."
+            ? "Forbidden"
             : exception.getMessage();
 
-        return Response.status(Response.Status.CONFLICT)
+        return Response.status(Response.Status.FORBIDDEN)
             .type(MediaType.APPLICATION_JSON)
-            .entity(new ApiErrorResponse("conflict", message))
+            .entity(new ApiErrorResponse("forbidden", message))
             .build();
     }
 }

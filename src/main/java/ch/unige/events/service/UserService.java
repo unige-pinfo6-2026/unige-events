@@ -36,17 +36,18 @@ public class UserService {
         if (existing != null) {
             return existing;
         }
-
         if (email == null || email.isBlank()) {
             throw new NotAuthorizedException("Missing required claim: email");
         }
 
         try {
-            User newUser = new User();
-            newUser.setAuth0Id(auth0Id);
-            newUser.setEmail(email);
-            newUser.setIsProfilePublic(false);
-            newUser.setIsAdmin(false);
+            User newUser = User.builder()
+                    .auth0Id(auth0Id)
+                    .email(email)
+                    .profilePublic(false)
+                    .admin(false)
+                    .build();
+
             newUser.persist();
             flushEntityManager();
             return newUser;
@@ -91,7 +92,7 @@ public class UserService {
         if (req.bio()            != null) user.setBio(req.bio());
         if (req.interests()      != null) user.setInterests(req.interests());
         if (req.avatarUrl()      != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.isProfilePublic()!= null) user.setIsProfilePublic(req.isProfilePublic());
+        if (req.isProfilePublic()!= null) user.setProfilePublic(req.isProfilePublic());
 
         try {
             flushEntityManager();

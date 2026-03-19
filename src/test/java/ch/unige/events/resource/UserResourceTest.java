@@ -28,7 +28,7 @@ class UserResourceTest {
     @Test
     void getProfilePublicSuccess() {
         var user = userServiceMock.seedUser("auth0|public-profile", "public@example.com");
-        user.setIsProfilePublic(true);
+        user.setProfilePublic(true);
 
         given()
             .when().get("/users/" + user.getId())

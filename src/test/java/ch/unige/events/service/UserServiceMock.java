@@ -120,7 +120,7 @@ public class UserServiceMock extends UserService {
         if (req.bio() != null) user.setBio(req.bio());
         if (req.interests() != null) user.setInterests(req.interests());
         if (req.avatarUrl() != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.isProfilePublic() != null) user.setIsProfilePublic(req.isProfilePublic());
+        if (req.isProfilePublic() != null) user.setProfilePublic(req.isProfilePublic());
 
         return user;
     }
@@ -134,8 +134,8 @@ public class UserServiceMock extends UserService {
         user.setId(UUID.randomUUID());
         user.setAuth0Id(auth0Id);
         user.setEmail(email);
-        user.setIsAdmin(false);
-        user.setIsProfilePublic(false);
+        user.setAdmin(false);
+        user.setProfilePublic(false);
         user.setCreatedAt(LocalDateTime.now());
         user.setVersion(0L);
         return user;

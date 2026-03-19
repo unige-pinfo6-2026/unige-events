@@ -35,8 +35,8 @@ class UserTest {
         user.setBio("Student at UNIGE");
         user.setInterests("AI, football");
         user.setAvatarUrl("https://cdn.example.com/avatar.png");
-        user.setIsAdmin(true);
-        user.setIsProfilePublic(true);
+        user.setAdmin(true);
+        user.setProfilePublic(true);
         user.setCreatedAt(createdAt);
         user.setVersion(7L);
 

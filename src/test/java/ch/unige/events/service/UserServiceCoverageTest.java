@@ -345,8 +345,8 @@ class UserServiceCoverageTest {
         User user = new User();
         user.setAuth0Id(auth0Id);
         user.setEmail(email);
-        user.setIsProfilePublic(profilePublic);
-        user.setIsAdmin(false);
+        user.setProfilePublic(profilePublic);
+        user.setAdmin(false);
         user.setCreatedAt(LocalDateTime.now());
         entityManager.persist(user);
         entityManager.flush();

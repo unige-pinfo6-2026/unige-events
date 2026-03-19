@@ -1,24 +1,24 @@
-package ch.unige.events.resource;
+package ch.unige.events.exception.mapper;
 
 import ch.unige.events.dto.ApiErrorResponse;
-import jakarta.ws.rs.NotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
 @Provider
-public class NotFoundExceptionMapper implements ExceptionMapper<NotFoundException> {
+public class ConflictExceptionMapper implements ExceptionMapper<OptimisticLockException> {
 
     @Override
-    public Response toResponse(NotFoundException exception) {
+    public Response toResponse(OptimisticLockException exception) {
         String message = exception.getMessage() == null || exception.getMessage().isBlank()
-            ? "Profile not found"
+            ? "Profile update conflict. Please retry."
             : exception.getMessage();
 
-        return Response.status(Response.Status.NOT_FOUND)
+        return Response.status(Response.Status.CONFLICT)
             .type(MediaType.APPLICATION_JSON)
-            .entity(new ApiErrorResponse("not_found", message))
+            .entity(new ApiErrorResponse("conflict", message))
             .build();
     }
 }

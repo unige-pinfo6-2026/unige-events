@@ -29,8 +29,8 @@ class UserProfileResponseTest {
         user.setBio("Student at UNIGE");
         user.setInterests("AI, football");
         user.setAvatarUrl("https://cdn.example.com/avatar.png");
-        user.setIsProfilePublic(true);
-        user.setIsAdmin(false);
+        user.setProfilePublic(true);
+        user.setAdmin(false);
         user.setCreatedAt(createdAt);
 
         UserProfileResponse response = UserProfileResponse.from(user);

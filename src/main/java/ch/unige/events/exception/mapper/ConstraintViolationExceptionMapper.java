@@ -1,4 +1,4 @@
-package ch.unige.events.resource;
+package ch.unige.events.exception.mapper;
 
 import ch.unige.events.dto.ValidationErrorDetail;
 import ch.unige.events.dto.ValidationErrorResponse;
