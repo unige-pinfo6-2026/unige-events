@@ -8,6 +8,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -21,6 +23,39 @@ class UserResourceTest {
     @BeforeEach
     void setUp() {
         userServiceMock.reset();
+    }
+
+    @Test
+    void getProfilePublicSuccess() {
+        var user = userServiceMock.seedUser("auth0|public-profile", "public@example.com");
+        user.setIsProfilePublic(true);
+
+        given()
+            .when().get("/users/" + user.getId())
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("id", equalTo(user.getId().toString()));
+    }
+
+    @Test
+    void getProfilePrivateForbidden() {
+        var user = userServiceMock.seedUser("auth0|private-profile", "private@example.com");
+
+        given()
+            .when().get("/users/" + user.getId())
+            .then()
+            .statusCode(403)
+            .body("error", equalTo("forbidden"));
+    }
+
+    @Test
+    void getProfileNotFound() {
+        given()
+            .when().get("/users/" + UUID.randomUUID())
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
     }
 
     @Test
