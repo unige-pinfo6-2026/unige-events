@@ -27,6 +27,8 @@ public class User extends PanacheEntityBase {
     private String email;
 
     private String displayName;
+    private String firstName;
+    private String lastName;
     private String faculty;
     private String studyLevel;
 

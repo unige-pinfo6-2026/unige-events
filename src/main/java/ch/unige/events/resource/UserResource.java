@@ -7,6 +7,7 @@ import ch.unige.events.dto.UserPublicResponse;
 import ch.unige.events.dto.ValidationErrorResponse;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.UserService;
+import io.quarkus.oidc.UserInfo;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import io.quarkus.security.Authenticated;
@@ -34,6 +35,9 @@ public class UserResource {
 
     private final SecurityIdentity identity;
     private final UserService userService;
+
+    @Inject
+    UserInfo userInfo;
 
     @Inject
     public UserResource(SecurityIdentity identity, UserService userService) {
@@ -89,26 +93,8 @@ public class UserResource {
     })
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
-        String email = extractEmail();
-        User user = userService.getOrCreateUser(auth0Id, email);
+        User user = userService.getOrCreateUser(auth0Id, userInfo);
         return UserProfileResponse.from(user);
-    }
-
-    private String extractEmail() {
-        var principal = identity.getPrincipal();
-        if (principal instanceof JsonWebToken jwt) {
-            String email = jwt.getClaim("email");
-            if (email != null && !email.isBlank()) {
-                return email;
-            }
-        }
-
-        String securityAttributeEmail = identity.getAttribute("email");
-        if (securityAttributeEmail != null && !securityAttributeEmail.isBlank()) {
-            return securityAttributeEmail;
-        }
-
-        return null;
     }
 
     /**

@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import io.quarkus.oidc.UserInfo;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -31,19 +32,20 @@ public class UserService {
      * Crée le profil si c'est la 1ère connexion.
      */
     @Transactional
-    public User getOrCreateUser(String auth0Id, String email) {
+    public User getOrCreateUser(String auth0Id, UserInfo userInfo) {
         User existing = User.findByAuth0Id(auth0Id).orElse(null);
         if (existing != null) {
             return existing;
-        }
-        if (email == null || email.isBlank()) {
-            throw new NotAuthorizedException("Missing required claim: email");
         }
 
         try {
             User newUser = User.builder()
                     .auth0Id(auth0Id)
-                    .email(email)
+                    .displayName(userInfo.getName())
+                    .firstName(userInfo.getString("given_name"))
+                    .lastName(userInfo.getFamilyName())
+                    .email(userInfo.getEmail())
+                    .avatarUrl(userInfo.getString("picture"))
                     .profilePublic(false)
                     .admin(false)
                     .build();
