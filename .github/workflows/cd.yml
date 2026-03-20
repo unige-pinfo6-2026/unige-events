@@ -56,9 +56,24 @@ jobs:
           kustomize edit set image \
             ${{ env.CONTAINER_IMAGE_REGISTRY }}/${{ env.CONTAINER_IMAGE_NAME }}:${{ github.sha }}
 
+      - name: Create API secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-type: generic
+          secret-name: api-secret
+          string-data: |
+            {
+              "OIDC_AUTH_SERVER_URL": "${{ vars.OIDC_AUTH_SERVER_URL }}",
+              "OIDC_CLIENT_ID": "${{ vars.OIDC_CLIENT_ID }}",
+              "OIDC_CLIENT_SECRET": "${{ secrets.OIDC_CLIENT_SECRET }}",
+              "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}"
+            }
+      
       - name: Apply manifests
         run: kubectl apply -f k8s/
 
-      - name: Wait for deployment
+      - name: Restart deployment
         run: |
+          kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
