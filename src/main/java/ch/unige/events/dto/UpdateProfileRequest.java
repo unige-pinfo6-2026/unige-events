@@ -24,5 +24,5 @@ public record UpdateProfileRequest(
     @Size(max = 2048)
     @Pattern(regexp = "^(https?://).+$", message = "must be a valid http(s) URL")
     String avatarUrl,
-    Boolean isProfilePublic
+    Boolean profilePublic
 ) {}

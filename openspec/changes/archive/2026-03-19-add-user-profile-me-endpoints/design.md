@@ -7,20 +7,20 @@ The service exposes REST endpoints under `/api` and uses Auth0 JWT tokens contai
 **Goals:**
 - Enforce authentication on `GET /api/me` and `PUT /api/users/me` only.
 - Persist user identity from JWT claims (`sub`, `email`) at profile creation time.
-- Support partial update of editable fields only: `displayName`, `faculty`, `studyLevel`, `bio`, `interests`, `avatarUrl`, `isProfilePublic`.
+- Support partial update of editable fields only: `displayName`, `faculty`, `studyLevel`, `bio`, `interests`, `avatarUrl`, `profilePublic`.
 - Return full profile payloads using snake_case fields and read-only annotations for non-editable properties.
 - Standardize error responses for `400`, `401`, `403`, and `404` and document examples.
 
 **Non-Goals:**
 - Admin management endpoints or role-assignment workflows.
-- User-driven edits to `id`, `auth0Id`, `email`, `isAdmin`, or `createdAt`.
+- User-driven edits to `id`, `auth0Id`, `email`, or `createdAt`.
 - Broad refactoring of resources/services/entities outside what is required for this contract.
 
 ## Decisions
 
 1. **Identity binding via JWT claims**
    - Use JWT `sub` as canonical `auth0Id` and `email` as initial email source.
-   - On first authenticated `GET /api/me`, create profile with `isProfilePublic=false` and `isAdmin=false`.
+   - On first authenticated `GET /api/me`, create profile with `profilePublic=false`.
    - Rationale: deterministic identity mapping and predictable first-login behavior.
    - Alternative considered: explicit registration endpoint; rejected to keep login flow single-step.
 

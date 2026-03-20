@@ -69,7 +69,7 @@ class UserResourceTest {
                 {
                   "display_name": "Alice",
                   "bio": "Student at UNIGE",
-                  "is_profile_public": true
+                  "profile_public": true
                 }
                 """)
             .when().put("/users/me")
@@ -81,7 +81,7 @@ class UserResourceTest {
             .body("email", equalTo("alice@example.com"))
             .body("display_name", equalTo("Alice"))
             .body("bio", equalTo("Student at UNIGE"))
-            .body("is_profile_public", equalTo(true));
+            .body("profile_public", equalTo(true));
     }
 
     @Test

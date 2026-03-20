@@ -6,7 +6,7 @@ The API needs a clear, secure contract for authenticated user profile retrieval 
 
 - Add authenticated `GET /api/me` behavior that auto-provisions a user profile on first login using JWT claims and returns the full profile.
 - Use sub (auth0_id field in DB) as the ONLY identifier to check if user exists in DB
-- If no user found with that sub: create a new profile with auth0_id=sub, email=email, is_profile_public=false, is_admin=false
+- If no user found with that sub: create a new profile with auth0_id=sub, email=email, profile_public=false, =false
 - Add authenticated `PUT /api/users/me` behavior for partial self-profile updates with strict editable-field limits.
 - Define validation and error responses for `400`, `401`, `403`, and `404` with explicit response schemas.
 - Define a reusable HTTP Bearer JWT security scheme (`bearerAuth`) and apply it only to endpoints marked as requiring authentication.

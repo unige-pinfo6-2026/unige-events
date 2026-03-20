@@ -18,7 +18,6 @@ class UserTest {
     void defaultValuesAndAccessorsWork() {
         User user = new User();
 
-        assertFalse(user.isAdmin());
         assertFalse(user.isProfilePublic());
         assertNotNull(user.getCreatedAt());
         assertEquals(0L, user.getVersion());
@@ -35,7 +34,6 @@ class UserTest {
         user.setBio("Student at UNIGE");
         user.setInterests("AI, football");
         user.setAvatarUrl("https://cdn.example.com/avatar.png");
-        user.setAdmin(true);
         user.setProfilePublic(true);
         user.setCreatedAt(createdAt);
         user.setVersion(7L);
@@ -49,7 +47,6 @@ class UserTest {
         assertEquals("Student at UNIGE", user.getBio());
         assertEquals("AI, football", user.getInterests());
         assertEquals("https://cdn.example.com/avatar.png", user.getAvatarUrl());
-        assertTrue(user.isAdmin());
         assertTrue(user.isProfilePublic());
         assertEquals(createdAt, user.getCreatedAt());
         assertEquals(7L, user.getVersion());

@@ -37,8 +37,7 @@ class MeResourceTest {
                 .body("id", notNullValue())
                 .body("auth0_id", equalTo("auth0|alice"))
                 .body("email", equalTo("alice@example.com"))
-                .body("is_profile_public", equalTo(false))
-                .body("is_admin", equalTo(false))
+                .body("profile_public", equalTo(false))
                 .body("created_at", notNullValue());
     }
 

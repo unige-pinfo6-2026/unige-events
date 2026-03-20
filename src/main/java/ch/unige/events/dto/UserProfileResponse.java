@@ -23,9 +23,7 @@ public record UserProfileResponse(
     String bio,
     String interests,
     String avatarUrl,
-    boolean isProfilePublic,
-    @Schema(readOnly = true)
-    boolean isAdmin,
+    boolean profilePublic,
     @Schema(readOnly = true)
     LocalDateTime createdAt
 ) {
@@ -41,7 +39,6 @@ public record UserProfileResponse(
             user.getInterests(),
             user.getAvatarUrl(),
             user.isProfilePublic(),
-            user.isAdmin(),
             user.getCreatedAt()
         );
     }

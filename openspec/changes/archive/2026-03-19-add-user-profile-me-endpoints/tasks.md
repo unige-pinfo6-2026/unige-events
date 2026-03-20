@@ -1,7 +1,7 @@
 ## 1. Profile Contract and Persistence Alignment
 
-- [x] 1.1 Verify/adjust the user profile entity and persistence defaults for `is_profile_public=false`, `is_admin=false`, and generated timestamps/UUIDs.
-- [x] 1.2 Ensure immutable profile fields (`id`, `auth0_id`, `email`, `is_admin`, `created_at`) are not writable from update request mapping.
+- [x] 1.1 Verify/adjust the user profile entity and persistence defaults for `profile_public=false`, and generated timestamps/UUIDs.
+- [x] 1.2 Ensure immutable profile fields (`id`, `auth0_id`, `email`, `created_at`) are not writable from update request mapping.
 - [x] 1.3 Confirm snake_case JSON serialization/deserialization strategy for profile request/response DTOs.
 
 ## 2. Implement GET /api/me Behavior

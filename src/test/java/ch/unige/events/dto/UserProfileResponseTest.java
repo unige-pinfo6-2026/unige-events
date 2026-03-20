@@ -30,7 +30,6 @@ class UserProfileResponseTest {
         user.setInterests("AI, football");
         user.setAvatarUrl("https://cdn.example.com/avatar.png");
         user.setProfilePublic(true);
-        user.setAdmin(false);
         user.setCreatedAt(createdAt);
 
         UserProfileResponse response = UserProfileResponse.from(user);
@@ -44,8 +43,7 @@ class UserProfileResponseTest {
         assertEquals("Student at UNIGE", response.bio());
         assertEquals("AI, football", response.interests());
         assertEquals("https://cdn.example.com/avatar.png", response.avatarUrl());
-        assertTrue(response.isProfilePublic());
-        assertFalse(response.isAdmin());
+        assertTrue(response.profilePublic());
         assertEquals(createdAt, response.createdAt());
     }
 }

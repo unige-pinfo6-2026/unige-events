@@ -99,7 +99,6 @@ class UserServiceCoverageTest {
         assertNotNull(created.getId());
         assertEquals("auth0|new", created.getAuth0Id());
         assertEquals("new@example.com", created.getEmail());
-        assertFalse(created.isAdmin());
         assertFalse(created.isProfilePublic());
     }
 
@@ -347,7 +346,6 @@ class UserServiceCoverageTest {
         user.setAuth0Id(auth0Id);
         user.setEmail(email);
         user.setProfilePublic(profilePublic);
-        user.setAdmin(false);
         user.setCreatedAt(LocalDateTime.now());
         entityManager.persist(user);
         entityManager.flush();

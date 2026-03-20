@@ -42,7 +42,7 @@ public class UserResource {
 
     /**
      * GET /api/users/{id}
-     * Public si isProfilePublic=true, sinon 403
+     * Public si profilePublic=true, sinon 403
      */
     @GET
     @Path("/{id}")
@@ -69,7 +69,7 @@ public class UserResource {
                 schema = @Schema(implementation = UserProfileResponse.class),
                 examples = @ExampleObject(
                     name = "success",
-                    value = "{\"id\":\"8efcb891-df3b-48cc-8f3e-a37853fbe2f4\",\"auth0_id\":\"auth0|abc123\",\"email\":\"alice@example.com\",\"display_name\":\"Alice\",\"faculty\":\"Science\",\"study_level\":\"Bachelor\",\"bio\":\"Student at UNIGE\",\"interests\":\"AI, football\",\"avatar_url\":\"https://cdn.example.com/avatar.png\",\"is_profile_public\":false,\"is_admin\":false,\"created_at\":\"2026-03-19T10:30:00\"}"
+                    value = "{\"id\":\"8efcb891-df3b-48cc-8f3e-a37853fbe2f4\",\"auth0_id\":\"auth0|abc123\",\"email\":\"alice@example.com\",\"display_name\":\"Alice\",\"faculty\":\"Science\",\"study_level\":\"Bachelor\",\"bio\":\"Student at UNIGE\",\"interests\":\"AI, football\",\"avatar_url\":\"https://cdn.example.com/avatar.png\",\"profile_public\":false,\"created_at\":\"2026-03-19T10:30:00\"}"
                 )
             )
         ),
@@ -111,7 +111,7 @@ public class UserResource {
             schema = @Schema(implementation = UpdateProfileRequest.class),
             examples = @ExampleObject(
                 name = "partial-update",
-                value = "{\"display_name\":\"Alice\",\"bio\":\"Student at UNIGE\",\"is_profile_public\":true}"
+                value = "{\"display_name\":\"Alice\",\"bio\":\"Student at UNIGE\",\"profile_public\":true}"
             )
         )
     )
@@ -124,7 +124,7 @@ public class UserResource {
                 schema = @Schema(implementation = UserProfileResponse.class),
                 examples = @ExampleObject(
                     name = "updated",
-                    value = "{\"id\":\"8efcb891-df3b-48cc-8f3e-a37853fbe2f4\",\"auth0_id\":\"auth0|abc123\",\"email\":\"alice@example.com\",\"display_name\":\"Alice\",\"faculty\":\"Science\",\"study_level\":\"Bachelor\",\"bio\":\"Student at UNIGE\",\"interests\":\"AI, football\",\"avatar_url\":\"https://cdn.example.com/avatar.png\",\"is_profile_public\":true,\"is_admin\":false,\"created_at\":\"2026-03-19T10:30:00\"}"
+                    value = "{\"id\":\"8efcb891-df3b-48cc-8f3e-a37853fbe2f4\",\"auth0_id\":\"auth0|abc123\",\"email\":\"alice@example.com\",\"display_name\":\"Alice\",\"faculty\":\"Science\",\"study_level\":\"Bachelor\",\"bio\":\"Student at UNIGE\",\"interests\":\"AI, football\",\"avatar_url\":\"https://cdn.example.com/avatar.png\",\"profile_public\":true,\"created_at\":\"2026-03-19T10:30:00\"}"
                 )
             )
         ),

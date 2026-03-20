@@ -51,7 +51,6 @@ public class UserService {
                     .email(userInfo.getEmail())
                     .avatarUrl(userInfo.getString("picture"))
                     .profilePublic(false)
-                    .admin(false)
                     .build();
 
             newUser.persist();
@@ -98,7 +97,7 @@ public class UserService {
         if (req.bio()            != null) user.setBio(req.bio());
         if (req.interests()      != null) user.setInterests(req.interests());
         if (req.avatarUrl()      != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.isProfilePublic()!= null) user.setProfilePublic(req.isProfilePublic());
+        if (req.profilePublic()!= null) user.setProfilePublic(req.profilePublic());
 
         try {
             flushEntityManager();

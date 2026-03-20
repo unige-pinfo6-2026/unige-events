@@ -42,10 +42,6 @@ public class User extends PanacheEntityBase {
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean admin = false;
-
-    @Column(nullable = false)
-    @Builder.Default
     private boolean profilePublic = false;
 
     @Column(nullable = false, updatable = false)

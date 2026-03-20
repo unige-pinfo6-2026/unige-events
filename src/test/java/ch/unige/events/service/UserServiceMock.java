@@ -13,6 +13,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -25,7 +26,9 @@ public class UserServiceMock extends UserService {
 
     private final Map<String, User> usersByAuth0Id = new ConcurrentHashMap<>();
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
+    @Setter
     private volatile boolean forceForbiddenOnUpdate = false;
+    @Setter
     private volatile boolean forceConflictOnUpdate = false;
 
     @Inject
@@ -42,14 +45,6 @@ public class UserServiceMock extends UserService {
         usersById.clear();
         forceForbiddenOnUpdate = false;
         forceConflictOnUpdate = false;
-    }
-
-    public void setForceForbiddenOnUpdate(boolean forceForbiddenOnUpdate) {
-        this.forceForbiddenOnUpdate = forceForbiddenOnUpdate;
-    }
-
-    public void setForceConflictOnUpdate(boolean forceConflictOnUpdate) {
-        this.forceConflictOnUpdate = forceConflictOnUpdate;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -126,7 +121,7 @@ public class UserServiceMock extends UserService {
         if (req.bio() != null) user.setBio(req.bio());
         if (req.interests() != null) user.setInterests(req.interests());
         if (req.avatarUrl() != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.isProfilePublic() != null) user.setProfilePublic(req.isProfilePublic());
+        if (req.profilePublic() != null) user.setProfilePublic(req.profilePublic());
 
         return user;
     }
@@ -139,7 +134,6 @@ public class UserServiceMock extends UserService {
         user.setDisplayName(userInfo.getName());
         user.setFirstName(userInfo.getString("given_name"));
         user.setLastName(userInfo.getFamilyName());
-        user.setAdmin(false);
         user.setProfilePublic(false);
         user.setCreatedAt(LocalDateTime.now());
         user.setVersion(0L);

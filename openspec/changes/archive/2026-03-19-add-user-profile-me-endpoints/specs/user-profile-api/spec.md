@@ -7,8 +7,7 @@ If no profile exists for the caller's `sub`, the system MUST create one with:
 - generated `id`
 - `auth0Id` from JWT `sub`
 - `email` from JWT `email`
-- `isProfilePublic=false`
-- `isAdmin=false`
+- `profilePublic=false`
 - generated `createdAt`
 The endpoint MUST return `200` with the full user profile object in snake_case fields.
 If authentication is missing or invalid, the endpoint MUST return `401`.
@@ -36,7 +35,7 @@ The only editable fields are:
 - `bio`
 - `interests`
 - `avatar_url`
-- `is_profile_public`
+- `profile_public`
 The endpoint MUST reject invalid payloads with `400`.
 The endpoint MUST return `404` if no profile exists for the caller.
 The endpoint MUST return `403` if a cross-user update attempt is detected.
@@ -69,15 +68,13 @@ The user profile schema MUST include the following fields:
 - `bio` (string, nullable)
 - `interests` (string, nullable)
 - `avatar_url` (string, nullable)
-- `is_profile_public` (boolean, default false)
-- `is_admin` (boolean, default false)
+- `profile_public` (boolean, default false)
 - `created_at` (datetime, generated)
 The schema MUST use snake_case JSON property names.
 The following fields MUST be marked `readOnly: true` in API schema definitions:
 - `id`
 - `auth0_id`
 - `email`
-- `is_admin`
 - `created_at`
 
 #### Scenario: Response payload uses snake_case and read-only metadata
