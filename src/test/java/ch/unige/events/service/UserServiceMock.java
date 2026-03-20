@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import io.quarkus.oidc.UserInfo;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -52,25 +53,30 @@ public class UserServiceMock extends UserService {
     }
 
     public User seedUser(String auth0Id, String email) {
-        User user = newUser(auth0Id, email);
+        UserInfo userInfo = new UserInfo("{\"email\": \"" + email + "\"}");
+        return seedUser(auth0Id, userInfo);
+    }
+
+    public User seedUser(String auth0Id, UserInfo userInfo) {
+        User user = newUser(auth0Id, userInfo);
         usersByAuth0Id.put(auth0Id, user);
         usersById.put(user.getId(), user);
         return user;
     }
 
     @Override
-    public User getOrCreateUser(String auth0Id, String email) {
+    public User getOrCreateUser(String auth0Id, UserInfo userInfo) {
         User existing = usersByAuth0Id.get(auth0Id);
         if (existing != null) {
             return existing;
         }
 
-        if (email == null || email.isBlank()) {
-            throw new NotAuthorizedException("Missing required claim: email");
+        if (userInfo == null || userInfo.getEmail() == null) {
+            throw new NotAuthorizedException("Email claim is required");
         }
 
         return usersByAuth0Id.computeIfAbsent(auth0Id, key -> {
-            User user = newUser(key, email);
+            User user = newUser(key, userInfo);
             usersById.put(user.getId(), user);
             return user;
         });
@@ -125,15 +131,14 @@ public class UserServiceMock extends UserService {
         return user;
     }
 
-    private User newUser(String auth0Id, String email) {
-        if (email == null || email.isBlank()) {
-            throw new NotAuthorizedException("Missing required claim: email");
-        }
-
+    private User newUser(String auth0Id, UserInfo userInfo) {
         User user = new User();
         user.setId(UUID.randomUUID());
         user.setAuth0Id(auth0Id);
-        user.setEmail(email);
+        user.setEmail(userInfo.getEmail());
+        user.setDisplayName(userInfo.getName());
+        user.setFirstName(userInfo.getString("given_name"));
+        user.setLastName(userInfo.getFamilyName());
         user.setAdmin(false);
         user.setProfilePublic(false);
         user.setCreatedAt(LocalDateTime.now());

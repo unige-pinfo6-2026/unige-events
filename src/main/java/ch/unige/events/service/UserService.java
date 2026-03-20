@@ -38,6 +38,10 @@ public class UserService {
             return existing;
         }
 
+        if (userInfo == null || userInfo.getEmail() == null) {
+            throw new NotAuthorizedException("Email claim is required");
+        }
+
         try {
             User newUser = User.builder()
                     .auth0Id(auth0Id)

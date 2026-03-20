@@ -1,22 +1,18 @@
 package ch.unige.events.resource;
 
-import ch.unige.events.dto.ApiErrorResponse;
-import ch.unige.events.dto.UpdateProfileRequest;
-import ch.unige.events.dto.UserProfileResponse;
-import ch.unige.events.dto.UserPublicResponse;
-import ch.unige.events.dto.ValidationErrorResponse;
+import ch.unige.events.dto.*;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.UserService;
 import io.quarkus.oidc.UserInfo;
-import jakarta.annotation.security.PermitAll;
-import jakarta.inject.Inject;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.annotation.security.PermitAll;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -35,14 +31,13 @@ public class UserResource {
 
     private final SecurityIdentity identity;
     private final UserService userService;
+    private final Instance<UserInfo> userInfo;
 
     @Inject
-    UserInfo userInfo;
-
-    @Inject
-    public UserResource(SecurityIdentity identity, UserService userService) {
+    public UserResource(SecurityIdentity identity, UserService userService, Instance<UserInfo> userInfo) {
         this.identity = identity;
         this.userService = userService;
+        this.userInfo = userInfo;
     }
 
     /**
@@ -93,7 +88,7 @@ public class UserResource {
     })
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
-        User user = userService.getOrCreateUser(auth0Id, userInfo);
+        User user = userService.getOrCreateUser(auth0Id, userInfo.get());
         return UserProfileResponse.from(user);
     }
 

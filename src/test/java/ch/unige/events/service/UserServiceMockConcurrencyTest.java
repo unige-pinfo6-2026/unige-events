@@ -1,5 +1,6 @@
 package ch.unige.events.service;
 
+import io.quarkus.oidc.UserInfo;
 import jakarta.ws.rs.NotAuthorizedException;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +27,7 @@ class UserServiceMockConcurrencyTest {
 
         List<Callable<String>> tasks = new ArrayList<>();
         for (int index = 0; index < calls; index++) {
-            tasks.add(() -> userServiceMock.getOrCreateUser("auth0|race", "race@example.com").getId().toString());
+            tasks.add(() -> userServiceMock.getOrCreateUser("auth0|race", new UserInfo("{\"email\": \"race@example.com\"}")).getId().toString());
         }
 
         List<Future<String>> results = executorService.invokeAll(tasks);

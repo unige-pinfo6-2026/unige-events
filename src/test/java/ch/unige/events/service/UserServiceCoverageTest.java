@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import io.quarkus.oidc.UserInfo;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -65,7 +66,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         User existing = persistUser("auth0|existing", "existing@example.com", false);
 
-        User result = userService.getOrCreateUser("auth0|existing", "other@example.com");
+        User result = userService.getOrCreateUser("auth0|existing", new UserInfo("{\"email\": \"other@example.com\"}"));
 
         assertEquals(existing.getId(), result.getId());
     }
@@ -76,7 +77,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
 
         assertThrows(NotAuthorizedException.class,
-            () -> userService.getOrCreateUser("auth0|missing", " "));
+            () -> userService.getOrCreateUser("auth0|missing", new UserInfo()));
     }
 
     @Test
@@ -93,7 +94,7 @@ class UserServiceCoverageTest {
     void getOrCreateUserCreatesUserWhenMissing() {
         deleteAllUsers();
 
-        User created = userService.getOrCreateUser("auth0|new", "new@example.com");
+        User created = userService.getOrCreateUser("auth0|new", new UserInfo("{\"email\": \"new@example.com\"}"));
 
         assertNotNull(created.getId());
         assertEquals("auth0|new", created.getAuth0Id());
@@ -110,7 +111,7 @@ class UserServiceCoverageTest {
             new PersistenceException("users_auth0_id_unique"))));
 
         try {
-            throwingService.getOrCreateUser("auth0|unique-conflict", "unique-conflict@example.com");
+            throwingService.getOrCreateUser("auth0|unique-conflict", new UserInfo("{\"email\": \"unique-conflict@example.com\"}"));
         } catch (PersistenceException exception) {
             assertTrue(exception.getMessage().contains("users_auth0_id_unique"));
         }
@@ -124,7 +125,7 @@ class UserServiceCoverageTest {
             new PersistenceException("plain persistence"))));
 
         PersistenceException exception = assertThrows(PersistenceException.class,
-            () -> throwingService.getOrCreateUser("auth0|plain-conflict", "plain-conflict@example.com"));
+            () -> throwingService.getOrCreateUser("auth0|plain-conflict", new UserInfo("{\"email\": \"plain-conflict@example.com\"}")));
 
         assertEquals("plain persistence", exception.getMessage());
     }
