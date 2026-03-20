@@ -9,7 +9,6 @@ on:
 env:
   NAMESPACE: unige-events
   CONTAINER_IMAGE_REGISTRY: ghcr.io
-  CONTAINER_IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # Job 1 : Deploy to Production
@@ -50,12 +49,6 @@ jobs:
               "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
             }
       
-      - name: Update image tag in manifests
-        run: |
-          cd k8s/
-          kustomize edit set image \
-            ${{ env.CONTAINER_IMAGE_REGISTRY }}/${{ env.CONTAINER_IMAGE_NAME }}:${{ github.sha }}
-
       - name: Create API secret
         uses: azure/k8s-create-secret@v5
         with:
