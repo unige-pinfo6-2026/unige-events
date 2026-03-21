@@ -1,0 +1,738 @@
+openapi: 3.0.3
+info:
+  title: UNIGE Events API
+  version: 1.0.0
+  description: API backend de la plateforme UNIGE Events (Groupe 6 — UNIGE 2026)
+
+servers:
+  - url: /api
+    description: Via Nginx reverse proxy (dev et prod)
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT   # Auth0 / OIDC — validé par quarkus-oidc
+
+  schemas:
+    # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
+
+    UserProfileResponse:
+      type: object
+      description: Profil complet de l'utilisateur authentifié
+      properties:
+        id:
+          type: string
+          format: uuid
+        auth0Id:
+          type: string
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        faculty:
+          type: string
+          nullable: true
+        studyLevel:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        interests:
+          type: array
+          items:
+            type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        profilePublic:
+          type: boolean
+        admin:
+          type: boolean
+          # TODO: Sprint 6 — champ non encore implémenté dans l'entité User backend
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: "550e8400-e29b-41d4-a716-446655440000"
+        auth0Id: "auth0|abc123"
+        email: "alice.martin@unige.ch"
+        displayName: "Alice Martin"
+        firstName: "Alice"
+        lastName: "Martin"
+        faculty: "SCIENCES"
+        studyLevel: "MASTER"
+        bio: "Étudiante en informatique"
+        interests: ["tech", "music"]
+        avatarUrl: "https://example.com/avatar.png"
+        profilePublic: true
+        createdAt: "2026-03-01T09:00:00"
+
+    UserPublicResponse:
+      type: object
+      description: Profil public d'un utilisateur (si profilePublic = true)
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          nullable: true
+        faculty:
+          type: string
+          nullable: true
+        studyLevel:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        interests:
+          type: array
+          items:
+            type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    UpdateProfileRequest:
+      type: object
+      description: Body pour PUT /users/me — tous les champs sont optionnels
+      properties:
+        displayName:
+          type: string
+          maxLength: 120
+          nullable: true
+        faculty:
+          type: string
+          maxLength: 120
+          nullable: true
+          # Valeurs attendues : SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI
+          # Backend stocke en String — validation enum côté frontend uniquement pour l'instant
+        studyLevel:
+          type: string
+          maxLength: 120
+          nullable: true
+          # Valeurs attendues : BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF
+        bio:
+          type: string
+          maxLength: 2000
+          nullable: true
+        interests:
+          type: array
+          items:
+            type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+        profilePublic:
+          type: boolean
+          nullable: true
+
+    Event:
+      type: object
+      description: Entité événement (partielle — Sprint 2 en cours)
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+      # TODO: Sprint 2 — ajouter startDate, endDate, location, category, bannerUrl, capacity, active, featured, views, creatorId
+      example:
+        id: 1
+        title: "Soirée d'accueil Faculté des Sciences"
+        description: "Bienvenue aux nouveaux étudiants !"
+
+    # TODO: Sprint 2 — EventCategory enum
+    # EventCategory:
+    #   type: string
+    #   enum: [ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER]
+
+    # TODO: Sprint 4 — AttendanceStatus enum
+    # AttendanceStatus:
+    #   type: string
+    #   enum: [INTERESTED, ATTENDING]
+
+    # TODO: Sprint 6 — ReportStatus enum
+    # ReportStatus:
+    #   type: string
+    #   enum: [PENDING, REVIEWED, DISMISSED]
+
+    ApiErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorDetail'
+      required: [error, message, details]
+
+    ValidationErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+          nullable: true
+        message:
+          type: string
+      required: [message]
+
+paths:
+  /users/me:
+    get:
+      summary: Profil complet de l'utilisateur connecté
+      description: |
+        Retourne le profil complet de l'utilisateur authentifié.
+        Provisionne automatiquement le compte en base à la première connexion (idempotent, race-safe).
+        **Retourne 401 si le token JWT est absent ou invalide — jamais de body partiel ou null.**
+      operationId: getMyProfile
+      tags: [users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil complet de l'utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Token absent, invalide ou claim email manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+    put:
+      summary: Mise à jour du profil de l'utilisateur connecté
+      description: |
+        Met à jour les champs fournis dans le body. Tous les champs sont optionnels.
+        **Retourne l'objet User complet mis à jour en 200 — pas de 204 No Content.**
+        Le frontend peut se mettre à jour sans refetch supplémentaire.
+      operationId: updateMyProfile
+      tags: [users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profil mis à jour (objet complet)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Validation échouée (body malformé ou contrainte violée)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Tentative de modification du profil d'un autre utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur introuvable en base
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit d'écriture concurrent (optimistic lock)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/{id}:
+    get:
+      summary: Profil public d'un utilisateur
+      description: Retourne le profil public si profilePublic = true. Retourne 403 si privé.
+      operationId: getPublicProfile
+      tags: [users]
+      security: []   # @PermitAll — pas de token requis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Profil public de l'utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicResponse'
+        '403':
+          description: Profil privé (profilePublic = false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events:
+    get:
+      summary: Liste des événements
+      description: |
+        Retourne tous les événements actifs.
+        **État actuel (Sprint 2) :** retourne un array brut `List<Event>`.
+        **Cible (Sprint 2) :** migrer vers un objet paginé `{ content, page, size, total }` une fois la pagination implémentée côté backend.
+        Le frontend doit anticiper ce changement : ne pas hardcoder la consommation d'un array brut.
+      operationId: getEvents
+      tags: [events]
+      security: []
+      # TODO: Sprint 2 — ajouter filtres ?category=, ?upcoming=true, pagination cursor-based
+      responses:
+        '200':
+          description: |
+            Liste des événements (array brut actuellement — sera paginé Sprint 2).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+
+    post:
+      summary: Créer un événement
+      description: Crée un nouvel événement.
+      operationId: createEvent
+      tags: [events]
+      # TODO: Sprint 2 — sécuriser avec @Authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Événement créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+  # TODO: Sprint 2
+  /events/{id}:
+    get:
+      summary: Détail d'un événement
+      operationId: getEventById
+      tags: [events]
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Détail de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 2 — implémenter dans EventResource
+
+    put:
+      summary: Modifier un événement (créateur ou admin)
+      operationId: updateEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '200':
+          description: Événement mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '403':
+          description: Pas le créateur ni admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 2 — implémenter dans EventResource
+
+    delete:
+      summary: Soft-delete d'un événement (active = false)
+      operationId: deleteEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Événement désactivé (soft-delete)
+        '403':
+          description: Pas le créateur ni admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 2 — implémenter dans EventResource
+
+  # TODO: Sprint 3
+  /events/search:
+    get:
+      summary: Recherche d'événements avec filtres
+      operationId: searchEvents
+      tags: [events]
+      security: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: faculty
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Résultats filtrés
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+      # TODO: Sprint 3 — implémenter dans EventResource
+
+  # TODO: Sprint 4
+  /events/{id}/attend:
+    post:
+      summary: S'inscrire à un événement (INTERESTED ou ATTENDING)
+      operationId: attendEvent
+      tags: [events, attendance]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Participation enregistrée
+        '409':
+          description: Déjà inscrit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 4
+
+    delete:
+      summary: Se désinscrire d'un événement
+      operationId: unattendEvent
+      tags: [events, attendance]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Désinscription effectuée
+      # TODO: Sprint 4
+
+  # TODO: Sprint 4
+  /events/{id}/favorite:
+    post:
+      summary: Ajouter un événement aux favoris
+      operationId: addFavorite
+      tags: [events, favorites]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Ajouté aux favoris
+      # TODO: Sprint 4
+
+    delete:
+      summary: Retirer un événement des favoris
+      operationId: removeFavorite
+      tags: [events, favorites]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Retiré des favoris
+      # TODO: Sprint 4
+
+  # TODO: Sprint 4
+  /users/me/favorites:
+    get:
+      summary: Favoris de l'utilisateur connecté
+      operationId: getMyFavorites
+      tags: [users, favorites]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste des événements favoris
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+      # TODO: Sprint 4
+
+  # TODO: Sprint 5
+  /events/{id}/stats:
+    get:
+      summary: Statistiques organisateur (vues, inscriptions) — créateur ou admin uniquement
+      operationId: getEventStats
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Statistiques de l'événement
+        '403':
+          description: Pas le créateur ni admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 5
+
+  # TODO: Sprint 6
+  /events/{id}/report:
+    post:
+      summary: Signaler un événement
+      operationId: reportEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Signalement enregistré
+        '409':
+          description: Déjà signalé par cet utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 6
+
+  # TODO: Sprint 6
+  /admin/reports:
+    get:
+      summary: Liste des signalements — admin uniquement
+      operationId: getReports
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste des signalements
+        '403':
+          description: Accès refusé (non admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      # TODO: Sprint 6
+
+  # TODO: Sprint 7
+  /events/{id}/duplicate:
+    post:
+      summary: Dupliquer un événement — créateur uniquement
+      operationId: duplicateEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '201':
+          description: Copie créée (titre "[COPY] ...", dates nulles)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+      # TODO: Sprint 7
+
+  # TODO: Sprint 7
+  /notifications:
+    get:
+      summary: Notifications de l'utilisateur connecté
+      operationId: getNotifications
+      tags: [notifications]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste des notifications
+      # TODO: Sprint 7
+
+  /notifications/{id}/read:
+    put:
+      summary: Marquer une notification comme lue
+      operationId: markNotificationRead
+      tags: [notifications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Notification marquée comme lue
+      # TODO: Sprint 7
