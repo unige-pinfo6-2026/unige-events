@@ -1,6 +1,8 @@
 package ch.unige.events.dto;
 
 import ch.unige.events.entity.User;
+
+import java.util.List;
 import java.util.UUID;
 
 public record UserPublicResponse(
@@ -9,7 +11,7 @@ public record UserPublicResponse(
     String faculty,
     String studyLevel,
     String bio,
-    String interests,
+    List<String> interests,
     String avatarUrl
 ) {
     public static UserPublicResponse from(User u) {

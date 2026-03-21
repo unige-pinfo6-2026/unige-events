@@ -213,7 +213,7 @@ class UserServiceCoverageTest {
         user.setFaculty("BeforeFaculty");
         user.setStudyLevel("BeforeLevel");
         user.setBio("BeforeBio");
-        user.setInterests("BeforeInterests");
+        user.setInterests(List.of("BeforeInterests"));
         user.setAvatarUrl("https://before.example.com/avatar.png");
         entityManager.flush();
 
@@ -330,7 +330,7 @@ class UserServiceCoverageTest {
             "Science",
             "Bachelor",
             "Student at UNIGE",
-            "AI, football",
+            List.of("AI, football"),
             "https://cdn.example.com/avatar.png",
             true
         );

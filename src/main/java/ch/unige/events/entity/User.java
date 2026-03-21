@@ -4,6 +4,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,8 +36,8 @@ public class User extends PanacheEntityBase {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    @Column(columnDefinition = "TEXT")
-    private String interests;
+    @ElementCollection(fetch = FetchType.EAGER)
+    private List<String> interests;
 
     private String avatarUrl;
 

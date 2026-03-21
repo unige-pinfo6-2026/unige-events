@@ -97,7 +97,7 @@ public class UserService {
         if (req.bio()            != null) user.setBio(req.bio());
         if (req.interests()      != null) user.setInterests(req.interests());
         if (req.avatarUrl()      != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.profilePublic()!= null) user.setProfilePublic(req.profilePublic());
+        if (req.profilePublic() != null) user.setProfilePublic(req.profilePublic());
 
         try {
             flushEntityManager();

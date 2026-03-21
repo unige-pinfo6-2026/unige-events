@@ -4,6 +4,7 @@ import ch.unige.events.entity.User;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,7 +22,7 @@ class UserPublicResponseTest {
         user.setFaculty("Science");
         user.setStudyLevel("Bachelor");
         user.setBio("Student at UNIGE");
-        user.setInterests("AI, football");
+        user.setInterests(List.of("AI, football"));
         user.setAvatarUrl("https://cdn.example.com/avatar.png");
 
         UserPublicResponse response = UserPublicResponse.from(user);
@@ -31,7 +32,7 @@ class UserPublicResponseTest {
         assertEquals("Science", response.faculty());
         assertEquals("Bachelor", response.studyLevel());
         assertEquals("Student at UNIGE", response.bio());
-        assertEquals("AI, football", response.interests());
+        assertEquals(List.of("AI, football"), response.interests());
         assertEquals("https://cdn.example.com/avatar.png", response.avatarUrl());
     }
 }
