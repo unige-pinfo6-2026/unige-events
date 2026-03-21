@@ -25,6 +25,14 @@
         <!-- Exclusion CPD (duplication) pour les entités JPA : duplication inévitable
              car elles ne peuvent pas hériter d'un DTO (extends PanacheEntity). -->
         <sonar.cpd.exclusions>**/entity/Event.java</sonar.cpd.exclusions>
+        <!-- Exclusion S1104 (champs publics) pour les packages dto et entity.
+             Ce projet utilise le pattern Panache Active Record qui impose des champs
+             publics dans les entités JPA. Les DTOs suivent la même convention pour
+             la cohérence (accès direct par Jackson, pas de getters/setters superflus).
+             Rendre ces champs privés casserait l'interception bytecode de Panache. -->
+        <sonar.issue.ignore.multicriteria>s1104</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.s1104.ruleKey>java:S1104</sonar.issue.ignore.multicriteria.s1104.ruleKey>
+        <sonar.issue.ignore.multicriteria.s1104.resourceKey>**/dto/**,**/entity/**</sonar.issue.ignore.multicriteria.s1104.resourceKey>
     </properties>
 
     <dependencyManagement>
