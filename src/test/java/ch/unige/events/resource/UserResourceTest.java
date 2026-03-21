@@ -67,9 +67,9 @@ class UserResourceTest {
             .contentType(ContentType.JSON)
             .body("""
                 {
-                  "display_name": "Alice",
+                  "displayName": "Alice",
                   "bio": "Student at UNIGE",
-                  "profile_public": true
+                  "profilePublic": true
                 }
                 """)
             .when().put("/users/me")
@@ -77,11 +77,11 @@ class UserResourceTest {
             .statusCode(200)
             .contentType(ContentType.JSON)
             .body("id", notNullValue())
-            .body("auth0_id", equalTo("auth0|alice"))
+            .body("auth0Id", equalTo("auth0|alice"))
             .body("email", equalTo("alice@example.com"))
-            .body("display_name", equalTo("Alice"))
+            .body("displayName", equalTo("Alice"))
             .body("bio", equalTo("Student at UNIGE"))
-            .body("profile_public", equalTo(true));
+            .body("profilePublic", equalTo(true));
     }
 
     @Test
@@ -122,7 +122,7 @@ class UserResourceTest {
             .contentType(ContentType.JSON)
             .body("""
                 {
-                  "avatar_url": "ftp://invalid.example.com/avatar.png"
+                  "avatarUrl": "ftp://invalid.example.com/avatar.png"
                 }
                 """)
             .when().put("/users/me")

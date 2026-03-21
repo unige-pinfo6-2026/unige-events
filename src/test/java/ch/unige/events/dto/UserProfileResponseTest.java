@@ -42,7 +42,7 @@ class UserProfileResponseTest {
         assertEquals("Science", response.faculty());
         assertEquals("Bachelor", response.studyLevel());
         assertEquals("Student at UNIGE", response.bio());
-        assertEquals("AI, football", response.interests());
+        assertEquals(List.of("AI, football"), response.interests());
         assertEquals("https://cdn.example.com/avatar.png", response.avatarUrl());
         assertTrue(response.profilePublic());
         assertEquals(createdAt, response.createdAt());

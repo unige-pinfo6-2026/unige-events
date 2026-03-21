@@ -199,7 +199,7 @@ class UserServiceCoverageTest {
         assertEquals("Science", updated.getFaculty());
         assertEquals("Bachelor", updated.getStudyLevel());
         assertEquals("Student at UNIGE", updated.getBio());
-        assertEquals("AI, football", updated.getInterests());
+        assertEquals(List.of("AI, football"), updated.getInterests());
         assertEquals("https://cdn.example.com/avatar.png", updated.getAvatarUrl());
         assertTrue(updated.isProfilePublic());
     }
@@ -225,7 +225,7 @@ class UserServiceCoverageTest {
         assertEquals("BeforeFaculty", updated.getFaculty());
         assertEquals("BeforeLevel", updated.getStudyLevel());
         assertEquals("BeforeBio", updated.getBio());
-        assertEquals("BeforeInterests", updated.getInterests());
+        assertEquals(List.of("BeforeInterests"), updated.getInterests());
         assertEquals("https://before.example.com/avatar.png", updated.getAvatarUrl());
         assertFalse(updated.isProfilePublic());
     }

@@ -46,7 +46,7 @@ class UserTest {
         assertEquals("Science", user.getFaculty());
         assertEquals("Bachelor", user.getStudyLevel());
         assertEquals("Student at UNIGE", user.getBio());
-        assertEquals("AI, football", user.getInterests());
+        assertEquals(List.of("AI, football"), user.getInterests());
         assertEquals("https://cdn.example.com/avatar.png", user.getAvatarUrl());
         assertTrue(user.isProfilePublic());
         assertEquals(createdAt, user.getCreatedAt());

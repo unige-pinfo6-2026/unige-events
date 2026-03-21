@@ -35,10 +35,10 @@ class MeResourceTest {
                 .statusCode(200)
                 .contentType(ContentType.JSON)
                 .body("id", notNullValue())
-                .body("auth0_id", equalTo("auth0|alice"))
+                .body("auth0Id", equalTo("auth0|alice"))
                 .body("email", equalTo("alice@example.com"))
-                .body("profile_public", equalTo(false))
-                .body("created_at", notNullValue());
+                .body("profilePublic", equalTo(false))
+                .body("createdAt", notNullValue());
     }
 
     @Test
