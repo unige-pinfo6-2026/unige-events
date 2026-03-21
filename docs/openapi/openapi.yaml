@@ -306,7 +306,8 @@ components:
           format: date-time
           nullable: true
         category:
-          $ref: '#/components/schemas/EventCategory'
+          allOf:
+            - $ref: '#/components/schemas/EventCategory'
           nullable: true
         imageUrl:
           type: string
@@ -316,7 +317,8 @@ components:
           type: integer
           nullable: true
         status:
-          $ref: '#/components/schemas/EventStatus'
+          allOf:
+            - $ref: '#/components/schemas/EventStatus'
           nullable: true
 
     # TODO: Sprint 4 — AttendanceStatus enum

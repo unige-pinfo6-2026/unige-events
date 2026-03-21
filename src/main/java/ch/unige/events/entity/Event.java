@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "events", indexes = {
-        @Index(name = "idx_event_organizer", columnList = "organizerId"),
-        @Index(name = "idx_event_start_date", columnList = "startDate")
+        @Index(name = "idx_event_organizer", columnList = "organizer_id"),
+        @Index(name = "idx_event_start_date", columnList = "start_date")
 })
 public class Event extends PanacheEntity {
 
