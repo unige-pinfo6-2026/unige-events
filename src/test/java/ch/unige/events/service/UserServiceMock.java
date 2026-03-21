@@ -5,17 +5,12 @@ import ch.unige.events.entity.User;
 import io.quarkus.oidc.UserInfo;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
-import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,19 +21,8 @@ public class UserServiceMock extends UserService {
 
     private final Map<String, User> usersByAuth0Id = new ConcurrentHashMap<>();
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
-    @Setter
-    private volatile boolean forceForbiddenOnUpdate = false;
-    @Setter
-    private volatile boolean forceConflictOnUpdate = false;
-
-    @Inject
-    public UserServiceMock(Instance<EntityManager> entityManager) {
-        super(entityManager);
-    }
-
-    public UserServiceMock() {
-        super(null);
-    }
+    public volatile boolean forceForbiddenOnUpdate = false;
+    public volatile boolean forceConflictOnUpdate = false;
 
     public void reset() {
         usersByAuth0Id.clear();
@@ -55,7 +39,7 @@ public class UserServiceMock extends UserService {
     public User seedUser(String auth0Id, UserInfo userInfo) {
         User user = newUser(auth0Id, userInfo);
         usersByAuth0Id.put(auth0Id, user);
-        usersById.put(user.getId(), user);
+        usersById.put(user.id, user);
         return user;
     }
 
@@ -72,7 +56,7 @@ public class UserServiceMock extends UserService {
 
         return usersByAuth0Id.computeIfAbsent(auth0Id, key -> {
             User user = newUser(key, userInfo);
-            usersById.put(user.getId(), user);
+            usersById.put(user.id, user);
             return user;
         });
     }
@@ -83,7 +67,7 @@ public class UserServiceMock extends UserService {
         if (user == null) {
             throw new NotFoundException();
         }
-        if (!user.isProfilePublic()) {
+        if (!user.profilePublic) {
             throw new ForbiddenException("This profile is private");
         }
         return user;
@@ -115,28 +99,26 @@ public class UserServiceMock extends UserService {
             throw new NotFoundException();
         }
 
-        if (req.displayName() != null) user.setDisplayName(req.displayName());
-        if (req.faculty() != null) user.setFaculty(req.faculty());
-        if (req.studyLevel() != null) user.setStudyLevel(req.studyLevel());
-        if (req.bio() != null) user.setBio(req.bio());
-        if (req.interests() != null) user.setInterests(req.interests());
-        if (req.avatarUrl() != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.profilePublic() != null) user.setProfilePublic(req.profilePublic());
+        if (req.displayName() != null) user.displayName = req.displayName();
+        if (req.faculty() != null) user.faculty = req.faculty();
+        if (req.studyLevel() != null) user.studyLevel = req.studyLevel();
+        if (req.bio() != null) user.bio = req.bio();
+        if (req.interests() != null) user.interests = req.interests();
+        if (req.avatarUrl() != null) user.avatarUrl = req.avatarUrl();
+        if (req.profilePublic() != null) user.profilePublic = req.profilePublic();
 
         return user;
     }
 
     private User newUser(String auth0Id, UserInfo userInfo) {
         User user = new User();
-        user.setId(UUID.randomUUID());
-        user.setAuth0Id(auth0Id);
-        user.setEmail(userInfo.getEmail());
-        user.setDisplayName(userInfo.getName());
-        user.setFirstName(userInfo.getString("given_name"));
-        user.setLastName(userInfo.getFamilyName());
-        user.setProfilePublic(false);
-        user.setCreatedAt(LocalDateTime.now());
-        user.setVersion(0L);
+        user.id           = UUID.randomUUID();
+        user.auth0Id      = auth0Id;
+        user.email        = userInfo.getEmail();
+        user.displayName  = userInfo.getName();
+        user.firstName    = userInfo.getString("given_name");
+        user.lastName     = userInfo.getFamilyName();
+        user.profilePublic = false;
         return user;
     }
 }

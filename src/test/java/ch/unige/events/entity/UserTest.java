@@ -16,40 +16,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserTest {
 
     @Test
-    void defaultValuesAndAccessorsWork() {
+    void defaultValuesAndPublicFieldsWork() {
         User user = new User();
 
-        assertFalse(user.isProfilePublic());
-        assertNotNull(user.getCreatedAt());
-        assertEquals(0L, user.getVersion());
+        assertFalse(user.profilePublic);
+        assertNotNull(user.createdAt);
+        assertEquals(0L, user.version);
 
         UUID id = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 19, 12, 0, 0);
 
-        user.setId(id);
-        user.setAuth0Id("auth0|alice");
-        user.setEmail("alice@example.com");
-        user.setDisplayName("Alice");
-        user.setFaculty("Science");
-        user.setStudyLevel("Bachelor");
-        user.setBio("Student at UNIGE");
-        user.setInterests(List.of("AI, football"));
-        user.setAvatarUrl("https://cdn.example.com/avatar.png");
-        user.setProfilePublic(true);
-        user.setCreatedAt(createdAt);
-        user.setVersion(7L);
+        user.id = id;
+        user.auth0Id = "auth0|alice";
+        user.email = "alice@example.com";
+        user.displayName = "Alice";
+        user.faculty = "Science";
+        user.studyLevel = "Bachelor";
+        user.bio = "Student at UNIGE";
+        user.interests = List.of("AI, football");
+        user.avatarUrl = "https://cdn.example.com/avatar.png";
+        user.profilePublic = true;
+        user.createdAt = createdAt;
+        user.version = 7L;
 
-        assertEquals(id, user.getId());
-        assertEquals("auth0|alice", user.getAuth0Id());
-        assertEquals("alice@example.com", user.getEmail());
-        assertEquals("Alice", user.getDisplayName());
-        assertEquals("Science", user.getFaculty());
-        assertEquals("Bachelor", user.getStudyLevel());
-        assertEquals("Student at UNIGE", user.getBio());
-        assertEquals(List.of("AI, football"), user.getInterests());
-        assertEquals("https://cdn.example.com/avatar.png", user.getAvatarUrl());
-        assertTrue(user.isProfilePublic());
-        assertEquals(createdAt, user.getCreatedAt());
-        assertEquals(7L, user.getVersion());
+        assertEquals(id, user.id);
+        assertEquals("auth0|alice", user.auth0Id);
+        assertEquals("alice@example.com", user.email);
+        assertEquals("Alice", user.displayName);
+        assertEquals("Science", user.faculty);
+        assertEquals("Bachelor", user.studyLevel);
+        assertEquals("Student at UNIGE", user.bio);
+        assertEquals(List.of("AI, football"), user.interests);
+        assertEquals("https://cdn.example.com/avatar.png", user.avatarUrl);
+        assertTrue(user.profilePublic);
+        assertEquals(createdAt, user.createdAt);
+        assertEquals(7L, user.version);
     }
 }

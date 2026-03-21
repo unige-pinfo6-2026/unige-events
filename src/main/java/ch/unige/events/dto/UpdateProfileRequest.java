@@ -17,4 +17,8 @@ public record UpdateProfileRequest(
     @Pattern(regexp = "^(https?://).+$", message = "must be a valid http(s) URL")
     String avatarUrl,
     Boolean profilePublic
-) {}
+) {
+    public String getfa() {
+        return null;
+    }
+}

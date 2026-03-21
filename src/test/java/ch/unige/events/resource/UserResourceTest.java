@@ -2,6 +2,7 @@ package ch.unige.events.resource;
 
 import ch.unige.events.service.UserServiceMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.SecurityAttribute;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -17,8 +18,7 @@ import static org.hamcrest.Matchers.notNullValue;
 @QuarkusTest
 class UserResourceTest {
 
-    @Inject
-    UserServiceMock userServiceMock;
+    @Inject UserServiceMock userServiceMock;
 
     @BeforeEach
     void setUp() {
@@ -28,14 +28,14 @@ class UserResourceTest {
     @Test
     void getProfilePublicSuccess() {
         var user = userServiceMock.seedUser("auth0|public-profile", "public@example.com");
-        user.setProfilePublic(true);
+        user.profilePublic = true;
 
         given()
-            .when().get("/users/" + user.getId())
+            .when().get("/users/" + user.id)
             .then()
             .statusCode(200)
             .contentType(ContentType.JSON)
-            .body("id", equalTo(user.getId().toString()));
+            .body("id", equalTo(user.id.toString()));
     }
 
     @Test
@@ -43,7 +43,7 @@ class UserResourceTest {
         var user = userServiceMock.seedUser("auth0|private-profile", "private@example.com");
 
         given()
-            .when().get("/users/" + user.getId())
+            .when().get("/users/" + user.id)
             .then()
             .statusCode(403)
             .body("error", equalTo("forbidden"));
@@ -56,6 +56,54 @@ class UserResourceTest {
             .then()
             .statusCode(404)
             .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", attributes = {
+        @SecurityAttribute(key = "email", value = "alice@example.com")
+    })
+    void getMeAuthenticatedCreatesProfile() {
+        given()
+            .when().get("/users/me")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("id", notNullValue())
+            .body("auth0Id", equalTo("auth0|alice"))
+            .body("email", equalTo("alice@example.com"))
+            .body("profilePublic", equalTo(false))
+            .body("createdAt", notNullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMeAuthenticatedReturnsExistingProfile() {
+        String firstId = userServiceMock.seedUser("auth0|alice", "alice@example.com").id.toString();
+
+        given()
+            .when().get("/users/me")
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(firstId));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void getMeMissingEmailClaimReturnsUnauthorized() {
+        given()
+            .when().get("/users/me")
+            .then()
+            .statusCode(401)
+            .contentType(ContentType.JSON)
+            .body("error", equalTo("unauthorized"));
+    }
+
+    @Test
+    void getMeUnauthenticated() {
+        given()
+            .when().get("/users/me")
+            .then()
+            .statusCode(401);
     }
 
     @Test
@@ -110,7 +158,7 @@ class UserResourceTest {
                 """)
             .when().put("/users/me")
             .then()
-                        .statusCode(400);
+            .statusCode(400);
     }
 
     @Test
@@ -135,7 +183,7 @@ class UserResourceTest {
     @TestSecurity(user = "auth0|alice")
     void updateMeForbidden() {
         userServiceMock.seedUser("auth0|alice", "alice@example.com");
-        userServiceMock.setForceForbiddenOnUpdate(true);
+        userServiceMock.forceForbiddenOnUpdate = true;
 
         given()
             .contentType(ContentType.JSON)
@@ -150,7 +198,7 @@ class UserResourceTest {
     @TestSecurity(user = "auth0|alice")
     void updateMeConflict() {
         userServiceMock.seedUser("auth0|alice", "alice@example.com");
-        userServiceMock.setForceConflictOnUpdate(true);
+        userServiceMock.forceConflictOnUpdate = true;
 
         given()
             .contentType(ContentType.JSON)

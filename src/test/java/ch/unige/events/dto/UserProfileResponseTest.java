@@ -16,24 +16,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserProfileResponseTest {
 
     @Test
-    void fromMapsAllFields() {
+    void fromUserMapsAllFields() {
         User user = new User();
         UUID id = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 19, 13, 15, 0);
 
-        user.setId(id);
-        user.setAuth0Id("auth0|alice");
-        user.setEmail("alice@example.com");
-        user.setDisplayName("Alice");
-        user.setFaculty("Science");
-        user.setStudyLevel("Bachelor");
-        user.setBio("Student at UNIGE");
-        user.setInterests(List.of("AI, football"));
-        user.setAvatarUrl("https://cdn.example.com/avatar.png");
-        user.setProfilePublic(true);
-        user.setCreatedAt(createdAt);
+        user.id = id;
+        user.auth0Id = "auth0|alice";
+        user.email = "alice@example.com";
+        user.displayName = "Alice";
+        user.faculty = "Science";
+        user.studyLevel = "Bachelor";
+        user.bio = "Student at UNIGE";
+        user.interests = List.of("AI, football");
+        user.avatarUrl = "https://cdn.example.com/avatar.png";
+        user.profilePublic = true;
+        user.createdAt = createdAt;
 
-        UserProfileResponse response = UserProfileResponse.from(user);
+        UserProfileResponse response = UserProfileResponse.fromUser(user);
 
         assertEquals(id, response.id());
         assertEquals("auth0|alice", response.auth0Id());
