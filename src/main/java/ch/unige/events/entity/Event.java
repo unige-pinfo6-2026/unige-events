@@ -2,9 +2,6 @@ package ch.unige.events.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 
@@ -15,22 +12,16 @@ import java.time.LocalDateTime;
 })
 public class Event extends PanacheEntity {
 
-    @NotBlank
     public String title;
 
     public String description;
 
-    @NotBlank
     public String location;
 
-    @NotNull
-    @Future
     public LocalDateTime startDate;
 
-    @NotNull
     public LocalDateTime endDate;
 
-    @NotNull
     @Enumerated(EnumType.STRING)
     public EventCategory category;
 
@@ -40,7 +31,6 @@ public class Event extends PanacheEntity {
     @JoinColumn(name = "creator_id")
     public User creator;
 
-    @NotNull
     @Enumerated(EnumType.STRING)
     public EventStatus status = EventStatus.DRAFT;
 
