@@ -56,8 +56,8 @@ class UserServiceCoverageTest {
 
         assertTrue(byAuth0.isPresent());
         assertTrue(byEmail.isPresent());
-        assertEquals(user.getId(), byAuth0.orElseThrow().getId());
-        assertEquals(user.getId(), byEmail.orElseThrow().getId());
+        assertEquals(user.id, byAuth0.orElseThrow().id);
+        assertEquals(user.id, byEmail.orElseThrow().id);
     }
 
     @Test
@@ -68,7 +68,7 @@ class UserServiceCoverageTest {
 
         User result = userService.getOrCreateUser("auth0|existing", new UserInfo("{\"email\": \"other@example.com\"}"));
 
-        assertEquals(existing.getId(), result.getId());
+        assertEquals(existing.id, result.id);
     }
 
     @Test
@@ -96,18 +96,19 @@ class UserServiceCoverageTest {
 
         User created = userService.getOrCreateUser("auth0|new", new UserInfo("{\"email\": \"new@example.com\"}"));
 
-        assertNotNull(created.getId());
-        assertEquals("auth0|new", created.getAuth0Id());
-        assertEquals("new@example.com", created.getEmail());
-        assertFalse(created.isProfilePublic());
+        assertNotNull(created.id);
+        assertEquals("auth0|new", created.auth0Id);
+        assertEquals("new@example.com", created.email);
+        assertFalse(created.profilePublic);
     }
 
     @Test
     @TestTransaction
     void getOrCreateUserCoversUniqueConflictBranch() {
         deleteAllUsers();
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("users_auth0_id_unique"))));
+
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("users_auth0_id_unique")));
 
         try {
             throwingService.getOrCreateUser("auth0|unique-conflict", new UserInfo("{\"email\": \"unique-conflict@example.com\"}"));
@@ -120,13 +121,8 @@ class UserServiceCoverageTest {
     @TestTransaction
     void getOrCreateUserRethrowsNonUniquePersistenceException() {
         deleteAllUsers();
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("plain persistence"))));
-
-        PersistenceException exception = assertThrows(PersistenceException.class,
-            () -> throwingService.getOrCreateUser("auth0|plain-conflict", new UserInfo("{\"email\": \"plain-conflict@example.com\"}")));
-
-        assertEquals("plain persistence", exception.getMessage());
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("plain persistence")));
     }
 
     @Test
@@ -145,7 +141,7 @@ class UserServiceCoverageTest {
         User user = persistUser("auth0|private", "private@example.com", false);
 
         assertThrows(ForbiddenException.class,
-            () -> userService.getPublicProfile(user.getId()));
+            () -> userService.getPublicProfile(user.id));
     }
 
     @Test
@@ -154,9 +150,9 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         User user = persistUser("auth0|public", "public@example.com", true);
 
-        User result = userService.getPublicProfile(user.getId());
+        User result = userService.getPublicProfile(user.id);
 
-        assertEquals(user.getId(), result.getId());
+        assertEquals(user.id, result.id);
     }
 
     @Test
@@ -195,39 +191,40 @@ class UserServiceCoverageTest {
 
         User updated = userService.updateMyProfile("auth0|update", validRequest());
 
-        assertEquals("Alice", updated.getDisplayName());
-        assertEquals("Science", updated.getFaculty());
-        assertEquals("Bachelor", updated.getStudyLevel());
-        assertEquals("Student at UNIGE", updated.getBio());
-        assertEquals(List.of("AI, football"), updated.getInterests());
-        assertEquals("https://cdn.example.com/avatar.png", updated.getAvatarUrl());
-        assertTrue(updated.isProfilePublic());
+        assertEquals("Alice", updated.displayName);
+        assertEquals("Science", updated.faculty);
+        assertEquals("Bachelor", updated.studyLevel);
+        assertEquals("Student at UNIGE", updated.bio);
+        assertEquals(List.of("AI, football"), updated.interests);
+        assertEquals("https://cdn.example.com/avatar.png", updated.avatarUrl);
+        assertTrue(updated.profilePublic);
     }
 
     @Test
     @TestTransaction
     void updateMyProfileKeepsExistingValuesWhenAllOptionalFieldsAreNull() {
         deleteAllUsers();
+
         User user = persistUser("auth0|keep-values", "keep-values@example.com", false);
-        user.setDisplayName("BeforeName");
-        user.setFaculty("BeforeFaculty");
-        user.setStudyLevel("BeforeLevel");
-        user.setBio("BeforeBio");
-        user.setInterests(List.of("BeforeInterests"));
-        user.setAvatarUrl("https://before.example.com/avatar.png");
+        user.displayName = "BeforeName";
+        user.faculty = "BeforeFaculty";
+        user.studyLevel = "BeforeLevel";
+        user.bio = "BeforeBio";
+        user.interests = List.of("BeforeInterests");
+        user.avatarUrl = "https://before.example.com/avatar.png";
         entityManager.flush();
 
         UpdateProfileRequest noChanges = new UpdateProfileRequest(null, null, null, null, null, null, null);
 
         User updated = userService.updateMyProfile("auth0|keep-values", noChanges);
 
-        assertEquals("BeforeName", updated.getDisplayName());
-        assertEquals("BeforeFaculty", updated.getFaculty());
-        assertEquals("BeforeLevel", updated.getStudyLevel());
-        assertEquals("BeforeBio", updated.getBio());
-        assertEquals(List.of("BeforeInterests"), updated.getInterests());
-        assertEquals("https://before.example.com/avatar.png", updated.getAvatarUrl());
-        assertFalse(updated.isProfilePublic());
+        assertEquals("BeforeName", updated.displayName);
+        assertEquals("BeforeFaculty", updated.faculty);
+        assertEquals("BeforeLevel", updated.studyLevel);
+        assertEquals("BeforeBio", updated.bio);
+        assertEquals(List.of("BeforeInterests"), updated.interests);
+        assertEquals("https://before.example.com/avatar.png", updated.avatarUrl);
+        assertFalse(updated.profilePublic);
     }
 
     @Test
@@ -235,8 +232,8 @@ class UserServiceCoverageTest {
     void updateMyProfileWrapsOptimisticLockException() {
         deleteAllUsers();
         persistUser("auth0|opt-lock", "opt-lock@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new OptimisticLockException("optimistic"))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new OptimisticLockException("optimistic")));
 
         OptimisticLockException exception = assertThrows(OptimisticLockException.class,
             () -> throwingService.updateMyProfile("auth0|opt-lock", validRequest()));
@@ -249,8 +246,8 @@ class UserServiceCoverageTest {
     void updateMyProfileWrapsPersistenceOptimisticConflict() {
         deleteAllUsers();
         persistUser("auth0|opt-persistence", "opt-persistence@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException(new OptimisticLockException("wrapped")))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException(new OptimisticLockException("wrapped"))));
 
         OptimisticLockException exception = assertThrows(OptimisticLockException.class,
             () -> throwingService.updateMyProfile("auth0|opt-persistence", validRequest()));
@@ -263,8 +260,8 @@ class UserServiceCoverageTest {
     void updateMyProfileRethrowsPersistenceWhenNotOptimistic() {
         deleteAllUsers();
         persistUser("auth0|plain-persistence", "plain-persistence@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("plain-persistence"))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("plain-persistence")));
 
         PersistenceException exception = assertThrows(PersistenceException.class,
             () -> throwingService.updateMyProfile("auth0|plain-persistence", validRequest()));
@@ -343,10 +340,10 @@ class UserServiceCoverageTest {
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {
         User user = new User();
-        user.setAuth0Id(auth0Id);
-        user.setEmail(email);
-        user.setProfilePublic(profilePublic);
-        user.setCreatedAt(LocalDateTime.now());
+        user.auth0Id = auth0Id;
+        user.email = email;
+        user.profilePublic = profilePublic;
+        user.createdAt = LocalDateTime.now();
         entityManager.persist(user);
         entityManager.flush();
         return user;

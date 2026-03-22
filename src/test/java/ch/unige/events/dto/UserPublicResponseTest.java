@@ -13,19 +13,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class UserPublicResponseTest {
 
     @Test
-    void fromMapsPublicFields() {
+    void fromUserMapsPublicFields() {
         User user = new User();
         UUID id = UUID.randomUUID();
 
-        user.setId(id);
-        user.setDisplayName("Alice");
-        user.setFaculty("Science");
-        user.setStudyLevel("Bachelor");
-        user.setBio("Student at UNIGE");
-        user.setInterests(List.of("AI, football"));
-        user.setAvatarUrl("https://cdn.example.com/avatar.png");
+        user.id = id;
+        user.displayName = "Alice";
+        user.faculty = "Science";
+        user.studyLevel = "Bachelor";
+        user.bio = "Student at UNIGE";
+        user.interests = List.of("AI, football");
+        user.avatarUrl = "https://cdn.example.com/avatar.png";
 
-        UserPublicResponse response = UserPublicResponse.from(user);
+        UserPublicResponse response = UserPublicResponse.fromUser(user);
 
         assertEquals(id, response.id());
         assertEquals("Alice", response.displayName());

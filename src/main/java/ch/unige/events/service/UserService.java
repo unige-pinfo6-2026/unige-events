@@ -14,18 +14,14 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+
 import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
 public class UserService {
 
-    private final Instance<EntityManager> entityManager;
-
-    @Inject
-    public UserService(Instance<EntityManager> entityManager) {
-        this.entityManager = entityManager;
-    }
+    @Inject Instance<EntityManager> entityManager;
 
     /**
      * Appelé à chaque requête authentifiée.
@@ -43,18 +39,17 @@ public class UserService {
         }
 
         try {
-            User newUser = User.builder()
-                    .auth0Id(auth0Id)
-                    .displayName(userInfo.getName())
-                    .firstName(userInfo.getString("given_name"))
-                    .lastName(userInfo.getFamilyName())
-                    .email(userInfo.getEmail())
-                    .avatarUrl(userInfo.getString("picture"))
-                    .profilePublic(false)
-                    .build();
-
+            User newUser = new User();
+            newUser.auth0Id = auth0Id;
+            newUser.email = userInfo.getEmail();
+            newUser.displayName = userInfo.getName();
+            newUser.firstName = userInfo.getString("given_name");
+            newUser.lastName = userInfo.getFamilyName();
+            newUser.avatarUrl = userInfo.getString("picture");
             newUser.persist();
+
             flushEntityManager();
+
             return newUser;
         } catch (PersistenceException exception) {
             if (isUniqueAuth0Conflict(exception)) {
@@ -65,12 +60,11 @@ public class UserService {
     }
 
     public User getPublicProfile(UUID id) {
-        User user = (User) User.findByIdOptional(id)
-            .orElseThrow(NotFoundException::new);
-
-        if (!user.isProfilePublic()) {
+        User user = (User) User.findByIdOptional(id).orElseThrow(NotFoundException::new);
+        if (!user.profilePublic) {
             throw new ForbiddenException("This profile is private");
         }
+
         return user;
     }
 
@@ -79,6 +73,7 @@ public class UserService {
         if (!Objects.equals(authenticatedAuth0Id, targetAuth0Id)) {
             throw new ForbiddenException("Cannot modify another user's profile");
         }
+
         return updateMyProfile(targetAuth0Id, req);
     }
 
@@ -88,16 +83,15 @@ public class UserService {
             throw new BadRequestException("Request body must not be null");
         }
 
-        User user = User.findByAuth0Id(auth0Id)
-            .orElseThrow(NotFoundException::new);
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
 
-        if (req.displayName()    != null) user.setDisplayName(req.displayName());
-        if (req.faculty()        != null) user.setFaculty(req.faculty());
-        if (req.studyLevel()     != null) user.setStudyLevel(req.studyLevel());
-        if (req.bio()            != null) user.setBio(req.bio());
-        if (req.interests()      != null) user.setInterests(req.interests());
-        if (req.avatarUrl()      != null) user.setAvatarUrl(req.avatarUrl());
-        if (req.profilePublic() != null) user.setProfilePublic(req.profilePublic());
+        if (req.displayName()    != null) user.displayName = req.displayName();
+        if (req.faculty()        != null) user.faculty = req.faculty();
+        if (req.studyLevel()     != null) user.studyLevel = req.studyLevel();
+        if (req.bio()            != null) user.bio = req.bio();
+        if (req.interests()      != null) user.interests = req.interests();
+        if (req.avatarUrl()      != null) user.avatarUrl = req.avatarUrl();
+        if (req.profilePublic()  != null) user.profilePublic = req.profilePublic();
 
         try {
             flushEntityManager();

@@ -14,10 +14,15 @@ public record UserPublicResponse(
     List<String> interests,
     String avatarUrl
 ) {
-    public static UserPublicResponse from(User u) {
+    public static UserPublicResponse fromUser(User user) {
         return new UserPublicResponse(
-            u.getId(), u.getDisplayName(), u.getFaculty(),
-            u.getStudyLevel(), u.getBio(), u.getInterests(), u.getAvatarUrl()
+                user.id,
+                user.displayName,
+                user.faculty,
+                user.studyLevel,
+                user.bio,
+                user.interests,
+                user.avatarUrl
         );
     }
 }

@@ -27,7 +27,7 @@ class UserServiceMockConcurrencyTest {
 
         List<Callable<String>> tasks = new ArrayList<>();
         for (int index = 0; index < calls; index++) {
-            tasks.add(() -> userServiceMock.getOrCreateUser("auth0|race", new UserInfo("{\"email\": \"race@example.com\"}")).getId().toString());
+            tasks.add(() -> userServiceMock.getOrCreateUser("auth0|race", new UserInfo("{\"email\": \"race@example.com\"}")).id.toString());
         }
 
         List<Future<String>> results = executorService.invokeAll(tasks);

@@ -29,16 +29,9 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
-    private final SecurityIdentity identity;
-    private final UserService userService;
-    private final Instance<UserInfo> userInfo;
-
-    @Inject
-    public UserResource(SecurityIdentity identity, UserService userService, Instance<UserInfo> userInfo) {
-        this.identity = identity;
-        this.userService = userService;
-        this.userInfo = userInfo;
-    }
+    @Inject SecurityIdentity identity;
+    @Inject UserService userService;
+    @Inject Instance<UserInfo> userInfo;
 
     /**
      * GET /api/users/{id}
@@ -49,7 +42,7 @@ public class UserResource {
     @PermitAll
     public Response getProfile(@PathParam("id") UUID id) {
         User user = userService.getPublicProfile(id);
-        return Response.ok(UserPublicResponse.from(user)).build();
+        return Response.ok(UserPublicResponse.fromUser(user)).build();
     }
 
     @GET
@@ -89,7 +82,7 @@ public class UserResource {
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
         User user = userService.getOrCreateUser(auth0Id, userInfo.get());
-        return UserProfileResponse.from(user);
+        return UserProfileResponse.fromUser(user);
     }
 
     /**
@@ -192,6 +185,6 @@ public class UserResource {
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
-        return Response.ok(UserProfileResponse.from(updated)).build();
+        return Response.ok(UserProfileResponse.fromUser(updated)).build();
     }
 }
