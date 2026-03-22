@@ -29,7 +29,7 @@ Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
 
 ### Event
 
-Table : `events` — migration `V2__create_event_table.sql`
+Table : `events`
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -40,14 +40,14 @@ Table : `events` — migration `V2__create_event_table.sql`
 | `startDate` | `startDate` | `LocalDateTime` | `start_date` | `@NotNull`, `@Future` |
 | `endDate` | `endDate` | `LocalDateTime` | `end_date` | `@NotNull` |
 | `category` | `category` | `EventCategory` | `category` | `@NotNull`, `@Enumerated(STRING)` |
-| `imageUrl` | `imageUrl` | `String` | `image_url` | nullable |
-| `organizerId` | `organizerId` | `Long` | `organizer_id` | `@NotNull` (FK logique vers User) |
+| `bannerUrl` | `bannerUrl` | `String` | `banner_url` | nullable |
+| `creator` | — | `User` | `creator_id` | `@ManyToOne(LAZY)`, `@JoinColumn` — FK vers `users.id` |
 | `status` | `status` | `EventStatus` | `status` | `@NotNull`, `@Enumerated(STRING)`, default `DRAFT` |
 | `capacity` | `capacity` | `Integer` | `capacity` | nullable |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
-Index DB : `idx_event_organizer` (organizer_id), `idx_event_start_date` (start_date)
+Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
 
 ---
 
@@ -108,9 +108,11 @@ Factory : `UserPublicResponse.from(User u)`
 Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
 
 ```
-id, title, description, location, startDate, endDate, category, imageUrl,
-organizerId, status, capacity, createdAt, updatedAt
+id, title, description, location, startDate, endDate, category, bannerUrl,
+creatorId (UUID — extrait de creator.id), status, capacity, createdAt, updatedAt
 ```
+
+Factory : `EventDTO.from(Event event)`
 
 ### CreateEventRequest
 Body de création (`POST /events`). Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
@@ -122,13 +124,13 @@ Body de création (`POST /events`). Champs requis : `title`, `location`, `startD
 | `startDate` | `@NotNull`, `@Future` |
 | `endDate` | `@NotNull` |
 | `category` | `@NotNull` |
-| `description`, `imageUrl`, `capacity` | optionnels |
+| `description`, `bannerUrl`, `capacity` | optionnels |
 
 ### UpdateEventRequest
 Body de mise à jour partielle (`PUT /events/{id}`). Tous les champs optionnels.
 
 ```
-title, description, location, startDate, endDate, category, imageUrl, capacity, status
+title, description, location, startDate, endDate, category, bannerUrl, capacity, status
 ```
 
 ### UpdateProfileRequest (record)
@@ -201,32 +203,10 @@ Valeurs attendues pour `studyLevel` :
 
 ---
 
-## Migrations Flyway
+## Gestion du schéma
 
-**État actuel :** Flyway est configuré dans `pom.xml` mais **désactivé** en dev (`quarkus.flyway.migrate-at-start` commenté dans `application.properties`). Hibernate tourne en mode `update` qui génère/adapte le schéma automatiquement.
+Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).
 
-### Migrations existantes
-
-| Fichier | Contenu | Sprint |
-|---|---|---|
-| `V2__create_event_table.sql` | Table `events` avec index | Sprint 2 ✅ |
-
-### Convention
-
-```
-src/main/resources/db/migration/
-  V1__init_users.sql          ← à créer avant activation Flyway prod
-  V2__create_event_table.sql  ← existant
-  V3__add_attendance_favorite.sql
-  ...
-```
-
-- Nommer : `V{N}__{description_snake_case}.sql`
-- **Ne jamais modifier** un fichier Flyway existant — toujours créer un nouveau
-- Même si Hibernate `update` absorbe les changements en dev, **toujours écrire la migration** pour la prod
-
-### Dette de migrations à anticiper
-
-Quand Flyway sera activé pour la prod, il manque encore :
-- `V1__init_users.sql` : table `users` avec tous ses champs actuels
-- Migrations futures : Attendance, Favorite, Notification, Report
+- Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
+- Hibernate crée et met à jour les tables automatiquement au démarrage
+- Aucun fichier SQL de migration n'est utilisé ni requis

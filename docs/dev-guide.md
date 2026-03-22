@@ -61,7 +61,7 @@ L'ordre est impératif — **spec d'abord, code ensuite**.
 
 4. **Mettre à jour / créer l'Entity** si nécessaire (`src/main/java/.../entity/`)
    Ajouter les champs en camelCase. Annoter avec les contraintes JPA.
-   → Écrire une migration Flyway correspondante (voir section suivante).
+   → Hibernate applique le changement automatiquement au démarrage.
 
 5. **Écrire les tests** (`src/test/java/`)
    Annoter la classe avec `@QuarkusTest`.
@@ -74,30 +74,13 @@ L'ordre est impératif — **spec d'abord, code ensuite**.
 
 ---
 
-## Workflow : ajouter une migration Flyway
+## Workflow : modifier le schéma de base de données
 
-> Actuellement Flyway est désactivé en dev (mode Hibernate `update`). Écrire les migrations quand même pour la prod.
+Le schéma est géré exclusivement par Hibernate en mode `update`. Pour modifier le schéma :
 
-1. Créer `src/main/resources/db/migration/V{N}__{description}.sql`
-   Exemple : `V3__add_attendance_table.sql`
-
-2. Écrire le SQL standard PostgreSQL (pas de dialecte Hibernate).
-
-3. **Ne jamais modifier** un fichier Flyway existant — toujours créer un nouveau fichier.
-
-4. Mettre à jour `docs/data-model.md` (section migrations).
-
-```sql
--- Exemple : V3__add_attendance_table.sql
-CREATE TABLE attendance (
-    id         BIGSERIAL PRIMARY KEY,
-    user_id    UUID        NOT NULL REFERENCES users(id),
-    event_id   BIGINT      NOT NULL REFERENCES events(id),
-    status     VARCHAR(20) NOT NULL,
-    created_at TIMESTAMP   NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_attendance_user_event UNIQUE (user_id, event_id)
-);
-```
+1. Modifier l'entité JPA concernée dans `src/main/java/**/entity/`
+2. Hibernate applique les changements automatiquement au démarrage
+3. Mettre à jour `docs/data-model.md` pour refléter le nouveau schéma
 
 ---
 

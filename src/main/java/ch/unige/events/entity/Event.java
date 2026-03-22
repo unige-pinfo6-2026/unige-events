@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "events", indexes = {
-        @Index(name = "idx_event_organizer", columnList = "organizer_id"),
+        @Index(name = "idx_event_creator", columnList = "creator_id"),
         @Index(name = "idx_event_start_date", columnList = "start_date")
 })
 public class Event extends PanacheEntity {
@@ -34,10 +34,11 @@ public class Event extends PanacheEntity {
     @Enumerated(EnumType.STRING)
     public EventCategory category;
 
-    public String imageUrl;
+    public String bannerUrl;
 
-    @NotNull
-    public Long organizerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creator_id")
+    public User creator;
 
     @NotNull
     @Enumerated(EnumType.STRING)

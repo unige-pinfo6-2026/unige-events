@@ -22,21 +22,6 @@
         <sonar.projectKey>unige-pinfo6-2026_unige-events-api</sonar.projectKey>
         <sonar.projectName>unige-events-api</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/jacoco-report/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-        <!-- Exclusion CPD (duplication) pour les entités JPA : duplication inévitable
-             car elles ne peuvent pas hériter d'un DTO (extends PanacheEntity). -->
-        <sonar.cpd.exclusions>**/entity/Event.java</sonar.cpd.exclusions>
-        <!-- Exclusion S1104 (champs publics) pour les packages dto et entity.
-             Ce projet utilise le pattern Panache Active Record qui impose des champs
-             publics dans les entités JPA. Les DTOs suivent la même convention pour
-             la cohérence (accès direct par Jackson, pas de getters/setters superflus).
-             Rendre ces champs privés casserait l'interception bytecode de Panache.
-             Deux entrées séparées requises — SonarCloud ne supporte pas les patterns
-             multiples dans un seul resourceKey. -->
-        <sonar.issue.ignore.multicriteria>s1104dto,s1104entity</sonar.issue.ignore.multicriteria>
-        <sonar.issue.ignore.multicriteria.s1104dto.ruleKey>java:S1104</sonar.issue.ignore.multicriteria.s1104dto.ruleKey>
-        <sonar.issue.ignore.multicriteria.s1104dto.resourceKey>**/dto/*.java</sonar.issue.ignore.multicriteria.s1104dto.resourceKey>
-        <sonar.issue.ignore.multicriteria.s1104entity.ruleKey>java:S1104</sonar.issue.ignore.multicriteria.s1104entity.ruleKey>
-        <sonar.issue.ignore.multicriteria.s1104entity.resourceKey>**/entity/*.java</sonar.issue.ignore.multicriteria.s1104entity.resourceKey>
     </properties>
 
     <dependencyManagement>
@@ -108,10 +93,6 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jacoco</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

@@ -25,10 +25,6 @@ if echo "$CHANGED" | grep -qE "src/main/java/.+/(entity|resource)/.+\.java$"; th
   message="${message}\n  ⚠️  Entité ou Resource modifiée — vérifier docs/openapi/openapi.yaml et docs/data-model.md"
 fi
 
-if echo "$CHANGED" | grep -qE "src/main/resources/db/migration/V[0-9]+__.+\.sql$"; then
-  needs_doc_update=true
-  message="${message}\n  ⚠️  Migration Flyway ajoutée — vérifier docs/data-model.md"
-fi
 
 if echo "$CHANGED" | grep -qE "docs/openapi/openapi\.yaml$"; then
   if ! echo "$CHANGED" | grep -qE "src/main/java/.+/resource/.+\.java$"; then

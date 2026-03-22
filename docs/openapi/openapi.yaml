@@ -179,13 +179,13 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        imageUrl:
+        bannerUrl:
           type: string
           format: uri
           nullable: true
-        organizerId:
-          type: integer
-          format: int64
+        creatorId:
+          type: string
+          format: uuid
         status:
           $ref: '#/components/schemas/EventStatus'
         capacity:
@@ -206,8 +206,8 @@ components:
         startDate: "2026-04-15T14:00:00"
         endDate: "2026-04-15T17:00:00"
         category: "ACADEMIC"
-        imageUrl: null
-        organizerId: 42
+        bannerUrl: null
+        creatorId: "550e8400-e29b-41d4-a716-446655440000"
         status: "PUBLISHED"
         capacity: 200
         createdAt: "2026-03-21T10:00:00"
@@ -235,13 +235,13 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        imageUrl:
+        bannerUrl:
           type: string
           format: uri
           nullable: true
-        organizerId:
-          type: integer
-          format: int64
+        creatorId:
+          type: string
+          format: uuid
         status:
           $ref: '#/components/schemas/EventStatus'
         capacity:
@@ -276,7 +276,7 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        imageUrl:
+        bannerUrl:
           type: string
           format: uri
           nullable: true
@@ -309,7 +309,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/EventCategory'
           nullable: true
-        imageUrl:
+        bannerUrl:
           type: string
           format: uri
           nullable: true
@@ -482,7 +482,7 @@ paths:
       summary: Liste des événements
       description: |
         Retourne tous les événements actifs.
-        **État actuel (Sprint 2) :** retourne un array brut `List<Event>`.
+        **État actuel (Sprint 2) :** retourne un array brut `List<EventDTO>`.
         **Cible (Sprint 2) :** migrer vers un objet paginé `{ content, page, size, total }` une fois la pagination implémentée côté backend.
         Le frontend doit anticiper ce changement : ne pas hardcoder la consommation d'un array brut.
       operationId: getEvents
@@ -498,7 +498,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Event'
+                  $ref: '#/components/schemas/EventDTO'
 
     post:
       summary: Créer un événement
@@ -511,14 +511,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Event'
+              $ref: '#/components/schemas/CreateEventRequest'
       responses:
         '201':
           description: Événement créé
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventDTO'
 
   # TODO: Sprint 2
   /events/{id}:

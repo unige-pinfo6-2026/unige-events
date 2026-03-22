@@ -34,7 +34,7 @@ public abstract class EventRequestBase {
     @NotNull
     public EventCategory category;
 
-    public String imageUrl;
+    public String bannerUrl;
 
     public Integer capacity;
 }
