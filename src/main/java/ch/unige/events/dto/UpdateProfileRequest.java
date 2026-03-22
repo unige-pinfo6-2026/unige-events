@@ -18,7 +18,4 @@ public record UpdateProfileRequest(
     String avatarUrl,
     Boolean profilePublic
 ) {
-    public String getfa() {
-        return null;
-    }
 }

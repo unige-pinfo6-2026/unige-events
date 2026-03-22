@@ -12,6 +12,7 @@ import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,8 +22,8 @@ public class UserServiceMock extends UserService {
 
     private final Map<String, User> usersByAuth0Id = new ConcurrentHashMap<>();
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
-    public volatile boolean forceForbiddenOnUpdate = false;
-    public volatile boolean forceConflictOnUpdate = false;
+    public static volatile boolean forceForbiddenOnUpdate = false;
+    public static volatile boolean forceConflictOnUpdate = false;
 
     public void reset() {
         usersByAuth0Id.clear();
@@ -81,7 +82,10 @@ public class UserServiceMock extends UserService {
         if (forceConflictOnUpdate) {
             throw new OptimisticLockException("Profile was updated by another request. Please retry.");
         }
-        return super.updateMyProfile(authenticatedAuth0Id, targetAuth0Id, req);
+        if (!Objects.equals(authenticatedAuth0Id, targetAuth0Id)) {
+            throw new ForbiddenException("Cannot modify another user's profile");
+        }
+        return updateMyProfile(targetAuth0Id, req);
     }
 
     @Override
@@ -112,12 +116,12 @@ public class UserServiceMock extends UserService {
 
     private User newUser(String auth0Id, UserInfo userInfo) {
         User user = new User();
-        user.id           = UUID.randomUUID();
-        user.auth0Id      = auth0Id;
-        user.email        = userInfo.getEmail();
-        user.displayName  = userInfo.getName();
-        user.firstName    = userInfo.getString("given_name");
-        user.lastName     = userInfo.getFamilyName();
+        user.id = UUID.randomUUID();
+        user.auth0Id = auth0Id;
+        user.email = userInfo.getEmail();
+        user.displayName = userInfo.getName();
+        user.firstName = userInfo.getString("given_name");
+        user.lastName = userInfo.getFamilyName();
         user.profilePublic = false;
         return user;
     }

@@ -23,7 +23,6 @@ public class UserService {
 
     @Inject Instance<EntityManager> entityManager;
 
-
     /**
      * Appelé à chaque requête authentifiée.
      * Crée le profil si c'est la 1ère connexion.

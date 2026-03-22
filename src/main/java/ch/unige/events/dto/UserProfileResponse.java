@@ -23,17 +23,17 @@ public record UserProfileResponse(
 ) {
     public static UserProfileResponse fromUser(User user) {
         return new UserProfileResponse(
-            user.id,
-            user.auth0Id,
-            user.email,
-            user.displayName,
-            user.faculty,
-            user.studyLevel,
-            user.bio,
-            user.interests,
-            user.avatarUrl,
-            user.profilePublic,
-            user.createdAt
+                user.id,
+                user.auth0Id,
+                user.email,
+                user.displayName,
+                user.faculty,
+                user.studyLevel,
+                user.bio,
+                user.interests,
+                user.avatarUrl,
+                user.profilePublic,
+                user.createdAt
         );
     }
 }

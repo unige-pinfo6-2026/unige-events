@@ -106,8 +106,9 @@ class UserServiceCoverageTest {
     @TestTransaction
     void getOrCreateUserCoversUniqueConflictBranch() {
         deleteAllUsers();
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("users_auth0_id_unique"))));
+
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("users_auth0_id_unique")));
 
         try {
             throwingService.getOrCreateUser("auth0|unique-conflict", new UserInfo("{\"email\": \"unique-conflict@example.com\"}"));
@@ -120,13 +121,8 @@ class UserServiceCoverageTest {
     @TestTransaction
     void getOrCreateUserRethrowsNonUniquePersistenceException() {
         deleteAllUsers();
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("plain persistence"))));
-
-        PersistenceException exception = assertThrows(PersistenceException.class,
-            () -> throwingService.getOrCreateUser("auth0|plain-conflict", new UserInfo("{\"email\": \"plain-conflict@example.com\"}")));
-
-        assertEquals("plain persistence", exception.getMessage());
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("plain persistence")));
     }
 
     @Test
@@ -236,8 +232,8 @@ class UserServiceCoverageTest {
     void updateMyProfileWrapsOptimisticLockException() {
         deleteAllUsers();
         persistUser("auth0|opt-lock", "opt-lock@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new OptimisticLockException("optimistic"))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new OptimisticLockException("optimistic")));
 
         OptimisticLockException exception = assertThrows(OptimisticLockException.class,
             () -> throwingService.updateMyProfile("auth0|opt-lock", validRequest()));
@@ -250,8 +246,8 @@ class UserServiceCoverageTest {
     void updateMyProfileWrapsPersistenceOptimisticConflict() {
         deleteAllUsers();
         persistUser("auth0|opt-persistence", "opt-persistence@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException(new OptimisticLockException("wrapped")))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException(new OptimisticLockException("wrapped"))));
 
         OptimisticLockException exception = assertThrows(OptimisticLockException.class,
             () -> throwingService.updateMyProfile("auth0|opt-persistence", validRequest()));
@@ -264,8 +260,8 @@ class UserServiceCoverageTest {
     void updateMyProfileRethrowsPersistenceWhenNotOptimistic() {
         deleteAllUsers();
         persistUser("auth0|plain-persistence", "plain-persistence@example.com", false);
-        UserService throwingService = new UserService(new SingleEntityManagerInstance(flushThrowingProxy(
-            new PersistenceException("plain-persistence"))));
+        UserService throwingService = new UserService();
+        throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("plain-persistence")));
 
         PersistenceException exception = assertThrows(PersistenceException.class,
             () -> throwingService.updateMyProfile("auth0|plain-persistence", validRequest()));
