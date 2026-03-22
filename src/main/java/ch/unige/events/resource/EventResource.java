@@ -1,9 +1,10 @@
 package ch.unige.events.resource;
 
-import ch.unige.events.entity.Event;
+import ch.unige.events.dto.CreateEventRequest;
+import ch.unige.events.dto.EventDTO;
 import ch.unige.events.service.EventService;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -19,14 +20,13 @@ public class EventResource {
     EventService eventService;
 
     @GET
-    public List<Event> getAll() {
+    public List<EventDTO> getAll() {
         return eventService.getAll();
     }
 
     @POST
-    @Transactional
-    public Response create(Event event) {
-        Event created = eventService.create(event);
+    public Response create(@Valid CreateEventRequest request) {
+        EventDTO created = eventService.create(request);
         return Response.status(Response.Status.CREATED)
                 .entity(created)
                 .build();

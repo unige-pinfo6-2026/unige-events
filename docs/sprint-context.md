@@ -26,7 +26,7 @@ Dernière mise à jour : 2026-03-21
 
 - `GET /users/me` : si le claim `email` est absent du JWT, une `NotAuthorizedException` est levée → retourne 401. Ce comportement est **correct et intentionnel** selon la spec. À documenter côté frontend.
 - `PUT /users/me` : retourne `200` avec l'objet `UserProfileResponse` complet — **pas de `204`**. Le frontend doit utiliser cette réponse pour mettre à jour son état sans refetch.
-- Hibernate tourne en mode `update` — pas de migration Flyway active. Dette à anticiper avant la prod.
+- Hibernate tourne en mode `update` — choix définitif pour ce projet.
 
 ---
 
@@ -36,20 +36,22 @@ Dernière mise à jour : 2026-03-21
 
 ### État actuel
 
-- **Entité `Event`** : très partielle — uniquement `id` (Long) + `title` (@NotBlank) + `description`. Les champs `startDate`, `endDate`, `location`, `category`, `bannerUrl`, `capacity`, `active`, `featured`, `views`, `creatorId` sont **planifiés mais pas implémentés**.
-- **`EventResource`** : `GET /events` (liste) et `POST /events` (création) — **pas de sécurité encore, pas de pagination, pas de filtres**.
-- **`EventService`** : `getAll()` et `create()` — minimal.
+- **Entité `Event`** : complète — `id` (Long, PK Panache), `title`, `description`, `location`, `startDate`, `endDate`, `category` (enum), `bannerUrl`, `capacity`, `status` (enum, default `DRAFT`), `createdAt`, `updatedAt`, `creator` (@ManyToOne LAZY → `User`).
+- **`EventDTO`** : record avec factory `EventDTO.from(Event)` — expose `creatorId` (UUID) sans relation JPA.
+- **`EventResource`** : `GET /events` → `List<EventDTO>`, `POST /events` → `EventDTO` (201) — **pas de sécurité encore, pas de pagination, pas de filtres**.
+- **`EventService`** : `getAll()` et `create(CreateEventRequest)` avec `@Transactional`.
+- **Tests** : `EventDTOTest` (unit), `EventResourceTest` (4 tests @QuarkusTest), `EventTest` (3 tests @QuarkusTest), `CreateEventRequestTest` (6 tests bean validation).
 
 ### À faire dans ce sprint
 
-- [ ] Enrichir `Event` avec tous les champs planifiés (+ migration Flyway correspondante)
-- [ ] `POST /events` : sécuriser avec `@Authenticated`, lier `creatorId` à l'utilisateur connecté
+- [x] Enrichir `Event` avec tous les champs planifiés
+- [x] Créer un `EventDTO` (ne pas exposer l'entité directement)
+- [x] Écrire les tests `@QuarkusTest` pour `EventResource`
+- [ ] `POST /events` : sécuriser avec `@Authenticated`, lier `creator` à l'utilisateur connecté
 - [ ] `GET /events/{id}` : détail d'un événement
 - [ ] `PUT /events/{id}` : modification (créateur ou admin uniquement → 403 sinon)
-- [ ] `DELETE /events/{id}` : soft-delete (`active = false`)
+- [ ] `DELETE /events/{id}` : soft-delete (status → `CANCELLED`)
 - [ ] `GET /events` : pagination cursor-based, filtre `?category=`, `?upcoming=true`
-- [ ] Créer un `EventDTO` / `EventResponse` (ne pas exposer l'entité directement)
-- [ ] Écrire les tests `@QuarkusTest` pour `EventResource`
 
 ---
 
@@ -115,7 +117,6 @@ Dernière mise à jour : 2026-03-21
 - [ ] Audit OWASP Top 10, CORS configuré, secrets en env vars
 - [ ] Tests E2E Playwright/Cypress (3–5 scénarios critiques)
 - [ ] CD pipeline opérationnel (Kubernetes deploy automatique)
-- [ ] Activation Flyway pour la prod (écrire les migrations manquantes)
 - [ ] Préparation soutenance
 
 ---
@@ -124,8 +125,7 @@ Dernière mise à jour : 2026-03-21
 
 | Item | Priorité | Sprint cible |
 |---|---|---|
-| Migrations Flyway à écrire (V1 users, V2 events, ...) | Haute | Avant Sprint 8 |
-| Désactiver mode Hibernate `update` en prod | Haute | Sprint 8 |
+| Schéma géré par Hibernate `update` — choix définitif | Info | Sprint 2 ✅ |
 | Sécuriser `POST /events` avec `@Authenticated` | Haute | Sprint 2 |
-| Remplacer exposition directe de l'entité `Event` par un DTO | Moyenne | Sprint 2 |
+| Remplacer exposition directe de l'entité `Event` par un DTO | ✅ Fait | Sprint 2 |
 | Tests unitaires sur `UserService` | Moyenne | Sprint 2 |

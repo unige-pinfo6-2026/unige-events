@@ -42,13 +42,13 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Entités : étendent `PanacheEntity` — pas de repository séparé
 - Services : `@ApplicationScoped` + `@Transactional` sur toutes les mutations
 - Resources : JAX-RS, préfixe `/api` (configuré dans `application.properties`)
-- **Hibernate est actuellement en mode `update`** — les modifications d'entités sont répercutées en DB automatiquement en dev. Prévoir quand même une migration Flyway pour chaque changement structurel.
+- **Hibernate est actuellement en mode `update`** — les modifications d'entités sont répercutées en DB automatiquement en dev. Les entités JPA sont la source de vérité pour le schéma.
 - Soft-delete : champ `active` (boolean) sur Event, **jamais de DELETE physique**
 - Attendance : contrainte unique `(userId, eventId)` — un seul statut par user/event
 - Auth : `quarkus-oidc` mode `service` en prod, `quarkus.oidc.enabled=false` en `%test`
 
-### Migrations Flyway
-Créer `V{N}__description.sql` dans `src/main/resources/db/migration/` — **ne jamais modifier un fichier Flyway existant**. Même si Hibernate `update` absorbe les changements en dev, toujours écrire la migration correspondante pour la prod.
+### Schéma de base de données
+Le schéma est géré par Hibernate en mode `update`. Ne pas utiliser Flyway ni créer de fichiers SQL de migration. Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité pour le schéma.
 
 ### Enums
 `EventCategory`, `AttendanceStatus`, `ReportStatus` — définis dans les entités, sérialisés en String dans le JSON.
@@ -71,7 +71,7 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 ## Ce qu'il ne faut jamais faire
 - Utiliser du snake_case dans les noms de champs ou les réponses JSON
 - Préfixer les booléens avec `is` dans les entités JPA
-- Modifier un fichier Flyway existant
+- Créer des fichiers SQL de migration Flyway
 - Mettre de la logique métier dans une Resource
 - Retourner `null` ou un body vide là où le frontend attend un objet
 - Créer un endpoint sans l'avoir d'abord spécifié dans `openapi.yaml`
@@ -79,7 +79,7 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 ## Documentation du projet
 - `docs/README.md` — index de tous les fichiers docs
 - `docs/architecture.md` — architecture système et backend
-- `docs/data-model.md` — entités, champs, conventions de nommage, enums, migrations Flyway
+- `docs/data-model.md` — entités, champs, conventions de nommage, enums, gestion du schéma
 - `docs/openapi/openapi.yaml` — contrat API complet (source de vérité)
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement et backlog
@@ -90,7 +90,6 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 | Fichier modifié | Documentation à mettre à jour |
 |---|---|
 | Nouvelle entité JPA ou modification de champ | `docs/data-model.md` + schémas dans `openapi.yaml` |
-| Nouveau fichier Flyway | `docs/data-model.md` (section migrations) |
 | Nouveau endpoint ou modification de signature | `docs/openapi/openapi.yaml` EN PREMIER, puis le code |
 | Modification d'un enum | `docs/data-model.md` + schémas dans `openapi.yaml` |
 | Changement d'architecture ou de convention | `docs/architecture.md` + section dans `AGENTS.md` |

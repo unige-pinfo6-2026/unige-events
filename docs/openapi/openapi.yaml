@@ -147,9 +147,19 @@ components:
           type: boolean
           nullable: true
 
+    EventCategory:
+      type: string
+      description: Catégorie d'un événement
+      enum: [ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER]
+
+    EventStatus:
+      type: string
+      description: Statut de publication d'un événement
+      enum: [DRAFT, PUBLISHED, CANCELLED]
+
     Event:
       type: object
-      description: Entité événement (partielle — Sprint 2 en cours)
+      description: Entité événement complète (Sprint 2)
       properties:
         id:
           type: integer
@@ -159,16 +169,157 @@ components:
         description:
           type: string
           nullable: true
-      # TODO: Sprint 2 — ajouter startDate, endDate, location, category, bannerUrl, capacity, active, featured, views, creatorId
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        category:
+          $ref: '#/components/schemas/EventCategory'
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        creatorId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        capacity:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
       example:
         id: 1
-        title: "Soirée d'accueil Faculté des Sciences"
-        description: "Bienvenue aux nouveaux étudiants !"
+        title: "Conférence IA & Société"
+        description: "Présentation des dernières avancées en IA"
+        location: "Uni Mail, Genève"
+        startDate: "2026-04-15T14:00:00"
+        endDate: "2026-04-15T17:00:00"
+        category: "ACADEMIC"
+        bannerUrl: null
+        creatorId: "550e8400-e29b-41d4-a716-446655440000"
+        status: "PUBLISHED"
+        capacity: 200
+        createdAt: "2026-03-21T10:00:00"
+        updatedAt: "2026-03-21T10:00:00"
 
-    # TODO: Sprint 2 — EventCategory enum
-    # EventCategory:
-    #   type: string
-    #   enum: [ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER]
+    EventDTO:
+      type: object
+      description: Représentation d'un événement retourné par l'API
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        category:
+          $ref: '#/components/schemas/EventCategory'
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        creatorId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        capacity:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateEventRequest:
+      type: object
+      description: Payload de création d'un événement
+      required: [title, location, startDate, endDate, category]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+          description: Doit être dans le futur (@Future)
+        endDate:
+          type: string
+          format: date-time
+        category:
+          $ref: '#/components/schemas/EventCategory'
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+
+    UpdateEventRequest:
+      type: object
+      description: Payload de mise à jour partielle d'un événement — tous les champs sont optionnels
+      properties:
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        category:
+          allOf:
+            - $ref: '#/components/schemas/EventCategory'
+          nullable: true
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+        status:
+          allOf:
+            - $ref: '#/components/schemas/EventStatus'
+          nullable: true
 
     # TODO: Sprint 4 — AttendanceStatus enum
     # AttendanceStatus:
@@ -331,7 +482,7 @@ paths:
       summary: Liste des événements
       description: |
         Retourne tous les événements actifs.
-        **État actuel (Sprint 2) :** retourne un array brut `List<Event>`.
+        **État actuel (Sprint 2) :** retourne un array brut `List<EventDTO>`.
         **Cible (Sprint 2) :** migrer vers un objet paginé `{ content, page, size, total }` une fois la pagination implémentée côté backend.
         Le frontend doit anticiper ce changement : ne pas hardcoder la consommation d'un array brut.
       operationId: getEvents
@@ -347,7 +498,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Event'
+                  $ref: '#/components/schemas/EventDTO'
 
     post:
       summary: Créer un événement
@@ -360,14 +511,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Event'
+              $ref: '#/components/schemas/CreateEventRequest'
       responses:
         '201':
           description: Événement créé
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventDTO'
 
   # TODO: Sprint 2
   /events/{id}:

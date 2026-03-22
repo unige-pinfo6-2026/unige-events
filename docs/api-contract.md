@@ -81,7 +81,7 @@ Met à jour le profil de l'utilisateur authentifié. Tous les champs du body son
 Retourne la liste de tous les événements.
 
 **Réponses :**
-- `200 OK` — `List<Event>` (entité directe pour l'instant — à migrer vers un DTO dans un sprint futur)
+- `200 OK` — `List<EventDTO>`
 
 ---
 
@@ -89,10 +89,11 @@ Retourne la liste de tous les événements.
 
 Crée un nouvel événement.
 
-**Body :** `Event` (entité directe pour l'instant)
+**Body :** `CreateEventRequest` — champs requis : `title`, `location`, `startDate` (@Future), `endDate`, `category`
 
 **Réponses :**
-- `201 Created` — entité `Event` créée avec son `id`
+- `201 Created` — `EventDTO` créé avec son `id`
+- `400 Bad Request` — validation échouée — `ValidationErrorResponse`
 
 ---
 

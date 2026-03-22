@@ -36,8 +36,18 @@ Table : `events`
 | `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
 | `title` | `title` | `String` | `title` | `@NotBlank` |
 | `description` | `description` | `String` | `description` | nullable |
+| `location` | `location` | `String` | `location` | `@NotBlank` |
+| `startDate` | `startDate` | `LocalDateTime` | `start_date` | `@NotNull`, `@Future` |
+| `endDate` | `endDate` | `LocalDateTime` | `end_date` | `@NotNull` |
+| `category` | `category` | `EventCategory` | `category` | `@NotNull`, `@Enumerated(STRING)` |
+| `bannerUrl` | `bannerUrl` | `String` | `banner_url` | nullable |
+| `creator` | — | `User` | `creator_id` | `@ManyToOne(LAZY)`, `@JoinColumn` — FK vers `users.id` |
+| `status` | `status` | `EventStatus` | `status` | `@NotNull`, `@Enumerated(STRING)`, default `DRAFT` |
+| `capacity` | `capacity` | `Integer` | `capacity` | nullable |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+| `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
-> **Note :** L'entité Event est très partielle (Sprint 2 non encore démarré). Les champs `startDate`, `endDate`, `location`, `category`, `bannerUrl`, `capacity`, `active`, `featured`, `views`, `creatorId` sont planifiés mais pas encore implémentés.
+Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
 
 ---
 
@@ -72,6 +82,8 @@ Les champs booléens **n'utilisent pas le préfixe `is`** dans les entités JPA.
 
 ---
 
+---
+
 ## DTOs
 
 ### UserProfileResponse (record)
@@ -91,6 +103,35 @@ id, displayName, faculty, studyLevel, bio, interests, avatarUrl
 ```
 
 Factory : `UserPublicResponse.from(User u)`
+
+### EventDTO
+Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
+
+```
+id, title, description, location, startDate, endDate, category, bannerUrl,
+creatorId (UUID — extrait de creator.id), status, capacity, createdAt, updatedAt
+```
+
+Factory : `EventDTO.from(Event event)`
+
+### CreateEventRequest
+Body de création (`POST /events`). Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
+
+| Champ | Validation |
+|---|---|
+| `title` | `@NotBlank` |
+| `location` | `@NotBlank` |
+| `startDate` | `@NotNull`, `@Future` |
+| `endDate` | `@NotNull` |
+| `category` | `@NotNull` |
+| `description`, `bannerUrl`, `capacity` | optionnels |
+
+### UpdateEventRequest
+Body de mise à jour partielle (`PUT /events/{id}`). Tous les champs optionnels.
+
+```
+title, description, location, startDate, endDate, category, bannerUrl, capacity, status
+```
 
 ### UpdateProfileRequest (record)
 Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
@@ -117,13 +158,12 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 
 ### Implémentées dans les entités JPA
 
-> Planifiées pour Sprint 2+ — non encore dans le code.
-
-| Enum Java | Valeurs | Sprint |
-|---|---|---|
-| `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 |
-| `AttendanceStatus` | `INTERESTED`, `ATTENDING` | Sprint 4 |
-| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 |
+| Enum Java | Valeurs | Sprint | État |
+|---|---|---|---|
+| `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
+| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
+| `AttendanceStatus` | `INTERESTED`, `ATTENDING` | Sprint 4 | Planifié |
+| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
@@ -163,29 +203,10 @@ Valeurs attendues pour `studyLevel` :
 
 ---
 
-## Migrations Flyway
+## Gestion du schéma
 
-**État actuel :** Flyway est configuré dans `pom.xml` mais **désactivé** en dev (`quarkus.flyway.migrate-at-start` commenté dans `application.properties`). Hibernate tourne en mode `update` qui génère/adapte le schéma automatiquement.
+Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).
 
-**Aucune migration Flyway n'existe** dans `src/main/resources/db/migration/`.
-
-### Convention pour les futures migrations
-
-```
-src/main/resources/db/migration/
-  V1__init_users.sql
-  V2__add_events.sql
-  V3__add_attendance_favorite.sql
-  ...
-```
-
-- Nommer : `V{N}__{description_snake_case}.sql`
-- **Ne jamais modifier** un fichier Flyway existant — toujours créer un nouveau
-- Même si Hibernate `update` absorbe les changements en dev, **toujours écrire la migration** pour la prod
-
-### Dette de migrations à anticiper
-
-Quand Flyway sera activé pour la prod, les migrations suivantes seront nécessaires :
-- `V1__init_users.sql` : table `users` avec tous ses champs actuels
-- `V2__init_events.sql` : table `events` minimale (id, title, description)
-- Migrations futures pour les entités planifiées (Attendance, Favorite, Notification, Report)
+- Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
+- Hibernate crée et met à jour les tables automatiquement au démarrage
+- Aucun fichier SQL de migration n'est utilisé ni requis
