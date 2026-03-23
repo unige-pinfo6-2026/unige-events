@@ -98,4 +98,34 @@ class CreateEventRequestTest {
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> "category".equals(v.getPropertyPath().toString())));
     }
+
+    @Test
+    void negativeCapacity_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.capacity = -1;
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "capacity".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void zeroCapacity_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.capacity = 0;
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream().anyMatch(v -> "capacity".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void nullCapacity_noViolation() {
+        CreateEventRequest req = validRequest();
+        req.capacity = null;
+
+        assertTrue(validator.validate(req).isEmpty());
+    }
 }

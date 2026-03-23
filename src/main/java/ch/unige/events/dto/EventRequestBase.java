@@ -4,6 +4,7 @@ import ch.unige.events.entity.EventCategory;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDateTime;
 
@@ -36,5 +37,6 @@ public abstract class EventRequestBase {
 
     public String bannerUrl;
 
+    @Positive
     public Integer capacity;
 }
