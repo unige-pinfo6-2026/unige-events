@@ -42,9 +42,9 @@ public class EventService {
 
         PanacheQuery<Event> query;
         if (conditions.isEmpty()) {
-            query = Event.findAll();
+            query = Event.find("order by startDate, id");
         } else {
-            query = Event.find(String.join(" AND ", conditions), params);
+            query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
         }
 
         return query.page(page, size).list().stream().map(EventDTO::from).toList();
@@ -52,7 +52,8 @@ public class EventService {
 
     @Transactional
     public EventDTO create(String auth0Id, CreateEventRequest request) {
-        User creator = User.findByAuth0Id(auth0Id).orElse(null);
+        User creator = User.findByAuth0Id(auth0Id)
+                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
 
         Event event = new Event();
         event.title = request.title;

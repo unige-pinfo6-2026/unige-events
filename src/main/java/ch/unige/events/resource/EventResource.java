@@ -10,6 +10,9 @@ import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -35,8 +38,8 @@ public class EventResource {
     @GET
     @PermitAll
     public List<EventDTO> getAll(
-            @QueryParam("page") @DefaultValue("0") int page,
-            @QueryParam("size") @DefaultValue("20") int size,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
             @QueryParam("status") EventStatus status,
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId) {
