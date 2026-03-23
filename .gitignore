@@ -49,3 +49,6 @@ nb-configuration.xml
 # Metals (VS Code Java/Scala language server)
 .metals/
 .bloop/
+
+# Claude
+.claude
