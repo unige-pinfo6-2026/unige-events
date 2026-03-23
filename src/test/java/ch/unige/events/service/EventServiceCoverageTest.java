@@ -122,14 +122,11 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void create_withUnknownUser_creatorIsNull() {
+    void create_withUnknownUser_throwsNotFoundException() {
         deleteAll();
 
         CreateEventRequest req = validCreateRequest();
-        EventDTO result = eventService.create("auth0|unknown", req);
-
-        assertNull(result.creatorId());
-        assertEquals("Test Event", result.title());
+        assertThrows(NotFoundException.class, () -> eventService.create("auth0|unknown", req));
     }
 
     // --- getById ---
