@@ -1,4 +1,4 @@
-package ch.unige.events.dto;
+package ch.unige.events.dto.user;
 
 import ch.unige.events.entity.User;
 
@@ -14,7 +14,7 @@ public record UserPublicResponse(
     List<String> interests,
     String avatarUrl
 ) {
-    public static UserPublicResponse fromUser(User user) {
+    public static UserPublicResponse from(User user) {
         return new UserPublicResponse(
                 user.id,
                 user.displayName,

@@ -1,6 +1,9 @@
 package ch.unige.events.resource;
 
 import ch.unige.events.dto.*;
+import ch.unige.events.dto.user.UpdateProfileRequest;
+import ch.unige.events.dto.user.UserProfileResponse;
+import ch.unige.events.dto.user.UserPublicResponse;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.UserService;
 import io.quarkus.oidc.UserInfo;
@@ -42,7 +45,7 @@ public class UserResource {
     @PermitAll
     public Response getProfile(@PathParam("id") UUID id) {
         User user = userService.getPublicProfile(id);
-        return Response.ok(UserPublicResponse.fromUser(user)).build();
+        return Response.ok(UserPublicResponse.from(user)).build();
     }
 
     @GET
@@ -82,7 +85,7 @@ public class UserResource {
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
         User user = userService.getOrCreateUser(auth0Id, userInfo.get());
-        return UserProfileResponse.fromUser(user);
+        return UserProfileResponse.from(user);
     }
 
     /**
@@ -185,6 +188,6 @@ public class UserResource {
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
-        return Response.ok(UserProfileResponse.fromUser(updated)).build();
+        return Response.ok(UserProfileResponse.from(updated)).build();
     }
 }

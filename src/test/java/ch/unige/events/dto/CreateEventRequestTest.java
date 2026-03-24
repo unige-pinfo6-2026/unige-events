@@ -1,5 +1,6 @@
 package ch.unige.events.dto;
 
+import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.entity.EventCategory;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;

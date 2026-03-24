@@ -1,6 +1,6 @@
 package ch.unige.events.service;
 
-import ch.unige.events.dto.UpdateProfileRequest;
+import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import io.quarkus.oidc.UserInfo;
 import io.quarkus.test.TestTransaction;

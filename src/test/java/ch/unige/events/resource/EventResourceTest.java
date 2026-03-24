@@ -1,7 +1,7 @@
 package ch.unige.events.resource;
 
-import ch.unige.events.dto.CreateEventRequest;
-import ch.unige.events.dto.UpdateEventRequest;
+import ch.unige.events.dto.event.CreateEventRequest;
+import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.service.EventServiceMock;

@@ -1,5 +1,6 @@
 package ch.unige.events.dto;
 
+import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.User;
 import org.junit.jupiter.api.Test;

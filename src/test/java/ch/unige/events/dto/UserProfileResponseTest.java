@@ -1,5 +1,6 @@
 package ch.unige.events.dto;
 
+import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.entity.User;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UserProfileResponseTest {
 
     @Test
-    void fromUserMapsAllFields() {
+    void fromMapsAllFields() {
         User user = new User();
         UUID id = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 19, 13, 15, 0);
@@ -33,7 +34,7 @@ class UserProfileResponseTest {
         user.profilePublic = true;
         user.createdAt = createdAt;
 
-        UserProfileResponse response = UserProfileResponse.fromUser(user);
+        UserProfileResponse response = UserProfileResponse.from(user);
 
         assertEquals(id, response.id());
         assertEquals("auth0|alice", response.auth0Id());

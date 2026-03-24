@@ -1,4 +1,4 @@
-package ch.unige.events.dto;
+package ch.unige.events.dto.user;
 
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

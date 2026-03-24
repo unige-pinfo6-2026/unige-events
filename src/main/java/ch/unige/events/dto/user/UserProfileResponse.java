@@ -1,4 +1,4 @@
-package ch.unige.events.dto;
+package ch.unige.events.dto.user;
 
 import ch.unige.events.entity.User;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -21,7 +21,7 @@ public record UserProfileResponse(
     boolean profilePublic,
     @Schema(readOnly = true) LocalDateTime createdAt
 ) {
-    public static UserProfileResponse fromUser(User user) {
+    public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.id,
                 user.auth0Id,

@@ -1,4 +1,4 @@
-package ch.unige.events.dto;
+package ch.unige.events.dto.event;
 
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
