@@ -481,18 +481,40 @@ paths:
     get:
       summary: Liste des événements
       description: |
-        Retourne tous les événements actifs.
-        **État actuel (Sprint 2) :** retourne un array brut `List<EventDTO>`.
-        **Cible (Sprint 2) :** migrer vers un objet paginé `{ content, page, size, total }` une fois la pagination implémentée côté backend.
-        Le frontend doit anticiper ce changement : ne pas hardcoder la consommation d'un array brut.
+        Retourne les événements avec pagination et filtres optionnels.
       operationId: getEvents
       tags: [events]
       security: []
-      # TODO: Sprint 2 — ajouter filtres ?category=, ?upcoming=true, pagination cursor-based
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/EventStatus'
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/EventCategory'
+        - name: organizerId
+          in: query
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: |
-            Liste des événements (array brut actuellement — sera paginé Sprint 2).
+          description: Liste des événements
           content:
             application/json:
               schema:
@@ -502,10 +524,11 @@ paths:
 
     post:
       summary: Créer un événement
-      description: Crée un nouvel événement.
+      description: Crée un nouvel événement. Authentification requise — le créateur est l'utilisateur connecté.
       operationId: createEvent
       tags: [events]
-      # TODO: Sprint 2 — sécuriser avec @Authenticated
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -519,8 +542,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventDTO'
+        '400':
+          description: Validation échouée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 2
   /events/{id}:
     get:
       summary: Détail d'un événement
@@ -540,17 +580,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventDTO'
         '404':
           description: Événement introuvable
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 2 — implémenter dans EventResource
 
     put:
-      summary: Modifier un événement (créateur ou admin)
+      summary: Modifier un événement (créateur uniquement) — mise à jour complète
       operationId: updateEvent
       tags: [events]
       security:
@@ -567,16 +606,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Event'
+              $ref: '#/components/schemas/UpdateEventRequest'
       responses:
         '200':
           description: Événement mis à jour
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Event'
+                $ref: '#/components/schemas/EventDTO'
+        '400':
+          description: Validation échouée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur ni admin
+          description: Pas le créateur
           content:
             application/json:
               schema:
@@ -587,10 +638,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 2 — implémenter dans EventResource
 
     delete:
-      summary: Soft-delete d'un événement (active = false)
+      summary: Annuler un événement — soft-delete (status → CANCELLED)
       operationId: deleteEvent
       tags: [events]
       security:
@@ -604,9 +654,15 @@ paths:
             format: int64
       responses:
         '204':
-          description: Événement désactivé (soft-delete)
+          description: Événement annulé (soft-delete, status = CANCELLED)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur ni admin
+          description: Pas le créateur
           content:
             application/json:
               schema:
@@ -617,7 +673,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 2 — implémenter dans EventResource
 
   # TODO: Sprint 3
   /events/search:

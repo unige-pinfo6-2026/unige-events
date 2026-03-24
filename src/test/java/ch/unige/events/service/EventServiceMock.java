@@ -1,0 +1,152 @@
+package ch.unige.events.service;
+
+import ch.unige.events.dto.event.CreateEventRequest;
+import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.dto.event.UpdateEventRequest;
+import ch.unige.events.entity.Event;
+import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.User;
+import io.quarkus.test.Mock;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotFoundException;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Mock
+@ApplicationScoped
+public class EventServiceMock extends EventService {
+
+    private final Map<Long, Event> eventsById = new ConcurrentHashMap<>();
+    private final AtomicLong idSequence = new AtomicLong(1);
+    public static volatile boolean forceForbiddenOnUpdate = false;
+    public static volatile boolean forceForbiddenOnDelete = false;
+
+    public void reset() {
+        eventsById.clear();
+        idSequence.set(1);
+        forceForbiddenOnUpdate = false;
+        forceForbiddenOnDelete = false;
+    }
+
+    public Event seedEvent(String creatorAuth0Id, String title) {
+        User creator = new User();
+        creator.id = UUID.randomUUID();
+        creator.auth0Id = creatorAuth0Id;
+
+        Event event = new Event();
+        event.id = idSequence.getAndIncrement();
+        event.title = title;
+        event.location = "Uni Mail";
+        event.startDate = LocalDateTime.now().plusDays(1);
+        event.endDate = LocalDateTime.now().plusDays(2);
+        event.category = EventCategory.ACADEMIC;
+        event.status = EventStatus.DRAFT;
+        event.creator = creator;
+        event.createdAt = LocalDateTime.now();
+        event.updatedAt = LocalDateTime.now();
+
+        eventsById.put(event.id, event);
+        return event;
+    }
+
+    @Override
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
+        return eventsById.values().stream()
+                .filter(e -> status == null || e.status == status)
+                .filter(e -> category == null || e.category == category)
+                .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
+                .map(EventDTO::from)
+                .toList();
+    }
+
+    @Override
+    public EventDTO create(String auth0Id, CreateEventRequest request) {
+        User creator = new User();
+        creator.id = UUID.randomUUID();
+        creator.auth0Id = auth0Id;
+
+        Event event = new Event();
+        event.id = idSequence.getAndIncrement();
+        event.title = request.title;
+        event.description = request.description;
+        event.location = request.location;
+        event.startDate = request.startDate;
+        event.endDate = request.endDate;
+        event.category = request.category;
+        event.bannerUrl = request.bannerUrl;
+        event.capacity = request.capacity;
+        event.status = EventStatus.DRAFT;
+        event.creator = creator;
+        event.createdAt = LocalDateTime.now();
+        event.updatedAt = LocalDateTime.now();
+
+        eventsById.put(event.id, event);
+        return EventDTO.from(event);
+    }
+
+    @Override
+    public EventDTO getById(Long id) {
+        Event event = eventsById.get(id);
+        if (event == null) {
+            throw new NotFoundException();
+        }
+        return EventDTO.from(event);
+    }
+
+    @Override
+    public EventDTO update(Long id, String auth0Id, UpdateEventRequest request) {
+        if (forceForbiddenOnUpdate) {
+            throw new ForbiddenException("Forbidden");
+        }
+        Event event = eventsById.get(id);
+        if (event == null) {
+            throw new NotFoundException();
+        }
+        boolean isCreator = event.creator != null
+                && event.creator.auth0Id != null
+                && event.creator.auth0Id.equals(auth0Id);
+        if (!isCreator) {
+            throw new ForbiddenException("Only the event creator can update this event");
+        }
+
+        event.title = request.title;
+        event.description = request.description;
+        event.location = request.location;
+        event.startDate = request.startDate;
+        event.endDate = request.endDate;
+        event.category = request.category;
+        event.bannerUrl = request.bannerUrl;
+        event.capacity = request.capacity;
+        if (request.status != null) {
+            event.status = request.status;
+        }
+        event.updatedAt = LocalDateTime.now();
+
+        return EventDTO.from(event);
+    }
+
+    @Override
+    public void delete(Long id, String auth0Id) {
+        if (forceForbiddenOnDelete) {
+            throw new ForbiddenException("Forbidden");
+        }
+        Event event = eventsById.get(id);
+        if (event == null) {
+            throw new NotFoundException();
+        }
+        boolean isCreator = event.creator != null
+                && event.creator.auth0Id != null
+                && event.creator.auth0Id.equals(auth0Id);
+        if (!isCreator) {
+            throw new ForbiddenException("Only the event creator can cancel this event");
+        }
+        event.status = EventStatus.CANCELLED;
+    }
+}

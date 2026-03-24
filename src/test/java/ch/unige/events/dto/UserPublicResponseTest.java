@@ -1,5 +1,6 @@
 package ch.unige.events.dto;
 
+import ch.unige.events.dto.user.UserPublicResponse;
 import ch.unige.events.entity.User;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class UserPublicResponseTest {
 
     @Test
-    void fromUserMapsPublicFields() {
+    void fromMapsPublicFields() {
         User user = new User();
         UUID id = UUID.randomUUID();
 
@@ -25,7 +26,7 @@ class UserPublicResponseTest {
         user.interests = List.of("AI, football");
         user.avatarUrl = "https://cdn.example.com/avatar.png";
 
-        UserPublicResponse response = UserPublicResponse.fromUser(user);
+        UserPublicResponse response = UserPublicResponse.from(user);
 
         assertEquals(id, response.id());
         assertEquals("Alice", response.displayName());

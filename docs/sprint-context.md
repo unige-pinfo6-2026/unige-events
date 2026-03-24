@@ -1,6 +1,6 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-03-21
+Dernière mise à jour : 2026-03-23
 
 ---
 
@@ -38,20 +38,20 @@ Dernière mise à jour : 2026-03-21
 
 - **Entité `Event`** : complète — `id` (Long, PK Panache), `title`, `description`, `location`, `startDate`, `endDate`, `category` (enum), `bannerUrl`, `capacity`, `status` (enum, default `DRAFT`), `createdAt`, `updatedAt`, `creator` (@ManyToOne LAZY → `User`).
 - **`EventDTO`** : record avec factory `EventDTO.from(Event)` — expose `creatorId` (UUID) sans relation JPA.
-- **`EventResource`** : `GET /events` → `List<EventDTO>`, `POST /events` → `EventDTO` (201) — **pas de sécurité encore, pas de pagination, pas de filtres**.
-- **`EventService`** : `getAll()` et `create(CreateEventRequest)` avec `@Transactional`.
-- **Tests** : `EventDTOTest` (unit), `EventResourceTest` (4 tests @QuarkusTest), `EventTest` (3 tests @QuarkusTest), `CreateEventRequestTest` (6 tests bean validation).
+- **`EventResource`** : CRUD complet — `GET /events` (paginé + filtres), `POST /events` (@Authenticated, creator lié), `GET /events/{id}`, `PUT /events/{id}` (créateur uniquement), `DELETE /events/{id}` (soft-delete, créateur uniquement). Constructor injection.
+- **`EventService`** : `getAll(page, size, status, category, organizerId)`, `create(auth0Id, request)`, `getById(id)`, `update(id, auth0Id, request)`, `delete(id, auth0Id)` avec `@Transactional`.
+- **Tests** : `EventDTOTest` (unit), `EventResourceTest` (16 tests @QuarkusTest avec `EventServiceMock`), `EventTest` (3 tests @QuarkusTest), `CreateEventRequestTest` (6 tests bean validation), `EventServiceMock` (mock in-memory).
 
 ### À faire dans ce sprint
 
 - [x] Enrichir `Event` avec tous les champs planifiés
 - [x] Créer un `EventDTO` (ne pas exposer l'entité directement)
 - [x] Écrire les tests `@QuarkusTest` pour `EventResource`
-- [ ] `POST /events` : sécuriser avec `@Authenticated`, lier `creator` à l'utilisateur connecté
-- [ ] `GET /events/{id}` : détail d'un événement
-- [ ] `PUT /events/{id}` : modification (créateur ou admin uniquement → 403 sinon)
-- [ ] `DELETE /events/{id}` : soft-delete (status → `CANCELLED`)
-- [ ] `GET /events` : pagination cursor-based, filtre `?category=`, `?upcoming=true`
+- [x] `POST /events` : sécuriser avec `@Authenticated`, lier `creator` à l'utilisateur connecté
+- [x] `GET /events/{id}` : détail d'un événement
+- [x] `PUT /events/{id}` : modification (créateur uniquement → 403 sinon)
+- [x] `DELETE /events/{id}` : soft-delete (status → `CANCELLED`)
+- [x] `GET /events` : pagination (`?page=`, `?size=`), filtres `?status=`, `?category=`, `?organizerId=`
 
 ---
 
@@ -126,6 +126,6 @@ Dernière mise à jour : 2026-03-21
 | Item | Priorité | Sprint cible |
 |---|---|---|
 | Schéma géré par Hibernate `update` — choix définitif | Info | Sprint 2 ✅ |
-| Sécuriser `POST /events` avec `@Authenticated` | Haute | Sprint 2 |
+| Sécuriser `POST /events` avec `@Authenticated` | Haute | Sprint 2 ✅ |
 | Remplacer exposition directe de l'entité `Event` par un DTO | ✅ Fait | Sprint 2 |
 | Tests unitaires sur `UserService` | Moyenne | Sprint 2 |

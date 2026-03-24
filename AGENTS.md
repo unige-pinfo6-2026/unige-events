@@ -101,3 +101,11 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 - Branche : `feature/SCRUM-XX-description`
 - 1 PR par tâche, review obligatoire avant merge sur main
 - Qualité : SonarCloud seuil 80% couverture (JaCoCo)
+
+# Requis analyse Sonar :
+- Minimum 80% de coverage sur le nouveau code
+- Maximum 3% de duplication sur le nouveau code
+- Security Rating : A
+- Security Review Rating : A
+- Reliability Rating : A
+- Maintainability Rating : A
