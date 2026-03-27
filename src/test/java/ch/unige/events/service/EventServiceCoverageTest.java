@@ -136,7 +136,7 @@ class EventServiceCoverageTest {
         persistUser("auth0|pub", "pub@example.com");
 
         CreateEventRequest req = validCreateRequest();
-        req.status = EventStatus.PUBLISHED;
+        req.setStatus(EventStatus.PUBLISHED);
         EventDTO result = eventService.create("auth0|pub", req);
 
         assertEquals(EventStatus.PUBLISHED, result.status());
@@ -149,7 +149,7 @@ class EventServiceCoverageTest {
         persistUser("auth0|draft", "draft@example.com");
 
         CreateEventRequest req = validCreateRequest();
-        req.status = null;
+        req.setStatus(null);
         EventDTO result = eventService.create("auth0|draft", req);
 
         assertEquals(EventStatus.DRAFT, result.status());

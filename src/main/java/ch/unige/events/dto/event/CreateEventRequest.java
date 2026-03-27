@@ -4,5 +4,8 @@ import ch.unige.events.entity.EventStatus;
 
 public class CreateEventRequest extends EventRequestBase {
     // Tous les champs et contraintes de validation sont hérités de EventRequestBase.
-    public EventStatus status;
+    private EventStatus status;
+
+    public EventStatus getStatus() { return status; }
+    public void setStatus(EventStatus status) { this.status = status; }
 }
