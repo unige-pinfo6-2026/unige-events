@@ -10,6 +10,7 @@ import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 
@@ -65,6 +66,9 @@ public class EventService {
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.creator = creator;
+        if (request.getStatus() == EventStatus.CANCELLED) {
+            throw new BadRequestException("CANCELLED is not a valid initial status");
+        }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
         return EventDTO.from(event);

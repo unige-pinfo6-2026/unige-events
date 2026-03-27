@@ -2,11 +2,15 @@ openapi: 3.0.3
 info:
   title: UNIGE Events API
   version: 1.0.0
-  description: API backend de la plateforme UNIGE Events (Groupe 6 — UNIGE 2026)
+  description: |
+    API REST du backend UNIGE Events (Java 21 / Quarkus 3.32).
+    Source de vérité : unige-events-api/docs/openapi/openapi.yaml
+    Ce fichier est synchronisé avec le repo frontend. Mettre à jour les deux repos ensemble.
+    Tous les champs sont en camelCase. Les booléens n'ont pas de préfixe is.
 
 servers:
   - url: /api
-    description: Via Nginx reverse proxy (dev et prod)
+    description: Proxié par Nginx (prod) ou Vite (dev)
 
 security:
   - BearerAuth: []
@@ -21,9 +25,9 @@ components:
   schemas:
     # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
 
-    UserProfileResponse:
+    User:
       type: object
-      description: Profil complet de l'utilisateur authentifié
+      description: Profil complet de l'utilisateur authentifié (UserProfileResponse backend)
       properties:
         id:
           type: string
@@ -43,10 +47,10 @@ components:
           type: string
           nullable: true
         faculty:
-          type: string
+          $ref: '#/components/schemas/Faculty'
           nullable: true
         studyLevel:
-          type: string
+          $ref: '#/components/schemas/StudyLevel'
           nullable: true
         bio:
           type: string
@@ -93,10 +97,10 @@ components:
           type: string
           nullable: true
         faculty:
-          type: string
+          $ref: '#/components/schemas/Faculty'
           nullable: true
         studyLevel:
-          type: string
+          $ref: '#/components/schemas/StudyLevel'
           nullable: true
         bio:
           type: string
@@ -119,16 +123,14 @@ components:
           maxLength: 120
           nullable: true
         faculty:
-          type: string
-          maxLength: 120
+          $ref: '#/components/schemas/Faculty'
           nullable: true
-          # Valeurs attendues : SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI
+          # Valeurs : SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI
           # Backend stocke en String — validation enum côté frontend uniquement pour l'instant
         studyLevel:
-          type: string
-          maxLength: 120
+          $ref: '#/components/schemas/StudyLevel'
           nullable: true
-          # Valeurs attendues : BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF
+          # Valeurs : BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF
         bio:
           type: string
           maxLength: 2000
@@ -147,75 +149,9 @@ components:
           type: boolean
           nullable: true
 
-    EventCategory:
-      type: string
-      description: Catégorie d'un événement
-      enum: [ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER]
-
-    EventStatus:
-      type: string
-      description: Statut de publication d'un événement
-      enum: [DRAFT, PUBLISHED, CANCELLED]
-
     Event:
       type: object
-      description: Entité événement complète (Sprint 2)
-      properties:
-        id:
-          type: integer
-          format: int64
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        location:
-          type: string
-        startDate:
-          type: string
-          format: date-time
-        endDate:
-          type: string
-          format: date-time
-        category:
-          $ref: '#/components/schemas/EventCategory'
-        bannerUrl:
-          type: string
-          format: uri
-          nullable: true
-        creatorId:
-          type: string
-          format: uuid
-        status:
-          $ref: '#/components/schemas/EventStatus'
-        capacity:
-          type: integer
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-          nullable: true
-      example:
-        id: 1
-        title: "Conférence IA & Société"
-        description: "Présentation des dernières avancées en IA"
-        location: "Uni Mail, Genève"
-        startDate: "2026-04-15T14:00:00"
-        endDate: "2026-04-15T17:00:00"
-        category: "ACADEMIC"
-        bannerUrl: null
-        creatorId: "550e8400-e29b-41d4-a716-446655440000"
-        status: "PUBLISHED"
-        capacity: 200
-        createdAt: "2026-03-21T10:00:00"
-        updatedAt: "2026-03-21T10:00:00"
-
-    EventDTO:
-      type: object
-      description: Représentation d'un événement retourné par l'API
+      description: Représentation d'un événement retourné par l'API (EventDTO backend)
       properties:
         id:
           type: integer
@@ -284,32 +220,33 @@ components:
           type: integer
           nullable: true
         status:
-          allOf:
-            - $ref: '#/components/schemas/EventStatus'
+          type: string
+          enum: [DRAFT, PUBLISHED]
           nullable: true
-          description: Statut initial de l'événement. Par défaut DRAFT si absent.
+          description: Statut initial de l'événement. DRAFT ou PUBLISHED uniquement. Par défaut DRAFT si absent.
 
     UpdateEventRequest:
       type: object
-      description: Payload de mise à jour partielle d'un événement — tous les champs sont optionnels
+      description: >
+        Payload de remplacement complet d'un événement (PUT sémantique).
+        title, location, startDate, endDate et category sont obligatoires —
+        ils héritent des contraintes @NotBlank/@NotNull de EventRequestBase.
+        bannerUrl, capacity et status sont optionnels.
+      required: [title, location, startDate, endDate, category]
       properties:
         title:
           type: string
-          nullable: true
         description:
           type: string
           nullable: true
         location:
           type: string
-          nullable: true
         startDate:
           type: string
           format: date-time
-          nullable: true
         endDate:
           type: string
           format: date-time
-          nullable: true
         category:
           allOf:
             - $ref: '#/components/schemas/EventCategory'
@@ -326,15 +263,127 @@ components:
             - $ref: '#/components/schemas/EventStatus'
           nullable: true
 
-    # TODO: Sprint 4 — AttendanceStatus enum
-    # AttendanceStatus:
-    #   type: string
-    #   enum: [INTERESTED, ATTENDING]
+    Attendance:
+      type: object
+      # TODO: Sprint 4 — à implémenter côté backend
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        eventId:
+          type: string
+        status:
+          $ref: '#/components/schemas/AttendanceStatus'
 
-    # TODO: Sprint 6 — ReportStatus enum
-    # ReportStatus:
-    #   type: string
-    #   enum: [PENDING, REVIEWED, DISMISSED]
+    AttendanceRequest:
+      type: object
+      # TODO: Sprint 4
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/AttendanceStatus'
+
+    Notification:
+      type: object
+      # TODO: Sprint 7 — à implémenter côté backend
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        eventId:
+          type: string
+        type:
+          type: string
+          enum: [EVENT_UPDATED, EVENT_CANCELLED, EVENT_REMINDER]
+        message:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Report:
+      type: object
+      # TODO: Sprint 6 — à implémenter côté backend
+      properties:
+        id:
+          type: string
+        reporterId:
+          type: string
+        eventId:
+          type: string
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        createdAt:
+          type: string
+          format: date-time
+
+    ReportRequest:
+      type: object
+      # TODO: Sprint 6
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    EventStats:
+      type: object
+      # TODO: Sprint 5 — à implémenter côté backend
+      properties:
+        views:
+          type: integer
+        interestedCount:
+          type: integer
+        attendingCount:
+          type: integer
+        checkInCount:
+          type: integer
+
+    PagedEvents:
+      type: object
+      # TODO: Sprint 3 — à décider avec le frontend si on migre GET /events vers ce format
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+
+    Faculty:
+      type: string
+      enum: [SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI]
+
+    StudyLevel:
+      type: string
+      enum: [BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF]
+
+    EventCategory:
+      type: string
+      description: Catégorie d'un événement
+      enum: [ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER]
+
+    EventStatus:
+      type: string
+      description: Statut de publication d'un événement
+      enum: [DRAFT, PUBLISHED, CANCELLED]
+
+    AttendanceStatus:
+      type: string
+      enum: [INTERESTED, ATTENDING]
+
+    ReportStatus:
+      type: string
+      enum: [PENDING, REVIEWED, DISMISSED]
 
     ApiErrorResponse:
       type: object
@@ -386,7 +435,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfileResponse'
+                $ref: '#/components/schemas/User'
         '401':
           description: Token absent, invalide ou claim email manquant
           content:
@@ -416,7 +465,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfileResponse'
+                $ref: '#/components/schemas/User'
         '400':
           description: Validation échouée (body malformé ou contrainte violée)
           content:
@@ -482,11 +531,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /users/me/favorites:
+    get:
+      summary: Favoris de l'utilisateur connecté
+      operationId: getMyFavorites
+      tags: [users, favorites]
+      security:
+        - BearerAuth: []
+      # TODO: Sprint 4 — à implémenter côté backend
+      responses:
+        '200':
+          description: Événements favoris (array brut — pas de pagination pour l'instant)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+
   /events:
     get:
       summary: Liste des événements
-      description: |
-        Retourne les événements avec pagination et filtres optionnels.
+      description: Retourne les événements avec pagination et filtres optionnels.
       operationId: getEvents
       tags: [events]
       security: []
@@ -519,13 +585,13 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Liste des événements
+          description: Liste des événements (array brut)
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/EventDTO'
+                  $ref: '#/components/schemas/Event'
 
     post:
       summary: Créer un événement
@@ -546,7 +612,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventDTO'
+                $ref: '#/components/schemas/Event'
         '400':
           description: Validation échouée
           content:
@@ -565,6 +631,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/search:
+    get:
+      summary: Recherche full-text d'événements
+      operationId: searchEvents
+      tags: [events]
+      security: []
+      # TODO: Sprint 3 — à implémenter dans EventResource
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/EventCategory'
+        - name: faculty
+          in: query
+          schema:
+            $ref: '#/components/schemas/Faculty'
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Résultats filtrés (array brut — pas de pagination pour l'instant)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
 
   /events/{id}:
     get:
@@ -585,7 +691,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventDTO'
+                $ref: '#/components/schemas/Event'
         '404':
           description: Événement introuvable
           content:
@@ -618,7 +724,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventDTO'
+                $ref: '#/components/schemas/Event'
         '400':
           description: Validation échouée
           content:
@@ -679,46 +785,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 3
-  /events/search:
-    get:
-      summary: Recherche d'événements avec filtres
-      operationId: searchEvents
+  /events/{id}/image:
+    post:
+      summary: Upload de la bannière d'un événement (créateur uniquement)
+      operationId: uploadEventImage
       tags: [events]
-      security: []
+      # TODO: SCRUM-107 (Antoine Maendly, Sprint 2) — endpoint pas encore implémenté côté backend
+      security:
+        - BearerAuth: []
       parameters:
-        - name: q
-          in: query
+        - name: id
+          in: path
+          required: true
           schema:
-            type: string
-        - name: category
-          in: query
-          schema:
-            type: string
-        - name: faculty
-          in: query
-          schema:
-            type: string
-        - name: dateFrom
-          in: query
-          schema:
-            type: string
-            format: date
-        - name: dateTo
-          in: query
-          schema:
-            type: string
-            format: date
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
         '200':
-          description: Résultats filtrés
+          description: Bannière uploadée — retourne l'événement mis à jour
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Event'
-      # TODO: Sprint 3 — implémenter dans EventResource
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Fichier invalide (type MIME non supporté)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Pas le créateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   # TODO: Sprint 4
   /events/{id}/attend:
@@ -735,16 +845,26 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        # TODO: Sprint 4 — AttendanceRequest { status: INTERESTED | ATTENDING }
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceRequest'
       responses:
         '200':
           description: Participation enregistrée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
         '409':
           description: Déjà inscrit
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 4
 
     delete:
       summary: Se désinscrire d'un événement
@@ -762,7 +882,30 @@ paths:
       responses:
         '204':
           description: Désinscription effectuée
-      # TODO: Sprint 4
+
+  /events/{id}/attendees:
+    get:
+      summary: Liste des participants à un événement (profils publics uniquement)
+      operationId: getEventAttendees
+      tags: [events, attendance]
+      security: []
+      # TODO: Sprint 4 — à implémenter côté backend
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Liste des participants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPublicResponse'
 
   # TODO: Sprint 4
   /events/{id}/favorite:
@@ -782,7 +925,6 @@ paths:
       responses:
         '200':
           description: Ajouté aux favoris
-      # TODO: Sprint 4
 
     delete:
       summary: Retirer un événement des favoris
@@ -800,26 +942,6 @@ paths:
       responses:
         '204':
           description: Retiré des favoris
-      # TODO: Sprint 4
-
-  # TODO: Sprint 4
-  /users/me/favorites:
-    get:
-      summary: Favoris de l'utilisateur connecté
-      operationId: getMyFavorites
-      tags: [users, favorites]
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Liste des événements favoris
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Event'
-      # TODO: Sprint 4
 
   # TODO: Sprint 5
   /events/{id}/stats:
@@ -839,13 +961,16 @@ paths:
       responses:
         '200':
           description: Statistiques de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventStats'
         '403':
           description: Pas le créateur ni admin
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 5
 
   # TODO: Sprint 6
   /events/{id}/report:
@@ -862,6 +987,11 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
       responses:
         '200':
           description: Signalement enregistré
@@ -871,26 +1001,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 6
-
-  # TODO: Sprint 6
-  /admin/reports:
-    get:
-      summary: Liste des signalements — admin uniquement
-      operationId: getReports
-      tags: [admin]
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Liste des signalements
-        '403':
-          description: Accès refusé (non admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-      # TODO: Sprint 6
 
   # TODO: Sprint 7
   /events/{id}/duplicate:
@@ -914,7 +1024,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Event'
-      # TODO: Sprint 7
+
+  # TODO: Sprint 6
+  /admin/reports:
+    get:
+      summary: Liste des signalements — admin uniquement
+      operationId: getReports
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Liste des signalements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+        '403':
+          description: Accès refusé (non admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/reports/{id}:
+    put:
+      summary: Traiter un signalement (dismiss ou supprimer l'événement)
+      operationId: handleReport
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      # TODO: Sprint 6
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [DISMISS, REMOVE_EVENT]
+      responses:
+        '200':
+          description: Signalement traité
+        '403':
+          description: Non autorisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/events/{id}/feature:
+    put:
+      summary: Mettre en avant un événement — admin uniquement
+      operationId: featureEvent
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      # TODO: Sprint 6
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Événement mis en avant
+        '403':
+          description: Non autorisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   # TODO: Sprint 7
   /notifications:
@@ -927,7 +1117,12 @@ paths:
       responses:
         '200':
           description: Liste des notifications
-      # TODO: Sprint 7
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
 
   /notifications/{id}/read:
     put:
@@ -941,9 +1136,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         '200':
           description: Notification marquée comme lue
-      # TODO: Sprint 7

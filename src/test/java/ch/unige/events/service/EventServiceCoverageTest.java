@@ -12,6 +12,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
@@ -153,6 +154,18 @@ class EventServiceCoverageTest {
         EventDTO result = eventService.create("auth0|draft", req);
 
         assertEquals(EventStatus.DRAFT, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withCancelledStatus_throwsBadRequest() {
+        deleteAll();
+        persistUser("auth0|cancelled", "cancelled@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.CANCELLED);
+
+        assertThrows(BadRequestException.class, () -> eventService.create("auth0|cancelled", req));
     }
 
     // --- getById ---
