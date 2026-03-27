@@ -52,6 +52,7 @@ Dernière mise à jour : 2026-03-23
 - [x] `PUT /events/{id}` : modification (créateur uniquement → 403 sinon)
 - [x] `DELETE /events/{id}` : soft-delete (status → `CANCELLED`)
 - [x] `GET /events` : pagination (`?page=`, `?size=`), filtres `?status=`, `?category=`, `?organizerId=`
+- [x] `POST /events` : création directement en `PUBLISHED` (champ `status` optionnel dans `CreateEventRequest`, défaut `DRAFT`)
 
 ---
 

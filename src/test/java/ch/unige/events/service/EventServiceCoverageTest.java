@@ -12,6 +12,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
@@ -127,6 +128,44 @@ class EventServiceCoverageTest {
 
         CreateEventRequest req = validCreateRequest();
         assertThrows(NotFoundException.class, () -> eventService.create("auth0|unknown", req));
+    }
+
+    @Test
+    @TestTransaction
+    void create_withPublishedStatus_persistsPublished() {
+        deleteAll();
+        persistUser("auth0|pub", "pub@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.PUBLISHED);
+        EventDTO result = eventService.create("auth0|pub", req);
+
+        assertEquals(EventStatus.PUBLISHED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withoutStatus_defaultsToDraft() {
+        deleteAll();
+        persistUser("auth0|draft", "draft@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(null);
+        EventDTO result = eventService.create("auth0|draft", req);
+
+        assertEquals(EventStatus.DRAFT, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withCancelledStatus_throwsBadRequest() {
+        deleteAll();
+        persistUser("auth0|cancelled", "cancelled@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.CANCELLED);
+
+        assertThrows(BadRequestException.class, () -> eventService.create("auth0|cancelled", req));
     }
 
     // --- getById ---
