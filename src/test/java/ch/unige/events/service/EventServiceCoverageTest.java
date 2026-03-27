@@ -129,6 +129,32 @@ class EventServiceCoverageTest {
         assertThrows(NotFoundException.class, () -> eventService.create("auth0|unknown", req));
     }
 
+    @Test
+    @TestTransaction
+    void create_withPublishedStatus_persistsPublished() {
+        deleteAll();
+        persistUser("auth0|pub", "pub@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.status = EventStatus.PUBLISHED;
+        EventDTO result = eventService.create("auth0|pub", req);
+
+        assertEquals(EventStatus.PUBLISHED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withoutStatus_defaultsToDraft() {
+        deleteAll();
+        persistUser("auth0|draft", "draft@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.status = null;
+        EventDTO result = eventService.create("auth0|draft", req);
+
+        assertEquals(EventStatus.DRAFT, result.status());
+    }
+
     // --- getById ---
 
     @Test

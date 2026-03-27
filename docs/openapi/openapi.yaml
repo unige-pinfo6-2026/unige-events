@@ -283,6 +283,11 @@ components:
         capacity:
           type: integer
           nullable: true
+        status:
+          allOf:
+            - $ref: '#/components/schemas/EventStatus'
+          nullable: true
+          description: Statut initial de l'événement. Par défaut DRAFT si absent.
 
     UpdateEventRequest:
       type: object

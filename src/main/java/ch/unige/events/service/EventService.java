@@ -65,6 +65,7 @@ public class EventService {
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.creator = creator;
+        event.status = request.status != null ? request.status : EventStatus.DRAFT;
         event.persist();
         return EventDTO.from(event);
     }
