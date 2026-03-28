@@ -91,7 +91,7 @@ jobs:
         run: npm run test:coverage
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v7
+        uses: SonarSource/sonarqube-scan-action@v6
         with:
           projectBaseDir: frontend
         env:

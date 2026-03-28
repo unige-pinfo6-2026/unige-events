@@ -5,7 +5,7 @@ services:
     image: mcr.microsoft.com/devcontainers/base:ubuntu
     command: sleep infinity
     volumes:
-      - .:/workspace:cached
+      - ..:/workspace:cached
     restart: on-failure
     environment:
       DB_HOST: db
