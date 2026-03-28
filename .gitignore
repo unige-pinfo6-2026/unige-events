@@ -1,1 +1,31 @@
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# IntelliJ
+.idea
+*.ipr
+*.iml
+*.iws
+
+# NetBeans
+nb-configuration.xml
+
+# Visual Studio Code
+.vscode
+.factorypath
+
+# OSX
+.DS_Store
+
+# Local environment
 .env
+
+# Metals (VS Code Java/Scala language server)
+.metals/
+.bloop/
+
+# Claude
+.claude
