@@ -2,23 +2,41 @@
 
 Centralized event platform for the UNIGE community : discover, create and manage university events.
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=alert_status&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=coverage&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=bugs&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=code_smells&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=duplicated_lines_density&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=ncloc&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=reliability_rating&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=security_rating&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=sqale_rating&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=vulnerabilities&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events&metric=sqale_index&token=2b5a50d0d86698b04d4d626b4887a57750f003f8)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events)
-
 ![Bannière UNIGE](./docs/assets/unige_banner.png)
+
+## Backend
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=alert_status&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=coverage&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=bugs&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=code_smells&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=duplicated_lines_density&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=ncloc&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=reliability_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=security_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=sqale_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=vulnerabilities&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=sqale_index&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+
+## Frontend
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=alert_status&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=coverage&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=bugs&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=code_smells&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=duplicated_lines_density&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=ncloc&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=reliability_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=security_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=sqale_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=vulnerabilities&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
+
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=sqale_index&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
 
 ## Group 6
 - [Elie Bussod](https://github.com/nexiumito)
