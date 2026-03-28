@@ -1,0 +1,60 @@
+#!/bin/bash
+# Hook pre-commit — vérifie la cohérence documentation et les conventions
+
+CHANGED=$(git diff --cached --name-only)
+
+needs_doc_update=false
+message=""
+
+# Vérifie le snake_case dans les types TypeScript (convention interdite)
+type_files=$(echo "$CHANGED" | grep -E "src/types/.+\.ts$")
+if [ -n "$type_files" ]; then
+  for f in $type_files; do
+    if git show ":$f" 2>/dev/null | grep -qE "^\s+[a-z]+_[a-z]+[?:]"; then
+      echo ""
+      echo "  ✗ snake_case détecté dans les types TypeScript : $f"
+      echo "  L'API backend retourne du camelCase. Utilise displayName, startDate, creatorId, etc."
+      exit 1
+    fi
+    # Vérifie les booléens préfixés is (le backend ne les préfixe pas)
+    if git show ":$f" 2>/dev/null | grep -qE "is[A-Z][a-zA-Z]+[?:]"; then
+      echo ""
+      echo "  ⚠  Champ préfixé 'is' détecté dans $f"
+      echo "  Le backend retourne 'active', 'featured', 'admin', 'read', 'profilePublic' — pas 'isActive', etc."
+      echo "  Vérifie docs/openapi/openapi.yaml pour les noms exacts."
+    fi
+  done
+fi
+
+if echo "$CHANGED" | grep -qE "src/(pages|components)/.+\.(tsx|ts)$"; then
+  needs_doc_update=true
+  message="${message}\n  ⚠  Composant ou page modifié — vérifier docs/components.md"
+fi
+
+if echo "$CHANGED" | grep -qE "src/types/.+\.ts$"; then
+  needs_doc_update=true
+  message="${message}\n  ⚠  Types modifiés — vérifier docs/types.md (cohérence avec openapi.yaml)"
+fi
+
+if echo "$CHANGED" | grep -qE "src/App\.tsx$|AppRouter\.tsx$|router\.tsx$"; then
+  needs_doc_update=true
+  message="${message}\n  ⚠  Router modifié — vérifier docs/architecture.md (table de routage)"
+fi
+
+if [ "$needs_doc_update" = true ]; then
+  echo ""
+  echo "📚 Documentation à vérifier dans ce commit :"
+  echo -e "$message"
+  echo ""
+
+  doc_files_in_commit=$(echo "$CHANGED" | grep -cE "^docs/")
+  if [ "$doc_files_in_commit" -eq 0 ]; then
+    echo "  ✗ Aucun fichier docs/ dans ce commit alors que du code a changé."
+    echo "  Mets à jour la documentation ou utilise --no-verify pour forcer."
+    exit 1
+  else
+    echo "  ✓ Fichiers docs/ détectés dans le commit — merci !"
+  fi
+fi
+
+exit 0

@@ -1,0 +1,397 @@
+import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
+import axios from 'axios'
+import { createEvent, updateEvent, uploadEventImage } from '../services/eventApi'
+import { EventCategory, EventStatus } from '../types'
+import type {
+  CreateEventRequest,
+  Event,
+  EventCategory as EventCategoryType,
+  EventStatus as EventStatusType,
+  UpdateEventRequest,
+} from '../types'
+
+export interface EventFormValues {
+  title: string
+  description: string
+  location: string
+  startDate: string
+  endDate: string
+  category: '' | EventCategoryType
+  capacity: string
+  status: EventStatusType
+}
+
+export interface EventFormErrors {
+  title?: string
+  location?: string
+  startDate?: string
+  endDate?: string
+  category?: string
+  capacity?: string
+  image?: string
+}
+
+interface UseEventFormOptions {
+  mode: 'create' | 'edit'
+  initialEvent?: Event | null
+  onSuccess?: (event: Event) => void
+  onError?: (message: string) => void
+}
+
+interface UseEventFormResult {
+  values: EventFormValues
+  errors: EventFormErrors
+  submitting: boolean
+  imagePreview: string | null
+  selectedImageName: string | null
+  setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
+  handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
+}
+
+interface ValidationErrorDetail {
+  field?: string | null
+  message: string
+}
+
+const DEFAULT_VALUES: EventFormValues = {
+  title: '',
+  description: '',
+  location: '',
+  startDate: '',
+  endDate: '',
+  category: '',
+  capacity: '',
+  status: EventStatus.DRAFT,
+}
+
+const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
+  'title',
+  'location',
+  'startDate',
+  'endDate',
+  'category',
+  'capacity',
+])
+
+const FIELD_LABELS: Record<string, string> = {
+  title: 'Le titre',
+  description: 'La description',
+  location: 'Le lieu',
+  startDate: 'La date de début',
+  endDate: 'La date de fin',
+  category: 'La catégorie',
+  capacity: 'La capacité',
+  status: 'Le statut',
+  bannerUrl: 'La bannière',
+}
+
+function toLocalDateTimeInput(dateTime: string): string {
+  const date = new Date(dateTime)
+  const offset = date.getTimezoneOffset()
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16)
+}
+
+function toApiDateTime(dateTime: string): string {
+  return new Date(dateTime).toISOString()
+}
+
+function toFormValues(event?: Event | null): EventFormValues {
+  if (!event) {
+    return { ...DEFAULT_VALUES }
+  }
+
+  return {
+    title: event.title,
+    description: event.description ?? '',
+    location: event.location,
+    startDate: toLocalDateTimeInput(event.startDate),
+    endDate: toLocalDateTimeInput(event.endDate),
+    category: event.category,
+    capacity: event.capacity?.toString() ?? '',
+    status: event.status,
+  }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isProbablyFrenchMessage(message: string): boolean {
+  return /[àâçéèêëîïôûùüÿœ]/i.test(message) || /\b(le|la|les|un|une|des|est|sont|doit|requise|invalide|événement)\b/i.test(message)
+}
+
+function isTechnicalValidationMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase()
+  return normalized === 'post validation error'
+    || normalized === 'put validation error'
+    || normalized === 'validation error'
+    || normalized === 'validation failed'
+    || normalized === 'constraint violation'
+    || normalized.includes('validation')
+    || normalized.includes('constraint')
+}
+
+function getCurrentMinute(): Date {
+  const now = new Date()
+  now.setSeconds(0, 0)
+  return now
+}
+
+function getValidationDetails(error: unknown): ValidationErrorDetail[] {
+  if (!axios.isAxiosError(error) || !isObject(error.response?.data)) {
+    return []
+  }
+
+  const { details } = error.response.data
+  if (!Array.isArray(details)) {
+    return []
+  }
+
+  return details.flatMap((detail) => {
+    if (!isObject(detail) || typeof detail.message !== 'string' || !detail.message.trim()) {
+      return []
+    }
+
+    return [{
+      field: typeof detail.field === 'string' ? detail.field : null,
+      message: detail.message.trim(),
+    }]
+  })
+}
+
+function localizeValidationDetail({ field, message }: ValidationErrorDetail): string {
+  const normalized = message.toLowerCase()
+  const fieldLabel = field ? FIELD_LABELS[field] : null
+
+  if (normalized === 'must not be blank' || normalized === 'must not be null') {
+    return fieldLabel ? fieldLabel + ' est requis.' : 'Ce champ est requis.'
+  }
+
+  if (normalized.includes('must be in the future') || normalized.includes('must be a future date')) {
+    return fieldLabel ? fieldLabel + ' doit être dans le futur.' : 'La date doit être dans le futur.'
+  }
+
+  if (field === 'endDate' && normalized.includes('after')) {
+    return 'La date de fin doit être postérieure à la date de début.'
+  }
+
+  if (normalized.includes('must be greater than 0')) {
+    return fieldLabel ? fieldLabel + ' doit être supérieure à 0.' : 'La valeur doit être supérieure à 0.'
+  }
+
+  if (normalized.includes('must be greater than or equal to 1')) {
+    return fieldLabel ? fieldLabel + ' doit être supérieure ou égale à 1.' : 'La valeur doit être supérieure ou égale à 1.'
+  }
+
+  if (isProbablyFrenchMessage(message)) {
+    return message
+  }
+
+  return fieldLabel ? fieldLabel + ' : ' + message : message
+}
+
+function getApiErrorMessage(error: unknown, mode: 'create' | 'edit'): string {
+  const details = getValidationDetails(error)
+  if (details.length > 0) {
+    return details.map(localizeValidationDetail).join(' ')
+  }
+
+  if (axios.isAxiosError(error)) {
+    const rawMessage = error.response?.data?.message
+    if (typeof rawMessage === 'string' && rawMessage.trim()) {
+      if (isTechnicalValidationMessage(rawMessage)) {
+        return 'La validation de l\'événement a échoué. Vérifiez les informations saisies.'
+      }
+
+      if (isProbablyFrenchMessage(rawMessage)) {
+        return rawMessage.trim()
+      }
+    }
+  }
+
+  return mode === 'create'
+    ? 'La création de l\'événement a échoué. Veuillez réessayer.'
+    : 'La mise à jour de l\'événement a échoué. Veuillez réessayer.'
+}
+
+export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEventFormOptions): UseEventFormResult {
+  const [values, setValues] = useState<EventFormValues>(() => toFormValues(initialEvent))
+  const [errors, setErrors] = useState<EventFormErrors>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(initialEvent?.bannerUrl ?? null)
+  const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    setValues(toFormValues(initialEvent))
+    setImagePreview(initialEvent?.bannerUrl ?? null)
+    setSelectedImageName(null)
+    setImageFile(null)
+    setErrors({})
+  }, [initialEvent])
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+    }
+  }, [])
+
+  function setFieldValue<K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) {
+    setValues((current) => ({ ...current, [field]: value }))
+
+    if (VALIDATABLE_FIELDS.has(field as keyof EventFormErrors)) {
+      setErrors((current) => ({ ...current, [field]: undefined }))
+    }
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setErrors((current) => ({ ...current, image: 'Le fichier doit être une image.' }))
+      return
+    }
+
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+    }
+
+    const previewUrl = URL.createObjectURL(file)
+    objectUrlRef.current = previewUrl
+
+    setImageFile(file)
+    setSelectedImageName(file.name)
+    setImagePreview(previewUrl)
+    setErrors((current) => ({ ...current, image: undefined }))
+  }
+
+  function validate(): boolean {
+    const nextErrors: EventFormErrors = {}
+
+    if (!values.title.trim()) {
+      nextErrors.title = 'Le titre est requis.'
+    }
+
+    if (!values.location.trim()) {
+      nextErrors.location = 'Le lieu est requis.'
+    }
+
+    if (!values.startDate) {
+      nextErrors.startDate = 'La date de début est requise.'
+    }
+
+    if (!values.endDate) {
+      nextErrors.endDate = 'La date de fin est requise.'
+    }
+
+    if (!values.category) {
+      nextErrors.category = 'La catégorie est requise.'
+    }
+
+    if (values.startDate && values.endDate) {
+      const startDate = new Date(values.startDate)
+      const endDate = new Date(values.endDate)
+
+      if (Number.isNaN(startDate.getTime())) {
+        nextErrors.startDate = 'La date de début est invalide.'
+      }
+
+      if (Number.isNaN(endDate.getTime())) {
+        nextErrors.endDate = 'La date de fin est invalide.'
+      }
+
+      if (!nextErrors.startDate && startDate < getCurrentMinute()) {
+        nextErrors.startDate = 'La date de début doit être postérieure à la date et à l\'heure actuelles.'
+      }
+
+      if (!nextErrors.startDate && !nextErrors.endDate && endDate <= startDate) {
+        nextErrors.endDate = 'La date de fin doit être postérieure à la date de début.'
+      }
+    }
+
+    if (values.capacity.trim()) {
+      const capacity = Number(values.capacity)
+      if (!Number.isInteger(capacity) || capacity <= 0) {
+        nextErrors.capacity = 'La capacité doit être un entier strictement positif.'
+      }
+    }
+
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  async function submitForm() {
+    if (!validate()) {
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      const payload: CreateEventRequest = {
+        title: values.title.trim(),
+        description: values.description.trim() || undefined,
+        location: values.location.trim(),
+        startDate: toApiDateTime(values.startDate),
+        endDate: toApiDateTime(values.endDate),
+        category: values.category || EventCategory.OTHER,
+        capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
+        status: values.status,
+      }
+
+      let savedEvent: Event
+
+      if (mode === 'create') {
+        savedEvent = await createEvent(payload)
+      } else {
+        if (!initialEvent) {
+          throw new Error('Missing event for edit mode')
+        }
+
+        const updatePayload: UpdateEventRequest = {
+          ...payload,
+          title: payload.title,
+          location: payload.location,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          category: payload.category,
+          bannerUrl: initialEvent.bannerUrl,
+        }
+
+        savedEvent = await updateEvent(initialEvent.id, updatePayload)
+      }
+
+      if (imageFile) {
+        savedEvent = await uploadEventImage(savedEvent.id, imageFile)
+      }
+
+      onSuccess?.(savedEvent)
+    } catch (error) {
+      onError?.(getApiErrorMessage(error, mode))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await submitForm()
+  }
+
+  return {
+    values,
+    errors,
+    submitting,
+    imagePreview,
+    selectedImageName,
+    setFieldValue,
+    handleImageChange,
+    handleSubmit,
+  }
+}

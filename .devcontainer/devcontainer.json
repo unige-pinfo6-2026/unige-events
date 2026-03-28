@@ -1,5 +1,5 @@
 {
-    "name": "UNIGE Events API",
+    "name": "UNIGE Events",
 	"dockerComposeFile": "../docker-compose.yml",
 	"service": "app",
 	"workspaceFolder": "/workspace",
@@ -9,12 +9,12 @@
 			"version": "21"
 		},
 		"ghcr.io/devcontainers/features/node:1": {
-            "version": "22"
+            "version": "24"
         },
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
 
-	"forwardPorts": [8080, 5005],
+	"forwardPorts": [8080, 5005, 5173],
 
 	"postCreateCommand": "./mvnw dependency:go-offline -B",
 	"customizations": {
@@ -25,7 +25,8 @@
 				"vscjava.vscode-quarkus",
 				"sonarsource.sonarlint-vscode",
 				"github.copilot",
-				"github.vscode-github-actions"
+				"github.vscode-github-actions",
+				"anthropic.claude-code"
 			]
 		},
         "jetbrains": {

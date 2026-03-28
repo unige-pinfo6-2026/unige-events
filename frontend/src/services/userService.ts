@@ -1,0 +1,21 @@
+import api from './api'
+import type { User } from '../types'
+
+export async function getMe(): Promise<User> {
+  const response = await api.get<User>('/users/me')
+  return response.data
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  const response = await api.get<User>(`/users/${id}`)
+  return response.data
+}
+
+export async function updateProfile(data: Partial<User>): Promise<User> {
+  const response = await api.put<User>('/users/me', data)
+  return response.data
+}
+
+export async function uploadPhoto(_file: File): Promise<{ photoUrl: string }> {
+  return { photoUrl: '' }
+}

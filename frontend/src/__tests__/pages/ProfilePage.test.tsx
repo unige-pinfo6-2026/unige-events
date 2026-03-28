@@ -1,0 +1,166 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import ProfilePage from '../../pages/ProfilePage'
+
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
+
+vi.mock('../../services/userService', () => ({
+  getMe: vi.fn(),
+  getUserById: vi.fn(),
+}))
+
+import { useAuth } from '../../hooks/useAuth'
+import { getUserById } from '../../services/userService'
+
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+
+const mockUser = {
+  id: '123',
+  auth0Id: 'auth0|123',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  profilePublic: true,
+  createdAt: '2024-01-01',
+}
+
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+})
+
+function renderProfilePage(id: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/profile/${id}`]}>
+      <Routes>
+        <Route path="/profile/:id" element={<ProfilePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('ProfilePage', () => {
+  it('renders own profile when id is "me"', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfilePage('me')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByText('Modifier mon profil')).toBeTruthy()
+  })
+
+  it('shows error when own profile user is null', async () => {
+    mockUseAuth.mockReturnValue({ user: null })
+    renderProfilePage('me')
+    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+  })
+
+  it('fetches and renders another user profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockResolvedValue({
+      id: '456',
+      auth0Id: 'auth0|456',
+      email: 'other@example.com',
+      displayName: 'Other User',
+      profilePublic: true,
+      createdAt: '2024-01-01',
+    })
+    renderProfilePage('auth0|456')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+  })
+
+  it('shows not found when getUserById returns null', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockResolvedValue(null)
+    renderProfilePage('auth0|456')
+    expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
+  })
+
+  it('shows error when getUserById rejects', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockRejectedValue(new Error('Network error'))
+    renderProfilePage('auth0|456')
+    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+  })
+
+  it('shows private profile message for non-public profiles', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockResolvedValue({
+      id: '789',
+      auth0Id: 'auth0|789',
+      email: 'private@example.com',
+      displayName: 'Private User',
+      profilePublic: false,
+      createdAt: '2024-01-01',
+    })
+    renderProfilePage('auth0|789')
+    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+  })
+
+  it('renders faculty and study level when present', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, faculty: 'SCIENCES', studyLevel: 'MASTER' },
+    })
+    renderProfilePage('me')
+    expect(await screen.findByText(/Sciences/)).toBeTruthy()
+    expect(screen.getByText(/Master/)).toBeTruthy()
+  })
+
+  it('renders bio when present', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, bio: 'Passionné de recherche.' },
+    })
+    renderProfilePage('me')
+    expect(await screen.findByText('Passionné de recherche.')).toBeTruthy()
+  })
+
+  it('renders interests when present', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, interests: ['Jazz', 'Coding'] },
+    })
+    renderProfilePage('me')
+    expect(await screen.findByText('Jazz')).toBeTruthy()
+    expect(screen.getByText('Coding')).toBeTruthy()
+  })
+
+  it('loads own profile when id matches currentUser.auth0Id', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfilePage('auth0|123')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByText('Modifier mon profil')).toBeTruthy()
+  })
+
+  it('renders avatar image when profile has avatarUrl', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, avatarUrl: 'https://example.com/avatar.jpg' },
+    })
+    renderProfilePage('me')
+    const img = await screen.findByAltText('Test User')
+    expect((img as HTMLImageElement).src).toContain('example.com/avatar.jpg')
+  })
+
+  it('renders visibility badge as Privé when profile is not public', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, profilePublic: false },
+    })
+    renderProfilePage('me')
+    expect(await screen.findByText('Privé')).toBeTruthy()
+  })
+
+  it('renders visibility badge as Public when profile is public', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfilePage('me')
+    expect(await screen.findByText('Public')).toBeTruthy()
+  })
+
+  it('renders unknown faculty key as-is', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, faculty: 'UNKNOWN_FACULTY' as never },
+    })
+    renderProfilePage('me')
+    expect(await screen.findByText((_, el) => el?.tagName === 'SPAN' && (el.textContent?.includes('UNKNOWN_FACULTY') ?? false))).toBeTruthy()
+  })
+})

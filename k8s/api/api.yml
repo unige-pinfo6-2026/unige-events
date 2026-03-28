@@ -17,7 +17,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: api
-          image: ghcr.io/unige-pinfo6-2026/unige-events-api:latest
+          image: ghcr.io/unige-pinfo6-2026/unige-events:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
