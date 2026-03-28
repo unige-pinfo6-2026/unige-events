@@ -19,8 +19,8 @@
         <jacoco.version>0.8.12</jacoco.version>
         <sonar.organization>unige-pinfo6-2026</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-api</sonar.projectKey>
-        <sonar.projectName>unige-events-api</sonar.projectName>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events</sonar.projectKey>
+        <sonar.projectName>unige-events</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/jacoco-report/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 

@@ -49,7 +49,16 @@ updates:
 
   # Images Docker
   - package-ecosystem: docker
-    directory: /
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /backend
     schedule:
       interval: weekly
       day: monday
