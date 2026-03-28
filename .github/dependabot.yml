@@ -1,9 +1,9 @@
 version: 2
 
 updates:
-  # Dépendances Maven (Java/Quarkus)
+  # Dépendances Maven (Backend)
   - package-ecosystem: maven
-    directory: /
+    directory: /backend
     schedule:
       interval: weekly
       day: monday
@@ -16,6 +16,27 @@ updates:
           - "io.quarkus*"
           - "io.quarkus.platform*"
 
+  # Dépendances NPM (Frontend)
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10.0.0"]
+    groups:
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "typescript-eslint"
+
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: /
@@ -24,8 +45,9 @@ updates:
       day: monday
       time: "08:00"
       timezone: Europe/Zurich
+    open-pull-requests-limit: 5
 
-  # Images Docker (docker-compose.yml)
+  # Images Docker
   - package-ecosystem: docker
     directory: /
     schedule:
@@ -33,3 +55,4 @@ updates:
       day: monday
       time: "08:00"
       timezone: Europe/Zurich
+    open-pull-requests-limit: 5
