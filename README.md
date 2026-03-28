@@ -34,7 +34,13 @@ Please use the provided **Dev Container** for a simpler setup.
 
 - Java 21+
 - Maven
-- Node.js 18+
+- Node.js 24
+
+### Install dependencies
+
+```bash
+make install
+```
 
 ### Run the project
 
