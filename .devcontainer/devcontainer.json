@@ -1,6 +1,6 @@
 {
     "name": "UNIGE Events",
-	"dockerComposeFile": "../docker-compose.yml",
+	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
 	"workspaceFolder": "/workspace",
 
