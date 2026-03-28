@@ -6,7 +6,6 @@ Centralized event platform for the UNIGE community : discover, create and manage
 
 ## Backend
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=alert_status&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=coverage&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
 
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=bugs&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
@@ -23,7 +22,6 @@ Centralized event platform for the UNIGE community : discover, create and manage
 
 ## Frontend
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=alert_status&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=coverage&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
 
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=bugs&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
