@@ -16,7 +16,7 @@
 
 	"forwardPorts": [8080, 5005, 5173],
 
-	"postCreateCommand": "./mvnw dependency:go-offline -B",
+	"postCreateCommand": "make install",
 	"customizations": {
 		"vscode": {
 			"extensions": [
