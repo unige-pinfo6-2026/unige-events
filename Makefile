@@ -1,4 +1,4 @@
-.PHONY: frontend backend
+.PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
 
 # Installations
 install-backend:
@@ -15,5 +15,17 @@ backend:
 
 frontend:
 	cd frontend && npm run dev
+
+dev:
+	$(MAKE) -j2 frontend backend
+
+# Tests
+test-backend:
+	cd backend && ./mvnw verify -B
+
+test-frontend:
+	cd frontend && npm run test
+
+test: test-frontend test-backend
 
 .DEFAULT_GOAL := install
