@@ -24,8 +24,8 @@ test-backend:
 	cd backend && ./mvnw verify -B
 
 test-frontend:
-	cd frontend && npm run test
+	cd frontend && npm run test:coverage
 
-test: test-frontend test-backend
+test: test-backend test-frontend
 
 .DEFAULT_GOAL := install
