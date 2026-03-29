@@ -1,6 +1,6 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-03-23
+Dernière mise à jour : 2026-03-29
 
 ---
 
@@ -13,6 +13,7 @@ Dernière mise à jour : 2026-03-23
 - **Intégration Auth0/OIDC** : `quarkus-oidc` configuré en mode `service`, validation JWT automatique, désactivé en `%test`.
 - **Entité `User`** : UUID comme PK, champs `auth0Id`, `email`, `displayName`, `firstName`, `lastName`, `faculty`, `studyLevel`, `bio`, `interests`, `avatarUrl`, `profilePublic`, `createdAt`, `version` (optimistic locking).
 - **Provisionnement first-login** : `UserService.getOrCreateUser()` — idempotent, race-safe (gestion des conflits `PersistenceException` + retry).
+- **Mise à jour OIDC/auth (2026-03-29)** : `GET /users/me` lit désormais les claims profil (`email`, `name`, `given_name`, `family_name`, `picture`) directement depuis le JWT via `JsonWebToken`, au lieu de déclencher un appel Auth0 `/userinfo`.
 - **Endpoints profil** :
   - `GET /users/me` — profil complet de l'utilisateur connecté
   - `PUT /users/me` — mise à jour partielle du profil (champs optionnels, `@Valid`, retourne l'objet complet)
@@ -25,6 +26,7 @@ Dernière mise à jour : 2026-03-23
 ### Bugs connus / comportements à surveiller
 
 - `GET /users/me` : si le claim `email` est absent du JWT, une `NotAuthorizedException` est levée → retourne 401. Ce comportement est **correct et intentionnel** selon la spec. À documenter côté frontend.
+- `GET /users/me` : l'injection de `UserInfo` n'est plus utilisée. Le flux ne dépend plus implicitement de `user-info-required`, ce qui supprime les appels Auth0 `/userinfo`, évite les rate limits Auth0 et élimine les 401 en cascade observés sur les requêtes authentifiées.
 - `PUT /users/me` : retourne `200` avec l'objet `UserProfileResponse` complet — **pas de `204`**. Le frontend doit utiliser cette réponse pour mettre à jour son état sans refetch.
 - Hibernate tourne en mode `update` — choix définitif pour ce projet.
 

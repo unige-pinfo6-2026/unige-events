@@ -60,7 +60,9 @@ class UserResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|alice", attributes = {
-        @SecurityAttribute(key = "email", value = "alice@example.com")
+        @SecurityAttribute(key = "email", value = "alice@example.com"),
+        @SecurityAttribute(key = "name", value = "Alice"),
+        @SecurityAttribute(key = "picture", value = "https://cdn.example.com/alice.png")
     })
     void getMeAuthenticatedCreatesProfile() {
         given()
@@ -71,6 +73,8 @@ class UserResourceTest {
             .body("id", notNullValue())
             .body("auth0Id", equalTo("auth0|alice"))
             .body("email", equalTo("alice@example.com"))
+            .body("displayName", equalTo("Alice"))
+            .body("avatarUrl", equalTo("https://cdn.example.com/alice.png"))
             .body("profilePublic", equalTo(false))
             .body("createdAt", notNullValue());
     }

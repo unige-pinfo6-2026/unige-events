@@ -2,7 +2,6 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
-import io.quarkus.oidc.UserInfo;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -14,6 +13,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -28,24 +28,25 @@ public class UserService {
      * Crée le profil si c'est la 1ère connexion.
      */
     @Transactional
-    public User getOrCreateUser(String auth0Id, UserInfo userInfo) {
+    public User getOrCreateUser(String auth0Id, JsonWebToken jwt) {
         User existing = User.findByAuth0Id(auth0Id).orElse(null);
         if (existing != null) {
             return existing;
         }
 
-        if (userInfo == null || userInfo.getEmail() == null) {
+        String email = jwt.getClaim("email");
+        if (email == null) {
             throw new NotAuthorizedException("Email claim is required");
         }
 
         try {
             User newUser = new User();
             newUser.auth0Id = auth0Id;
-            newUser.email = userInfo.getEmail();
-            newUser.displayName = userInfo.getName();
-            newUser.firstName = userInfo.getString("given_name");
-            newUser.lastName = userInfo.getFamilyName();
-            newUser.avatarUrl = userInfo.getString("picture");
+            newUser.email = email;
+            newUser.displayName = jwt.getClaim("name");
+            newUser.firstName = jwt.getClaim("given_name");
+            newUser.lastName = jwt.getClaim("family_name");
+            newUser.avatarUrl = jwt.getClaim("picture");
             newUser.persist();
 
             flushEntityManager();

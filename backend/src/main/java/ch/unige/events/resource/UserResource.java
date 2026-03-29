@@ -6,16 +6,15 @@ import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.UserService;
-import io.quarkus.oidc.UserInfo;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.ExampleObject;
@@ -34,7 +33,7 @@ public class UserResource {
 
     @Inject SecurityIdentity identity;
     @Inject UserService userService;
-    @Inject Instance<UserInfo> userInfo;
+    @Inject JsonWebToken jwt;
 
     /**
      * GET /api/users/{id}
@@ -84,7 +83,7 @@ public class UserResource {
     })
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
-        User user = userService.getOrCreateUser(auth0Id, userInfo.get());
+        User user = userService.getOrCreateUser(auth0Id, jwt);
         return UserProfileResponse.from(user);
     }
 
