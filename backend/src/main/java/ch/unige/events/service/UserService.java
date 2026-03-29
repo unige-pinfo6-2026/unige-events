@@ -34,6 +34,19 @@ public class UserService {
             return existing;
         }
 
+        /*
+        Auth0 Custom Action
+
+        exports.onExecutePostLogin = async (event, api) => {
+            api.accessToken.setCustomClaim('email', event.user.email);
+            api.accessToken.setCustomClaim('name', event.user.name);
+            api.accessToken.setCustomClaim('given_name', event.user.given_name);
+            api.accessToken.setCustomClaim('family_name', event.user.family_name);
+            api.accessToken.setCustomClaim('picture', event.user.picture);
+        };
+        ```
+        */
+
         String email = jwt.getClaim("email");
         if (email == null) {
             throw new NotAuthorizedException("Email claim is required");
