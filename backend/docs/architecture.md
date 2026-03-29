@@ -115,6 +115,7 @@ Event ────────────────────────�
 - Un même utilisateur ne peut signaler un même événement qu'**une seule fois**.
 - `profilePublic = false` → le profil n'est visible que par l'utilisateur lui-même.
 - Le provisionnement du compte (`GET /users/me`) est **idempotent et race-safe** : gestion des conflits de clé unique via `PersistenceException`.
+- `GET /users/me` lit les claims d'identité (`sub`, `email`, `name`, `given_name`, `family_name`, `picture`) directement depuis `JsonWebToken` ; aucun appel distant Auth0 `/userinfo` n'est requis pour provisionner ou relire le profil.
 
 ---
 
@@ -157,6 +158,7 @@ Frontend → stocker access_token en localStorage
 Frontend → GET /api/users/me avec Authorization: Bearer <token>
 Quarkus  → quarkus-oidc valide JWT (OIDC Discovery : signature + exp + aud)
 Quarkus  → injecte SecurityIdentity → principal.getName() = auth0Id (sub claim)
+Quarkus  → injecte JsonWebToken → `UserResource.me()` lit les claims profil localement depuis le JWT
 ```
 
 **Mode test (`%test`) :** `quarkus.oidc.enabled=false` — injection de sécurité mockée via `@TestSecurity`.

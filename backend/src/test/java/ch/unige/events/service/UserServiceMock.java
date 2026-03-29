@@ -2,23 +2,29 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
-import io.quarkus.oidc.UserInfo;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Mock
 @ApplicationScoped
 public class UserServiceMock extends UserService {
+
+    @Inject SecurityIdentity securityIdentity;
 
     private final Map<String, User> usersByAuth0Id = new ConcurrentHashMap<>();
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
@@ -33,30 +39,30 @@ public class UserServiceMock extends UserService {
     }
 
     public User seedUser(String auth0Id, String email) {
-        UserInfo userInfo = new UserInfo("{\"email\": \"" + email + "\"}");
-        return seedUser(auth0Id, userInfo);
+        return seedUser(auth0Id, newJwt(auth0Id, Map.of("email", email)));
     }
 
-    public User seedUser(String auth0Id, UserInfo userInfo) {
-        User user = newUser(auth0Id, userInfo);
+    public User seedUser(String auth0Id, JsonWebToken jwt) {
+        User user = newUser(auth0Id, jwt);
         usersByAuth0Id.put(auth0Id, user);
         usersById.put(user.id, user);
         return user;
     }
 
     @Override
-    public User getOrCreateUser(String auth0Id, UserInfo userInfo) {
+    public User getOrCreateUser(String auth0Id, JsonWebToken jwt) {
         User existing = usersByAuth0Id.get(auth0Id);
         if (existing != null) {
             return existing;
         }
 
-        if (userInfo == null || userInfo.getEmail() == null) {
+        String email = claim(jwt, "email");
+        if (email == null) {
             throw new NotAuthorizedException("Email claim is required");
         }
 
         return usersByAuth0Id.computeIfAbsent(auth0Id, key -> {
-            User user = newUser(key, userInfo);
+            User user = newUser(key, jwt);
             usersById.put(user.id, user);
             return user;
         });
@@ -114,15 +120,47 @@ public class UserServiceMock extends UserService {
         return user;
     }
 
-    private User newUser(String auth0Id, UserInfo userInfo) {
+    private User newUser(String auth0Id, JsonWebToken jwt) {
         User user = new User();
         user.id = UUID.randomUUID();
         user.auth0Id = auth0Id;
-        user.email = userInfo.getEmail();
-        user.displayName = userInfo.getName();
-        user.firstName = userInfo.getString("given_name");
-        user.lastName = userInfo.getFamilyName();
+        user.email = claim(jwt, "email");
+        user.displayName = claim(jwt, "name");
+        user.firstName = claim(jwt, "given_name");
+        user.lastName = claim(jwt, "family_name");
+        user.avatarUrl = claim(jwt, "picture");
         user.profilePublic = false;
         return user;
+    }
+
+    private String claim(JsonWebToken jwt, String claimName) {
+        Object value = jwt == null ? null : jwt.getClaim(claimName);
+        if (value == null && securityIdentity != null) {
+            value = securityIdentity.getAttribute(claimName);
+        }
+        return value == null ? null : value.toString();
+    }
+
+    private JsonWebToken newJwt(String auth0Id, Map<String, Object> claims) {
+        Map<String, Object> tokenClaims = new HashMap<>(claims);
+        tokenClaims.putIfAbsent("sub", auth0Id);
+
+        return new JsonWebToken() {
+            @Override
+            public String getName() {
+                return auth0Id;
+            }
+
+            @Override
+            public Set<String> getClaimNames() {
+                return tokenClaims.keySet();
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T> T getClaim(String claimName) {
+                return (T) tokenClaims.get(claimName);
+            }
+        };
     }
 }

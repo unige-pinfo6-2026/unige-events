@@ -2,7 +2,6 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
-import io.quarkus.oidc.UserInfo;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -14,6 +13,7 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Annotation;
@@ -23,9 +23,12 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,7 +69,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         User existing = persistUser("auth0|existing", "existing@example.com", false);
 
-        User result = userService.getOrCreateUser("auth0|existing", new UserInfo("{\"email\": \"other@example.com\"}"));
+        User result = userService.getOrCreateUser("auth0|existing", jwt("auth0|existing", Map.of("email", "other@example.com")));
 
         assertEquals(existing.id, result.id);
     }
@@ -77,7 +80,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
 
         assertThrows(NotAuthorizedException.class,
-            () -> userService.getOrCreateUser("auth0|missing", new UserInfo()));
+            () -> userService.getOrCreateUser("auth0|missing", jwt("auth0|missing", Map.of())));
     }
 
     @Test
@@ -85,8 +88,11 @@ class UserServiceCoverageTest {
     void getOrCreateUserRejectsNullEmail() {
         deleteAllUsers();
 
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", null);
+
         assertThrows(NotAuthorizedException.class,
-            () -> userService.getOrCreateUser("auth0|null-email", null));
+            () -> userService.getOrCreateUser("auth0|null-email", jwt("auth0|null-email", claims)));
     }
 
     @Test
@@ -94,11 +100,21 @@ class UserServiceCoverageTest {
     void getOrCreateUserCreatesUserWhenMissing() {
         deleteAllUsers();
 
-        User created = userService.getOrCreateUser("auth0|new", new UserInfo("{\"email\": \"new@example.com\"}"));
+        User created = userService.getOrCreateUser("auth0|new", jwt("auth0|new", Map.of(
+            "email", "new@example.com",
+            "name", "New User",
+            "given_name", "New",
+            "family_name", "User",
+            "picture", "https://cdn.example.com/new.png"
+        )));
 
         assertNotNull(created.id);
         assertEquals("auth0|new", created.auth0Id);
         assertEquals("new@example.com", created.email);
+        assertEquals("New User", created.displayName);
+        assertEquals("New", created.firstName);
+        assertEquals("User", created.lastName);
+        assertEquals("https://cdn.example.com/new.png", created.avatarUrl);
         assertFalse(created.profilePublic);
     }
 
@@ -111,7 +127,7 @@ class UserServiceCoverageTest {
         throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("users_auth0_id_unique")));
 
         try {
-            throwingService.getOrCreateUser("auth0|unique-conflict", new UserInfo("{\"email\": \"unique-conflict@example.com\"}"));
+            throwingService.getOrCreateUser("auth0|unique-conflict", jwt("auth0|unique-conflict", Map.of("email", "unique-conflict@example.com")));
         } catch (PersistenceException exception) {
             assertTrue(exception.getMessage().contains("users_auth0_id_unique"));
         }
@@ -123,6 +139,11 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         UserService throwingService = new UserService();
         throwingService.entityManager = new SingleEntityManagerInstance(flushThrowingProxy(new PersistenceException("plain persistence")));
+
+        PersistenceException exception = assertThrows(PersistenceException.class,
+            () -> throwingService.getOrCreateUser("auth0|plain-persistence", jwt("auth0|plain-persistence", Map.of("email", "plain-persistence@example.com"))));
+
+        assertEquals("plain persistence", exception.getMessage());
     }
 
     @Test
@@ -331,6 +352,29 @@ class UserServiceCoverageTest {
             "https://cdn.example.com/avatar.png",
             true
         );
+    }
+
+    private JsonWebToken jwt(String auth0Id, Map<String, Object> claims) {
+        Map<String, Object> tokenClaims = new HashMap<>(claims);
+        tokenClaims.putIfAbsent("sub", auth0Id);
+
+        return new JsonWebToken() {
+            @Override
+            public String getName() {
+                return auth0Id;
+            }
+
+            @Override
+            public Set<String> getClaimNames() {
+                return tokenClaims.keySet();
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T> T getClaim(String claimName) {
+                return (T) tokenClaims.get(claimName);
+            }
+        };
     }
 
     private void deleteAllUsers() {
