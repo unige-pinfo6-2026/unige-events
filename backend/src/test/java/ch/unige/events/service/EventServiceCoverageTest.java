@@ -571,9 +571,11 @@ class EventServiceCoverageTest {
 
         @Override public String name() { return "file"; }
         @Override public Path uploadedFile() { return uploadedFile; }
+        @Override public Path filePath() { return uploadedFile; }
         @Override public String fileName() { return fileName; }
         @Override public long size() { return 0; }
         @Override public String contentType() { return contentType; }
         @Override public String charSet() { return null; }
+        @Override public jakarta.ws.rs.core.MultivaluedMap<String, String> getHeaders() { return new jakarta.ws.rs.core.MultivaluedHashMap<>(); }
     }
 }
