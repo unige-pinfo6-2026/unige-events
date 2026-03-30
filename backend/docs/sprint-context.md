@@ -62,9 +62,8 @@ Dernière mise à jour : 2026-03-29
 
 **Objectif :** Découverte avancée — recherche, filtres, vue calendrier.
 
-- [ ] `GET /events/search?q=&category=&faculty=&dateFrom=&dateTo=` — full-text ILIKE sur titre + description
-- [ ] Ajout du champ `faculty` (enum) sur `Event`
-- [ ] Filtre `?faculty=` dans `GET /events`
+- [x] `GET /events/search?q=&category=&dateFrom=&dateTo=` — full-text ILIKE sur titre + description, paginé (SCRUM-76) — `EventSearchResource` + `EventSearchService`
+- [ ] Ajout du champ `faculty` (enum) sur `Event` + filtre `?faculty=` sur `GET /events` et `GET /events/search` (SCRUM-77)
 
 ---
 

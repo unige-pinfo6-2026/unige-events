@@ -59,8 +59,8 @@ Les champs `faculty` et `studyLevel` de `User` sont actuellement des `String` li
 Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dans l'entité. Le frontend l'attend déjà dans le contrat API — l'ajouter à l'entité et à `UserProfileResponse` au Sprint 6 (sans préfixe `is`).
 
 ## Contrat API
-`docs/openapi/openapi.yaml` est la **source de vérité**. Avant d'implémenter un endpoint :
-1. L'ajouter dans `openapi.yaml` (schémas en camelCase, booléens sans préfixe `is`)
+`/workspace/openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un endpoint :
+1. L'ajouter dans `/workspace/openapi/openapi.yaml` (schémas en camelCase, booléens sans préfixe `is`)
 2. Ensuite seulement coder Resource → Service → Entity → Test
 
 ## Comportement attendu des endpoints
@@ -80,7 +80,7 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 - `docs/README.md` — index de tous les fichiers docs
 - `docs/architecture.md` — architecture système et backend
 - `docs/data-model.md` — entités, champs, conventions de nommage, enums, gestion du schéma
-- `docs/openapi/openapi.yaml` — contrat API complet (source de vérité)
+- `/workspace/openapi/openapi.yaml` — contrat API complet (source de vérité, fichier unique du monorepo)
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement et backlog
 

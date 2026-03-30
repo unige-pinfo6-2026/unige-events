@@ -16,6 +16,7 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events` | public | Liste de tous les événements | 200 |
 | `POST` | `/events` | public (à sécuriser) | Créer un événement | 201 |
+| `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, dateFrom, dateTo, page, size) | 200 |
 
 ---
 
