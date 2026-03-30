@@ -53,7 +53,7 @@ Model      → hooks/ et contexts/             (état applicatif)
 - Ne jamais redéfinir les types d'entités hors de `src/types/`
 
 ## Contrat API
-`/workspace/openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
+`openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
 
 ## Ce qu'il ne faut jamais faire
 - Appeler `/api` avec `fetch` ou un `axios` instancié localement
@@ -67,7 +67,7 @@ Model      → hooks/ et contexts/             (état applicatif)
 - `docs/architecture.md` — architecture frontend et rôle dans le système global
 - `docs/components.md` — pages, composants réutilisables, et services existants
 - `docs/types.md` — types TypeScript et correspondance exacte avec les champs API
-- `/workspace/openapi/openapi.yaml` — contrat API (fichier unique du monorepo — ne pas dupliquer)
+- `openapi/openapi.yaml` — contrat API (fichier unique du monorepo — ne pas dupliquer)
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement
 
@@ -81,7 +81,7 @@ Model      → hooks/ et contexts/             (état applicatif)
 | Nouveau service dans `src/services/` | `docs/components.md` (section services) |
 | Ajout ou modification dans `src/types/` | `docs/types.md` |
 | Nouvelle route dans le router | `docs/architecture.md` (table de routage) |
-| `openapi.yaml` mis à jour | Le fichier unique est `/workspace/openapi/openapi.yaml` — monorepo, pas de copie à synchroniser |
+| `openapi.yaml` mis à jour | Le fichier unique est `openapi/openapi.yaml` — monorepo, pas de copie à synchroniser |
 | Fin de sprint / tâche terminée | `docs/sprint-context.md` |
 
 **Règle d'or : si tu touches au code, tu touches à la doc correspondante dans le même commit.**

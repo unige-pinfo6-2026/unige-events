@@ -10,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -70,6 +71,7 @@ public class EventSearchServiceMock extends EventSearchService {
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> dateFrom == null || !e.startDate.isBefore(dateFrom.atStartOfDay()))
                 .filter(e -> dateTo == null || !e.startDate.isAfter(dateTo.atTime(23, 59, 59)))
+                .sorted(Comparator.comparing((Event e) -> e.startDate).thenComparingLong(e -> e.id))
                 .skip((long) page * size)
                 .limit(size)
                 .map(EventDTO::from)

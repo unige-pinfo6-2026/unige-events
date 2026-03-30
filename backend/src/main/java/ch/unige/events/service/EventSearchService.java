@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @ApplicationScoped
@@ -27,7 +28,7 @@ public class EventSearchService {
             // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
             // Les parenthèses sont obligatoires pour isoler le OR face aux AND suivants
             conditions.add("(lower(title) like :q or lower(description) like :q)");
-            params.put("q", "%" + q.toLowerCase() + "%");
+            params.put("q", "%" + q.toLowerCase(Locale.ROOT) + "%");
         }
         if (category != null) {
             conditions.add("category = :category");
