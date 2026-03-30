@@ -12,8 +12,17 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +31,9 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class EventService {
+
+    @ConfigProperty(name = "app.uploads.path", defaultValue = "/tmp/unige-events-uploads")
+    String uploadsPath;
 
     @Transactional
     public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
@@ -115,6 +127,61 @@ public class EventService {
         }
 
         event.status = EventStatus.CANCELLED;
+    }
+
+    @Transactional
+    public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
+        Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
+
+        if (!isAdmin && !isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an admin can publish this event");
+        }
+
+        if (event.status != EventStatus.DRAFT) {
+            String message = event.status == EventStatus.PUBLISHED
+                    ? "Event is already published"
+                    : "Event cannot be published: current status is " + event.status;
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", message))
+                            .build());
+        }
+
+        event.status = EventStatus.PUBLISHED;
+        return EventDTO.from(event);
+    }
+
+    @Transactional
+    public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
+        Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
+
+        if (!isAdmin && !isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an admin can upload a banner");
+        }
+
+        String contentType = fileUpload.contentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BadRequestException(
+                    "File must be an image (accepted: image/jpeg, image/png, image/webp, image/gif)");
+        }
+
+        String originalName = fileUpload.fileName();
+        String extension = (originalName != null && originalName.contains("."))
+                ? originalName.substring(originalName.lastIndexOf('.'))
+                : ".bin";
+
+        String uniqueFileName = UUID.randomUUID() + extension;
+        Path targetDir = Path.of(uploadsPath);
+        Path targetFile = targetDir.resolve(uniqueFileName);
+        try {
+            Files.createDirectories(targetDir);
+            Files.copy(fileUpload.uploadedFile(), targetFile, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new InternalServerErrorException("Failed to save banner image: " + e.getMessage());
+        }
+
+        event.bannerUrl = "/uploads/" + uniqueFileName;
+        return EventDTO.from(event);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {

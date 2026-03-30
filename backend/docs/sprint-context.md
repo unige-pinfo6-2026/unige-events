@@ -1,6 +1,6 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-03-29
+Dernière mise à jour : 2026-03-30
 
 ---
 
@@ -55,6 +55,9 @@ Dernière mise à jour : 2026-03-29
 - [x] `DELETE /events/{id}` : soft-delete (status → `CANCELLED`)
 - [x] `GET /events` : pagination (`?page=`, `?size=`), filtres `?status=`, `?category=`, `?organizerId=`
 - [x] `POST /events` : création directement en `PUBLISHED` (champ `status` optionnel dans `CreateEventRequest`, défaut `DRAFT`)
+- [x] `PATCH /events/{id}/publish` : publication d'un événement DRAFT (ORGANIZER créateur ou ADMIN) — 403/404/409
+- [x] `POST /events/{id}/image` : upload bannière multipart, stockage local `app.uploads.path`, retourne EventDTO mis à jour — 400 si MIME invalide
+- [x] Rôles Auth0 (ADMIN/ORGANIZER/STUDENT) mappés via `quarkus.oidc.roles.role-claim-path`
 
 ---
 

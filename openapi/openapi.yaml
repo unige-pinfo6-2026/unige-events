@@ -785,12 +785,61 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /events/{id}/publish:
+    patch:
+      summary: Publier un événement (DRAFT → PUBLISHED)
+      description: |
+        Passe le statut de l'événement de DRAFT à PUBLISHED.
+        Réservé au créateur de l'événement (rôle ORGANIZER) ou à un administrateur (rôle ADMIN).
+        Retourne 409 si l'événement n'est pas en statut DRAFT (déjà publié ou annulé).
+      operationId: publishEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement publié — retourne l'EventDTO complet avec status PUBLISHED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Rôle insuffisant (ni ORGANIZER ni ADMIN) ou pas le créateur de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit — l'événement n'est pas en statut DRAFT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /events/{id}/image:
     post:
       summary: Upload de la bannière d'un événement (créateur uniquement)
       operationId: uploadEventImage
       tags: [events]
-      # TODO: SCRUM-107 (Antoine Maendly, Sprint 2) — endpoint pas encore implémenté côté backend
       security:
         - BearerAuth: []
       parameters:
@@ -823,8 +872,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur
+          description: Rôle insuffisant ou pas le créateur de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
           content:
             application/json:
               schema:
