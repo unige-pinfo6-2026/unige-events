@@ -118,7 +118,6 @@ Crée un nouvel événement.
 | `GET` | `/events/{id}` | Sprint 2 | Détail d'un événement |
 | `PUT` | `/events/{id}` | Sprint 2 | Modifier un événement (créateur/admin) |
 | `DELETE` | `/events/{id}` | Sprint 2 | Soft-delete (`active = false`) |
-| `GET` | `/events/search` | Sprint 3 | Recherche full-text avec filtres |
 | `POST` | `/events/{id}/attend` | Sprint 4 | S'inscrire (INTERESTED / ATTENDING) |
 | `DELETE` | `/events/{id}/attend` | Sprint 4 | Se désinscrire |
 | `POST` | `/events/{id}/favorite` | Sprint 4 | Ajouter aux favoris |
