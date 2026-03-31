@@ -21,7 +21,7 @@ function BtnPrimary({ children, onClick, className = '', size = 'md' }: {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-gradient-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 ${pad} ${className}`}
+      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 ${pad} ${className}`}
     >
       {children}
     </button>
@@ -51,16 +51,16 @@ function Header({ onLogin }: { onLogin: () => void }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-transparent">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-linear-to-r from-card/50 to-secondary/50">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Bannière */}
           <div className="flex items-center">
-            <img className="w-32" src="banner.png" alt="Bannière UNIGE" />
+            <img className="w-32" src="banner.svg" alt="Bannière UNIGE" />
           </div>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* <div className="hidden md:flex items-center gap-8">
             {[['Features', '#features'], ['Comment ça marche', '#how'], ['Pour vous', '#for-you']].map(([label, href]) => (
               <a
                 key={label}
@@ -68,10 +68,10 @@ function Header({ onLogin }: { onLogin: () => void }) {
                 className="text-sm text-white/60 hover:text-white transition-colors relative group"
               >
                 {label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-accent to-pink-600 group-hover:w-full transition-all duration-300" />
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-full transition-all duration-300" />
               </a>
             ))}
-          </div>
+          </div> */}
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
@@ -88,7 +88,7 @@ function Header({ onLogin }: { onLogin: () => void }) {
         </div>
 
         {/* Mobile menu */}
-        {mobileMenuOpen && (
+        {/* {mobileMenuOpen && (
           <div className="md:hidden py-4 space-y-3 border-t border-white/10 mt-2">
             {[['Features', '#features'], ['Comment ça marche', '#how'], ['Pour vous', '#for-you']].map(([label, href]) => (
               <a key={label} href={href} onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm text-white/70 hover:text-white transition-colors">
@@ -102,7 +102,7 @@ function Header({ onLogin }: { onLogin: () => void }) {
               <BtnPrimary size="sm" onClick={onLogin} className="w-full justify-center">Commencer</BtnPrimary>
             </div>
           </div>
-        )}
+        )} */}
       </nav>
     </header>
   )
@@ -120,57 +120,64 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-accent/20 to-pink-600/20 border border-accent/30 backdrop-blur-sm">
-            <Sparkles className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium bg-gradient-to-r from-accent to-pink-400 bg-clip-text text-transparent">
-              Première plateforme centralisée UNIGE
-            </span>
-          </div>
-
           {/* Headline */}
-          <h1 className="text-6xl lg:text-8xl font-bold tracking-tight leading-[0.95]">
+          <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
             Tous les{' '}
-            <span className="bg-gradient-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">
-              events
+            
+            <span className="bg-linear-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">
+              évènements
             </span>
-            <br />
+
+            <br/>
             en un lieu
           </h1>
 
           <p className="text-xl lg:text-2xl text-white/60 leading-relaxed max-w-2xl font-light">
             La plateforme qui connecte étudiants, associations et administration autour des événements du campus.{' '}
-            <span className="text-accent">Révolutionnaire.</span>
           </p>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4">
             <BtnPrimary size="lg" onClick={onLogin}>
-              Explorer les events
-              <ArrowRight className="w-5 h-5" />
+              Explorer les derniers évènements
             </BtnPrimary>
-            <BtnOutline size="lg" onClick={onLogin}>
-              <Zap className="w-5 h-5" />
-              Créer un event
-            </BtnOutline>
-          </div>
-
-          {/* Stats */}
-          <div className="flex flex-wrap justify-center gap-10 pt-6">
-            {[
-              { value: '2.5K+', label: 'Étudiants actifs' },
-              { value: '450+', label: 'Events ce mois' },
-              { value: '30+', label: 'Associations' },
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
-                <div className="text-4xl font-bold bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-white/50 mt-1">{stat.label}</div>
-              </div>
-            ))}
           </div>
         </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+// ─── Faculty Ticker ───────────────────────────────────────────────────────────
+
+const FACULTIES = [
+  { name: 'Medicine',        logo: '/faculty/medicine.png' },
+  { name: 'Law',             logo: '/faculty/law.png' },
+  { name: 'Psychology & Education', logo: '/faculty/psychology.png' },
+  { name: 'Translation',     logo: '/faculty/translation.png' },
+  { name: 'Economics',       logo: '/faculty/economics.png' },
+  { name: 'Letters',         logo: '/faculty/letters.png' },
+  { name: 'Science',         logo: '/faculty/sciences.png' },
+  { name: 'Social Science',  logo: '/faculty/social-science.png' },
+  { name: 'Theology',        logo: '/faculty/theology.png' },
+]
+
+function FacultyTicker() {
+  // Duplicate for seamless infinite loop
+  const items = [...FACULTIES, ...FACULTIES]
+
+  return (
+    <section className="py-10 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl overflow-hidden">
+      <div
+        className="flex gap-16 w-max animate-marquee"
+      >
+        {items.map((fac, i) => (
+          <div key={i} className="flex items-center gap-3 shrink-0 transition-opacity">
+            <img src={fac.logo} alt={fac.name} className="h-24 w-auto object-contain" />
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -187,7 +194,7 @@ function TrustBar() {
   ]
 
   return (
-    <section className="py-12 border-y border-white/5 bg-gradient-to-r from-card/50 to-secondary/50 backdrop-blur-xl">
+    <section className="py-12 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
           {stats.map((stat, i) => {
@@ -198,7 +205,7 @@ function TrustBar() {
                   <Icon className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <div className="text-3xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</div>
+                  <div className="text-3xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</div>
                   <div className="text-sm text-white/60">{stat.label}</div>
                 </div>
               </div>
@@ -232,7 +239,7 @@ function ProblemSolutionSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Du chaos à la simplicité</span>
+            <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Du chaos à la simplicité</span>
           </h2>
           <p className="text-xl text-white/60 font-light">On comprend les défis. Voici comment on les résout.</p>
         </div>
@@ -240,7 +247,7 @@ function ProblemSolutionSection() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Problems */}
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-linear-to-r from-red-500/20 to-orange-500/20 border border-red-500/30">
               <AlertCircle className="w-5 h-5 text-red-400" />
               <span className="text-sm font-medium text-red-400">Problèmes Actuels</span>
             </div>
@@ -264,9 +271,9 @@ function ProblemSolutionSection() {
 
           {/* Solutions */}
           <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-accent/20 to-pink-600/20 border border-accent/30">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-linear-to-r from-accent/20 to-pink-600/20 border border-accent/30">
               <CheckCircle className="w-5 h-5 text-accent" />
-              <span className="text-sm font-medium bg-gradient-to-r from-accent to-pink-400 bg-clip-text text-transparent">Notre Solution</span>
+              <span className="text-sm font-medium bg-linear-to-r from-accent to-pink-400 bg-clip-text text-transparent">Notre Solution</span>
             </div>
             <div className="space-y-4">
               {solutions.map((s, i) => {
@@ -277,7 +284,7 @@ function ProblemSolutionSection() {
                       <Icon className="w-7 h-7 text-white" />
                     </div>
                     <div>
-                      <h3 className="font-semibold mb-1 text-lg bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">{s.title}</h3>
+                      <h3 className="font-semibold mb-1 text-lg bg-linear-to-r from-white to-white/80 bg-clip-text text-transparent">{s.title}</h3>
                       <p className="text-sm text-white/60">{s.description}</p>
                     </div>
                   </div>
@@ -310,7 +317,7 @@ function FeaturesSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">
-            <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
               Tout ce dont vous avez besoin
             </span>
           </h2>
@@ -325,7 +332,7 @@ function FeaturesSection() {
                 <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${f.gradient} flex items-center justify-center mb-6 shadow-lg`}>
                   <Icon className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">{f.title}</h3>
+                <h3 className="text-2xl font-bold mb-3 bg-linear-to-r from-white to-white/80 bg-clip-text text-transparent">{f.title}</h3>
                 <p className="text-white/60 leading-relaxed">{f.description}</p>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-bl-full" />
               </div>
@@ -347,15 +354,10 @@ function FinalCTA({ onLogin }: { onLogin: () => void }) {
         <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-gradient-to-tl from-purple-600/30 via-blue-600/20 to-cyan-600/20 rounded-full blur-3xl" />
       </div>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center space-y-10">
-        <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-card/80 to-card/40 backdrop-blur-xl border border-white/10 shadow-xl">
-          <Sparkles className="w-5 h-5 text-accent" />
-          <span className="font-medium bg-gradient-to-r from-accent to-pink-400 bg-clip-text text-transparent">Rejoins la communauté UNIGE Events</span>
-        </div>
-
         <h2 className="text-5xl lg:text-8xl font-bold tracking-tight leading-[0.95]">
-          <span className="bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Ne rate plus jamais</span>
+          <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Ne rate plus jamais</span>
           <br />
-          <span className="bg-gradient-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">un événement</span>
+          <span className="bg-linear-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">un événement</span>
         </h2>
 
         <p className="text-xl lg:text-2xl text-white/60 leading-relaxed max-w-3xl mx-auto font-light">
@@ -365,24 +367,9 @@ function FinalCTA({ onLogin }: { onLogin: () => void }) {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <BtnPrimary size="lg" onClick={onLogin}>
-            <Zap className="w-5 h-5" />
             Commencer maintenant
-            <ArrowRight className="w-5 h-5" />
           </BtnPrimary>
           <BtnOutline size="lg">En savoir plus</BtnOutline>
-        </div>
-
-        <div className="pt-12">
-          <p className="text-sm text-white/50 mb-6 uppercase tracking-wider">Approuvé par la communauté UNIGE</p>
-          <div className="flex flex-wrap items-center justify-center gap-8">
-            {[{ value: '2.5K+', label: 'Étudiants' }, { value: '30+', label: 'Associations' }, { value: '450+', label: 'Events' }].map((stat, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-accent to-pink-600" />
-                <span className="font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</span>
-                <span className="text-white/60">{stat.label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -402,7 +389,7 @@ function Footer() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-pink-600 flex items-center justify-center shadow-lg shadow-accent/30">
                 <Calendar className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">UNIGE Events</span>
+              <span className="text-xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">UNIGE Events</span>
             </div>
             <p className="text-sm text-white/50 leading-relaxed mb-6">La plateforme centralisée pour tous les événements universitaires. Connectons la communauté UNIGE.</p>
             <div className="flex gap-3">
@@ -421,7 +408,7 @@ function Footer() {
               {['Features', 'Comment ça marche', 'Pour vous', 'À propos'].map((item, i) => (
                 <li key={i}>
                   <a href="#" className="text-sm text-white/50 hover:text-white transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-0 h-0.5 bg-gradient-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
+                    <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
                     {item}
                   </a>
                 </li>
@@ -436,7 +423,7 @@ function Footer() {
               {["Centre d'aide", 'Guidelines', 'Règles communauté', 'FAQ'].map((item, i) => (
                 <li key={i}>
                   <a href="#" className="text-sm text-white/50 hover:text-white transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-0 h-0.5 bg-gradient-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
+                    <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
                     {item}
                   </a>
                 </li>
@@ -475,7 +462,7 @@ function Footer() {
           </div>
         </div>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent" />
     </footer>
   )
 }
@@ -497,7 +484,8 @@ function LandingPage() {
       <Header onLogin={login} />
       <main>
         <HeroSection onLogin={login} />
-        <TrustBar />
+        <FacultyTicker />
+        {/* <TrustBar /> */}
         <ProblemSolutionSection />
         <FeaturesSection />
         <FinalCTA onLogin={login} />
@@ -508,3 +496,10 @@ function LandingPage() {
 }
 
 export default LandingPage
+
+
+
+// TODO:
+// - Revoir Header/Footer
+// - Revoir FacTicker
+// - Revoir Structure
