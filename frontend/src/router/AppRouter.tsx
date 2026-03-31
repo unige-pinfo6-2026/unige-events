@@ -6,6 +6,7 @@ import CreateEventPage from '../pages/CreateEventPage'
 import EditEventPage from '../pages/EditEventPage'
 import EventDetailPage from '../pages/EventDetailPage'
 import HomePage from '../pages/HomePage'
+import LandingPage from '../pages/LandingPage'
 import LoginPage from '../pages/LoginPage'
 import ProfileEditPage from '../pages/ProfileEditPage'
 import ProfilePage from '../pages/ProfilePage'
@@ -13,7 +14,7 @@ import ProfilePage from '../pages/ProfilePage'
 function AppRouter() {
   return (
     <Routes>
-      <Route path='/' element={<Navigate to='/home' replace />} />
+      <Route path='/' element={<LandingPage />} />
       <Route path='/login' element={<LoginPage />} />
       <Route path='/callback' element={<CallbackPage />} />
       <Route
@@ -78,7 +79,7 @@ function AppRouter() {
           </PrivateRoute>
         }
       />
-      <Route path='*' element={<Navigate to='/home' replace />} />
+      <Route path='*' element={<Navigate to='/' replace />} />
     </Routes>
   )
 }

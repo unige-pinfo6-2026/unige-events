@@ -30,3 +30,6 @@ nb-configuration.xml
 # Claude
 .claude
 .codex
+
+# Figma
+.figma
