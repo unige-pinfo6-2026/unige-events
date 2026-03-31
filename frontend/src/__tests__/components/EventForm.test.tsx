@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import EventForm from '../../components/EventForm'
 import { EventStatus } from '../../types'
 import type { EventFormValues } from '../../hooks/useEventForm'
@@ -48,8 +49,11 @@ describe('EventForm', () => {
     expect(screen.getByText(/\/ 2000/)).toBeTruthy()
     expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).maxLength).toBe(120)
     expect((screen.getByLabelText(/Description/i) as HTMLTextAreaElement).maxLength).toBe(2000)
-    expect((screen.getByLabelText(/Début/i) as HTMLInputElement).step).toBe('60')
-    expect((screen.getByLabelText(/Fin/i) as HTMLInputElement).step).toBe('60')
+    expect((screen.getByLabelText(/Début/i, { selector: 'input' }) as HTMLInputElement).type).toBe('date')
+    expect((screen.getByLabelText(/Fin/i, { selector: 'input' }) as HTMLInputElement).type).toBe('date')
+    expect(screen.getAllByText('00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('23').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('59').length).toBeGreaterThan(0)
     expect((screen.getByRole('button', { name: 'Enregistrement...' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -87,5 +91,46 @@ describe('EventForm', () => {
     expect(onFieldChange).toHaveBeenCalledWith('status', 'PUBLISHED')
     expect(onImageChange).toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('combines date and time parts into datetime values', () => {
+    const emittedValues: string[] = []
+
+    function StatefulForm() {
+      const [values, setValues] = useState<EventFormValues>({ ...baseValues, startDate: '', endDate: '' })
+
+      return (
+        <EventForm
+          title='Créer un événement'
+          submitLabel='Créer'
+          values={values}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={(field, value) => {
+            if (field === 'startDate') {
+              emittedValues.push(value)
+            }
+            setValues((current) => ({ ...current, [field]: value }))
+          }}
+          onImageChange={vi.fn()}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />
+      )
+    }
+
+    render(<StatefulForm />)
+
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '20' } })
+    fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '45' } })
+
+    expect(emittedValues).toEqual([
+      '2099-04-10T00:00',
+      '2099-04-10T20:00',
+      '2099-04-10T20:45',
+    ])
   })
 })

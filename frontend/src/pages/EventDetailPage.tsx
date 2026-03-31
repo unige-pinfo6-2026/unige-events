@@ -147,8 +147,20 @@ function EventDetailPage() {
         padding: '1.75rem 2rem',
         transition: 'background 0.3s, border-color 0.3s',
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', flex: 1, lineHeight: 1.3 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem', minWidth: 0 }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: '1.5rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              flex: 1,
+              lineHeight: 1.3,
+              minWidth: 0,
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+          >
             {currentEvent.title}
           </h1>
           {isOrganizer && (

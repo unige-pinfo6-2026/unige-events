@@ -59,8 +59,12 @@ function renderPage() {
 function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: createdEvent.title } })
   fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: createdEvent.location } })
-  fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2099-04-10T10:00' } })
-  fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T12:00' } })
+  fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+  fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+  fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+  fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+  fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '12' } })
+  fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
   fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 }
 
@@ -82,8 +86,12 @@ describe('CreateEventPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum' } })
     fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: 'Uni Dufour' } })
-    fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2000-04-10T10:00' } })
-    fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T12:00' } })
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2000-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+    fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
     fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
@@ -97,8 +105,12 @@ describe('CreateEventPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum' } })
     fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: 'Uni Dufour' } })
-    fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2099-04-10T10:00' } })
-    fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T09:00' } })
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+    fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '09' } })
+    fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
     fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))

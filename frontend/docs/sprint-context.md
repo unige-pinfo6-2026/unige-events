@@ -36,6 +36,8 @@ Terminé.
 
 Fonctionnalités corrigées :
 - Gestion unifiée des dates d’événements côté frontend pour interpréter les timestamps API UTC et afficher les heures en fuseau local navigateur (création, listing, détail, édition).
-- Uniformisation de la granularité du sélecteur date/heure à la minute (`00:00` à `23:59`) via les champs `datetime-local`.
+- Uniformisation de la granularité du sélecteur date/heure à la minute (`00:00` à `23:59`) sur les flux de création et d’édition.
 - Protection du layout contre les chaînes longues non segmentées dans la bio profil et la description d’événement (`overflow-wrap` + `word-break`).
 - Ajout de limites frontend pour le titre et la description d’événement (contrainte d’input + validation + feedback utilisateur).
+- Remplacement du picker natif `datetime-local` par un sélecteur date + heure/minute (24h explicite) pour garantir une UX sans AM/PM sur création et édition.
+- Renforcement du wrapping des titres d’événements longs sans espaces (détail et cartes) avec contraintes de flex-shrink (`min-width: 0`) et césure CSS robuste.

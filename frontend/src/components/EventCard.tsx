@@ -90,6 +90,8 @@ function EventCard({ event }: EventCardProps) {
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
             }}
           >
             {event.title}
