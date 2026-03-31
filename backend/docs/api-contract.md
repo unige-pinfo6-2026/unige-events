@@ -14,8 +14,9 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/users/{id}` | `@PermitAll` | Profil public d'un utilisateur | 200, 403, 404 |
 | `GET` | `/users/me` | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
 | `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
-| `GET` | `/events` | public | Liste de tous les événements | 200 |
-| `POST` | `/events` | public (à sécuriser) | Créer un événement | 201 |
+| `GET` | `/events` | `@PermitAll` | Liste de tous les événements | 200 |
+| `POST` | `/events` | `@Authenticated` | Créer un événement | 201 |
+| `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, dateFrom, dateTo, page, size) | 200 |
 
 ---
 
@@ -117,7 +118,6 @@ Crée un nouvel événement.
 | `GET` | `/events/{id}` | Sprint 2 | Détail d'un événement |
 | `PUT` | `/events/{id}` | Sprint 2 | Modifier un événement (créateur/admin) |
 | `DELETE` | `/events/{id}` | Sprint 2 | Soft-delete (`active = false`) |
-| `GET` | `/events/search` | Sprint 3 | Recherche full-text avec filtres |
 | `POST` | `/events/{id}/attend` | Sprint 4 | S'inscrire (INTERESTED / ATTENDING) |
 | `DELETE` | `/events/{id}/attend` | Sprint 4 | Se désinscrire |
 | `POST` | `/events/{id}/favorite` | Sprint 4 | Ajouter aux favoris |

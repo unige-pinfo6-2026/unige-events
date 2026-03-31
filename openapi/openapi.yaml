@@ -635,13 +635,17 @@ paths:
   /events/search:
     get:
       summary: Recherche full-text d'événements
+      description: |
+        Recherche insensible à la casse (ILIKE) sur le titre et la description.
+        Filtres optionnels : category, plage de dates (startDate).
+        Le paramètre faculty sera activé par SCRUM-77 (champ non encore présent sur Event).
       operationId: searchEvents
       tags: [events]
       security: []
-      # TODO: Sprint 3 — à implémenter dans EventResource
       parameters:
         - name: q
           in: query
+          description: Terme de recherche full-text (insensible à la casse, cherche dans title et description)
           schema:
             type: string
         - name: category
@@ -650,21 +654,37 @@ paths:
             $ref: '#/components/schemas/EventCategory'
         - name: faculty
           in: query
+          description: "TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event"
           schema:
             $ref: '#/components/schemas/Faculty'
         - name: dateFrom
           in: query
+          description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)
           schema:
             type: string
             format: date
         - name: dateTo
           in: query
+          description: Filtre les événements dont startDate <= dateTo (fin de journée, 23:59:59)
           schema:
             type: string
             format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
-          description: Résultats filtrés (array brut — pas de pagination pour l'instant)
+          description: Résultats de la recherche (tableau vide si aucun résultat — jamais 404)
           content:
             application/json:
               schema:
