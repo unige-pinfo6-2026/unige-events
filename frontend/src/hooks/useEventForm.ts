@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import axios from 'axios'
 import { createEvent, updateEvent, uploadEventImage } from '../services/eventApi'
 import { EventCategory, EventStatus } from '../types'
+import { toLocalDateTimeInputValue } from '../utils/dateTime'
 import type {
   CreateEventRequest,
   Event,
@@ -24,6 +25,7 @@ export interface EventFormValues {
 
 export interface EventFormErrors {
   title?: string
+  description?: string
   location?: string
   startDate?: string
   endDate?: string
@@ -68,6 +70,7 @@ const DEFAULT_VALUES: EventFormValues = {
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
   'title',
+  'description',
   'location',
   'startDate',
   'endDate',
@@ -87,11 +90,8 @@ const FIELD_LABELS: Record<string, string> = {
   bannerUrl: 'La bannière',
 }
 
-function toLocalDateTimeInput(dateTime: string): string {
-  const date = new Date(dateTime)
-  const offset = date.getTimezoneOffset()
-  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 16)
-}
+export const EVENT_TITLE_MAX_LENGTH = 120
+export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
 
 function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
@@ -106,8 +106,8 @@ function toFormValues(event?: Event | null): EventFormValues {
     title: event.title,
     description: event.description ?? '',
     location: event.location,
-    startDate: toLocalDateTimeInput(event.startDate),
-    endDate: toLocalDateTimeInput(event.endDate),
+    startDate: toLocalDateTimeInputValue(event.startDate),
+    endDate: toLocalDateTimeInputValue(event.endDate),
     category: event.category,
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
@@ -276,6 +276,12 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
 
     if (!values.title.trim()) {
       nextErrors.title = 'Le titre est requis.'
+    } else if (values.title.trim().length > EVENT_TITLE_MAX_LENGTH) {
+      nextErrors.title = `Le titre ne doit pas dépasser ${EVENT_TITLE_MAX_LENGTH} caractères.`
+    }
+
+    if (values.description.trim().length > EVENT_DESCRIPTION_MAX_LENGTH) {
+      nextErrors.description = `La description ne doit pas dépasser ${EVENT_DESCRIPTION_MAX_LENGTH} caractères.`
     }
 
     if (!values.location.trim()) {

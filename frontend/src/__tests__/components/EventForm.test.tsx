@@ -44,6 +44,12 @@ describe('EventForm', () => {
     expect(screen.getByText('Image invalide')).toBeTruthy()
     expect(screen.getByText('Ajoutez une image de couverture')).toBeTruthy()
     expect(screen.getByText('PNG, JPG ou WEBP')).toBeTruthy()
+    expect(screen.getByText(/\/ 120/)).toBeTruthy()
+    expect(screen.getByText(/\/ 2000/)).toBeTruthy()
+    expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).maxLength).toBe(120)
+    expect((screen.getByLabelText(/Description/i) as HTMLTextAreaElement).maxLength).toBe(2000)
+    expect((screen.getByLabelText(/Début/i) as HTMLInputElement).step).toBe('60')
+    expect((screen.getByLabelText(/Fin/i) as HTMLInputElement).step).toBe('60')
     expect((screen.getByRole('button', { name: 'Enregistrement...' }) as HTMLButtonElement).disabled).toBe(true)
   })
 

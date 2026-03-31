@@ -72,6 +72,13 @@
   margin-top: 0.25rem;
 }
 
+.event-char-counter {
+  margin-top: 0.35rem;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .banner-upload-card {
   display: grid;
   gap: 1rem;

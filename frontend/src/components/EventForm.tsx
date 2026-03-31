@@ -1,5 +1,9 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { EventCategory, EventStatus } from '../types'
+import {
+  EVENT_DESCRIPTION_MAX_LENGTH,
+  EVENT_TITLE_MAX_LENGTH,
+} from '../hooks/useEventForm'
 import type { EventFormErrors, EventFormValues } from '../hooks/useEventForm'
 import './EventForm.css'
 
@@ -47,7 +51,11 @@ function EventForm({
               onChange={(event) => onFieldChange('title', event.target.value)}
               className={`form-input ${errors.title ? 'form-input--error' : ''}`}
               placeholder='Nom de l’événement'
+              maxLength={EVENT_TITLE_MAX_LENGTH}
             />
+            <div className='event-char-counter'>
+              {values.title.length} / {EVENT_TITLE_MAX_LENGTH}
+            </div>
             {errors.title && <span className='form-error'>{errors.title}</span>}
           </div>
 
@@ -57,10 +65,15 @@ function EventForm({
               id='event-description'
               value={values.description}
               onChange={(event) => onFieldChange('description', event.target.value)}
-              className='form-textarea'
+              className={`form-textarea ${errors.description ? 'form-input--error' : ''}`}
               placeholder='Quelques détails utiles pour les participants'
               rows={5}
+              maxLength={EVENT_DESCRIPTION_MAX_LENGTH}
             />
+            <div className='event-char-counter'>
+              {values.description.length} / {EVENT_DESCRIPTION_MAX_LENGTH}
+            </div>
+            {errors.description && <span className='form-error'>{errors.description}</span>}
           </div>
 
           <div className='form-group'>
@@ -89,6 +102,7 @@ function EventForm({
                 value={values.startDate}
                 onChange={(event) => onFieldChange('startDate', event.target.value)}
                 className={`form-input ${errors.startDate ? 'form-input--error' : ''}`}
+                step='60'
               />
               {errors.startDate && <span className='form-error'>{errors.startDate}</span>}
             </div>
@@ -103,6 +117,7 @@ function EventForm({
                 value={values.endDate}
                 onChange={(event) => onFieldChange('endDate', event.target.value)}
                 className={`form-input ${errors.endDate ? 'form-input--error' : ''}`}
+                step='60'
               />
               {errors.endDate && <span className='form-error'>{errors.endDate}</span>}
             </div>

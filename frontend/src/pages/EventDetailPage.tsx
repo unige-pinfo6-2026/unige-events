@@ -6,6 +6,7 @@ import { useEvent } from '../hooks/useEvent'
 import { deleteEvent } from '../services/eventApi'
 import { getUserById } from '../services/userService'
 import type { EventCategory, User } from '../types'
+import { formatEventDateTime } from '../utils/dateTime'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',
@@ -23,17 +24,6 @@ const CATEGORY_COLORS: Record<EventCategory, string> = {
   SOCIAL: '#ea580c',
   CONFERENCE: '#0891b2',
   OTHER: '#6b7280',
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('fr-CH', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function CenteredMessage({ message }: Readonly<{ message: string }>) {
@@ -202,7 +192,7 @@ function EventDetailPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
             <span>📅</span>
-            <span>{formatDate(currentEvent.startDate)} → {formatDate(currentEvent.endDate)}</span>
+            <span>{formatEventDateTime(currentEvent.startDate)} → {formatEventDateTime(currentEvent.endDate)}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
             <span>📍</span>
@@ -227,7 +217,17 @@ function EventDetailPage() {
         {currentEvent.description && (
           <>
             <hr style={{ border: 'none', borderTop: '1px solid var(--divider)', margin: '0 0 1.25rem' }} />
-            <p style={{ margin: 0, color: 'var(--text-primary)', lineHeight: 1.7, fontSize: '0.9375rem', whiteSpace: 'pre-wrap' }}>
+            <p
+              style={{
+                margin: 0,
+                color: 'var(--text-primary)',
+                lineHeight: 1.7,
+                fontSize: '0.9375rem',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+              }}
+            >
               {currentEvent.description}
             </p>
           </>
