@@ -47,8 +47,8 @@ public class EventResource {
             @QueryParam("status") EventStatus status,
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId,
-            @QueryParam("startDateFrom") LocalDateTime startDateFrom) {
-        return eventService.getAll(page, size, status, category, organizerId, startDateFrom);
+            @QueryParam("endDateFrom") LocalDateTime endDateFrom) {
+        return eventService.getAll(page, size, status, category, organizerId, endDateFrom);
     }
 
     @POST

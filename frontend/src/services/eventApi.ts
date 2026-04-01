@@ -7,7 +7,7 @@ export interface EventsParams {
   status?: EventStatus
   category?: EventCategory
   organizerId?: string
-  startDateFrom?: string
+  endDateFrom?: string
 }
 
 export async function getAll(params: EventsParams = {}): Promise<Event[]> {

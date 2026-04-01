@@ -37,7 +37,7 @@ public class EventService {
     String uploadsPath;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime startDateFrom) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
@@ -53,9 +53,9 @@ public class EventService {
             conditions.add("creator.id = :organizerId");
             params.put("organizerId", organizerId);
         }
-        if (startDateFrom != null) {
-            conditions.add("endDate >= :startDateFrom");
-            params.put("startDateFrom", startDateFrom);
+        if (endDateFrom != null) {
+            conditions.add("endDate >= :endDateFrom");
+            params.put("endDateFrom", endDateFrom);
         }
 
         PanacheQuery<Event> query;

@@ -22,9 +22,9 @@
 
 ### Bug 1 — Événements passés dans "Événements à venir"
 
-La page d'accueil affiche des événements dont la `startDate` est déjà passée. Le hook `useEvents.ts` passe uniquement `status: 'PUBLISHED'` à l'API, sans filtre de date. Le service backend `EventService.getAll()` n'a pas de condition sur `startDate`.
+La page d'accueil affiche des événements dont la `endDate` est déjà passée. Le hook `useEvents.ts` passe uniquement `status: 'PUBLISHED'` à l'API, sans filtre de date. Le service backend `EventService.getAll()` n'a pas de condition sur `endDate`.
 
-**Fix :** Ajouter un paramètre optionnel `startDateFrom` (type `LocalDate`) à `GET /events`. Le frontend le valorise systématiquement avec la date du jour.
+**Fix :** Ajouter un paramètre optionnel `endDateFrom` (type `LocalDateTime`) à `GET /events`, filtrant sur `endDate >= endDateFrom`. Le frontend le valorise avec le datetime local courant — les événements dont la `endDate` est passée disparaissent, les événements en cours restent visibles.
 
 ### Bug 2 — Limites de caractères incohérentes
 

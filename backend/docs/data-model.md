@@ -34,7 +34,7 @@ Table : `events`
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
 | `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
-| `title` | `title` | `String` | `title` | `@NotBlank`, `@Size(max=120)`, `@Column(length=120)` |
+| `title` | `title` | `String` | `title` | `@NotBlank`, `@Size(max=120)` |
 | `description` | `description` | `String` | `description` | nullable, `@Size(max=2000)` (DTO), `@Column(columnDefinition="TEXT")` |
 | `location` | `location` | `String` | `location` | `@NotBlank` |
 | `startDate` | `startDate` | `LocalDateTime` | `start_date` | `@NotNull`, `@Future` |
@@ -198,7 +198,7 @@ Valeurs attendues pour `studyLevel` :
 | Annotation | Champ(s) concerné(s) |
 |---|---|
 | `@NotBlank` | `Event.title` |
-| `@Size(max=120)` | `EventRequestBase.title`, `Event.title` |
+| `@Size(max=120)` | `EventRequestBase.title` |
 | `@Size(max=2000)` | `EventRequestBase.description` |
 | `@Version` | `User.version` (optimistic locking) |
 | Unique constraint | `User.auth0Id`, `User.email` |

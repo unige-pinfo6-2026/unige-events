@@ -587,9 +587,9 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: startDateFrom
+        - name: endDateFrom
           in: query
-          description: Filtre les événements dont endDate >= startDateFrom (datetime ISO local, ex. 2026-04-01T16:57:00). Utilisé par la page d'accueil pour masquer les événements terminés.
+          description: Filtre les événements dont endDate >= endDateFrom (datetime ISO local, ex. 2026-04-01T16:57:00). Utilisé par la page d'accueil pour masquer les événements terminés.
           schema:
             type: string
             format: date-time
