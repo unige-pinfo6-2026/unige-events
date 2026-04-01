@@ -21,6 +21,7 @@ import io.quarkus.security.identity.SecurityIdentity;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,8 +46,9 @@ public class EventResource {
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
             @QueryParam("status") EventStatus status,
             @QueryParam("category") EventCategory category,
-            @QueryParam("organizerId") UUID organizerId) {
-        return eventService.getAll(page, size, status, category, organizerId);
+            @QueryParam("organizerId") UUID organizerId,
+            @QueryParam("startDateFrom") LocalDateTime startDateFrom) {
+        return eventService.getAll(page, size, status, category, organizerId, startDateFrom);
     }
 
     @POST

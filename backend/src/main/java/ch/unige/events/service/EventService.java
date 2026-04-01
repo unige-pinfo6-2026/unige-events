@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +37,7 @@ public class EventService {
     String uploadsPath;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime startDateFrom) {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
@@ -51,6 +52,10 @@ public class EventService {
         if (organizerId != null) {
             conditions.add("creator.id = :organizerId");
             params.put("organizerId", organizerId);
+        }
+        if (startDateFrom != null) {
+            conditions.add("endDate >= :startDateFrom");
+            params.put("startDateFrom", startDateFrom);
         }
 
         PanacheQuery<Event> query;

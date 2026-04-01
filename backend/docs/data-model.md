@@ -34,8 +34,8 @@ Table : `events`
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
 | `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
-| `title` | `title` | `String` | `title` | `@NotBlank` |
-| `description` | `description` | `String` | `description` | nullable |
+| `title` | `title` | `String` | `title` | `@NotBlank`, `@Size(max=120)`, `@Column(length=120)` |
+| `description` | `description` | `String` | `description` | nullable, `@Size(max=2000)` (DTO), `@Column(columnDefinition="TEXT")` |
 | `location` | `location` | `String` | `location` | `@NotBlank` |
 | `startDate` | `startDate` | `LocalDateTime` | `start_date` | `@NotNull`, `@Future` |
 | `endDate` | `endDate` | `LocalDateTime` | `end_date` | `@NotNull` |
@@ -119,12 +119,13 @@ Body de création (`POST /events`). Champs requis : `title`, `location`, `startD
 
 | Champ | Validation |
 |---|---|
-| `title` | `@NotBlank` |
+| `title` | `@NotBlank`, `@Size(max=120)` |
 | `location` | `@NotBlank` |
 | `startDate` | `@NotNull`, `@Future` |
 | `endDate` | `@NotNull` |
 | `category` | `@NotNull` |
-| `description`, `bannerUrl`, `capacity` | optionnels |
+| `description` | `@Size(max=2000)`, optionnel |
+| `bannerUrl`, `capacity` | optionnels |
 
 ### UpdateEventRequest
 Body de mise à jour partielle (`PUT /events/{id}`). Tous les champs optionnels.
@@ -197,6 +198,8 @@ Valeurs attendues pour `studyLevel` :
 | Annotation | Champ(s) concerné(s) |
 |---|---|
 | `@NotBlank` | `Event.title` |
+| `@Size(max=120)` | `EventRequestBase.title`, `Event.title` |
+| `@Size(max=2000)` | `EventRequestBase.description` |
 | `@Version` | `User.version` (optimistic locking) |
 | Unique constraint | `User.auth0Id`, `User.email` |
 | Unique constraint (planifié) | `Attendance(userId, eventId)` |

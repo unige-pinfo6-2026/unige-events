@@ -14,6 +14,7 @@ public class Event extends PanacheEntity {
 
     public String title;
 
+    @Column(columnDefinition = "TEXT")
     public String description;
 
     public String location;
