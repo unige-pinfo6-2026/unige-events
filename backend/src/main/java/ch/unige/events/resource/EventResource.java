@@ -8,6 +8,7 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.service.EventService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -17,6 +18,8 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import io.quarkus.security.identity.SecurityIdentity;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.List;
 import java.util.UUID;
@@ -78,5 +81,26 @@ public class EventResource {
         String auth0Id = identity.getPrincipal().getName();
         eventService.delete(id, auth0Id);
         return Response.noContent().build();
+    }
+
+    @PATCH
+    @Path("/{id}/publish")
+    @RolesAllowed({"ORGANIZER", "ADMIN"})
+    public Response publish(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        boolean isAdmin = identity.hasRole("ADMIN");
+        EventDTO published = eventService.publish(id, auth0Id, isAdmin);
+        return Response.ok(published).build();
+    }
+
+    @POST
+    @Path("/{id}/image")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RolesAllowed({"ORGANIZER", "ADMIN"})
+    public Response uploadImage(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
+        String auth0Id = identity.getPrincipal().getName();
+        boolean isAdmin = identity.hasRole("ADMIN");
+        EventDTO updated = eventService.uploadImage(id, auth0Id, file, isAdmin);
+        return Response.ok(updated).build();
     }
 }
