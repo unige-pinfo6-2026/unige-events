@@ -19,7 +19,7 @@ export function toLocalDateTimeInputValue(dateTime: string): string {
 }
 
 export function formatEventDateTime(dateTime: string): string {
-  return parseApiUtcDateTime(dateTime).toLocaleDateString('fr-CH', {
+  return parseApiUtcDateTime(dateTime).toLocaleString('fr-CH', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -30,7 +30,7 @@ export function formatEventDateTime(dateTime: string): string {
 }
 
 export function formatEventDateTimeCompact(dateTime: string): string {
-  return parseApiUtcDateTime(dateTime).toLocaleDateString('fr-CH', {
+  return parseApiUtcDateTime(dateTime).toLocaleString('fr-CH', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
