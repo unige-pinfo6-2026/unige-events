@@ -3,7 +3,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FormEvent } from 'react'
-import { useEventForm } from '../../hooks/useEventForm'
+import {
+  EVENT_DESCRIPTION_MAX_LENGTH,
+  EVENT_TITLE_MAX_LENGTH,
+  useEventForm,
+} from '../../hooks/useEventForm'
 import { EventCategory, EventStatus } from '../../types'
 
 vi.mock('../../services/eventApi', () => ({
@@ -100,6 +104,27 @@ describe('useEventForm', () => {
     })
 
     expect(result.current.errors.startDate).toBe('La date de début doit être postérieure à la date et à l\'heure actuelles.')
+    expect(mockCreateEvent).not.toHaveBeenCalled()
+  })
+
+  it('validates title and description max length before submit', async () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'x'.repeat(EVENT_TITLE_MAX_LENGTH + 1))
+      result.current.setFieldValue('description', 'y'.repeat(EVENT_DESCRIPTION_MAX_LENGTH + 1))
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(result.current.errors.title).toBe(`Le titre ne doit pas dépasser ${EVENT_TITLE_MAX_LENGTH} caractères.`)
+    expect(result.current.errors.description).toBe(`La description ne doit pas dépasser ${EVENT_DESCRIPTION_MAX_LENGTH} caractères.`)
     expect(mockCreateEvent).not.toHaveBeenCalled()
   })
 

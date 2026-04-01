@@ -118,6 +118,9 @@ describe('EventDetailPage', () => {
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
     expect(screen.getByText('200 places disponibles')).toBeTruthy()
+    const title = screen.getByRole('heading', { name: 'Conférence IA' }) as HTMLHeadingElement
+    expect(title.style.overflowWrap).toBe('anywhere')
+    expect(title.style.wordBreak).toBe('break-word')
     await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
   })
 

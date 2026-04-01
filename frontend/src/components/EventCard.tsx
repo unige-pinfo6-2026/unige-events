@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { Event, EventCategory } from '../types'
+import { formatEventDateTimeCompact } from '../utils/dateTime'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',
@@ -17,16 +18,6 @@ const CATEGORY_COLORS: Record<EventCategory, string> = {
   SOCIAL: '#ea580c',
   CONFERENCE: '#0891b2',
   OTHER: '#6b7280',
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('fr-CH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 interface EventCardProps {
@@ -99,6 +90,8 @@ function EventCard({ event }: EventCardProps) {
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
             }}
           >
             {event.title}
@@ -106,7 +99,7 @@ function EventCard({ event }: EventCardProps) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-              📅 {formatDate(event.startDate)}
+              📅 {formatEventDateTimeCompact(event.startDate)}
             </span>
             <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
               📍 {event.location}

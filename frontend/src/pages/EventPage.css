@@ -51,6 +51,8 @@
   color: var(--text-primary);
   line-height: 1.6;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .event-page-banner {

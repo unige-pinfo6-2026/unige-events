@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-03-27
+Dernière mise à jour : 2026-03-31
 
 ## Sprint 1 — Authentification & profils
 
@@ -29,3 +29,15 @@ Suite prévue :
 - Recherche et filtres avancés.
 - Vue calendrier.
 - Extraction de composants génériques de loading et d’erreur.
+
+## Correctifs transverses — 2026-03-31
+
+Terminé.
+
+Fonctionnalités corrigées :
+- Gestion unifiée des dates d’événements côté frontend pour interpréter les timestamps API UTC et afficher les heures en fuseau local navigateur (création, listing, détail, édition).
+- Uniformisation de la granularité du sélecteur date/heure à la minute (`00:00` à `23:59`) sur les flux de création et d’édition.
+- Protection du layout contre les chaînes longues non segmentées dans la bio profil et la description d’événement (`overflow-wrap` + `word-break`).
+- Ajout de limites frontend pour le titre et la description d’événement (contrainte d’input + validation + feedback utilisateur).
+- Remplacement du picker natif `datetime-local` par un sélecteur date + heure/minute (24h explicite) pour garantir une UX sans AM/PM sur création et édition.
+- Renforcement du wrapping des titres d’événements longs sans espaces (détail et cartes) avec contraintes de flex-shrink (`min-width: 0`) et césure CSS robuste.
