@@ -160,6 +160,19 @@ describe('EventDetailPage', () => {
     expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull()
   })
 
+  it('shows a banner warning toast when bannerUploadError is present in sessionStorage', async () => {
+    sessionStorage.setItem('bannerUploadError', "L'événement a été créé mais la bannière n'a pas pu être uploadée.")
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(await screen.findByText("L'événement a été créé mais la bannière n'a pas pu être uploadée.")).toBeTruthy()
+    expect(sessionStorage.getItem('bannerUploadError')).toBeNull()
+  })
+
   it('calls deleteEvent and navigates home on confirm', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })

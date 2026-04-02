@@ -395,7 +395,7 @@ class EventServiceCoverageTest {
         EventDTO result = eventService.uploadImage(event.id, "auth0|img", upload, false);
 
         assertNotNull(result.bannerUrl());
-        assertTrue(result.bannerUrl().startsWith("/uploads/"));
+        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
         assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
@@ -412,7 +412,7 @@ class EventServiceCoverageTest {
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|admin2", upload, true);
 
-        assertTrue(result.bannerUrl().startsWith("/uploads/"));
+        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
     }
 
     @Test

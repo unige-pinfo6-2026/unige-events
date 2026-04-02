@@ -158,6 +158,30 @@ describe('EditEventPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/events/42')
   })
 
+  it('stores the banner error in sessionStorage when image upload fails after update', async () => {
+    mockGetById.mockResolvedValue(existingEvent)
+    mockUpdateEvent.mockResolvedValue(existingEvent)
+    mockUploadEventImage.mockRejectedValue(new Error('upload failed'))
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview-url')
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+
+    renderPage()
+
+    await screen.findByDisplayValue(existingEvent.title)
+
+    const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
+    if (!fileInput) throw new Error('Missing banner input')
+    fireEvent.change(fileInput, { target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(
+      'bannerUploadError',
+      "L'événement a été créé mais la bannière n'a pas pu être uploadée.",
+    ))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })
+  })
+
   it('cleans up pending timers when the page unmounts after success', async () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
     mockGetById.mockResolvedValue(existingEvent)
