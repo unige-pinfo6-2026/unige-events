@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { Event, EventCategory } from '../../types'
+import type { Event, EventCategory } from '@/types'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',

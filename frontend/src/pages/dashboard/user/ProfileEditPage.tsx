@@ -1,9 +1,9 @@
 import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { getMe, updateProfile, uploadPhoto } from '../services/userService'
-import { Faculty, StudyLevel } from '../types'
-import type { User } from '../types'
+import { useAuth } from '@/hooks/useAuth'
+import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
+import { Faculty, StudyLevel } from '@/types'
+import type { User } from '@/types'
 import './ProfileEditPage.css'
 
 const MAX_BIO_LENGTH = 500

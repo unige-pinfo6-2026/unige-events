@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import CallbackPage from '../../pages/CallbackPage'
+import CallbackPage from '../../pages/callback/CallbackPage'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),

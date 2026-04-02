@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import Avatar from '../../components/users/Avatar'
-import EventCard from '../../components/events/EventCard'
-import { useAuth } from '../../hooks/useAuth'
-import { useEvents } from '../../hooks/useEvents'
+import Avatar from '@/components/user/Avatar'
+import EventCard from '@/components/event/EventCard'
+import { useAuth } from '@/hooks/useAuth'
+import { useEvents } from '@/hooks/useEvents'
 
 const DashboardPage = () => {
   const { user } = useAuth()

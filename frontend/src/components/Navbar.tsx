@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
-import Avatar from './users/Avatar'
+import Avatar from './user/Avatar'
 import { ButtonPrimary } from './utils/Buttons'
 import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react'
-import { Banner } from '../assets/Banner'
+import { Banner } from '@/assets/Banner'
 
 const Navbar = () => {
   const { user, login, logout } = useAuth()
@@ -33,7 +33,7 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-3">
           {/* Theme toggle */}
           <button
-            onClick={toggleTheme}
+            onClick={logout} // TODO : Astuce pour se déco
             aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
             className="p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
           >

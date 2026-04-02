@@ -7,7 +7,7 @@ import {
   AlertCircle, Mail, Search, CheckCircle
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import FacultyMarquee from '../components/faculties/FacultyMarquee'
+import FacultyMarquee from '../components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary } from '../components/utils/Buttons'
 import Footer from '../components/Footer'
 import Header from '../components/Header'

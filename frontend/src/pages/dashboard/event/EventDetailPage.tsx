@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import Avatar from '../components/users/Avatar'
-import { useAuth } from '../hooks/useAuth'
-import { useEvent } from '../hooks/useEvent'
-import { deleteEvent } from '../services/eventApi'
-import { getUserById } from '../services/userService'
-import type { EventCategory, User } from '../types'
+import type { EventCategory, User } from '@/types'
+import { useAuth, useEvent } from '@/hooks'
+import { getUserById } from '@/services/userService'
+import { deleteEvent } from '@/services/eventApi'
+import Avatar from '@/components/user/Avatar'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',

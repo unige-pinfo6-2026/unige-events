@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import EventCard from '../../components/events/EventCard'
+import EventCard from '../../components/event/EventCard'
 import type { Event } from '../../types'
 
 const mockEvent: Event = {

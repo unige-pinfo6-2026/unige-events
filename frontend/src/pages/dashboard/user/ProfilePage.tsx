@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { getUserById } from '../services/userService'
-import Avatar from '../components/users/Avatar'
-import type { User } from '../types'
+import { useAuth } from '@/hooks/useAuth'
+import { getUserById } from '@/services/userService'
+import Avatar from '@/components/user/Avatar'
+import type { User } from '@/types'
 import './ProfilePage.css'
 
 const FACULTY_LABELS: Record<string, string> = {

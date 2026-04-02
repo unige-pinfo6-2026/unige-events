@@ -1,15 +1,9 @@
-import type { ReactNode } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 import Header from './Header'
-import Navbar from './Navbar'
-import { TextLink } from './utils/Links'
 import Footer from './Footer'
+import { Outlet } from 'react-router-dom'
 
-interface LayoutProps {
-  children: ReactNode
-}
-
-function Layout({ children }: Readonly<LayoutProps>) {
+function Layout() {
   const { theme } = useTheme()
   
   return (
@@ -17,7 +11,7 @@ function Layout({ children }: Readonly<LayoutProps>) {
       <Header/>
 
       <main>
-        {children}
+        <Outlet/>
       </main>
 
       <Footer/>
