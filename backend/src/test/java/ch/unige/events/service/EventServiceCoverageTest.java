@@ -98,6 +98,19 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void getAll_withEndDateFromFilter_excludesEndedEvents() {
+        deleteAll();
+        User user = persistUser("auth0|edf", "edf@example.com");
+        persistEvent("Active Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Also Active", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, LocalDateTime.now().minusDays(1));
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
     void getAll_withPagination_returnsPage() {
         deleteAll();
         User user = persistUser("auth0|page", "page@example.com");
