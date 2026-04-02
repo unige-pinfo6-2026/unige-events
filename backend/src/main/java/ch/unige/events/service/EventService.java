@@ -11,12 +11,14 @@ import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +31,7 @@ public class EventService {
     @Inject FileStorageService fileStorageService;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
@@ -44,6 +46,10 @@ public class EventService {
         if (organizerId != null) {
             conditions.add("creator.id = :organizerId");
             params.put("organizerId", organizerId);
+        }
+        if (endDateFrom != null) {
+            conditions.add("endDate >= :endDateFrom");
+            params.put("endDateFrom", endDateFrom);
         }
 
         PanacheQuery<Event> query;
