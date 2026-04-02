@@ -1,6 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
-import { EventCategory, EventStatus } from '../types'
-import type { EventFormErrors, EventFormValues } from '../hooks/useEventForm'
+import { EventCategory, EventStatus } from '../../types'
+import type { EventFormErrors, EventFormValues } from '../../hooks/useEventForm'
 import './EventForm.css'
 
 interface EventFormProps {

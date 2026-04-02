@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import EventForm from '../components/EventForm'
+import EventForm from '../components/events/EventForm'
 import { useEventForm } from '../hooks/useEventForm'
 import './EventPage.css'
 

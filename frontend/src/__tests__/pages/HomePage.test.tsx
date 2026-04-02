@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import HomePage from '../../pages/HomePage'
+import HomePage from '../../pages/dashboard/DashboardPage'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('../../hooks/useEvents', () => ({ useEvents: vi.fn() }))

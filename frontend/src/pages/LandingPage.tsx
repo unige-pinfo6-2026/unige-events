@@ -7,76 +7,16 @@ import {
   AlertCircle, Mail, Search, CheckCircle
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import FacultyMarquee from '../components/faculty/FacultyMarquee'
-import { ButtonPrimary, ButtonSecondary } from '../components/button/Buttons'
+import FacultyMarquee from '../components/faculties/FacultyMarquee'
+import { ButtonPrimary, ButtonSecondary } from '../components/utils/Buttons'
 import Footer from '../components/Footer'
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-
-function Header({ onLogin }: { onLogin: () => void }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/10 backdrop-blur-sm border-b border-white/20">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Bannière */}
-          <div className="flex items-center">
-            <img className="w-32" src="banner.svg" alt="Bannière UNIGE" />
-          </div>
-
-          {/* Desktop Nav */}
-          {/* <div className="hidden md:flex items-center gap-8">
-            {[['Features', '#features'], ['Comment ça marche', '#how'], ['Pour vous', '#for-you']].map(([label, href]) => (
-              <a
-                key={label}
-                href={href}
-                className="text-sm text-white/60 hover:text-white transition-colors relative group"
-              >
-                {label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-full transition-all duration-300" />
-              </a>
-            ))}
-          </div> */}
-
-          {/* CTA */}
-          <div className="hidden md:flex items-center gap-3">
-            <ButtonPrimary size="sm" onClick={onLogin}>Se connecter</ButtonPrimary>
-          </div>
-
-          {/* Mobile toggle */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* Mobile menu */}
-        {/* {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-3 border-t border-white/10 mt-2">
-            {[['Features', '#features'], ['Comment ça marche', '#how'], ['Pour vous', '#for-you']].map(([label, href]) => (
-              <a key={label} href={href} onClick={() => setMobileMenuOpen(false)} className="block py-2 text-sm text-white/70 hover:text-white transition-colors">
-                {label}
-              </a>
-            ))}
-            <div className="pt-3 space-y-2">
-              <button onClick={onLogin} className="w-full text-sm text-white/70 hover:text-white py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer bg-transparent border-0">
-                Se connecter
-              </button>
-              <ButtonPrimary size="sm" onClick={onLogin} className="w-full justify-center">Commencer</ButtonPrimary>
-            </div>
-          </div>
-        )} */}
-      </nav>
-    </header>
-  )
-}
+import Header from '../components/Header'
+import Navbar from '../components/Navbar'
+import { TextLink } from '../components/utils/Links'
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-function HeroSection({ onLogin }: { onLogin: () => void }) {
+function HeroSection() {
   return (
     <section className="relative flex flex-col justify-between h-screen overflow-hidden py-8">
       {/* Background blobs */}
@@ -105,9 +45,13 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <ButtonPrimary size="lg" onClick={onLogin}>
+            <ButtonPrimary size="lg">
               Explorer les derniers évènements
             </ButtonPrimary>
+
+            <ButtonSecondary size="lg">
+              Créer un évènement
+            </ButtonSecondary>
           </div>
         </div>
       </div>
@@ -283,7 +227,7 @@ function FeaturesSection() {
 
 // ─── Final CTA ────────────────────────────────────────────────────────────────
 
-function FinalCTA({ onLogin }: { onLogin: () => void }) {
+function FinalCTA() {
   return (
     <section className="py-20 lg:py-32 relative overflow-hidden">
       <div className="absolute inset-0">
@@ -303,7 +247,7 @@ function FinalCTA({ onLogin }: { onLogin: () => void }) {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <ButtonPrimary size="lg" onClick={onLogin}>
+          <ButtonPrimary size="lg">
             Commencer maintenant
           </ButtonPrimary>
           <ButtonSecondary size="lg">En savoir plus</ButtonSecondary>
@@ -316,28 +260,13 @@ function FinalCTA({ onLogin }: { onLogin: () => void }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function LandingPage() {
-  const { isAuthenticated, isLoading, login } = useAuth()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate('/home', { replace: true })
-    }
-  }, [isAuthenticated, isLoading, navigate])
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header onLogin={login} />
-      
-      <main>
-        <HeroSection onLogin={login} />
-        {/* <TrustBar /> */}
-        <ProblemSolutionSection />
-        <FeaturesSection />
-        <FinalCTA onLogin={login} />
-      </main>
-
-      <Footer />
+    <div>
+      <HeroSection />
+      {/* <TrustBar /> */}
+      <ProblemSolutionSection />
+      <FeaturesSection />
+      <FinalCTA />
     </div>
   )
 }

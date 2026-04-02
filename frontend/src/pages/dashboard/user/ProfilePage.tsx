@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { getUserById } from '../services/userService'
-import Avatar from '../components/Avatar'
+import Avatar from '../components/users/Avatar'
 import type { User } from '../types'
 import './ProfilePage.css'
 

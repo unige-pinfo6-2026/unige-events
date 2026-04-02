@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import EventForm from '../components/EventForm'
+import EventForm from '../components/events/EventForm'
 import { useEventForm } from '../hooks/useEventForm'
 import { getById } from '../services/eventApi'
 import type { Event } from '../types'

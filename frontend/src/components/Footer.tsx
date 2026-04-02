@@ -30,7 +30,7 @@ const Footer = () => {
                 <div className="flex flex-col lg:flex-row gap-24 justify-between">
                     {/* Brand */}
                     <div className="flex flex-col gap-4 max-w-100">
-                        <Banner/>
+                        <Banner className="w-52"/>
                         
                         <p className="text-sm text-white/50 leading-relaxed mb-6">
                             La plateforme centralisée pour tous les événements universitaires. Connectons la communauté UNIGE.
@@ -39,7 +39,7 @@ const Footer = () => {
                         <div className="flex gap-3">
                             <IconLink icon={FaInstagram} href="https://instagram.com/unigeneve"/>
                             <IconLink icon={FaTwitter} href="https://x.com/UNIGEnews"/>
-                            <IconLink icon={FaGithub} href="github.com/unige-pinfo6-2026/unige-events"/>
+                            <IconLink icon={FaGithub} href="https://github.com/unige-pinfo6-2026/unige-events"/>
                         </div>
                     </div>
 

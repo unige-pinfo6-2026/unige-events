@@ -1,5 +1,5 @@
-export const Banner = () => {
+export const Banner = ({className}: {className: string}) => {
     return (
-        <img className="w-[200px]" src="/banner.svg" alt="Bannière UNIGE" />
+        <img className={className} src="/banner.svg" alt="Bannière UNIGE" />
     )
 }

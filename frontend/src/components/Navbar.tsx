@@ -1,91 +1,117 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
-import Avatar from './Avatar'
-import Logo from './Logo'
-import './Navbar.css'
+import Avatar from './users/Avatar'
+import { ButtonPrimary } from './utils/Buttons'
+import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react'
+import { Banner } from '../assets/Banner'
 
-function Navbar() {
-  const { user, logout } = useAuth()
+const Navbar = () => {
+  const { user, login, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  function handleDropdownToggle() {
-    setDropdownOpen((prev) => !prev)
-  }
-
-  function handleLogout() {
-    setDropdownOpen(false)
-    logout()
-  }
 
   return (
-    <nav className="navbar">
-      <div className="navbar-brand">
-        <Link to="/home" className="navbar-title">
-          <Logo size={28} className="navbar-logo" />
-          UNIGE Events
-        </Link>
-      </div>
+    <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex justify-between items-center h-18">
 
-      <div className="navbar-links">
-        <Link to="/home" className="navbar-link">
-          Accueil
-        </Link>
-      </div>
+        {/* Logo */}
+        <Banner className="w-40"/>
 
-      <div className="navbar-user" ref={dropdownRef}>
-        <button
-          className="navbar-theme-toggle"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        >
-          {theme === 'dark' ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
+        {/* Desktop Nav */}
+        <div className="hidden md:flex items-center gap-8">
+          {/* <TextLink href={"#events"}>En ce moment</TextLink>
+          <TextLink href={"#features"}>Fonctionnalités</TextLink>
+          <TextLink href={"#get-started"}>Commencer</TextLink>
+          <TextLink href={"#faq"}>FAQ</TextLink> */}
+        </div>
+
+        {/* Right side */}
+        <div className="hidden md:flex items-center gap-3">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(p => !p)}
+                className="flex items-center gap-2 cursor-pointer bg-transparent border-0 text-white"
+                aria-expanded={dropdownOpen}
+              >
+                <Avatar
+                  avatarUrl={user.avatarUrl}
+                  displayName={user.displayName}
+                  size={32}
+                  style={!user.avatarUrl ? { background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.28)', fontSize: '0.8rem' } : undefined}
+                />
+                <span className="text-sm text-white/80">{user.displayName}</span>
+                <ChevronDown className="w-4 h-4 text-white/50" />
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-card border border-white/10 shadow-xl overflow-hidden z-50">
+                  <Link
+                    to="/profile/me"
+                    className="block px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Mon Profil
+                  </Link>
+                  <button
+                    onClick={() => { setDropdownOpen(false); logout() }}
+                    className="w-full text-left px-4 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors cursor-pointer bg-transparent border-0"
+                  >
+                    Déconnexion
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
+            <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
           )}
-        </button>
+        </div>
 
+        {/* Mobile toggle */}
         <button
-          className="navbar-avatar"
-          onClick={handleDropdownToggle}
-          aria-label="Menu utilisateur"
-          aria-expanded={dropdownOpen}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
         >
-          <Avatar
-            avatarUrl={user?.avatarUrl}
-            displayName={user?.displayName}
-            size={32}
-            style={!user?.avatarUrl ? { background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.28)', fontSize: '0.8rem' } : undefined}
-          />
-          <span className="navbar-username">{user?.displayName ?? ''}</span>
-          <span className="dropdown-caret">▾</span>
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
-
-        {dropdownOpen && (
-          <div className="navbar-dropdown">
-            <Link
-              to="/profile/me"
-              className="dropdown-item"
-              onClick={() => setDropdownOpen(false)}
-            >
-              Mon Profil
-            </Link>
-            <button className="dropdown-item dropdown-item--danger" onClick={handleLogout}>
-              Déconnexion
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden py-4 space-y-3 border-t border-white/10 mt-2">
+          <div className="pt-3 space-y-2">
+            {user ? (
+              <>
+                <Link to="/profile/me" className="block py-2 text-sm text-white/70 hover:text-white transition-colors">
+                  Mon Profil
+                </Link>
+                <button onClick={logout} className="block py-2 text-sm text-red-400 cursor-pointer bg-transparent border-0">
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <ButtonPrimary size="sm" onClick={login} className="w-full justify-center">
+                Se connecter
+              </ButtonPrimary>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   )
 }
 
-export default Navbar
+export default Navbar;

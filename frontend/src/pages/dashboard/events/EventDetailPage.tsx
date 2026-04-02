@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import Avatar from '../components/Avatar'
+import Avatar from '../components/users/Avatar'
 import { useAuth } from '../hooks/useAuth'
 import { useEvent } from '../hooks/useEvent'
 import { deleteEvent } from '../services/eventApi'

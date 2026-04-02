@@ -2,27 +2,31 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from '../components/Layout'
 import PrivateRoute from '../components/PrivateRoute'
 import CallbackPage from '../pages/CallbackPage'
-import CreateEventPage from '../pages/CreateEventPage'
-import EditEventPage from '../pages/EditEventPage'
-import EventDetailPage from '../pages/EventDetailPage'
-import HomePage from '../pages/HomePage'
+import CreateEventPage from '../pages/dashboard/events/CreateEventPage'
+import EditEventPage from '../pages/dashboard/events/EditEventPage'
+import EventDetailPage from '../pages/dashboard/events/EventDetailPage'
+import DashboardPage from '../pages/dashboard/DashboardPage'
 import LandingPage from '../pages/LandingPage'
 import LoginPage from '../pages/LoginPage'
-import ProfileEditPage from '../pages/ProfileEditPage'
-import ProfilePage from '../pages/ProfilePage'
+import ProfileEditPage from '../pages/dashboard/user/ProfileEditPage'
+import ProfilePage from '../pages/dashboard/user/ProfilePage'
 
 function AppRouter() {
   return (
     <Routes>
-      <Route path='/' element={<LandingPage />} />
+      <Route path='/' element={
+        <Layout>
+          <LandingPage />
+        </Layout>
+      } />
       <Route path='/login' element={<LoginPage />} />
       <Route path='/callback' element={<CallbackPage />} />
       <Route
-        path='/home'
+        path='/dashboard'
         element={
           <PrivateRoute>
             <Layout>
-              <HomePage />
+              <DashboardPage />
             </Layout>
           </PrivateRoute>
         }
