@@ -1,4 +1,4 @@
-import Marquee from "../Marquee"
+import Marquee from "../utils/Marquee"
 import FacultyCard from "./FacultyCard";
 import { FACULTIES } from "./faculty.types";
 

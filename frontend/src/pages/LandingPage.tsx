@@ -4,48 +4,12 @@ import {
   Calendar, Menu, X, Zap,
   Building2, Users, TrendingUp,
   Filter, User, PlusCircle, BarChart3, Bell,
-  AlertCircle, Mail, Search, CheckCircle,
-  Phone, MapPin, ExternalLink,
+  AlertCircle, Mail, Search, CheckCircle
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { FACULTIES } from '../components/faculty/faculty.types'
 import FacultyMarquee from '../components/faculty/FacultyMarquee'
-
-// ─── Shared button primitives ────────────────────────────────────────────────
-
-function BtnPrimary({ children, onClick, className = '', size = 'md' }: {
-  children: React.ReactNode
-  onClick?: () => void
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
-}) {
-  const pad = size === 'sm' ? 'px-4 py-2 text-sm' : size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base'
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 ${pad} ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function BtnOutline({ children, onClick, className = '', size = 'md' }: {
-  children: React.ReactNode
-  onClick?: () => void
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
-}) {
-  const pad = size === 'sm' ? 'px-4 py-2 text-sm' : size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base'
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl border-2 border-white/10 hover:border-accent/50 hover:bg-white/5 text-white transition-all cursor-pointer bg-transparent ${pad} ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
+import { ButtonPrimary, ButtonSecondary } from '../components/button/Buttons'
+import Footer from '../components/Footer'
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +41,7 @@ function Header({ onLogin }: { onLogin: () => void }) {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <BtnPrimary size="sm" onClick={onLogin}>Se connecter</BtnPrimary>
+            <ButtonPrimary size="sm" onClick={onLogin}>Se connecter</ButtonPrimary>
           </div>
 
           {/* Mobile toggle */}
@@ -101,7 +65,7 @@ function Header({ onLogin }: { onLogin: () => void }) {
               <button onClick={onLogin} className="w-full text-sm text-white/70 hover:text-white py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer bg-transparent border-0">
                 Se connecter
               </button>
-              <BtnPrimary size="sm" onClick={onLogin} className="w-full justify-center">Commencer</BtnPrimary>
+              <ButtonPrimary size="sm" onClick={onLogin} className="w-full justify-center">Commencer</ButtonPrimary>
             </div>
           </div>
         )} */}
@@ -141,9 +105,9 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <BtnPrimary size="lg" onClick={onLogin}>
+            <ButtonPrimary size="lg" onClick={onLogin}>
               Explorer les derniers évènements
-            </BtnPrimary>
+            </ButtonPrimary>
           </div>
         </div>
       </div>
@@ -339,104 +303,13 @@ function FinalCTA({ onLogin }: { onLogin: () => void }) {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <BtnPrimary size="lg" onClick={onLogin}>
+          <ButtonPrimary size="lg" onClick={onLogin}>
             Commencer maintenant
-          </BtnPrimary>
-          <BtnOutline size="lg">En savoir plus</BtnOutline>
+          </ButtonPrimary>
+          <ButtonSecondary size="lg">En savoir plus</ButtonSecondary>
         </div>
       </div>
     </section>
-  )
-}
-
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
-function Footer() {
-  return (
-    <footer className="relative border-t border-white/10 bg-gradient-to-b from-background to-black overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-          {/* Brand */}
-          <div>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-pink-600 flex items-center justify-center shadow-lg shadow-accent/30">
-                <Calendar className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">UNIGE Events</span>
-            </div>
-            <p className="text-sm text-white/50 leading-relaxed mb-6">La plateforme centralisée pour tous les événements universitaires. Connectons la communauté UNIGE.</p>
-            <div className="flex gap-3">
-              {['Twitter', 'Instagram', 'LinkedIn', 'GitHub'].map((name) => (
-                <a key={name} href="#" className="w-10 h-10 rounded-lg bg-white/5 hover:bg-accent/10 border border-white/10 flex items-center justify-center transition-colors" aria-label={name}>
-                  <ExternalLink className="w-5 h-5 text-white/60 hover:text-white" />
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Plateforme */}
-          <div>
-            <h4 className="font-semibold mb-6 text-lg text-white">Plateforme</h4>
-            <ul className="space-y-4">
-              {['Features', 'Comment ça marche', 'Pour vous', 'À propos'].map((item, i) => (
-                <li key={i}>
-                  <a href="#" className="text-sm text-white/50 hover:text-white transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
-                    {item}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Ressources */}
-          <div>
-            <h4 className="font-semibold mb-6 text-lg text-white">Ressources</h4>
-            <ul className="space-y-4">
-              {["Centre d'aide", 'Guidelines', 'Règles communauté', 'FAQ'].map((item, i) => (
-                <li key={i}>
-                  <a href="#" className="text-sm text-white/50 hover:text-white transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
-                    {item}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="font-semibold mb-6 text-lg text-white">Contact</h4>
-            <ul className="space-y-4">
-              {[
-                { Icon: Mail, label: 'hello@unige-events.ch', href: 'mailto:hello@unige-events.ch' },
-                { Icon: Phone, label: '+41 12 345 67 89', href: 'tel:+41123456789' },
-                { Icon: MapPin, label: 'Genève, Suisse', href: '#' },
-              ].map(({ Icon, label, href }, i) => (
-                <li key={i}>
-                  <a href={href} className="text-sm text-white/50 hover:text-white transition-colors flex items-center gap-3 group">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-accent/10 transition-colors">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-sm text-white/40">© 2026 UNIGE Events. Tous droits réservés.</p>
-          <div className="flex gap-8">
-            {['Confidentialité', 'Conditions', 'Cookies'].map((item, i) => (
-              <a key={i} href="#" className="text-sm text-white/40 hover:text-white transition-colors">{item}</a>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-accent/50 to-transparent" />
-    </footer>
   )
 }
 
@@ -455,6 +328,7 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header onLogin={login} />
+      
       <main>
         <HeroSection onLogin={login} />
         {/* <TrustBar /> */}
@@ -462,6 +336,7 @@ function LandingPage() {
         <FeaturesSection />
         <FinalCTA onLogin={login} />
       </main>
+
       <Footer />
     </div>
   )

@@ -7,7 +7,7 @@ import { Sciences } from "../../assets/faculty/Sciences"
 import { Theology } from "../../assets/faculty/Theology"
 import { Translation } from "../../assets/faculty/Translation"
 
-export interface Faculty {
+export type Faculty = {
     id: string
     name: string
     logo: React.FC<React.SVGProps<SVGSVGElement>>
