@@ -1,6 +1,6 @@
 import Marquee from "../utils/Marquee"
 import FacultyCard from "./FacultyCard";
-import { FACULTIES } from "./faculty.types";
+import { FACULTIES } from "../../types/faculty";
 
 const FacultyMarquee = () => {
     return (

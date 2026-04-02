@@ -1,18 +1,11 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  Calendar, Menu, X, Zap,
-  Building2, Users, TrendingUp,
+  Calendar, Zap,
+  Users,
   Filter, User, PlusCircle, BarChart3, Bell,
   AlertCircle, Mail, Search, CheckCircle
 } from 'lucide-react'
-import { useAuth } from '../hooks/useAuth'
 import FacultyMarquee from '../components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary } from '../components/utils/Buttons'
-import Footer from '../components/Footer'
-import Header from '../components/Header'
-import Navbar from '../components/Navbar'
-import { TextLink } from '../components/utils/Links'
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
@@ -66,37 +59,37 @@ function HeroSection() {
 
 // ─── Trust Bar ────────────────────────────────────────────────────────────────
 
-function TrustBar() {
-  const stats = [
-    { icon: Calendar, value: '42', label: 'Events cette semaine', color: 'from-accent to-pink-600' },
-    { icon: Users, value: '30+', label: 'Groupes étudiants', color: 'from-blue-500 to-cyan-500' },
-    { icon: Building2, value: '8', label: 'Facultés', color: 'from-purple-500 to-pink-500' },
-    { icon: TrendingUp, value: '2.5K', label: 'Membres actifs', color: 'from-orange-500 to-red-500' },
-  ]
+// function TrustBar() {
+//   const stats = [
+//     { icon: Calendar, value: '42', label: 'Events cette semaine', color: 'from-accent to-pink-600' },
+//     { icon: Users, value: '30+', label: 'Groupes étudiants', color: 'from-blue-500 to-cyan-500' },
+//     { icon: Building2, value: '8', label: 'Facultés', color: 'from-purple-500 to-pink-500' },
+//     { icon: TrendingUp, value: '2.5K', label: 'Membres actifs', color: 'from-orange-500 to-red-500' },
+//   ]
 
-  return (
-    <section className="py-12 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-          {stats.map((stat, i) => {
-            const Icon = stat.icon
-            return (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                  <Icon className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <div className="text-3xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</div>
-                  <div className="text-sm text-white/60">{stat.label}</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-  )
-}
+//   return (
+//     <section className="py-12 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+//           {stats.map((stat, i) => {
+//             const Icon = stat.icon
+//             return (
+//               <div key={i} className="flex items-center gap-3">
+//                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+//                   <Icon className="w-7 h-7 text-white" />
+//                 </div>
+//                 <div>
+//                   <div className="text-3xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</div>
+//                   <div className="text-sm text-white/60">{stat.label}</div>
+//                 </div>
+//               </div>
+//             )
+//           })}
+//         </div>
+//       </div>
+//     </section>
+//   )
+// }
 
 // ─── Problem / Solution ───────────────────────────────────────────────────────
 

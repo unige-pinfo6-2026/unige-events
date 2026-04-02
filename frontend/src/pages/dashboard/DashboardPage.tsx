@@ -15,7 +15,7 @@ const DashboardPage = () => {
 
       {/* Welcome card */}
       <div className="bg-card border border-white/10 rounded-2xl p-7 flex items-center gap-5">
-        <Avatar avatarUrl={user?.avatarUrl} displayName={user?.displayName} size={56} />
+        <Avatar user={user} size={56} />
         <div>
           <div className="font-bold text-lg text-foreground">
             {'Bienvenue' + (firstName ? ', ' + firstName : '') + ' !'}

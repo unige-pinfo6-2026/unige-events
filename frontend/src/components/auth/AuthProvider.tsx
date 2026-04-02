@@ -3,11 +3,11 @@ import type { AppState } from '@auth0/auth0-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-export default function Auth0ProviderWithNavigate({ children }: Readonly<{ children: ReactNode }>) {
+const AuthProvider = ({ children }: Readonly<{ children: ReactNode }>) => {
   const navigate = useNavigate()
 
   function onRedirectCallback(appState?: AppState) {
-    navigate(appState?.returnTo ?? '/home', { replace: true })
+    navigate(appState?.returnTo ?? '/dashboard', { replace: true })
   }
 
   return (
@@ -16,7 +16,7 @@ export default function Auth0ProviderWithNavigate({ children }: Readonly<{ child
       clientId={import.meta.env.VITE_AUTH0_CLIENT_ID}
       cacheLocation="localstorage"
       authorizationParams={{
-        redirect_uri: `${globalThis.location.origin}/callback`,
+        redirect_uri: `${globalThis.location.origin}/login/callback`,
         audience: import.meta.env.VITE_AUTH0_AUDIENCE || undefined,
         scope: 'openid profile email',
       }}
@@ -26,3 +26,5 @@ export default function Auth0ProviderWithNavigate({ children }: Readonly<{ child
     </Auth0Provider>
   )
 }
+
+export default AuthProvider;

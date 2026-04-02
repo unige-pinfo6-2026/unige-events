@@ -1,4 +1,4 @@
-import type { Faculty } from "./faculty.types"
+import type { Faculty } from "../../types/faculty"
 
 const FacultyCard = ({faculty}: {faculty: Faculty}) => {
     return (

@@ -3,28 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById } from '@/services/userService'
 import Avatar from '@/components/user/Avatar'
-import type { User } from '@/types'
-import './ProfilePage.css'
-
-const FACULTY_LABELS: Record<string, string> = {
-  SCIENCES: 'Sciences',
-  LETTRES: 'Lettres',
-  DROIT: 'Droit',
-  MEDECINE: 'Médecine',
-  SES: 'Sciences économiques et sociales',
-  PSYCHOLOGIE: 'Psychologie',
-  THEOLOGIE: 'Théologie',
-  FTI: 'Traduction et interprétation',
-  GSI: 'Gouvernance et sciences sociales',
-}
-
-const STUDY_LEVEL_LABELS: Record<string, string> = {
-  BACHELOR: 'Bachelor',
-  MASTER: 'Master',
-  DOCTORAT: 'Doctorat',
-  POST_DOC: 'Post-doctorat',
-  STAFF: 'Personnel',
-}
+import { STUDY_LEVELS, type User } from '@/types/user'
+import { FACULTIES } from '@/types/faculty'
 
 function ProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -67,7 +47,7 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="profile-loading">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="spinner" />
       </div>
     )
@@ -75,10 +55,10 @@ function ProfilePage() {
 
   if (error) {
     return (
-      <div className="profile-page">
-        <div className="profile-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-          <p style={{ color: '#dc2626', marginBottom: '1rem' }}>{error}</p>
-          <a href="/home" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl text-center p-12 max-w-sm">
+          <p className="text-red-600 mb-4">{error}</p>
+          <a href="/home" className="text-[var(--text-secondary)] text-sm">
             Retour à l&apos;accueil
           </a>
         </div>
@@ -90,50 +70,60 @@ function ProfilePage() {
 
   if (!isOwnProfile && !profile.profilePublic) {
     return (
-      <div className="profile-private">
-        <div className="profile-private-card">
-          <span className="profile-private-icon">🔒</span>
-          <h2>Ce profil est privé</h2>
-          <p>Cet utilisateur a choisi de ne pas rendre son profil public.</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl text-center p-12 max-w-sm">
+          <span className="text-4xl block mb-4">🔒</span>
+          <h2 className="text-[var(--text-primary)] font-semibold text-lg mb-2">
+            Ce profil est privé
+          </h2>
+          <p className="text-[var(--text-secondary)] text-sm">
+            Cet utilisateur a choisi de ne pas rendre son profil public.
+          </p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-card">
-        <div className="profile-header">
-          <div className="profile-avatar-wrapper">
-            <Avatar
-              avatarUrl={profile.avatarUrl}
-              displayName={profile.displayName}
-              size={80}
-              style={profile.avatarUrl ? { border: '3px solid var(--divider)' } : undefined}
-            />
+    <div className="max-w-[700px] mx-auto">
+      <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-start gap-6 p-8 border-b border-[var(--divider)] flex-wrap">
+          <div className="flex-none">
+            <Avatar user={profile} size={80} />
           </div>
 
-          <div className="profile-header-info">
-            <div className="profile-name-row">
-              <h1 className="profile-name">{profile.displayName}</h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap mb-1">
+              <h1 className="text-2xl font-bold text-[var(--text-primary)] m-0">
+                {profile.displayName}
+              </h1>
               <span
-                className={`profile-visibility-badge ${profile.profilePublic ? 'badge--public' : 'badge--private'}`}
+                className={`text-[0.7rem] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wide ${
+                  profile.profilePublic
+                    ? 'bg-[var(--badge-public-bg)] text-[var(--badge-public-color)]'
+                    : 'bg-[var(--badge-private-bg)] text-[var(--badge-private-color)]'
+                }`}
               >
                 {profile.profilePublic ? 'Public' : 'Privé'}
               </span>
             </div>
-            <p className="profile-email">{profile.email}</p>
+
+            <p className="text-sm text-[var(--text-secondary)] mb-3">
+              {profile.email}
+            </p>
 
             {(profile.faculty || profile.studyLevel) && (
-              <div className="profile-meta">
+              <div className="flex gap-4 flex-wrap">
                 {profile.faculty && (
-                  <span className="profile-meta-item">
-                    🏛 {FACULTY_LABELS[profile.faculty] ?? profile.faculty}
+                  <span className="text-sm text-[var(--text-secondary)]">
+                    🏛 {FACULTIES.find(faculty => faculty.id == profile.faculty)?.name}
                   </span>
                 )}
                 {profile.studyLevel && (
-                  <span className="profile-meta-item">
-                    📚 {STUDY_LEVEL_LABELS[profile.studyLevel] ?? profile.studyLevel}
+                  <span className="text-sm text-[var(--text-secondary)]">
+                    📚 {STUDY_LEVELS.find(studyLevel => studyLevel.id == profile.studyLevel)?.name}
                   </span>
                 )}
               </div>
@@ -141,31 +131,46 @@ function ProfilePage() {
           </div>
 
           {isOwnProfile && (
-            <Link to="/profile/me/edit" className="profile-edit-btn">
+            <Link
+              to="/profile/me/edit"
+              className="flex-none self-start px-4 py-2 bg-[#CF0063] text-white rounded-lg text-sm font-semibold hover:opacity-85 transition-opacity"
+            >
               Modifier mon profil
             </Link>
           )}
         </div>
 
+        {/* Bio */}
         {profile.bio && (
-          <section className="profile-section">
-            <h2 className="profile-section-title">À propos</h2>
-            <p className="profile-bio">{profile.bio}</p>
+          <section className="px-8 py-6 border-b border-[var(--divider)] last:border-b-0">
+            <h2 className="text-[0.8rem] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+              À propos
+            </h2>
+            <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
+              {profile.bio}
+            </p>
           </section>
         )}
 
+        {/* Interests */}
         {profile.interests && profile.interests.length > 0 && (
-          <section className="profile-section">
-            <h2 className="profile-section-title">Centres d&apos;intérêt</h2>
-            <div className="profile-interests">
+          <section className="px-8 py-6 last:border-b-0">
+            <h2 className="text-[0.8rem] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+              Centres d&apos;intérêt
+            </h2>
+            <div className="flex flex-wrap gap-2">
               {profile.interests.map((interest) => (
-                <span key={interest} className="interest-tag">
+                <span
+                  key={interest}
+                  className="bg-[var(--tag-bg)] text-[var(--tag-color)] border border-[var(--tag-border)] rounded-full px-3 py-1 text-[0.8125rem] font-medium"
+                >
                   {interest}
                 </span>
               ))}
             </div>
           </section>
         )}
+
       </div>
     </div>
   )
