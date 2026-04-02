@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Calendar, Menu, X, Sparkles, ArrowRight, Zap,
+  Calendar, Menu, X, Zap,
   Building2, Users, TrendingUp,
   Filter, User, PlusCircle, BarChart3, Bell,
   AlertCircle, Mail, Search, CheckCircle,
   Phone, MapPin, ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { FACULTIES } from '../components/faculty/faculty.types'
 
 // ─── Shared button primitives ────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ function Header({ onLogin }: { onLogin: () => void }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-linear-to-r from-card/50 to-secondary/50">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/10 backdrop-blur-sm border-b border-white/20">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Bannière */}
@@ -111,32 +112,35 @@ function Header({ onLogin }: { onLogin: () => void }) {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 function HeroSection({ onLogin }: { onLogin: () => void }) {
+  const faculties = [...FACULTIES, ...FACULTIES];
+
   return (
-    <section className="relative pt-32 pb-20 lg:pt-44 lg:pb-32 overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden">
+    <section className="relative flex flex-col justify-between h-screen overflow-hidden py-8">
+      {/* Background blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-accent/30 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-gradient-to-tl from-accent/20 via-purple-600/20 to-blue-600/20 rounded-full blur-3xl animate-pulse [animation-delay:700ms]" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      {/* Spacer top */}
+      <div />
+
+      {/* Centre */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 px-2">
         <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto">
-          {/* Headline */}
           <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
             Tous les{' '}
-            
             <span className="bg-linear-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">
               évènements
             </span>
-
-            <br/>
+            <br />
             en un lieu
           </h1>
 
           <p className="text-xl lg:text-2xl text-white/60 leading-relaxed max-w-2xl font-light">
-            La plateforme qui connecte étudiants, associations et administration autour des événements du campus.{' '}
+            La plateforme qui connecte étudiants, associations et administration autour des événements du campus.
           </p>
 
-          {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4">
             <BtnPrimary size="lg" onClick={onLogin}>
               Explorer les derniers évènements
@@ -144,40 +148,18 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
           </div>
         </div>
       </div>
-    </section>
-  )
-}
 
-
-
-// ─── Faculty Ticker ───────────────────────────────────────────────────────────
-
-const FACULTIES = [
-  { name: 'Medicine',        logo: '/faculty/medicine.png' },
-  { name: 'Law',             logo: '/faculty/law.png' },
-  { name: 'Psychology & Education', logo: '/faculty/psychology.png' },
-  { name: 'Translation',     logo: '/faculty/translation.png' },
-  { name: 'Economics',       logo: '/faculty/economics.png' },
-  { name: 'Letters',         logo: '/faculty/letters.png' },
-  { name: 'Science',         logo: '/faculty/sciences.png' },
-  { name: 'Social Science',  logo: '/faculty/social-science.png' },
-  { name: 'Theology',        logo: '/faculty/theology.png' },
-]
-
-function FacultyTicker() {
-  // Duplicate for seamless infinite loop
-  const items = [...FACULTIES, ...FACULTIES]
-
-  return (
-    <section className="py-10 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl overflow-hidden">
-      <div
-        className="flex gap-16 w-max animate-marquee"
-      >
-        {items.map((fac, i) => (
-          <div key={i} className="flex items-center gap-3 shrink-0 transition-opacity">
-            <img src={fac.logo} alt={fac.name} className="h-24 w-auto object-contain" />
-          </div>
-        ))}
+      {/* Bottom */}
+      <div className="relative z-10 w-full overflow-hidden">
+        <div className="flex gap-16 w-max animate-marquee">
+          {faculties.map(faculty => {
+            return (
+              <div key={faculty.id} className="flex items-center shrink-0">
+                <faculty.logo className="w-auto h-24" />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </section>
   )
@@ -484,7 +466,6 @@ function LandingPage() {
       <Header onLogin={login} />
       <main>
         <HeroSection onLogin={login} />
-        <FacultyTicker />
         {/* <TrustBar /> */}
         <ProblemSolutionSection />
         <FeaturesSection />
