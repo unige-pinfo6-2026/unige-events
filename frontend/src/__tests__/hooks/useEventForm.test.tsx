@@ -6,6 +6,8 @@ import type { FormEvent } from 'react'
 import {
   EVENT_DESCRIPTION_MAX_LENGTH,
   EVENT_TITLE_MAX_LENGTH,
+  IMAGE_MAX_SIZE_BYTES,
+  IMAGE_MAX_SIZE_MB,
   useEventForm,
 } from '../../hooks/useEventForm'
 import { EventCategory, EventStatus } from '../../types'
@@ -169,6 +171,20 @@ describe('useEventForm', () => {
     unmount()
 
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:second')
+  })
+
+  it('rejects a file that exceeds the maximum allowed size', () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    const oversizedFile = new File([new ArrayBuffer(IMAGE_MAX_SIZE_BYTES + 1)], 'big.png', { type: 'image/png' })
+    act(() => {
+      result.current.handleImageChange({ target: { files: [oversizedFile] } } as never)
+    })
+
+    expect(result.current.errors.image).toBe(
+      `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`,
+    )
+    expect(result.current.imagePreview).toBeNull()
   })
 
   it('submits creation payload with trimmed and optional fields normalized', async () => {

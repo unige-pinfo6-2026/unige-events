@@ -93,6 +93,8 @@ const FIELD_LABELS: Record<string, string> = {
 
 export const EVENT_TITLE_MAX_LENGTH = 120
 export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
+export const IMAGE_MAX_SIZE_MB = 5
+export const IMAGE_MAX_SIZE_BYTES = IMAGE_MAX_SIZE_MB * 1024 * 1024
 
 function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
@@ -256,6 +258,11 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
 
     if (!file.type.startsWith('image/')) {
       setErrors((current) => ({ ...current, image: 'Le fichier doit être une image.' }))
+      return
+    }
+
+    if (file.size > IMAGE_MAX_SIZE_BYTES) {
+      setErrors((current) => ({ ...current, image: `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).` }))
       return
     }
 
