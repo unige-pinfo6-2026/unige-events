@@ -222,4 +222,59 @@ class UserResourceTest {
             .then()
             .statusCode(401);
     }
+
+    // --- POST /users/me/image ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSuccess() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "photo.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("avatarUrl", notNullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageInvalidMimeReturns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceBadMimeOnUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void uploadImageUnauthenticatedReturns401() {
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "photo.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageUserNotFoundReturns404() {
+        // No seedUser — alice doesn't exist in the mock store
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "photo.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
 }

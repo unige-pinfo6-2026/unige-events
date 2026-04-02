@@ -7,6 +7,7 @@ import { deleteEvent } from '../services/eventApi'
 import { getUserById } from '../services/userService'
 import type { EventCategory, User } from '../types'
 import { formatEventDateTime } from '../utils/dateTime'
+import { BANNER_UPLOAD_ERROR_KEY } from '../constants/sessionStorageKeys'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',
@@ -57,9 +58,9 @@ function EventDetailPage() {
   const [bannerWarning, setBannerWarning] = useState<string | null>(null)
 
   useEffect(() => {
-    const warning = sessionStorage.getItem('bannerUploadError')
+    const warning = sessionStorage.getItem(BANNER_UPLOAD_ERROR_KEY)
     if (warning) {
-      sessionStorage.removeItem('bannerUploadError')
+      sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
       setBannerWarning(warning)
       const t = setTimeout(() => setBannerWarning(null), 6000)
       return () => clearTimeout(t)
@@ -262,7 +263,14 @@ function EventDetailPage() {
       </Link>
 
       {bannerWarning && (
-        <output className="event-toast event-toast--warning">{bannerWarning}</output>
+        <output
+          className="event-toast event-toast--warning"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {bannerWarning}
+        </output>
       )}
 
       {showConfirm && (

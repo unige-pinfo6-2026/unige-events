@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BANNER_UPLOAD_ERROR_KEY } from '../../constants/sessionStorageKeys'
 import EditEventPage from '../../pages/EditEventPage'
 
 vi.mock('../../services/eventApi', () => ({
@@ -48,6 +49,7 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.restoreAllMocks()
   vi.resetAllMocks()
+  sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
 })
 
 function renderPage(path = '/events/42/edit') {
@@ -176,7 +178,7 @@ describe('EditEventPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(
-      'bannerUploadError',
+      BANNER_UPLOAD_ERROR_KEY,
       "L'événement a été créé mais la bannière n'a pas pu être uploadée.",
     ))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })

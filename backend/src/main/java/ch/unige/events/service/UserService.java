@@ -11,15 +11,25 @@ import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
 public class UserService {
+
+    @ConfigProperty(name = "app.uploads.path", defaultValue = "/tmp/unige-events-uploads")
+    String uploadsPath;
 
     @Inject Instance<EntityManager> entityManager;
 
@@ -118,6 +128,36 @@ public class UserService {
             throw exception;
         }
 
+        return user;
+    }
+
+    @Transactional
+    public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+
+        String contentType = fileUpload.contentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BadRequestException(
+                    "File must be an image (accepted: image/jpeg, image/png, image/webp, image/gif)");
+        }
+
+        String originalName = fileUpload.fileName();
+        String extension = (originalName != null && originalName.contains("."))
+                ? originalName.substring(originalName.lastIndexOf('.'))
+                : ".bin";
+
+        String uniqueFileName = UUID.randomUUID() + extension;
+        Path targetDir = Path.of(uploadsPath);
+        Path targetFile = targetDir.resolve(uniqueFileName);
+        try {
+            Files.createDirectories(targetDir);
+            Files.copy(fileUpload.uploadedFile(), targetFile, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new InternalServerErrorException("Failed to save profile photo: " + e.getMessage());
+        }
+
+        user.avatarUrl = "/api/uploads/" + uniqueFileName;
+        flushEntityManager();
         return user;
     }
 

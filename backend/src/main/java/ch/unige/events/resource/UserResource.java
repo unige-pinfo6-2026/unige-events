@@ -14,6 +14,8 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
@@ -187,6 +189,20 @@ public class UserResource {
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
+    /**
+     * POST /api/users/me/image
+     * Upload de la photo de profil — met à jour avatarUrl avec le chemin /api/uploads/...
+     */
+    @POST
+    @Path("/me/image")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Authenticated
+    public Response uploadImage(@RestForm("file") FileUpload file) {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.uploadImage(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
     }
 }

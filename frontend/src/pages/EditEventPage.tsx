@@ -4,6 +4,7 @@ import EventForm from '../components/EventForm'
 import { useEventForm } from '../hooks/useEventForm'
 import { getById } from '../services/eventApi'
 import type { Event } from '../types'
+import { BANNER_UPLOAD_ERROR_KEY } from '../constants/sessionStorageKeys'
 import './EventPage.css'
 
 function EditEventPage() {
@@ -71,7 +72,7 @@ function EditEventPage() {
       redirectTimerRef.current = setTimeout(() => navigate('/events/' + savedEvent.id), 1000)
     },
     onError: (message) => showToast('error', message),
-    onBannerError: (message) => sessionStorage.setItem('bannerUploadError', message),
+    onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
   if (loading) {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import EventForm from '../components/EventForm'
 import { useEventForm } from '../hooks/useEventForm'
+import { BANNER_UPLOAD_ERROR_KEY } from '../constants/sessionStorageKeys'
 import './EventPage.css'
 
 function CreateEventPage() {
@@ -29,7 +30,7 @@ function CreateEventPage() {
       redirectTimerRef.current = setTimeout(() => navigate(`/events/${event.id}`), 1000)
     },
     onError: (message) => showToast('error', message),
-    onBannerError: (message) => sessionStorage.setItem('bannerUploadError', message),
+    onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
   return (
