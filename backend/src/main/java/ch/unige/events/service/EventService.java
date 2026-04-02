@@ -180,7 +180,7 @@ public class EventService {
             throw new InternalServerErrorException("Failed to save banner image: " + e.getMessage());
         }
 
-        event.bannerUrl = "/uploads/" + uniqueFileName;
+        event.bannerUrl = "/api/uploads/" + uniqueFileName;
         return EventDTO.from(event);
     }
 

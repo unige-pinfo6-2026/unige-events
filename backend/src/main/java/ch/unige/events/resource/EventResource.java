@@ -96,7 +96,7 @@ public class EventResource {
     @POST
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    @RolesAllowed({"ORGANIZER", "ADMIN"})
+    @Authenticated
     public Response uploadImage(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");

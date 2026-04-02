@@ -54,6 +54,17 @@ function EventDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
+  const [bannerWarning, setBannerWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    const warning = sessionStorage.getItem('bannerUploadError')
+    if (warning) {
+      sessionStorage.removeItem('bannerUploadError')
+      setBannerWarning(warning)
+      const t = setTimeout(() => setBannerWarning(null), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [])
 
   useEffect(() => {
     if (!event) {
@@ -249,6 +260,10 @@ function EventDetailPage() {
       <Link to='/home' style={{ color: '#CF0063', fontWeight: 600, fontSize: '0.875rem' }}>
         ← Retour à l'accueil
       </Link>
+
+      {bannerWarning && (
+        <output className="event-toast event-toast--warning">{bannerWarning}</output>
+      )}
 
       {showConfirm && (
         <div style={{

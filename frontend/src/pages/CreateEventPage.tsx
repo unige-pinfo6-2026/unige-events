@@ -29,6 +29,7 @@ function CreateEventPage() {
       redirectTimerRef.current = setTimeout(() => navigate(`/events/${event.id}`), 1000)
     },
     onError: (message) => showToast('error', message),
+    onBannerError: (message) => sessionStorage.setItem('bannerUploadError', message),
   })
 
   return (

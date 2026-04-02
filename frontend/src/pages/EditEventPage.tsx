@@ -71,6 +71,7 @@ function EditEventPage() {
       redirectTimerRef.current = setTimeout(() => navigate('/events/' + savedEvent.id), 1000)
     },
     onError: (message) => showToast('error', message),
+    onBannerError: (message) => sessionStorage.setItem('bannerUploadError', message),
   })
 
   if (loading) {
