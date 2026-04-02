@@ -10,7 +10,7 @@ import { Translation } from "../../assets/faculty/Translation"
 export interface Faculty {
     id: string
     name: string
-    logo: React.ReactElement<React.SVGProps<SVGElement>>
+    logo: React.FC<React.SVGProps<SVGSVGElement>>
 }
 
 export const FACULTIES = [

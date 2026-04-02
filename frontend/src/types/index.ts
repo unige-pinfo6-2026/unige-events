@@ -14,20 +14,6 @@ export interface User {
   createdAt: string
 }
 
-export const Faculty = {
-  SCIENCES: 'SCIENCES',
-  LETTRES: 'LETTRES',
-  DROIT: 'DROIT',
-  MEDECINE: 'MEDECINE',
-  SES: 'SES',
-  PSYCHOLOGIE: 'PSYCHOLOGIE',
-  THEOLOGIE: 'THEOLOGIE',
-  FTI: 'FTI',
-  GSI: 'GSI',
-} as const
-
-export type Faculty = (typeof Faculty)[keyof typeof Faculty]
-
 export const StudyLevel = {
   BACHELOR: 'BACHELOR',
   MASTER: 'MASTER',

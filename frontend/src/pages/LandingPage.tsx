@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { FACULTIES } from '../components/faculty/faculty.types'
+import FacultyMarquee from '../components/faculty/FacultyMarquee'
 
 // ─── Shared button primitives ────────────────────────────────────────────────
 
@@ -112,8 +113,6 @@ function Header({ onLogin }: { onLogin: () => void }) {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 function HeroSection({ onLogin }: { onLogin: () => void }) {
-  const faculties = [...FACULTIES, ...FACULTIES];
-
   return (
     <section className="relative flex flex-col justify-between h-screen overflow-hidden py-8">
       {/* Background blobs */}
@@ -151,15 +150,7 @@ function HeroSection({ onLogin }: { onLogin: () => void }) {
 
       {/* Bottom */}
       <div className="relative z-10 w-full overflow-hidden">
-        <div className="flex gap-16 w-max animate-marquee">
-          {faculties.map(faculty => {
-            return (
-              <div key={faculty.id} className="flex items-center shrink-0">
-                <faculty.logo className="w-auto h-24" />
-              </div>
-            )
-          })}
-        </div>
+        <FacultyMarquee />
       </div>
     </section>
   )
