@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getById } from '../services/eventApi'
-import type { Event } from '../types'
+import { getById } from '@/services/eventApi'
+import type { Event } from '@/types/event'
 
 interface UseEventResult {
   event: Event | null

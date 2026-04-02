@@ -1,5 +1,5 @@
 import api from './api'
-import type { User } from '@/types'
+import type { User } from '@/types/user'
 
 export async function getMe(): Promise<User> {
   const response = await api.get<User>('/users/me')

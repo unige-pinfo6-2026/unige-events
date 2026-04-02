@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getAll } from '../services/eventApi'
-import type { Event } from '../types'
+import { getAll } from '@/services/eventApi'
+import type { Event } from '@/types/event'
 
 const PAGE_SIZE = 12
 

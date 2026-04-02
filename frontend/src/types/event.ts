@@ -13,30 +13,25 @@ export type Event = {
   createdAt: string
   updatedAt?: string
 }
-export type EventCategory = {
-  id: string
-  name: string
-}
 
-export const EVENT_CATEGORIES = [
-  { id: 'ACADEMIC', name: 'Académique' },
-  { id: 'SPORTS', name: 'Sports' },
-  { id: 'CULTURAL', name: 'Culturel' },
-  { id: 'SOCIAL', name: 'Social' },
-  { id: 'CONFERENCE', name: 'Conférence' },
-  { id: 'OTHER', name: 'Autre' },
-] as const satisfies EventCategory[]
+export const EVENT_CATEGORIES = {
+  ACADEMIC: { name: 'Académique', color: '#2563eb' },
+  SPORTS: { name: 'Sports', color: '#16a34a' },
+  CULTURAL: { name: 'Culturel', color: '#9333ea' },
+  SOCIAL: { name: 'Social', color: '#ea580c' },
+  CONFERENCE: { name: 'Conférence', color: '#0891b2' },
+  OTHER: { name: 'Autre', color: '#6b7280' },
+} as const
 
-export type EventStatus = {
-  id: string
-  name: string
-}
+export type EventCategory = keyof typeof EVENT_CATEGORIES
 
-export const EVENT_STATUSES = [
-  { id: 'DRAFT', name: 'Brouillon' },
-  { id: 'PUBLISHED', name: 'Publié' },
-  { id: 'CANCELLED', name: 'Annulé' },
-] as const satisfies EventStatus[]
+export const EVENT_STATUSES = {
+  DRAFT: { name: 'Brouillon' },
+  PUBLISHED: { name: 'Publié' },
+  CANCELLED: { name: 'Annulé' },
+} as const
+
+export type EventStatus = keyof typeof EVENT_STATUSES
 
 export interface CreateEventRequest {
   title: string

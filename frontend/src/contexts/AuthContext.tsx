@@ -1,9 +1,9 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import type { User } from '../types'
 import { getMe } from '../services/userService'
 import { setToken } from '../services/tokenStore'
+import type { User } from '@/types/user'
 
 export interface AuthContextValue {
   user: User | null

@@ -189,8 +189,8 @@ function ProfileEditPage() {
               className={inputClass()}
             >
               <option value="">— Sélectionner une faculté —</option>
-              {FACULTIES.map(faculty => (
-                <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
+              {Object.entries(FACULTIES).map(([id, faculty]) => (
+                <option key={id} value={id}>{faculty.name}</option>
               ))}
             </select>
           </div>
@@ -207,8 +207,8 @@ function ProfileEditPage() {
               className={inputClass()}
             >
               <option value="">— Sélectionner un niveau —</option>
-              {STUDY_LEVELS.map(studyLevel => (
-                <option key={studyLevel.id} value={studyLevel.id}>{studyLevel.name}</option>
+              {Object.entries(STUDY_LEVELS).map(([id, studyLevel]) => (
+                <option key={id} value={id}>{studyLevel.name}</option>
               ))}
             </select>
           </div>

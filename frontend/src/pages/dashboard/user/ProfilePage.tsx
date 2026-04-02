@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById } from '@/services/userService'
 import Avatar from '@/components/user/Avatar'
-import { STUDY_LEVELS, type User } from '@/types/user'
-import { FACULTIES } from '@/types/faculty'
+import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
+import { FACULTIES, type Faculty } from '@/types/faculty'
 
 function ProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -118,12 +118,12 @@ function ProfilePage() {
               <div className="flex gap-4 flex-wrap">
                 {profile.faculty && (
                   <span className="text-sm text-[var(--text-secondary)]">
-                    🏛 {FACULTIES.find(faculty => faculty.id == profile.faculty)?.name}
+                    🏛 {FACULTIES[profile.faculty as Faculty]?.name}
                   </span>
                 )}
                 {profile.studyLevel && (
                   <span className="text-sm text-[var(--text-secondary)]">
-                    📚 {STUDY_LEVELS.find(studyLevel => studyLevel.id == profile.studyLevel)?.name}
+                    📚 {STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name}
                   </span>
                 )}
               </div>
@@ -132,7 +132,7 @@ function ProfilePage() {
 
           {isOwnProfile && (
             <Link
-              to="/profile/me/edit"
+              to="/dashboard/profile/me/edit"
               className="flex-none self-start px-4 py-2 bg-[#CF0063] text-white rounded-lg text-sm font-semibold hover:opacity-85 transition-opacity"
             >
               Modifier mon profil

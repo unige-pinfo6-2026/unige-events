@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './EventPage.css'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
 
@@ -47,7 +46,17 @@ function CreateEventPage() {
         onCancel={() => navigate('/home')}
       />
 
-      {toast && <output className={`event-toast event-toast--${toast.type}`}>{toast.message}</output>}
+      {toast && (
+        <output
+          className={`fixed bottom-6 right-6 px-5 py-3.5 rounded-xl text-sm font-medium shadow-lg z-50 border ${
+            toast.type === 'success'
+              ? 'bg-green-50 text-green-800 border-green-200'
+              : 'bg-red-50 text-red-700 border-red-200'
+          }`}
+        >
+          {toast.message}
+        </output>
+      )}
     </>
   )
 }

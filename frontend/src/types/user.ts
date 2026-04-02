@@ -14,15 +14,12 @@ export type User = {
   createdAt: string
 }
 
-export type StudyLevel = {
-  id: string
-  name: string
-}
+export const STUDY_LEVELS = {
+  BACHELOR: { name: 'Bachelor' },
+  MASTER: { name: 'Master' },
+  DOCTORAT: { name: 'Doctorat' },
+  POST_DOC: { name: 'Post-doctorat' },
+  STAFF: { name: 'Staff' },
+} as const
 
-export const STUDY_LEVELS = [
-  { id: 'BACHELOR', name: 'Bachelor' },
-  { id: 'MASTER', name: 'Master' },
-  { id: 'DOCTORAT', name: 'Doctorat' },
-  { id: 'POST_DOC', name: 'Post-doctorat' },
-  { id: 'STAFF', name: 'Staff' },
-] as const satisfies StudyLevel[]
+export type StudyLevel = keyof typeof STUDY_LEVELS

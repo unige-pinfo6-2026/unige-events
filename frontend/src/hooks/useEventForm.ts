@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import axios from 'axios'
-import { createEvent, updateEvent, uploadEventImage } from '../services/eventApi'
-import { EventCategory, EventStatus } from '../types'
-import type {
-  CreateEventRequest,
-  Event,
-  EventCategory as EventCategoryType,
-  EventStatus as EventStatusType,
-  UpdateEventRequest,
-} from '../types'
+import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import {
+  EVENT_CATEGORIES,
+  EVENT_STATUSES,
+  type CreateEventRequest,
+  type Event,
+  type EventCategory,
+  type EventStatus,
+  type UpdateEventRequest,
+} from '@/types/event'
 
 export interface EventFormValues {
   title: string
@@ -17,9 +18,9 @@ export interface EventFormValues {
   location: string
   startDate: string
   endDate: string
-  category: '' | EventCategoryType
+  category: '' | EventCategory
   capacity: string
-  status: EventStatusType
+  status: EventStatus
 }
 
 export interface EventFormErrors {
@@ -63,7 +64,7 @@ const DEFAULT_VALUES: EventFormValues = {
   endDate: '',
   category: '',
   capacity: '',
-  status: EventStatus.DRAFT,
+  status: EVENT_STATUSES[0],
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -340,7 +341,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
         location: values.location.trim(),
         startDate: toApiDateTime(values.startDate),
         endDate: toApiDateTime(values.endDate),
-        category: values.category || EventCategory.OTHER,
+        category: values.category || EVENT_CATEGORIES[2],
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: values.status,
       }

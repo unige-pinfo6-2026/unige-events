@@ -1,7 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
-import { EventCategory, EventStatus } from '@/types'
 import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
-import './EventForm.css'
+import { EVENT_CATEGORIES, EVENT_STATUSES } from '@/types/event'
 
 interface EventFormProps {
   title: string
@@ -30,161 +29,200 @@ function EventForm({
   onSubmit,
   onCancel,
 }: Readonly<EventFormProps>) {
+
+  const inputClass = (error?: string) =>
+    `w-full px-3 py-2.5 border rounded-lg text-[0.9375rem] text-[var(--input-color)] bg-[var(--input-bg)] transition-colors focus:outline-none focus:border-[#CF0063] focus:ring-2 focus:ring-[var(--input-focus-shadow)] ${
+      error ? 'border-red-400' : 'border-[var(--input-border)]'
+    }`
+
   return (
-    <div className='event-form-page'>
-      <div className='event-form-card'>
-        <h1 className='event-form-title'>{title}</h1>
+    <div className="max-w-[760px] mx-auto">
+      <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-8 max-sm:p-5">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-8">{title}</h1>
 
         <form onSubmit={onSubmit} noValidate>
-          <div className='form-group'>
-            <label className='form-label' htmlFor='event-title'>
-              Titre <span className='required'>*</span>
+
+          {/* Titre */}
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-title">
+              Titre <span className="text-red-400">*</span>
             </label>
             <input
-              id='event-title'
-              type='text'
+              id="event-title"
+              type="text"
               value={values.title}
-              onChange={(event) => onFieldChange('title', event.target.value)}
-              className={`form-input ${errors.title ? 'form-input--error' : ''}`}
-              placeholder='Nom de l’événement'
+              onChange={(e) => onFieldChange('title', e.target.value)}
+              className={inputClass(errors.title)}
+              placeholder="Nom de l'événement"
             />
-            {errors.title && <span className='form-error'>{errors.title}</span>}
+            {errors.title && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.title}</span>}
           </div>
 
-          <div className='form-group'>
-            <label className='form-label' htmlFor='event-description'>Description</label>
+          {/* Description */}
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-description">
+              Description
+            </label>
             <textarea
-              id='event-description'
+              id="event-description"
               value={values.description}
-              onChange={(event) => onFieldChange('description', event.target.value)}
-              className='form-textarea'
-              placeholder='Quelques détails utiles pour les participants'
+              onChange={(e) => onFieldChange('description', e.target.value)}
+              className={`${inputClass()} resize-y min-h-[120px]`}
+              placeholder="Quelques détails utiles pour les participants"
               rows={5}
             />
           </div>
 
-          <div className='form-group'>
-            <label className='form-label' htmlFor='event-location'>
-              Lieu <span className='required'>*</span>
+          {/* Lieu */}
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-location">
+              Lieu <span className="text-red-400">*</span>
             </label>
             <input
-              id='event-location'
-              type='text'
+              id="event-location"
+              type="text"
               value={values.location}
-              onChange={(event) => onFieldChange('location', event.target.value)}
-              className={`form-input ${errors.location ? 'form-input--error' : ''}`}
-              placeholder='Uni Mail, Salle MR060'
+              onChange={(e) => onFieldChange('location', e.target.value)}
+              className={inputClass(errors.location)}
+              placeholder="Uni Mail, Salle MR060"
             />
-            {errors.location && <span className='form-error'>{errors.location}</span>}
+            {errors.location && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.location}</span>}
           </div>
 
-          <div className='event-form-grid'>
-            <div className='form-group'>
-              <label className='form-label' htmlFor='event-startDate'>
-                Début <span className='required'>*</span>
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-startDate">
+                Début <span className="text-red-400">*</span>
               </label>
               <input
-                id='event-startDate'
-                type='datetime-local'
+                id="event-startDate"
+                type="datetime-local"
                 value={values.startDate}
-                onChange={(event) => onFieldChange('startDate', event.target.value)}
-                className={`form-input ${errors.startDate ? 'form-input--error' : ''}`}
+                onChange={(e) => onFieldChange('startDate', e.target.value)}
+                className={inputClass(errors.startDate)}
               />
-              {errors.startDate && <span className='form-error'>{errors.startDate}</span>}
+              {errors.startDate && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.startDate}</span>}
             </div>
 
-            <div className='form-group'>
-              <label className='form-label' htmlFor='event-endDate'>
-                Fin <span className='required'>*</span>
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-endDate">
+                Fin <span className="text-red-400">*</span>
               </label>
               <input
-                id='event-endDate'
-                type='datetime-local'
+                id="event-endDate"
+                type="datetime-local"
                 value={values.endDate}
-                onChange={(event) => onFieldChange('endDate', event.target.value)}
-                className={`form-input ${errors.endDate ? 'form-input--error' : ''}`}
+                onChange={(e) => onFieldChange('endDate', e.target.value)}
+                className={inputClass(errors.endDate)}
               />
-              {errors.endDate && <span className='form-error'>{errors.endDate}</span>}
+              {errors.endDate && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.endDate}</span>}
             </div>
           </div>
 
-          <div className='event-form-grid'>
-            <div className='form-group'>
-              <label className='form-label' htmlFor='event-category'>
-                Catégorie <span className='required'>*</span>
+          {/* Catégorie + Capacité */}
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-category">
+                Catégorie <span className="text-red-400">*</span>
               </label>
               <select
-                id='event-category'
+                id="event-category"
                 value={values.category}
-                onChange={(event) => onFieldChange('category', event.target.value as EventFormValues['category'])}
-                className={`form-select ${errors.category ? 'form-input--error' : ''}`}
+                onChange={(e) => onFieldChange('category', e.target.value as EventFormValues['category'])}
+                className={inputClass(errors.category)}
               >
-                <option value=''>Sélectionner</option>
-                {Object.values(EventCategory).map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                <option value="">Sélectionner</option>
+                {Object.entries(EVENT_CATEGORIES).map(([id, category]) => (
+                  <option key={id} value={id}>{category.name}</option>
                 ))}
               </select>
-              {errors.category && <span className='form-error'>{errors.category}</span>}
+              {errors.category && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.category}</span>}
             </div>
 
-            <div className='form-group'>
-              <label className='form-label' htmlFor='event-capacity'>Capacité</label>
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-capacity">
+                Capacité
+              </label>
               <input
-                id='event-capacity'
-                type='number'
-                min='1'
-                step='1'
+                id="event-capacity"
+                type="number"
+                min="1"
+                step="1"
                 value={values.capacity}
-                onChange={(event) => onFieldChange('capacity', event.target.value)}
-                className={`form-input ${errors.capacity ? 'form-input--error' : ''}`}
-                placeholder='150'
+                onChange={(e) => onFieldChange('capacity', e.target.value)}
+                className={inputClass(errors.capacity)}
+                placeholder="150"
               />
-              {errors.capacity && <span className='form-error'>{errors.capacity}</span>}
+              {errors.capacity && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.capacity}</span>}
             </div>
           </div>
 
-          <div className='form-group'>
-            <label className='form-label' htmlFor='event-status'>Statut</label>
+          {/* Statut */}
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-status">
+              Statut
+            </label>
             <select
-              id='event-status'
+              id="event-status"
               value={values.status}
-              onChange={(event) => onFieldChange('status', event.target.value as EventStatus)}
-              className='form-select'
+              onChange={(e) => onFieldChange('status', e.target.value as EventFormValues['status'])}
+              className={inputClass()}
             >
-              <option value={EventStatus.DRAFT}>DRAFT</option>
-              <option value={EventStatus.PUBLISHED}>PUBLISHED</option>
+              {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, category]) => (
+                <option key={id} value={id}>{category.name}</option>
+              ))}
             </select>
           </div>
 
-          <div className='form-group'>
-            <label className='form-label' htmlFor='event-banner'>Bannière</label>
-            <div className='banner-upload-card'>
+          {/* Bannière */}
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-banner">
+              Bannière
+            </label>
+            <div className="grid gap-4">
               {imagePreview ? (
-                <img src={imagePreview} alt='Aperçu de la bannière' className='banner-preview-img' />
+                <img
+                  src={imagePreview}
+                  alt="Aperçu de la bannière"
+                  className="w-full max-h-[320px] min-h-[220px] rounded-xl border border-[var(--input-border)] object-cover"
+                />
               ) : (
-                <div className='banner-preview-placeholder'>Ajoutez une image de couverture</div>
+                <div className="w-full min-h-[220px] rounded-xl border border-[var(--input-border)] flex items-center justify-center p-6 text-[var(--text-muted)] text-center bg-[var(--input-bg)]">
+                  Ajoutez une image de couverture
+                </div>
               )}
 
-              <div className='banner-upload-actions'>
-                <label className='photo-upload-btn' htmlFor='event-banner'>Choisir une image</label>
-                <input
-                  id='event-banner'
-                  type='file'
-                  accept='image/*'
-                  onChange={onImageChange}
-                  className='photo-input-hidden'
-                />
-                <span className='banner-upload-hint'>{selectedImageName ?? 'PNG, JPG ou WEBP'}</span>
+              <div className="flex items-start gap-3 flex-wrap max-sm:flex-col">
+                <label
+                  htmlFor="event-banner"
+                  className="px-4 py-2 bg-[var(--btn-secondary-bg)] border border-[var(--input-border)] rounded-lg text-sm text-[var(--text-secondary)] cursor-pointer hover:bg-[var(--btn-secondary-hover)] transition-colors flex-none"
+                >
+                  Choisir une image
+                </label>
+                <input id="event-banner" type="file" accept="image/*" onChange={onImageChange} className="hidden" />
+                <span className="text-sm text-[var(--text-muted)] flex-1 min-w-[12rem] break-all max-sm:w-full">
+                  {selectedImageName ?? 'PNG, JPG ou WEBP'}
+                </span>
               </div>
             </div>
-            {errors.image && <span className='form-error'>{errors.image}</span>}
+            {errors.image && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.image}</span>}
           </div>
 
-          <div className='form-actions'>
-            <button type='button' className='btn btn--secondary' onClick={onCancel}>
+          {/* Actions */}
+          <div className="flex justify-end gap-3 mt-7 max-sm:flex-col-reverse">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-5 py-2.5 rounded-lg text-[0.9375rem] font-semibold bg-[var(--btn-secondary-bg)] text-[var(--btn-secondary-color)] hover:bg-[var(--btn-secondary-hover)] transition-colors max-sm:w-full"
+            >
               Annuler
             </button>
-            <button type='submit' className='btn btn--primary' disabled={submitting}>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-5 py-2.5 rounded-lg text-[0.9375rem] font-semibold bg-[#CF0063] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity max-sm:w-full"
+            >
               {submitting ? 'Enregistrement...' : submitLabel}
             </button>
           </div>

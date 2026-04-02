@@ -1,15 +1,13 @@
-import Marquee from "../utils/Marquee"
+import Marquee from "@/components/utils/Marquee"
 import FacultyCard from "./FacultyCard";
-import { FACULTIES } from "../../types/faculty";
+import { FACULTIES, type Faculty } from "@/types/faculty";
 
 const FacultyMarquee = () => {
     return (
         <Marquee>
-            {FACULTIES.map(faculty => {
-                return (
-                    <FacultyCard faculty={faculty}/>
-                )
-            })}
+            {Object.keys(FACULTIES).map((id) => (
+                <FacultyCard key={id} faculty={id as Faculty} />
+            ))}
         </Marquee>
     )
 }

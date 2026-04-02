@@ -11,7 +11,7 @@ const DashboardPage = () => {
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : ''
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-6">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 py-12">
 
       {/* Welcome card */}
       <div className="bg-card border border-white/10 rounded-2xl p-7 flex items-center gap-5">
@@ -26,13 +26,13 @@ const DashboardPage = () => {
         </div>
         <div className="ml-auto flex gap-3 items-center flex-wrap justify-end">
           <Link
-            to="/events/new"
+            to="/dashboard/events/new"
             className="px-4 py-2 bg-white/5 text-white/60 border border-white/10 rounded-lg text-sm font-semibold shrink-0 hover:bg-white/10 transition-colors no-underline"
           >
             Créer un événement
           </Link>
           <Link
-            to="/profile/me"
+            to="/dashboard/profile/me"
             className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold shrink-0 hover:bg-accent/90 transition-colors no-underline"
           >
             Mon profil

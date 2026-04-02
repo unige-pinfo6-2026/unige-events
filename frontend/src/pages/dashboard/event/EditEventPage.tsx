@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import './EventPage.css'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
 import { getById } from '@/services/eventApi'
-import type { Event } from '@/types'
+import type { Event } from '@/types/event'
 
 function EditEventPage() {
   const navigate = useNavigate()
@@ -19,7 +18,7 @@ function EditEventPage() {
 
   useEffect(() => {
     if (!Number.isInteger(eventId) || eventId <= 0) {
-      setLoadError('Identifiant d\'événement invalide.')
+      setLoadError("Identifiant d'événement invalide.")
       setLoading(false)
       return
     }
@@ -29,20 +28,13 @@ function EditEventPage() {
     async function loadEvent() {
       setLoading(true)
       setLoadError(null)
-
       try {
         const response = await getById(eventId)
-        if (!cancelled) {
-          setEvent(response)
-        }
+        if (!cancelled) setEvent(response)
       } catch {
-        if (!cancelled) {
-          setLoadError('Impossible de charger cet événement.')
-        }
+        if (!cancelled) setLoadError('Impossible de charger cet événement.')
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
 
@@ -68,28 +60,34 @@ function EditEventPage() {
       setEvent(savedEvent)
       showToast('success', 'Événement mis à jour avec succès.')
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
-      redirectTimerRef.current = setTimeout(() => navigate('/events/' + savedEvent.id), 1000)
+      redirectTimerRef.current = setTimeout(() => navigate(`/events/${savedEvent.id}`), 1000)
     },
     onError: (message) => showToast('error', message),
   })
 
   if (loading) {
-    return <div className='event-page-loading'>Chargement de l'événement...</div>
+    return (
+      <div className="flex justify-center items-center min-h-[60vh] text-[var(--text-secondary)]">
+        Chargement de l'événement...
+      </div>
+    )
   }
 
   if (loadError) {
-    return <div className='event-page-error'>{loadError}</div>
+    return (
+      <div className="flex justify-center items-center min-h-[60vh] text-red-600">
+        {loadError}
+      </div>
+    )
   }
 
-  if (!event) {
-    return null
-  }
+  if (!event) return null
 
   return (
     <>
       <EventForm
         title="Modifier l'événement"
-        submitLabel='Enregistrer'
+        submitLabel="Enregistrer"
         values={form.values}
         errors={form.errors}
         submitting={form.submitting}
@@ -98,10 +96,20 @@ function EditEventPage() {
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
         onSubmit={form.handleSubmit}
-        onCancel={() => navigate('/events/' + event.id)}
+        onCancel={() => navigate(`/events/${event.id}`)}
       />
 
-      {toast && <output className={'event-toast event-toast--' + toast.type}>{toast.message}</output>}
+      {toast && (
+        <output
+          className={`fixed bottom-6 right-6 px-5 py-3.5 rounded-xl text-sm font-medium shadow-lg z-50 border ${
+            toast.type === 'success'
+              ? 'bg-green-50 text-green-800 border-green-200'
+              : 'bg-red-50 text-red-700 border-red-200'
+          }`}
+        >
+          {toast.message}
+        </output>
+      )}
     </>
   )
 }
