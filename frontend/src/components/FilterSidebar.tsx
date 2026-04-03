@@ -30,13 +30,6 @@ interface FilterSidebarProps {
 }
 
 function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
-  function handleCategoryChange(cat: string) {
-    setFilters({
-      ...filters,
-      category: filters.category === cat ? undefined : (cat as (typeof EventCategory)[keyof typeof EventCategory]),
-    })
-  }
-
   function handleFacultyChange(e: ChangeEvent<HTMLSelectElement>) {
     setFilters({
       ...filters,
@@ -102,9 +95,14 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
               }}
             >
               <input
-                type='checkbox'
+                type='radio'
+                name='category'
+                value={cat}
                 checked={filters.category === cat}
-                onChange={() => handleCategoryChange(cat)}
+                onChange={() => setFilters({ ...filters, category: cat })}
+                onClick={() => {
+                  if (filters.category === cat) setFilters({ ...filters, category: undefined })
+                }}
               />
               {CATEGORY_LABELS[cat]}
             </label>

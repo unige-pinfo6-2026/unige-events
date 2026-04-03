@@ -4,7 +4,7 @@ import FilterSidebar from '../components/FilterSidebar'
 import { useSearch } from '../hooks/useSearch'
 
 function SearchPage() {
-  const { query, setQuery, filters, setFilters, results, suggestions, loading, error, resetFilters, selectSuggestion } =
+  const { query, setQuery, filters, setFilters, results, suggestions, loading, error, resetFilters, selectSuggestion, searchNow } =
     useSearch()
 
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -139,6 +139,7 @@ function SearchPage() {
         <button
           type='button'
           aria-label='Lancer la recherche'
+          onClick={searchNow}
           style={{
             padding: '0.75rem 1.25rem',
             background: '#CF0063',

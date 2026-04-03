@@ -4,8 +4,14 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useSearchParams } from 'react-router-dom'
 import { useSearch } from '../../hooks/useSearch'
+
+function useSearchAndParams() {
+  const search = useSearch()
+  const [searchParams] = useSearchParams()
+  return { ...search, searchParams }
+}
 
 vi.mock('../../services/searchApi', () => ({
   searchEvents: vi.fn(),
@@ -296,5 +302,50 @@ describe('useSearch', () => {
     expect(mockSearchEvents).toHaveBeenCalledWith(
       expect.objectContaining({ category: 'ACADEMIC' }),
     )
+  })
+
+  it('initializes state from URL params on mount', () => {
+    function wrapperWithEntry({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SES&dateFrom=2026-01-01'] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithEntry })
+    expect(result.current.query).toBe('test')
+    expect(result.current.filters.faculty).toBe('SES')
+    expect(result.current.filters.dateFrom).toBe('2026-01-01')
+  })
+
+  it('updates URL when query changes', () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setQuery('react')
+    })
+
+    expect(result.current.searchParams.get('q')).toBe('react')
+  })
+
+  it('updates URL when filters change', () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ faculty: 'SES' })
+    })
+
+    expect(result.current.searchParams.get('faculty')).toBe('SES')
+  })
+
+  it('resetFilters clears filter URL params', () => {
+    function wrapperWithEntry({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SES'] }, children)
+    }
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper: wrapperWithEntry })
+
+    expect(result.current.searchParams.get('faculty')).toBe('SES')
+
+    act(() => {
+      result.current.resetFilters()
+    })
+
+    expect(result.current.searchParams.get('faculty')).toBeNull()
   })
 })

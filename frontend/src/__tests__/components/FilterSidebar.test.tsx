@@ -58,33 +58,33 @@ describe('FilterSidebar', () => {
     expect(resetFilters).toHaveBeenCalledOnce()
   })
 
-  it('checks the checkbox matching the current category filter', () => {
+  it('checks the radio matching the current category filter', () => {
     renderSidebar({ category: 'SPORTS' })
-    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
-    const sportsCheckbox = checkboxes.find((cb) => cb.closest('label')?.textContent?.includes('Sports'))
-    expect(sportsCheckbox?.checked).toBe(true)
+    const radios = screen.getAllByRole('radio') as HTMLInputElement[]
+    const sportsRadio = radios.find((r) => r.closest('label')?.textContent?.includes('Sports'))
+    expect(sportsRadio?.checked).toBe(true)
   })
 
-  it('leaves all checkboxes unchecked when no category is selected', () => {
+  it('leaves all radios unchecked when no category is selected', () => {
     renderSidebar()
-    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
-    expect(checkboxes.every((cb) => !cb.checked)).toBe(true)
+    const radios = screen.getAllByRole('radio') as HTMLInputElement[]
+    expect(radios.every((r) => !r.checked)).toBe(true)
   })
 
-  it('calls setFilters with the selected category when a checkbox is clicked', () => {
+  it('calls setFilters with the selected category when a radio is clicked', () => {
     const setFilters = vi.fn()
     renderSidebar(defaultFilters, setFilters)
-    const labels = screen.getAllByRole('checkbox')
-    fireEvent.click(labels[0]) // ACADEMIC
+    const radios = screen.getAllByRole('radio')
+    fireEvent.click(radios[0]) // ACADEMIC
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ category: 'ACADEMIC' }))
   })
 
-  it('deselects a category when its checkbox is clicked again', () => {
+  it('deselects a category when its radio is clicked again', () => {
     const setFilters = vi.fn()
     renderSidebar({ category: 'ACADEMIC' }, setFilters)
-    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[]
-    const academicCheckbox = checkboxes.find((cb) => cb.closest('label')?.textContent?.includes('Académique'))!
-    fireEvent.click(academicCheckbox)
+    const radios = screen.getAllByRole('radio') as HTMLInputElement[]
+    const academicRadio = radios.find((r) => r.closest('label')?.textContent?.includes('Académique'))!
+    fireEvent.click(academicRadio)
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ category: undefined }))
   })
 

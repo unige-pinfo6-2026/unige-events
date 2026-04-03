@@ -39,6 +39,7 @@ function makeDefaultHook(overrides: Partial<UseSearchResult> = {}): UseSearchRes
     error: null,
     resetFilters: vi.fn(),
     selectSuggestion: vi.fn(),
+    searchNow: vi.fn(),
     ...overrides,
   }
 }
@@ -147,6 +148,14 @@ describe('SearchPage', () => {
     )
     renderPage()
     expect(screen.queryByText('Erreur')).toBeNull()
+  })
+
+  it('calls searchNow when the search button is clicked', () => {
+    const searchNow = vi.fn()
+    mockUseSearch.mockReturnValue(makeDefaultHook({ searchNow }))
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Lancer la recherche' }))
+    expect(searchNow).toHaveBeenCalledOnce()
   })
 
   it('calls setQuery when the input changes', () => {

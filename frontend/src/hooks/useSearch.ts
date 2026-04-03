@@ -23,6 +23,7 @@ export interface UseSearchResult {
   error: string | null
   resetFilters: () => void
   selectSuggestion: (text: string) => void
+  searchNow: () => void
 }
 
 export function useSearch(): UseSearchResult {
@@ -49,7 +50,8 @@ export function useSearch(): UseSearchResult {
   // Sync state → URL (replace so browser history stays clean)
   useEffect(() => {
     const params: Record<string, string> = {}
-    if (query) params.q = query
+    const trimmedQuery = query.trim()
+    if (trimmedQuery) params.q = trimmedQuery
     if (filters.category) params.category = filters.category
     if (filters.faculty) params.faculty = filters.faculty
     if (filters.dateFrom) params.dateFrom = filters.dateFrom
@@ -72,8 +74,9 @@ export function useSearch(): UseSearchResult {
   }, [query])
 
   const performSearch = useCallback(async (q: string, f: SearchFilters) => {
+    const trimmed = q.trim()
     const params: SearchParams = {
-      q: q || undefined,
+      q: trimmed || undefined,
       category: f.category,
       faculty: f.faculty,
       dateFrom: f.dateFrom,
@@ -114,6 +117,10 @@ export function useSearch(): UseSearchResult {
     [performSearch],
   )
 
+  const searchNow = useCallback(() => {
+    performSearch(query.trim(), filtersRef.current)
+  }, [query, performSearch])
+
   return {
     query,
     setQuery,
@@ -125,5 +132,6 @@ export function useSearch(): UseSearchResult {
     error,
     resetFilters,
     selectSuggestion,
+    searchNow,
   }
 }
