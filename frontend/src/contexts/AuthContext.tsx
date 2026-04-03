@@ -28,7 +28,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   } = useAuth0()
 
   const [user, setUser] = useState<User | null>(null)
-  const [backendLoading, setBackendLoading] = useState(false)
+  const [backendLoading, setBackendLoading] = useState(true)
 
   const login = useCallback(() => {
     loginWithRedirect()
@@ -50,6 +50,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     if (!isAuthenticated || !auth0User) {
       setToken(null)
       setUser(null)
+      setBackendLoading(false)
       return
     }
 
