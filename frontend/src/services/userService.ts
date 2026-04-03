@@ -16,6 +16,9 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
   return response.data
 }
 
-export async function uploadPhoto(_file: File): Promise<{ photoUrl: string }> {
-  return { photoUrl: '' }
+export async function uploadPhoto(file: File): Promise<User> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post<User>('/users/me/image', formData)
+  return response.data
 }

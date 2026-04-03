@@ -39,6 +39,7 @@ interface UseEventFormOptions {
   initialEvent?: Event | null
   onSuccess?: (event: Event) => void
   onError?: (message: string) => void
+  onBannerError?: (message: string) => void
 }
 
 interface UseEventFormResult {
@@ -92,6 +93,8 @@ const FIELD_LABELS: Record<string, string> = {
 
 export const EVENT_TITLE_MAX_LENGTH = 120
 export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
+export const IMAGE_MAX_SIZE_MB = 5
+export const IMAGE_MAX_SIZE_BYTES = IMAGE_MAX_SIZE_MB * 1024 * 1024
 
 function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
@@ -216,7 +219,7 @@ function getApiErrorMessage(error: unknown, mode: 'create' | 'edit'): string {
     : 'La mise à jour de l\'événement a échoué. Veuillez réessayer.'
 }
 
-export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEventFormOptions): UseEventFormResult {
+export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerError }: UseEventFormOptions): UseEventFormResult {
   const [values, setValues] = useState<EventFormValues>(() => toFormValues(initialEvent))
   const [errors, setErrors] = useState<EventFormErrors>({})
   const [submitting, setSubmitting] = useState(false)
@@ -255,6 +258,11 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
 
     if (!file.type.startsWith('image/')) {
       setErrors((current) => ({ ...current, image: 'Le fichier doit être une image.' }))
+      return
+    }
+
+    if (file.size > IMAGE_MAX_SIZE_BYTES) {
+      setErrors((current) => ({ ...current, image: `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).` }))
       return
     }
 
@@ -339,6 +347,9 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
 
     setSubmitting(true)
 
+    let savedEvent: Event
+
+    // Step 1: create / update the event
     try {
       const payload: CreateEventRequest = {
         title: values.title.trim(),
@@ -350,8 +361,6 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: values.status,
       }
-
-      let savedEvent: Event
 
       if (mode === 'create') {
         savedEvent = await createEvent(payload)
@@ -372,17 +381,23 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
 
         savedEvent = await updateEvent(initialEvent.id, updatePayload)
       }
-
-      if (imageFile) {
-        savedEvent = await uploadEventImage(savedEvent.id, imageFile)
-      }
-
-      onSuccess?.(savedEvent)
     } catch (error) {
       onError?.(getApiErrorMessage(error, mode))
-    } finally {
       setSubmitting(false)
+      return
     }
+
+    // Step 2: banner upload (optional, non-blocking for navigation)
+    if (imageFile) {
+      try {
+        savedEvent = await uploadEventImage(savedEvent.id, imageFile)
+      } catch {
+        onBannerError?.("L'événement a été créé mais la bannière n'a pas pu être uploadée.")
+      }
+    }
+
+    setSubmitting(false)
+    onSuccess?.(savedEvent)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

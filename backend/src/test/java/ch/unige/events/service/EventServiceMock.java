@@ -70,7 +70,7 @@ public class EventServiceMock extends EventService {
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
-                .filter(e -> endDateFrom == null || !e.endDate.isBefore(endDateFrom))
+                .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
                 .map(EventDTO::from)
                 .toList();
     }

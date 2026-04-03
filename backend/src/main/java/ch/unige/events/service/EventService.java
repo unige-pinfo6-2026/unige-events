@@ -9,20 +9,15 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
-import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,8 +28,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class EventService {
 
-    @ConfigProperty(name = "app.uploads.path", defaultValue = "/tmp/unige-events-uploads")
-    String uploadsPath;
+    @Inject FileStorageService fileStorageService;
 
     @Transactional
     public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
@@ -164,28 +158,7 @@ public class EventService {
             throw new ForbiddenException("Only the event creator or an admin can upload a banner");
         }
 
-        String contentType = fileUpload.contentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BadRequestException(
-                    "File must be an image (accepted: image/jpeg, image/png, image/webp, image/gif)");
-        }
-
-        String originalName = fileUpload.fileName();
-        String extension = (originalName != null && originalName.contains("."))
-                ? originalName.substring(originalName.lastIndexOf('.'))
-                : ".bin";
-
-        String uniqueFileName = UUID.randomUUID() + extension;
-        Path targetDir = Path.of(uploadsPath);
-        Path targetFile = targetDir.resolve(uniqueFileName);
-        try {
-            Files.createDirectories(targetDir);
-            Files.copy(fileUpload.uploadedFile(), targetFile, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new InternalServerErrorException("Failed to save banner image: " + e.getMessage());
-        }
-
-        event.bannerUrl = "/uploads/" + uniqueFileName;
+        event.bannerUrl = fileStorageService.saveImage(fileUpload);
         return EventDTO.from(event);
     }
 

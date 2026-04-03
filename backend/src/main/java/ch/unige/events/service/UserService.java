@@ -14,6 +14,7 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class UserService {
 
+    @Inject FileStorageService fileStorageService;
     @Inject Instance<EntityManager> entityManager;
 
     /**
@@ -118,6 +120,14 @@ public class UserService {
             throw exception;
         }
 
+        return user;
+    }
+
+    @Transactional
+    public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.avatarUrl = fileStorageService.saveImage(fileUpload);
+        flushEntityManager();
         return user;
     }
 

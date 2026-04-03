@@ -3,6 +3,7 @@ import { EventCategory, EventStatus } from '../types'
 import {
   EVENT_DESCRIPTION_MAX_LENGTH,
   EVENT_TITLE_MAX_LENGTH,
+  IMAGE_MAX_SIZE_MB,
 } from '../hooks/useEventForm'
 import type { EventFormErrors, EventFormValues } from '../hooks/useEventForm'
 import './EventForm.css'
@@ -335,7 +336,10 @@ function EventForm({
                   onChange={onImageChange}
                   className='photo-input-hidden'
                 />
-                <span className='banner-upload-hint'>{selectedImageName ?? 'PNG, JPG ou WEBP'}</span>
+                <span className='banner-upload-hint'>
+                  {selectedImageName ?? 'PNG, JPG ou WEBP'}
+                  <span className='banner-upload-size-hint'>Taille max : {IMAGE_MAX_SIZE_MB} Mo</span>
+                </span>
               </div>
             </div>
             {errors.image && <span className='form-error'>{errors.image}</span>}

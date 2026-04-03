@@ -410,4 +410,45 @@ class EventResourceTest {
                 .then()
                 .statusCode(400);
     }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImage_asAuthenticatedCreator_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event avec bannière");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner-no-role.png", "fake-png-bytes".getBytes(), "image/png")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(200)
+                .body("bannerUrl", notNullValue());
+    }
+
+    @Test
+    void uploadImage_unauthenticated_returns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImage_asAuthenticatedNonCreator_returns403() {
+        EventServiceMock.forceForbiddenOnUpdate = true;
+        var event = eventServiceMock.seedEvent("auth0|bob", "Event de Bob");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(403)
+                .body("error", equalTo("forbidden"));
+    }
 }
