@@ -72,6 +72,27 @@ describe('searchEvents', () => {
 
     expect(mockGet).toHaveBeenCalledWith('/events/search', { params })
   })
+
+  it('forwards abort signal to Axios when provided', async () => {
+    mockGet.mockResolvedValue({ data: [] })
+
+    const controller = new AbortController()
+    await searchEvents({}, controller.signal)
+
+    expect(mockGet).toHaveBeenCalledWith('/events/search', {
+      params: {},
+      signal: controller.signal,
+    })
+  })
+
+  it('does not include signal in Axios config when not provided', async () => {
+    mockGet.mockResolvedValue({ data: [] })
+
+    await searchEvents({ q: 'test' })
+
+    const callConfig = mockGet.mock.calls[0][1] as Record<string, unknown>
+    expect(callConfig).not.toHaveProperty('signal')
+  })
 })
 
 describe('fetchSuggestions', () => {
@@ -82,6 +103,12 @@ describe('fetchSuggestions', () => {
 
   it('returns an empty array regardless of input', async () => {
     const result = await fetchSuggestions('')
+    expect(result).toEqual([])
+  })
+
+  it('accepts an optional AbortSignal without throwing', async () => {
+    const controller = new AbortController()
+    const result = await fetchSuggestions('conf', controller.signal)
     expect(result).toEqual([])
   })
 })

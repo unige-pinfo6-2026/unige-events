@@ -109,9 +109,9 @@ function SearchPage() {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
               }}
             >
-              {suggestions.slice(0, 5).map((s, i) => (
+              {suggestions.slice(0, 5).map((s) => (
                 <button
-                  key={i}
+                  key={s}
                   type='button'
                   role='option'
                   aria-selected={false}

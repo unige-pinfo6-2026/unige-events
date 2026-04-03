@@ -88,20 +88,15 @@ describe('FilterSidebar', () => {
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ category: undefined }))
   })
 
-  it('calls setFilters with the selected faculty', () => {
-    const setFilters = vi.fn()
-    renderSidebar(defaultFilters, setFilters)
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: 'SCIENCES' } })
-    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: 'SCIENCES' }))
+  it('faculty select is disabled (SCRUM-77 not yet implemented)', () => {
+    renderSidebar()
+    const select = screen.getByRole('combobox') as HTMLSelectElement
+    expect(select.disabled).toBe(true)
   })
 
-  it('clears faculty when empty option is selected', () => {
-    const setFilters = vi.fn()
-    renderSidebar({ faculty: 'SCIENCES' }, setFilters)
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: '' } })
-    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: undefined }))
+  it('shows "Bientôt disponible" label below the faculty select', () => {
+    renderSidebar()
+    expect(screen.getByText('Bientôt disponible')).toBeTruthy()
   })
 
   it('calls setFilters with dateFrom when date input changes', () => {

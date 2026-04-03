@@ -47,6 +47,12 @@ export function useSearch(): UseSearchResult {
     filtersRef.current = filters
   }, [filters])
 
+  // Abort controller for in-flight search requests — aborts previous before starting a new one
+  const searchAbortRef = useRef<AbortController | null>(null)
+
+  // When true, the next 2000ms debounce tick is skipped (used after an immediate search)
+  const skipNextDebounce = useRef(false)
+
   // Sync state → URL (replace so browser history stays clean)
   useEffect(() => {
     const params: Record<string, string> = {}
@@ -59,44 +65,62 @@ export function useSearch(): UseSearchResult {
     setSearchParams(params, { replace: true })
   }, [query, filters, setSearchParams])
 
-  // 300ms debounce: query → suggestions
+  // 300ms debounce: query → suggestions (aborts stale in-flight suggestion requests)
   useEffect(() => {
     if (!query.trim()) {
       setSuggestions([])
       return
     }
+    const controller = new AbortController()
     const timer = setTimeout(() => {
-      fetchSuggestions(query)
+      fetchSuggestions(query, controller.signal)
         .then((data) => setSuggestions(data.slice(0, 5)))
-        .catch(() => setSuggestions([]))
+        .catch((err: unknown) => {
+          if (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError')) return
+          setSuggestions([])
+        })
     }, 300)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
   }, [query])
 
   const performSearch = useCallback(async (q: string, f: SearchFilters) => {
+    // Abort any in-flight search request before starting a new one
+    searchAbortRef.current?.abort()
+    const controller = new AbortController()
+    searchAbortRef.current = controller
+
     const trimmed = q.trim()
+    // TODO: SCRUM-77 — faculty filter omitted; backend does not yet support it
     const params: SearchParams = {
       q: trimmed || undefined,
       category: f.category,
-      faculty: f.faculty,
       dateFrom: f.dateFrom,
       dateTo: f.dateTo,
     }
     setLoading(true)
     setError(null)
     try {
-      const data = await searchEvents(params)
+      const data = await searchEvents(params, controller.signal)
       setResults(data)
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError')) return
       setError('Impossible de charger les résultats.')
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) setLoading(false)
     }
   }, [])
 
   // 2000ms debounce: query + filters → search
+  // Skipped when an immediate search (selectSuggestion / searchNow) just fired
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (skipNextDebounce.current) {
+        skipNextDebounce.current = false
+        return
+      }
       performSearch(query, filters)
     }, 2000)
     return () => clearTimeout(timer)
@@ -112,12 +136,14 @@ export function useSearch(): UseSearchResult {
     (text: string) => {
       setQueryState(text)
       setSuggestions([])
+      skipNextDebounce.current = true
       performSearch(text, filtersRef.current)
     },
     [performSearch],
   )
 
   const searchNow = useCallback(() => {
+    skipNextDebounce.current = true
     performSearch(query.trim(), filtersRef.current)
   }, [query, performSearch])
 

@@ -110,13 +110,15 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
         </div>
       </div>
 
-      {/* Faculty */}
+      {/* Faculty — TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event */}
       <div>
         <div style={sectionLabelStyle}>Faculté</div>
         <select
           value={filters.faculty ?? ''}
           onChange={handleFacultyChange}
-          style={{ ...inputStyle, padding: '0.5rem' }}
+          disabled
+          aria-disabled='true'
+          style={{ ...inputStyle, padding: '0.5rem', opacity: 0.5, cursor: 'not-allowed' }}
         >
           <option value=''>Toutes les facultés</option>
           {Object.values(Faculty).map((fac) => (
@@ -125,6 +127,15 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
             </option>
           ))}
         </select>
+        <p
+          style={{
+            margin: '0.25rem 0 0',
+            fontSize: '0.75rem',
+            color: 'var(--text-muted)',
+          }}
+        >
+          Bientôt disponible
+        </p>
       </div>
 
       {/* Date range */}

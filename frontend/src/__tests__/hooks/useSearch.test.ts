@@ -97,6 +97,7 @@ describe('useSearch', () => {
 
     expect(mockSearchEvents).toHaveBeenCalledWith(
       expect.objectContaining({ q: 'conférence' }),
+      expect.any(AbortSignal),
     )
   })
 
@@ -181,7 +182,7 @@ describe('useSearch', () => {
       await vi.runAllTimersAsync()
     })
 
-    expect(mockFetchSuggestions).toHaveBeenCalledWith('conf')
+    expect(mockFetchSuggestions).toHaveBeenCalledWith('conf', expect.any(AbortSignal))
   })
 
   it('populates suggestions from fetchSuggestions', async () => {
@@ -272,6 +273,7 @@ describe('useSearch', () => {
 
     expect(mockSearchEvents).toHaveBeenCalledWith(
       expect.objectContaining({ q: 'test' }),
+      expect.any(AbortSignal),
     )
   })
 
@@ -301,7 +303,92 @@ describe('useSearch', () => {
 
     expect(mockSearchEvents).toHaveBeenCalledWith(
       expect.objectContaining({ category: 'ACADEMIC' }),
+      expect.any(AbortSignal),
     )
+  })
+
+  it('does not include faculty in search params sent to the API', async () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ faculty: 'SCIENCES', category: 'ACADEMIC' })
+    })
+
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.not.objectContaining({ faculty: expect.anything() }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  it('ignores CanceledError so it does not set an error state', async () => {
+    const canceledError = new Error('canceled')
+    canceledError.name = 'CanceledError'
+    mockSearchEvents.mockRejectedValue(canceledError)
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setQuery('test')
+    })
+
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(result.current.error).toBeNull()
+  })
+
+  it('selectSuggestion does not trigger a duplicate debounce search', async () => {
+    mockSearchEvents.mockResolvedValue(mockEvents)
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    await act(async () => {
+      result.current.selectSuggestion('test')
+      await Promise.resolve()
+    })
+
+    const callsAfterImmediate = mockSearchEvents.mock.calls.length
+    expect(callsAfterImmediate).toBeGreaterThanOrEqual(1)
+
+    // The debounce timer should fire but be skipped (skipNextDebounce)
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(mockSearchEvents).toHaveBeenCalledTimes(callsAfterImmediate)
+  })
+
+  it('searchNow does not trigger a duplicate debounce search', async () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setQuery('hello')
+    })
+
+    // Call searchNow within the debounce window
+    await act(async () => {
+      result.current.searchNow()
+      await Promise.resolve()
+    })
+
+    const callsAfterImmediate = mockSearchEvents.mock.calls.length
+    expect(callsAfterImmediate).toBeGreaterThanOrEqual(1)
+
+    // The pending debounce timer should be skipped
+    await act(async () => {
+      await vi.runAllTimersAsync()
+    })
+
+    expect(mockSearchEvents).toHaveBeenCalledTimes(callsAfterImmediate)
   })
 
   it('initializes state from URL params on mount', () => {
