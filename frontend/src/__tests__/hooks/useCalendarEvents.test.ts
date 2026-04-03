@@ -72,7 +72,7 @@ describe('useCalendarEvents', () => {
   it('calls getAll with endDateFrom set to the first day of the month', async () => {
     mockGetAll.mockResolvedValue([])
 
-    const { } = renderHook(() => useCalendarEvents(new Date(2026, 3, 15)))
+    renderHook(() => useCalendarEvents(new Date(2026, 3, 15)))
     await waitFor(() => expect(mockGetAll).toHaveBeenCalled())
 
     const [params] = mockGetAll.mock.calls[0]
