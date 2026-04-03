@@ -51,6 +51,29 @@ et, si nécessaire :
 - capacity
 - status
 
+## Types recherche
+
+### SearchParams
+
+Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
+- q : string — terme de recherche full-text
+- category : EventCategory — filtre catégorie (valeur unique)
+- faculty : Faculty — filtre faculté
+- dateFrom : string (format date) — startDate >= dateFrom
+- dateTo : string (format date) — startDate <= dateTo
+- page : number (défaut 0)
+- size : number (défaut 20)
+
+### SearchResponse
+
+`Event[]` — tableau d'événements (jamais null, jamais 404 si vide).
+
+### SearchFilters
+
+Exportée depuis `src/hooks/useSearch.ts` (non dans `src/types/`).
+Utilisée comme props par `FilterSidebar`.
+Champs : `category?`, `faculty?`, `dateFrom?`, `dateTo?`.
+
 ## Règles générales
 
 - Les champs restent en camelCase exactement comme dans le backend.

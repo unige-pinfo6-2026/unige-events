@@ -8,6 +8,7 @@
 | /events/new | CreateEventPage | fait |
 | /events/:id | EventDetailPage | fait |
 | /events/:id/edit | EditEventPage | fait |
+| /search | SearchPage | fait |
 
 ### HomePage
 
@@ -44,6 +45,18 @@
 - Remplace la bannière via uploadEventImage(id, file).
 - Affiche un toast puis redirige vers /events/:id.
 
+### SearchPage
+
+- Route `/search`, layout sidebar gauche + résultats droite.
+- Barre de recherche texte avec bouton loupe.
+- Dropdown d'autocomplétion : affiche jusqu'à 5 suggestions (debounce 300ms via useSearch), se ferme au clic extérieur ou Escape.
+- Cliquer une suggestion appelle `selectSuggestion` → déclenche immédiatement une recherche.
+- Les résultats s'actualisent automatiquement après 2000ms d'inactivité (debounce via useSearch).
+- Compteur de résultats toujours visible : "X événement(s) trouvé(s)".
+- État vide : "Aucun résultat — essayez de modifier vos filtres ou votre recherche".
+- Gère les états loading (spinner), error et success.
+- Résultats affichés via `EventCard`.
+
 ## Composants réutilisables
 
 ### EventCard
@@ -57,6 +70,13 @@
 - Centralise les champs titre, description, lieu, dates, catégorie, capacité, statut et bannière.
 - Garde le placeholder et l’aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
+
+### FilterSidebar
+
+- Composant props-driven pour les filtres de la page de recherche.
+- Filtres : `category` (checkboxes à sélection exclusive, toggle), `faculty` (select), `dateFrom`/`dateTo` (date inputs), bouton reset.
+- Réutilise les constantes `EventCategory` et `Faculty` de `src/types/`.
+- Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
 ### Avatar
 
@@ -84,6 +104,15 @@
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
 - Après upload de bannière, réutilise l’événement retourné par l’API.
 
+### useSearch
+
+- Initialise l'état depuis les query params URL au montage.
+- Synchronise état → URL (replace) via `useSearchParams` React Router v6.
+- Debounce 300ms sur `query` → `fetchSuggestions` → met à jour `suggestions` (max 5).
+- Debounce 2000ms sur `query` + `filters` → `searchEvents` → met à jour `results`.
+- Expose : `query`, `setQuery`, `filters`, `setFilters`, `results`, `suggestions`, `loading`, `error`, `resetFilters()`, `selectSuggestion(text)`.
+- `selectSuggestion` définit `query`, vide `suggestions`, et déclenche immédiatement une recherche.
+
 ## Services
 
 ### eventApi.ts
@@ -94,3 +123,8 @@
 - updateEvent(id, data) : mise à jour d’événement.
 - uploadEventImage(id, file) : upload de bannière et retour de l’événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d’un événement.
+
+### searchApi.ts
+
+- searchEvents(params) : recherche full-text d’événements via `GET /api/events/search`.
+- fetchSuggestions(query) : stub retournant un tableau vide (TODO — pas d’endpoint de suggestions dans openapi.yaml).
