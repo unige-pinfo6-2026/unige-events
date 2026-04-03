@@ -34,6 +34,9 @@ function Navbar() {
         <Link to="/home" className="navbar-link">
           Accueil
         </Link>
+        <Link to="/calendar" className="navbar-link">
+          Vue Calendrier
+        </Link>
       </div>
 
       <div className="navbar-user" ref={dropdownRef}>
