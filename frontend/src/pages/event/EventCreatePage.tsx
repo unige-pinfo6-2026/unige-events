@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
+import Toast from '@/components/utils/Toast'
 
-export default function CreateEventPage() {
+export default function EventCreatePage() {
   const navigate = useNavigate()
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -43,20 +44,9 @@ export default function CreateEventPage() {
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
         onSubmit={form.handleSubmit}
-        onCancel={() => navigate('/dashboard')}
+        onCancel={() => navigate('/')}
       />
-
-      {toast && (
-        <output
-          className={`fixed bottom-6 right-6 px-5 py-3.5 rounded-xl text-sm font-medium shadow-lg z-50 border ${
-            toast.type === 'success'
-              ? 'bg-green-50 text-green-800 border-green-200'
-              : 'bg-red-50 text-red-700 border-red-200'
-          }`}
-        >
-          {toast.message}
-        </output>
-      )}
+      {toast && <Toast type={toast.type} message={toast.message} />}
     </>
   )
 }

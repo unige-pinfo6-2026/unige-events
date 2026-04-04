@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
+import Toast from '@/components/utils/Toast'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 
-export default function EditEventPage() {
+export default function EventEditPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const eventId = Number(id)
@@ -67,16 +68,16 @@ export default function EditEventPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[60vh] text-[var(--text-secondary)]">
-        Chargement de l'événement...
+      <div className="flex justify-center items-center min-h-60">
+        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
       </div>
     )
   }
 
   if (loadError) {
     return (
-      <div className="flex justify-center items-center min-h-[60vh] text-red-600">
-        {loadError}
+      <div className="flex justify-center items-center min-h-60">
+        <p className="text-foreground/50">{loadError}</p>
       </div>
     )
   }
@@ -98,18 +99,7 @@ export default function EditEventPage() {
         onSubmit={form.handleSubmit}
         onCancel={() => navigate(`/events/${event.id}`)}
       />
-
-      {toast && (
-        <output
-          className={`fixed bottom-6 right-6 px-5 py-3.5 rounded-xl text-sm font-medium shadow-lg z-50 border ${
-            toast.type === 'success'
-              ? 'bg-green-50 text-green-800 border-green-200'
-              : 'bg-red-50 text-red-700 border-red-200'
-          }`}
-        >
-          {toast.message}
-        </output>
-      )}
+      {toast && <Toast type={toast.type} message={toast.message} />}
     </>
   )
 }

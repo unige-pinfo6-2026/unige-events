@@ -52,6 +52,15 @@ export function BlobsHero() {
   )
 }
 
+export function BlobsCta() {
+  return (
+    <>
+      <div className="absolute top-0 left-1/4 w-150 h-150 bg-linear-to-br from-accent/30 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-150 h-150 bg-linear-to-tl from-purple-600/30 via-blue-600/20 to-cyan-600/20 rounded-full blur-3xl pointer-events-none" />
+    </>
+  )
+}
+
 export function BlobsSubtle() {
   return (
     <>

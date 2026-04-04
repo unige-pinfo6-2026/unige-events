@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
-import Avatar from './user/Avatar'
+import UserAvatar from './user/UserAvatar'
 import { ButtonPrimary } from './utils/Buttons'
 import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react'
 import { Banner } from '@/assets/Banner'
@@ -25,8 +25,8 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           <TextLink href={"/#events"}>En ce moment</TextLink>
           <TextLink href={"/#features"}>Fonctionnalités</TextLink>
-          <TextLink href={"/#get-started"}>Commencer</TextLink>
           <TextLink href={"/#faq"}>FAQ</TextLink>
+          <TextLink href={"/#get-started"}>Commencer</TextLink>
         </div>
 
         {/* Right side */}
@@ -47,7 +47,7 @@ export default function Navbar() {
                 className="flex items-center gap-2 cursor-pointer bg-transparent border-0 text-foreground"
                 aria-expanded={dropdownOpen}
               >
-                <Avatar
+                <UserAvatar
                   user={user}
                   size={32}
                 />
@@ -58,7 +58,7 @@ export default function Navbar() {
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 rounded-xl bg-card border border-border shadow-xl overflow-hidden z-50">
                   <Link
-                    to="/dashboard/profile/me"
+                    to="/profile/me"
                     className="block px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-white/5 transition-colors"
                     onClick={() => setDropdownOpen(false)}
                   >
@@ -101,7 +101,7 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <ButtonPrimary size="sm" onClick={login} className="w-full justify-center">
+              <ButtonPrimary size="sm" onClick={login}>
                 Se connecter
               </ButtonPrimary>
             )}

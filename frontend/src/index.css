@@ -26,8 +26,18 @@
   --color-border: rgba(255, 255, 255, 0.2);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--color-background);
+}
+
+@utility text-accent-gradient {
+  background-image: linear-gradient(to right, var(--color-accent), #ec4899, #a855f7);
+  background-clip: text;
+  color: transparent;
 }
 
 @keyframes marquee {

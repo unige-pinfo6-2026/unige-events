@@ -1,6 +1,6 @@
 import type { User } from "@/types/user"
 
-export default function Avatar({ user, size = 40, className }: Readonly<{ user: User | null, size?: number, className?: string}>) {
+export default function UserAvatar({ user, size = 40, className }: Readonly<{ user: User | null, size?: number, className?: string}>) {
   const base = `rounded-full shrink-0 overflow-hidden flex items-center justify-center bg-accent text-white font-bold ${className}`
 
   if(user?.avatarUrl) {

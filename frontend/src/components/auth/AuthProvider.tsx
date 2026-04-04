@@ -7,7 +7,7 @@ export default function AuthProvider({ children }: Readonly<{ children: ReactNod
   const navigate = useNavigate()
 
   function onRedirectCallback(appState?: AppState) {
-    navigate(appState?.returnTo ?? '/dashboard', { replace: true })
+    navigate(appState?.returnTo ?? '/', { replace: true })
   }
 
   return (

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Calendar, MapPin, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 
 function formatDate(dateStr: string): string {
@@ -12,47 +13,68 @@ function formatDate(dateStr: string): string {
 }
 
 export default function EventCard({ event }: Readonly<{ event: Event }>) {
-  const category = EVENT_CATEGORIES[event.category];
+  const category = EVENT_CATEGORIES[event.category]
 
   return (
-    <Link to={`/dashboard/events/${event.id}`} className="block no-underline">
-      <article className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+    <Link to={`/events/${event.id}`} className="block no-underline">
+      <article className="relative h-full bg-background border border-border rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/20 hover:border-foreground/20">
+
+        {/* Colored top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-10" style={{ background: category.color }} />
+
         {/* Banner */}
         <div
-          className="h-[140px] flex items-end p-3"
+          className="relative h-52 overflow-hidden"
           style={{
             background: event.bannerUrl
               ? `url(${event.bannerUrl}) center/cover`
-              : `linear-gradient(135deg, ${category.color}22, ${category.color}44)`,
+              : `linear-gradient(135deg, ${category.color}55, ${category.color}cc)`,
           }}
         >
+          <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-black/10" />
+
           <span
-            className="text-white text-xs font-bold px-2.5 py-0.5 rounded-full tracking-wide"
-            style={{ background: category.color }}
+            className="absolute top-4 left-4 text-white text-xs font-bold px-3 py-1.5 rounded-full tracking-wide backdrop-blur-sm"
+            style={{ background: `${category.color}dd` }}
           >
             {category.name}
           </span>
+
+          {/* Title overlaid on banner */}
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm">
+              {event.title}
+            </h3>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="px-5 py-4">
-          <h3 className="text-[var(--text-primary)] text-base font-bold leading-snug mb-2 line-clamp-2">
-            {event.title}
-          </h3>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-[0.8125rem] text-[var(--text-secondary)]">
-              📅 {formatDate(event.startDate)}
-            </span>
-            <span className="text-[0.8125rem] text-[var(--text-secondary)]">
-              📍 {event.location}
-            </span>
+        <div className="p-5 flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2.5 text-sm text-foreground/55">
+              <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
+              <span className="font-medium">{formatDate(event.startDate)}</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-sm text-foreground/55">
+              <MapPin className="w-4 h-4 shrink-0" style={{ color: category.color }} />
+              <span className="line-clamp-1">{event.location}</span>
+            </div>
             {event.capacity != null && (
-              <span className="text-[0.8125rem] text-[var(--text-secondary)]">
-                👥 {event.capacity} places
-              </span>
+              <div className="flex items-center gap-2.5 text-sm text-foreground/55">
+                <Users className="w-4 h-4 shrink-0" style={{ color: category.color }} />
+                <span>{event.capacity} places</span>
+              </div>
             )}
           </div>
+
+          {event.description && (
+            <>
+              <div className="border-t border-border" />
+              <p className="text-sm text-foreground/45 line-clamp-2 leading-relaxed">
+                {event.description}
+              </p>
+            </>
+          )}
         </div>
       </article>
     </Link>

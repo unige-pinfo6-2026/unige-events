@@ -2,6 +2,8 @@ interface ButtonProps {
   size?: keyof typeof sizes
   children: React.ReactNode
   onClick?: () => void
+  type?: 'button' | 'submit' | 'reset'
+  disabled?: boolean
 }
 
 const sizes = {
@@ -10,21 +12,27 @@ const sizes = {
   'lg': 'px-8 py-4 text-lg'
 }
 
-export function ButtonPrimary({ size = 'md', children, onClick }: Readonly<ButtonProps>) {
+export function ButtonPrimary({ size = 'md', children, onClick, type = 'button', disabled }: Readonly<ButtonProps>) {
   return (
     <button
+      type={type}
       onClick={onClick}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 ${sizes[size]}`}>
+      disabled={disabled}
+      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]}`}
+    >
       {children}
     </button>
   )
 }
 
-export function ButtonSecondary({ size = 'md', children, onClick }: Readonly<ButtonProps>) {
+export function ButtonSecondary({ size = 'md', children, onClick, type = 'button', disabled }: Readonly<ButtonProps>) {
   return (
     <button
+      type={type}
       onClick={onClick}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl border-2 border-border hover:border-accent/50 hover:bg-background/5 text-foreground transition-all cursor-pointer bg-transparent ${sizes[size]}`}>
+      disabled={disabled}
+      className={`inline-flex items-center gap-2 font-semibold rounded-xl border-2 border-border hover:border-accent/50 hover:bg-background/5 text-foreground transition-all cursor-pointer bg-transparent disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]}`}
+    >
       {children}
     </button>
   )

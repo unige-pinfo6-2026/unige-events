@@ -1,172 +1,96 @@
+import { useState } from 'react'
 import {
-  Calendar,
-  Filter, User, PlusCircle, BarChart3, Bell
+  Calendar, Filter, User, PlusCircle, BarChart3, Bell, ChevronDown
 } from 'lucide-react'
 import FacultyMarquee from '../components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary } from '../components/utils/Buttons'
+import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
+import EventCards from '@/components/event/EventCards'
+import { Link } from 'react-router-dom'
 
-const Hero = () => {
+// TODO : Fix ça en quelque chose de plus minimal
+// TODO : Ensuite voir pour dashboard/profiles/events etc...  plus proprement (navbar) 
+function SectionWrapper({ children, id, className = 'py-20 lg:py-32', maxWidth = 'max-w-7xl', background, footer, contentClassName }: Readonly<{
+  children: React.ReactNode
+  id?: string
+  className?: string
+  maxWidth?: string
+  background?: React.ReactNode
+  footer?: React.ReactNode
+  contentClassName?: string
+}>) {
+  const sectionClass = ['relative overflow-hidden', className].filter(Boolean).join(' ')
+  const innerClass = [maxWidth, 'mx-auto px-4 sm:px-6 lg:px-8 relative z-10', contentClassName].filter(Boolean).join(' ')
   return (
-    <section className="relative flex flex-col justify-between h-[calc(100vh-var(--height-navbar))] overflow-hidden py-6">
-      {/* Background blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-accent/30 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-gradient-to-tl from-accent/20 via-purple-600/20 to-blue-600/20 rounded-full blur-3xl animate-pulse [animation-delay:700ms]" />
+    <section id={id} className={sectionClass}>
+      {background}
+      <div className={innerClass}>
+        {children}
       </div>
-
-      {/* Spacer top */}
-      <div />
-
-      {/* Centre */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 px-2">
-        <div className="flex flex-col items-center text-center space-y-8 max-w-4xl mx-auto">
-          <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
-            Tous les{' '}
-            <span className="bg-linear-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">
-              évènements
-            </span>
-            <br />
-            en un lieu
-          </h1>
-
-          <p className="text-xl lg:text-2xl text-foreground/60 leading-relaxed max-w-2xl font-light">
-            La plateforme qui connecte étudiants, associations et administration autour des événements du campus.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <ButtonPrimary size="lg">
-              Explorer les derniers évènements
-            </ButtonPrimary>
-
-            <ButtonSecondary size="lg">
-              Créer un évènement
-            </ButtonSecondary>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom */}
-      <div className="relative z-10 w-full overflow-hidden">
-        <FacultyMarquee />
-      </div>
+      {footer}
     </section>
   )
 }
 
-// ─── Trust Bar ────────────────────────────────────────────────────────────────
+function SectionHeader({ title, subtitle }: Readonly<{ title: React.ReactNode; subtitle?: string }>) {
+  return (
+    <div className="text-center max-w-3xl mx-auto mb-16">
+      <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">{title}</h2>
+      {subtitle && <p className="text-xl text-foreground/60 font-light">{subtitle}</p>}
+    </div>
+  )
+}
 
-// function TrustBar() {
-//   const stats = [
-//     { icon: Calendar, value: '42', label: 'Events cette semaine', color: 'from-accent to-pink-600' },
-//     { icon: Users, value: '30+', label: 'Groupes étudiants', color: 'from-blue-500 to-cyan-500' },
-//     { icon: Building2, value: '8', label: 'Facultés', color: 'from-purple-500 to-pink-500' },
-//     { icon: TrendingUp, value: '2.5K', label: 'Membres actifs', color: 'from-orange-500 to-red-500' },
-//   ]
+const Hero = () => {
+  return (
+    <SectionWrapper
+      className="flex flex-col h-[calc(100vh-var(--height-navbar))] py-6"
+      background={<BlobsHero />}
+      contentClassName="my-auto"
+      footer={
+        <div className="relative z-10 w-full overflow-hidden">
+          <FacultyMarquee />
+        </div>
+      }
+    >
+      <div className="flex flex-col items-center text-center space-y-8">
+        <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
+          Tous les{' '}
+          <span className="text-accent-gradient">
+            évènements
+          </span>
+          <br />
+          en un lieu
+        </h1>
 
-//   return (
-//     <section className="py-12 border-y border-white/5 bg-linear-to-r from-card/50 to-secondary/50 backdrop-blur-xl">
-//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-//           {stats.map((stat, i) => {
-//             const Icon = stat.icon
-//             return (
-//               <div key={i} className="flex items-center gap-3">
-//                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-//                   <Icon className="w-7 h-7 text-foreground" />
-//                 </div>
-//                 <div>
-//                   <div className="text-3xl font-bold bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">{stat.value}</div>
-//                   <div className="text-sm text-foreground/60">{stat.label}</div>
-//                 </div>
-//               </div>
-//             )
-//           })}
-//         </div>
-//       </div>
-//     </section>
-//   )
-// }
+        <p className="text-xl lg:text-2xl text-foreground/60 leading-relaxed max-w-2xl font-light">
+          La plateforme qui connecte étudiants, associations et administration autour des événements du campus.
+        </p>
 
-// ─── Problem / Solution ───────────────────────────────────────────────────────
+        <div className="flex flex-col sm:flex-row gap-4">
+          <ButtonPrimary size="lg"><a href="/#events">Explorer les derniers évènements</a></ButtonPrimary>
+          <ButtonSecondary size="lg"><Link to="/events/new">Créer un évènement</Link></ButtonSecondary>
+        </div>
+      </div>
+    </SectionWrapper>
+  )
+}
 
-// function ProblemSolutionSection() {
-//   const problems = [
-//     { icon: Mail, title: 'Events perdus dans les emails', description: 'Les événements importants se noient dans les boîtes mail et listes de diffusion.', gradient: 'from-red-500 to-orange-500' },
-//     { icon: Search, title: 'Aucun point central', description: 'Les étudiants perdent du temps à chercher sur plusieurs plateformes.', gradient: 'from-orange-500 to-yellow-500' },
-//     { icon: AlertCircle, title: "Manque d'organisation", description: 'Les activités du campus sont désorganisées et difficiles à découvrir.', gradient: 'from-yellow-500 to-red-500' },
-//   ]
-
-//   const solutions = [
-//     { icon: Calendar, title: 'Calendrier centralisé', description: 'Tous les événements universitaires dans un calendrier unique et accessible.', gradient: 'from-accent to-pink-600' },
-//     { icon: Filter, title: 'Filtres & recherche intelligents', description: 'Trouve exactement ce que tu cherches avec des filtres avancés.', gradient: 'from-blue-500 to-cyan-500' },
-//     { icon: Users, title: 'Communauté active', description: 'Tout le monde peut créer des événements et animer la vie du campus.', gradient: 'from-purple-500 to-pink-500' },
-//     { icon: Zap, title: "Profils d'events complets", description: "Pages détaillées avec toutes les infos et suivi de l'engagement.", gradient: 'from-green-500 to-emerald-500' },
-//   ]
-
-//   return (
-//     <section id="how" className="py-20 lg:py-32 relative overflow-hidden">
-//       <div className="absolute inset-0 bg-gradient-to-b from-secondary/30 to-background" />
-//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-//         <div className="text-center max-w-3xl mx-auto mb-16">
-//           <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">
-//             <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Du chaos à la simplicité</span>
-//           </h2>
-//           <p className="text-xl text-foreground/60 font-light">On comprend les défis. Voici comment on les résout.</p>
-//         </div>
-
-//         <div className="grid lg:grid-cols-2 gap-12">
-//           {/* Problems */}
-//           <div className="space-y-6">
-//             <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-linear-to-r from-red-500/20 to-orange-500/20 border border-red-500/30">
-//               <AlertCircle className="w-5 h-5 text-red-400" />
-//               <span className="text-sm font-medium text-red-400">Problèmes Actuels</span>
-//             </div>
-//             <div className="space-y-4">
-//               {problems.map((p, i) => {
-//                 const Icon = p.icon
-//                 return (
-//                   <div key={i} className="bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-xl rounded-2xl p-6 border border-white/10 flex gap-4">
-//                     <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${p.gradient} flex items-center justify-center flex-shrink-0 shadow-lg opacity-60`}>
-//                       <Icon className="w-7 h-7 text-foreground" />
-//                     </div>
-//                     <div>
-//                       <h3 className="font-semibold mb-1 text-lg text-foreground">{p.title}</h3>
-//                       <p className="text-sm text-foreground/60">{p.description}</p>
-//                     </div>
-//                   </div>
-//                 )
-//               })}
-//             </div>
-//           </div>
-
-//           {/* Solutions */}
-//           <div className="space-y-6">
-//             <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-linear-to-r from-accent/20 to-pink-600/20 border border-accent/30">
-//               <CheckCircle className="w-5 h-5 text-accent" />
-//               <span className="text-sm font-medium bg-linear-to-r from-accent to-pink-400 bg-clip-text text-transparent">Notre Solution</span>
-//             </div>
-//             <div className="space-y-4">
-//               {solutions.map((s, i) => {
-//                 const Icon = s.icon
-//                 return (
-//                   <div key={i} className="relative group overflow-hidden bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10 flex gap-4 hover:border-accent/30 transition-colors">
-//                     <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-//                       <Icon className="w-7 h-7 text-foreground" />
-//                     </div>
-//                     <div>
-//                       <h3 className="font-semibold mb-1 text-lg bg-linear-to-r from-white to-white/80 bg-clip-text text-transparent">{s.title}</h3>
-//                       <p className="text-sm text-foreground/60">{s.description}</p>
-//                     </div>
-//                   </div>
-//                 )
-//               })}
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </section>
-//   )
-// }
+function Events() {
+  return (
+    <SectionWrapper
+      id="events"
+      className="py-20 lg:py-32 bg-foreground/2"
+      background={<BlobsSubtle />}
+    >
+      <SectionHeader
+        title="Événements à venir"
+        subtitle="Découvrez ce qui se passe sur le campus : conférences, soirées, sports et bien plus."
+      />
+      <EventCards />
+    </SectionWrapper>
+  )
+}
 
 function Features() {
   const features = [
@@ -179,51 +103,100 @@ function Features() {
   ]
 
   return (
-    <section id="features" className="py-20 lg:py-32 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-accent/10 to-transparent rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-tl from-purple-600/10 to-transparent rounded-full blur-3xl" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">
-            <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
-              Tout ce dont vous avez besoin
-            </span>
-          </h2>
-          <p className="text-xl text-foreground/60 font-light">Des fonctionnalités puissantes conçues pour la communauté universitaire</p>
-        </div>
+    <SectionWrapper id="features">
+      <SectionHeader
+        title="Tout ce dont vous avez besoin"
+        subtitle="Des fonctionnalités puissantes conçues pour la communauté universitaire"
+      />
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f, i) => {
-            const Icon = f.icon
-            return (
-              <div key={i} className="group relative h-full bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-xl rounded-3xl p-8 border border-white/10 overflow-hidden hover:border-white/20 transition-colors">
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${f.gradient} flex items-center justify-center mb-6 shadow-lg`}>
-                  <Icon className="w-8 h-8 text-foreground" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 bg-linear-to-r from-white to-white/80 bg-clip-text text-transparent">{f.title}</h3>
-                <p className="text-foreground/60 leading-relaxed">{f.description}</p>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-bl-full" />
-              </div>
-            )
-          })}
-        </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {features.map(feature => (
+          <div key={feature.title} className="group relative h-full bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-8 border border-border overflow-hidden hover:border-foreground/50 transition-colors">
+            <div className={`w-16 h-16 rounded-2xl bg-linear-to-br ${feature.gradient} flex items-center justify-center mb-6 shadow-lg`}>
+              <feature.icon className="w-8 h-8 text-foreground" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">{feature.title}</h3>
+            <p className="text-foreground/60 leading-relaxed">{feature.description}</p>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-white/5 to-transparent rounded-bl-full" />
+          </div>
+        ))}
       </div>
-    </section>
+    </SectionWrapper>
   )
 }
 
-function GetSarted() {
+function Faq() {
+  const [open, setOpen] = useState<number | null>(null)
+
+  const faqs = [
+    {
+      q: "Qui peut créer un événement ?",
+      a: "Tout membre de la communauté UNIGE (étudiant, association ou administration) peut créer et publier un événement en quelques minutes depuis son profil.",
+    },
+    {
+      q: "Comment trouver des événements qui m'intéressent ?",
+      a: "Utilisez les filtres par faculté, thème, date ou type d'événement pour affiner votre recherche. Vous pouvez aussi suivre des associations et recevoir des alertes personnalisées.",
+    },
+    {
+      q: "La plateforme est-elle gratuite ?",
+      a: "L'accès de base est entièrement gratuit pour tous les étudiants UNIGE. Des fonctionnalités premium sont disponibles pour les associations et clubs souhaitant plus de visibilité et d'outils de gestion avancés.",
+    },
+    {
+      q: "Puis-je suivre les participations à mes événements ?",
+      a: "Oui, chaque organisateur dispose d'un tableau de bord avec le nombre de vues, de participations et l'engagement global de ses événements pour mieux comprendre son audience.",
+    },
+    {
+      q: "Mes données sont-elles en sécurité ?",
+      a: "La plateforme est réservée à la communauté universitaire. Seuls les membres connectés avec un compte UNIGE peuvent accéder aux événements et aux profils.",
+    },
+    {
+      q: "La plateforme sera-t-elle intégrée aux systèmes officiels de l'UNIGE ?",
+      a: "C'est l'un de nos avantages stratégiques. Nous travaillons à une intégration avec l'intranet universitaire et les canaux officiels pour maximiser la visibilité de chaque événement.",
+    },
+  ]
+
   return (
-    <section id="get-started" className="py-20 lg:py-32 relative overflow-hidden">
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-accent/30 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-gradient-to-tl from-purple-600/30 via-blue-600/20 to-cyan-600/20 rounded-full blur-3xl" />
+    <SectionWrapper id="faq" className="py-20 lg:py-32 bg-foreground/2" background={<BlobsSubtle />}>
+      <SectionHeader
+        title="Questions fréquentes"
+        subtitle="Tout ce que vous devez savoir avant de commencer."
+      />
+
+      <div className="max-w-3xl mx-auto flex flex-col gap-3">
+        {faqs.map((faq, i) => (
+          <div key={faq.q} className="border border-border rounded-2xl overflow-hidden transition-colors hover:border-foreground/20">
+            <button
+              type="button"
+              onClick={() => setOpen(open === i ? null : i)}
+              className="w-full flex items-center justify-between px-6 py-5 text-left gap-4 cursor-pointer bg-transparent border-0"
+            >
+              <span className="font-semibold text-foreground">{faq.q}</span>
+              <ChevronDown className={`w-5 h-5 text-foreground/40 shrink-0 transition-transform duration-200 ${open === i ? 'rotate-180' : ''}`} />
+            </button>
+            {open === i && (
+              <div className="px-6 pb-6 text-foreground/60 leading-relaxed border-t border-border pt-4">
+                {faq.a}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center space-y-10">
+    </SectionWrapper>
+  )
+}
+
+function GetStarted() {
+  return (
+    <SectionWrapper
+      id="get-started"
+      maxWidth="max-w-5xl"
+      background={<BlobsCta />}
+    >
+      <div className="text-center space-y-10">
         <h2 className="text-5xl lg:text-8xl font-bold tracking-tight leading-[0.95]">
-          <span className="bg-linear-to-r from-white via-white to-white/70 bg-clip-text text-transparent">Ne rate plus jamais</span>
-          <br />
-          <span className="bg-linear-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent">un événement</span>
+          Ne rate plus jamais
+          <br/>
+          <span className="text-accent-gradient">un événement</span>
         </h2>
 
         <p className="text-xl lg:text-2xl text-foreground/60 leading-relaxed max-w-3xl mx-auto font-light">
@@ -236,7 +209,7 @@ function GetSarted() {
           <ButtonSecondary size="lg">En savoir plus</ButtonSecondary>
         </div>
       </div>
-    </section>
+    </SectionWrapper>
   )
 }
 
@@ -244,13 +217,10 @@ export default function LandingPage() {
   return (
     <div>
       <Hero />
+      <Events />
       <Features />
-      <GetSarted />
+      <Faq />
+      <GetStarted />
     </div>
   )
 }
-
-// TODO:
-// - Revoir Header/Footer
-// - Revoir FacTicker
-// - Revoir Structure

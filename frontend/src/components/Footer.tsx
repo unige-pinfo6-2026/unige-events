@@ -49,9 +49,8 @@ export default function Footer() {
                             <List>
                                 <TextLink href="#events">Évènements</TextLink>
                                 <TextLink href="#features">Fonctionnalités</TextLink>
-                                <TextLink href="#for-you">Pour vous</TextLink>
-                                <TextLink href="#about">À propos</TextLink>
                                 <TextLink href="#faq">FAQ</TextLink>
+                                <TextLink href="#get-started">Commencer</TextLink>
                             </List>
                         </Bucket>
 

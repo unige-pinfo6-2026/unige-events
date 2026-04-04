@@ -1,6 +1,11 @@
-import type { ChangeEvent, FormEvent } from 'react'
+import { type ChangeEvent, type ComponentProps } from 'react'
 import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
+
+type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import { EVENT_CATEGORIES, EVENT_STATUSES } from '@/types/event'
+import FormField, { inputClass } from '@/components/utils/FormField'
+import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
+import { ImagePlus } from 'lucide-react'
 
 interface EventFormProps {
   title: string
@@ -12,7 +17,7 @@ interface EventFormProps {
   selectedImageName: string | null
   onFieldChange: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  onSubmit: (event: FormSubmitEvent) => Promise<void>
   onCancel: () => void
 }
 
@@ -29,24 +34,14 @@ export default function EventForm({
   onSubmit,
   onCancel,
 }: Readonly<EventFormProps>) {
-
-  const inputClass = (error?: string) =>
-    `w-full px-3 py-2.5 border rounded-lg text-[0.9375rem] text-[var(--input-color)] bg-[var(--input-bg)] transition-colors focus:outline-none focus:border-[#CF0063] focus:ring-2 focus:ring-[var(--input-focus-shadow)] ${
-      error ? 'border-red-400' : 'border-[var(--input-border)]'
-    }`
-
   return (
-    <div className="max-w-[760px] mx-auto">
-      <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-8 max-sm:p-5">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-8">{title}</h1>
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-background border border-border rounded-3xl p-8 max-sm:p-5">
+        <h1 className="text-3xl font-bold text-foreground mb-8">{title}</h1>
 
-        <form onSubmit={onSubmit} noValidate>
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
 
-          {/* Titre */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-title">
-              Titre <span className="text-red-400">*</span>
-            </label>
+          <FormField label="Titre" htmlFor="event-title" required error={errors.title}>
             <input
               id="event-title"
               type="text"
@@ -55,29 +50,20 @@ export default function EventForm({
               className={inputClass(errors.title)}
               placeholder="Nom de l'événement"
             />
-            {errors.title && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.title}</span>}
-          </div>
+          </FormField>
 
-          {/* Description */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-description">
-              Description
-            </label>
+          <FormField label="Description" htmlFor="event-description">
             <textarea
               id="event-description"
               value={values.description}
               onChange={(e) => onFieldChange('description', e.target.value)}
-              className={`${inputClass()} resize-y min-h-[120px]`}
+              className={[inputClass(), 'resize-y min-h-28'].join(' ')}
               placeholder="Quelques détails utiles pour les participants"
-              rows={5}
+              rows={4}
             />
-          </div>
+          </FormField>
 
-          {/* Lieu */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-location">
-              Lieu <span className="text-red-400">*</span>
-            </label>
+          <FormField label="Lieu" htmlFor="event-location" required error={errors.location}>
             <input
               id="event-location"
               type="text"
@@ -86,15 +72,10 @@ export default function EventForm({
               className={inputClass(errors.location)}
               placeholder="Uni Mail, Salle MR060"
             />
-            {errors.location && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.location}</span>}
-          </div>
+          </FormField>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-startDate">
-                Début <span className="text-red-400">*</span>
-              </label>
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+            <FormField label="Début" htmlFor="event-startDate" required error={errors.startDate}>
               <input
                 id="event-startDate"
                 type="datetime-local"
@@ -102,13 +83,9 @@ export default function EventForm({
                 onChange={(e) => onFieldChange('startDate', e.target.value)}
                 className={inputClass(errors.startDate)}
               />
-              {errors.startDate && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.startDate}</span>}
-            </div>
+            </FormField>
 
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-endDate">
-                Fin <span className="text-red-400">*</span>
-              </label>
+            <FormField label="Fin" htmlFor="event-endDate" required error={errors.endDate}>
               <input
                 id="event-endDate"
                 type="datetime-local"
@@ -116,16 +93,11 @@ export default function EventForm({
                 onChange={(e) => onFieldChange('endDate', e.target.value)}
                 className={inputClass(errors.endDate)}
               />
-              {errors.endDate && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.endDate}</span>}
-            </div>
+            </FormField>
           </div>
 
-          {/* Catégorie + Capacité */}
-          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1 max-sm:gap-0">
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-category">
-                Catégorie <span className="text-red-400">*</span>
-              </label>
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+            <FormField label="Catégorie" htmlFor="event-category" required error={errors.category}>
               <select
                 id="event-category"
                 value={values.category}
@@ -137,13 +109,9 @@ export default function EventForm({
                   <option key={id} value={id}>{category.name}</option>
                 ))}
               </select>
-              {errors.category && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.category}</span>}
-            </div>
+            </FormField>
 
-            <div className="mb-5">
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-capacity">
-                Capacité
-              </label>
+            <FormField label="Capacité" htmlFor="event-capacity" error={errors.capacity}>
               <input
                 id="event-capacity"
                 type="number"
@@ -154,77 +122,57 @@ export default function EventForm({
                 className={inputClass(errors.capacity)}
                 placeholder="150"
               />
-              {errors.capacity && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.capacity}</span>}
-            </div>
+            </FormField>
           </div>
 
-          {/* Statut */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-status">
-              Statut
-            </label>
+          <FormField label="Statut" htmlFor="event-status">
             <select
               id="event-status"
               value={values.status}
               onChange={(e) => onFieldChange('status', e.target.value as EventFormValues['status'])}
               className={inputClass()}
             >
-              {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, category]) => (
-                <option key={id} value={id}>{category.name}</option>
+              {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, s]) => (
+                <option key={id} value={id}>{s.name}</option>
               ))}
             </select>
-          </div>
+          </FormField>
 
-          {/* Bannière */}
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1.5" htmlFor="event-banner">
-              Bannière
-            </label>
-            <div className="grid gap-4">
+          <FormField label="Bannière" htmlFor="event-banner" error={errors.image}>
+            <div className="flex flex-col gap-3">
               {imagePreview ? (
                 <img
                   src={imagePreview}
                   alt="Aperçu de la bannière"
-                  className="w-full max-h-[320px] min-h-[220px] rounded-xl border border-[var(--input-border)] object-cover"
+                  className="w-full max-h-72 min-h-40 rounded-2xl border border-border object-cover"
                 />
               ) : (
-                <div className="w-full min-h-[220px] rounded-xl border border-[var(--input-border)] flex items-center justify-center p-6 text-[var(--text-muted)] text-center bg-[var(--input-bg)]">
-                  Ajoutez une image de couverture
+                <div className="w-full min-h-40 rounded-2xl border border-border border-dashed flex flex-col items-center justify-center gap-2 p-6 text-foreground/30">
+                  <ImagePlus className="w-8 h-8" />
+                  <span className="text-sm">Ajoutez une image de couverture</span>
                 </div>
               )}
 
-              <div className="flex items-start gap-3 flex-wrap max-sm:flex-col">
+              <div className="flex items-center gap-3 flex-wrap">
                 <label
                   htmlFor="event-banner"
-                  className="px-4 py-2 bg-[var(--btn-secondary-bg)] border border-[var(--input-border)] rounded-lg text-sm text-[var(--text-secondary)] cursor-pointer hover:bg-[var(--btn-secondary-hover)] transition-colors flex-none"
+                  className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground/60 cursor-pointer hover:border-accent/50 hover:text-foreground transition-all flex-none"
                 >
                   Choisir une image
                 </label>
                 <input id="event-banner" type="file" accept="image/*" onChange={onImageChange} className="hidden" />
-                <span className="text-sm text-[var(--text-muted)] flex-1 min-w-[12rem] break-all max-sm:w-full">
+                <span className="text-sm text-foreground/40 flex-1 min-w-48 break-all">
                   {selectedImageName ?? 'PNG, JPG ou WEBP'}
                 </span>
               </div>
             </div>
-            {errors.image && <span className="block text-[0.8125rem] text-red-400 mt-1">{errors.image}</span>}
-          </div>
+          </FormField>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 mt-7 max-sm:flex-col-reverse">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-5 py-2.5 rounded-lg text-[0.9375rem] font-semibold bg-[var(--btn-secondary-bg)] text-[var(--btn-secondary-color)] hover:bg-[var(--btn-secondary-hover)] transition-colors max-sm:w-full"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-5 py-2.5 rounded-lg text-[0.9375rem] font-semibold bg-[#CF0063] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity max-sm:w-full"
-            >
+          <div className="flex justify-end gap-3 pt-3 border-t border-border max-sm:flex-col-reverse">
+            <ButtonSecondary onClick={onCancel}>Annuler</ButtonSecondary>
+            <ButtonPrimary type="submit" disabled={submitting}>
               {submitting ? 'Enregistrement...' : submitLabel}
-            </button>
+            </ButtonPrimary>
           </div>
         </form>
       </div>
