@@ -3,8 +3,6 @@ import type { ChangeEvent, FormEvent } from 'react'
 import axios from 'axios'
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 import {
-  EVENT_CATEGORIES,
-  EVENT_STATUSES,
   type CreateEventRequest,
   type Event,
   type EventCategory,
@@ -64,7 +62,7 @@ const DEFAULT_VALUES: EventFormValues = {
   endDate: '',
   category: '',
   capacity: '',
-  status: EVENT_STATUSES[0],
+  status: "DRAFT",
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -341,7 +339,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError }: UseEven
         location: values.location.trim(),
         startDate: toApiDateTime(values.startDate),
         endDate: toApiDateTime(values.endDate),
-        category: values.category || EVENT_CATEGORIES[2],
+        category: values.category || "OTHER",
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: values.status,
       }

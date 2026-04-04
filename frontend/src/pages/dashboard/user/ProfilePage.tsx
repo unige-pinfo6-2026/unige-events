@@ -6,7 +6,7 @@ import Avatar from '@/components/user/Avatar'
 import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 
-function ProfilePage() {
+export default function ProfilePage() {
   const { id } = useParams<{ id: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const [profile, setProfile] = useState<User | null>(null)
@@ -175,5 +175,3 @@ function ProfilePage() {
     </div>
   )
 }
-
-export default ProfilePage

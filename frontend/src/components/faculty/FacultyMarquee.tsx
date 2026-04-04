@@ -2,7 +2,7 @@ import Marquee from "@/components/utils/Marquee"
 import FacultyCard from "./FacultyCard";
 import { FACULTIES, type Faculty } from "@/types/faculty";
 
-const FacultyMarquee = () => {
+export default function FacultyMarquee() {
     return (
         <Marquee>
             {Object.keys(FACULTIES).map((id) => (
@@ -11,5 +11,3 @@ const FacultyMarquee = () => {
         </Marquee>
     )
 }
-
-export default FacultyMarquee;

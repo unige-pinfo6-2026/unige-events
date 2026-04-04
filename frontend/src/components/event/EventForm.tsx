@@ -16,7 +16,7 @@ interface EventFormProps {
   onCancel: () => void
 }
 
-function EventForm({
+export default function EventForm({
   title,
   submitLabel,
   values,
@@ -231,5 +231,3 @@ function EventForm({
     </div>
   )
 }
-
-export default EventForm

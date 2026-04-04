@@ -1,13 +1,10 @@
-import { useTheme } from '../contexts/ThemeContext'
 import Header from './Header'
 import Footer from './Footer'
 import { Outlet } from 'react-router-dom'
 
-function Layout() {
-  const { theme } = useTheme()
-  
+export default function Layout() {
   return (
-    <div className="min-h-screen bg-background text-foreground" data-theme={theme}>
+    <div className="min-h-screen bg-background text-foreground">
       <Header/>
 
       <main>
@@ -18,5 +15,3 @@ function Layout() {
     </div>
   )
 }
-
-export default Layout

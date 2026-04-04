@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useAuth } from "@/hooks/useAuth"
 
-const LoginPage = () => {
+export default function LoginPage() {
   const { login } = useAuth()
 
   useEffect(() => {
@@ -14,5 +14,3 @@ const LoginPage = () => {
     </div>
   )
 }
-
-export default LoginPage

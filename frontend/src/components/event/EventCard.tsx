@@ -11,7 +11,7 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function EventCard({ event }: { event: Event }) {
+export default function EventCard({ event }: Readonly<{ event: Event }>) {
   const category = EVENT_CATEGORIES[event.category];
 
   return (
@@ -58,5 +58,3 @@ function EventCard({ event }: { event: Event }) {
     </Link>
   )
 }
-
-export default EventCard

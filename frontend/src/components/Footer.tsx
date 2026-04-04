@@ -3,36 +3,36 @@ import { Banner } from "../assets/Banner";
 import { ContactLink, IconLink, TextLink } from "./utils/Links";
 import { FaInstagram, FaTwitter, FaGithub } from 'react-icons/fa'
 
-const Footer = () => {
+function Bucket({title, children}: Readonly<{title: string, children: React.ReactNode}>) {
+    return (
+        <div>
+            <h4 className="font-semibold mb-6 text-lg">{title}</h4>
+                
+            {children}
+        </div>
+    )
+}
+
+function List({children}: Readonly<{children: React.ReactNode}>) {
+    return (
+        <div className="flex flex-col space-y-4">
+            {children}
+        </div>
+    )
+}
+
+export default function Footer() {
     const year = new Date().getFullYear();
 
-    const Bucket = ({title, children}: {title: string, children: React.ReactNode}) => {
-        return (
-            <div>
-                <h4 className="font-semibold mb-6 text-lg text-white">{title}</h4>
-                
-                {children}
-            </div>
-        )
-    }
-
-    const List = ({children}: {children: React.ReactNode}) => {
-        return (
-            <div className="flex flex-col space-y-4">
-                {children}
-            </div>
-        )
-    }
-
     return (
-        <footer className="relative border-t border-white/10 bg-gradient-to-b from-background to-black overflow-hidden">
+        <footer className="relative border-t border-border overflow-hidden">
             <div className="flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 relative z-10 gap-8">
                 <div className="flex flex-col lg:flex-row gap-24 justify-between">
                     {/* Brand */}
                     <div className="flex flex-col gap-4 max-w-100">
                         <Banner className="w-52"/>
                         
-                        <p className="text-sm text-white/50 leading-relaxed mb-6">
+                        <p className="text-sm text-overlay leading-relaxed mb-6">
                             La plateforme centralisée pour tous les événements universitaires. Connectons la communauté UNIGE.
                         </p>
                         
@@ -81,10 +81,10 @@ const Footer = () => {
                     </div>
                 </div>
 
-                <span className="w-full h-px bg-white/20" />
+                <span className="w-full h-px bg-border" />
 
                 <div className="flex flex-col md:flex-row justify-between items-center">
-                    <p className="text-sm text-white/40">© {year} UNIGE Events. Tous droits réservés.</p>
+                    <p className="text-sm text-overlay">© {year} UNIGE Events. Tous droits réservés.</p>
                     
                     <div className="flex gap-8">
                         <TextLink href="/privacy">Politique de confidentialité</TextLink>
@@ -95,5 +95,3 @@ const Footer = () => {
         </footer>
     )
 }
-
-export default Footer;

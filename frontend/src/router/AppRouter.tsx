@@ -9,7 +9,8 @@ import EditEventPage from '@/pages/dashboard/event/EditEventPage'
 import EventDetailPage from '@/pages/dashboard/event/EventDetailPage'
 import ProfileEditPage from '@/pages/dashboard/user/ProfileEditPage'
 import ProfilePage from '@/pages/dashboard/user/ProfilePage'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
+import NotFoundPage from '@/pages/NotFoundPage'
 
 const AppRouter = () => {
   return (
@@ -43,10 +44,10 @@ const AppRouter = () => {
             </Route>
           </Route>
         </Route>
-      </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Fallback */}
+        <Route path="*" element={<NotFoundPage/>} />
+      </Route>
     </Routes>
   )
 }

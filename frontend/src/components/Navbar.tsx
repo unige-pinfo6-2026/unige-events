@@ -6,8 +6,9 @@ import Avatar from './user/Avatar'
 import { ButtonPrimary } from './utils/Buttons'
 import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react'
 import { Banner } from '@/assets/Banner'
+import { TextLink } from './utils/Links'
 
-const Navbar = () => {
+export default function Navbar() {
   const { user, login, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   
@@ -16,26 +17,25 @@ const Navbar = () => {
 
   return (
     <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center h-18">
-
+      <div className="flex justify-between items-center h-navbar">
         {/* Logo */}
-        <Banner className="w-40"/>
+        <Banner className="size-40"/>
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8">
-          {/* <TextLink href={"#events"}>En ce moment</TextLink>
-          <TextLink href={"#features"}>Fonctionnalités</TextLink>
-          <TextLink href={"#get-started"}>Commencer</TextLink>
-          <TextLink href={"#faq"}>FAQ</TextLink> */}
+          <TextLink href={"/#events"}>En ce moment</TextLink>
+          <TextLink href={"/#features"}>Fonctionnalités</TextLink>
+          <TextLink href={"/#get-started"}>Commencer</TextLink>
+          <TextLink href={"/#faq"}>FAQ</TextLink>
         </div>
 
         {/* Right side */}
         <div className="hidden md:flex items-center gap-3">
           {/* Theme toggle */}
           <button
-            onClick={logout} // TODO : Astuce pour se déco
+            onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
@@ -44,24 +44,22 @@ const Navbar = () => {
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(p => !p)}
-                className="flex items-center gap-2 cursor-pointer bg-transparent border-0 text-white"
+                className="flex items-center gap-2 cursor-pointer bg-transparent border-0 text-foreground"
                 aria-expanded={dropdownOpen}
               >
                 <Avatar
-                  avatarUrl={user.avatarUrl}
-                  displayName={user.displayName}
+                  user={user}
                   size={32}
-                  style={!user.avatarUrl ? { background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.28)', fontSize: '0.8rem' } : undefined}
                 />
-                <span className="text-sm text-white/80">{user.displayName}</span>
-                <ChevronDown className="w-4 h-4 text-white/50" />
+                <span className="text-sm text-foreground/80">{user.displayName}</span>
+                <ChevronDown className="w-4 h-4 text-foreground/50" />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-card border border-white/10 shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-card border border-border shadow-xl overflow-hidden z-50">
                   <Link
-                    to="/profile/me"
-                    className="block px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                    to="/dashboard/profile/me"
+                    className="block px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-white/5 transition-colors"
                     onClick={() => setDropdownOpen(false)}
                   >
                     Mon Profil
@@ -83,7 +81,7 @@ const Navbar = () => {
         {/* Mobile toggle */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors text-white cursor-pointer bg-transparent border-0"
+          className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
         >
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -95,7 +93,7 @@ const Navbar = () => {
           <div className="pt-3 space-y-2">
             {user ? (
               <>
-                <Link to="/profile/me" className="block py-2 text-sm text-white/70 hover:text-white transition-colors">
+                <Link to="/profile/me" className="block py-2 text-sm text-foreground/70 hover:text-foreground transition-colors">
                   Mon Profil
                 </Link>
                 <button onClick={logout} className="block py-2 text-sm text-red-400 cursor-pointer bg-transparent border-0">
@@ -113,5 +111,3 @@ const Navbar = () => {
     </nav>
   )
 }
-
-export default Navbar;

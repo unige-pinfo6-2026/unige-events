@@ -6,9 +6,7 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <div className="app-shell">
-          <AppRouter />
-        </div>
+        <AppRouter />
       </AuthProvider>
     </ThemeProvider>
   )

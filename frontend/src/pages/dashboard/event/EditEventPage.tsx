@@ -5,7 +5,7 @@ import EventForm from '@/components/event/EventForm'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 
-function EditEventPage() {
+export default function EditEventPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const eventId = Number(id)
@@ -113,5 +113,3 @@ function EditEventPage() {
     </>
   )
 }
-
-export default EditEventPage

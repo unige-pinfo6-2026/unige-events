@@ -29,7 +29,7 @@ function CenteredMessage({ message }: Readonly<{ message: string }>) {
   )
 }
 
-function EventDetailPage() {
+export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -200,5 +200,3 @@ function EventDetailPage() {
     </div>
   )
 }
-
-export default EventDetailPage

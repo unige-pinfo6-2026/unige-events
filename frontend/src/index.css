@@ -1,26 +1,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
 @theme {
   --font-primary: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
+  --height-navbar: 72px;
+  
   --color-primary: #d80669;
-  --color-secondary:   #1a1a1a;
-
+  --color-secondary: #1a1a1a;
   --color-accent: #d80669;
-  --color-background: #0a0a0a;
-  --color-foreground: #ffffff;
-  --color-card: #141414;
-  --color-border: rgba(255, 255, 255, 0.1);
+
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-border: rgba(0, 0, 0, 0.2);
 
   --animate-marquee: marquee 20s linear infinite;
 }
 
+[data-theme="dark"] {
+  --color-background: #0a0a0a;
+  --color-foreground: #ffffff;
+
+  --color-overlay: rgba(255, 255, 255, 0.5);
+  --color-border: rgba(255, 255, 255, 0.2);
+}
+
 body {
   background-color: var(--color-background);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }

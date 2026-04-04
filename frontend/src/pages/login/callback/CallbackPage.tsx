@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 
 // Auth0Provider processes the code from the URL on mount here.
 // onRedirectCallback in main.tsx then navigates to /dashboard automatically.
-function CallbackPage() {
+export default function CallbackPage() {
   const { error } = useAuth0()
 
   return (
@@ -20,5 +20,3 @@ function CallbackPage() {
     </div>
   )
 }
-
-export default CallbackPage

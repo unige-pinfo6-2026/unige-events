@@ -1,4 +1,4 @@
-const Marquee = ({ children }: { children: React.ReactNode }) => {
+export default function Marquee({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="overflow-clip">
       <div className="flex items-center shrink-0 w-max animate-marquee gap-16">
@@ -8,5 +8,3 @@ const Marquee = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
 };
-
-export default Marquee;

@@ -3,7 +3,7 @@ import type { AppState } from '@auth0/auth0-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const AuthProvider = ({ children }: Readonly<{ children: ReactNode }>) => {
+export default function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const navigate = useNavigate()
 
   function onRedirectCallback(appState?: AppState) {
@@ -26,5 +26,3 @@ const AuthProvider = ({ children }: Readonly<{ children: ReactNode }>) => {
     </Auth0Provider>
   )
 }
-
-export default AuthProvider;

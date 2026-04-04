@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
 
-function CreateEventPage() {
+export default function CreateEventPage() {
   const navigate = useNavigate()
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -43,7 +43,7 @@ function CreateEventPage() {
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
         onSubmit={form.handleSubmit}
-        onCancel={() => navigate('/home')}
+        onCancel={() => navigate('/dashboard')}
       />
 
       {toast && (
@@ -60,5 +60,3 @@ function CreateEventPage() {
     </>
   )
 }
-
-export default CreateEventPage

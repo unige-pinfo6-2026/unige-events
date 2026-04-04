@@ -1,5 +1,5 @@
 import api from './api'
-import type { CreateEventRequest, Event, EventCategory, EventStatus, UpdateEventRequest } from '../types'
+import type { CreateEventRequest, Event, EventCategory, EventStatus, UpdateEventRequest } from '@/types/event'
 
 export interface EventsParams {
   page?: number

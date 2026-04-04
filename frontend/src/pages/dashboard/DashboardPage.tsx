@@ -4,7 +4,7 @@ import EventCard from '@/components/event/EventCard'
 import { useAuth } from '@/hooks/useAuth'
 import { useEvents } from '@/hooks/useEvents'
 
-const DashboardPage = () => {
+export default function DashboardPage() {
   const { user } = useAuth()
   const { events, loading, error, hasMore, loadMore } = useEvents()
 
@@ -12,7 +12,6 @@ const DashboardPage = () => {
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-6 py-12">
-
       {/* Welcome card */}
       <div className="bg-card border border-white/10 rounded-2xl p-7 flex items-center gap-5">
         <Avatar user={user} size={56} />
@@ -97,5 +96,3 @@ const DashboardPage = () => {
     </div>
   )
 }
-
-export default DashboardPage

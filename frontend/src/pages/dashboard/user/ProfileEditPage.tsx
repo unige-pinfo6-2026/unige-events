@@ -14,7 +14,7 @@ interface FormErrors {
   photo?: string
 }
 
-function ProfileEditPage() {
+export default function ProfileEditPage() {
   const { user, updateUser } = useAuth()
   const navigate = useNavigate()
 
@@ -322,5 +322,3 @@ function ProfileEditPage() {
     </div>
   )
 }
-
-export default ProfileEditPage
