@@ -10,10 +10,10 @@ install-frontend:
 install: install-frontend install-backend
 
 # Dev
-backend:
+backend: install-backend
 	cd backend && ./mvnw quarkus:dev
 
-frontend:
+frontend: install-frontend
 	cd frontend && npm run dev
 
 dev:
