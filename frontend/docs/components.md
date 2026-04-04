@@ -8,6 +8,7 @@
 | /events/new | CreateEventPage | fait |
 | /events/:id | EventDetailPage | fait |
 | /events/:id/edit | EditEventPage | fait |
+| /calendar | CalendarPage | fait |
 
 ### HomePage
 
@@ -63,6 +64,7 @@
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, la HomePage, les profils et la page détail événement.
 
+
 ## Hooks
 
 ### useEvents
@@ -74,6 +76,13 @@
 
 - Charge un événement unique à partir de son identifiant.
 - Retourne event, loading et error.
+
+### useCalendarEvents
+
+- Charge les événements publiés du mois affiché via GET /api/events avec endDateFrom = 1er jour du mois.
+- Filtre côté client les événements démarrant avant la fin du mois.
+- Accepte une date courante en paramètre ; retourne events (format react-big-calendar), loading, error.
+- Se recharge automatiquement à chaque changement de date.
 
 ### useEventForm
 

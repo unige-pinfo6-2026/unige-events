@@ -27,8 +27,17 @@ Points de cohérence importants conservés après merge :
 
 Suite prévue :
 - Recherche et filtres avancés.
-- Vue calendrier.
 - Extraction de composants génériques de loading et d’erreur.
+
+## Sprint 3 — Vue Calendrier (en cours)
+
+Fonctionnalités livrées :
+- CalendarPage (/calendar) : vue calendrier via react-big-calendar, vues Mois/Semaine/Jour/Agenda, navigation intégrée, messages en français.
+- Événements colorés par catégorie via eventPropGetter (ACADEMIC=bleu, SPORTS=vert, CULTURAL=violet, SOCIAL=orange, CONFERENCE=teal, OTHER=gris).
+- Clic sur un événement → navigation vers /events/:id.
+- Tooltip natif react-big-calendar affichant le lieu au survol.
+- useCalendarEvents : hook chargeant les événements du mois courant via GET /api/events?endDateFrom=, retourne les événements au format CalendarEvent (title, start, end, resource).
+- Lien "Vue Calendrier" dans la Navbar.
 
 ## Correctifs transverses — 2026-03-31
 

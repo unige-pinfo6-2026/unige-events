@@ -33,3 +33,47 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── react-big-calendar overrides ────────────────────────────── */
+
+/* Base */
+.rbc-calendar { font-family: inherit; color: inherit; }
+.rbc-toolbar button { cursor: pointer; }
+
+/* Remove light backgrounds that clash with dark theme */
+.rbc-today           { background-color: rgba(207, 0, 99, 0.12) !important; }
+.rbc-off-range-bg    { background-color: rgba(255, 255, 255, 0.03) !important; }
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view     { background-color: transparent; border-color: #374151; }
+
+.rbc-header          { background-color: transparent; color: #9ca3af; border-color: #374151; padding: 6px 0; }
+.rbc-month-row,
+.rbc-day-bg          { border-color: #374151; }
+.rbc-day-bg + .rbc-day-bg { border-color: #374151; }
+
+/* Time grid — fix for Tailwind v4 preflight reset */
+.rbc-time-view                { display: flex; flex-direction: column; flex: 1; border: 1px solid #374151; min-height: 0; }
+.rbc-time-header              { display: flex; flex: 0 0 auto; }
+.rbc-time-header-content      { display: flex; flex: 1; flex-direction: column; border-left: 1px solid #374151; min-width: 0; }
+.rbc-time-header-gutter       { display: flex; flex: none; }
+.rbc-time-content             { display: flex; flex: 1 0 0%; overflow-y: auto; position: relative; border-top: 1px solid #374151; }
+.rbc-time-gutter              { display: flex; flex-direction: column; }
+.rbc-timeslot-group           { display: flex; flex-direction: column; min-height: 40px; border-bottom: 1px solid #374151; }
+.rbc-time-slot                { display: flex; flex: 1; align-items: center; }
+.rbc-label                    { font-size: 0.75rem; color: #6b7280; padding: 0 4px; }
+.rbc-day-slot                 { position: relative; flex: 1; }
+.rbc-day-slot .rbc-time-slot  { border-top: 1px solid #1f2937; }
+.rbc-day-slot .rbc-event      { position: absolute; display: flex; max-height: 100%; overflow: hidden; }
+.rbc-event-content            { flex: 1; overflow: hidden; }
+
+/* Agenda */
+.rbc-agenda-view table         { width: 100%; border-collapse: collapse; }
+.rbc-agenda-view table tbody tr { border-top: 1px solid #374151; }
+.rbc-agenda-date-cell,
+.rbc-agenda-time-cell,
+.rbc-agenda-event-cell         { padding: 8px; color: inherit; }
+.rbc-agenda-empty              { padding: 16px; text-align: center; color: #6b7280; }
+
+/* Current time indicator */
+.rbc-current-time-indicator    { background-color: #CF0063; height: 2px; }
