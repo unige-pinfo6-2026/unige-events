@@ -8,10 +8,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 137.74.47.55.nip.io
+        - 10.25.10.136.nip.io
       secretName: unige-events-tls
   rules:
-    - host: 137.74.47.55.nip.io
+    - host: 10.25.10.136.nip.io
       http:
         paths:
           - path: /
