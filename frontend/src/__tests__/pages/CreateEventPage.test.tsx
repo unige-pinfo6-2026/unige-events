@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { BANNER_UPLOAD_ERROR_KEY } from '../../constants/sessionStorageKeys'
 import CreateEventPage from '../../pages/CreateEventPage'
 
 vi.mock('../../services/eventApi', () => ({
@@ -46,6 +47,7 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.restoreAllMocks()
   vi.resetAllMocks()
+  sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
 })
 
 function renderPage() {
@@ -204,6 +206,29 @@ describe('CreateEventPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/home')
+  })
+
+  it('stores the banner error in sessionStorage when image upload fails after creation', async () => {
+    mockCreateEvent.mockResolvedValue(createdEvent)
+    mockUploadEventImage.mockRejectedValue(new Error('upload failed'))
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview-url')
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+
+    renderPage()
+
+    fillRequiredFields()
+
+    const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
+    if (!fileInput) throw new Error('Missing banner input')
+    fireEvent.change(fileInput, { target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } })
+
+    fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(
+      BANNER_UPLOAD_ERROR_KEY,
+      "L'événement a été créé mais la bannière n'a pas pu être uploadée.",
+    ))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })
   })
 
   it('cleans up pending timers when the page unmounts after success', async () => {

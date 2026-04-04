@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from '../components/Layout'
 import PrivateRoute from '../components/PrivateRoute'
+import CalendarPage from '../pages/CalendarPage'
 import CallbackPage from '../pages/CallbackPage'
 import CreateEventPage from '../pages/CreateEventPage'
 import EditEventPage from '../pages/EditEventPage'
@@ -44,6 +45,16 @@ function AppRouter() {
           <PrivateRoute>
             <Layout>
               <ProfilePage />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path='/calendar'
+        element={
+          <PrivateRoute>
+            <Layout>
+              <CalendarPage />
             </Layout>
           </PrivateRoute>
         }

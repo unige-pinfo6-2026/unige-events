@@ -7,6 +7,7 @@ import { deleteEvent } from '../services/eventApi'
 import { getUserById } from '../services/userService'
 import type { EventCategory, User } from '../types'
 import { formatEventDateTime } from '../utils/dateTime'
+import { BANNER_UPLOAD_ERROR_KEY } from '../constants/sessionStorageKeys'
 
 const CATEGORY_LABELS: Record<EventCategory, string> = {
   ACADEMIC: 'Académique',
@@ -54,6 +55,17 @@ function EventDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
+  const [bannerWarning, setBannerWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    const warning = sessionStorage.getItem(BANNER_UPLOAD_ERROR_KEY)
+    if (warning) {
+      sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
+      setBannerWarning(warning)
+      const t = setTimeout(() => setBannerWarning(null), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [])
 
   useEffect(() => {
     if (!event) {
@@ -249,6 +261,17 @@ function EventDetailPage() {
       <Link to='/home' style={{ color: '#CF0063', fontWeight: 600, fontSize: '0.875rem' }}>
         ← Retour à l'accueil
       </Link>
+
+      {bannerWarning && (
+        <output
+          className="event-toast event-toast--warning"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {bannerWarning}
+        </output>
+      )}
 
       {showConfirm && (
         <div style={{

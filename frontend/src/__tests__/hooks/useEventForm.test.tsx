@@ -6,6 +6,8 @@ import type { FormEvent } from 'react'
 import {
   EVENT_DESCRIPTION_MAX_LENGTH,
   EVENT_TITLE_MAX_LENGTH,
+  IMAGE_MAX_SIZE_BYTES,
+  IMAGE_MAX_SIZE_MB,
   useEventForm,
 } from '../../hooks/useEventForm'
 import { EventCategory, EventStatus } from '../../types'
@@ -171,6 +173,20 @@ describe('useEventForm', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:second')
   })
 
+  it('rejects a file that exceeds the maximum allowed size', () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    const oversizedFile = new File([new ArrayBuffer(IMAGE_MAX_SIZE_BYTES + 1)], 'big.png', { type: 'image/png' })
+    act(() => {
+      result.current.handleImageChange({ target: { files: [oversizedFile] } } as never)
+    })
+
+    expect(result.current.errors.image).toBe(
+      `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`,
+    )
+    expect(result.current.imagePreview).toBeNull()
+  })
+
   it('submits creation payload with trimmed and optional fields normalized', async () => {
     mockCreateEvent.mockResolvedValue(baseEvent)
     const onSuccess = vi.fn()
@@ -300,6 +316,85 @@ describe('useEventForm', () => {
 
     expect(onError).toHaveBeenCalledWith('La mise à jour de l\'événement a échoué. Veuillez réessayer.')
     expect(mockUpdateEvent).not.toHaveBeenCalled()
+  })
+
+  it('calls onSuccess and onBannerError when create succeeds but image upload fails', async () => {
+    const createdEvent = { ...baseEvent, bannerUrl: undefined }
+    mockCreateEvent.mockResolvedValue(createdEvent)
+    mockUploadEventImage.mockRejectedValue(new Error('Network error'))
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview')
+    globalThis.URL.revokeObjectURL = vi.fn()
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    const onBannerError = vi.fn()
+
+    const { result } = renderHook(() =>
+      useEventForm({ mode: 'create', onSuccess, onError, onBannerError })
+    )
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.handleImageChange({
+        target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] }
+      } as never)
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(mockCreateEvent).toHaveBeenCalledOnce()
+    expect(mockUploadEventImage).toHaveBeenCalledOnce()
+    expect(onSuccess).toHaveBeenCalledWith(createdEvent)
+    expect(onBannerError).toHaveBeenCalledWith(
+      "L'événement a été créé mais la bannière n'a pas pu être uploadée."
+    )
+    expect(onError).not.toHaveBeenCalled()
+    expect(result.current.submitting).toBe(false)
+  })
+
+  it('calls only onError when createEvent fails, never attempts image upload', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { message: 'Erreur serveur' } },
+    })
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview')
+    globalThis.URL.revokeObjectURL = vi.fn()
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    const onBannerError = vi.fn()
+
+    const { result } = renderHook(() =>
+      useEventForm({ mode: 'create', onSuccess, onError, onBannerError })
+    )
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.handleImageChange({
+        target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] }
+      } as never)
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(mockCreateEvent).toHaveBeenCalledOnce()
+    expect(mockUploadEventImage).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onBannerError).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledOnce()
+    expect(result.current.submitting).toBe(false)
   })
 
   it('resets to incoming event values and uses the uploaded event response', async () => {

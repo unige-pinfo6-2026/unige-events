@@ -162,6 +162,15 @@
   min-width: 0;
   flex: 1 1 12rem;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.banner-upload-size-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.75;
 }
 
 .photo-upload-btn {

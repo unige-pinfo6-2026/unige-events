@@ -27,6 +27,7 @@ Points de cohérence importants conservés après merge :
 
 Suite prévue :
 - Vue calendrier.
+- Recherche et filtres avancés.
 - Extraction de composants génériques de loading et d’erreur.
 - Pagination des résultats de recherche.
 - Endpoint backend de suggestions (fetchSuggestions est actuellement un stub).
@@ -42,6 +43,16 @@ Fonctionnalités livrées :
 - searchApi.ts : searchEvents via GET /api/events/search, fetchSuggestions stub (TODO backend).
 - Types SearchParams et SearchResponse dans src/types/index.ts.
 - Route /search enregistrée dans AppRouter (PrivateRoute).
+
+## Sprint 3 — Vue Calendrier (en cours)
+
+Fonctionnalités livrées :
+- CalendarPage (/calendar) : vue calendrier via react-big-calendar, vues Mois/Semaine/Jour/Agenda, navigation intégrée, messages en français.
+- Événements colorés par catégorie via eventPropGetter (ACADEMIC=bleu, SPORTS=vert, CULTURAL=violet, SOCIAL=orange, CONFERENCE=teal, OTHER=gris).
+- Clic sur un événement → navigation vers /events/:id.
+- Tooltip natif react-big-calendar affichant le lieu au survol.
+- useCalendarEvents : hook chargeant les événements du mois courant via GET /api/events?endDateFrom=, retourne les événements au format CalendarEvent (title, start, end, resource).
+- Lien "Vue Calendrier" dans la Navbar.
 
 ## Correctifs transverses — 2026-03-31
 

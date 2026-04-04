@@ -12,6 +12,7 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,12 +31,14 @@ public class UserServiceMock extends UserService {
     private final Map<UUID, User> usersById = new ConcurrentHashMap<>();
     public static volatile boolean forceForbiddenOnUpdate = false;
     public static volatile boolean forceConflictOnUpdate = false;
+    public static volatile boolean forceBadMimeOnUpload = false;
 
     public void reset() {
         usersByAuth0Id.clear();
         usersById.clear();
         forceForbiddenOnUpdate = false;
         forceConflictOnUpdate = false;
+        forceBadMimeOnUpload = false;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -117,6 +120,19 @@ public class UserServiceMock extends UserService {
         if (req.avatarUrl() != null) user.avatarUrl = req.avatarUrl();
         if (req.profilePublic() != null) user.profilePublic = req.profilePublic();
 
+        return user;
+    }
+
+    @Override
+    public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        if (forceBadMimeOnUpload) {
+            throw new BadRequestException("File must be an image");
+        }
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        user.avatarUrl = "/api/uploads/test-photo.jpg";
         return user;
     }
 

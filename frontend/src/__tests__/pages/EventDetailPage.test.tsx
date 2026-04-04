@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BANNER_UPLOAD_ERROR_KEY } from '../../constants/sessionStorageKeys'
 import EventDetailPage from '../../pages/EventDetailPage'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: vi.fn() }))
@@ -52,6 +53,7 @@ vi.mock('react-router-dom', async () => {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
 })
 
 function renderPage(eventId = '1') {
@@ -158,6 +160,19 @@ describe('EventDetailPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
     expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull()
+  })
+
+  it('shows a banner warning toast when bannerUploadError is present in sessionStorage', async () => {
+    sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, "L'événement a été créé mais la bannière n'a pas pu être uploadée.")
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(await screen.findByText("L'événement a été créé mais la bannière n'a pas pu être uploadée.")).toBeTruthy()
+    expect(sessionStorage.getItem(BANNER_UPLOAD_ERROR_KEY)).toBeNull()
   })
 
   it('calls deleteEvent and navigates home on confirm', async () => {

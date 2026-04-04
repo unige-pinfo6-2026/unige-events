@@ -14,13 +14,18 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -30,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import jakarta.ws.rs.core.MultivaluedHashMap;
+import jakarta.ws.rs.core.MultivaluedMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -478,5 +485,116 @@ class UserServiceCoverageTest {
         private StaleStateProblem(String message) {
             super(message);
         }
+    }
+
+    // --- uploadImage ---
+
+    @Test
+    @TestTransaction
+    void uploadImage_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|photo", "photo@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar.jpg");
+        Files.write(fakeFile, "fake-jpeg".getBytes());
+        FileUpload upload = new StubFileUpload("avatar.jpg", "image/jpeg", fakeFile);
+
+        User result = userService.uploadImage("auth0|photo", upload);
+
+        assertNotNull(result.avatarUrl);
+        assertTrue(result.avatarUrl.startsWith("/api/uploads/"));
+        assertTrue(result.avatarUrl.endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|noext", "noext@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar");
+        Files.write(fakeFile, "data".getBytes());
+        FileUpload upload = new StubFileUpload("avatar", "image/jpeg", fakeFile);
+
+        User result = userService.uploadImage("auth0|noext", upload);
+
+        assertTrue(result.avatarUrl.endsWith(".bin"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|nullname", "nullname@example.com", false);
+
+        Path fakeFile = tempDir.resolve("file");
+        Files.write(fakeFile, "data".getBytes());
+        FileUpload upload = new StubFileUpload(null, "image/jpeg", fakeFile);
+
+        User result = userService.uploadImage("auth0|nullname", upload);
+
+        assertTrue(result.avatarUrl.endsWith(".bin"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_invalidMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|mime", "mime@example.com", false);
+
+        Path fakeFile = tempDir.resolve("script.sh");
+        Files.write(fakeFile, "#!/bin/bash".getBytes());
+        FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
+
+        assertThrows(BadRequestException.class,
+            () -> userService.uploadImage("auth0|mime", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_nullMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|nullmime", "nullmime@example.com", false);
+
+        Path fakeFile = tempDir.resolve("file.bin");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
+
+        assertThrows(BadRequestException.class,
+            () -> userService.uploadImage("auth0|nullmime", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_unknownUser_throwsNotFound(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+
+        Path fakeFile = tempDir.resolve("f.jpg");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
+
+        assertThrows(NotFoundException.class,
+            () -> userService.uploadImage("auth0|unknown", upload));
+    }
+
+    static class StubFileUpload implements FileUpload {
+        private final String fileName;
+        private final String contentType;
+        private final Path uploadedFile;
+
+        StubFileUpload(String fileName, String contentType, Path uploadedFile) {
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.uploadedFile = uploadedFile;
+        }
+
+        @Override public String name() { return "file"; }
+        @Override public Path uploadedFile() { return uploadedFile; }
+        @Override public Path filePath() { return uploadedFile; }
+        @Override public String fileName() { return fileName; }
+        @Override public long size() { return 0; }
+        @Override public String contentType() { return contentType; }
+        @Override public String charSet() { return null; }
+        @Override public MultivaluedMap<String, String> getHeaders() { return new MultivaluedHashMap<>(); }
     }
 }
