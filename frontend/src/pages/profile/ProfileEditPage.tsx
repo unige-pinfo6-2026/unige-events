@@ -143,7 +143,7 @@ export default function ProfileEditPage() {
                 Changer la photo
               </label>
               <input id="photo-input" type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-              {errors.photo && <p className="text-xs text-red-400">{errors.photo}</p>}
+              {errors.photo && <p className="text-xs text-error">{errors.photo}</p>}
             </div>
           </div>
 
@@ -190,7 +190,7 @@ export default function ProfileEditPage() {
               rows={4}
               maxLength={MAX_BIO_LENGTH + 1}
             />
-            <p className={['text-xs text-right mt-1', bio.length > MAX_BIO_LENGTH ? 'text-red-400 font-semibold' : 'text-foreground/30'].join(' ')}>
+            <p className={['text-xs text-right mt-1', bio.length > MAX_BIO_LENGTH ? 'text-error font-semibold' : 'text-foreground/30'].join(' ')}>
               {bio.length} / {MAX_BIO_LENGTH}
             </p>
           </FormField>

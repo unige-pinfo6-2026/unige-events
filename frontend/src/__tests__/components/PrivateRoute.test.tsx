@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import PrivateRoute from '../../components/PrivateRoute'
+import PrivateLayout from '../../components/PrivateLayout'
 import { AuthProvider } from '../../contexts/AuthContext'
 
 vi.mock('@auth0/auth0-react', () => ({
@@ -45,9 +45,9 @@ describe('PrivateRoute', () => {
             <Route
               path="/home"
               element={
-                <PrivateRoute>
+                <PrivateLayout>
                   <h1>Protected Content</h1>
-                </PrivateRoute>
+                </PrivateLayout>
               }
             />
           </Routes>
@@ -77,9 +77,9 @@ describe('PrivateRoute', () => {
             <Route
               path="/home"
               element={
-                <PrivateRoute>
+                <PrivateLayout>
                   <h1>Protected Content</h1>
-                </PrivateRoute>
+                </PrivateLayout>
               }
             />
           </Routes>

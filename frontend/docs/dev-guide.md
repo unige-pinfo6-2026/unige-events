@@ -109,6 +109,49 @@ export async function getEvents(params?: { category?: string; upcoming?: boolean
 
 ---
 
+## DRY — Don't Repeat Yourself
+
+Ne jamais dupliquer des données ou de la logique. Si la même liste ou structure apparaît à deux endroits, l'extraire :
+
+- **Données statiques** (liens, options, labels) → const array typée déclarée hors du composant, réutilisée partout
+- **Structure JSX répétée** → composant extrait dès la 2e occurrence
+- **Logique répétée** → hook custom ou fonction utilitaire dans `src/services/` ou `src/hooks/`
+
+```tsx
+// ✅ Correct
+const navLinks = [{ href: '/#events', label: 'En ce moment' }, …]
+// rendu desktop : navLinks.map(…)
+// rendu mobile  : navLinks.map(…)
+
+// ❌ Interdit
+// <a href="/#events">En ce moment</a>  ← dans le bloc desktop
+// <a href="/#events">En ce moment</a>  ← répété dans le bloc mobile
+```
+
+---
+
+## Pattern variants — const maps typées
+
+Pour tout composant avec des variantes visuelles, ne jamais utiliser de ternaires inline. Déclarer des const maps typées :
+
+```tsx
+// ✅ Correct
+const variants = {
+  success: 'border-emerald-500/40 text-emerald-400',
+  error:   'border-error/40 text-error',
+}
+function MyComponent({ type }: { type: keyof typeof variants }) {
+  return <div className={variants[type]}>…</div>
+}
+
+// ❌ Interdit
+const cls = type === 'success' ? '…' : '…'
+```
+
+Références : `src/components/utils/Blobs.tsx` (colors, sizes, positions), `src/components/utils/Toast.tsx` (variants).
+
+---
+
 ## Workflow : créer un composant réutilisable
 
 1. Identifier si le composant est déjà dans `src/components/` ou listé dans `docs/components.md` section "à extraire"
@@ -148,7 +191,25 @@ Ne jamais afficher une page avec des données `undefined`, `null`, ou des `?` à
 
 ## Conventions de style
 
-Le projet utilise des **fichiers CSS par composant** (ex: `LoginPage.css`, `Navbar.css`). Ce n'est pas TailwindCSS. Ne pas introduire de styles inline pour la logique de layout.
+Le projet utilise **TailwindCSS v4** avec un thème personnalisé défini dans `src/index.css` via `@theme`. Ne pas introduire de styles inline pour la logique de layout.
+
+### Design tokens disponibles (à utiliser en priorité sur les valeurs Tailwind brutes)
+
+| Token CSS | Classe Tailwind | Usage |
+|---|---|---|
+| `--color-primary` | `text-primary`, `bg-primary`, `border-primary` | Couleur principale de la marque |
+| `--color-accent` | `text-accent`, `bg-accent`, `border-accent` | Accentuation, liens actifs, focus rings |
+| `--color-background` | `bg-background` | Fond de page et de cards |
+| `--color-foreground` | `text-foreground` | Texte principal (avec opacité : `/60`, `/40`, etc.) |
+| `--color-border` | `border-border` | Bordures standard |
+| `--color-error` | `text-error`, `border-error`, `bg-error` | Messages d'erreur, champs invalides, feedback négatif |
+| `--color-overlay` | — | Fond semi-transparent pour modales |
+| `--font-primary` | `font-primary` | Police principale Inter |
+| `--height-navbar` | `h-navbar` | Hauteur fixe de la navbar |
+
+**Règle** : utiliser `text-error` / `border-error` pour toutes les erreurs de validation, messages d'échec, et états invalides — **jamais `red-400` ou autre valeur Tailwind brute**.
+
+Le mode sombre (`[data-theme="dark"]`) surcharge automatiquement `--color-background`, `--color-foreground`, `--color-overlay` et `--color-border`.
 
 ---
 

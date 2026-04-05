@@ -119,7 +119,7 @@ export default function EventDetailPage() {
             <button
               type="button"
               onClick={() => setShowConfirm(true)}
-              className="px-4 py-2 bg-red-500/10 border border-red-400/30 text-red-400 rounded-xl text-sm font-semibold cursor-pointer hover:bg-red-500/20 transition-colors"
+              className="px-4 py-2 bg-error/10 border border-error/30 text-error rounded-xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
             >
               Supprimer
             </button>
@@ -199,7 +199,7 @@ export default function EventDetailPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-50 hover:bg-red-600 transition-colors cursor-pointer border-0"
+                className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
               >
                 {deleting ? 'Suppression...' : 'Confirmer'}
               </button>

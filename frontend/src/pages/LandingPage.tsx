@@ -67,8 +67,8 @@ const Hero = () => {
           La plateforme qui connecte étudiants, associations et administration autour des événements du campus.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <ButtonPrimary size="lg"><a href="/#events">Explorer les derniers évènements</a></ButtonPrimary>
+        <div className="flex flex-col items-center sm:flex-row gap-4">
+          <ButtonPrimary size="lg"><Link to="/events">Explorer les derniers évènements</Link></ButtonPrimary>
           <ButtonSecondary size="lg"><Link to="/events/new">Créer un évènement</Link></ButtonSecondary>
         </div>
       </div>
@@ -204,9 +204,8 @@ function GetStarted() {
           <span className="text-accent font-medium">maximise ton expérience universitaire.</span>
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <ButtonPrimary size="lg">Commencer maintenant</ButtonPrimary>
-          <ButtonSecondary size="lg">En savoir plus</ButtonSecondary>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <ButtonPrimary size="lg"><Link to="/calendar">Commencer maintenant</Link></ButtonPrimary>
         </div>
       </div>
     </SectionWrapper>

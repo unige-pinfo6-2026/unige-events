@@ -9,11 +9,11 @@ export default function CallbackPage() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         {error ? (
-          <p className="text-gray-500 text-base">Erreur d'authentification : {error.message}</p>
+          <p className="text-error text-base">Erreur d'authentification : {error.message}</p>
         ) : (
           <>
             <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-            <p className="text-gray-500 text-base">Connexion en cours…</p>
+            <p className="text-foreground/50 text-base">Connexion en cours…</p>
           </>
         )}
       </div>

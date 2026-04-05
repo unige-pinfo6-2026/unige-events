@@ -1,14 +1,16 @@
 import Layout from '@/components/Layout'
-import PrivateRoute from '@/components/PrivateRoute'
+import PrivateLayout from '@/components/PrivateLayout'
 import LandingPage from '@/pages/LandingPage'
 import CallbackPage from '@/pages/login/callback/LoginCallbackPage'
-import CreateEventPage from '@/pages/event/EventCreatePage'
-import EditEventPage from '@/pages/event/EventEditPage'
+import EventCreatePage from '@/pages/event/EventCreatePage'
+import EventEditPage from '@/pages/event/EventEditPage'
 import EventDetailPage from '@/pages/event/EventDetailPage'
-import ProfileEditPage from '@/pages/user/ProfileEditPage'
-import ProfilePage from '@/pages/user/ProfilePage'
+import ProfileEditPage from '@/pages/profile/ProfileEditPage'
+import ProfilePage from '@/pages/profile/ProfilePage'
 import { Route, Routes } from 'react-router-dom'
 import NotFoundPage from '@/pages/NotFoundPage'
+import { EventsPage } from '@/pages/event/EventsPage'
+import { CalendarPage } from '@/pages/calendar/CalendarPage'
 
 const AppRouter = () => {
   return (
@@ -21,7 +23,7 @@ const AppRouter = () => {
           <Route path="callback" element={<CallbackPage />} />
         </Route>
 
-        <Route element={<PrivateRoute />}>
+        <Route element={<PrivateLayout />}>
           <Route path="/profile">
             <Route index element={<NotFoundPage />} />
             <Route path="me/edit" element={<ProfileEditPage />} />
@@ -29,10 +31,14 @@ const AppRouter = () => {
           </Route>
 
           <Route path="/events">
-            <Route index element={<NotFoundPage />} />
-            <Route path="new" element={<CreateEventPage />} />
-            <Route path=":id/edit" element={<EditEventPage />} />
+            <Route index element={<EventsPage />} />
+            <Route path="new" element={<EventCreatePage />} />
+            <Route path=":id/edit" element={<EventEditPage />} />
             <Route path=":id" element={<EventDetailPage />} />
+          </Route>
+
+          <Route path="/calendar">
+            <Route index element={<CalendarPage />} />
           </Route>
         </Route>
 

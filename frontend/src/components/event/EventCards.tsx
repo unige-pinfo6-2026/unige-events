@@ -13,7 +13,7 @@ export default function EventCards() {
       )}
 
       {error && (
-        <div className="border border-border rounded-2xl p-10 text-center text-foreground/50">
+        <div className="border border-error/30 rounded-2xl p-10 text-center text-error">
           {error}
         </div>
       )}

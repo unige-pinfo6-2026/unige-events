@@ -3,7 +3,7 @@ export function inputClass(error?: string) {
     'w-full px-4 py-3 rounded-xl border bg-background text-foreground text-sm',
     'placeholder:text-foreground/30 transition-all',
     'focus:outline-none focus:ring-2 focus:ring-accent/20',
-    error ? 'border-red-400/70 focus:border-red-400' : 'border-border focus:border-accent/50',
+    error ? 'border-error/70 focus:border-error' : 'border-border focus:border-accent/50',
   ].join(' ')
 }
 
@@ -21,7 +21,7 @@ export default function FormField({ label, htmlFor, required, error, children, c
         {label}{required && <span className="text-red-400 ml-0.5"> *</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-red-400 mt-1.5">{error}</p>}
+      {error && <p className="text-xs text-error mt-1.5">{error}</p>}
     </div>
   )
 }

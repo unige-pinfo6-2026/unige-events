@@ -77,7 +77,7 @@ export default function EventEditPage() {
   if (loadError) {
     return (
       <div className="flex justify-center items-center min-h-60">
-        <p className="text-foreground/50">{loadError}</p>
+        <p className="text-error">{loadError}</p>
       </div>
     )
   }

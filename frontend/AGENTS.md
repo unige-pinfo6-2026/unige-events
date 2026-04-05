@@ -32,6 +32,43 @@ Model      → hooks/ et contexts/             (état applicatif)
 - Les composants partagés vont dans `src/components/`
 - Séparer la logique métier du rendu : extraire dans un hook (`src/hooks/`) ou un service (`src/services/`) si un composant fait des appels API ou contient de la logique complexe
 
+### DRY — Don't Repeat Yourself
+- **Ne jamais dupliquer des données ou de la logique** : si la même liste de liens, de labels ou de classes apparaît à deux endroits, extraire dans une const array ou un composant.
+- Les listes de données statiques (liens de nav, sections de menu, options de filtre…) se déclarent comme **const arrays typées en dehors des composants** et sont réutilisées partout où elles sont nécessaires (desktop, mobile, tests…).
+- Un composant extrait se justifie dès que la même structure JSX apparaît deux fois. En dessous de deux occurrences, l'inline est préférable.
+
+```tsx
+// ✅ Correct — const array partagée entre desktop et mobile
+const navLinks = [
+  { href: '/#events', label: 'En ce moment' },
+  { href: '/#faq', label: 'FAQ' },
+]
+// utilisée dans le rendu desktop ET mobile
+
+// ❌ Interdit — même liste dupliquée dans deux blocs JSX
+```
+
+### Pattern variants — const maps typées
+
+Pour tout composant qui accepte des variantes visuelles (couleur, taille, position…), **ne jamais utiliser de ternaires ou de switch inline**. Déclarer des const maps typées en dehors du composant, puis indexer avec la prop :
+
+```tsx
+// ✅ Correct
+const variants = {
+  success: 'border-emerald-500/40 text-emerald-400',
+  error:   'border-error/40 text-error',
+}
+
+function MyComponent({ type }: { type: keyof typeof variants }) {
+  return <div className={variants[type]}>…</div>
+}
+
+// ❌ Interdit
+const cls = type === 'success' ? 'border-emerald-500/40 …' : 'border-error/40 …'
+```
+
+Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, positions) et `src/components/utils/Toast.tsx` (variants). L'appliquer à tout nouveau composant avec des variantes.
+
 ### Routing et auth
 - Toutes les routes protégées passent par `PrivateRoute` (vérifie `isAuthenticated` via `AuthContext`)
 - Le token JWT est stocké en localStorage sous la clé `access_token` — ne pas changer cette clé
@@ -54,6 +91,24 @@ Model      → hooks/ et contexts/             (état applicatif)
 
 ## Contrat API
 `openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
+
+## Design tokens CSS
+
+Le thème est défini dans `src/index.css` via `@theme` (TailwindCSS v4). **Toujours utiliser les tokens plutôt que des couleurs Tailwind brutes.**
+
+| Token | Classe Tailwind | Usage |
+|---|---|---|
+| `--color-primary` | `text/bg/border-primary` | Couleur de marque principale |
+| `--color-accent` | `text/bg/border-accent` | Accentuation, focus, liens actifs |
+| `--color-background` | `bg-background` | Fond de page et cards |
+| `--color-foreground` | `text-foreground` (+ `/60`, `/40`…) | Texte (avec opacités) |
+| `--color-border` | `border-border` | Bordures standard |
+| `--color-error` | `text/bg/border-error` | Erreurs de validation, messages d'échec, champs invalides |
+| `--color-overlay` | — | Fond semi-transparent pour modales |
+| `--font-primary` | `font-primary` | Police Inter |
+| `--height-navbar` | `h-navbar` | Hauteur de la navbar |
+
+Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utiliser `text-error` / `border-error` / `bg-error`.
 
 ## Ce qu'il ne faut jamais faire
 - Appeler `/api` avec `fetch` ou un `axios` instancié localement
