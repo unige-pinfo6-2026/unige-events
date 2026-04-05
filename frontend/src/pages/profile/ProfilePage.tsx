@@ -6,7 +6,8 @@ import UserAvatar from '@/components/user/UserAvatar'
 import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Building2, Lock, Pencil } from 'lucide-react'
-import { ErrorMessage } from '@/components/utils/ErrorMessage'
+import { InfoMessage } from '@/components/utils/InfoMessage'
+import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -44,19 +45,9 @@ export default function ProfilePage() {
     }
   }, [id, isOwnProfile, currentUser, authLoading])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-60">
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-      </div>
-    )
-  }
+  if (loading) return <LoadingSpinner/>
 
-  if (error) {
-    return (
-      <ErrorMessage message={error}/>
-    )
-  }
+  if (error) return <InfoMessage type='error' message={error}/>
 
   if (!profile) return null
 

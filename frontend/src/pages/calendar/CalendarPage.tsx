@@ -7,7 +7,7 @@ import { fr } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { useCalendarEvents, type CalendarEvent } from '@/hooks/useCalendarEvents'
 import { EVENT_CATEGORIES } from '@/types/event'
-import { ErrorMessage } from '@/components/utils/ErrorMessage'
+import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 
 const locales = { fr }
@@ -52,7 +52,7 @@ export default function CalendarPage() {
 
   if(loading) return <LoadingSpinner/>
 
-  if(error) return <ErrorMessage message={error}/>
+  if(error) return <InfoMessage type='error' message={error}/>
 
   return (
     <div className="max-w-6xl mx-auto">

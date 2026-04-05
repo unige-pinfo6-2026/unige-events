@@ -9,8 +9,8 @@ import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
 import { formatEventDateTime } from '@/utils/dateTime'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
-import { Calendar, MapPin, Users, User as UserIcon } from 'lucide-react'
-import { ErrorMessage } from '@/components/utils/ErrorMessage'
+import { Calendar, MapPin, Users } from 'lucide-react'
+import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 
 export default function EventDetailPage() {
@@ -44,12 +44,12 @@ export default function EventDetailPage() {
     return () => { active = false }
   }, [event])
 
-  if (eventId === null) return <ErrorMessage message="Identifiant d'événement invalide." />
+  if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
   if (loading) return <LoadingSpinner/>
   
-  if (error) return <ErrorMessage message={error} />
-  if (!event) return <ErrorMessage message="Événement introuvable." />
+  if (error) return <InfoMessage type='error' message={error} />
+  if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
   const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
@@ -136,7 +136,6 @@ export default function EventDetailPage() {
           )}
           {organizer && (
             <div className="flex items-center gap-3 text-sm text-foreground/60">
-              <UserIcon className="w-4 h-4 shrink-0" style={{ color: category.color }} />
               <div className="flex items-center gap-2">
                 <UserAvatar user={organizer} size={20} />
                 <span>

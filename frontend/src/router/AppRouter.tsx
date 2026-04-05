@@ -20,12 +20,12 @@ const AppRouter = () => {
       <Route element={<Layout />}>
         <Route path="/" element={<LandingPage />} />
 
-        <Route path="/login">
+        <Route element={<AppLayout />}>
+          <Route path="/login">
             <Route index element={<LoginPage />} />
             <Route path="callback" element={<CallbackPage />} />
           </Route>
-        
-        <Route element={<AppLayout />}>
+          
           <Route element={<PrivateRoute/>}>
             <Route path="/profile">
               <Route index element={<Navigate to="/profile/me" replace />} />

@@ -19,8 +19,8 @@ const navLinks = [
 const userMenuSections = [
   [{ label: 'Mon profil', to: '/profile/me' }],
   [
+    { label: 'Événements à venir', to: '/events' },
     { label: 'Créer un événement', to: '/events/new' },
-    { label: 'Mes événements', to: '/events' },
   ],
   [{ label: 'Calendrier', to: '/calendar' }],
 ]

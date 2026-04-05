@@ -7,7 +7,11 @@ export function LoginPage() {
 
     useEffect(() => {
         login()
-    });
+    }, [login]);
 
-    return <LoadingSpinner/>;
+    return (
+        <LoadingSpinner>
+            Redirection vers la page de connexion...
+        </LoadingSpinner>
+    )
 }

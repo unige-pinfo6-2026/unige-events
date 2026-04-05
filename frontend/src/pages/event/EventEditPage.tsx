@@ -7,12 +7,14 @@ import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
-import { ErrorMessage } from '@/components/utils/ErrorMessage'
+import { InfoMessage } from '@/components/utils/InfoMessage'
 
 export default function EventEditPage() {
   const navigate = useNavigate()
-  const { id } = useParams()
-  const eventId = Number(id)
+  const { id } = useParams<{ id: string }>()
+  const parsedId = id === undefined ? Number.NaN : Number(id)
+  const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
+
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,11 +23,7 @@ export default function EventEditPage() {
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!Number.isInteger(eventId) || eventId <= 0) {
-      setError("Identifiant d'événement invalide.")
-      setLoading(false)
-      return
-    }
+    if (eventId === null) { setLoading(false); return }
 
     let cancelled = false
 
@@ -33,7 +31,7 @@ export default function EventEditPage() {
       setLoading(true)
       setError(null)
       try {
-        const response = await getById(eventId)
+        const response = await getById(eventId!)
         if (!cancelled) setEvent(response)
       } catch {
         if (!cancelled) setError('Impossible de charger cet événement.')
@@ -70,10 +68,10 @@ export default function EventEditPage() {
     onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
-  if (loading) return <LoadingSpinner/>
-  if (error) return <ErrorMessage message={error}/>
-
-  if (!event) return null
+  if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
+  if (loading) return <LoadingSpinner />
+  if (error) return <InfoMessage type='error' message={error} />
+  if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
   return (
     <>

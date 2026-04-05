@@ -1,3 +1,5 @@
+import { InfoMessage } from '@/components/utils/InfoMessage'
+import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import { useAuth0 } from '@auth0/auth0-react'
 
 // Auth0Provider processes the code from the URL on mount here.
@@ -5,18 +7,11 @@ import { useAuth0 } from '@auth0/auth0-react'
 export default function CallbackPage() {
   const { error } = useAuth0()
 
+  if(error) return <InfoMessage type='error' message={`Erreur d'authentification ${error}`}/>
+
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        {error ? (
-          <p className="text-error text-base">Erreur d'authentification : {error.message}</p>
-        ) : (
-          <>
-            <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-            <p className="text-foreground/50 text-base">Connexion en cours…</p>
-          </>
-        )}
-      </div>
-    </div>
+    <LoadingSpinner>
+      Connexion en cours...
+    </LoadingSpinner>
   )
 }
