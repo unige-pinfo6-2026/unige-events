@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import EditEventPage from '../../pages/EditEventPage'
+import EventEditPage from '@/pages/event/EventEditPage'
 
-vi.mock('../../services/eventApi', () => ({
+vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
   getById: vi.fn(),
   updateEvent: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-import { getById, updateEvent, uploadEventImage } from '../../services/eventApi'
+import { getById, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockGetById = getById as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
@@ -54,7 +54,7 @@ function renderPage(path = '/events/42/edit') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path='/events/:id/edit' element={<EditEventPage />} />
+        <Route path='/events/:id/edit' element={<EventEditPage />} />
       </Routes>
     </MemoryRouter>,
   )

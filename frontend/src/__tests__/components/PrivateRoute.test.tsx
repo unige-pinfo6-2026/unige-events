@@ -4,15 +4,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import PrivateLayout from '../../components/PrivateLayout'
-import { AuthProvider } from '../../contexts/AuthContext'
+import PrivateRoute from '@/components/PrivateRoute'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
   Auth0Provider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('../../services/userService', () => ({
+vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
 }))
 
@@ -39,17 +39,12 @@ describe('PrivateRoute', () => {
 
     render(
       <AuthProvider>
-        <MemoryRouter initialEntries={['/home']}>
+        <MemoryRouter initialEntries={['/']}>
           <Routes>
             <Route path="/login" element={<h1>Login</h1>} />
-            <Route
-              path="/home"
-              element={
-                <PrivateLayout>
-                  <h1>Protected Content</h1>
-                </PrivateLayout>
-              }
-            />
+            <Route element={<PrivateRoute />}>
+              <Route path="/" element={<h1>Protected Content</h1>} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </AuthProvider>,
@@ -74,14 +69,9 @@ describe('PrivateRoute', () => {
         <MemoryRouter initialEntries={['/home']}>
           <Routes>
             <Route path="/login" element={<h1>Login</h1>} />
-            <Route
-              path="/home"
-              element={
-                <PrivateLayout>
-                  <h1>Protected Content</h1>
-                </PrivateLayout>
-              }
-            />
+            <Route element={<PrivateRoute />}>
+              <Route path="/home" element={<h1>Protected Content</h1>} />
+            </Route>
           </Routes>
         </MemoryRouter>
       </AuthProvider>,

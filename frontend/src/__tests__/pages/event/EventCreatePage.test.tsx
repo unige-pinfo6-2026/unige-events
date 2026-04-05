@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import CreateEventPage from '../../pages/CreateEventPage'
+import EventCreatePage from '@/pages/event/EventCreatePage'
 
-vi.mock('../../services/eventApi', () => ({
+vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
   uploadEventImage: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-import { createEvent, updateEvent, uploadEventImage } from '../../services/eventApi'
+import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
@@ -51,7 +51,7 @@ afterEach(() => {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <CreateEventPage />
+      <EventCreatePage />
     </MemoryRouter>,
   )
 }
@@ -191,7 +191,7 @@ describe('CreateEventPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/home')
+    expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
   it('cleans up pending timers when the page unmounts after success', async () => {

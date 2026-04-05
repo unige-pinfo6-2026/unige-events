@@ -44,6 +44,7 @@ function UserDropdown({ user, logout }: Readonly<{ user: User; logout: () => voi
         type="button"
         onClick={() => setOpen(p => !p)}
         aria-expanded={open}
+        aria-label="Menu utilisateur"
         className="flex items-center gap-2 cursor-pointer bg-transparent border-0 text-foreground"
       >
         <UserIdentity user={user} />

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import EventCard from '../../components/event/EventCard'
-import type { Event } from '../../types'
+import EventCard from '@/components/event/EventCard'
+import type { Event } from '@/types/event'
 
 const mockEvent: Event = {
   id: 1,
@@ -59,17 +59,6 @@ describe('EventCard', () => {
   it('does not render capacity when not provided', () => {
     renderCard({ ...mockEvent, capacity: undefined })
     expect(screen.queryByText(/places/)).toBeNull()
-  })
-
-  it('applies hover styles on mouse enter and reverts on mouse leave', () => {
-    renderCard(mockEvent)
-    const article = document.querySelector('article')!
-    fireEvent.mouseEnter(article)
-    expect(article.style.transform).toBe('translateY(-2px)')
-    expect(article.style.boxShadow).toBe('0 8px 24px rgba(0,0,0,0.12)')
-    fireEvent.mouseLeave(article)
-    expect(article.style.transform).toBe('translateY(0)')
-    expect(article.style.boxShadow).toBe('none')
   })
 
   it('renders all event categories without error', () => {

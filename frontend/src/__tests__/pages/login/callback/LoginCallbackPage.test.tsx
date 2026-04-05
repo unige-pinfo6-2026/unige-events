@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import CallbackPage from '../../pages/callback/CallbackPage'
+import LoginCallbackPage from '@/pages/login/callback/LoginCallbackPage'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
@@ -20,13 +20,13 @@ afterEach(() => {
 describe('CallbackPage', () => {
   it('shows loading spinner when no error', () => {
     mockUseAuth0.mockReturnValue({ error: undefined })
-    render(<CallbackPage />)
+    render(<LoginCallbackPage />)
     expect(screen.getByText('Connexion en cours…')).toBeTruthy()
   })
 
   it('shows error message when auth fails', () => {
     mockUseAuth0.mockReturnValue({ error: new Error('Auth failed') })
-    render(<CallbackPage />)
+    render(<LoginCallbackPage />)
     expect(screen.getByText(/Erreur d'authentification/)).toBeTruthy()
     expect(screen.getByText(/Auth failed/)).toBeTruthy()
   })

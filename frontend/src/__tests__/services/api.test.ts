@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import api from '../../services/api'
+import api from '@/services/api'
 
 afterEach(() => {
   localStorage.clear()

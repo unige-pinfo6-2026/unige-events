@@ -92,6 +92,66 @@ Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, po
 ## Contrat API
 `openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
 
+## Design & UI — "faut que ça claque"
+
+### Référence visuelle
+`src/pages/LandingPage.tsx` est la **référence de style** du projet. Toute nouvelle page ou section doit s'aligner sur ce niveau de qualité visuelle : typographie grande et grasse, fonds avec blobs animés, cards glassmorphism, gradients sur les accents.
+
+### Composants utilitaires à utiliser en priorité
+
+| Composant | Import | Usage |
+|---|---|---|
+| `ButtonPrimary`, `ButtonSecondary` | `@/components/utils/Buttons` | Tous les boutons d'action |
+| `BlobsHero`, `BlobsSubtle`, `BlobsCta`, `Blobs` | `@/components/utils/Blobs` | Fonds décoratifs de sections |
+| `SectionWrapper` | inline dans la page (pattern à reproduire) | Wrapper standard de section |
+| `SectionHeader` | inline dans la page (pattern à reproduire) | Titre + sous-titre de section |
+| `Marquee` | `@/components/utils/Marquee` | Défilement horizontal |
+| `FormField` | `@/components/utils/FormField` | Champs de formulaire |
+| `Toast` | `@/components/utils/Toast` | Notifications |
+
+### Icônes — lucide-react uniquement
+Toujours utiliser `lucide-react` pour les icônes. Ne jamais utiliser d'autres librairies d'icônes ni des SVG inline ad hoc.
+
+### Pattern de section
+Chaque grande section de page suit ce pattern :
+```tsx
+<SectionWrapper id="mon-id" className="py-20 lg:py-32 bg-foreground/2" background={<BlobsSubtle />}>
+  <SectionHeader title="Titre" subtitle="Sous-titre optionnel" />
+  {/* contenu */}
+</SectionWrapper>
+```
+
+### Typographie
+- Titres héros : `text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]`
+- Titres de sections : `text-5xl lg:text-7xl font-bold tracking-tight`
+- Corps : `text-xl text-foreground/60 font-light leading-relaxed`
+- Gradient sur mot-clé accent : `<span className="text-accent-gradient">mot</span>`
+
+### Cards glassmorphism
+Pattern standard pour les cards :
+```tsx
+<div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-8 border border-border hover:border-foreground/50 transition-colors">
+```
+- `rounded-3xl` pour les cards larges, `rounded-2xl` pour les éléments intermédiaires
+- Toujours inclure `transition-colors` et un état hover (`hover:border-foreground/50` ou `hover:border-accent/50`)
+
+### Icônes dans des badges colorés
+Pour afficher une icône dans un badge coloré (comme dans la section Features) :
+```tsx
+<div className={`w-16 h-16 rounded-2xl bg-linear-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+  <MonIcone className="w-8 h-8 text-foreground" />
+</div>
+```
+
+### Gradients décoratifs
+- Élément décoratif coin de card : `absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-white/5 to-transparent rounded-bl-full`
+- Utiliser `bg-linear-to-br` (Tailwind v4) — pas `bg-gradient-to-br`
+
+### Responsive
+- Mobile-first : base = mobile, `lg:` = desktop
+- Espacements de sections : `py-20 lg:py-32`
+- Grilles : `grid md:grid-cols-2 lg:grid-cols-3 gap-6`
+
 ## Design tokens CSS
 
 Le thème est défini dans `src/index.css` via `@theme` (TailwindCSS v4). **Toujours utiliser les tokens plutôt que des couleurs Tailwind brutes.**

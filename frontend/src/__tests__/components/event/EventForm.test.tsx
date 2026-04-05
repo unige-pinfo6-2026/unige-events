@@ -2,9 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import EventForm from '../../components/event/EventForm'
-import { EventStatus } from '../../types'
-import type { EventFormValues } from '../../hooks/useEventForm'
+import EventForm from '@/components/event/EventForm'
+import type { EventFormValues } from '@/hooks/useEventForm'
 
 const baseValues: EventFormValues = {
   title: 'Forum des associations',
@@ -14,7 +13,7 @@ const baseValues: EventFormValues = {
   endDate: '2026-04-10T12:00',
   category: 'SOCIAL',
   capacity: '120',
-  status: EventStatus.DRAFT,
+  status: 'DRAFT',
 }
 
 afterEach(() => {

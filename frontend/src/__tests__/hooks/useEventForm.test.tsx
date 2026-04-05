@@ -3,16 +3,15 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FormEvent } from 'react'
-import { useEventForm } from '../../hooks/useEventForm'
-import { EventCategory, EventStatus } from '../../types'
+import { useEventForm } from '@/hooks/useEventForm'
 
-vi.mock('../../services/eventApi', () => ({
+vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
   uploadEventImage: vi.fn(),
 }))
 
-import { createEvent, updateEvent, uploadEventImage } from '../../services/eventApi'
+import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
@@ -56,7 +55,7 @@ describe('useEventForm', () => {
 
     act(() => {
       result.current.setFieldValue('description', 'Texte libre')
-      result.current.setFieldValue('status', EventStatus.PUBLISHED)
+      result.current.setFieldValue('status', 'PUBLISHED')
     })
 
     expect(result.current.errors.title).toBe('Le titre est requis.')
@@ -68,7 +67,7 @@ describe('useEventForm', () => {
     act(() => {
       result.current.setFieldValue('title', 'Forum')
       result.current.setFieldValue('location', 'Uni Dufour')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
       result.current.setFieldValue('startDate', 'invalid-date')
       result.current.setFieldValue('endDate', 'invalid-date')
       result.current.setFieldValue('capacity', '0')
@@ -90,7 +89,7 @@ describe('useEventForm', () => {
     act(() => {
       result.current.setFieldValue('title', 'Forum')
       result.current.setFieldValue('location', 'Uni Dufour')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
       result.current.setFieldValue('startDate', '2000-01-01T10:00')
       result.current.setFieldValue('endDate', '2099-01-01T12:00')
     })
@@ -158,7 +157,7 @@ describe('useEventForm', () => {
       result.current.setFieldValue('location', '  Uni Dufour  ')
       result.current.setFieldValue('startDate', '2099-04-10T10:00')
       result.current.setFieldValue('endDate', '2099-04-10T12:00')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
       result.current.setFieldValue('capacity', '')
     })
 
@@ -189,8 +188,8 @@ describe('useEventForm', () => {
       result.current.setFieldValue('location', 'Uni Dufour')
       result.current.setFieldValue('startDate', '2099-04-10T10:00')
       result.current.setFieldValue('endDate', '2099-04-10T12:00')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
-      result.current.setFieldValue('status', EventStatus.PUBLISHED)
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('status', 'PUBLISHED')
     })
 
     await act(async () => {
@@ -223,7 +222,7 @@ describe('useEventForm', () => {
       result.current.setFieldValue('location', 'Uni Dufour')
       result.current.setFieldValue('startDate', '2099-04-10T10:00')
       result.current.setFieldValue('endDate', '2099-04-10T12:00')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
     })
 
     await act(async () => {
@@ -247,7 +246,7 @@ describe('useEventForm', () => {
       result.current.setFieldValue('location', 'Uni Dufour')
       result.current.setFieldValue('startDate', '2099-04-10T10:00')
       result.current.setFieldValue('endDate', '2099-04-10T12:00')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
     })
 
     await act(async () => {
@@ -266,7 +265,7 @@ describe('useEventForm', () => {
       result.current.setFieldValue('location', 'Uni Dufour')
       result.current.setFieldValue('startDate', '2099-04-10T10:00')
       result.current.setFieldValue('endDate', '2099-04-10T12:00')
-      result.current.setFieldValue('category', EventCategory.SOCIAL)
+      result.current.setFieldValue('category', 'SOCIAL')
     })
 
     await act(async () => {
@@ -275,6 +274,135 @@ describe('useEventForm', () => {
 
     expect(onError).toHaveBeenCalledWith('La mise à jour de l\'événement a échoué. Veuillez réessayer.')
     expect(mockUpdateEvent).not.toHaveBeenCalled()
+  })
+
+  it('localizes endDate "after" validation detail', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          details: [{ field: 'endDate', message: 'must be after start date' }],
+        },
+      },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith('La date de fin doit être postérieure à la date de début.')
+  })
+
+  it('localizes "must be greater than 0" validation detail', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          details: [{ field: 'capacity', message: 'must be greater than 0' }],
+        },
+      },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('supérieure à 0'))
+  })
+
+  it('localizes "must be greater than or equal to 1" validation detail', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          details: [{ field: 'capacity', message: 'must be greater than or equal to 1' }],
+        },
+      },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('supérieure ou égale à 1'))
+  })
+
+  it('passes through French validation detail messages as-is', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          details: [{ field: 'title', message: 'Le titre est invalide.' }],
+        },
+      },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith('Le titre est invalide.')
+  })
+
+  it('uses fieldLabel prefix for unknown detail messages', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        data: {
+          details: [{ field: 'title', message: 'some unknown constraint' }],
+        },
+      },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('Le titre'))
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('some unknown constraint'))
+  })
+
+  it('passes through French top-level API error messages', async () => {
+    mockCreateEvent.mockRejectedValue({
+      isAxiosError: true,
+      response: { data: { message: 'La création a échoué pour des raisons externes.' } },
+    })
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(onError).toHaveBeenCalledWith('La création a échoué pour des raisons externes.')
   })
 
   it('resets to incoming event values and uses the uploaded event response', async () => {

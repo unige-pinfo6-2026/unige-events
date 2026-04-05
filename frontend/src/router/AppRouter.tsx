@@ -1,5 +1,5 @@
 import Layout from '@/components/Layout'
-import PrivateLayout from '@/components/PrivateLayout'
+import PrivateRoute from '@/components/PrivateRoute'
 import LandingPage from '@/pages/LandingPage'
 import CallbackPage from '@/pages/login/callback/LoginCallbackPage'
 import EventCreatePage from '@/pages/event/EventCreatePage'
@@ -23,7 +23,7 @@ const AppRouter = () => {
           <Route path="callback" element={<CallbackPage />} />
         </Route>
 
-        <Route element={<PrivateLayout />}>
+        <Route element={<PrivateRoute />}>
           <Route path="/profile">
             <Route index element={<NotFoundPage />} />
             <Route path="me/edit" element={<ProfileEditPage />} />

@@ -3,17 +3,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import EventDetailPage from '../../pages/EventDetailPage'
+import EventDetailPage from '@/pages/event/EventDetailPage'
 
-vi.mock('../../hooks/useAuth', () => ({ useAuth: vi.fn() }))
-vi.mock('../../hooks/useEvent', () => ({ useEvent: vi.fn() }))
-vi.mock('../../services/eventApi', () => ({ deleteEvent: vi.fn() }))
-vi.mock('../../services/userService', () => ({ getUserById: vi.fn() }))
+vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
+vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
+vi.mock('@/services/eventApi', () => ({ deleteEvent: vi.fn() }))
+vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 
-import { useAuth } from '../../hooks/useAuth'
-import { useEvent } from '../../hooks/useEvent'
-import { deleteEvent } from '../../services/eventApi'
-import { getUserById } from '../../services/userService'
+import { useAuth } from '@/hooks/useAuth'
+import { useEvent } from '@/hooks/useEvent'
+import { deleteEvent } from '@/services/eventApi'
+import { getUserById } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
@@ -72,7 +72,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(document.querySelector('.spinner')).toBeTruthy()
+    expect(document.querySelector('.animate-spin')).toBeTruthy()
   })
 
   it('shows a localized invalid id message', () => {
@@ -83,7 +83,7 @@ describe('EventDetailPage', () => {
     renderPage('abc')
 
     expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
-    expect(screen.getByRole('link', { name: /retour à l'accueil/i }).getAttribute('href')).toBe('/home')
+    expect(screen.getByRole('link', { name: /retour à l'accueil/i }).getAttribute('href')).toBe('/')
   })
 
   it('shows a localized load error', () => {
@@ -169,6 +169,32 @@ describe('EventDetailPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockDeleteEvent).toHaveBeenCalledWith(1))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/home'))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+  })
+
+  it('hides confirm modal and re-enables button when deleteEvent fails', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+    mockDeleteEvent.mockRejectedValue(new Error('network error'))
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull())
+    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+  })
+
+  it('sets organizer to null when getUserById rejects', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockRejectedValue(new Error('not found'))
+
+    renderPage()
+
+    await waitFor(() => expect(mockGetUserById).toHaveBeenCalled())
+    expect(screen.queryByText(/Organisé par/)).toBeNull()
   })
 })

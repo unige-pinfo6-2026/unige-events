@@ -3,13 +3,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import ProfileEditPage from '../../pages/ProfileEditPage'
+import ProfileEditPage from '@/pages/profile/ProfileEditPage'
 
-vi.mock('../../hooks/useAuth', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
-vi.mock('../../services/userService', () => ({
+vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   updateProfile: vi.fn(),
   uploadPhoto: vi.fn(),
@@ -21,8 +21,8 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-import { useAuth } from '../../hooks/useAuth'
-import { getMe, updateProfile, uploadPhoto } from '../../services/userService'
+import { useAuth } from '@/hooks/useAuth'
+import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetMe = getMe as ReturnType<typeof vi.fn>
@@ -125,7 +125,7 @@ describe('ProfileEditPage', () => {
   it('shows photo preview when user has avatarUrl', async () => {
     mockUseAuth.mockReturnValue({ user: { ...mockUser, avatarUrl: 'https://example.com/photo.jpg' } })
     renderProfileEditPage()
-    const img = await screen.findByAltText('Aperçu')
+    const img = await screen.findByAltText('Test User')
     expect((img as HTMLImageElement).src).toContain('example.com/photo.jpg')
   })
 
@@ -157,7 +157,7 @@ describe('ProfileEditPage', () => {
     const input = document.querySelector<HTMLInputElement>('#photo-input')!
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
     fireEvent.change(input, { target: { files: [file] } })
-    expect(await screen.findByAltText('Aperçu')).toBeTruthy()
+    expect(await screen.findByAltText('Test User')).toBeTruthy()
   })
 
   it('calls uploadPhoto when photo file is selected on submit', async () => {
@@ -179,7 +179,7 @@ describe('ProfileEditPage', () => {
   it('shows bio length validation error when bio exceeds 500 chars', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     renderProfileEditPage()
-    const textarea = await screen.findByPlaceholderText('Parlez un peu de vous…')
+    const textarea = await screen.findByPlaceholderText('Parlez un peu de vous...')
     fireEvent.change(textarea, { target: { value: 'a'.repeat(501) } })
     fireEvent.click(screen.getByText('Enregistrer'))
     expect(await screen.findByText(/ne doit pas dépasser 500 caractères/)).toBeTruthy()

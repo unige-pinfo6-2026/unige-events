@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 
 function UseAuthOutsideProvider() {
   useAuth()
