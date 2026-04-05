@@ -18,6 +18,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
@@ -46,6 +47,7 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.restoreAllMocks()
   vi.resetAllMocks()
+  sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
 })
 
 function renderPage() {
@@ -59,8 +61,12 @@ function renderPage() {
 function fillRequiredFields() {
   fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: createdEvent.title } })
   fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: createdEvent.location } })
-  fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2099-04-10T10:00' } })
-  fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T12:00' } })
+  fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+  fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+  fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+  fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+  fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '12' } })
+  fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
   fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 }
 
@@ -82,8 +88,12 @@ describe('CreateEventPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum' } })
     fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: 'Uni Dufour' } })
-    fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2000-04-10T10:00' } })
-    fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T12:00' } })
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2000-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+    fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '12' } })
+    fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
     fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
@@ -97,8 +107,12 @@ describe('CreateEventPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum' } })
     fireEvent.change(screen.getByLabelText(/Lieu/i), { target: { value: 'Uni Dufour' } })
-    fireEvent.change(screen.getByLabelText(/Début/i), { target: { value: '2099-04-10T10:00' } })
-    fireEvent.change(screen.getByLabelText(/Fin/i), { target: { value: '2099-04-10T09:00' } })
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Minute de début'), { target: { value: '00' } })
+    fireEvent.change(screen.getByLabelText(/Fin/i, { selector: 'input' }), { target: { value: '2099-04-10' } })
+    fireEvent.change(screen.getByLabelText('Heure de fin'), { target: { value: '09' } })
+    fireEvent.change(screen.getByLabelText('Minute de fin'), { target: { value: '00' } })
     fireEvent.change(screen.getByLabelText(/Catégorie/i), { target: { value: 'SOCIAL' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
@@ -192,6 +206,29 @@ describe('CreateEventPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('stores the banner error in sessionStorage when image upload fails after creation', async () => {
+    mockCreateEvent.mockResolvedValue(createdEvent)
+    mockUploadEventImage.mockRejectedValue(new Error('upload failed'))
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview-url')
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+
+    renderPage()
+
+    fillRequiredFields()
+
+    const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
+    if (!fileInput) throw new Error('Missing banner input')
+    fireEvent.change(fileInput, { target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } })
+
+    fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+    await waitFor(() => expect(setItemSpy).toHaveBeenCalledWith(
+      BANNER_UPLOAD_ERROR_KEY,
+      "L'événement a été créé mais la bannière n'a pas pu être uploadée.",
+    ))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })
   })
 
   it('cleans up pending timers when the page unmounts after success', async () => {

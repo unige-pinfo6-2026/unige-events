@@ -9,11 +9,16 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,8 +28,10 @@ import java.util.UUID;
 @ApplicationScoped
 public class EventService {
 
+    @Inject FileStorageService fileStorageService;
+
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
@@ -39,6 +46,10 @@ public class EventService {
         if (organizerId != null) {
             conditions.add("creator.id = :organizerId");
             params.put("organizerId", organizerId);
+        }
+        if (endDateFrom != null) {
+            conditions.add("endDate >= :endDateFrom");
+            params.put("endDateFrom", endDateFrom);
         }
 
         PanacheQuery<Event> query;
@@ -115,6 +126,40 @@ public class EventService {
         }
 
         event.status = EventStatus.CANCELLED;
+    }
+
+    @Transactional
+    public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
+        Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
+
+        if (!isAdmin && !isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an admin can publish this event");
+        }
+
+        if (event.status != EventStatus.DRAFT) {
+            String message = event.status == EventStatus.PUBLISHED
+                    ? "Event is already published"
+                    : "Event cannot be published: current status is " + event.status;
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", message))
+                            .build());
+        }
+
+        event.status = EventStatus.PUBLISHED;
+        return EventDTO.from(event);
+    }
+
+    @Transactional
+    public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
+        Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
+
+        if (!isAdmin && !isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an admin can upload a banner");
+        }
+
+        event.bannerUrl = fileStorageService.saveImage(fileUpload);
+        return EventDTO.from(event);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {

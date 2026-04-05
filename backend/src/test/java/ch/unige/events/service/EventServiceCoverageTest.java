@@ -15,8 +15,14 @@ import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -42,7 +48,7 @@ class EventServiceCoverageTest {
         persistEvent("Event 1", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Event 2", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, null);
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null);
 
         assertEquals(2, result.size());
     }
@@ -55,7 +61,7 @@ class EventServiceCoverageTest {
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, EventStatus.PUBLISHED, null, null);
+        List<EventDTO> result = eventService.getAll(0, 20, EventStatus.PUBLISHED, null, null, null);
 
         assertEquals(1, result.size());
         assertEquals("Published", result.get(0).title());
@@ -69,7 +75,7 @@ class EventServiceCoverageTest {
         persistEvent("Academic", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Sports", EventCategory.SPORTS, EventStatus.DRAFT, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, EventCategory.SPORTS, null);
+        List<EventDTO> result = eventService.getAll(0, 20, null, EventCategory.SPORTS, null, null);
 
         assertEquals(1, result.size());
         assertEquals("Sports", result.get(0).title());
@@ -84,10 +90,23 @@ class EventServiceCoverageTest {
         persistEvent("Alice's event", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
         persistEvent("Bob's event", EventCategory.ACADEMIC, EventStatus.DRAFT, bob);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, alice.id);
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, alice.id, null);
 
         assertEquals(1, result.size());
         assertEquals("Alice's event", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_withEndDateFromFilter_excludesEndedEvents() {
+        deleteAll();
+        User user = persistUser("auth0|edf", "edf@example.com");
+        persistEvent("Active Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Also Active", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, LocalDateTime.now().minusDays(1));
+
+        assertEquals(2, result.size());
     }
 
     @Test
@@ -99,8 +118,8 @@ class EventServiceCoverageTest {
         persistEvent("E2", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("E3", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
-        List<EventDTO> page0 = eventService.getAll(0, 2, null, null, null);
-        List<EventDTO> page1 = eventService.getAll(1, 2, null, null, null);
+        List<EventDTO> page0 = eventService.getAll(0, 2, null, null, null, null);
+        List<EventDTO> page1 = eventService.getAll(1, 2, null, null, null, null);
 
         assertEquals(2, page0.size());
         assertEquals(1, page1.size());
@@ -293,6 +312,211 @@ class EventServiceCoverageTest {
         assertThrows(ForbiddenException.class, () -> eventService.delete(event.id, "auth0|intruder"));
     }
 
+    // --- publish ---
+
+    @Test
+    @TestTransaction
+    void publish_asCreator_setsStatusPublished() {
+        deleteAll();
+        User user = persistUser("auth0|pub", "pub@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        EventDTO result = eventService.publish(event.id, "auth0|pub", false);
+
+        entityManager.flush();
+        entityManager.refresh(event);
+        assertEquals(EventStatus.PUBLISHED, result.status());
+        assertEquals(EventStatus.PUBLISHED, event.status);
+    }
+
+    @Test
+    @TestTransaction
+    void publish_asAdmin_onAnyEvent_setsStatusPublished() {
+        deleteAll();
+        User user = persistUser("auth0|owner", "owner@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        EventDTO result = eventService.publish(event.id, "auth0|admin", true);
+
+        assertEquals(EventStatus.PUBLISHED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_unknownEvent_throwsNotFound() {
+        deleteAll();
+
+        assertThrows(NotFoundException.class, () -> eventService.publish(999999L, "auth0|x", false));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_notCreatorNotAdmin_throwsForbidden() {
+        deleteAll();
+        User user = persistUser("auth0|owner", "owner2@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        assertThrows(ForbiddenException.class, () -> eventService.publish(event.id, "auth0|intruder", false));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_nullCreator_throwsForbidden() {
+        deleteAll();
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, null);
+
+        assertThrows(ForbiddenException.class, () -> eventService.publish(event.id, "auth0|x", false));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_alreadyPublished_throws409() {
+        deleteAll();
+        User user = persistUser("auth0|pub2", "pub2@example.com");
+        Event event = persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|pub2", false));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_cancelledEvent_throws409() {
+        deleteAll();
+        User user = persistUser("auth0|pub3", "pub3@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|pub3", false));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    // --- uploadImage ---
+
+    @Test
+    @TestTransaction
+    void uploadImage_asCreator_updatesbannerUrl(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|img", "img@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("banner.jpg");
+        Files.write(fakeFile, "fake-jpeg".getBytes());
+        FileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", fakeFile);
+
+        EventDTO result = eventService.uploadImage(event.id, "auth0|img", upload, false);
+
+        assertNotNull(result.bannerUrl());
+        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
+        assertTrue(result.bannerUrl().endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_asAdmin_updatesbannerUrl(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|owner3", "owner3@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("banner.png");
+        Files.write(fakeFile, "fake-png".getBytes());
+        FileUpload upload = new StubFileUpload("banner.png", "image/png", fakeFile);
+
+        EventDTO result = eventService.uploadImage(event.id, "auth0|admin2", upload, true);
+
+        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_unknownEvent_throwsNotFound(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        Path fakeFile = tempDir.resolve("f.jpg");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.uploadImage(999999L, "auth0|x", upload, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_notCreatorNotAdmin_throwsForbidden(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|owner4", "owner4@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("f.jpg");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
+
+        assertThrows(ForbiddenException.class,
+                () -> eventService.uploadImage(event.id, "auth0|intruder", upload, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_invalidMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|mime", "mime@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("script.sh");
+        Files.write(fakeFile, "#!/bin/bash".getBytes());
+        FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
+
+        assertThrows(BadRequestException.class,
+                () -> eventService.uploadImage(event.id, "auth0|mime", upload, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_nullMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|nullmime", "nullmime@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("file.bin");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
+
+        assertThrows(BadRequestException.class,
+                () -> eventService.uploadImage(event.id, "auth0|nullmime", upload, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|noext", "noext@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("image");
+        Files.write(fakeFile, "data".getBytes());
+        FileUpload upload = new StubFileUpload("image", "image/jpeg", fakeFile);
+
+        EventDTO result = eventService.uploadImage(event.id, "auth0|noext", upload, false);
+
+        assertTrue(result.bannerUrl().endsWith(".bin"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
+        deleteAll();
+        User user = persistUser("auth0|nullname", "nullname@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        Path fakeFile = tempDir.resolve("file");
+        Files.write(fakeFile, "data".getBytes());
+        FileUpload upload = new StubFileUpload(null, "image/jpeg", fakeFile);
+
+        EventDTO result = eventService.uploadImage(event.id, "auth0|nullname", upload, false);
+
+        assertTrue(result.bannerUrl().endsWith(".bin"));
+    }
+
     // --- helpers ---
 
     private void deleteAll() {
@@ -345,5 +569,26 @@ class EventServiceCoverageTest {
         req.category = category;
         req.status = status;
         return req;
+    }
+
+    static class StubFileUpload implements FileUpload {
+        private final String fileName;
+        private final String contentType;
+        private final Path uploadedFile;
+
+        StubFileUpload(String fileName, String contentType, Path uploadedFile) {
+            this.fileName = fileName;
+            this.contentType = contentType;
+            this.uploadedFile = uploadedFile;
+        }
+
+        @Override public String name() { return "file"; }
+        @Override public Path uploadedFile() { return uploadedFile; }
+        @Override public Path filePath() { return uploadedFile; }
+        @Override public String fileName() { return fileName; }
+        @Override public long size() { return 0; }
+        @Override public String contentType() { return contentType; }
+        @Override public String charSet() { return null; }
+        @Override public jakarta.ws.rs.core.MultivaluedMap<String, String> getHeaders() { return new jakarta.ws.rs.core.MultivaluedHashMap<>(); }
     }
 }

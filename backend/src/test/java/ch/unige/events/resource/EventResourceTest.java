@@ -307,4 +307,148 @@ class EventResourceTest {
                 .statusCode(404)
                 .body("error", equalTo("not_found"));
     }
+
+    // --- PATCH /events/{id}/publish ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
+    void publishAsOrganiserOwnerReturns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("PUBLISHED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
+    void publishAsAdminOnAnyEventReturns200() {
+        var event = eventServiceMock.seedEvent("auth0|bob", "Bob's Draft Event");
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("PUBLISHED"));
+    }
+
+    @Test
+    void publishUnauthenticatedReturns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"STUDENT"})
+    void publishAsStudentReturns403() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
+    void publishAsOrganiserNotOwnerReturns403() {
+        EventServiceMock.forceForbiddenOnUpdate = true;
+        var event = eventServiceMock.seedEvent("auth0|bob", "Bob's Event");
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(403)
+                .body("error", equalTo("forbidden"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
+    void publishAlreadyPublishedReturns409() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Published Event");
+        EventServiceMock.forceConflictOnPublish = true;
+
+        given()
+                .when().patch("/events/" + event.id + "/publish")
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("conflict"));
+    }
+
+    // --- POST /events/{id}/image ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
+    void uploadImageWithValidJpegReturns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event avec bannière");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(200)
+                .body("bannerUrl", notNullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
+    void uploadImageWithInvalidMimeReturns400() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event");
+        EventServiceMock.forceBadMimeOnUpload = true;
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImage_asAuthenticatedCreator_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event avec bannière");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner-no-role.png", "fake-png-bytes".getBytes(), "image/png")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(200)
+                .body("bannerUrl", notNullValue());
+    }
+
+    @Test
+    void uploadImage_unauthenticated_returns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImage_asAuthenticatedNonCreator_returns403() {
+        EventServiceMock.forceForbiddenOnUpdate = true;
+        var event = eventServiceMock.seedEvent("auth0|bob", "Event de Bob");
+
+        given()
+                .contentType("multipart/form-data")
+                .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+                .when().post("/events/" + event.id + "/image")
+                .then()
+                .statusCode(403)
+                .body("error", equalTo("forbidden"));
+    }
 }

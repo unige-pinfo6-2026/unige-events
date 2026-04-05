@@ -53,7 +53,8 @@ jobs:
             -Dquarkus.container-image.group=${{ github.repository_owner }} \
             -Dquarkus.container-image.name=${{ env.CONTAINER_IMAGE_NAME_BACKEND }} \
             -Dquarkus.container-image.tag=${{ github.sha }} \
-            -Dquarkus.container-image.additional-tags=latest
+            -Dquarkus.container-image.additional-tags=latest \
+            -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
       
       - name: SonarQube Scan
         env:

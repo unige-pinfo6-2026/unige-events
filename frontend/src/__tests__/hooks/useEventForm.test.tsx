@@ -3,7 +3,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FormEvent } from 'react'
-import { useEventForm } from '@/hooks/useEventForm'
+import {
+  EVENT_DESCRIPTION_MAX_LENGTH,
+  EVENT_TITLE_MAX_LENGTH,
+  IMAGE_MAX_SIZE_BYTES,
+  IMAGE_MAX_SIZE_MB,
+  useEventForm,
+} from '../../hooks/useEventForm'
 
 vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
@@ -102,6 +108,27 @@ describe('useEventForm', () => {
     expect(mockCreateEvent).not.toHaveBeenCalled()
   })
 
+  it('validates title and description max length before submit', async () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'x'.repeat(EVENT_TITLE_MAX_LENGTH + 1))
+      result.current.setFieldValue('description', 'y'.repeat(EVENT_DESCRIPTION_MAX_LENGTH + 1))
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(result.current.errors.title).toBe(`Le titre ne doit pas dépasser ${EVENT_TITLE_MAX_LENGTH} caractères.`)
+    expect(result.current.errors.description).toBe(`La description ne doit pas dépasser ${EVENT_DESCRIPTION_MAX_LENGTH} caractères.`)
+    expect(mockCreateEvent).not.toHaveBeenCalled()
+  })
+
   it('handles image validation, preview replacement, and cleanup', () => {
     const createObjectURL = vi.fn()
       .mockReturnValueOnce('blob:first')
@@ -143,6 +170,20 @@ describe('useEventForm', () => {
     unmount()
 
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:second')
+  })
+
+  it('rejects a file that exceeds the maximum allowed size', () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    const oversizedFile = new File([new ArrayBuffer(IMAGE_MAX_SIZE_BYTES + 1)], 'big.png', { type: 'image/png' })
+    act(() => {
+      result.current.handleImageChange({ target: { files: [oversizedFile] } } as never)
+    })
+
+    expect(result.current.errors.image).toBe(
+      `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`,
+    )
+    expect(result.current.imagePreview).toBeNull()
   })
 
   it('submits creation payload with trimmed and optional fields normalized', async () => {

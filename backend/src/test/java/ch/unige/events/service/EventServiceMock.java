@@ -9,8 +9,12 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,12 +31,16 @@ public class EventServiceMock extends EventService {
     private final AtomicLong idSequence = new AtomicLong(1);
     public static volatile boolean forceForbiddenOnUpdate = false;
     public static volatile boolean forceForbiddenOnDelete = false;
+    public static volatile boolean forceConflictOnPublish = false;
+    public static volatile boolean forceBadMimeOnUpload = false;
 
     public void reset() {
         eventsById.clear();
         idSequence.set(1);
         forceForbiddenOnUpdate = false;
         forceForbiddenOnDelete = false;
+        forceConflictOnPublish = false;
+        forceBadMimeOnUpload = false;
     }
 
     public Event seedEvent(String creatorAuth0Id, String title) {
@@ -57,11 +65,12 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
         return eventsById.values().stream()
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
+                .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
                 .map(EventDTO::from)
                 .toList();
     }
@@ -148,5 +157,32 @@ public class EventServiceMock extends EventService {
             throw new ForbiddenException("Only the event creator can cancel this event");
         }
         event.status = EventStatus.CANCELLED;
+    }
+
+    @Override
+    public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
+        if (forceConflictOnPublish) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", "Event is already published"))
+                            .build());
+        }
+        Event e = eventsById.get(id);
+        if (e == null) throw new NotFoundException();
+        if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
+        e.status = EventStatus.PUBLISHED;
+        return EventDTO.from(e);
+    }
+
+    @Override
+    public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
+        if (forceBadMimeOnUpload) {
+            throw new BadRequestException("File must be an image");
+        }
+        Event e = eventsById.get(id);
+        if (e == null) throw new NotFoundException();
+        if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
+        e.bannerUrl = "/uploads/test-banner.jpg";
+        return EventDTO.from(e);
     }
 }

@@ -5,6 +5,7 @@ import EventForm from '@/components/event/EventForm'
 import Toast from '@/components/utils/Toast'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
+import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 export default function EventEditPage() {
   const navigate = useNavigate()
@@ -64,6 +65,7 @@ export default function EventEditPage() {
       redirectTimerRef.current = setTimeout(() => navigate(`/events/${savedEvent.id}`), 1000)
     },
     onError: (message) => showToast('error', message),
+    onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
   if (loading) {

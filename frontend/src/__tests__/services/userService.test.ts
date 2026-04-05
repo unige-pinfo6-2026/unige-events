@@ -7,6 +7,7 @@ vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
     put: vi.fn(),
+    post: vi.fn(),
   },
 }))
 
@@ -14,6 +15,7 @@ import api from '@/services/api'
 
 const mockApiGet = api.get as ReturnType<typeof vi.fn>
 const mockApiPut = api.put as ReturnType<typeof vi.fn>
+const mockApiPost = api.post as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -48,10 +50,16 @@ describe('userService', () => {
   })
 
   describe('uploadPhoto', () => {
-    it('returns empty avatarUrl (stub)', async () => {
+    it('posts file to /users/me/image and returns updated user', async () => {
+      const user = { id: '1', avatarUrl: '/api/uploads/uuid.jpg' }
+      mockApiPost.mockResolvedValue({ data: user })
       const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
       const result = await uploadPhoto(file)
-      expect(result).toEqual({ photoUrl: '' })
+      expect(result).toEqual(user)
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/users/me/image',
+        expect.any(FormData),
+      )
     })
   })
 })

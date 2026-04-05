@@ -29,7 +29,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   } = useAuth0()
 
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const login = useCallback(() => {
@@ -53,6 +53,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       setToken(null)
       setUser(null)
       setError(null)
+      setLoading(false)
       return
     }
 

@@ -23,7 +23,8 @@ export function useEvents(): UseEventsResult {
     setLoading(true)
     setError(null)
     try {
-      const data = await getAll({ page: pageNum, size: PAGE_SIZE, status: 'PUBLISHED' })
+      const now = new Date().toISOString().slice(0, 19)
+      const data = await getAll({ page: pageNum, size: PAGE_SIZE, status: 'PUBLISHED', endDateFrom: now })
       setEvents((prev) => (pageNum === 0 ? data : [...prev, ...data]))
       setHasMore(data.length === PAGE_SIZE)
     } catch {

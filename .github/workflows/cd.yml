@@ -64,7 +64,7 @@ jobs:
             }
       
       - name: Apply manifests
-        run: kubectl apply -f k8s/
+        run: kubectl apply -f k8s/ -R
 
       - name: Restart api deployment
         run: |
