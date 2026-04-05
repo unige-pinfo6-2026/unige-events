@@ -2,7 +2,7 @@
 
 # Installations
 install-backend:
-	cd backend && ./mvnw dependency:resolve
+	cd backend && ./mvnw clean dependency:resolve
 
 install-frontend:
 	cd frontend && npm install

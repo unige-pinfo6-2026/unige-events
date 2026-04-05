@@ -17,9 +17,7 @@ export default function Layout() {
 
       <Footer/>
 
-      {error != null && (
-        <Toast type="error" message={error} />
-      )}
+      {error != null && <Toast type="error" message={error} />}
     </div>
   )
 }

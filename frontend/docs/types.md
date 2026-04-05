@@ -1,59 +1,99 @@
 # docs/types.md — Types TypeScript
 
-Source de vérité frontend : src/types/index.ts.
-Source de vérité contrat API : docs/openapi/openapi.yaml.
+Les types vivent dans `src/types/` et sont répartis par domaine.
+Source de vérité contrat API : `docs/openapi/openapi.yaml`.
 
-## Types événements
+## Types événements — `src/types/event.ts`
 
 ### EventCategory
 
-Valeurs supportées : ACADEMIC, SPORTS, CULTURAL, SOCIAL, CONFERENCE, OTHER.
+Dérivé de `EVENT_CATEGORIES` (const object). Valeurs : `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER`.
+
+Chaque entrée expose `name` (libellé français) et `color` (couleur hex) :
+
+| Clé        | Libellé    | Couleur   |
+|------------|------------|-----------|
+| ACADEMIC   | Académique | `#2563eb` |
+| SPORTS     | Sports     | `#16a34a` |
+| CULTURAL   | Culturel   | `#9333ea` |
+| SOCIAL     | Social     | `#ea580c` |
+| CONFERENCE | Conférence | `#0891b2` |
+| OTHER      | Autre      | `#6b7280` |
 
 ### EventStatus
 
-Valeurs supportées : DRAFT, PUBLISHED, CANCELLED.
+Dérivé de `EVENT_STATUSES` (const object). Valeurs : `DRAFT`, `PUBLISHED`, `CANCELLED`.
+
+Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` et `PUBLISHED` dans EventForm ; `CANCELLED` est filtré.
 
 ### Event
 
-Champs principaux :
-- id : number
-- title : string
-- description : string optionnel
-- location : string
-- startDate : string ISO 8601
-- endDate : string ISO 8601
-- category : EventCategory
-- bannerUrl : string optionnel
-- creatorId : string
-- status : EventStatus
-- capacity : number optionnel
-- createdAt : string
-- updatedAt : string optionnel
+| Champ       | Type          | Requis |
+|-------------|---------------|--------|
+| id          | number        | oui    |
+| title       | string        | oui    |
+| description | string        | non    |
+| location    | string        | oui    |
+| startDate   | string ISO 8601 | oui  |
+| endDate     | string ISO 8601 | oui  |
+| category    | EventCategory | oui    |
+| bannerUrl   | string        | non    |
+| creatorId   | string        | oui    |
+| status      | EventStatus   | oui    |
+| capacity    | number        | non    |
+| createdAt   | string        | oui    |
+| updatedAt   | string        | non    |
 
 ### CreateEventRequest
 
-Champs requis : title, location, startDate, endDate, category.
-Champs optionnels : description, bannerUrl, capacity, status.
-Le status initial peut être DRAFT ou PUBLISHED. Le frontend expose ces deux choix dans EventForm.
+Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
+Champs optionnels : `description`, `bannerUrl`, `capacity`, `status`.
 
 ### UpdateEventRequest
 
-Le backend documente un PUT à sémantique de remplacement complet.
-Le frontend envoie donc systématiquement un payload complet en édition avec :
-- title
-- location
-- startDate
-- endDate
-- category
-et, si nécessaire :
-- description
-- bannerUrl
-- capacity
-- status
+Le backend utilise un PUT à sémantique de remplacement complet. Le frontend envoie systématiquement un payload complet avec les mêmes champs que `CreateEventRequest`.
+
+---
+
+## Types utilisateur — `src/types/user.ts`
+
+### User
+
+| Champ         | Type       | Requis |
+|---------------|------------|--------|
+| id            | string     | oui    |
+| auth0Id       | string     | oui    |
+| email         | string     | oui    |
+| displayName   | string     | non    |
+| firstName     | string     | non    |
+| lastName      | string     | non    |
+| faculty       | string     | non    |
+| studyLevel    | string     | non    |
+| bio           | string     | non    |
+| interests     | string[]   | non    |
+| avatarUrl     | string     | non    |
+| profilePublic | boolean    | oui    |
+| createdAt     | string     | oui    |
+
+### StudyLevel
+
+Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
+
+---
+
+## Types faculté — `src/types/faculty.ts`
+
+### Faculty
+
+Dérivé de `FACULTIES` (const object). Valeurs : `SCIENCES`, `MEDECINE`, `LETTERS`, `ECONOMY`, `LAW`, `THEOLOGY`, `PSYCHOLOGY`, `TRANSLATION`.
+
+Chaque entrée expose `name` (libellé français) et `logo` (composant SVG).
+
+---
 
 ## Règles générales
 
+- Les types d'entités vivent dans `src/types/` et ne doivent pas être redéfinis ailleurs.
+- `EventCategory`, `EventStatus`, `StudyLevel`, `Faculty` sont dérivés via `keyof typeof` — ne pas les déclarer manuellement.
 - Les champs restent en camelCase exactement comme dans le backend.
-- Les booléens backend ne prennent pas de préfixe is sauf si le backend le fait réellement.
-- Les types d’entités vivent dans src/types/index.ts et ne doivent pas être redéfinis ailleurs.
-- Le frontend ne doit pas utiliser any.
+- Le frontend ne doit pas utiliser `any`.

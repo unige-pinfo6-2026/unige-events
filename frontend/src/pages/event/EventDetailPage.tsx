@@ -4,31 +4,14 @@ import { useAuth, useEvent } from '@/hooks'
 import { getUserById } from '@/services/userService'
 import { deleteEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
+import Toast from '@/components/utils/Toast'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
-import { Calendar, MapPin, Users, User as UserIcon, ArrowLeft } from 'lucide-react'
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('fr-CH', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function CenteredMessage({ message }: Readonly<{ message: string }>) {
-  return (
-    <div className="flex justify-center items-center min-h-60">
-      <div className="bg-background border border-border rounded-3xl p-8 text-center max-w-sm">
-        <p className="text-foreground/50 mb-4">{message}</p>
-        <Link to="/" className="text-accent font-semibold text-sm">Retour à l'accueil</Link>
-      </div>
-    </div>
-  )
-}
+import { formatEventDateTime } from '@/utils/dateTime'
+import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
+import { Calendar, MapPin, Users, User as UserIcon } from 'lucide-react'
+import { ErrorMessage } from '@/components/utils/ErrorMessage'
+import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -40,6 +23,17 @@ export default function EventDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
+  const [bannerWarning, setBannerWarning] = useState<string | null>(null)
+
+  useEffect(() => {
+    const warning = sessionStorage.getItem(BANNER_UPLOAD_ERROR_KEY)
+    if (warning) {
+      sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
+      setBannerWarning(warning)
+      const t = setTimeout(() => setBannerWarning(null), 6000)
+      return () => clearTimeout(t)
+    }
+  }, [])
 
   useEffect(() => {
     if (!event) { setOrganizer(null); return }
@@ -50,18 +44,12 @@ export default function EventDetailPage() {
     return () => { active = false }
   }, [event])
 
-  if (eventId === null) return <CenteredMessage message="Identifiant d'événement invalide." />
+  if (eventId === null) return <ErrorMessage message="Identifiant d'événement invalide." />
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-60">
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-      </div>
-    )
-  }
-
-  if (error) return <CenteredMessage message={error} />
-  if (!event) return <CenteredMessage message="Événement introuvable." />
+  if (loading) return <LoadingSpinner/>
+  
+  if (error) return <ErrorMessage message={error} />
+  if (!event) return <ErrorMessage message="Événement introuvable." />
 
   const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
@@ -131,9 +119,9 @@ export default function EventDetailPage() {
           <div className="flex items-center gap-3 text-sm text-foreground/60">
             <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
             <span>
-              {formatDate(event.startDate)}
+              {formatEventDateTime(event.startDate)}
               <span className="text-foreground/30 mx-2">→</span>
-              {formatDate(event.endDate)}
+              {formatEventDateTime(event.endDate)}
             </span>
           </div>
           <div className="flex items-center gap-3 text-sm text-foreground/60">
@@ -173,10 +161,7 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      <Link to="/" className="flex items-center gap-1.5 text-sm text-foreground/40 hover:text-foreground/60 transition-colors no-underline w-fit">
-        <ArrowLeft className="w-4 h-4" />
-        Retour à l'accueil
-      </Link>
+      {bannerWarning && <Toast type="error" message={bannerWarning} duration={6000} />}
 
       {/* Confirm delete modal */}
       {showConfirm && (

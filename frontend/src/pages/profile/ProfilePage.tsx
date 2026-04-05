@@ -6,6 +6,7 @@ import UserAvatar from '@/components/user/UserAvatar'
 import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Building2, Lock, Pencil } from 'lucide-react'
+import { ErrorMessage } from '@/components/utils/ErrorMessage'
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>()
@@ -53,14 +54,7 @@ export default function ProfilePage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-60">
-        <div className="bg-background border border-border rounded-3xl text-center p-12 max-w-sm">
-          <p className="text-foreground/50 mb-4">{error}</p>
-          <Link to="/" className="text-sm text-accent font-semibold no-underline">
-            Retour à l'accueil
-          </Link>
-        </div>
-      </div>
+      <ErrorMessage message={error}/>
     )
   }
 

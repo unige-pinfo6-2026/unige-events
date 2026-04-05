@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 const variants = {
   success: 'border-emerald-500/40 text-emerald-400',
@@ -24,7 +24,7 @@ export default function Toast({
   return (
     <output
       className={[
-        'fixed top-3 right-3 px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl z-50 border backdrop-blur-xl bg-background/90',
+        'fixed z-100 top-3 right-3 px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl z-50 border backdrop-blur-xl bg-background/90',
         hiding ? 'animate-toast-out' : 'animate-toast-in',
         variants[variant],
       ].join(' ')}

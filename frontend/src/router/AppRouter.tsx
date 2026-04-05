@@ -7,10 +7,12 @@ import EventEditPage from '@/pages/event/EventEditPage'
 import EventDetailPage from '@/pages/event/EventDetailPage'
 import ProfileEditPage from '@/pages/profile/ProfileEditPage'
 import ProfilePage from '@/pages/profile/ProfilePage'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import NotFoundPage from '@/pages/NotFoundPage'
 import { EventsPage } from '@/pages/event/EventsPage'
-import { CalendarPage } from '@/pages/calendar/CalendarPage'
+import CalendarPage from '@/pages/calendar/CalendarPage'
+import { AppLayout } from '@/components/AppLayout'
+import { LoginPage } from '@/pages/login/LoginPage'
 
 const AppRouter = () => {
   return (
@@ -19,26 +21,28 @@ const AppRouter = () => {
         <Route path="/" element={<LandingPage />} />
 
         <Route path="/login">
-          <Route index element={<NotFoundPage />} />
-          <Route path="callback" element={<CallbackPage />} />
-        </Route>
-
-        <Route element={<PrivateRoute />}>
-          <Route path="/profile">
-            <Route index element={<NotFoundPage />} />
-            <Route path="me/edit" element={<ProfileEditPage />} />
-            <Route path=":id" element={<ProfilePage />} />
+            <Route index element={<LoginPage />} />
+            <Route path="callback" element={<CallbackPage />} />
           </Route>
+        
+        <Route element={<AppLayout />}>
+          <Route element={<PrivateRoute/>}>
+            <Route path="/profile">
+              <Route index element={<Navigate to="/profile/me" replace />} />
+              <Route path=":id" element={<ProfilePage />} />
+              <Route path="me/edit" element={<ProfileEditPage />} />
+            </Route>
 
-          <Route path="/events">
-            <Route index element={<EventsPage />} />
-            <Route path="new" element={<EventCreatePage />} />
-            <Route path=":id/edit" element={<EventEditPage />} />
-            <Route path=":id" element={<EventDetailPage />} />
-          </Route>
+            <Route path="/events">
+              <Route index element={<EventsPage />} />
+              <Route path="new" element={<EventCreatePage />} />
+              <Route path=":id/edit" element={<EventEditPage />} />
+              <Route path=":id" element={<EventDetailPage />} />
+            </Route>
 
-          <Route path="/calendar">
-            <Route index element={<CalendarPage />} />
+            <Route path="/calendar">
+              <Route index element={<CalendarPage />} />
+            </Route>
           </Route>
         </Route>
 

@@ -19,6 +19,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { getById, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockGetById = getById as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>

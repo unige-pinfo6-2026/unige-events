@@ -82,12 +82,13 @@ function UserDropdown({ user, logout }: Readonly<{ user: User; logout: () => voi
   )
 }
 
-function DesktopNav({ user, login, logout, theme, toggleTheme }: Readonly<{
+function DesktopNav({ user, login, logout, theme, toggleTheme, isLoading }: Readonly<{
   user: User | null
   login: () => void
   logout: () => void
   theme: string
   toggleTheme: () => void
+  isLoading: boolean
 }>) {
   return (
     <>
@@ -107,10 +108,11 @@ function DesktopNav({ user, login, logout, theme, toggleTheme }: Readonly<{
           {theme === 'dark' ? <Sun className="size-6" /> : <Moon className="size-6" />}
         </button>
 
-        {user
+        {isLoading && <div className="h-9 w-28 rounded-xl bg-foreground/10 animate-pulse" />}
+        {!isLoading && (user
           ? <UserDropdown user={user} logout={logout} />
           : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
-        }
+        )}
       </div>
     </>
   )
@@ -175,7 +177,7 @@ function MobileMenu({ user, login, logout, onClose }: Readonly<{
 }
 
 export default function Navbar() {
-  const { user, login, logout } = useAuth()
+  const { user, login, logout, isLoading } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -184,7 +186,7 @@ export default function Navbar() {
       <div className="flex justify-between items-center h-navbar px-6">
         <Banner className="size-40" />
 
-        <DesktopNav user={user} login={login} logout={logout} theme={theme} toggleTheme={toggleTheme} />
+        <DesktopNav user={user} login={login} logout={logout} theme={theme} toggleTheme={toggleTheme} isLoading={isLoading} />
 
         <button
           type="button"

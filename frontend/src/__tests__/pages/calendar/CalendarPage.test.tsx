@@ -1,22 +1,12 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render } from '@testing-library/react'
-import { CalendarPage } from '@/pages/calendar/CalendarPage'
-
-afterEach(() => cleanup())
-
-describe('CalendarPage', () => {
-  it('renders without crashing', () => {
-    const { container } = render(<CalendarPage />)
-    expect(container).toBeTruthy()
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { CalendarEvent } from '@/hooks/useCalendarEvents'
 
-vi.mock('../../hooks/useCalendarEvents', () => ({
+vi.mock('@/hooks/useCalendarEvents', () => ({
   useCalendarEvents: vi.fn(),
 }))
 
@@ -186,7 +176,7 @@ describe('CalendarPage', () => {
     })
     renderPage()
     const btn = screen.getByText('Conférence IA')
-    expect(btn.style.backgroundColor).toBe('rgb(20, 184, 166)') // CONFERENCE = teal (#14b8a6)
+    expect(btn.style.backgroundColor).toBe('rgb(8, 145, 178)') // CONFERENCE = #0891b2
   })
 
   it('shows event location as tooltip via tooltipAccessor', () => {

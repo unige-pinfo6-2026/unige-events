@@ -33,7 +33,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [error, setError] = useState<string | null>(null)
 
   const login = useCallback(() => {
-    loginWithRedirect()
+    loginWithRedirect({ appState: { returnTo: '/profile/me' } })
   }, [loginWithRedirect])
 
   const logout = useCallback(() => {
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
           setToken(null)
           auth0Logout({ logoutParams: { returnTo: globalThis.location.origin } })
         } else {
-          setError('Impossible de se connecter. Veuillez réessayer plus tard.')
+          setError('Impossible d\'établir la connexion à votre compte. Veuillez réessayer plus tard.')
         }
       })
       .finally(() => setLoading(false))

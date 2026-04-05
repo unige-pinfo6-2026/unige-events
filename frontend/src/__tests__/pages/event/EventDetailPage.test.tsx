@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
 import { deleteEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
+import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
@@ -84,7 +85,6 @@ describe('EventDetailPage', () => {
     renderPage('abc')
 
     expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
-    expect(screen.getByRole('link', { name: /retour à l'accueil/i }).getAttribute('href')).toBe('/')
   })
 
   it('shows a localized load error', () => {
@@ -119,9 +119,6 @@ describe('EventDetailPage', () => {
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
     expect(screen.getByText('200 places disponibles')).toBeTruthy()
-    const title = screen.getByRole('heading', { name: 'Conférence IA' }) as HTMLHeadingElement
-    expect(title.style.overflowWrap).toBe('anywhere')
-    expect(title.style.wordBreak).toBe('break-word')
     await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
   })
 

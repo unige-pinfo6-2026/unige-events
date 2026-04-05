@@ -1,16 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('fr-CH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatEventDateTimeCompact } from '@/utils/dateTime'
 
 export default function EventCard({ event }: Readonly<{ event: Event }>) {
   const category = EVENT_CATEGORIES[event.category]
@@ -53,7 +44,7 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-              <span className="font-medium">{formatDate(event.startDate)}</span>
+              <span className="font-medium">{formatEventDateTimeCompact(event.startDate)}</span>
             </div>
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <MapPin className="w-4 h-4 shrink-0" style={{ color: category.color }} />

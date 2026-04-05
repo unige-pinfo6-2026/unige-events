@@ -1,5 +1,6 @@
 import { useEvents } from '@/hooks/useEvents'
 import EventCard from './EventCard'
+import { ErrorMessage } from '../utils/ErrorMessage'
 
 export default function EventCards() {
   const { events, loading, error, hasMore, loadMore } = useEvents()
@@ -13,9 +14,7 @@ export default function EventCards() {
       )}
 
       {error && (
-        <div className="border border-error/30 rounded-2xl p-10 text-center text-error">
-          {error}
-        </div>
+        <ErrorMessage message={error}/>
       )}
 
       {!loading && !error && events.length === 0 && (

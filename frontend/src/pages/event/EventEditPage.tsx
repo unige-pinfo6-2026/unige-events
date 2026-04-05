@@ -6,6 +6,8 @@ import Toast from '@/components/utils/Toast'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
+import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
+import { ErrorMessage } from '@/components/utils/ErrorMessage'
 
 export default function EventEditPage() {
   const navigate = useNavigate()
@@ -13,14 +15,14 @@ export default function EventEditPage() {
   const eventId = Number(id)
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!Number.isInteger(eventId) || eventId <= 0) {
-      setLoadError("Identifiant d'événement invalide.")
+      setError("Identifiant d'événement invalide.")
       setLoading(false)
       return
     }
@@ -29,12 +31,12 @@ export default function EventEditPage() {
 
     async function loadEvent() {
       setLoading(true)
-      setLoadError(null)
+      setError(null)
       try {
         const response = await getById(eventId)
         if (!cancelled) setEvent(response)
       } catch {
-        if (!cancelled) setLoadError('Impossible de charger cet événement.')
+        if (!cancelled) setError('Impossible de charger cet événement.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -68,21 +70,8 @@ export default function EventEditPage() {
     onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-60">
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-      </div>
-    )
-  }
-
-  if (loadError) {
-    return (
-      <div className="flex justify-center items-center min-h-60">
-        <p className="text-error">{loadError}</p>
-      </div>
-    )
-  }
+  if (loading) return <LoadingSpinner/>
+  if (error) return <ErrorMessage message={error}/>
 
   if (!event) return null
 

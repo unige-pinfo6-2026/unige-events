@@ -1,5 +1,6 @@
 import { type ChangeEvent, type ComponentProps } from 'react'
 import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
+import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB } from '@/hooks/useEventForm'
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import { EVENT_CATEGORIES, EVENT_STATUSES } from '@/types/event'
@@ -21,6 +22,31 @@ interface EventFormProps {
   onCancel: () => void
 }
 
+interface DateTimeParts {
+  datePart: string
+  hourPart: string
+  minutePart: string
+}
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'))
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0'))
+
+function splitDateTime(value: string): DateTimeParts {
+  if (!value.includes('T')) {
+    return { datePart: '', hourPart: '', minutePart: '' }
+  }
+  const [datePart, timePart] = value.split('T')
+  const [hourPart = '', minutePart = ''] = timePart.split(':')
+  return { datePart, hourPart, minutePart }
+}
+
+function joinDateTime(datePart: string, hourPart: string, minutePart: string): string {
+  if (!datePart || hourPart === '' || minutePart === '') {
+    return ''
+  }
+  return `${datePart}T${hourPart}:${minutePart}`
+}
+
 export default function EventForm({
   title,
   submitLabel,
@@ -34,6 +60,82 @@ export default function EventForm({
   onSubmit,
   onCancel,
 }: Readonly<EventFormProps>) {
+  const startDateTime = splitDateTime(values.startDate)
+  const endDateTime = splitDateTime(values.endDate)
+
+  function setDatePart(field: 'startDate' | 'endDate', datePart: string, currentHourPart: string, currentMinutePart: string) {
+    if (!datePart) {
+      onFieldChange(field, '' as EventFormValues[typeof field])
+      return
+    }
+    const hourPart = currentHourPart || '00'
+    const minutePart = currentMinutePart || '00'
+    onFieldChange(field, joinDateTime(datePart, hourPart, minutePart) as EventFormValues[typeof field])
+  }
+
+  function setTimePart(
+    field: 'startDate' | 'endDate',
+    datePart: string,
+    hourPart: string,
+    minutePart: string,
+    part: 'hour' | 'minute',
+    value: string,
+  ) {
+    if (!datePart) return
+    const nextHourPart = part === 'hour' ? value : hourPart
+    const nextMinutePart = part === 'minute' ? value : minutePart
+    onFieldChange(field, joinDateTime(datePart, nextHourPart, nextMinutePart) as EventFormValues[typeof field])
+  }
+
+  function renderDateTimeField(
+    field: 'startDate' | 'endDate',
+    label: string,
+    inputId: string,
+    dt: DateTimeParts,
+    error: string | undefined,
+  ) {
+    return (
+      <FormField label={label} htmlFor={inputId} required error={error}>
+        <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+          <input
+            id={inputId}
+            type="date"
+            value={dt.datePart}
+            onChange={(e) => setDatePart(field, e.target.value, dt.hourPart, dt.minutePart)}
+            className={inputClass(error)}
+          />
+          <div className="flex items-center gap-1.5">
+            <label className="sr-only" htmlFor={`${inputId}-hour`}>
+              {field === 'startDate' ? 'Heure de début' : 'Heure de fin'}
+            </label>
+            <select
+              id={`${inputId}-hour`}
+              value={dt.hourPart}
+              onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'hour', e.target.value)}
+              className={[inputClass(error), 'w-auto min-w-[4.5rem]'].join(' ')}
+            >
+              <option value="">HH</option>
+              {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <span className="text-foreground/40 font-bold select-none">:</span>
+            <label className="sr-only" htmlFor={`${inputId}-minute`}>
+              {field === 'startDate' ? 'Minute de début' : 'Minute de fin'}
+            </label>
+            <select
+              id={`${inputId}-minute`}
+              value={dt.minutePart}
+              onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'minute', e.target.value)}
+              className={[inputClass(error), 'w-auto min-w-[4.5rem]'].join(' ')}
+            >
+              <option value="">MM</option>
+              {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </FormField>
+    )
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="bg-background border border-border rounded-3xl p-8 max-sm:p-5">
@@ -49,7 +151,9 @@ export default function EventForm({
               onChange={(e) => onFieldChange('title', e.target.value)}
               className={inputClass(errors.title)}
               placeholder="Nom de l'événement"
+              maxLength={EVENT_TITLE_MAX_LENGTH}
             />
+            <div className="text-right text-xs text-foreground/40 mt-1">{values.title.length} / {EVENT_TITLE_MAX_LENGTH}</div>
           </FormField>
 
           <FormField label="Description" htmlFor="event-description">
@@ -60,7 +164,9 @@ export default function EventForm({
               className={[inputClass(), 'resize-y min-h-28'].join(' ')}
               placeholder="Quelques détails utiles pour les participants"
               rows={4}
+              maxLength={EVENT_DESCRIPTION_MAX_LENGTH}
             />
+            <div className="text-right text-xs text-foreground/40 mt-1">{values.description.length} / {EVENT_DESCRIPTION_MAX_LENGTH}</div>
           </FormField>
 
           <FormField label="Lieu" htmlFor="event-location" required error={errors.location}>
@@ -75,25 +181,8 @@ export default function EventForm({
           </FormField>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-            <FormField label="Début" htmlFor="event-startDate" required error={errors.startDate}>
-              <input
-                id="event-startDate"
-                type="datetime-local"
-                value={values.startDate}
-                onChange={(e) => onFieldChange('startDate', e.target.value)}
-                className={inputClass(errors.startDate)}
-              />
-            </FormField>
-
-            <FormField label="Fin" htmlFor="event-endDate" required error={errors.endDate}>
-              <input
-                id="event-endDate"
-                type="datetime-local"
-                value={values.endDate}
-                onChange={(e) => onFieldChange('endDate', e.target.value)}
-                className={inputClass(errors.endDate)}
-              />
-            </FormField>
+            {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate)}
+            {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
           </div>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
@@ -161,8 +250,9 @@ export default function EventForm({
                   Choisir une image
                 </label>
                 <input id="event-banner" type="file" accept="image/*" onChange={onImageChange} className="hidden" />
-                <span className="text-sm text-foreground/40 flex-1 min-w-48 break-all">
+                <span className="text-sm text-foreground/40 flex-1 min-w-48 break-all flex flex-col gap-0.5">
                   {selectedImageName ?? 'PNG, JPG ou WEBP'}
+                  <span className="text-xs opacity-75">Taille max : {IMAGE_MAX_SIZE_MB} Mo</span>
                 </span>
               </div>
             </div>

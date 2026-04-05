@@ -149,10 +149,6 @@ function Faq() {
       q: "Mes données sont-elles en sécurité ?",
       a: "La plateforme est réservée à la communauté universitaire. Seuls les membres connectés avec un compte UNIGE peuvent accéder aux événements et aux profils.",
     },
-    {
-      q: "La plateforme sera-t-elle intégrée aux systèmes officiels de l'UNIGE ?",
-      a: "C'est l'un de nos avantages stratégiques. Nous travaillons à une intégration avec l'intranet universitaire et les canaux officiels pour maximiser la visibilité de chaque événement.",
-    },
   ]
 
   return (
