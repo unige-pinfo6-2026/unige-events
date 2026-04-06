@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
 import { FACULTIES } from '@/types/faculty'
 import { STUDY_LEVELS, type User } from '@/types/user'
-import FormField, { inputClass } from '@/components/utils/FormField'
+import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import Toast from '@/components/utils/Toast'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { X } from 'lucide-react'
@@ -150,42 +150,43 @@ export default function ProfileEditPage() {
           <div className="border-t border-border" />
 
           <FormField label="Nom" htmlFor="name" required error={errors.name}>
-            <input
+            <Input
               id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={inputClass(errors.name)}
+              error={errors.name}
               placeholder="Votre nom complet"
             />
           </FormField>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             <FormField label="Faculté" htmlFor="faculty">
-              <select id="faculty" value={faculty} onChange={(e) => setFaculty(e.target.value)} className={inputClass()}>
+              <Select id="faculty" value={faculty} onChange={(e) => setFaculty(e.target.value)}>
                 <option value="">Sélectionner</option>
                 {Object.entries(FACULTIES).map(([id, f]) => (
                   <option key={id} value={id}>{f.name}</option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             <FormField label="Niveau d'études" htmlFor="studyLevel">
-              <select id="studyLevel" value={studyLevel} onChange={(e) => setStudyLevel(e.target.value)} className={inputClass()}>
+              <Select id="studyLevel" value={studyLevel} onChange={(e) => setStudyLevel(e.target.value)}>
                 <option value="">Sélectionner</option>
                 {Object.entries(STUDY_LEVELS).map(([id, s]) => (
                   <option key={id} value={id}>{s.name}</option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           </div>
 
           <FormField label="Biographie" htmlFor="bio" error={errors.bio}>
-            <textarea
+            <Textarea
               id="bio"
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className={[inputClass(errors.bio), 'resize-y min-h-24'].join(' ')}
+              error={errors.bio}
+              className="resize-y min-h-24"
               placeholder="Parlez un peu de vous..."
               rows={4}
               maxLength={MAX_BIO_LENGTH + 1}
@@ -196,13 +197,12 @@ export default function ProfileEditPage() {
           </FormField>
 
           <FormField label="Centres d'intérêt" htmlFor="interests">
-            <input
+            <Input
               id="interests"
               type="text"
               value={interestInput}
               onChange={(e) => setInterestInput(e.target.value)}
               onKeyDown={handleInterestKeyDown}
-              className={inputClass()}
               placeholder="Tapez un intérêt et appuyez sur Entrée"
             />
             {interests.length > 0 && (

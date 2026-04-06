@@ -106,7 +106,7 @@ describe('CalendarPage', () => {
   it('shows a spinner while loading', () => {
     mockUseCalendarEvents.mockReturnValue({ events: [], loading: true, error: null })
     renderPage()
-    expect(document.querySelector('.spinner')).toBeTruthy()
+    expect(document.querySelector('.animate-spin')).toBeTruthy()
   })
 
   it('shows the error message when fetch fails', () => {

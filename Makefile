@@ -21,10 +21,10 @@ dev:
 
 # Tests
 test-backend:
-	cd backend && ./mvnw verify -B
+	cd backend && ./mvnw clean verify -B
 
 test-frontend:
-	cd frontend && npm run test:coverage
+	cd frontend && npm run lint && npm run test:coverage
 
 test: test-backend test-frontend
 

@@ -4,7 +4,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import { EVENT_CATEGORIES, EVENT_STATUSES } from '@/types/event'
-import FormField, { inputClass } from '@/components/utils/FormField'
+import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus } from 'lucide-react'
 
@@ -97,39 +97,41 @@ export default function EventForm({
     return (
       <FormField label={label} htmlFor={inputId} required error={error}>
         <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
-          <input
+          <Input
             id={inputId}
             type="date"
             value={dt.datePart}
             onChange={(e) => setDatePart(field, e.target.value, dt.hourPart, dt.minutePart)}
-            className={inputClass(error)}
+            error={error}
           />
           <div className="flex items-center gap-1.5">
             <label className="sr-only" htmlFor={`${inputId}-hour`}>
               {field === 'startDate' ? 'Heure de début' : 'Heure de fin'}
             </label>
-            <select
+            <Select
               id={`${inputId}-hour`}
               value={dt.hourPart}
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'hour', e.target.value)}
-              className={[inputClass(error), 'w-auto min-w-[4.5rem]'].join(' ')}
+              error={error}
+              className="w-auto min-w-[4.5rem]"
             >
               <option value="">HH</option>
               {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
-            </select>
+            </Select>
             <span className="text-foreground/40 font-bold select-none">:</span>
             <label className="sr-only" htmlFor={`${inputId}-minute`}>
               {field === 'startDate' ? 'Minute de début' : 'Minute de fin'}
             </label>
-            <select
+            <Select
               id={`${inputId}-minute`}
               value={dt.minutePart}
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'minute', e.target.value)}
-              className={[inputClass(error), 'w-auto min-w-[4.5rem]'].join(' ')}
+              error={error}
+              className="w-auto min-w-[4.5rem]"
             >
               <option value="">MM</option>
               {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
       </FormField>
@@ -144,12 +146,12 @@ export default function EventForm({
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
 
           <FormField label="Titre" htmlFor="event-title" required error={errors.title}>
-            <input
+            <Input
               id="event-title"
               type="text"
               value={values.title}
               onChange={(e) => onFieldChange('title', e.target.value)}
-              className={inputClass(errors.title)}
+              error={errors.title}
               placeholder="Nom de l'événement"
               maxLength={EVENT_TITLE_MAX_LENGTH}
             />
@@ -157,11 +159,11 @@ export default function EventForm({
           </FormField>
 
           <FormField label="Description" htmlFor="event-description">
-            <textarea
+            <Textarea
               id="event-description"
               value={values.description}
               onChange={(e) => onFieldChange('description', e.target.value)}
-              className={[inputClass(), 'resize-y min-h-28'].join(' ')}
+              className="resize-y min-h-28"
               placeholder="Quelques détails utiles pour les participants"
               rows={4}
               maxLength={EVENT_DESCRIPTION_MAX_LENGTH}
@@ -170,12 +172,12 @@ export default function EventForm({
           </FormField>
 
           <FormField label="Lieu" htmlFor="event-location" required error={errors.location}>
-            <input
+            <Input
               id="event-location"
               type="text"
               value={values.location}
               onChange={(e) => onFieldChange('location', e.target.value)}
-              className={inputClass(errors.location)}
+              error={errors.location}
               placeholder="Uni Mail, Salle MR060"
             />
           </FormField>
@@ -187,44 +189,43 @@ export default function EventForm({
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             <FormField label="Catégorie" htmlFor="event-category" required error={errors.category}>
-              <select
+              <Select
                 id="event-category"
                 value={values.category}
                 onChange={(e) => onFieldChange('category', e.target.value as EventFormValues['category'])}
-                className={inputClass(errors.category)}
+                error={errors.category}
               >
                 <option value="">Sélectionner</option>
                 {Object.entries(EVENT_CATEGORIES).map(([id, category]) => (
                   <option key={id} value={id}>{category.name}</option>
                 ))}
-              </select>
+              </Select>
             </FormField>
 
             <FormField label="Capacité" htmlFor="event-capacity" error={errors.capacity}>
-              <input
+              <Input
                 id="event-capacity"
                 type="number"
                 min="1"
                 step="1"
                 value={values.capacity}
                 onChange={(e) => onFieldChange('capacity', e.target.value)}
-                className={inputClass(errors.capacity)}
+                error={errors.capacity}
                 placeholder="150"
               />
             </FormField>
           </div>
 
           <FormField label="Statut" htmlFor="event-status">
-            <select
+            <Select
               id="event-status"
               value={values.status}
               onChange={(e) => onFieldChange('status', e.target.value as EventFormValues['status'])}
-              className={inputClass()}
             >
               {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, s]) => (
                 <option key={id} value={id}>{s.name}</option>
               ))}
-            </select>
+            </Select>
           </FormField>
 
           <FormField label="Bannière" htmlFor="event-banner" error={errors.image}>

@@ -6,7 +6,7 @@ import { LoadingSpinner } from '../utils/LoadingSpinner'
 export default function EventCards() {
   const { events, loading, error, hasMore, loadMore } = useEvents()
 
-  if(loading) return <LoadingSpinner/>
+  if(loading && events.length === 0) return <LoadingSpinner/>
   if(error) return <InfoMessage type='error' message={error}/>
 
   if(events.length == 0) return <InfoMessage type='info' message={"Aucun événement publié pour le moment."}/>

@@ -45,10 +45,6 @@ describe('LandingPage', () => {
     mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
     renderPage()
 
-    const faqButtons = screen.getAllByRole('button').filter(btn =>
-      btn.closest('[id="faq"]') !== null || btn.textContent?.includes('UniGE Events'),
-    )
-
     const allButtons = screen.getAllByRole('button')
     const faqBtn = allButtons.find(btn => {
       const span = btn.querySelector('span')

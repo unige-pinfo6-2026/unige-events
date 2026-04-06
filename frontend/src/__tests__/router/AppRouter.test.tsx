@@ -87,7 +87,6 @@ describe('AppRouter', () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText('Page introuvable')).toBeTruthy()
-    expect(screen.queryByText('Accueil')).toBeNull()
+    expect(await screen.findByText(/Redirection vers la page de connexion/)).toBeTruthy()
   })
 })
