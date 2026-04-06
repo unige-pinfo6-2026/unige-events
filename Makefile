@@ -24,7 +24,7 @@ test-backend:
 	cd backend && ./mvnw clean verify -B
 
 test-frontend:
-	cd frontend && npm run lint && npm run test:coverage
+	cd frontend && npm run lint && npm run test:coverage && npm run build
 
 test: test-backend test-frontend
 

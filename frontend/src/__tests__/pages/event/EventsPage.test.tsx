@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { EventsPage } from '@/pages/event/EventsPage'
+import EventsPage from '@/pages/event/EventsPage'
 
 afterEach(() => cleanup())
 

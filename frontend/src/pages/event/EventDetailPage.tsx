@@ -55,6 +55,7 @@ export default function EventDetailPage() {
   const category = EVENT_CATEGORIES[event.category]
 
   async function handleDelete() {
+    if (!event) return
     setDeleting(true)
     try {
       await deleteEvent(event.id)

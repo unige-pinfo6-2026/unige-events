@@ -2,7 +2,7 @@ import { LoadingSpinner } from "@/components/utils/LoadingSpinner";
 import { useAuth } from "@/hooks";
 import { useEffect } from "react";
 
-export function LoginPage() {
+export default function LoginPage() {
     const { login } = useAuth();
 
     useEffect(() => {

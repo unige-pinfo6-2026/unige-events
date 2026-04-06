@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const variants = {
   success: 'border-emerald-500/40 text-emerald-400',
