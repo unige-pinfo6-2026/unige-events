@@ -17,6 +17,11 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/events` | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, startDateFrom | 200 |
 | `POST` | `/events` | `@Authenticated` | Créer un événement | 201 |
 | `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, dateFrom, dateTo, page, size) | 200 |
+| `POST` | `/events/{id}/favorite` | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/favorite` | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
+| `GET` | `/users/me/favorites` | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
+| `GET` | `/events/{id}/share` | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
+| `GET` | `/s/{shortCode}` | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
 
 ---
 

@@ -421,6 +421,22 @@ components:
           type: string
       required: [message]
 
+    ShareResponse:
+      type: object
+      description: Résultat de GET /events/{id}/share — URL de partage et code court
+      properties:
+        shareUrl:
+          type: string
+          format: uri
+          description: URL complète vers la page de l'événement (frontend)
+        shortCode:
+          type: string
+          description: Code court alphanumérique 8 caractères — stable (idempotent)
+      required: [shareUrl, shortCode]
+      example:
+        shareUrl: "https://10.25.10.136.nip.io/events/42"
+        shortCode: "aB3xZ9mQ"
+
 paths:
   /users/me:
     get:
@@ -580,20 +596,40 @@ paths:
   /users/me/favorites:
     get:
       summary: Favoris de l'utilisateur connecté
+      description: Retourne la liste paginée des événements mis en favoris par l'utilisateur authentifié.
       operationId: getMyFavorites
       tags: [users, favorites]
       security:
         - BearerAuth: []
-      # TODO: Sprint 4 — à implémenter côté backend
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
-          description: Événements favoris (array brut — pas de pagination pour l'instant)
+          description: Événements favoris (tableau vide si aucun favori — jamais 404)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /events:
     get:
@@ -1042,10 +1078,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserPublicResponse'
 
-  # TODO: Sprint 4
   /events/{id}/favorite:
     post:
-      summary: Ajouter un événement aux favoris
+      summary: Ajouter un événement aux favoris (idempotent)
+      description: |
+        Ajoute l'événement aux favoris de l'utilisateur connecté.
+        **Idempotent** : retourne 200 même si l'événement est déjà en favori.
       operationId: addFavorite
       tags: [events, favorites]
       security:
@@ -1059,7 +1097,19 @@ paths:
             format: int64
       responses:
         '200':
-          description: Ajouté aux favoris
+          description: Ajouté aux favoris (ou déjà en favori — idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
     delete:
       summary: Retirer un événement des favoris
@@ -1077,6 +1127,56 @@ paths:
       responses:
         '204':
           description: Retiré des favoris
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Favori introuvable (l'événement n'était pas en favori)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/share:
+    get:
+      summary: Obtenir le lien de partage d'un événement
+      description: |
+        Retourne l'URL de partage complète et le code court alphanumérique de l'événement.
+        Le shortCode est généré une fois et stocké sur l'entité Event (idempotent — deux appels
+        successifs retournent le même shortCode).
+      operationId: getEventShareInfo
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Informations de partage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   # TODO: Sprint 5
   /events/{id}/stats:
@@ -1275,3 +1375,34 @@ paths:
       responses:
         '200':
           description: Notification marquée comme lue
+
+  /s/{shortCode}:
+    get:
+      summary: Redirection courte vers la page d'un événement
+      description: |
+        Redirige (302) vers la page frontend de l'événement correspondant au shortCode.
+        Endpoint public — aucun token requis (conçu pour être partagé par lien).
+      operationId: redirectByShortCode
+      tags: [events]
+      security: []
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirection vers la page de l'événement
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: URL frontend de l'événement (ex. https://10.25.10.136.nip.io/events/42)
+        '404':
+          description: shortCode inconnu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
