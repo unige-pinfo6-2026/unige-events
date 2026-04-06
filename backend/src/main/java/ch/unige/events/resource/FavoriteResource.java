@@ -12,7 +12,6 @@ import jakarta.ws.rs.core.Response;
 
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class FavoriteResource {
 
     private final FavoriteService favoriteService;
