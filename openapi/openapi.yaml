@@ -650,7 +650,7 @@ paths:
             maximum: 100
       responses:
         '200':
-          description: Événements favoris (tableau vide si aucun favori — jamais 404)
+          description: Événements favoris (tableau vide si aucun favori)
           content:
             application/json:
               schema:
@@ -659,6 +659,12 @@ paths:
                   $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (non provisionné — appeler GET /users/me d'abord)
           content:
             application/json:
               schema:
@@ -689,6 +695,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (non provisionné — appeler GET /users/me d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
     delete:
       summary: Révoquer et régénérer le token de calendrier
@@ -709,6 +721,12 @@ paths:
                 $ref: '#/components/schemas/CalendarTokenResponse'
         '401':
           description: Token Bearer absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (non provisionné — appeler GET /users/me d'abord)
           content:
             application/json:
               schema:
@@ -1184,7 +1202,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: Événement introuvable
+          description: Événement introuvable ou profil utilisateur non provisionné
           content:
             application/json:
               schema:
@@ -1310,7 +1328,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: Événement introuvable
+          description: Événement introuvable ou profil utilisateur non provisionné
           content:
             application/json:
               schema:

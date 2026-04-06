@@ -14,6 +14,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -179,10 +180,58 @@ class CalendarServiceCoverageTest {
     }
 
     @Test
+    void buildIcsContent_eventWithDescription_includesDescriptionLine() {
+        Event event = buildInMemoryEvent("Conférence", "Uni Mail", "Une super description");
+
+        String ics = calendarService.buildIcsContent(List.of(event));
+
+        assertTrue(ics.contains("DESCRIPTION:Une super description"));
+    }
+
+    @Test
+    void buildIcsContent_eventWithoutLocation_noLocationLine() {
+        Event event = buildInMemoryEvent("Conférence sans lieu", null, null);
+
+        String ics = calendarService.buildIcsContent(List.of(event));
+
+        assertTrue(ics.contains("BEGIN:VEVENT"));
+        assertFalse(ics.contains("LOCATION:"));
+    }
+
+    @Test
     void escapeIcs_specialChars_areEscaped() {
         String result = calendarService.escapeIcs("a,b;c\nd");
 
         assertEquals("a\\,b\\;c\\nd", result);
+    }
+
+    @Test
+    void foldLine_shortLine_appendsCRLFOnly() {
+        String result = calendarService.foldLine("SUMMARY:Short title");
+
+        assertEquals("SUMMARY:Short title\r\n", result);
+    }
+
+    @Test
+    void foldLine_longLine_foldsAt75Chars() {
+        String longLine = "SUMMARY:" + "A".repeat(80);
+
+        String result = calendarService.foldLine(longLine);
+
+        // First segment: 75 chars + CRLF, continuation: space + remaining chars + CRLF
+        assertTrue(result.startsWith("SUMMARY:" + "A".repeat(67)));
+        assertTrue(result.contains("\r\n "));
+    }
+
+    private Event buildInMemoryEvent(String title, String location, String description) {
+        Event event = new Event();
+        event.id = 99L;
+        event.title = title;
+        event.location = location;
+        event.description = description;
+        event.startDate = LocalDateTime.now().plusDays(1);
+        event.endDate = LocalDateTime.now().plusDays(2);
+        return event;
     }
 
     // =========================================================

@@ -84,7 +84,7 @@ public class AttendanceService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        if (!event.creator.auth0Id.equals(auth0Id)) {
+        if (event.creator == null || event.creator.auth0Id == null || !event.creator.auth0Id.equals(auth0Id)) {
             throw new ForbiddenException("Only the event creator can view attendees");
         }
 

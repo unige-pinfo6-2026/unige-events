@@ -3,6 +3,7 @@ package ch.unige.events.service;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.NotFoundException;
 
 import java.util.UUID;
 
@@ -11,6 +12,12 @@ import java.util.UUID;
 public class CalendarServiceMock extends CalendarService {
 
     private static final UUID FIXED_TOKEN = UUID.fromString("11111111-2222-3333-4444-555555555555");
+
+    public static volatile boolean forceNotFound = false;
+
+    public void reset() {
+        forceNotFound = false;
+    }
 
     @Override
     public CalendarTokenResponse getOrCreateToken(String auth0Id) {
@@ -24,6 +31,7 @@ public class CalendarServiceMock extends CalendarService {
 
     @Override
     public String generateIcsFeed(UUID calendarToken) {
+        if (forceNotFound) throw new NotFoundException();
         return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
     }
 

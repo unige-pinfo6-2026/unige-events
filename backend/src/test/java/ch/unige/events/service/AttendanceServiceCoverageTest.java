@@ -117,6 +117,19 @@ class AttendanceServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void attend_underCapacity_attending_succeeds() {
+        User organizer = persistUser("auth0|org4", "org4@example.com");
+        Event event = persistEvent("Event with room", organizer, EventStatus.PUBLISHED, 5);
+
+        // Aucun participant — la capacité n'est pas atteinte
+        User user = persistUser("auth0|u6", "u6@example.com");
+        AttendanceDTO dto = attendanceService.attend("auth0|u6", event.id, AttendanceStatus.ATTENDING);
+
+        assertEquals(AttendanceStatus.ATTENDING, dto.status());
+    }
+
+    @Test
+    @TestTransaction
     void attend_alreadyAttending_resubmitAttending_notBlockedByCapacity() {
         User organizer = persistUser("auth0|org3", "org3@example.com");
         Event event = persistEvent("Full Event 3", organizer, EventStatus.PUBLISHED, 1);

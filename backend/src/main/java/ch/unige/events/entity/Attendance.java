@@ -36,7 +36,7 @@ public class Attendance extends PanacheEntity {
     }
 
     public static List<Attendance> findByEvent(Long eventId, int page, int size) {
-        return find("eventId = ?1", eventId)
+        return find("eventId = ?1 order by id asc", eventId)
                 .page(page, size)
                 .list();
     }

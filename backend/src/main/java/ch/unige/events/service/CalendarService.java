@@ -76,21 +76,37 @@ public class CalendarService {
         for (Event event : events) {
             sb.append("BEGIN:VEVENT\r\n");
             sb.append("UID:").append(event.id).append("@unige-events\r\n");
-            sb.append("SUMMARY:").append(escapeIcs(event.title)).append("\r\n");
+            sb.append(foldLine("SUMMARY:" + escapeIcs(event.title)));
             sb.append("DTSTART;TZID=Europe/Zurich:").append(event.startDate.format(ICS_DT)).append("\r\n");
             sb.append("DTEND;TZID=Europe/Zurich:").append(event.endDate.format(ICS_DT)).append("\r\n");
             if (event.location != null) {
-                sb.append("LOCATION:").append(escapeIcs(event.location)).append("\r\n");
+                sb.append(foldLine("LOCATION:" + escapeIcs(event.location)));
             }
             if (event.description != null) {
-                sb.append("DESCRIPTION:").append(escapeIcs(event.description)).append("\r\n");
+                sb.append(foldLine("DESCRIPTION:" + escapeIcs(event.description)));
             }
-            sb.append("URL:").append(frontendUrl).append("/events/").append(event.id).append("\r\n");
+            sb.append(foldLine("URL:" + frontendUrl + "/events/" + event.id));
             sb.append("END:VEVENT\r\n");
         }
 
         sb.append("END:VCALENDAR\r\n");
         return sb.toString();
+    }
+
+    // RFC 5545 §3.1 — fold lines longer than 75 characters
+    String foldLine(String line) {
+        if (line.length() <= 75) {
+            return line + "\r\n";
+        }
+        StringBuilder result = new StringBuilder();
+        result.append(line, 0, 75).append("\r\n");
+        int i = 75;
+        while (i < line.length()) {
+            int end = Math.min(i + 74, line.length());
+            result.append(' ').append(line, i, end).append("\r\n");
+            i = end;
+        }
+        return result.toString();
     }
 
     String escapeIcs(String value) {
