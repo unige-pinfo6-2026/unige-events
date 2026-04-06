@@ -28,6 +28,10 @@ const AppRouter = () => {
             </Route>
 
             <Route element={<PrivateRoute/>}>
+              <Route path="/search">
+                <Route index element={<Navigate to="/search" replace />} />
+              </Route>
+
               <Route path="/profile">
                 <Route index element={<Navigate to="/profile/me" replace />} />
                 <Route path=":id" element={<ProfilePage />} />

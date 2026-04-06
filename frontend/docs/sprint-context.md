@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-03-31
+Dernière mise à jour : 2026-04-03
 
 ## Sprint 1 — Authentification & profils
 
@@ -26,8 +26,23 @@ Points de cohérence importants conservés après merge :
 - L’édition envoie un payload complet pour respecter la sémantique PUT documentée.
 
 Suite prévue :
+- Vue calendrier.
 - Recherche et filtres avancés.
 - Extraction de composants génériques de loading et d’erreur.
+- Pagination des résultats de recherche.
+- Endpoint backend de suggestions (fetchSuggestions est actuellement un stub).
+
+## Sprint 3 — Recherche et filtres (SCRUM-86)
+
+En cours / Terminé le 2026-04-03.
+
+Fonctionnalités livrées :
+- SearchPage à la route `/search` : barre de recherche + dropdown d’autocomplétion (300ms) + layout sidebar/résultats.
+- FilterSidebar props-driven : category (checkboxes toggle), faculty (select), dateFrom/dateTo (date), reset.
+- useSearch hook : initialisation depuis URL, sync état→URL, debounce 300ms suggestions, debounce 2000ms recherche, selectSuggestion pour recherche immédiate.
+- searchApi.ts : searchEvents via GET /api/events/search, fetchSuggestions stub (TODO backend).
+- Types SearchParams et SearchResponse dans src/types/index.ts.
+- Route /search enregistrée dans AppRouter (PrivateRoute).
 
 ## Sprint 3 — Vue Calendrier (en cours)
 

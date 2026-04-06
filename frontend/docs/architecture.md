@@ -23,6 +23,7 @@ Model : src/hooks, src/contexts et src/types
 | /events/new | CreateEventPage | pages/CreateEventPage.tsx | PrivateRoute |
 | /events/:id | EventDetailPage | pages/EventDetailPage.tsx | PrivateRoute |
 | /events/:id/edit | EditEventPage | pages/EditEventPage.tsx | PrivateRoute |
+| /search | SearchPage | pages/SearchPage.tsx | PrivateRoute |
 | /calendar | CalendarPage | pages/CalendarPage.tsx | PrivateRoute |
 | /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
 | * | redirect | — | redirect vers /home |
@@ -37,6 +38,7 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 | services/tokenStore.ts | Lecture et écriture du token access_token | — |
 | services/userService.ts | Lecture et mise à jour du profil utilisateur | GET /api/users/me, GET /api/users/{id}, PUT /api/users/me |
 | services/eventApi.ts | Liste, détail, création, édition, annulation et upload de bannière | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image |
+| services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 
 ## Règles de cohérence
 
