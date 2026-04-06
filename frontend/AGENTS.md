@@ -36,6 +36,7 @@ Model      → hooks/ et contexts/             (état applicatif)
 - **Ne jamais dupliquer des données ou de la logique** : si la même liste de liens, de labels ou de classes apparaît à deux endroits, extraire dans une const array ou un composant.
 - Les listes de données statiques (liens de nav, sections de menu, options de filtre…) se déclarent comme **const arrays typées en dehors des composants** et sont réutilisées partout où elles sont nécessaires (desktop, mobile, tests…).
 - Un composant extrait se justifie dès que la même structure JSX apparaît deux fois. En dessous de deux occurrences, l'inline est préférable.
+- Le composant local (défini dans le même fichier, non exporté) est la bonne réponse quand la structure se répète uniquement dans ce fichier. Ne pas créer un fichier dédié pour chaque micro-composant.
 
 ```tsx
 // ✅ Correct — const array partagée entre desktop et mobile
@@ -46,6 +47,31 @@ const navLinks = [
 // utilisée dans le rendu desktop ET mobile
 
 // ❌ Interdit — même liste dupliquée dans deux blocs JSX
+```
+
+```tsx
+// ✅ Correct — structure JSX répétée → composant local dans le même fichier
+function AboutRow({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 text-sm text-foreground/60">
+      <Icon className="w-5 h-5 shrink-0 text-foreground/30" />
+      <span className="truncate">{children}</span>
+    </div>
+  )
+}
+// utilisé N fois dans le même composant parent
+<AboutRow icon={Mail}>{profile.email}</AboutRow>
+<AboutRow icon={GraduationCap}>{profile.studyLevel}</AboutRow>
+
+// ❌ Interdit — même div/classe copiée-collée à chaque occurrence
+<div className="flex items-center gap-3 text-sm text-foreground/60">
+  <Mail className="w-5 h-5 shrink-0 text-foreground/30" />
+  <span className="truncate">{profile.email}</span>
+</div>
+<div className="flex items-center gap-3 text-sm text-foreground/60">
+  <GraduationCap className="w-5 h-5 shrink-0 text-foreground/30" />
+  <span className="truncate">{profile.studyLevel}</span>
+</div>
 ```
 
 ### Pattern variants — const maps typées
@@ -153,6 +179,9 @@ Pour afficher une icône dans un badge coloré (comme dans la section Features) 
 - Mobile-first : base = mobile, `lg:` = desktop
 - Espacements de sections : `py-20 lg:py-32`
 - Grilles : `grid md:grid-cols-2 lg:grid-cols-3 gap-6`
+
+### Espacement des pages
+Les pages n'ont **aucun padding ou margin par défaut** — le layout ne fournit rien. Chaque page est responsable de ses propres marges internes. Toujours gérer explicitement l'espacement vertical en haut et en bas du contenu (ex: `py-12 lg:py-16` pour un header hero, `pb-20` en bas de page).
 
 ## Design tokens CSS
 

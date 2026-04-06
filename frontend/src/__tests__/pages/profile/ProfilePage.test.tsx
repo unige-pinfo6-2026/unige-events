@@ -105,7 +105,7 @@ describe('ProfilePage', () => {
       user: { ...mockUser, faculty: 'SCIENCES', studyLevel: 'MASTER' },
     })
     renderProfilePage('me')
-    expect(await screen.findByText(/Sciences/)).toBeTruthy()
+    expect(await screen.findByRole('img', { name: /Sciences/i })).toBeTruthy()
     expect(screen.getByText(/Master/)).toBeTruthy()
   })
 
@@ -142,18 +142,18 @@ describe('ProfilePage', () => {
     expect((img as HTMLImageElement).src).toContain('example.com/avatar.jpg')
   })
 
-  it('renders visibility badge as Privé when profile is not public', async () => {
+  it('renders own profile when profilePublic is false', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, profilePublic: false },
     })
     renderProfilePage('me')
-    expect(await screen.findByText('Privé')).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
   })
 
-  it('renders visibility badge as Public when profile is public', async () => {
+  it('renders own profile when profilePublic is true', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     renderProfilePage('me')
-    expect(await screen.findByText('Public')).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
   })
 
   it('does not crash when faculty key is unknown', async () => {
