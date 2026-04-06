@@ -2,7 +2,7 @@
 
 # Installations
 install-backend:
-	cd backend && ./mvnw dependency:resolve
+	cd backend && ./mvnw clean dependency:resolve
 
 install-frontend:
 	cd frontend && npm install
@@ -21,10 +21,10 @@ dev:
 
 # Tests
 test-backend:
-	cd backend && ./mvnw verify -B
+	cd backend && ./mvnw clean verify -B
 
 test-frontend:
-	cd frontend && npm run test:coverage
+	cd frontend && npm run lint && npm run test:coverage && npm run build
 
 test: test-backend test-frontend
 
