@@ -75,13 +75,3 @@ body:
       placeholder: Paste your logs here or drag and drop your files.
     validations:
       required: false
-
-  - type: checkboxes
-    id: checklist
-    attributes:
-      label: Pre-flight Checklist
-      options:
-        - label: I have checked that this bug has not already been reported.
-          required: true
-        - label: I have tested on the latest available version.
-          required: true

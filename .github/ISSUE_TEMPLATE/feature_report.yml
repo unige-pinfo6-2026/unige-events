@@ -63,13 +63,3 @@ body:
       placeholder: Add any useful elements here.
     validations:
       required: false
-
-  - type: checkboxes
-    id: checklist
-    attributes:
-      label: Pre-flight Checklist
-      options:
-        - label: I have checked that this feature has not already been requested.
-          required: true
-        - label: This feature aligns with the project's vision.
-          required: true
