@@ -4,7 +4,6 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.ShareResponse;
 import ch.unige.events.dto.favorite.FavoriteDTO;
 import ch.unige.events.entity.Event;
-import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
@@ -254,28 +253,11 @@ class FavoriteServiceCoverageTest {
     // =========================================================
 
     private User persistUser(String auth0Id, String email) {
-        User user = new User();
-        user.auth0Id = auth0Id;
-        user.email = email;
-        user.profilePublic = false;
-        user.createdAt = LocalDateTime.now();
-        entityManager.persist(user);
-        entityManager.flush();
-        return user;
+        return ServiceCoverageTestHelper.persistUser(entityManager, auth0Id, email);
     }
 
     private Event persistEvent(String title, User creator) {
-        Event event = new Event();
-        event.title = title;
-        event.location = "Uni Mail";
-        event.startDate = LocalDateTime.now().plusDays(1);
-        event.endDate = LocalDateTime.now().plusDays(2);
-        event.category = EventCategory.ACADEMIC;
-        event.status = EventStatus.PUBLISHED;
-        event.creator = creator;
-        entityManager.persist(event);
-        entityManager.flush();
-        return event;
+        return ServiceCoverageTestHelper.persistEvent(entityManager, title, creator, EventStatus.PUBLISHED, null);
     }
 
     private Favorite persistFavorite(UUID userId, Long eventId) {

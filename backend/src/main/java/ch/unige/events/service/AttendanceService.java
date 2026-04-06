@@ -58,9 +58,11 @@ public class AttendanceService {
             attendance = new Attendance();
             attendance.userId = userId;
             attendance.eventId = eventId;
+            attendance.status = status;
             attendance.persist();
+        } else {
+            attendance.status = status;
         }
-        attendance.status = status;
 
         return AttendanceDTO.from(attendance);
     }

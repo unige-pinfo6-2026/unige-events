@@ -1,11 +1,10 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
-import ch.unige.events.entity.Event;
-import ch.unige.events.entity.EventCategory;
-import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
+import ch.unige.events.entity.Event;
+import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -15,7 +14,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -192,37 +190,14 @@ class CalendarServiceCoverageTest {
     // =========================================================
 
     private User persistUser(String auth0Id, String email) {
-        User user = new User();
-        user.auth0Id = auth0Id;
-        user.email = email;
-        user.profilePublic = false;
-        user.createdAt = LocalDateTime.now();
-        entityManager.persist(user);
-        entityManager.flush();
-        return user;
+        return ServiceCoverageTestHelper.persistUser(entityManager, auth0Id, email);
     }
 
     private Event persistEvent(String title, User creator, EventStatus status) {
-        Event event = new Event();
-        event.title = title;
-        event.location = "Uni Mail";
-        event.startDate = LocalDateTime.now().plusDays(1);
-        event.endDate = LocalDateTime.now().plusDays(2);
-        event.category = EventCategory.ACADEMIC;
-        event.status = status;
-        event.creator = creator;
-        entityManager.persist(event);
-        entityManager.flush();
-        return event;
+        return ServiceCoverageTestHelper.persistEvent(entityManager, title, creator, status, null);
     }
 
     private Attendance persistAttendance(UUID userId, Long eventId, AttendanceStatus status) {
-        Attendance a = new Attendance();
-        a.userId = userId;
-        a.eventId = eventId;
-        a.status = status;
-        entityManager.persist(a);
-        entityManager.flush();
-        return a;
+        return ServiceCoverageTestHelper.persistAttendance(entityManager, userId, eventId, status);
     }
 }
