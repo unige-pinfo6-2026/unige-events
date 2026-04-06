@@ -1,76 +1,45 @@
-import { useState, useCallback } from 'react'
-import type { View } from 'react-big-calendar'
-import { useNavigate } from 'react-router-dom'
-import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay } from 'date-fns'
-import { fr } from 'date-fns/locale'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { useCalendarEvents, type CalendarEvent } from '@/hooks/useCalendarEvents'
+import { BlobsSubtle } from '@/components/utils/Blobs'
 import { EVENT_CATEGORIES } from '@/types/event'
-import { InfoMessage } from '@/components/utils/InfoMessage'
-import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
-
-const locales = { fr }
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }),
-  getDay,
-  locales,
-})
-
-const MESSAGES = {
-  today: "Aujourd'hui",
-  previous: 'Précédent',
-  next: 'Suivant',
-  month: 'Mois',
-  week: 'Semaine',
-  day: 'Jour',
-  agenda: 'Agenda',
-  date: 'Date',
-  time: 'Heure',
-  event: 'Événement',
-  noEventsInRange: 'Aucun événement sur cette période.',
-}
+import EventCalendar from '@/components/calendar/EventCalendar'
 
 export default function CalendarPage() {
-  const navigate = useNavigate()
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [currentView, setCurrentView] = useState<View>(Views.MONTH)
-  const { events, loading, error } = useCalendarEvents(currentDate)
-
-  const eventPropGetter = useCallback((event: CalendarEvent) => {
-    const category = EVENT_CATEGORIES[event.resource.category ?? "OTHER"]
-    return { style: { backgroundColor: category.color, borderColor: category.color, color: '#fff' } }
-  }, [])
-
-  const handleSelectEvent = useCallback(
-    (event: CalendarEvent) => navigate(`/events/${event.resource.id}`),
-    [navigate],
-  )
-
-  if(loading) return <LoadingSpinner/>
-
-  if(error) return <InfoMessage type='error' message={error}/>
-
   return (
-    <div className="max-w-6xl mx-auto">
-      <Calendar<CalendarEvent>
-          localizer={localizer}
-          events={events}
-          date={currentDate}
-          onNavigate={setCurrentDate}
-          view={currentView}
-          onView={setCurrentView}
-          views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
-          messages={MESSAGES}
-          culture="fr"
-          eventPropGetter={eventPropGetter}
-          onSelectEvent={handleSelectEvent}
-          tooltipAccessor={(e) => e.resource.location}
-          style={{ height: 680 }}
-      />
+    <div>
+      {/* Header */}
+      <div className="relative overflow-hidden py-12 lg:py-16">
+        <BlobsSubtle />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
+            <div>
+              <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
+                Calendrier{' '}
+                <span className="text-accent-gradient">du campus</span>
+              </h1>
+              <p className="mt-4 text-xl text-foreground/60 font-light leading-relaxed max-w-xl">
+                Visualisez et explorez tous les événements de la communauté.
+              </p>
+            </div>
+
+            {/* Category legend */}
+            <div className="flex flex-wrap gap-2 lg:max-w-xs">
+              {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
+                <div
+                  key={key}
+                  className="flex items-center gap-2 bg-background/60 backdrop-blur-sm border border-border rounded-full px-3 py-1.5"
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="text-sm text-foreground/70 font-medium">{cat.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        <EventCalendar />
+      </div>
     </div>
   )
 }

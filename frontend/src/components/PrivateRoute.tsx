@@ -5,7 +5,7 @@ import { LoadingSpinner } from "./utils/LoadingSpinner"
 export default function PrivateRoute() {
   const { isAuthenticated, isLoading } = useAuth()
 
-  if (isLoading) return <LoadingSpinner>Connexion en cours...</LoadingSpinner>
+  if (isLoading) return <LoadingSpinner />
 
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" />
 }

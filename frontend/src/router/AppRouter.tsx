@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { AppLayout } from '@/components/AppLayout'
 import LoadingPage from '@/pages/LoadingPage'
 
 const LandingPage = lazy(() => import('@/pages/LandingPage'))
@@ -23,8 +22,6 @@ const AppRouter = () => {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<LandingPage />} />
-
-          <Route element={<AppLayout />}>
             <Route path="/login">
               <Route index element={<LoginPage />} />
               <Route path="callback" element={<CallbackPage />} />
@@ -48,7 +45,6 @@ const AppRouter = () => {
                 <Route index element={<CalendarPage />} />
               </Route>
             </Route>
-          </Route>
 
           <Route path="*" element={<NotFoundPage/>} />
         </Route>

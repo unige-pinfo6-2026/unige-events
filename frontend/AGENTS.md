@@ -97,6 +97,8 @@ Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, po
 ### Référence visuelle
 `src/pages/LandingPage.tsx` est la **référence de style** du projet. Toute nouvelle page ou section doit s'aligner sur ce niveau de qualité visuelle : typographie grande et grasse, fonds avec blobs animés, cards glassmorphism, gradients sur les accents.
 
+Pour les **pages derrière une route privée** (authentification requise), prendre `src/pages/calendar/CalendarPage.tsx` comme inspiration.
+
 ### Composants utilitaires à utiliser en priorité
 
 | Composant | Import | Usage |
