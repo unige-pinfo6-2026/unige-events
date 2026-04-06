@@ -61,6 +61,7 @@ describe('useSearch', () => {
       faculty: undefined,
       dateFrom: undefined,
       dateTo: undefined,
+      includePast: false,
     })
     expect(result.current.results).toEqual([])
     expect(result.current.suggestions).toEqual([])
@@ -68,7 +69,7 @@ describe('useSearch', () => {
     expect(result.current.error).toBeNull()
   })
 
-  it('does not call searchEvents before 2000ms', async () => {
+  it('does not call searchEvents before 2000ms when only query changes', async () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
     act(() => {
@@ -82,7 +83,7 @@ describe('useSearch', () => {
     expect(mockSearchEvents).not.toHaveBeenCalled()
   })
 
-  it('triggers searchEvents after 2000ms debounce', async () => {
+  it('triggers searchEvents after 2000ms debounce for query changes', async () => {
     mockSearchEvents.mockResolvedValue(mockEvents)
 
     const { result } = renderHook(() => useSearch(), { wrapper })
@@ -148,6 +149,17 @@ describe('useSearch', () => {
 
     expect(result.current.loading).toBe(false)
     expect(result.current.results).toEqual(mockEvents)
+  })
+
+  // Fix 3: loading starts immediately when user starts typing
+  it('sets loading to true immediately when query becomes non-empty', () => {
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setQuery('test')
+    })
+
+    expect(result.current.loading).toBe(true)
   })
 
   it('does not call fetchSuggestions before 300ms', () => {
@@ -231,7 +243,7 @@ describe('useSearch', () => {
     expect(result.current.suggestions.length).toBeLessThanOrEqual(5)
   })
 
-  it('resets filters to default on resetFilters', () => {
+  it('resets filters to default on resetFilters', async () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
     act(() => {
@@ -240,14 +252,23 @@ describe('useSearch', () => {
         faculty: 'SCIENCES',
         dateFrom: '2026-01-01',
         dateTo: '2026-12-31',
+        includePast: true,
       })
+    })
+
+    await act(async () => {
+      await Promise.resolve()
     })
 
     act(() => {
       result.current.resetFilters()
     })
 
-    expect(result.current.filters).toEqual({})
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(result.current.filters).toEqual({ includePast: false })
   })
 
   it('selectSuggestion sets query and clears suggestions', () => {
@@ -277,15 +298,47 @@ describe('useSearch', () => {
     )
   })
 
-  it('setFilters updates filters state', () => {
+  it('setFilters updates filters state', async () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
     act(() => {
-      result.current.setFilters({ category: 'SPORTS', faculty: 'SCIENCES' })
+      result.current.setFilters({ category: 'SPORTS', faculty: 'SCIENCES', includePast: false })
     })
+
+    await act(async () => { await Promise.resolve() })
 
     expect(result.current.filters.category).toBe('SPORTS')
     expect(result.current.filters.faculty).toBe('SCIENCES')
+  })
+
+  // Fix 1: category change triggers immediate search without waiting for 2000ms debounce
+  it('category change triggers immediate search without debounce', async () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    await act(async () => {
+      result.current.setFilters({ ...result.current.filters, category: 'ACADEMIC' })
+      await Promise.resolve()
+    })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'ACADEMIC' }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  it('filter change fires immediately without waiting for timers', () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, category: 'CONFERENCE' })
+    })
+
+    // called synchronously — no timer advance needed
+    expect(mockSearchEvents).toHaveBeenCalled()
   })
 
   it('triggers search when filters change', async () => {
@@ -294,7 +347,7 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
     act(() => {
-      result.current.setFilters({ category: 'ACADEMIC' })
+      result.current.setFilters({ category: 'ACADEMIC', includePast: false })
     })
 
     await act(async () => {
@@ -313,7 +366,7 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
     act(() => {
-      result.current.setFilters({ faculty: 'SCIENCES', category: 'ACADEMIC' })
+      result.current.setFilters({ faculty: 'SCIENCES', category: 'ACADEMIC', includePast: false })
     })
 
     await act(async () => {
@@ -399,6 +452,16 @@ describe('useSearch', () => {
     expect(result.current.query).toBe('test')
     expect(result.current.filters.faculty).toBe('SES')
     expect(result.current.filters.dateFrom).toBe('2026-01-01')
+    expect(result.current.filters.includePast).toBe(false)
+  })
+
+  // Fix 4: includePast initialized from URL
+  it('initializes includePast=true from URL param', () => {
+    function wrapperWithIncludePast({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/search?includePast=true'] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithIncludePast })
+    expect(result.current.filters.includePast).toBe(true)
   })
 
   it('updates URL when query changes', () => {
@@ -415,10 +478,35 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearchAndParams(), { wrapper })
 
     act(() => {
-      result.current.setFilters({ faculty: 'SES' })
+      result.current.setFilters({ faculty: 'SES', includePast: false })
     })
 
     expect(result.current.searchParams.get('faculty')).toBe('SES')
+  })
+
+  // Fix 4: includePast synced to URL
+  it('syncs includePast=true to URL when filter changes', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchParams.get('includePast')).toBe('true')
+  })
+
+  it('does not add includePast to URL when it is false', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchParams.get('includePast')).toBeNull()
   })
 
   it('resetFilters clears filter URL params', () => {
@@ -434,5 +522,112 @@ describe('useSearch', () => {
     })
 
     expect(result.current.searchParams.get('faculty')).toBeNull()
+  })
+
+  // Fix 4: when includePast is false, today's date is sent as dateFrom
+  it('passes today as dateFrom when includePast is false and no dateFrom set', async () => {
+    mockSearchEvents.mockResolvedValue([])
+    const today = new Date().toISOString().split('T')[0]
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ dateFrom: today }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  it('does not enforce dateFrom when includePast is true', async () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.not.objectContaining({ dateFrom: expect.anything() }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  it('uses user dateFrom when it is in the future and includePast is false', async () => {
+    mockSearchEvents.mockResolvedValue([])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false, dateFrom: '2099-01-01' })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ dateFrom: '2099-01-01' }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  // Fix 5: client-side sort — upcoming first (ascending), then past (descending)
+  it('sorts results: upcoming first ascending, then past most-recent-first', async () => {
+    const now = Date.now()
+    const futureEvent = {
+      ...mockEvents[0],
+      id: 1,
+      startDate: new Date(now + 86400000).toISOString(),
+    }
+    const recentPastEvent = {
+      ...mockEvents[0],
+      id: 2,
+      startDate: new Date(now - 86400000).toISOString(),
+    }
+    const olderPastEvent = {
+      ...mockEvents[0],
+      id: 3,
+      startDate: new Date(now - 2 * 86400000).toISOString(),
+    }
+
+    // Backend returns in arbitrary order
+    mockSearchEvents.mockResolvedValue([olderPastEvent, futureEvent, recentPastEvent])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.results[0].id).toBe(1)  // upcoming first
+    expect(result.current.results[1].id).toBe(2)  // most recent past second
+    expect(result.current.results[2].id).toBe(3)  // older past last
+  })
+
+  it('sorts multiple upcoming events in ascending order', async () => {
+    const now = Date.now()
+    const soonEvent = { ...mockEvents[0], id: 2, startDate: new Date(now + 86400000).toISOString() }
+    const laterEvent = { ...mockEvents[0], id: 1, startDate: new Date(now + 2 * 86400000).toISOString() }
+
+    mockSearchEvents.mockResolvedValue([laterEvent, soonEvent])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.results[0].id).toBe(2)  // sooner first
+    expect(result.current.results[1].id).toBe(1)  // later second
   })
 })

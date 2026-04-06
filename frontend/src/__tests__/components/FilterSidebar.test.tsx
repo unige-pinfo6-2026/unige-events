@@ -10,7 +10,7 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-const defaultFilters: SearchFilters = {}
+const defaultFilters: SearchFilters = { includePast: false }
 
 function renderSidebar(
   filters: SearchFilters = defaultFilters,
@@ -23,6 +23,30 @@ function renderSidebar(
 }
 
 describe('FilterSidebar', () => {
+  it('renders the includePast checkbox', () => {
+    renderSidebar()
+    expect(screen.getByText('Afficher les événements passés')).toBeTruthy()
+  })
+
+  it('includePast checkbox is unchecked by default', () => {
+    renderSidebar()
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+  })
+
+  it('includePast checkbox is checked when filter is true', () => {
+    renderSidebar({ includePast: true })
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+  })
+
+  it('calls setFilters with toggled includePast when checkbox changes', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false }, setFilters)
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ includePast: true }))
+  })
+
   it('renders all category checkboxes', () => {
     renderSidebar()
     expect(screen.getByText('Académique')).toBeTruthy()
@@ -59,7 +83,7 @@ describe('FilterSidebar', () => {
   })
 
   it('checks the radio matching the current category filter', () => {
-    renderSidebar({ category: 'SPORTS' })
+    renderSidebar({ includePast: false, category: 'SPORTS' })
     const radios = screen.getAllByRole('radio') as HTMLInputElement[]
     const sportsRadio = radios.find((r) => r.closest('label')?.textContent?.includes('Sports'))
     expect(sportsRadio?.checked).toBe(true)
@@ -81,7 +105,7 @@ describe('FilterSidebar', () => {
 
   it('deselects a category when its radio is clicked again', () => {
     const setFilters = vi.fn()
-    renderSidebar({ category: 'ACADEMIC' }, setFilters)
+    renderSidebar({ includePast: false, category: 'ACADEMIC' }, setFilters)
     const radios = screen.getAllByRole('radio') as HTMLInputElement[]
     const academicRadio = radios.find((r) => r.closest('label')?.textContent?.includes('Académique'))!
     fireEvent.click(academicRadio)
@@ -115,19 +139,19 @@ describe('FilterSidebar', () => {
 
   it('clears dateFrom when input is cleared', () => {
     const setFilters = vi.fn()
-    renderSidebar({ dateFrom: '2026-05-01' }, setFilters)
+    renderSidebar({ includePast: false, dateFrom: '2026-05-01' }, setFilters)
     fireEvent.change(screen.getByLabelText('De'), { target: { value: '' } })
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ dateFrom: undefined }))
   })
 
   it('shows the current dateFrom value', () => {
-    renderSidebar({ dateFrom: '2026-05-01' })
+    renderSidebar({ includePast: false, dateFrom: '2026-05-01' })
     const input = screen.getByLabelText('De') as HTMLInputElement
     expect(input.value).toBe('2026-05-01')
   })
 
   it('shows the current faculty value', () => {
-    renderSidebar({ faculty: 'DROIT' })
+    renderSidebar({ includePast: false, faculty: 'DROIT' })
     const select = screen.getByRole('combobox') as HTMLSelectElement
     expect(select.value).toBe('DROIT')
   })

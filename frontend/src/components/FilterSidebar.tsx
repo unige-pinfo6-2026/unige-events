@@ -78,6 +78,8 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
         transition: 'background 0.3s, border-color 0.3s',
       }}
     >
+      
+
       {/* Category */}
       <div>
         <div style={sectionLabelStyle}>Catégorie</div>
@@ -174,6 +176,26 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
           </div>
         </div>
       </div>
+
+      {/* Include past events */}
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          cursor: 'pointer',
+          fontSize: '0.875rem',
+          color: 'var(--text-primary)',
+        }}
+      >
+        <input
+          type='checkbox'
+          checked={filters.includePast}
+          onChange={() => setFilters({ ...filters, includePast: !filters.includePast })}
+        />
+        {'Afficher les événements passés'}
+      </label>
+      
 
       {/* Reset */}
       <button

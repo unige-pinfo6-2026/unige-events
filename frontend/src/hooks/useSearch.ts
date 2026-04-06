@@ -8,9 +8,10 @@ export interface SearchFilters {
   faculty?: Faculty
   dateFrom?: string
   dateTo?: string
+  includePast: boolean
 }
 
-const DEFAULT_FILTERS: SearchFilters = {}
+const DEFAULT_FILTERS: SearchFilters = { includePast: false }
 
 export interface UseSearchResult {
   query: string
@@ -35,6 +36,7 @@ export function useSearch(): UseSearchResult {
     faculty: (searchParams.get('faculty') as Faculty) || undefined,
     dateFrom: searchParams.get('dateFrom') || undefined,
     dateTo: searchParams.get('dateTo') || undefined,
+    includePast: searchParams.get('includePast') === 'true',
   })
   const [results, setResults] = useState<Event[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -62,15 +64,18 @@ export function useSearch(): UseSearchResult {
     if (filters.faculty) params.faculty = filters.faculty
     if (filters.dateFrom) params.dateFrom = filters.dateFrom
     if (filters.dateTo) params.dateTo = filters.dateTo
+    if (filters.includePast) params.includePast = 'true'
     setSearchParams(params, { replace: true })
   }, [query, filters, setSearchParams])
 
   // 300ms debounce: query → suggestions (aborts stale in-flight suggestion requests)
+  // Fix 3: set loading=true immediately when query becomes non-empty, before the timer fires
   useEffect(() => {
     if (!query.trim()) {
       setSuggestions([])
       return
     }
+    setLoading(true)
     const controller = new AbortController()
     const timer = setTimeout(() => {
       fetchSuggestions(query, controller.signal)
@@ -93,18 +98,33 @@ export function useSearch(): UseSearchResult {
     searchAbortRef.current = controller
 
     const trimmed = q.trim()
+    const today = new Date().toISOString().split('T')[0]
+    // Fix 4: when includePast is false, enforce dateFrom >= today
+    const futureDateFrom = f.dateFrom && f.dateFrom > today ? f.dateFrom : today
+    const effectiveDateFrom = f.includePast ? f.dateFrom : futureDateFrom
     // TODO: SCRUM-77 — faculty filter omitted; backend does not yet support it
     const params: SearchParams = {
       q: trimmed || undefined,
       category: f.category,
-      dateFrom: f.dateFrom,
+      dateFrom: effectiveDateFrom,
       dateTo: f.dateTo,
     }
     setLoading(true)
     setError(null)
     try {
       const data = await searchEvents(params, controller.signal)
-      setResults(data)
+      // Fix 5: sort client-side — upcoming events ascending, past events descending
+      const now = Date.now()
+      const sorted = [...data].sort((a, b) => {
+        const aTime = new Date(a.startDate).getTime()
+        const bTime = new Date(b.startDate).getTime()
+        const aIsPast = aTime < now
+        const bIsPast = bTime < now
+        if (!aIsPast && !bIsPast) return aTime - bTime  // both upcoming: ascending
+        if (aIsPast && bIsPast) return bTime - aTime    // both past: most-recent-first
+        return aIsPast ? 1 : -1                          // upcoming before past
+      })
+      setResults(sorted)
     } catch (err) {
       if (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError')) return
       setError('Impossible de charger les résultats.')
@@ -113,24 +133,33 @@ export function useSearch(): UseSearchResult {
     }
   }, [])
 
-  // 2000ms debounce: query + filters → search
-  // Skipped when an immediate search (selectSuggestion / searchNow) just fired
+  // Fix 1: 2000ms debounce applies only to text input changes (query)
+  // Filter changes go through setFilters which calls performSearch immediately
   useEffect(() => {
     const timer = setTimeout(() => {
       if (skipNextDebounce.current) {
         skipNextDebounce.current = false
         return
       }
-      performSearch(query, filters)
+      performSearch(query, filtersRef.current)
     }, 2000)
     return () => clearTimeout(timer)
-  }, [query, filters, performSearch])
+  }, [query, performSearch])
 
   const setQuery = useCallback((q: string) => setQueryState(q), [])
 
-  const setFilters = useCallback((f: SearchFilters) => setFiltersState(f), [])
+  // Fix 1: setFilters triggers immediate search, bypassing the 2000ms debounce
+  const setFilters = useCallback(
+    (f: SearchFilters) => {
+      setFiltersState(f)
+      // Skip the in-flight query debounce to avoid a duplicate search firing afterward
+      skipNextDebounce.current = true
+      performSearch(query, f)
+    },
+    [query, performSearch],
+  )
 
-  const resetFilters = useCallback(() => setFiltersState({ ...DEFAULT_FILTERS }), [])
+  const resetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), [setFilters])
 
   const selectSuggestion = useCallback(
     (text: string) => {

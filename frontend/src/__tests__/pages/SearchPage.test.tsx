@@ -31,7 +31,7 @@ function makeDefaultHook(overrides: Partial<UseSearchResult> = {}): UseSearchRes
   return {
     query: '',
     setQuery: vi.fn(),
-    filters: {},
+    filters: { includePast: false },
     setFilters: vi.fn(),
     results: [],
     suggestions: [],
