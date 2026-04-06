@@ -1,0 +1,75 @@
+name: Feature Request
+description: Suggest a new feature
+title: "[FEATURE] "
+labels: ["[FEATURE]"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your suggestion! Please describe your feature request as clearly as possible so it can be properly evaluated.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A short and clear description of what you would like.
+      placeholder: e.g. Add a dark mode to the interface
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Need
+      description: What problem does this feature solve? What need does it address?
+      placeholder: e.g. Currently, it is hard to use the app at night without straining your eyes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision this feature working.
+      placeholder: e.g. A toggle in the settings to switch between light and dark mode.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered other approaches? Why is this one preferable?
+      placeholder: e.g. Using the Dark Reader browser extension, but it does not cover mobile use cases.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Estimated Priority
+      options:
+        - High (blocking my workflow)
+        - Medium (notable improvement)
+        - Low (nice to have)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Mockups, examples, links to similar implementations, etc.
+      placeholder: Add any useful elements here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-flight Checklist
+      options:
+        - label: I have checked that this feature has not already been requested.
+          required: true
+        - label: This feature aligns with the project's vision.
+          required: true
