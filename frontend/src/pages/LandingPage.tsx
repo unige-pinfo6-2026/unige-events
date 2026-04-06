@@ -2,91 +2,45 @@ import { useState } from 'react'
 import {
   Calendar, Filter, User, PlusCircle, BarChart3, Bell, ChevronDown
 } from 'lucide-react'
-import FacultyMarquee from '../components/faculty/FacultyMarquee'
-import { ButtonPrimary, ButtonSecondary } from '../components/utils/Buttons'
-import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
-import EventCards from '@/components/event/EventCards'
 import { Link } from 'react-router-dom'
-
-// TODO : Fix ça en quelque chose de plus minimal
-// TODO : Ensuite voir pour dashboard/profiles/events etc...  plus proprement (navbar) 
-function SectionWrapper({ children, id, className = 'py-20 lg:py-32', maxWidth = 'max-w-7xl', background, footer, contentClassName }: Readonly<{
-  children: React.ReactNode
-  id?: string
-  className?: string
-  maxWidth?: string
-  background?: React.ReactNode
-  footer?: React.ReactNode
-  contentClassName?: string
-}>) {
-  const sectionClass = ['relative overflow-hidden', className].filter(Boolean).join(' ')
-  const innerClass = [maxWidth, 'mx-auto px-4 sm:px-6 lg:px-8 relative z-10', contentClassName].filter(Boolean).join(' ')
-  return (
-    <section id={id} className={sectionClass}>
-      {background}
-      <div className={innerClass}>
-        {children}
-      </div>
-      {footer}
-    </section>
-  )
-}
-
-function SectionHeader({ title, subtitle }: Readonly<{ title: React.ReactNode; subtitle?: string }>) {
-  return (
-    <div className="text-center max-w-3xl mx-auto mb-16">
-      <h2 className="text-5xl lg:text-7xl font-bold mb-6 tracking-tight">{title}</h2>
-      {subtitle && <p className="text-xl text-foreground/60 font-light">{subtitle}</p>}
-    </div>
-  )
-}
+import FacultyMarquee from '@/components/faculty/FacultyMarquee'
+import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
+import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
+import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
+import EventCards from '@/components/event/EventCards'
 
 const Hero = () => {
   return (
     <SectionWrapper
-      className="flex flex-col h-[calc(100vh-var(--height-navbar))] py-6"
+      padding="hero"
       background={<BlobsHero />}
-      contentClassName="my-auto"
       footer={
         <div className="relative z-10 w-full overflow-hidden">
           <FacultyMarquee />
         </div>
       }
     >
-      <div className="flex flex-col items-center text-center space-y-8">
-        <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
-          Tous les{' '}
-          <span className="text-accent-gradient">
-            évènements
-          </span>
-          <br />
-          en un lieu
-        </h1>
-
-        <p className="text-xl lg:text-2xl text-foreground/60 leading-relaxed max-w-2xl font-light">
-          La plateforme qui connecte étudiants, associations et administration autour des événements du campus.
-        </p>
-
-        <div className="flex flex-col items-center sm:flex-row gap-4">
-          <ButtonPrimary size="lg"><Link to="/events">Explorer les derniers évènements</Link></ButtonPrimary>
-          <ButtonSecondary size="lg"><Link to="/events/new">Créer un évènement</Link></ButtonSecondary>
-        </div>
-      </div>
+      <SectionHeader heading="xl"
+        title={<>Tous les <mark>évènements</mark><br/>en un lieu</>}
+        subtitle={<>La plateforme qui connecte étudiants, associations et administration autour des événements du campus.</>}
+      />
+      
+      <ButtonsWrapper>
+        <ButtonPrimary size="lg"><Link to="/events">Explorer les derniers évènements</Link></ButtonPrimary>
+        <ButtonSecondary size="lg"><Link to="/events/new">Créer un évènement</Link></ButtonSecondary>
+      </ButtonsWrapper>
     </SectionWrapper>
   )
 }
 
 function Events() {
   return (
-    <SectionWrapper
-      id="events"
-      className="py-20 lg:py-32 bg-foreground/2"
-      background={<BlobsSubtle />}
-    >
-      <SectionHeader
+    <SectionWrapper id="events" background={<BlobsSubtle />}>
+      <SectionHeader heading="xl"
         title="Événements à venir"
         subtitle="Découvrez ce qui se passe sur le campus : conférences, soirées, sports et bien plus."
       />
+
       <EventCards />
     </SectionWrapper>
   )
@@ -104,7 +58,7 @@ function Features() {
 
   return (
     <SectionWrapper id="features">
-      <SectionHeader
+      <SectionHeader heading="xl"
         title="Tout ce dont vous avez besoin"
         subtitle="Des fonctionnalités puissantes conçues pour la communauté universitaire"
       />
@@ -152,13 +106,13 @@ function Faq() {
   ]
 
   return (
-    <SectionWrapper id="faq" className="py-20 lg:py-32 bg-foreground/2" background={<BlobsSubtle />}>
-      <SectionHeader
+    <SectionWrapper id="faq" background={<BlobsSubtle />}>
+      <SectionHeader heading="xl"
         title="Questions fréquentes"
         subtitle="Tout ce que vous devez savoir avant de commencer."
       />
 
-      <div className="max-w-3xl mx-auto flex flex-col gap-3">
+      <div className="max-w-3xl mx-auto w-full flex flex-col gap-3">
         {faqs.map((faq, i) => (
           <div key={faq.q} className="border border-border rounded-2xl overflow-hidden transition-colors hover:border-foreground/20">
             <button
@@ -183,27 +137,15 @@ function Faq() {
 
 function GetStarted() {
   return (
-    <SectionWrapper
-      id="get-started"
-      maxWidth="max-w-5xl"
-      background={<BlobsCta />}
-    >
-      <div className="text-center space-y-10">
-        <h2 className="text-5xl lg:text-8xl font-bold tracking-tight leading-[0.95]">
-          Ne rate plus jamais
-          <br/>
-          <span className="text-accent-gradient">un événement</span>
-        </h2>
+    <SectionWrapper id="get-started" background={<BlobsCta />}>
+      <SectionHeader heading="xl"
+        title={<>Ne rate plus jamais <br/><mark>un événement</mark></>}
+        subtitle={<>Fais partie de la plateforme qui connecte toute la communauté UNIGE. Découvre des événements, connecte-toi avec tes pairs, et <mark>maximise ton expérience universitaire.</mark></>}
+      />
 
-        <p className="text-xl lg:text-2xl text-foreground/60 leading-relaxed max-w-3xl mx-auto font-light">
-          Fais partie de la plateforme qui connecte toute la communauté UNIGE. Découvre des événements, connecte-toi avec tes pairs, et{' '}
-          <span className="text-accent font-medium">maximise ton expérience universitaire.</span>
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <ButtonPrimary size="lg"><Link to="/calendar">Commencer maintenant</Link></ButtonPrimary>
-        </div>
-      </div>
+      <ButtonsWrapper>
+        <ButtonPrimary size="lg"><Link to="/calendar">Commencer maintenant</Link></ButtonPrimary>
+      </ButtonsWrapper>
     </SectionWrapper>
   )
 }

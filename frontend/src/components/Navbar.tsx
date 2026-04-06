@@ -6,9 +6,11 @@ import UserIdentity from './user/UserIdentity'
 import { ButtonPrimary } from './utils/Buttons'
 import { TextLink } from './utils/Links'
 import { Banner } from '@/assets/Banner'
-import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react'
+import { ChevronDown, Menu, Moon, SearchIcon, Sun, X } from 'lucide-react'
 import type { User } from '@/types/user'
 
+
+// TODO: Refactor NavButtons & Menu experience
 const navLinks = [
   { href: '/#events', label: 'En ce moment' },
   { href: '/#features', label: 'Fonctionnalités' },
@@ -19,11 +21,37 @@ const navLinks = [
 const userMenuSections = [
   [{ label: 'Mon profil', to: '/profile/me' }],
   [
+    { label: 'Rechercher un événement', to: '/search' },
     { label: 'Événements à venir', to: '/events' },
     { label: 'Créer un événement', to: '/events/new' },
   ],
   [{ label: 'Calendrier', to: '/calendar' }],
 ]
+
+function NavButtons() {
+  const { theme, toggleTheme } = useTheme()
+
+  return (
+    <div className="flex flex-row items-center justify-center gap-2">
+      <Link
+        to="/search"
+        className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
+        aria-label="Rechercher"
+      >
+        <SearchIcon/>
+      </Link>
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+        className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
+      >
+        {theme === 'dark' ? <Sun className="size-6" /> : <Moon className="size-6" />}
+      </button>
+    </div>
+  )
+}
 
 function UserDropdown({ user, logout }: Readonly<{ user: User; logout: () => void }>) {
   const [open, setOpen] = useState(false)
@@ -82,14 +110,9 @@ function UserDropdown({ user, logout }: Readonly<{ user: User; logout: () => voi
   )
 }
 
-function DesktopNav({ user, login, logout, theme, toggleTheme, isLoading }: Readonly<{
-  user: User | null
-  login: () => void
-  logout: () => void
-  theme: string
-  toggleTheme: () => void
-  isLoading: boolean
-}>) {
+function DesktopNav() {
+  const { user, login, logout, isLoading } = useAuth()
+
   return (
     <>
       <div className="hidden lg:flex items-center gap-8">
@@ -98,15 +121,8 @@ function DesktopNav({ user, login, logout, theme, toggleTheme, isLoading }: Read
         ))}
       </div>
 
-      <div className="hidden lg:flex items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-          className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
-        >
-          {theme === 'dark' ? <Sun className="size-6" /> : <Moon className="size-6" />}
-        </button>
+      <div className="hidden lg:flex items-center gap-6">
+        <NavButtons/>
 
         {isLoading && <div className="h-9 w-28 rounded-xl bg-foreground/10 animate-pulse" />}
         {!isLoading && (user
@@ -118,12 +134,11 @@ function DesktopNav({ user, login, logout, theme, toggleTheme, isLoading }: Read
   )
 }
 
-function MobileMenu({ user, login, logout, onClose }: Readonly<{
-  user: User | null
-  login: () => void
-  logout: () => void
+function MobileMenu({ onClose }: Readonly<{
   onClose: () => void
 }>) {
+  const { user, login, logout } = useAuth()
+
   return (
     <div className="lg:hidden flex flex-col border-t border-border">
       <div className="flex flex-col px-6 py-4">
@@ -177,8 +192,6 @@ function MobileMenu({ user, login, logout, onClose }: Readonly<{
 }
 
 export default function Navbar() {
-  const { user, login, logout, isLoading } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -186,7 +199,7 @@ export default function Navbar() {
       <div className="flex justify-between items-center h-navbar px-6">
         <Banner className="size-40" />
 
-        <DesktopNav user={user} login={login} logout={logout} theme={theme} toggleTheme={toggleTheme} isLoading={isLoading} />
+        <DesktopNav />
 
         <button
           type="button"
@@ -199,7 +212,7 @@ export default function Navbar() {
       </div>
 
       {mobileMenuOpen && (
-        <MobileMenu user={user} login={login} logout={logout} onClose={() => setMobileMenuOpen(false)} />
+        <MobileMenu onClose={() => setMobileMenuOpen(false)} />
       )}
     </nav>
   )

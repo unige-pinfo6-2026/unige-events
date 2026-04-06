@@ -110,7 +110,7 @@ export default function EventCalendar() {
     [navigate],
   )
 
-  if (loading) return <LoadingSpinner />
+  if (loading) return <LoadingSpinner />  
   if (error) return <InfoMessage type="error" message={error} />
 
   return (

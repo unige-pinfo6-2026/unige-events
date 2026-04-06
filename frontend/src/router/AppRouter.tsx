@@ -3,6 +3,7 @@ import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoadingPage from '@/pages/LoadingPage'
+import SearchPage from '@/pages/search/SearchPage'
 
 const LandingPage = lazy(() => import('@/pages/LandingPage'))
 const LoginPage = lazy(() => import('@/pages/login/LoginPage'))
@@ -29,7 +30,7 @@ const AppRouter = () => {
 
             <Route element={<PrivateRoute/>}>
               <Route path="/search">
-                <Route index element={<Navigate to="/search" replace />} />
+                <Route index element={<SearchPage />} />
               </Route>
 
               <Route path="/profile">

@@ -1,3 +1,9 @@
+import type React from "react"
+
+interface ButtonsWrapperProps {
+  children: React.ReactNode
+}
+
 interface ButtonProps {
   size?: keyof typeof sizes
   children: React.ReactNode
@@ -10,6 +16,14 @@ const sizes = {
   'sm': 'px-4 py-2 text-sm',
   'md': 'px-6 py-3 text-md',
   'lg': 'px-8 py-4 text-lg'
+}
+
+export function ButtonsWrapper({ children } : Readonly<ButtonsWrapperProps>) {
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+      {children}
+    </div>
+  )
 }
 
 export function ButtonPrimary({ size = 'md', children, onClick, type = 'button', disabled }: Readonly<ButtonProps>) {

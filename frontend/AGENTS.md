@@ -95,6 +95,36 @@ const cls = type === 'success' ? 'border-emerald-500/40 …' : 'border-error/40 
 
 Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, positions) et `src/components/utils/Toast.tsx` (variants). L'appliquer à tout nouveau composant avec des variantes.
 
+### Structure des fichiers — pages et composants
+
+#### Pages — miroir des routes
+Chaque page doit être placée dans un sous-dossier de `src/pages/` qui reflète exactement sa route. Le fichier principal s'appelle `<Nom>Page.tsx`.
+
+```
+Route /profile          → src/pages/profile/ProfilePage.tsx
+Route /profile/edit     → src/pages/profile/ProfileEditPage.tsx
+Route /event/:id        → src/pages/event/EventDetailPage.tsx
+Route /search           → src/pages/search/SearchPage.tsx
+```
+
+Les pages globales sans route dédiée (`LandingPage`, `NotFoundPage`, `LoadingPage`) restent directement dans `src/pages/`.
+
+#### Composants — organisation par domaine
+Les composants sont rangés par domaine fonctionnel, **pas** nécessairement calqués sur les routes :
+
+| Dossier | Contenu |
+|---|---|
+| `components/event/` | Tout ce qui concerne l'affichage d'un événement (`EventCard`, `EventForm`…) |
+| `components/calendar/` | Composants liés au calendrier (`EventCalendar`…) |
+| `components/user/` | Avatar, identité utilisateur (`UserAvatar`, `UserIdentity`…) |
+| `components/faculty/` | Composants liés aux facultés |
+| `components/auth/` | Composants liés à l'authentification |
+| `components/utils/` | Composants génériques réutilisables partout (`Buttons`, `Toast`, `Blobs`…) |
+
+Utiliser le **singulier** pour les noms de dossiers (`event/`, `calendar/`, `user/`) — pas `events/` ni `calendars/`.
+
+Un composant qui n'appartient clairement qu'à un seul domaine va dans le dossier de ce domaine. Un composant transversal va dans `utils/`. Les composants de layout global (`Navbar`, `Layout`, `Footer`) restent à la racine de `src/components/`.
+
 ### Routing et auth
 - Toutes les routes protégées passent par `PrivateRoute` (vérifie `isAuthenticated` via `AuthContext`)
 - Le token JWT est stocké en localStorage sous la clé `access_token` — ne pas changer cette clé
@@ -115,6 +145,19 @@ Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, po
 - Toujours typer les props, les réponses API, et les états
 - Ne jamais redéfinir les types d'entités hors de `src/types/`
 
+### Imports — toujours utiliser l'alias `@`
+`@` est un alias vers `src/` (configuré dans `tsconfig.app.json`). **Toujours utiliser `@/` pour les imports internes** — jamais de chemins relatifs avec `../`.
+
+```ts
+// ✅ Correct
+import { api } from '@/services/api'
+import type { Event } from '@/types/event'
+
+// ❌ Interdit
+import { api } from '../../services/api'
+import type { Event } from '../types/event'
+```
+
 ## Contrat API
 `openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
 
@@ -131,8 +174,8 @@ Pour les **pages derrière une route privée** (authentification requise), prend
 |---|---|---|
 | `ButtonPrimary`, `ButtonSecondary` | `@/components/utils/Buttons` | Tous les boutons d'action |
 | `BlobsHero`, `BlobsSubtle`, `BlobsCta`, `Blobs` | `@/components/utils/Blobs` | Fonds décoratifs de sections |
-| `SectionWrapper` | inline dans la page (pattern à reproduire) | Wrapper standard de section |
-| `SectionHeader` | inline dans la page (pattern à reproduire) | Titre + sous-titre de section |
+| `SectionWrapper` | `@/components/utils/Section` | Wrapper standard de section (props : `padding`, `size`, `background`, `footer`) |
+| `SectionHeader` | `@/components/utils/Section` | Titre + sous-titre de section (prop : `heading`, `align`) |
 | `Marquee` | `@/components/utils/Marquee` | Défilement horizontal |
 | `FormField` | `@/components/utils/FormField` | Champs de formulaire |
 | `Toast` | `@/components/utils/Toast` | Notifications |
@@ -141,13 +184,28 @@ Pour les **pages derrière une route privée** (authentification requise), prend
 Toujours utiliser `lucide-react` pour les icônes. Ne jamais utiliser d'autres librairies d'icônes ni des SVG inline ad hoc.
 
 ### Pattern de section
-Chaque grande section de page suit ce pattern :
+Chaque grande section de page utilise `SectionWrapper` + `SectionHeader` depuis `@/components/utils/Section` :
+
 ```tsx
-<SectionWrapper id="mon-id" className="py-20 lg:py-32 bg-foreground/2" background={<BlobsSubtle />}>
+<SectionWrapper id="mon-id" background={<BlobsSubtle />}>
   <SectionHeader title="Titre" subtitle="Sous-titre optionnel" />
   {/* contenu */}
 </SectionWrapper>
 ```
+
+**Variants `SectionWrapper`** — toujours utiliser les props typées, jamais de `className` libre :
+
+| Prop | Valeurs | Défaut | Effet |
+|---|---|---|---|
+| `padding` | `hero` · `md` · `sm` · `bottom` | `md` | Espacement vertical de la section |
+| `size` | `xl` · `lg` · `md` | `xl` | Largeur max du contenu (`max-w-7xl` / `5xl` / `3xl`) |
+| `tint` | `boolean` | `false` | Ajoute `bg-foreground/2` (fond légèrement teinté) |
+
+**Variant `SectionHeader`** :
+
+| Prop | Valeurs | Défaut |
+|---|---|---|
+| `align` | `center` · `left` | `center` |
 
 ### Typographie
 - Titres héros : `text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]`

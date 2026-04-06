@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
-import { useSearch } from '../../hooks/useSearch'
+import { useSearch } from '@/hooks/useSearch'
 
 function useSearchAndParams() {
   const search = useSearch()
@@ -13,12 +13,12 @@ function useSearchAndParams() {
   return { ...search, searchParams }
 }
 
-vi.mock('../../services/searchApi', () => ({
+vi.mock('@/services/searchApi', () => ({
   searchEvents: vi.fn(),
   fetchSuggestions: vi.fn(),
 }))
 
-import { fetchSuggestions, searchEvents } from '../../services/searchApi'
+import { fetchSuggestions, searchEvents } from '@/services/searchApi'
 
 const mockSearchEvents = searchEvents as ReturnType<typeof vi.fn>
 const mockFetchSuggestions = fetchSuggestions as ReturnType<typeof vi.fn>
@@ -65,25 +65,34 @@ describe('useSearch', () => {
     })
     expect(result.current.results).toEqual([])
     expect(result.current.suggestions).toEqual([])
-    expect(result.current.loading).toBe(false)
+    expect(result.current.loading).toBe(true)
     expect(result.current.error).toBeNull()
   })
 
-  it('does not call searchEvents before 2000ms when only query changes', async () => {
+  it('debounces search', async () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
+
+    mockSearchEvents.mockClear()
 
     act(() => {
       result.current.setQuery('foo')
     })
 
     act(() => {
-      vi.advanceTimersByTime(1999)
+      vi.advanceTimersByTime(399)
     })
 
     expect(mockSearchEvents).not.toHaveBeenCalled()
+
+    await act(async () => {
+      vi.advanceTimersByTime(1)
+      await Promise.resolve()
+    })
+
+    expect(mockSearchEvents).toHaveBeenCalledTimes(1)
   })
 
-  it('triggers searchEvents after 2000ms debounce for query changes', async () => {
+  it('triggers searchEvents after debounce for query changes', async () => {
     mockSearchEvents.mockResolvedValue(mockEvents)
 
     const { result } = renderHook(() => useSearch(), { wrapper })
@@ -151,7 +160,6 @@ describe('useSearch', () => {
     expect(result.current.results).toEqual(mockEvents)
   })
 
-  // Fix 3: loading starts immediately when user starts typing
   it('sets loading to true immediately when query becomes non-empty', () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
 
