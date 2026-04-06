@@ -22,7 +22,7 @@ public class ShareService {
     @Transactional
     public ShareResponse getShareInfo(Long eventId) {
         Event event = Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
         if (event.shareCode == null) {
             event.shareCode = generateCode();
@@ -35,7 +35,7 @@ public class ShareService {
     @Transactional
     public Event resolveByShortCode(String shortCode) {
         return Event.findByShareCode(shortCode)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Share code not found"));
     }
 
     private String generateCode() {

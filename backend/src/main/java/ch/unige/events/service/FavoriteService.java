@@ -19,7 +19,7 @@ public class FavoriteService {
     public void addFavorite(String auth0Id, Long eventId) {
         // Vérifier que l'événement existe
         Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
         UUID userId = resolveUserId(auth0Id);
 
@@ -40,7 +40,7 @@ public class FavoriteService {
         UUID userId = resolveUserId(auth0Id);
 
         Favorite favorite = Favorite.findByUserAndEvent(userId, eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Favorite not found"));
 
         favorite.delete();
     }
@@ -59,7 +59,7 @@ public class FavoriteService {
     private UUID resolveUserId(String auth0Id) {
         return User.<User>find("auth0Id", auth0Id)
                 .firstResultOptional()
-                .orElseThrow(NotFoundException::new)
+                .orElseThrow(() -> new NotFoundException("User profile not found"))
                 .id;
     }
 }

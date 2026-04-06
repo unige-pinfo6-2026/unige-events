@@ -5,14 +5,12 @@ import ch.unige.events.service.ShareService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.net.URI;
 
 @Path("/s")
-@Produces(MediaType.APPLICATION_JSON)
 public class RedirectResource {
 
     private final ShareService shareService;
