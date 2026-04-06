@@ -1,5 +1,7 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.service.AttendanceServiceMock;
+import ch.unige.events.service.CalendarServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
 import ch.unige.events.service.UserServiceMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -22,11 +24,14 @@ class UserResourceTest {
 
     @Inject UserServiceMock userServiceMock;
     @Inject FavoriteServiceMock favoriteServiceMock;
+    @Inject CalendarServiceMock calendarServiceMock;
+    @Inject AttendanceServiceMock attendanceServiceMock;
 
     @BeforeEach
     void setUp() {
         userServiceMock.reset();
         favoriteServiceMock.reset();
+        attendanceServiceMock.reset();
     }
 
     @Test
@@ -299,6 +304,61 @@ class UserResourceTest {
     void getMyFavorites_unauthenticated_returns401() {
         given()
             .when().get("/users/me/favorites")
+            .then()
+            .statusCode(401);
+    }
+
+    // --- GET /users/me/calendar-token ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getCalendarToken_authenticated_returns200() {
+        given()
+            .when().get("/users/me/calendar-token")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("calendarToken", notNullValue())
+            .body("webcalUrl", notNullValue())
+            .body("httpsUrl", notNullValue());
+    }
+
+    @Test
+    void getCalendarToken_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/calendar-token")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void regenerateCalendarToken_authenticated_returns200() {
+        given()
+            .when().delete("/users/me/calendar-token")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("calendarToken", notNullValue());
+    }
+
+    // --- GET /users/me/attendances ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyAttendances_authenticated_returns200() {
+        given()
+            .when().get("/users/me/attendances")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    void getMyAttendances_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/attendances")
             .then()
             .statusCode(401);
     }

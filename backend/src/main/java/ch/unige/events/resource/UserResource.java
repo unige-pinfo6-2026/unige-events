@@ -1,11 +1,15 @@
 package ch.unige.events.resource;
 
 import ch.unige.events.dto.*;
+import ch.unige.events.dto.attendance.AttendanceDTO;
+import ch.unige.events.dto.calendar.CalendarTokenResponse;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
 import ch.unige.events.entity.User;
+import ch.unige.events.service.AttendanceService;
+import ch.unige.events.service.CalendarService;
 import ch.unige.events.service.FavoriteService;
 import ch.unige.events.service.UserService;
 import io.quarkus.security.Authenticated;
@@ -44,6 +48,8 @@ public class UserResource {
     @Inject UserService userService;
     @Inject JsonWebToken jwt;
     @Inject FavoriteService favoriteService;
+    @Inject CalendarService calendarService;
+    @Inject AttendanceService attendanceService;
 
     /**
      * GET /api/users/{id}
@@ -222,5 +228,26 @@ public class UserResource {
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
         String auth0Id = identity.getPrincipal().getName();
         return favoriteService.getFavorites(auth0Id, page, size);
+    }
+
+    @GET
+    @Path("/me/calendar-token")
+    @Authenticated
+    public CalendarTokenResponse getMyCalendarToken() {
+        return calendarService.getOrCreateToken(identity.getPrincipal().getName());
+    }
+
+    @DELETE
+    @Path("/me/calendar-token")
+    @Authenticated
+    public CalendarTokenResponse regenerateMyCalendarToken() {
+        return calendarService.regenerateToken(identity.getPrincipal().getName());
+    }
+
+    @GET
+    @Path("/me/attendances")
+    @Authenticated
+    public List<AttendanceDTO> getMyAttendances() {
+        return attendanceService.getMyAttendances(identity.getPrincipal().getName());
     }
 }

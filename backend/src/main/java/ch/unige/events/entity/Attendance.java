@@ -5,24 +5,27 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Entity
 @Table(
-    name = "favorites",
+    name = "attendances",
     uniqueConstraints = @UniqueConstraint(
-        name = "uq_favorite_user_event",
+        name = "uq_attendance_user_event",
         columnNames = {"user_id", "event_id"}
     )
 )
-public class Favorite extends PanacheEntity {
+public class Attendance extends PanacheEntity {
 
     @Column(name = "user_id", nullable = false)
     public UUID userId;
 
     @Column(name = "event_id", nullable = false)
     public Long eventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    public AttendanceStatus status;
 
     @Column(updatable = false)
     public LocalDateTime createdAt;
@@ -32,15 +35,13 @@ public class Favorite extends PanacheEntity {
         createdAt = LocalDateTime.now();
     }
 
-    public static Optional<Favorite> findByUserAndEvent(UUID userId, Long eventId) {
-        return find("userId = ?1 and eventId = ?2", userId, eventId).firstResultOptional();
-    }
-
-    public static List<Favorite> findByUser(UUID userId, int page, int size) {
-        return find("userId = ?1 order by createdAt desc", userId)
+    public static List<Attendance> findByEvent(Long eventId, int page, int size) {
+        return find("eventId = ?1", eventId)
                 .page(page, size)
                 .list();
     }
 
-
+    public static List<Attendance> findAllByUser(UUID userId) {
+        return list("userId = ?1", userId);
+    }
 }

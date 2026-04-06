@@ -22,6 +22,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `profilePublic` | `profilePublic` | `boolean` | `profile_public` | default `false` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | immutable, defaults to `now()` |
 | `version` | `version` | `Long` | `version` | `@Version` (optimistic locking) |
+| `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
 Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
 
@@ -68,6 +69,26 @@ Contrainte unique : `uq_favorite_user_event` sur `(user_id, event_id)`.
 Suppression physique autorisée (pas de soft-delete).
 
 Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByUser(UUID, int, int)`.
+
+---
+
+### Attendance
+
+Table : `attendances`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `status` | `status` | `AttendanceStatus` | `status` | not null, `@Enumerated(STRING)` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
+
+Upsert : un utilisateur n'a qu'une seule inscription par événement — le statut est mis à jour si l'inscription existe.
+
+Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`.
 
 ---
 

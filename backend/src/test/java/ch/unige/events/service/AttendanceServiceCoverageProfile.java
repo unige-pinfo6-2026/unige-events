@@ -5,7 +5,7 @@ import io.quarkus.test.junit.QuarkusTestProfile;
 import java.util.HashMap;
 import java.util.Map;
 
-public class FavoriteServiceCoverageProfile implements QuarkusTestProfile {
+public class AttendanceServiceCoverageProfile implements QuarkusTestProfile {
 
     @Override
     public Map<String, String> getConfigOverrides() {

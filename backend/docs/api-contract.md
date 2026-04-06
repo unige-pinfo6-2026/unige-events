@@ -22,6 +22,13 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/users/me/favorites` | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
 | `GET` | `/events/{id}/share` | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
 | `GET` | `/s/{shortCode}` | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
+| `GET` | `/users/me/calendar-token` | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
+| `DELETE` | `/users/me/calendar-token` | `@Authenticated` | Révoquer et régénérer le token | 200, 401 |
+| `GET` | `/calendar/{calendarToken}.ics` | `@PermitAll` | Flux iCalendar des inscriptions explicites (INTERESTED + ATTENDING) | 200, 404 |
+| `POST` | `/events/{id}/attend` | `@Authenticated` | Upsert inscription (INTERESTED/ATTENDING) — 409 si capacité pleine | 200, 401, 404, 409 |
+| `DELETE` | `/events/{id}/attend` | `@Authenticated` | Se désinscrire | 204, 401, 404 |
+| `GET` | `/events/{id}/attendees` | `@Authenticated` | Liste paginée des inscriptions (créateur uniquement) | 200, 401, 403, 404 |
+| `GET` | `/users/me/attendances` | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
 
 ---
 
@@ -123,12 +130,9 @@ Crée un nouvel événement.
 | `GET` | `/events/{id}` | Sprint 2 | Détail d'un événement |
 | `PUT` | `/events/{id}` | Sprint 2 | Modifier un événement (créateur/admin) |
 | `DELETE` | `/events/{id}` | Sprint 2 | Soft-delete (`active = false`) |
-| `POST` | `/events/{id}/attend` | Sprint 4 | S'inscrire (INTERESTED / ATTENDING) |
-| `DELETE` | `/events/{id}/attend` | Sprint 4 | Se désinscrire |
 | `POST` | `/events/{id}/favorite` | Sprint 4 | Ajouter aux favoris |
 | `DELETE` | `/events/{id}/favorite` | Sprint 4 | Retirer des favoris |
 | `GET` | `/users/me/favorites` | Sprint 4 | Favoris de l'utilisateur connecté |
-| `GET` | `/events/{id}/attendees` | Sprint 4 | Liste des participants publics |
 | `GET` | `/events/{id}/stats` | Sprint 5 | Stats organisateur (vues, inscriptions) |
 | `POST` | `/events/{id}/report` | Sprint 6 | Signaler un événement |
 | `GET` | `/admin/reports` | Sprint 6 | Liste des signalements (admin) |
