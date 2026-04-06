@@ -4,15 +4,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import AppRouter from '../../router/AppRouter'
-import { AuthProvider } from '../../contexts/AuthContext'
+import AppRouter from '@/router/AppRouter'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
   Auth0Provider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('../../services/userService', () => ({
+vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
 }))
 
@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 describe('AppRouter', () => {
-  it('redirects / to /home', async () => {
+  it('shows landing page at /', async () => {
     mockUseAuth0.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -48,7 +48,7 @@ describe('AppRouter', () => {
     expect(await screen.findByText(/Événements à venir/i)).toBeTruthy()
   })
 
-  it('redirects unknown routes to /home', async () => {
+  it('shows 404 page for unknown routes', async () => {
     mockUseAuth0.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -66,7 +66,7 @@ describe('AppRouter', () => {
       </AuthProvider>,
     )
 
-    expect(await screen.findByText(/Événements à venir/i)).toBeTruthy()
+    expect(await screen.findByText('Page introuvable')).toBeTruthy()
   })
 
   it('blocks protected routes when not authenticated', async () => {
@@ -81,15 +81,12 @@ describe('AppRouter', () => {
 
     render(
       <AuthProvider>
-        <MemoryRouter initialEntries={['/home']}>
+        <MemoryRouter initialEntries={['/events']}>
           <AppRouter />
         </MemoryRouter>
       </AuthProvider>,
     )
 
-    expect(
-      await screen.findByRole('heading', { name: 'UNIGE Events' }),
-    ).toBeTruthy()
-    expect(screen.queryByText('Accueil')).toBeNull()
+    expect(await screen.findByText(/Redirection vers la page de connexion/)).toBeTruthy()
   })
 })

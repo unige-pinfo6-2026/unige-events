@@ -1,20 +1,23 @@
-import type { ReactNode } from 'react'
-import { useTheme } from '../contexts/ThemeContext'
-import Navbar from './Navbar'
-import './Layout.css'
+import Header from './Header'
+import Footer from './Footer'
+import Toast from './utils/Toast'
+import { useAuth } from '@/hooks/useAuth'
+import { Outlet } from 'react-router-dom'
 
-interface LayoutProps {
-  children: ReactNode
-}
+export default function Layout() {
+  const { error } = useAuth()
 
-function Layout({ children }: Readonly<LayoutProps>) {
-  const { theme } = useTheme()
   return (
-    <div className="layout" data-theme={theme}>
-      <Navbar />
-      <main className="layout-main">{children}</main>
+    <div className="min-h-screen bg-background text-foreground">
+      <Header/>
+
+      <main className="flex-1">
+        <Outlet/>
+      </main>
+
+      <Footer/>
+
+      {error != null && <Toast type="error" message={error} />}
     </div>
   )
 }
-
-export default Layout

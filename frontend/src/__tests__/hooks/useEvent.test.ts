@@ -2,15 +2,15 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { useEvent } from '../../hooks/useEvent'
+import { useEvent } from '@/hooks/useEvent'
 
-vi.mock('../../services/eventApi', () => ({
+vi.mock('@/services/eventApi', () => ({
   getById: vi.fn(),
   getAll: vi.fn(),
   deleteEvent: vi.fn(),
 }))
 
-import { getById } from '../../services/eventApi'
+import { getById } from '@/services/eventApi'
 
 const mockGetById = getById as ReturnType<typeof vi.fn>
 

@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react'
-import type { SearchFilters } from '../hooks/useSearch'
-import { EventCategory, Faculty } from '../types'
+import type { SearchFilters } from '@/hooks/useSearch'
+import { EventCategory, Faculty } from '@/types'
 
 const CATEGORY_LABELS: Record<string, string> = {
   ACADEMIC: 'Académique',
@@ -29,6 +29,14 @@ interface FilterSidebarProps {
   resetFilters: () => void
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-3">
+      {children}
+    </p>
+  )
+}
+
 function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
   function handleFacultyChange(e: ChangeEvent<HTMLSelectElement>) {
     setFilters({
@@ -45,66 +53,27 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
     setFilters({ ...filters, dateTo: e.target.value || undefined })
   }
 
-  const sectionLabelStyle: React.CSSProperties = {
-    fontWeight: 700,
-    fontSize: '0.8rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    color: 'var(--text-muted)',
-    marginBottom: '0.75rem',
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '0.4rem 0.5rem',
-    borderRadius: 8,
-    border: '1px solid var(--input-border)',
-    background: 'var(--input-bg)',
-    color: 'var(--text-primary)',
-    fontSize: '0.875rem',
-    boxSizing: 'border-box',
-  }
-
   return (
-    <aside
-      style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--card-border)',
-        borderRadius: 16,
-        padding: '1.5rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.25rem',
-        transition: 'background 0.3s, border-color 0.3s',
-      }}
-    >
-      
-
+    <aside className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6 flex flex-col gap-5">
       {/* Category */}
       <div>
-        <div style={sectionLabelStyle}>Catégorie</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <SectionLabel>Catégorie</SectionLabel>
+        <div className="flex flex-col gap-2">
           {Object.values(EventCategory).map((cat) => (
             <label
               key={cat}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                color: 'var(--text-primary)',
-              }}
+              className="flex items-center gap-2.5 cursor-pointer text-sm text-foreground/70 hover:text-foreground transition-colors"
             >
               <input
-                type='radio'
-                name='category'
+                type="radio"
+                name="category"
                 value={cat}
                 checked={filters.category === cat}
                 onChange={() => setFilters({ ...filters, category: cat })}
                 onClick={() => {
                   if (filters.category === cat) setFilters({ ...filters, category: undefined })
                 }}
+                className="accent-accent"
               />
               {CATEGORY_LABELS[cat]}
             </label>
@@ -112,105 +81,79 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
         </div>
       </div>
 
+      <div className="border-t border-border/50" />
+
       {/* Faculty — TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event */}
       <div>
-        <div style={sectionLabelStyle}>Faculté</div>
+        <SectionLabel>Faculté</SectionLabel>
         <select
           value={filters.faculty ?? ''}
           onChange={handleFacultyChange}
           disabled
-          aria-disabled='true'
-          style={{ ...inputStyle, padding: '0.5rem', opacity: 0.5, cursor: 'not-allowed' }}
+          aria-disabled="true"
+          className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-sm opacity-50 cursor-not-allowed"
         >
-          <option value=''>Toutes les facultés</option>
+          <option value="">Toutes les facultés</option>
           {Object.values(Faculty).map((fac) => (
             <option key={fac} value={fac}>
               {FACULTY_LABELS[fac]}
             </option>
           ))}
         </select>
-        <p
-          style={{
-            margin: '0.25rem 0 0',
-            fontSize: '0.75rem',
-            color: 'var(--text-muted)',
-          }}
-        >
-          Bientôt disponible
-        </p>
+        <p className="mt-1.5 text-xs text-foreground/30">Bientôt disponible</p>
       </div>
+
+      <div className="border-t border-border/50" />
 
       {/* Date range */}
       <div>
-        <div style={sectionLabelStyle}>Date</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <SectionLabel>Date</SectionLabel>
+        <div className="flex flex-col gap-3">
           <div>
-            <label
-              htmlFor='filter-date-from'
-              style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}
-            >
+            <label htmlFor="filter-date-from" className="block text-xs text-foreground/50 mb-1.5">
               De
             </label>
             <input
-              id='filter-date-from'
-              type='date'
+              id="filter-date-from"
+              type="date"
               value={filters.dateFrom ?? ''}
               onChange={handleDateFromChange}
-              style={inputStyle}
+              className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-foreground text-sm focus:border-accent/60 focus:outline-none transition-colors"
             />
           </div>
           <div>
-            <label
-              htmlFor='filter-date-to'
-              style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}
-            >
+            <label htmlFor="filter-date-to" className="block text-xs text-foreground/50 mb-1.5">
               Au
             </label>
             <input
-              id='filter-date-to'
-              type='date'
+              id="filter-date-to"
+              type="date"
               value={filters.dateTo ?? ''}
               onChange={handleDateToChange}
-              style={inputStyle}
+              className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-foreground text-sm focus:border-accent/60 focus:outline-none transition-colors"
             />
           </div>
         </div>
       </div>
 
+      <div className="border-t border-border/50" />
+
       {/* Include past events */}
-      <label
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          cursor: 'pointer',
-          fontSize: '0.875rem',
-          color: 'var(--text-primary)',
-        }}
-      >
+      <label className="flex items-center gap-2.5 cursor-pointer text-sm text-foreground/70 hover:text-foreground transition-colors">
         <input
-          type='checkbox'
+          type="checkbox"
           checked={filters.includePast}
           onChange={() => setFilters({ ...filters, includePast: !filters.includePast })}
+          className="accent-accent"
         />
-        {'Afficher les événements passés'}
+        Afficher les événements passés
       </label>
-      
 
       {/* Reset */}
       <button
-        type='button'
+        type="button"
         onClick={resetFilters}
-        style={{
-          padding: '0.5rem',
-          borderRadius: 8,
-          border: '1px solid var(--input-border)',
-          background: 'var(--btn-secondary-bg)',
-          color: 'var(--text-secondary)',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
+        className="w-full py-2.5 rounded-xl border border-border hover:border-accent/40 text-foreground/60 hover:text-foreground text-sm font-semibold transition-colors cursor-pointer bg-transparent"
       >
         Réinitialiser les filtres
       </button>

@@ -133,16 +133,22 @@ export function useSearch(): UseSearchResult {
     }
   }, [])
 
-  // Fix 1: 2000ms debounce applies only to text input changes (query)
-  // Filter changes go through setFilters which calls performSearch immediately
+  // On initial mount: search immediately (no debounce).
+  // On subsequent query changes (user typing): 2000ms debounce.
+  const isFirstRender = useRef(true)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      performSearch(query, filtersRef.current)
+      return
+    }
     const timer = setTimeout(() => {
       if (skipNextDebounce.current) {
         skipNextDebounce.current = false
         return
       }
       performSearch(query, filtersRef.current)
-    }, 2000)
+    }, 400)
     return () => clearTimeout(timer)
   }, [query, performSearch])
 

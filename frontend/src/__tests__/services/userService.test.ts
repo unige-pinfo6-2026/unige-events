@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { getMe, getUserById, updateProfile, uploadPhoto } from '../../services/userService'
+import { getMe, getUserById, updateProfile, uploadPhoto } from '@/services/userService'
 
-vi.mock('../../services/api', () => ({
+vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
     put: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock('../../services/api', () => ({
   },
 }))
 
-import api from '../../services/api'
+import api from '@/services/api'
 
 const mockApiGet = api.get as ReturnType<typeof vi.fn>
 const mockApiPut = api.put as ReturnType<typeof vi.fn>

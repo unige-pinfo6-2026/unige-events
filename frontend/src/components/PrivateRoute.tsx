@@ -1,27 +1,11 @@
-import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { Navigate, Outlet } from "react-router-dom"
+import { useAuth } from "@/hooks/useAuth"
+import { LoadingSpinner } from "./utils/LoadingSpinner"
 
-type PrivateRouteProps = {
-  children: ReactNode
-}
-
-function PrivateRoute({ children }: PrivateRouteProps) {
+export default function PrivateRoute() {
   const { isAuthenticated, isLoading } = useAuth()
 
-  if (isLoading) {
-    return (
-      <div className="loading-screen">
-        <div className="spinner" />
-      </div>
-    )
-  }
+  if (isLoading) return <LoadingSpinner />
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  return <>{children}</>
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" />
 }
-
-export default PrivateRoute

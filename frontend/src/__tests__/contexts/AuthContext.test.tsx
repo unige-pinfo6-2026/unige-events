@@ -2,16 +2,16 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import { AuthProvider, AuthContext } from '../../contexts/AuthContext'
+import { AuthProvider, AuthContext } from '@/contexts/AuthContext'
 import { useContext } from 'react'
 
 vi.mock('@auth0/auth0-react', () => ({ useAuth0: vi.fn() }))
-vi.mock('../../services/userService', () => ({ getMe: vi.fn() }))
-vi.mock('../../services/tokenStore', () => ({ setToken: vi.fn() }))
+vi.mock('@/services/userService', () => ({ getMe: vi.fn() }))
+vi.mock('@/services/tokenStore', () => ({ setToken: vi.fn() }))
 
 import { useAuth0 } from '@auth0/auth0-react'
-import { getMe } from '../../services/userService'
-import { setToken } from '../../services/tokenStore'
+import { getMe } from '@/services/userService'
+import { setToken } from '@/services/tokenStore'
 
 const mockUseAuth0 = useAuth0 as ReturnType<typeof vi.fn>
 const mockGetMe = getMe as ReturnType<typeof vi.fn>

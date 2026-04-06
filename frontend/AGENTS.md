@@ -32,6 +32,99 @@ Model      → hooks/ et contexts/             (état applicatif)
 - Les composants partagés vont dans `src/components/`
 - Séparer la logique métier du rendu : extraire dans un hook (`src/hooks/`) ou un service (`src/services/`) si un composant fait des appels API ou contient de la logique complexe
 
+### DRY — Don't Repeat Yourself
+- **Ne jamais dupliquer des données ou de la logique** : si la même liste de liens, de labels ou de classes apparaît à deux endroits, extraire dans une const array ou un composant.
+- Les listes de données statiques (liens de nav, sections de menu, options de filtre…) se déclarent comme **const arrays typées en dehors des composants** et sont réutilisées partout où elles sont nécessaires (desktop, mobile, tests…).
+- Un composant extrait se justifie dès que la même structure JSX apparaît deux fois. En dessous de deux occurrences, l'inline est préférable.
+- Le composant local (défini dans le même fichier, non exporté) est la bonne réponse quand la structure se répète uniquement dans ce fichier. Ne pas créer un fichier dédié pour chaque micro-composant.
+
+```tsx
+// ✅ Correct — const array partagée entre desktop et mobile
+const navLinks = [
+  { href: '/#events', label: 'En ce moment' },
+  { href: '/#faq', label: 'FAQ' },
+]
+// utilisée dans le rendu desktop ET mobile
+
+// ❌ Interdit — même liste dupliquée dans deux blocs JSX
+```
+
+```tsx
+// ✅ Correct — structure JSX répétée → composant local dans le même fichier
+function AboutRow({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 text-sm text-foreground/60">
+      <Icon className="w-5 h-5 shrink-0 text-foreground/30" />
+      <span className="truncate">{children}</span>
+    </div>
+  )
+}
+// utilisé N fois dans le même composant parent
+<AboutRow icon={Mail}>{profile.email}</AboutRow>
+<AboutRow icon={GraduationCap}>{profile.studyLevel}</AboutRow>
+
+// ❌ Interdit — même div/classe copiée-collée à chaque occurrence
+<div className="flex items-center gap-3 text-sm text-foreground/60">
+  <Mail className="w-5 h-5 shrink-0 text-foreground/30" />
+  <span className="truncate">{profile.email}</span>
+</div>
+<div className="flex items-center gap-3 text-sm text-foreground/60">
+  <GraduationCap className="w-5 h-5 shrink-0 text-foreground/30" />
+  <span className="truncate">{profile.studyLevel}</span>
+</div>
+```
+
+### Pattern variants — const maps typées
+
+Pour tout composant qui accepte des variantes visuelles (couleur, taille, position…), **ne jamais utiliser de ternaires ou de switch inline**. Déclarer des const maps typées en dehors du composant, puis indexer avec la prop :
+
+```tsx
+// ✅ Correct
+const variants = {
+  success: 'border-emerald-500/40 text-emerald-400',
+  error:   'border-error/40 text-error',
+}
+
+function MyComponent({ type }: { type: keyof typeof variants }) {
+  return <div className={variants[type]}>…</div>
+}
+
+// ❌ Interdit
+const cls = type === 'success' ? 'border-emerald-500/40 …' : 'border-error/40 …'
+```
+
+Ce pattern est en place dans `src/components/utils/Blobs.tsx` (colors, sizes, positions) et `src/components/utils/Toast.tsx` (variants). L'appliquer à tout nouveau composant avec des variantes.
+
+### Structure des fichiers — pages et composants
+
+#### Pages — miroir des routes
+Chaque page doit être placée dans un sous-dossier de `src/pages/` qui reflète exactement sa route. Le fichier principal s'appelle `<Nom>Page.tsx`.
+
+```
+Route /profile          → src/pages/profile/ProfilePage.tsx
+Route /profile/edit     → src/pages/profile/ProfileEditPage.tsx
+Route /event/:id        → src/pages/event/EventDetailPage.tsx
+Route /search           → src/pages/search/SearchPage.tsx
+```
+
+Les pages globales sans route dédiée (`LandingPage`, `NotFoundPage`, `LoadingPage`) restent directement dans `src/pages/`.
+
+#### Composants — organisation par domaine
+Les composants sont rangés par domaine fonctionnel, **pas** nécessairement calqués sur les routes :
+
+| Dossier | Contenu |
+|---|---|
+| `components/event/` | Tout ce qui concerne l'affichage d'un événement (`EventCard`, `EventForm`…) |
+| `components/calendar/` | Composants liés au calendrier (`EventCalendar`…) |
+| `components/user/` | Avatar, identité utilisateur (`UserAvatar`, `UserIdentity`…) |
+| `components/faculty/` | Composants liés aux facultés |
+| `components/auth/` | Composants liés à l'authentification |
+| `components/utils/` | Composants génériques réutilisables partout (`Buttons`, `Toast`, `Blobs`…) |
+
+Utiliser le **singulier** pour les noms de dossiers (`event/`, `calendar/`, `user/`) — pas `events/` ni `calendars/`.
+
+Un composant qui n'appartient clairement qu'à un seul domaine va dans le dossier de ce domaine. Un composant transversal va dans `utils/`. Les composants de layout global (`Navbar`, `Layout`, `Footer`) restent à la racine de `src/components/`.
+
 ### Routing et auth
 - Toutes les routes protégées passent par `PrivateRoute` (vérifie `isAuthenticated` via `AuthContext`)
 - Le token JWT est stocké en localStorage sous la clé `access_token` — ne pas changer cette clé
@@ -52,8 +145,119 @@ Model      → hooks/ et contexts/             (état applicatif)
 - Toujours typer les props, les réponses API, et les états
 - Ne jamais redéfinir les types d'entités hors de `src/types/`
 
+### Imports — toujours utiliser l'alias `@`
+`@` est un alias vers `src/` (configuré dans `tsconfig.app.json`). **Toujours utiliser `@/` pour les imports internes** — jamais de chemins relatifs avec `../`.
+
+```ts
+// ✅ Correct
+import { api } from '@/services/api'
+import type { Event } from '@/types/event'
+
+// ❌ Interdit
+import { api } from '../../services/api'
+import type { Event } from '../types/event'
+```
+
 ## Contrat API
 `openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un service dans `src/services/`, vérifier que l'endpoint existe dans ce fichier et noter les noms de champs exacts retournés.
+
+## Design & UI — "faut que ça claque"
+
+### Référence visuelle
+`src/pages/LandingPage.tsx` est la **référence de style** du projet. Toute nouvelle page ou section doit s'aligner sur ce niveau de qualité visuelle : typographie grande et grasse, fonds avec blobs animés, cards glassmorphism, gradients sur les accents.
+
+Pour les **pages derrière une route privée** (authentification requise), prendre `src/pages/calendar/CalendarPage.tsx` comme inspiration.
+
+### Composants utilitaires à utiliser en priorité
+
+| Composant | Import | Usage |
+|---|---|---|
+| `ButtonPrimary`, `ButtonSecondary` | `@/components/utils/Buttons` | Tous les boutons d'action |
+| `BlobsHero`, `BlobsSubtle`, `BlobsCta`, `Blobs` | `@/components/utils/Blobs` | Fonds décoratifs de sections |
+| `SectionWrapper` | `@/components/utils/Section` | Wrapper standard de section (props : `padding`, `size`, `background`, `footer`) |
+| `SectionHeader` | `@/components/utils/Section` | Titre + sous-titre de section (prop : `heading`, `align`) |
+| `Marquee` | `@/components/utils/Marquee` | Défilement horizontal |
+| `FormField` | `@/components/utils/FormField` | Champs de formulaire |
+| `Toast` | `@/components/utils/Toast` | Notifications |
+
+### Icônes — lucide-react uniquement
+Toujours utiliser `lucide-react` pour les icônes. Ne jamais utiliser d'autres librairies d'icônes ni des SVG inline ad hoc.
+
+### Pattern de section
+Chaque grande section de page utilise `SectionWrapper` + `SectionHeader` depuis `@/components/utils/Section` :
+
+```tsx
+<SectionWrapper id="mon-id" background={<BlobsSubtle />}>
+  <SectionHeader title="Titre" subtitle="Sous-titre optionnel" />
+  {/* contenu */}
+</SectionWrapper>
+```
+
+**Variants `SectionWrapper`** — toujours utiliser les props typées, jamais de `className` libre :
+
+| Prop | Valeurs | Défaut | Effet |
+|---|---|---|---|
+| `padding` | `hero` · `md` · `sm` · `bottom` | `md` | Espacement vertical de la section |
+| `size` | `xl` · `lg` · `md` | `xl` | Largeur max du contenu (`max-w-7xl` / `5xl` / `3xl`) |
+| `tint` | `boolean` | `false` | Ajoute `bg-foreground/2` (fond légèrement teinté) |
+
+**Variant `SectionHeader`** :
+
+| Prop | Valeurs | Défaut |
+|---|---|---|
+| `align` | `center` · `left` | `center` |
+
+### Typographie
+- Titres héros : `text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]`
+- Titres de sections : `text-5xl lg:text-7xl font-bold tracking-tight`
+- Corps : `text-xl text-foreground/60 font-light leading-relaxed`
+- Gradient sur mot-clé accent : `<span className="text-accent-gradient">mot</span>`
+
+### Cards glassmorphism
+Pattern standard pour les cards :
+```tsx
+<div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-8 border border-border hover:border-foreground/50 transition-colors">
+```
+- `rounded-3xl` pour les cards larges, `rounded-2xl` pour les éléments intermédiaires
+- Toujours inclure `transition-colors` et un état hover (`hover:border-foreground/50` ou `hover:border-accent/50`)
+
+### Icônes dans des badges colorés
+Pour afficher une icône dans un badge coloré (comme dans la section Features) :
+```tsx
+<div className={`w-16 h-16 rounded-2xl bg-linear-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+  <MonIcone className="w-8 h-8 text-foreground" />
+</div>
+```
+
+### Gradients décoratifs
+- Élément décoratif coin de card : `absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-white/5 to-transparent rounded-bl-full`
+- Utiliser `bg-linear-to-br` (Tailwind v4) — pas `bg-gradient-to-br`
+
+### Responsive
+- Mobile-first : base = mobile, `lg:` = desktop
+- Espacements de sections : `py-20 lg:py-32`
+- Grilles : `grid md:grid-cols-2 lg:grid-cols-3 gap-6`
+
+### Espacement des pages
+Les pages n'ont **aucun padding ou margin par défaut** — le layout ne fournit rien. Chaque page est responsable de ses propres marges internes. Toujours gérer explicitement l'espacement vertical en haut et en bas du contenu (ex: `py-12 lg:py-16` pour un header hero, `pb-20` en bas de page).
+
+## Design tokens CSS
+
+Le thème est défini dans `src/index.css` via `@theme` (TailwindCSS v4). **Toujours utiliser les tokens plutôt que des couleurs Tailwind brutes.**
+
+| Token | Classe Tailwind | Usage |
+|---|---|---|
+| `--color-primary` | `text/bg/border-primary` | Couleur de marque principale |
+| `--color-accent` | `text/bg/border-accent` | Accentuation, focus, liens actifs |
+| `--color-background` | `bg-background` | Fond de page et cards |
+| `--color-foreground` | `text-foreground` (+ `/60`, `/40`…) | Texte (avec opacités) |
+| `--color-border` | `border-border` | Bordures standard |
+| `--color-error` | `text/bg/border-error` | Erreurs de validation, messages d'échec, champs invalides |
+| `--color-overlay` | — | Fond semi-transparent pour modales |
+| `--font-primary` | `font-primary` | Police Inter |
+| `--height-navbar` | `h-navbar` | Hauteur de la navbar |
+
+Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utiliser `text-error` / `border-error` / `bg-error`.
 
 ## Ce qu'il ne faut jamais faire
 - Appeler `/api` avec `fetch` ou un `axios` instancié localement

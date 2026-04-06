@@ -1,14 +1,15 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import type { User } from '../types'
 import { getMe } from '../services/userService'
 import { setToken } from '../services/tokenStore'
+import type { User } from '@/types/user'
 
 export interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
+  error: string | null
   login: () => void
   logout: () => void
   updateUser: (updated: User) => void
@@ -28,10 +29,11 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   } = useAuth0()
 
   const [user, setUser] = useState<User | null>(null)
-  const [backendLoading, setBackendLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const login = useCallback(() => {
-    loginWithRedirect()
+    loginWithRedirect({ appState: { returnTo: '/profile/me' } })
   }, [loginWithRedirect])
 
   const logout = useCallback(() => {
@@ -50,32 +52,35 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     if (!isAuthenticated || !auth0User) {
       setToken(null)
       setUser(null)
-      setBackendLoading(false)
+      setError(null)
+      setLoading(false)
       return
     }
 
-    setBackendLoading(true)
+    setLoading(true)
+    setError(null)
     getAccessTokenSilently()
       .then((token) => {
         setToken(token)
         return getMe()
       })
-      .then((backendUser) => setUser(backendUser))
+      .then((user) => setUser(user))
       .catch((err: unknown) => {
         const status = (err as { response?: { status?: number } })?.response?.status
         if (status === 401) {
           // Token rejected by backend — force re-login
           setToken(null)
           auth0Logout({ logoutParams: { returnTo: globalThis.location.origin } })
+        } else {
+          setError('Impossible d\'établir la connexion à votre compte. Veuillez réessayer plus tard.')
         }
-        // Other errors (network, 5xx): leave user as null, PrivateRoute handles the empty state
       })
-      .finally(() => setBackendLoading(false))
+      .finally(() => setLoading(false))
   }, [isAuthenticated, auth0IsLoading, auth0User, getAccessTokenSilently, auth0Logout])
 
   const value = useMemo(
-    () => ({ user, isAuthenticated, isLoading: auth0IsLoading || backendLoading, login, logout, updateUser }),
-    [user, isAuthenticated, auth0IsLoading, backendLoading, login, logout, updateUser],
+    () => ({ user, isAuthenticated, isLoading: auth0IsLoading || loading, error, login, logout, updateUser }),
+    [user, isAuthenticated, auth0IsLoading, loading, error, login, logout, updateUser],
   )
 
   return (

@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../services/api', () => ({
+vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
     delete: vi.fn(),
@@ -11,8 +11,8 @@ vi.mock('../../services/api', () => ({
   },
 }))
 
-import api from '../../services/api'
-import { createEvent, deleteEvent, getAll, getById, updateEvent, uploadEventImage } from '../../services/eventApi'
+import api from '@/services/api'
+import { createEvent, deleteEvent, getAll, getById, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
