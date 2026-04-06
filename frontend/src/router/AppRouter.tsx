@@ -10,6 +10,7 @@ import HomePage from '../pages/HomePage'
 import LoginPage from '../pages/LoginPage'
 import ProfileEditPage from '../pages/ProfileEditPage'
 import ProfilePage from '../pages/ProfilePage'
+import SearchPage from '../pages/SearchPage'
 
 function AppRouter() {
   return (
@@ -85,6 +86,16 @@ function AppRouter() {
           <PrivateRoute>
             <Layout>
               <EventDetailPage />
+            </Layout>
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path='/search'
+        element={
+          <PrivateRoute>
+            <Layout>
+              <SearchPage />
             </Layout>
           </PrivateRoute>
         }

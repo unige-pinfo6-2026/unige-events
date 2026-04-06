@@ -8,14 +8,25 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+// startDate is stored as UTC LocalDateTime (TIMESTAMP WITHOUT TZ in PostgreSQL).
+// To filter by calendar day in Europe/Zurich we convert the Zurich date boundary to UTC
+// before comparing, rather than using AT TIME ZONE in HQL.
+// Reason: TIMESTAMP WITHOUT TZ AT TIME ZONE 'zone' in PostgreSQL treats the stored value
+// AS IF it were already in that zone (wrong direction). The Java conversion is unambiguous.
+
 @ApplicationScoped
 public class EventSearchService {
+
+    private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
 
     @Transactional
     public List<EventDTO> search(String q, EventCategory category,
@@ -35,12 +46,15 @@ public class EventSearchService {
             params.put("category", category);
         }
         if (dateFrom != null) {
+            // Convert the Zurich calendar day to a UTC boundary, then compare the stored UTC timestamp directly.
+            LocalDateTime dateFromUtc = dateFrom.atStartOfDay(ZURICH).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
             conditions.add("startDate >= :dateFrom");
-            params.put("dateFrom", dateFrom.atStartOfDay());
+            params.put("dateFrom", dateFromUtc);
         }
         if (dateTo != null) {
+            LocalDateTime dateToUtc = dateTo.atTime(23, 59, 59).atZone(ZURICH).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
             conditions.add("startDate <= :dateTo");
-            params.put("dateTo", dateTo.atTime(23, 59, 59));
+            params.put("dateTo", dateToUtc);
         }
 
         PanacheQuery<Event> query;
