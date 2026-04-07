@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventEditPage from '@/pages/event/EventEditPage'
+import { ToastProvider } from '@/contexts/ToastContext'
+import ToastsWrapper from '@/components/utils/Toast'
 
 vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
@@ -54,11 +56,14 @@ afterEach(() => {
 
 function renderPage(path = '/events/42/edit') {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path='/events/:id/edit' element={<EventEditPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <ToastProvider>
+      <ToastsWrapper />
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path='/events/:id/edit' element={<EventEditPage />} />
+        </Routes>
+      </MemoryRouter>
+    </ToastProvider>,
   )
 }
 

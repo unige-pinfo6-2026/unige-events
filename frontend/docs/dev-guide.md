@@ -213,6 +213,35 @@ Le mode sombre (`[data-theme="dark"]`) surcharge automatiquement `--color-backgr
 
 ---
 
+## Afficher un toast
+
+Utiliser `useToast` depuis n'importe quel composant ou page :
+
+```typescript
+import { useToast } from '@/contexts/ToastContext'
+
+const { showToast } = useToast()
+
+showToast('success', 'Profil mis à jour.')
+showToast('error', 'Une erreur est survenue.')
+showToast('success', 'Message court.', 3000) // durée optionnelle en ms (défaut 5000)
+```
+
+Les toasts sont gérés au niveau de l'application (`ToastProvider` > `Layout`) et **persistent lors d'une navigation**. Il est donc correct d'appeler `showToast` puis `navigate()` immédiatement — le toast s'affichera bien sur la page de destination.
+
+```typescript
+// ✅ Correct — le toast survit à la navigation
+showToast('success', 'Événement créé.')
+navigate(`/events/${event.id}`)
+
+// ❌ Inutile — pas besoin de délai pour "laisser le temps" au toast
+setTimeout(() => navigate(`/events/${event.id}`), 1000)
+```
+
+Plusieurs toasts peuvent être empilés simultanément. Chaque toast se ferme automatiquement après sa durée, ou immédiatement au clic.
+
+---
+
 ## Architecture des contextes
 
 ```
@@ -220,11 +249,12 @@ main.tsx
   └─ BrowserRouter
        └─ Auth0ProviderWithNavigate   ← initialise Auth0, gère onRedirectCallback
             └─ ThemeProvider          ← thème dark/light, persiste en localStorage
-                 └─ AuthProvider      ← charge User via GET /api/users/me
-                      └─ AppRouter    ← routes React Router
+                 └─ ToastProvider     ← file de toasts globale, showToast()
+                      └─ AuthProvider ← charge User via GET /api/users/me
+                           └─ AppRouter ← routes React Router
 ```
 
-Ne pas réorganiser cet ordre de providers — Auth0 doit être dans le BrowserRouter.
+Ne pas réorganiser cet ordre de providers — Auth0 doit être dans le BrowserRouter, et `ToastProvider` doit envelopper `AuthProvider` (qui utilise `showToast` pour les erreurs d'auth).
 
 ---
 
@@ -233,7 +263,7 @@ Ne pas réorganiser cet ordre de providers — Auth0 doit être dans le BrowserR
 ```
 src/
 ├── components/     # Composants réutilisables (Layout, Navbar, PrivateRoute, Logo…)
-├── contexts/       # AuthContext, ThemeContext
+├── contexts/       # AuthContext, ThemeContext, ToastContext
 ├── hooks/          # useAuth
 ├── pages/          # Une page = un fichier (LoginPage, HomePage, ProfilePage…)
 ├── router/         # AppRouter.tsx

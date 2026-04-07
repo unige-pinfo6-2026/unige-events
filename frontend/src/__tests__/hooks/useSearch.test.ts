@@ -454,11 +454,11 @@ describe('useSearch', () => {
 
   it('initializes state from URL params on mount', () => {
     function wrapperWithEntry({ children }: { children: ReactNode }) {
-      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SES&dateFrom=2026-01-01'] }, children)
+      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SCIENCES&dateFrom=2026-01-01'] }, children)
     }
     const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithEntry })
     expect(result.current.query).toBe('test')
-    expect(result.current.filters.faculty).toBe('SES')
+    expect(result.current.filters.faculty).toBe('SCIENCES')
     expect(result.current.filters.dateFrom).toBe('2026-01-01')
     expect(result.current.filters.includePast).toBe(false)
   })
@@ -486,10 +486,10 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearchAndParams(), { wrapper })
 
     act(() => {
-      result.current.setFilters({ faculty: 'SES', includePast: false })
+      result.current.setFilters({ faculty: 'SCIENCES', includePast: false })
     })
 
-    expect(result.current.searchParams.get('faculty')).toBe('SES')
+    expect(result.current.searchParams.get('faculty')).toBe('SCIENCES')
   })
 
   // Fix 4: includePast synced to URL
@@ -519,11 +519,11 @@ describe('useSearch', () => {
 
   it('resetFilters clears filter URL params', () => {
     function wrapperWithEntry({ children }: { children: ReactNode }) {
-      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SES'] }, children)
+      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SCIENCES'] }, children)
     }
     const { result } = renderHook(() => useSearchAndParams(), { wrapper: wrapperWithEntry })
 
-    expect(result.current.searchParams.get('faculty')).toBe('SES')
+    expect(result.current.searchParams.get('faculty')).toBe('SCIENCES')
 
     act(() => {
       result.current.resetFilters()

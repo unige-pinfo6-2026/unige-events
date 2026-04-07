@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ProfileEditPage from '@/pages/profile/ProfileEditPage'
+import { ToastProvider } from '@/contexts/ToastContext'
+import ToastsWrapper from '@/components/utils/Toast'
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
@@ -47,9 +49,12 @@ afterEach(() => {
 
 function renderProfileEditPage() {
   return render(
-    <MemoryRouter>
-      <ProfileEditPage />
-    </MemoryRouter>,
+    <ToastProvider>
+      <ToastsWrapper />
+      <MemoryRouter>
+        <ProfileEditPage />
+      </MemoryRouter>
+    </ToastProvider>,
   )
 }
 

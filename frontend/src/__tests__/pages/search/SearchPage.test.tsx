@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SearchPage from '@/pages/search/SearchPage'
 import type { UseSearchResult } from '@/hooks/useSearch'
-import type { Event } from '@/types'
+import type { Event } from '@/types/event'
 
 vi.mock('@/hooks/useSearch', () => ({
   useSearch: vi.fn(),

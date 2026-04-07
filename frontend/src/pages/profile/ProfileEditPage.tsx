@@ -1,14 +1,14 @@
-import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
 import { FACULTIES } from '@/types/faculty'
 import { STUDY_LEVELS, type User } from '@/types/user'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
-import Toast from '@/components/utils/Toast'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { X } from 'lucide-react'
 import UserAvatar from '@/components/user/UserAvatar'
+import { useToast } from '@/hooks/useToast'
 
 const MAX_BIO_LENGTH = 500
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024
@@ -21,6 +21,8 @@ interface FormErrors {
 
 export default function ProfileEditPage() {
   const { user, updateUser } = useAuth()
+  const { showToast } = useToast()
+
   const navigate = useNavigate()
 
   const [name, setName] = useState('')
@@ -34,8 +36,6 @@ export default function ProfileEditPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -48,16 +48,6 @@ export default function ProfileEditPage() {
       if (user.avatarUrl) setPhotoPreview(user.avatarUrl)
     }
   }, [user])
-
-  useEffect(() => {
-    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current) }
-  }, [])
-
-  function showToast(type: 'success' | 'error', message: string) {
-    setToast({ type, message })
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToast(null), 4000)
-  }
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -115,7 +105,7 @@ export default function ProfileEditPage() {
       const freshUser = await getMe()
       updateUser(freshUser)
       showToast('success', 'Profil mis à jour avec succès.')
-      setTimeout(() => navigate('/profile/me'), 1500)
+      navigate('/profile/me')
     } catch {
       showToast('error', 'Une erreur est survenue. Veuillez réessayer.')
     } finally {
@@ -256,8 +246,6 @@ export default function ProfileEditPage() {
           </div>
         </form>
       </div>
-
-      {toast && <Toast type={toast.type} message={toast.message} />}
     </div>
   )
 }

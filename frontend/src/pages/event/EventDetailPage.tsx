@@ -4,7 +4,6 @@ import { useAuth, useEvent } from '@/hooks'
 import { getUserById } from '@/services/userService'
 import { deleteEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
-import Toast from '@/components/utils/Toast'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
 import { formatEventDateTime } from '@/utils/dateTime'
@@ -161,7 +160,7 @@ export default function EventDetailPage() {
         )}
       </div>
 
-      {bannerWarning && <Toast type="error" message={bannerWarning} duration={6000} />}
+      {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 
       {/* Confirm delete modal */}
       {showConfirm && (

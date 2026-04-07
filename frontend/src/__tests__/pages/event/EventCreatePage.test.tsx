@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventCreatePage from '@/pages/event/EventCreatePage'
+import { ToastProvider } from '@/contexts/ToastContext'
+import ToastsWrapper from '@/components/utils/Toast'
 
 vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
@@ -52,9 +54,12 @@ afterEach(() => {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <EventCreatePage />
-    </MemoryRouter>,
+    <ToastProvider>
+      <ToastsWrapper />
+      <MemoryRouter>
+        <EventCreatePage />
+      </MemoryRouter>
+    </ToastProvider>,
   )
 }
 

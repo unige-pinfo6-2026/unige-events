@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe('CallbackPage', () => {
   it('shows loading spinner when no error', () => {
-    mockUseAuth0.mockReturnValue({ error: undefined })
+    mockUseAuth0.mockReturnValue({ error: undefined, isLoading: true, isAuthenticated: false })
     render(<LoginCallbackPage />)
     expect(screen.getByText('Connexion en cours...')).toBeTruthy()
   })

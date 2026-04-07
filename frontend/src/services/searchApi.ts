@@ -1,5 +1,5 @@
 import api from './api'
-import type { SearchParams, SearchResponse } from '../types'
+import type { SearchParams, SearchResponse } from '@/types/search'
 
 export async function searchEvents(params: SearchParams, signal?: AbortSignal): Promise<SearchResponse> {
   const response = await api.get<SearchResponse>('/events/search', {

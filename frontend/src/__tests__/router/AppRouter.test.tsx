@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import AppRouter from '@/router/AppRouter'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ToastProvider } from '@/contexts/ToastContext'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
@@ -38,11 +39,13 @@ describe('AppRouter', () => {
     })
 
     render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/']}>
-          <AppRouter />
-        </MemoryRouter>
-      </AuthProvider>,
+      <ToastProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <AppRouter />
+          </MemoryRouter>
+        </AuthProvider>
+      </ToastProvider>,
     )
 
     expect(await screen.findByText(/Événements à venir/i)).toBeTruthy()
@@ -59,11 +62,13 @@ describe('AppRouter', () => {
     })
 
     render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/unknown']}>
-          <AppRouter />
-        </MemoryRouter>
-      </AuthProvider>,
+      <ToastProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/unknown']}>
+            <AppRouter />
+          </MemoryRouter>
+        </AuthProvider>
+      </ToastProvider>,
     )
 
     expect(await screen.findByText('Page introuvable')).toBeTruthy()
@@ -80,11 +85,13 @@ describe('AppRouter', () => {
     })
 
     render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/events']}>
-          <AppRouter />
-        </MemoryRouter>
-      </AuthProvider>,
+      <ToastProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/events']}>
+            <AppRouter />
+          </MemoryRouter>
+        </AuthProvider>
+      </ToastProvider>,
     )
 
     expect(await screen.findByText(/Redirection vers la page de connexion/)).toBeTruthy()

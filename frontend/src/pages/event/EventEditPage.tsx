@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
-import Toast from '@/components/utils/Toast'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import { InfoMessage } from '@/components/utils/InfoMessage'
+import { useToast } from '@/hooks/useToast'
 
 export default function EventEditPage() {
   const navigate = useNavigate()
+  const { showToast } = useToast();
   const { id } = useParams<{ id: string }>()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
@@ -18,9 +19,6 @@ export default function EventEditPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (eventId === null) { setLoading(false); return }
@@ -44,25 +42,16 @@ export default function EventEditPage() {
 
     return () => {
       cancelled = true
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
     }
   }, [eventId])
-
-  function showToast(type: 'success' | 'error', message: string) {
-    setToast({ type, message })
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToast(null), 4000)
-  }
 
   const form = useEventForm({
     mode: 'edit',
     initialEvent: event,
-    onSuccess: (savedEvent) => {
-      setEvent(savedEvent)
+    onSuccess: (event) => {
+      setEvent(event)
       showToast('success', 'Événement mis à jour avec succès.')
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
-      redirectTimerRef.current = setTimeout(() => navigate(`/events/${savedEvent.id}`), 1000)
+      navigate(`/events/${event.id}`)
     },
     onError: (message) => showToast('error', message),
     onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
@@ -74,21 +63,18 @@ export default function EventEditPage() {
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
   return (
-    <>
-      <EventForm
-        title="Modifier l'événement"
-        submitLabel="Enregistrer"
-        values={form.values}
-        errors={form.errors}
-        submitting={form.submitting}
-        imagePreview={form.imagePreview}
-        selectedImageName={form.selectedImageName}
-        onFieldChange={form.setFieldValue}
-        onImageChange={form.handleImageChange}
-        onSubmit={form.handleSubmit}
-        onCancel={() => navigate(`/events/${event.id}`)}
-      />
-      {toast && <Toast type={toast.type} message={toast.message} />}
-    </>
+    <EventForm
+      title="Modifier l'événement"
+      submitLabel="Enregistrer"
+      values={form.values}
+      errors={form.errors}
+      submitting={form.submitting}
+      imagePreview={form.imagePreview}
+      selectedImageName={form.selectedImageName}
+      onFieldChange={form.setFieldValue}
+      onImageChange={form.handleImageChange}
+      onSubmit={form.handleSubmit}
+      onCancel={() => navigate(`/events/${event.id}`)}
+    />
   )
 }

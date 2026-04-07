@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchSuggestions, searchEvents } from '../services/searchApi'
-import type { Event, EventCategory, Faculty, SearchParams } from '../types'
-
-export interface SearchFilters {
-  category?: EventCategory
-  faculty?: Faculty
-  dateFrom?: string
-  dateTo?: string
-  includePast: boolean
-}
+import { fetchSuggestions, searchEvents } from '@/services/searchApi'
+import type { Event, EventCategory } from '@/types/event'
+import type { Faculty } from '@/types/faculty'
+import type { SearchFilters, SearchParams } from '@/types/search'
 
 const DEFAULT_FILTERS: SearchFilters = { includePast: false }
 

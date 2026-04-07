@@ -10,7 +10,7 @@ vi.mock('../../services/api', () => ({
 
 import api from '../../services/api'
 import { fetchSuggestions, searchEvents } from '../../services/searchApi'
-import type { SearchParams } from '../../types'
+import type { SearchParams } from '../../types/search'
 
 const mockGet = api.get as ReturnType<typeof vi.fn>
 

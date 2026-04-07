@@ -2,8 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import FilterSidebar from '../../components/FilterSidebar'
-import type { SearchFilters } from '../../hooks/useSearch'
+import FilterSidebar from '@/components/search/FilterSidebar'
+import type { SearchFilters } from '@/types/search'
 
 afterEach(() => {
   cleanup()
@@ -60,8 +60,8 @@ describe('FilterSidebar', () => {
   it('renders the faculty select with all options', () => {
     renderSidebar()
     expect(screen.getByText('Toutes les facultés')).toBeTruthy()
-    expect(screen.getByText('Sciences')).toBeTruthy()
-    expect(screen.getByText('Médecine')).toBeTruthy()
+    expect(screen.getByText('Faculté des Sciences')).toBeTruthy()
+    expect(screen.getByText('Faculté de Médecine')).toBeTruthy()
   })
 
   it('renders date from and date to inputs', () => {
@@ -151,8 +151,8 @@ describe('FilterSidebar', () => {
   })
 
   it('shows the current faculty value', () => {
-    renderSidebar({ includePast: false, faculty: 'DROIT' })
+    renderSidebar({ includePast: false, faculty: 'LAW' })
     const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('DROIT')
+    expect(select.value).toBe('LAW')
   })
 })

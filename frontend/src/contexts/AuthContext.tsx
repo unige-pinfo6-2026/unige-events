@@ -4,6 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 import { getMe } from '../services/userService'
 import { setToken } from '../services/tokenStore'
 import type { User } from '@/types/user'
+import { useToast } from '@/hooks/useToast'
 
 export interface AuthContextValue {
   user: User | null
@@ -28,6 +29,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     getAccessTokenSilently,
   } = useAuth0()
 
+  const { showToast } = useToast()
+
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +46,12 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const updateUser = useCallback((updated: User) => {
     setUser(updated)
   }, [])
+
+  useEffect(() => {
+    if(error != null) {
+      showToast('error', error)
+    }
+  }, [error, showToast])
 
   useEffect(() => {
     if (auth0IsLoading) return
@@ -74,7 +83,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         }
       })
       .finally(() => setLoading(false))
-  }, [isAuthenticated, auth0IsLoading, auth0User, getAccessTokenSilently, auth0Logout])
+  }, [isAuthenticated, auth0IsLoading, auth0User, getAccessTokenSilently, auth0Logout, showToast])
 
   const value = useMemo(
     () => ({ user, isAuthenticated, isLoading: auth0IsLoading || loading, error, login, logout, updateUser }),

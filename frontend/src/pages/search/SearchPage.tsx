@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, SearchIcon } from 'lucide-react'
 import EventCard from '@/components/event/EventCard'
-import FilterSidebar from '@/components/FilterSidebar'
+import FilterSidebar from '@/components/search/FilterSidebar'
 import { useSearch } from '@/hooks/useSearch'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'

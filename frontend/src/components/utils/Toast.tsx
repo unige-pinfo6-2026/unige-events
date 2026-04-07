@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
+import { useToast } from '@/hooks/useToast'
+import { TOAST_VARIANTS, type ToastType } from '@/types/toast'
 
-const variants = {
-  success: 'border-emerald-500/40 text-emerald-400',
-  error: 'border-error/40 text-error',
-}
-
-export default function Toast({
+function Toast({
+  id,
   type: variant,
   message,
-  duration = 5000
+  duration = 5000,
 }: Readonly<{
-  type: keyof typeof variants
+  id: number
+  type: ToastType
   message: string
   duration?: number
 }>) {
+  const { dismiss } = useToast()
   const [hiding, setHiding] = useState(false)
 
   useEffect(() => {
@@ -21,15 +21,35 @@ export default function Toast({
     return () => clearTimeout(t)
   }, [duration])
 
+  useEffect(() => {
+    if (!hiding) return
+    const t = setTimeout(() => dismiss(id), 400)
+    return () => clearTimeout(t)
+  }, [hiding, id, dismiss])
+
   return (
-    <output
+    <button
+      type="button"
       className={[
-        'fixed z-100 top-3 right-3 px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl z-50 border backdrop-blur-xl bg-background/90',
+        'px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl border backdrop-blur-xl bg-background/90 cursor-pointer text-left',
         hiding ? 'animate-toast-out' : 'animate-toast-in',
-        variants[variant],
+        TOAST_VARIANTS[variant],
       ].join(' ')}
+      onClick={() => setHiding(true)}
     >
       {message}
-    </output>
+    </button>
+  )
+}
+
+export default function ToastsWrapper() {
+  const { toasts } = useToast()
+
+  return (
+    <div className="fixed z-50 top-3 right-3 flex flex-col gap-2 items-end">
+      {toasts.map(toast => (
+        <Toast key={toast.id} {...toast} />
+      ))}
+    </div>
   )
 }

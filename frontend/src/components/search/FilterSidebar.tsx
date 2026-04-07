@@ -1,27 +1,7 @@
 import type { ChangeEvent } from 'react'
-import type { SearchFilters } from '@/hooks/useSearch'
-import { EventCategory, Faculty } from '@/types'
-
-const CATEGORY_LABELS: Record<string, string> = {
-  ACADEMIC: 'Académique',
-  SPORTS: 'Sports',
-  CULTURAL: 'Culturel',
-  SOCIAL: 'Social',
-  CONFERENCE: 'Conférence',
-  OTHER: 'Autre',
-}
-
-const FACULTY_LABELS: Record<string, string> = {
-  SCIENCES: 'Sciences',
-  LETTRES: 'Lettres',
-  DROIT: 'Droit',
-  MEDECINE: 'Médecine',
-  SES: 'SES',
-  PSYCHOLOGIE: 'Psychologie',
-  THEOLOGIE: 'Théologie',
-  FTI: 'FTI',
-  GSI: 'GSI',
-}
+import type { SearchFilters } from '@/types/search'
+import { EVENT_CATEGORIES, type EventCategory } from '@/types/event'
+import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface FilterSidebarProps {
   filters: SearchFilters
@@ -37,12 +17,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
+export default function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
+  function handleCategoryChange(e: ChangeEvent<HTMLInputElement>) {
+    setFilters({...filters, category: e.target.value as EventCategory || undefined})
+  }
+  
   function handleFacultyChange(e: ChangeEvent<HTMLSelectElement>) {
-    setFilters({
-      ...filters,
-      faculty: (e.target.value as (typeof Faculty)[keyof typeof Faculty]) || undefined,
-    })
+    setFilters({...filters, faculty: e.target.value as Faculty || undefined})
   }
 
   function handleDateFromChange(e: ChangeEvent<HTMLInputElement>) {
@@ -59,23 +40,21 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
       <div>
         <SectionLabel>Catégorie</SectionLabel>
         <div className="flex flex-col gap-2">
-          {Object.values(EventCategory).map((cat) => (
+          {Object.entries(EVENT_CATEGORIES).map(([id, category]) => (
             <label
-              key={cat}
+              key={id}
               className="flex items-center gap-2.5 cursor-pointer text-sm text-foreground/70 hover:text-foreground transition-colors"
             >
               <input
                 type="radio"
                 name="category"
-                value={cat}
-                checked={filters.category === cat}
-                onChange={() => setFilters({ ...filters, category: cat })}
-                onClick={() => {
-                  if (filters.category === cat) setFilters({ ...filters, category: undefined })
-                }}
+                value={id}
+                checked={filters.category === id}
+                onChange={handleCategoryChange}
+                onClick={() => { if (filters.category === id) setFilters({ ...filters, category: undefined }) }}
                 className="accent-accent"
               />
-              {CATEGORY_LABELS[cat]}
+              {category.name}
             </label>
           ))}
         </div>
@@ -94,9 +73,9 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
           className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-sm opacity-50 cursor-not-allowed"
         >
           <option value="">Toutes les facultés</option>
-          {Object.values(Faculty).map((fac) => (
-            <option key={fac} value={fac}>
-              {FACULTY_LABELS[fac]}
+          {Object.entries(FACULTIES).map(([id, faculty]) => (
+            <option key={id} value={id}>
+              {faculty.name}
             </option>
           ))}
         </select>
@@ -160,5 +139,3 @@ function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps
     </aside>
   )
 }
-
-export default FilterSidebar

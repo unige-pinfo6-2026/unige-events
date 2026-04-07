@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, AuthContext } from '@/contexts/AuthContext'
+import { ToastProvider } from '@/contexts/ToastContext'
 import { useContext } from 'react'
 
 vi.mock('@auth0/auth0-react', () => ({ useAuth0: vi.fn() }))
@@ -41,9 +42,11 @@ function TestConsumer() {
 
 function renderProvider() {
   return render(
-    <AuthProvider>
-      <TestConsumer />
-    </AuthProvider>,
+    <ToastProvider>
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    </ToastProvider>,
   )
 }
 
