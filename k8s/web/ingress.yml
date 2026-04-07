@@ -1,6 +1,26 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  name: web-ip-redirect
+  namespace: unige-events
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: https://10.25.10.136.nip.io
+spec:
+  rules:
+    - host: 10.25.10.136
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
   name: web
   namespace: unige-events
   annotations:
