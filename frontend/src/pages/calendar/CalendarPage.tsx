@@ -9,7 +9,7 @@ export default function CalendarPage() {
       <div className="flex flex-col lg:flex-row lg:justify-between gap-8">
         <SectionHeader
           align="left"
-          title={<>Calendrier <span className="text-accent-gradient">du campus</span></>}
+          title={<>Calendrier <mark>du campus</mark></>}
           subtitle="Visualisez et explorez tous les événements de la communauté."
         />
 

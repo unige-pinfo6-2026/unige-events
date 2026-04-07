@@ -208,10 +208,9 @@ Chaque grande section de page utilise `SectionWrapper` + `SectionHeader` depuis 
 | `align` | `center` · `left` | `center` |
 
 ### Typographie
-- Titres héros : `text-5xl lg:text-7xl font-bold tracking-tight leading-[0.95]`
-- Titres de sections : `text-5xl lg:text-7xl font-bold tracking-tight`
+- Titres de sections : `<SectionHeader></SectionHeader>`
 - Corps : `text-xl text-foreground/60 font-light leading-relaxed`
-- Gradient sur mot-clé accent : `<span className="text-accent-gradient">mot</span>`
+- Gradient sur mot-clé accent : `<mark>mot</mark>`
 
 ### Cards glassmorphism
 Pattern standard pour les cards :

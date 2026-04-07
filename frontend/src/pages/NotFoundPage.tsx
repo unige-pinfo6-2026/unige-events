@@ -1,5 +1,5 @@
 import { Blobs } from '@/components/utils/Blobs'
-import { ButtonPrimary } from '@/components/utils/Buttons'
+import { ButtonPrimary, ButtonsWrapper } from '@/components/utils/Buttons'
 import { Link } from 'react-router-dom'
 
 export default function NotFoundPage() {
@@ -19,11 +19,11 @@ export default function NotFoundPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <ButtonsWrapper>
           <Link to="/">
             <ButtonPrimary size="md">Retour à l'accueil</ButtonPrimary>
           </Link>
-        </div>
+        </ButtonsWrapper>
       </div>
     </div>
   )
