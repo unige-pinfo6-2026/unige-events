@@ -8,7 +8,7 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
 
   return (
     <Link to={`/events/${event.id}`} className="block no-underline">
-      <article className="relative h-full bg-background border border-border rounded-3xl overflow-hidden transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/20 hover:border-foreground/20">
+      <article className="relative h-full bg-background border border-border rounded-3xl overflow-hidden transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/20 hover:border-foreground/20">
 
         {/* Colored top accent line */}
         <div className="absolute top-0 left-0 right-0 h-0.5 z-10" style={{ background: category.color }} />
