@@ -114,8 +114,8 @@ export default function EventCalendar() {
   if (error) return <InfoMessage type="error" message={error} />
 
   return (
-    <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
-      <Calendar<CalendarEvent>
+    <div className="h-full bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
+      <Calendar<CalendarEvent> 
         localizer={localizer}
         events={events}
         date={currentDate}
@@ -128,7 +128,6 @@ export default function EventCalendar() {
         eventPropGetter={eventPropGetter}
         onSelectEvent={handleSelectEvent}
         tooltipAccessor={(e) => e.resource.location}
-        style={{ height: 680 }}
         components={{ toolbar: CustomToolbar }}
       />
     </div>

@@ -27,7 +27,9 @@ export default function CalendarPage() {
         </div>
       </div>
       
-      <EventCalendar />
+      <div className="flex flex-col h-[680px]">
+        <EventCalendar />
+      </div>
     </SectionWrapper>
   )
 }
