@@ -37,8 +37,6 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [loginWithRedirect])
 
   const logout = useCallback(() => {
-    setToken(null)
-    setUser(null)
     auth0Logout({ logoutParams: { returnTo: globalThis.location.origin } })
   }, [auth0Logout])
 
