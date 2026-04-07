@@ -87,7 +87,7 @@ describe('AppRouter', () => {
     render(
       <ToastProvider>
         <AuthProvider>
-          <MemoryRouter initialEntries={['/events']}>
+          <MemoryRouter initialEntries={['/profile/me']}>
             <AppRouter />
           </MemoryRouter>
         </AuthProvider>
