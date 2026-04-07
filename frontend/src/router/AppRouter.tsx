@@ -34,6 +34,10 @@ const AppRouter = () => {
               <Route path=":id" element={<EventDetailPage />} />
             </Route>
 
+            <Route path="/calendar">
+              <Route index element={<CalendarPage />} />
+            </Route>
+
             <Route element={<PrivateRoute/>}>
               <Route path="/profile">
                 <Route index element={<Navigate to="/profile/me" replace />} />
@@ -44,10 +48,6 @@ const AppRouter = () => {
               <Route path="/events">
                 <Route path="new" element={<EventCreatePage />} />
                 <Route path=":id/edit" element={<EventEditPage />} />
-              </Route>
-
-              <Route path="/calendar">
-                <Route index element={<CalendarPage />} />
               </Route>
             </Route>
 

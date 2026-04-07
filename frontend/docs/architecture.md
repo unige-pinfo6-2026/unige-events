@@ -24,7 +24,7 @@ Model : src/hooks, src/contexts et src/types
 | /events/search | EventsSearchPage | pages/event/EventsSearchPage.tsx | publique |
 | /events/:id | EventDetailPage | pages/event/EventDetailPage.tsx | publique |
 | /events/:id/edit | EditEventPage | pages/event/EventEditPage.tsx | PrivateRoute |
-| /calendar | CalendarPage | pages/CalendarPage.tsx | PrivateRoute |
+| /calendar | CalendarPage | pages/CalendarPage.tsx | publique |
 | /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
 | * | redirect | — | redirect vers /home |
 
