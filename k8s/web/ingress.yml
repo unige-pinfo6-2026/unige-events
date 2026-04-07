@@ -4,14 +4,14 @@ metadata:
   name: web
   namespace: unige-events
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
+    cert-manager.io/cluster-issuer: selfsigned
 spec:
   tls:
     - hosts:
-        - 10.25.10.136.nip.io
+        - 10.25.10.136
       secretName: unige-events-tls
   rules:
-    - host: 10.25.10.136.nip.io
+    - host: 10.25.10.136
       http:
         paths:
           - path: /
