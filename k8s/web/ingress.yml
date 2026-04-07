@@ -7,8 +7,7 @@ metadata:
     nginx.ingress.kubernetes.io/permanent-redirect: https://10.25.10.136.nip.io
 spec:
   rules:
-    - host: 10.25.10.136
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
