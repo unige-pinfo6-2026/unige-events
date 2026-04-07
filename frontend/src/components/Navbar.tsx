@@ -22,7 +22,7 @@ const navLinks = [
 const userMenuSections = [
   [{ label: 'Mon profil', to: '/profile/me' }],
   [
-    { label: 'Rechercher un événement', to: '/search' },
+    { label: 'Rechercher un événement', to: '/events/search' },
     { label: 'Événements à venir', to: '/events' },
     { label: 'Créer un événement', to: '/events/new' },
   ],
@@ -35,7 +35,7 @@ function NavButtons() {
   return (
     <div className="flex flex-row items-center justify-center gap-2">
       <Link
-        to="/search"
+        to="/events/search"
         className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
         aria-label="Rechercher"
       >

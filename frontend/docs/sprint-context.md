@@ -37,12 +37,12 @@ Suite prévue :
 En cours / Terminé le 2026-04-03.
 
 Fonctionnalités livrées :
-- SearchPage à la route `/search` : barre de recherche + dropdown d’autocomplétion (300ms) + layout sidebar/résultats.
+- EventsSearchPage à la route `/events/search` : barre de recherche + dropdown d’autocomplétion (300ms) + layout sidebar/résultats.
 - FilterSidebar props-driven : category (checkboxes toggle), faculty (select), dateFrom/dateTo (date), reset.
 - useSearch hook : initialisation depuis URL, sync état→URL, debounce 300ms suggestions, debounce 2000ms recherche, selectSuggestion pour recherche immédiate.
 - searchApi.ts : searchEvents via GET /api/events/search, fetchSuggestions stub (TODO backend).
 - Types SearchParams et SearchResponse dans src/types/index.ts.
-- Route /search enregistrée dans AppRouter (PrivateRoute).
+- Route /events/search enregistrée dans AppRouter (publique).
 
 ## Sprint 3 — Vue Calendrier (en cours)
 

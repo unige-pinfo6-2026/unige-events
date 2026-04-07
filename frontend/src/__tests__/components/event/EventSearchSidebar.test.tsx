@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import FilterSidebar from '@/components/search/FilterSidebar'
+import EventSearchSidebar from '@/components/event/EventSearchSidebar'
 import type { SearchFilters } from '@/types/search'
 
 afterEach(() => {
@@ -18,7 +18,7 @@ function renderSidebar(
   resetFilters = vi.fn(),
 ) {
   return render(
-    <FilterSidebar filters={filters} setFilters={setFilters} resetFilters={resetFilters} />,
+    <EventSearchSidebar filters={filters} setFilters={setFilters} resetFilters={resetFilters} />,
   )
 }
 

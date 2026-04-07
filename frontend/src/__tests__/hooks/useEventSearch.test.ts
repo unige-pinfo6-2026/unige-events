@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
-import { useSearch } from '@/hooks/useSearch'
+import { useSearch } from '@/hooks/useEventSearch'
 
 function useSearchAndParams() {
   const search = useSearch()
@@ -454,7 +454,7 @@ describe('useSearch', () => {
 
   it('initializes state from URL params on mount', () => {
     function wrapperWithEntry({ children }: { children: ReactNode }) {
-      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SCIENCES&dateFrom=2026-01-01'] }, children)
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?q=test&faculty=SCIENCES&dateFrom=2026-01-01'] }, children)
     }
     const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithEntry })
     expect(result.current.query).toBe('test')
@@ -466,7 +466,7 @@ describe('useSearch', () => {
   // Fix 4: includePast initialized from URL
   it('initializes includePast=true from URL param', () => {
     function wrapperWithIncludePast({ children }: { children: ReactNode }) {
-      return createElement(MemoryRouter, { initialEntries: ['/search?includePast=true'] }, children)
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?includePast=true'] }, children)
     }
     const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithIncludePast })
     expect(result.current.filters.includePast).toBe(true)
@@ -519,7 +519,7 @@ describe('useSearch', () => {
 
   it('resetFilters clears filter URL params', () => {
     function wrapperWithEntry({ children }: { children: ReactNode }) {
-      return createElement(MemoryRouter, { initialEntries: ['/search?q=test&faculty=SCIENCES'] }, children)
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?q=test&faculty=SCIENCES'] }, children)
     }
     const { result } = renderHook(() => useSearchAndParams(), { wrapper: wrapperWithEntry })
 

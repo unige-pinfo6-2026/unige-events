@@ -3,15 +3,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import SearchPage from '@/pages/search/SearchPage'
-import type { UseSearchResult } from '@/hooks/useSearch'
+import SearchPage from '@/pages/event/EventsSearchPage'
+import type { UseSearchResult } from '@/hooks/useEventSearch'
 import type { Event } from '@/types/event'
 
-vi.mock('@/hooks/useSearch', () => ({
+vi.mock('@/hooks/useEventSearch', () => ({
   useSearch: vi.fn(),
 }))
 
-import { useSearch } from '@/hooks/useSearch'
+import { useSearch } from '@/hooks/useEventSearch'
 
 const mockUseSearch = useSearch as ReturnType<typeof vi.fn>
 

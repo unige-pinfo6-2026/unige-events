@@ -110,7 +110,7 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 
 ### SearchFilters
 
-Exportée depuis `src/hooks/useSearch.ts` (non dans `src/types/`).
+Exportée depuis `src/hooks/useEventSearch.ts` (non dans `src/types/`).
 Utilisée comme props par `FilterSidebar`.
 Champs : `category?`, `faculty?`, `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
 `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).

@@ -10,7 +10,7 @@
 | /events/:id/edit | EditEventPage | fait |
 | /profile/:id | ProfilePage | fait |
 | /profile/me/edit | ProfileEditPage | fait |
-| /search | SearchPage | fait |
+| /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
 
 ### LandingPage
@@ -46,9 +46,9 @@
 - Remplace la bannière via uploadEventImage(id, file).
 - Affiche un toast puis redirige vers /events/:id.
 
-### SearchPage
+### EventsSearchPage
 
-- Route `/search`, layout sidebar gauche + résultats droite.
+- Route `/events/search`, layout sidebar gauche + résultats droite.
 - Barre de recherche texte avec bouton loupe.
 - Dropdown d'autocomplétion : affiche jusqu'à 5 suggestions (debounce 300ms via useSearch), se ferme au clic extérieur ou Escape.
 - Cliquer une suggestion appelle `selectSuggestion` → déclenche immédiatement une recherche.
@@ -133,7 +133,7 @@
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
-### useSearch
+### useEventSearch
 
 - Initialise l'état depuis les query params URL au montage.
 - Synchronise état → URL (replace) via `useSearchParams` React Router v6.

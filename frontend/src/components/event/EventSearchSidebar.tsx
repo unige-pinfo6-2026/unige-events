@@ -17,7 +17,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function FilterSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
+export default function EventSearchSidebar({ filters, setFilters, resetFilters }: FilterSidebarProps) {
   function handleCategoryChange(e: ChangeEvent<HTMLInputElement>) {
     setFilters({...filters, category: e.target.value as EventCategory || undefined})
   }

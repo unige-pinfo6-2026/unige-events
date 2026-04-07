@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, SearchIcon } from 'lucide-react'
 import EventCard from '@/components/event/EventCard'
-import FilterSidebar from '@/components/search/FilterSidebar'
-import { useSearch } from '@/hooks/useSearch'
+import EventSearchSidebar from '@/components/event/EventSearchSidebar'
+import { useSearch } from '@/hooks/useEventSearch'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
@@ -124,7 +124,7 @@ function SearchPage() {
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             {/* Sidebar */}
             <div className="w-full lg:w-60 shrink-0">
-              <FilterSidebar filters={filters} setFilters={setFilters} resetFilters={resetFilters} />
+              <EventSearchSidebar filters={filters} setFilters={setFilters} resetFilters={resetFilters} />
             </div>
 
             {/* Results */}

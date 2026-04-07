@@ -3,7 +3,7 @@ import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoadingPage from '@/pages/LoadingPage'
-import SearchPage from '@/pages/search/SearchPage'
+import SearchPage from '@/pages/event/EventsSearchPage'
 
 const LandingPage = lazy(() => import('@/pages/LandingPage'))
 const LoginPage = lazy(() => import('@/pages/login/LoginPage'))
@@ -28,11 +28,13 @@ const AppRouter = () => {
               <Route path="callback" element={<CallbackPage />} />
             </Route>
 
-            <Route element={<PrivateRoute/>}>
-              <Route path="/search">
-                <Route index element={<SearchPage />} />
-              </Route>
+            <Route path="/events">
+              <Route index element={<EventsPage />} />
+              <Route path="search" element={<SearchPage />} />
+              <Route path=":id" element={<EventDetailPage />} />
+            </Route>
 
+            <Route element={<PrivateRoute/>}>
               <Route path="/profile">
                 <Route index element={<Navigate to="/profile/me" replace />} />
                 <Route path=":id" element={<ProfilePage />} />
@@ -40,10 +42,8 @@ const AppRouter = () => {
               </Route>
 
               <Route path="/events">
-                <Route index element={<EventsPage />} />
                 <Route path="new" element={<EventCreatePage />} />
                 <Route path=":id/edit" element={<EventEditPage />} />
-                <Route path=":id" element={<EventDetailPage />} />
               </Route>
 
               <Route path="/calendar">
