@@ -10,8 +10,10 @@ export default function LoginPage() {
     }, [login]);
 
     return (
-        <LoadingSpinner>
-            Redirection vers la page de connexion...
-        </LoadingSpinner>
+        <div className="flex items-center justify-center min-h-hero">
+            <LoadingSpinner>
+                Redirection vers la page de connexion...
+            </LoadingSpinner>
+        </div>
     )
 }

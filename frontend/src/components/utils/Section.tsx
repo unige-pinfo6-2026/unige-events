@@ -16,7 +16,7 @@ interface SectionHeaderProps {
 }
 
 const paddings = {
-  hero: 'flex flex-col h-[calc(100vh-var(--height-navbar))] py-6',
+  hero: 'flex flex-col h-hero py-6',
   md: 'py-20 lg:py-32',
   sm: 'py-12 lg:py-16',
   bottom: 'pb-20',
