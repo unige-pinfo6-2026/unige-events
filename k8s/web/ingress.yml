@@ -3,11 +3,16 @@ kind: Ingress
 metadata:
   name: web
   namespace: unige-events
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned
 spec:
   tls:
-    - secretName: unige-events-tls
+    - hosts:
+        - 10.25.10.136
+      secretName: unige-events-tls
   rules:
-    - http:
+    - host: 10.25.10.136
+      http:
         paths:
           - path: /
             pathType: Prefix
