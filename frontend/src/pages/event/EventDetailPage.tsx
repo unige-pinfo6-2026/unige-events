@@ -11,6 +11,7 @@ import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
+import AttendanceButtons from '@/components/event/AttendanceButtons'
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -159,6 +160,14 @@ export default function EventDetailPage() {
           </>
         )}
       </div>
+
+      {/* Attendance */}
+      <AttendanceButtons
+        eventId={event.id}
+        initialAttendingCount={0}
+        initialInterestedCount={0}
+        initialStatus={null}
+      />
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 

@@ -115,6 +115,34 @@ Utilisée comme props par `FilterSidebar`.
 Champs : `category?`, `faculty?`, `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
 `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
 
+## Types présence — `src/types/attendance.ts`
+
+### AttendanceStatus
+
+`'INTERESTED' | 'ATTENDING'`
+
+### Attendance
+
+| Champ     | Type   | Requis |
+|-----------|--------|--------|
+| id        | number | oui    |
+| userId    | string | oui    |
+| eventId   | number | oui    |
+| status    | AttendanceStatus | oui |
+| createdAt | string | oui    |
+
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend`).
+
+### AttendanceRequest
+
+| Champ  | Type             | Requis |
+|--------|------------------|--------|
+| status | AttendanceStatus | oui    |
+
+Body de `POST /events/{id}/attend`.
+
+---
+
 ## Règles générales
 
 - Les types d'entités vivent dans `src/types/` et ne doivent pas être redéfinis ailleurs.

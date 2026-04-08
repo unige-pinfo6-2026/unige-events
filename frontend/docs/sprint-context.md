@@ -54,6 +54,17 @@ Fonctionnalités livrées :
 - useCalendarEvents : hook chargeant les événements du mois courant via GET /api/events?endDateFrom=, retourne les événements au format CalendarEvent (title, start, end, resource).
 - Lien "Vue Calendrier" dans la Navbar.
 
+## Sprint 4 — Présence / Attendance (SCRUM-90)
+
+Terminé le 2026-04-08.
+
+Fonctionnalités livrées :
+- `AttendanceButtons` (`src/components/event/AttendanceButtons.tsx`) : boutons "Je suis intéressé(e)" et "Je participe" sur `EventDetailPage`.
+- `useAttendance` hook : mise à jour optimiste, rollback sur erreur, flag `isFull` sur 409.
+- `attendanceApi.ts` : `attend` (POST) et `unattend` (DELETE) sur `/api/events/{id}/attend`.
+- Types `AttendanceStatus`, `Attendance`, `AttendanceRequest` dans `src/types/attendance.ts`.
+- Tests unitaires pour `attendanceApi` et `useAttendance` (couverture ≥ 80 %).
+
 ## Correctifs transverses — 2026-03-31
 
 Terminé.
