@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
-import { attend, unattend } from '@/services/attendanceApi'
+import { attend, getMyAttendance, unattend } from '@/services/attendanceApi'
 import type { AttendanceStatus } from '@/types/attendance'
 
 interface AttendanceState {
@@ -30,9 +30,33 @@ export function useAttendance(
     attendingCount: initialAttendingCount,
     interestedCount: initialInterestedCount,
   })
-  const [loading, setLoading] = useState(false)
+  // Start as true — buttons stay disabled until the real status is fetched.
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isFull, setIsFull] = useState(false)
+
+  // Fetch the current user's attendance status on mount so state survives
+  // navigation and page refresh. Uses GET /users/me/attendances filtered
+  // client-side; there is no per-event GET endpoint in the current API.
+  useEffect(() => {
+    let active = true
+    getMyAttendance(eventId)
+      .then((status) => {
+        if (active) {
+          setState((prev) => ({ ...prev, currentStatus: status }))
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        // Not authenticated or network error — leave currentStatus at null
+        // and let the user interact normally (toggle will fail with a 401 if
+        // they try while unauthenticated).
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [eventId])
 
   const toggle = useCallback(
     (status: AttendanceStatus) => {

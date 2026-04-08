@@ -4,14 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/services/api', () => ({
   default: {
+    get: vi.fn(),
     post: vi.fn(),
     delete: vi.fn(),
   },
 }))
 
 import api from '@/services/api'
-import { attend, unattend } from '@/services/attendanceApi'
+import { attend, getMyAttendance, unattend } from '@/services/attendanceApi'
 
+const mockApiGet = vi.mocked(api.get)
 const mockApiPost = vi.mocked(api.post)
 const mockApiDelete = vi.mocked(api.delete)
 
@@ -24,6 +26,7 @@ const sampleAttendance = {
 }
 
 beforeEach(() => {
+  mockApiGet.mockReset()
   mockApiPost.mockReset()
   mockApiDelete.mockReset()
 })
@@ -73,6 +76,52 @@ describe('attendanceApi', () => {
       mockApiDelete.mockRejectedValue(new Error('Network error'))
 
       await expect(unattend(42)).rejects.toThrow('Network error')
+    })
+  })
+
+  describe('getMyAttendance', () => {
+    const allAttendances = [
+      { id: 1, userId: 'abc-123', eventId: 10, status: 'INTERESTED' as const, createdAt: '2026-04-08T10:00:00.000Z' },
+      { id: 2, userId: 'abc-123', eventId: 42, status: 'ATTENDING' as const, createdAt: '2026-04-08T10:00:00.000Z' },
+    ]
+
+    it('returns the status for the given eventId', async () => {
+      mockApiGet.mockResolvedValue({ data: allAttendances } as Awaited<ReturnType<typeof api.get>>)
+
+      const result = await getMyAttendance(42)
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/attendances')
+      expect(result).toBe('ATTENDING')
+    })
+
+    it('returns INTERESTED for a different eventId', async () => {
+      mockApiGet.mockResolvedValue({ data: allAttendances } as Awaited<ReturnType<typeof api.get>>)
+
+      const result = await getMyAttendance(10)
+
+      expect(result).toBe('INTERESTED')
+    })
+
+    it('returns null when the event is not in the list', async () => {
+      mockApiGet.mockResolvedValue({ data: allAttendances } as Awaited<ReturnType<typeof api.get>>)
+
+      const result = await getMyAttendance(99)
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when the list is empty', async () => {
+      mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+
+      const result = await getMyAttendance(42)
+
+      expect(result).toBeNull()
+    })
+
+    it('propagates API errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('401 Unauthorized'))
+
+      await expect(getMyAttendance(42)).rejects.toThrow('401 Unauthorized')
     })
   })
 })

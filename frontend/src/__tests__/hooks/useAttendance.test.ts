@@ -7,13 +7,15 @@ import axios from 'axios'
 vi.mock('@/services/attendanceApi', () => ({
   attend: vi.fn(),
   unattend: vi.fn(),
+  getMyAttendance: vi.fn(),
 }))
 
-import { attend, unattend } from '@/services/attendanceApi'
+import { attend, getMyAttendance, unattend } from '@/services/attendanceApi'
 import { useAttendance } from '@/hooks/useAttendance'
 
 const mockAttend = attend as ReturnType<typeof vi.fn>
 const mockUnattend = unattend as ReturnType<typeof vi.fn>
+const mockGetMyAttendance = getMyAttendance as ReturnType<typeof vi.fn>
 
 const sampleAttendance = {
   id: 1,
@@ -25,175 +27,219 @@ const sampleAttendance = {
 
 afterEach(() => vi.resetAllMocks())
 
-describe('useAttendance', () => {
-  it('initializes with provided values', () => {
-    const { result } = renderHook(() => useAttendance(42, 5, 3, 'ATTENDING'))
-    expect(result.current.currentStatus).toBe('ATTENDING')
-    expect(result.current.attendingCount).toBe(5)
-    expect(result.current.interestedCount).toBe(3)
-    expect(result.current.loading).toBe(false)
-    expect(result.current.error).toBeNull()
-    expect(result.current.isFull).toBe(false)
+// Helper: render the hook and wait for initialization to complete
+async function renderInitialized(
+  eventId = 42,
+  initialAttending = 5,
+  initialInterested = 3,
+  initialStatus: 'INTERESTED' | 'ATTENDING' | null = null,
+  mountStatus: 'INTERESTED' | 'ATTENDING' | null = null,
+) {
+  mockGetMyAttendance.mockResolvedValue(mountStatus)
+  const hook = renderHook(() =>
+    useAttendance(eventId, initialAttending, initialInterested, initialStatus),
+  )
+  await waitFor(() => expect(hook.result.current.loading).toBe(false))
+  return hook
+}
+
+describe('useAttendance — mount initialization', () => {
+  it('starts with loading=true before the fetch resolves', () => {
+    mockGetMyAttendance.mockReturnValue(new Promise(() => {})) // never resolves
+    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    expect(result.current.loading).toBe(true)
   })
 
-  it('initializes with null status when not attended', () => {
-    const { result } = renderHook(() => useAttendance(42, 0, 0, null))
+  it('sets currentStatus from getMyAttendance on mount', async () => {
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(mockGetMyAttendance).toHaveBeenCalledWith(42)
+  })
+
+  it('sets currentStatus to null when user has no attendance', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.currentStatus).toBeNull()
   })
 
-  describe('toggle ON (set status)', () => {
-    it('optimistically sets ATTENDING and increments attendingCount', async () => {
-      mockAttend.mockResolvedValue(sampleAttendance)
-      const { result } = renderHook(() => useAttendance(42, 5, 3, null))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      expect(result.current.currentStatus).toBe('ATTENDING')
-      expect(result.current.attendingCount).toBe(6)
-      expect(result.current.interestedCount).toBe(3)
-      expect(result.current.loading).toBe(true)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-      expect(mockAttend).toHaveBeenCalledWith(42, 'ATTENDING')
-    })
-
-    it('optimistically sets INTERESTED and increments interestedCount', async () => {
-      mockAttend.mockResolvedValue({ ...sampleAttendance, status: 'INTERESTED' })
-      const { result } = renderHook(() => useAttendance(42, 5, 3, null))
-
-      act(() => result.current.toggle('INTERESTED'))
-
-      expect(result.current.currentStatus).toBe('INTERESTED')
-      expect(result.current.interestedCount).toBe(4)
-      expect(result.current.attendingCount).toBe(5)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-      expect(mockAttend).toHaveBeenCalledWith(42, 'INTERESTED')
-    })
-
-    it('switches from INTERESTED to ATTENDING adjusting both counts', async () => {
-      mockAttend.mockResolvedValue(sampleAttendance)
-      const { result } = renderHook(() => useAttendance(42, 5, 3, 'INTERESTED'))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      expect(result.current.currentStatus).toBe('ATTENDING')
-      expect(result.current.attendingCount).toBe(6)
-      expect(result.current.interestedCount).toBe(2)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-    })
+  it('sets loading=false and keeps currentStatus null when fetch fails (unauthenticated)', async () => {
+    mockGetMyAttendance.mockRejectedValue(new Error('401'))
+    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.error).toBeNull()
   })
 
-  describe('toggle OFF (unset status)', () => {
-    it('optimistically clears ATTENDING and decrements attendingCount', async () => {
-      mockUnattend.mockResolvedValue(undefined)
-      const { result } = renderHook(() => useAttendance(42, 5, 3, 'ATTENDING'))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      expect(result.current.currentStatus).toBeNull()
-      expect(result.current.attendingCount).toBe(4)
-      expect(result.current.interestedCount).toBe(3)
-      expect(result.current.loading).toBe(true)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-      expect(mockUnattend).toHaveBeenCalledWith(42)
-    })
-
-    it('optimistically clears INTERESTED and decrements interestedCount', async () => {
-      mockUnattend.mockResolvedValue(undefined)
-      const { result } = renderHook(() => useAttendance(42, 5, 3, 'INTERESTED'))
-
-      act(() => result.current.toggle('INTERESTED'))
-
-      expect(result.current.currentStatus).toBeNull()
-      expect(result.current.interestedCount).toBe(2)
-      expect(result.current.attendingCount).toBe(5)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-    })
-
-    it('does not decrement below zero', async () => {
-      mockUnattend.mockResolvedValue(undefined)
-      const { result } = renderHook(() => useAttendance(42, 0, 0, 'ATTENDING'))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      expect(result.current.attendingCount).toBe(0)
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-    })
+  it('does not set state after unmount', async () => {
+    let resolve: (v: 'ATTENDING' | null) => void = () => {}
+    mockGetMyAttendance.mockReturnValue(new Promise((r) => { resolve = r }))
+    const { result, unmount } = renderHook(() => useAttendance(42, 5, 3, null))
+    unmount()
+    // Resolving after unmount should not throw or update state
+    await act(async () => { resolve('ATTENDING') })
+    expect(result.current.currentStatus).toBeNull()
   })
 
-  describe('optimistic rollback on error', () => {
-    it('rolls back state when attend API fails', async () => {
-      mockAttend.mockRejectedValue(new Error('Network error'))
-      const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+  it('does not allow toggle while initializing', async () => {
+    mockGetMyAttendance.mockReturnValue(new Promise(() => {})) // never resolves
+    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    act(() => result.current.toggle('ATTENDING'))
+    expect(mockAttend).not.toHaveBeenCalled()
+  })
+})
 
-      act(() => result.current.toggle('ATTENDING'))
+describe('useAttendance — toggle ON (set status)', () => {
+  it('optimistically sets ATTENDING and increments attendingCount', async () => {
+    mockAttend.mockResolvedValue(sampleAttendance)
+    const { result } = await renderInitialized(42, 5, 3, null, null)
 
-      await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.toggle('ATTENDING'))
 
-      expect(result.current.currentStatus).toBeNull()
-      expect(result.current.attendingCount).toBe(5)
-      expect(result.current.interestedCount).toBe(3)
-      expect(result.current.error).toBe('Une erreur est survenue.')
-    })
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(6)
+    expect(result.current.interestedCount).toBe(3)
+    expect(result.current.loading).toBe(true)
 
-    it('rolls back state when unattend API fails', async () => {
-      mockUnattend.mockRejectedValue(new Error('Network error'))
-      const { result } = renderHook(() => useAttendance(42, 5, 3, 'ATTENDING'))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-
-      expect(result.current.currentStatus).toBe('ATTENDING')
-      expect(result.current.attendingCount).toBe(5)
-      expect(result.current.error).toBe('Une erreur est survenue.')
-    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockAttend).toHaveBeenCalledWith(42, 'ATTENDING')
   })
 
-  describe('409 → isFull flag', () => {
-    it('sets isFull on 409 and rolls back state', async () => {
-      const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
-      Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
-      mockAttend.mockRejectedValue(axiosError)
+  it('optimistically sets INTERESTED and increments interestedCount', async () => {
+    mockAttend.mockResolvedValue({ ...sampleAttendance, status: 'INTERESTED' })
+    const { result } = await renderInitialized(42, 5, 3, null, null)
 
-      const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    act(() => result.current.toggle('INTERESTED'))
 
-      act(() => result.current.toggle('ATTENDING'))
+    expect(result.current.currentStatus).toBe('INTERESTED')
+    expect(result.current.interestedCount).toBe(4)
+    expect(result.current.attendingCount).toBe(5)
 
-      await waitFor(() => expect(result.current.loading).toBe(false))
-
-      expect(result.current.isFull).toBe(true)
-      expect(result.current.error).toBeNull()
-      expect(result.current.currentStatus).toBeNull()
-      expect(result.current.attendingCount).toBe(5)
-    })
-
-    it('does not set isFull on non-409 errors', async () => {
-      const axiosError = new axios.AxiosError('Server Error', 'ERR_BAD_RESPONSE')
-      Object.defineProperty(axiosError, 'response', { value: { status: 500 }, writable: false })
-      mockAttend.mockRejectedValue(axiosError)
-
-      const { result } = renderHook(() => useAttendance(42, 5, 3, null))
-
-      act(() => result.current.toggle('ATTENDING'))
-
-      await waitFor(() => expect(result.current.loading).toBe(false))
-
-      expect(result.current.isFull).toBe(false)
-      expect(result.current.error).toBe('Une erreur est survenue.')
-    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockAttend).toHaveBeenCalledWith(42, 'INTERESTED')
   })
 
-  it('ignores toggle call while loading is true', async () => {
+  it('switches from INTERESTED to ATTENDING adjusting both counts', async () => {
+    mockAttend.mockResolvedValue(sampleAttendance)
+    const { result } = await renderInitialized(42, 5, 3, null, 'INTERESTED')
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(6)
+    expect(result.current.interestedCount).toBe(2)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+})
+
+describe('useAttendance — toggle OFF (unset status)', () => {
+  it('optimistically clears ATTENDING and decrements attendingCount', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, 3, null, 'ATTENDING')
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.attendingCount).toBe(4)
+    expect(result.current.interestedCount).toBe(3)
+    expect(result.current.loading).toBe(true)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockUnattend).toHaveBeenCalledWith(42)
+  })
+
+  it('optimistically clears INTERESTED and decrements interestedCount', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, 3, null, 'INTERESTED')
+
+    act(() => result.current.toggle('INTERESTED'))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.interestedCount).toBe(2)
+    expect(result.current.attendingCount).toBe(5)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('does not decrement below zero', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 0, 0, null, 'ATTENDING')
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.attendingCount).toBe(0)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+})
+
+describe('useAttendance — optimistic rollback on error', () => {
+  it('rolls back state when attend API fails', async () => {
+    mockAttend.mockRejectedValue(new Error('Network error'))
+    const { result } = await renderInitialized(42, 5, 3, null, null)
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.attendingCount).toBe(5)
+    expect(result.current.interestedCount).toBe(3)
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+
+  it('rolls back state when unattend API fails', async () => {
+    mockUnattend.mockRejectedValue(new Error('Network error'))
+    const { result } = await renderInitialized(42, 5, 3, null, 'ATTENDING')
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(5)
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+})
+
+describe('useAttendance — 409 → isFull flag', () => {
+  it('sets isFull on 409 and rolls back state', async () => {
+    const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
+    Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
+    mockAttend.mockRejectedValue(axiosError)
+
+    const { result } = await renderInitialized(42, 5, 3, null, null)
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.isFull).toBe(true)
+    expect(result.current.error).toBeNull()
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.attendingCount).toBe(5)
+  })
+
+  it('does not set isFull on non-409 errors', async () => {
+    const axiosError = new axios.AxiosError('Server Error', 'ERR_BAD_RESPONSE')
+    Object.defineProperty(axiosError, 'response', { value: { status: 500 }, writable: false })
+    mockAttend.mockRejectedValue(axiosError)
+
+    const { result } = await renderInitialized(42, 5, 3, null, null)
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.isFull).toBe(false)
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+})
+
+describe('useAttendance — guards', () => {
+  it('ignores toggle call while loading is true (post-init toggle in flight)', async () => {
     let resolve: (v: unknown) => void = () => {}
     mockAttend.mockReturnValue(new Promise((r) => { resolve = r }))
-
-    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    const { result } = await renderInitialized(42, 5, 3, null, null)
 
     act(() => result.current.toggle('ATTENDING'))
     expect(result.current.loading).toBe(true)
@@ -206,12 +252,12 @@ describe('useAttendance', () => {
     expect(mockAttend).toHaveBeenCalledTimes(1)
   })
 
-  it('clears isFull when toggling again after 409', async () => {
+  it('clears isFull when toggling again after a 409', async () => {
     const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
     Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
     mockAttend.mockRejectedValueOnce(axiosError).mockResolvedValue(sampleAttendance)
 
-    const { result } = renderHook(() => useAttendance(42, 5, 3, null))
+    const { result } = await renderInitialized(42, 5, 3, null, null)
 
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
