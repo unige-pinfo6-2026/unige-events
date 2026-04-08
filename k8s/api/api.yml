@@ -61,6 +61,11 @@ spec:
                 secretKeyRef:
                   name: api-secret
                   key: OIDC_AUDIENCE
+            - name: APP_FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: APP_FRONTEND_URL
           readinessProbe:
             tcpSocket:
               port: 8080

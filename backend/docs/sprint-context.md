@@ -1,6 +1,6 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-03-30
+Dernière mise à jour : 2026-04-06
 
 ---
 
@@ -74,12 +74,24 @@ Dernière mise à jour : 2026-03-30
 
 **Objectif :** Engagement & Interaction — inscription, favoris, partage.
 
-- [ ] Entité `Attendance` (userId, eventId, status INTERESTED|ATTENDING, contrainte unique)
-- [ ] `POST /events/{id}/attend`, `DELETE /events/{id}/attend`
-- [ ] Entité `Favorite` (userId, eventId)
-- [ ] `POST /events/{id}/favorite`, `DELETE /events/{id}/favorite`, `GET /users/me/favorites`
-- [ ] `GET /events/{id}/attendees` (profils publics uniquement)
-- [ ] Compteurs `attendeeCount`, `interestedCount` dans `GET /events/{id}`
+- [x] Entité `Favorite` (userId, eventId) — SCRUM-89 ✅
+- [x] `POST /events/{id}/favorite`, `DELETE /events/{id}/favorite`, `GET /users/me/favorites` — SCRUM-89 ✅
+- [x] `GET /events/{id}/share` + `GET /s/{shortCode}` (shortlink redirect) — SCRUM-89 ✅
+- [x] `GET /users/me/calendar-token`, `DELETE /users/me/calendar-token`, `GET /calendar/{calendarToken}.ics` — SCRUM-89-bis ✅
+- [x] Entité `Attendance` (userId, eventId, status) + endpoints — SCRUM-88 ✅
+  - `POST /events/{id}/attend` (upsert INTERESTED/ATTENDING)
+  - `DELETE /events/{id}/attend` (désinscription)
+  - `GET /events/{id}/attendees` (créateur uniquement)
+  - `GET /users/me/attendances`
+
+### Fixes PR #41 (post-review lead technique)
+- [x] Fix 1 — NPE body null `POST /events/{id}/attend` → `@NotNull` sur paramètre
+- [x] Fix 2 — Inscription sur event DRAFT bloquée → 400 `BadRequestException`
+- [x] Fix 3 — `DELETE /me/calendar-token` → `POST /me/calendar-token/regenerate`
+- [x] Fix 4 — `frontendUrl` centralisé dans `AppConfig` (défaut `http://localhost:5173`)
+- [x] Fix 5 — `buildIcsContent`/`foldLine`/`escapeIcs` extraits dans `util/IcsBuilder`
+- [x] Fix 6 — Conversion UTC → Europe/Zurich dans `IcsBuilder.buildIcsContent`
+- [x] Fix 7 — `%dev.quarkus.http.host=0.0.0.0` dans `application.properties`
 
 ---
 

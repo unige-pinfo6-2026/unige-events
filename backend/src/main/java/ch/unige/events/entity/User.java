@@ -46,6 +46,9 @@ public class User extends PanacheEntityBase {
     @Column(nullable = false)
     public long version = 0L;
 
+    @Column(unique = true)
+    public UUID calendarToken;
+
     public static Optional<User> findByAuth0Id(String auth0Id) {
         return find("auth0Id", auth0Id).firstResultOptional();
     }

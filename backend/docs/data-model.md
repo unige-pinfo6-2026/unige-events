@@ -22,6 +22,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `profilePublic` | `profilePublic` | `boolean` | `profile_public` | default `false` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | immutable, defaults to `now()` |
 | `version` | `version` | `Long` | `version` | `@Version` (optimistic locking) |
+| `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
 Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
 
@@ -44,10 +45,50 @@ Table : `events`
 | `creator` | — | `User` | `creator_id` | `@ManyToOne(LAZY)`, `@JoinColumn` — FK vers `users.id` |
 | `status` | `status` | `EventStatus` | `status` | `@NotNull`, `@Enumerated(STRING)`, default `DRAFT` |
 | `capacity` | `capacity` | `Integer` | `capacity` | nullable |
+| `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
 Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
+
+---
+
+### Favorite
+
+Table : `favorites`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_favorite_user_event` sur `(user_id, event_id)`.
+
+Suppression physique autorisée (pas de soft-delete).
+
+Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByUser(UUID, int, int)`.
+
+---
+
+### Attendance
+
+Table : `attendances`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `status` | `status` | `AttendanceStatus` | `status` | not null, `@Enumerated(STRING)` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
+
+Upsert : un utilisateur n'a qu'une seule inscription par événement — le statut est mis à jour si l'inscription existe.
+
+Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`.
 
 ---
 

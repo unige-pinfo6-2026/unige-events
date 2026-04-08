@@ -4,6 +4,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Entity
 @Table(name = "events", indexes = {
@@ -37,6 +38,9 @@ public class Event extends PanacheEntity {
 
     public Integer capacity;
 
+    @Column(unique = true)
+    public String shareCode;
+
     @Column(updatable = false)
     public LocalDateTime createdAt;
 
@@ -51,5 +55,9 @@ public class Event extends PanacheEntity {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public static Optional<Event> findByShareCode(String shareCode) {
+        return find("shareCode", shareCode).firstResultOptional();
     }
 }
