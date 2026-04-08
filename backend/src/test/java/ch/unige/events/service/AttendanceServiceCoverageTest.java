@@ -1,6 +1,7 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.attendance.AttendanceDTO;
+import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
@@ -29,6 +30,9 @@ class AttendanceServiceCoverageTest {
 
     @Inject
     AttendanceService attendanceService;
+
+    @Inject
+    EventService eventService;
 
     @Inject
     EntityManager entityManager;
@@ -258,6 +262,95 @@ class AttendanceServiceCoverageTest {
     void getMyAttendances_unknownUser_throwsNotFound() {
         assertThrows(NotFoundException.class,
                 () -> attendanceService.getMyAttendances("auth0|nobody"));
+    }
+
+    // =========================================================
+    // attendingCount / interestedCount — persistance des comptes
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void attendingCount_incrementsAfterAttend_andDecrementsAfterUnattend() {
+        User organizer = persistUser("auth0|cnt-org", "cnt-org@example.com");
+        Event event = persistEvent("Counted Event", organizer, EventStatus.PUBLISHED, null);
+        persistUser("auth0|cnt-user", "cnt-user@example.com");
+
+        // Avant toute inscription — compteurs à 0
+        EventDTO before = eventService.getById(event.id);
+        assertEquals(0, before.attendingCount());
+        assertEquals(0, before.interestedCount());
+
+        // Inscription ATTENDING
+        attendanceService.attend("auth0|cnt-user", event.id, AttendanceStatus.ATTENDING);
+        entityManager.flush();
+
+        EventDTO afterAttend = eventService.getById(event.id);
+        assertEquals(1, afterAttend.attendingCount());
+        assertEquals(0, afterAttend.interestedCount());
+
+        // Désinscription
+        attendanceService.removeAttendance("auth0|cnt-user", event.id);
+        entityManager.flush();
+
+        EventDTO afterUnattend = eventService.getById(event.id);
+        assertEquals(0, afterUnattend.attendingCount());
+        assertEquals(0, afterUnattend.interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void interestedCount_incrementsAfterAttend() {
+        User organizer = persistUser("auth0|int-org", "int-org@example.com");
+        Event event = persistEvent("Interested Event", organizer, EventStatus.PUBLISHED, null);
+        persistUser("auth0|int-user", "int-user@example.com");
+
+        attendanceService.attend("auth0|int-user", event.id, AttendanceStatus.INTERESTED);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id);
+        assertEquals(0, dto.attendingCount());
+        assertEquals(1, dto.interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void counts_updateCorrectly_whenStatusSwitches() {
+        User organizer = persistUser("auth0|sw-org", "sw-org@example.com");
+        Event event = persistEvent("Switch Event", organizer, EventStatus.PUBLISHED, null);
+        persistUser("auth0|sw-user", "sw-user@example.com");
+
+        // Start INTERESTED
+        attendanceService.attend("auth0|sw-user", event.id, AttendanceStatus.INTERESTED);
+        entityManager.flush();
+        EventDTO afterInterested = eventService.getById(event.id);
+        assertEquals(0, afterInterested.attendingCount());
+        assertEquals(1, afterInterested.interestedCount());
+
+        // Switch to ATTENDING
+        attendanceService.attend("auth0|sw-user", event.id, AttendanceStatus.ATTENDING);
+        entityManager.flush();
+        EventDTO afterSwitch = eventService.getById(event.id);
+        assertEquals(1, afterSwitch.attendingCount());
+        assertEquals(0, afterSwitch.interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void counts_multipleUsers_accumulateCorrectly() {
+        User organizer = persistUser("auth0|mul-org", "mul-org@example.com");
+        Event event = persistEvent("Multi-user Event", organizer, EventStatus.PUBLISHED, null);
+        persistUser("auth0|mul-u1", "mul-u1@example.com");
+        persistUser("auth0|mul-u2", "mul-u2@example.com");
+        persistUser("auth0|mul-u3", "mul-u3@example.com");
+
+        attendanceService.attend("auth0|mul-u1", event.id, AttendanceStatus.ATTENDING);
+        attendanceService.attend("auth0|mul-u2", event.id, AttendanceStatus.ATTENDING);
+        attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.INTERESTED);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id);
+        assertEquals(2, dto.attendingCount());
+        assertEquals(1, dto.interestedCount());
     }
 
     // =========================================================

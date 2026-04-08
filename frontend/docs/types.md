@@ -40,9 +40,11 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | bannerUrl   | string        | non    |
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
-| capacity    | number        | non    |
-| createdAt   | string        | oui    |
-| updatedAt   | string        | non    |
+| capacity        | number        | non    |
+| attendingCount  | number        | non    |
+| interestedCount | number        | non    |
+| createdAt       | string        | oui    |
+| updatedAt       | string        | non    |
 
 ### CreateEventRequest
 

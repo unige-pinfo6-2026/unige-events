@@ -19,10 +19,12 @@ public record EventDTO(
         UUID creatorId,
         EventStatus status,
         Integer capacity,
+        long attendingCount,
+        long interestedCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static EventDTO from(Event event) {
+    public static EventDTO from(Event event, long attendingCount, long interestedCount) {
         return new EventDTO(
                 event.id,
                 event.title,
@@ -35,8 +37,15 @@ public record EventDTO(
                 event.creator != null ? event.creator.id : null,
                 event.status,
                 event.capacity,
+                attendingCount,
+                interestedCount,
                 event.createdAt,
                 event.updatedAt
         );
+    }
+
+    /** Convenience overload returning zero counts — for contexts where counts are not relevant. */
+    public static EventDTO from(Event event) {
+        return from(event, 0L, 0L);
     }
 }

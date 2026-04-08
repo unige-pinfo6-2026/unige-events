@@ -10,6 +10,8 @@ export type Event = {
   creatorId: string
   status: EventStatus
   capacity?: number
+  attendingCount?: number
+  interestedCount?: number
   createdAt: string
   updatedAt?: string
 }

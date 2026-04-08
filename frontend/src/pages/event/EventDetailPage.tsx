@@ -164,8 +164,8 @@ export default function EventDetailPage() {
       {/* Attendance */}
       <AttendanceButtons
         eventId={event.id}
-        initialAttendingCount={0}
-        initialInterestedCount={0}
+        initialAttendingCount={event.attendingCount ?? 0}
+        initialInterestedCount={event.interestedCount ?? 0}
         initialStatus={null}
       />
 

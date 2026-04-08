@@ -183,6 +183,14 @@ components:
         capacity:
           type: integer
           nullable: true
+        attendingCount:
+          type: integer
+          format: int64
+          description: Nombre d'utilisateurs inscrits avec le statut ATTENDING
+        interestedCount:
+          type: integer
+          format: int64
+          description: Nombre d'utilisateurs inscrits avec le statut INTERESTED
         createdAt:
           type: string
           format: date-time

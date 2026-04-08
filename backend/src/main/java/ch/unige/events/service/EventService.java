@@ -3,6 +3,8 @@ package ch.unige.events.service;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
@@ -59,7 +61,9 @@ public class EventService {
             query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
         }
 
-        return query.page(page, size).list().stream().map(EventDTO::from).toList();
+        return query.page(page, size).list().stream()
+                .map(e -> EventDTO.from(e, countAttending(e.id), countInterested(e.id)))
+                .toList();
     }
 
     @Transactional
@@ -82,14 +86,15 @@ public class EventService {
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        return EventDTO.from(event);
+        // A newly created event has no attendances yet — counts are 0.
+        return EventDTO.from(event, 0L, 0L);
     }
 
     @Transactional
     public EventDTO getById(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id), countInterested(id));
     }
 
     @Transactional
@@ -113,7 +118,7 @@ public class EventService {
             event.status = request.status;
         }
 
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id), countInterested(id));
     }
 
     @Transactional
@@ -147,7 +152,7 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id), countInterested(id));
     }
 
     @Transactional
@@ -159,7 +164,15 @@ public class EventService {
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload);
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id), countInterested(id));
+    }
+
+    private long countAttending(Long eventId) {
+        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
+    }
+
+    private long countInterested(Long eventId) {
+        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.INTERESTED);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {
