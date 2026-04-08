@@ -1,13 +1,15 @@
 package ch.unige.events.config;
 
-import io.smallrye.config.ConfigMapping;
-import io.smallrye.config.WithDefault;
-import io.smallrye.config.WithName;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@ConfigMapping(prefix = "app")
-public interface AppConfig {
+@ApplicationScoped
+public class AppConfig {
 
-    @WithName("frontend.url")
-    @WithDefault("http://localhost:5173")
-    String frontendUrl();
+    @ConfigProperty(name = "app.frontend.url", defaultValue = "http://localhost:5173")
+    String frontendUrl;
+
+    public String frontendUrl() {
+        return frontendUrl;
+    }
 }

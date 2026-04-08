@@ -240,6 +240,7 @@ public class UserResource {
     @POST
     @Path("/me/calendar-token/regenerate")
     @Authenticated
+    @Consumes(MediaType.WILDCARD)
     public CalendarTokenResponse regenerateMyCalendarToken() {
         return calendarService.regenerateToken(identity.getPrincipal().getName());
     }
