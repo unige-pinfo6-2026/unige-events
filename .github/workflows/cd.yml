@@ -60,7 +60,8 @@ jobs:
               "OIDC_AUTH_SERVER_URL": "${{ vars.OIDC_AUTH_SERVER_URL }}",
               "OIDC_CLIENT_ID": "${{ vars.OIDC_CLIENT_ID }}",
               "OIDC_CLIENT_SECRET": "${{ secrets.OIDC_CLIENT_SECRET }}",
-              "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}"
+              "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}",
+              "APP_FRONTEND_URL": "${{ vars.APP_FRONTEND_URL }}"
             }
       
       - name: Apply manifests
