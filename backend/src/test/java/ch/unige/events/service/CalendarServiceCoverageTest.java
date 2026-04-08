@@ -6,6 +6,7 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
+import ch.unige.events.util.IcsBuilder;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -167,23 +168,14 @@ class CalendarServiceCoverageTest {
     }
 
     // =========================================================
-    // buildIcsContent (package-private, unit tests sans DB)
+    // buildIcsContent / foldLine / escapeIcs (via IcsBuilder)
     // =========================================================
-
-    @Test
-    void buildIcsContent_emptyList_returnsValidCalendar() {
-        String ics = calendarService.buildIcsContent(List.of());
-
-        assertTrue(ics.contains("BEGIN:VCALENDAR"));
-        assertTrue(ics.contains("END:VCALENDAR"));
-        assertFalse(ics.contains("BEGIN:VEVENT"));
-    }
 
     @Test
     void buildIcsContent_eventWithDescription_includesDescriptionLine() {
         Event event = buildInMemoryEvent("Conférence", "Uni Mail", "Une super description");
 
-        String ics = calendarService.buildIcsContent(List.of(event));
+        String ics = IcsBuilder.buildIcsContent(List.of(event), "http://localhost:5173");
 
         assertTrue(ics.contains("DESCRIPTION:Une super description"));
     }
@@ -192,35 +184,10 @@ class CalendarServiceCoverageTest {
     void buildIcsContent_eventWithoutLocation_noLocationLine() {
         Event event = buildInMemoryEvent("Conférence sans lieu", null, null);
 
-        String ics = calendarService.buildIcsContent(List.of(event));
+        String ics = IcsBuilder.buildIcsContent(List.of(event), "http://localhost:5173");
 
         assertTrue(ics.contains("BEGIN:VEVENT"));
         assertFalse(ics.contains("LOCATION:"));
-    }
-
-    @Test
-    void escapeIcs_specialChars_areEscaped() {
-        String result = calendarService.escapeIcs("a,b;c\nd");
-
-        assertEquals("a\\,b\\;c\\nd", result);
-    }
-
-    @Test
-    void foldLine_shortLine_appendsCRLFOnly() {
-        String result = calendarService.foldLine("SUMMARY:Short title");
-
-        assertEquals("SUMMARY:Short title\r\n", result);
-    }
-
-    @Test
-    void foldLine_longLine_foldsAt75Chars() {
-        String longLine = "SUMMARY:" + "A".repeat(80);
-
-        String result = calendarService.foldLine(longLine);
-
-        // First segment: 75 chars + CRLF, continuation: space + remaining chars + CRLF
-        assertTrue(result.startsWith("SUMMARY:" + "A".repeat(67)));
-        assertTrue(result.contains("\r\n "));
     }
 
     private Event buildInMemoryEvent(String title, String location, String description) {

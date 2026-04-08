@@ -11,6 +11,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -71,6 +72,16 @@ class AttendanceServiceCoverageTest {
 
         assertThrows(NotFoundException.class,
                 () -> attendanceService.attend("auth0|att3", 999999L, AttendanceStatus.INTERESTED));
+    }
+
+    @Test
+    @TestTransaction
+    void attend_draftEvent_throwsBadRequest() {
+        User user = persistUser("auth0|draft1", "draft1@example.com");
+        Event event = persistEvent("Draft Event", user, EventStatus.DRAFT, null);
+
+        assertThrows(BadRequestException.class,
+                () -> attendanceService.attend("auth0|draft1", event.id, AttendanceStatus.ATTENDING));
     }
 
     @Test

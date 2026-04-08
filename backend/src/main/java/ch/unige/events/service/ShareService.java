@@ -2,10 +2,11 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.event.ShareResponse;
 import ch.unige.events.entity.Event;
+import ch.unige.events.config.AppConfig;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.security.SecureRandom;
 
@@ -16,8 +17,8 @@ public class ShareService {
     private static final int CODE_LENGTH = 8;
     private final SecureRandom random = new SecureRandom();
 
-    @ConfigProperty(name = "app.frontend.url", defaultValue = "https://10.25.10.136.nip.io")
-    String frontendUrl;
+    @Inject
+    AppConfig appConfig;
 
     @Transactional
     public ShareResponse getShareInfo(Long eventId) {
@@ -28,7 +29,7 @@ public class ShareService {
             event.shareCode = generateCode();
         }
 
-        String shareUrl = frontendUrl + "/events/" + eventId;
+        String shareUrl = appConfig.frontendUrl() + "/events/" + eventId;
         return new ShareResponse(shareUrl, event.shareCode);
     }
 

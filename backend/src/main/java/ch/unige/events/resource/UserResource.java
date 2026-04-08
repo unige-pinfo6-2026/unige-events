@@ -237,8 +237,8 @@ public class UserResource {
         return calendarService.getOrCreateToken(identity.getPrincipal().getName());
     }
 
-    @DELETE
-    @Path("/me/calendar-token")
+    @POST
+    @Path("/me/calendar-token/regenerate")
     @Authenticated
     public CalendarTokenResponse regenerateMyCalendarToken() {
         return calendarService.regenerateToken(identity.getPrincipal().getName());

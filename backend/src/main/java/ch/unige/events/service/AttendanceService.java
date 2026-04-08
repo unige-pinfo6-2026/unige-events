@@ -5,9 +5,11 @@ import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -24,6 +26,11 @@ public class AttendanceService {
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
+
+        // Vérification statut — uniquement les events PUBLISHED
+        if (event.status != EventStatus.PUBLISHED) {
+            throw new BadRequestException("Cannot attend a non-published event");
+        }
 
         UUID userId = resolveUserId(auth0Id);
 

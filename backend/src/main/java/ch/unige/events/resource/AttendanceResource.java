@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -35,7 +36,7 @@ public class AttendanceResource {
     @Path("/{id}/attend")
     @Authenticated
     public Response attend(@PathParam("id") Long id,
-                           @Valid AttendanceRequest request) {
+                           @NotNull @Valid AttendanceRequest request) {
         String auth0Id = identity.getPrincipal().getName();
         AttendanceDTO dto = attendanceService.attend(auth0Id, id, request.status());
         return Response.ok(dto).build();

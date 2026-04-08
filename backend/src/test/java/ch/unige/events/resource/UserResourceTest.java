@@ -335,7 +335,7 @@ class UserResourceTest {
     @TestSecurity(user = "auth0|alice")
     void regenerateCalendarToken_authenticated_returns200() {
         given()
-            .when().delete("/users/me/calendar-token")
+            .when().post("/users/me/calendar-token/regenerate")
             .then()
             .statusCode(200)
             .contentType(ContentType.JSON)

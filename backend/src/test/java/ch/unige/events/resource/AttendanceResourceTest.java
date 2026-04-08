@@ -109,6 +109,33 @@ class AttendanceResourceTest {
                 .statusCode(400);
     }
 
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void attend_nullBody_returns400() {
+        Event event = attendanceServiceMock.seedEvent("Conférence UNIGE NPE");
+
+        given()
+                .contentType(ContentType.JSON)
+                // Pas de .body() — body absent → null côté JAX-RS
+                .when().post("/events/{id}/attend", event.id)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void attend_draftEvent_returns400() {
+        Event event = attendanceServiceMock.seedEvent("Draft Event");
+        AttendanceServiceMock.forceDraftConflict = true;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"status\":\"ATTENDING\"}")
+                .when().post("/events/{id}/attend", event.id)
+                .then()
+                .statusCode(400);
+    }
+
     // =========================================================
     // DELETE /events/{id}/attend
     // =========================================================

@@ -7,6 +7,7 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -31,6 +32,7 @@ public class AttendanceServiceMock extends AttendanceService {
     public static volatile boolean forceNotFoundOnAttend = false;
     public static volatile boolean forceNotFoundOnRemove = false;
     public static volatile boolean forceForbiddenOnGetAttendees = false;
+    public static volatile boolean forceDraftConflict = false;
 
     public void reset() {
         eventsById.clear();
@@ -40,6 +42,7 @@ public class AttendanceServiceMock extends AttendanceService {
         forceNotFoundOnAttend = false;
         forceNotFoundOnRemove = false;
         forceForbiddenOnGetAttendees = false;
+        forceDraftConflict = false;
     }
 
     public Event seedEvent(String title) {
@@ -55,6 +58,7 @@ public class AttendanceServiceMock extends AttendanceService {
     @Override
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
         if (forceNotFoundOnAttend) throw new NotFoundException();
+        if (forceDraftConflict) throw new BadRequestException("Cannot attend a non-published event");
         if (forceCapacityConflict) {
             throw new WebApplicationException(
                     Response.status(Response.Status.CONFLICT)

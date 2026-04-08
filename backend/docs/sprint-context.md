@@ -84,6 +84,15 @@ Dernière mise à jour : 2026-04-06
   - `GET /events/{id}/attendees` (créateur uniquement)
   - `GET /users/me/attendances`
 
+### Fixes PR #41 (post-review lead technique)
+- [x] Fix 1 — NPE body null `POST /events/{id}/attend` → `@NotNull` sur paramètre
+- [x] Fix 2 — Inscription sur event DRAFT bloquée → 400 `BadRequestException`
+- [x] Fix 3 — `DELETE /me/calendar-token` → `POST /me/calendar-token/regenerate`
+- [x] Fix 4 — `frontendUrl` centralisé dans `AppConfig` (défaut `http://localhost:5173`)
+- [x] Fix 5 — `buildIcsContent`/`foldLine`/`escapeIcs` extraits dans `util/IcsBuilder`
+- [x] Fix 6 — Conversion UTC → Europe/Zurich dans `IcsBuilder.buildIcsContent`
+- [x] Fix 7 — `%dev.quarkus.http.host=0.0.0.0` dans `application.properties`
+
 ---
 
 ## Sprint 5 (planifié : 3–10 avril 2025)
