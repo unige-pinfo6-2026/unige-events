@@ -40,8 +40,8 @@ describe('IcsExportButton', () => {
   it('triggers file download on button click', () => {
     const createObjectURL = vi.fn(() => 'blob:test-url')
     const revokeObjectURL = vi.fn()
-    global.URL.createObjectURL = createObjectURL
-    global.URL.revokeObjectURL = revokeObjectURL
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
 
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
@@ -59,8 +59,8 @@ describe('IcsExportButton', () => {
 
   it('download anchor uses event id in filename', () => {
     const createObjectURL = vi.fn(() => 'blob:test-url')
-    global.URL.createObjectURL = createObjectURL
-    global.URL.revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = vi.fn()
 
     let capturedDownload = ''
     const clickSpy = vi
