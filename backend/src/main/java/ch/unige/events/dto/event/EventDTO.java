@@ -44,7 +44,13 @@ public record EventDTO(
         );
     }
 
-    /** Convenience overload returning zero counts — for contexts where counts are not relevant. */
+    /**
+     * @deprecated Zero-count convenience overload — must NOT be used in any API response path,
+     *             as it always returns attendingCount=0 and interestedCount=0.
+     *             Use {@link #from(Event, long, long)} with real bulk counts instead.
+     *             Kept only for test fixtures that do not care about counts.
+     */
+    @Deprecated(forRemoval = false)
     public static EventDTO from(Event event) {
         return from(event, 0L, 0L);
     }

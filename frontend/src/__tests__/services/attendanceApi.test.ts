@@ -118,10 +118,32 @@ describe('attendanceApi', () => {
       expect(result).toBeNull()
     })
 
-    it('propagates API errors', async () => {
-      mockApiGet.mockRejectedValue(new Error('401 Unauthorized'))
+    it('returns null on 401 Axios error', async () => {
+      const axiosError = Object.assign(new Error('Unauthorized'), {
+        isAxiosError: true,
+        response: { status: 401 },
+      })
+      mockApiGet.mockRejectedValue(axiosError)
 
-      await expect(getMyAttendance(42)).rejects.toThrow('401 Unauthorized')
+      const result = await getMyAttendance(42)
+
+      expect(result).toBeNull()
+    })
+
+    it('propagates non-401 Axios errors', async () => {
+      const axiosError = Object.assign(new Error('Server Error'), {
+        isAxiosError: true,
+        response: { status: 500 },
+      })
+      mockApiGet.mockRejectedValue(axiosError)
+
+      await expect(getMyAttendance(42)).rejects.toThrow('Server Error')
+    })
+
+    it('propagates non-Axios errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('Network error'))
+
+      await expect(getMyAttendance(42)).rejects.toThrow('Network error')
     })
   })
 })

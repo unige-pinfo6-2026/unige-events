@@ -3,6 +3,8 @@ package ch.unige.events.service;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.ShareResponse;
 import ch.unige.events.dto.favorite.FavoriteDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Favorite;
@@ -169,6 +171,40 @@ class FavoriteServiceCoverageTest {
     }
 
     // =========================================================
+    // FavoriteService — getFavorites counts
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void getFavorites_withAttendance_returnsRealAttendingCount() {
+        User user = persistUser("auth0|cnt-fav1", "cnt-fav1@example.com");
+        Event event = persistEvent("Attended Favorite", user);
+        persistFavorite(user.id, event.id);
+        persistAttendanceRecord(user.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = favoriteService.getFavorites("auth0|cnt-fav1", 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).attendingCount());
+        assertEquals(0L, result.get(0).interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getFavorites_withInterestedAttendance_returnsRealInterestedCount() {
+        User user = persistUser("auth0|cnt-fav2", "cnt-fav2@example.com");
+        Event event = persistEvent("Interested Favorite", user);
+        persistFavorite(user.id, event.id);
+        persistAttendanceRecord(user.id, event.id, AttendanceStatus.INTERESTED);
+
+        List<EventDTO> result = favoriteService.getFavorites("auth0|cnt-fav2", 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(0L, result.get(0).attendingCount());
+        assertEquals(1L, result.get(0).interestedCount());
+    }
+
+    // =========================================================
     // ShareService — getShareInfo
     // =========================================================
 
@@ -267,5 +303,9 @@ class FavoriteServiceCoverageTest {
         entityManager.persist(favorite);
         entityManager.flush();
         return favorite;
+    }
+
+    private Attendance persistAttendanceRecord(UUID userId, Long eventId, AttendanceStatus status) {
+        return ServiceCoverageTestHelper.persistAttendance(entityManager, userId, eventId, status);
     }
 }

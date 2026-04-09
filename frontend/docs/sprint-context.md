@@ -54,6 +54,15 @@ Fonctionnalités livrées :
 - useCalendarEvents : hook chargeant les événements du mois courant via GET /api/events?endDateFrom=, retourne les événements au format CalendarEvent (title, start, end, resource).
 - Lien "Vue Calendrier" dans la Navbar.
 
+## Sprint 4 — Export ICS (SCRUM-100)
+
+Terminé le 2026-04-09.
+
+Fonctionnalités livrées :
+- `icsGenerator.ts` (`src/utils/`) : `generateIcs(event)` conforme RFC 5545 (UTC, échappement, line folding 75 octets, DESCRIPTION optionnelle) et `buildGoogleCalendarUrl(event)`.
+- `IcsExportButton` (`src/components/event/IcsExportButton.tsx`) : bouton "Télécharger .ics" (Blob download) + lien "Google Calendar" (nouvel onglet), affiché sur `EventDetailPage`.
+- Tests unitaires `icsGenerator.test.ts` et composant `IcsExportButton.test.tsx` (couverture ≥ 80 %).
+
 ## Sprint 4 — Présence / Attendance (SCRUM-90)
 
 Terminé le 2026-04-08.

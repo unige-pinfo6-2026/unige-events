@@ -12,6 +12,7 @@ import { Calendar, MapPin, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
+import IcsExportButton from '@/components/event/IcsExportButton'
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -168,6 +169,9 @@ export default function EventDetailPage() {
         initialInterestedCount={event.interestedCount ?? 0}
         initialStatus={null}
       />
+
+      {/* ICS export */}
+      <IcsExportButton event={event} />
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 

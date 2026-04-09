@@ -12,6 +12,7 @@ import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class EventService {
 
     @Inject FileStorageService fileStorageService;
+    @Inject EntityManager entityManager;
 
     @Transactional
     public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
@@ -61,8 +63,14 @@ public class EventService {
             query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
         }
 
-        return query.page(page, size).list().stream()
-                .map(e -> EventDTO.from(e, countAttending(e.id), countInterested(e.id)))
+        List<Event> events = query.page(page, size).list();
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = bulkCountByStatus(ids, AttendanceStatus.ATTENDING);
+        Map<Long, Long> interestedCounts = bulkCountByStatus(ids, AttendanceStatus.INTERESTED);
+        return events.stream()
+                .map(e -> EventDTO.from(e,
+                        attendingCounts.getOrDefault(e.id, 0L),
+                        interestedCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 
@@ -165,6 +173,10 @@ public class EventService {
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload);
         return EventDTO.from(event, countAttending(id), countInterested(id));
+    }
+
+    private Map<Long, Long> bulkCountByStatus(List<Long> eventIds, AttendanceStatus status) {
+        return Attendance.countGroupedByStatus(eventIds, status, entityManager);
     }
 
     private long countAttending(Long eventId) {

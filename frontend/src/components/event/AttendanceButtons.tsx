@@ -52,11 +52,16 @@ export default function AttendanceButtons({
         </button>
 
         {/* Attending button with tooltip when full */}
-        <div className="relative group">
+        <div
+          className="relative group"
+          tabIndex={isAttendingDisabled ? 0 : undefined}
+          role={isAttendingDisabled ? 'group' : undefined}
+        >
           <button
             type="button"
             onClick={() => toggle('ATTENDING')}
             disabled={loading || isAttendingDisabled}
+            aria-describedby={isAttendingDisabled ? 'attending-full-tooltip' : undefined}
             className={
               currentStatus === 'ATTENDING'
                 ? buttonVariants.activeAttending
@@ -70,14 +75,17 @@ export default function AttendanceButtons({
             Je participe
           </button>
 
-          {isAttendingDisabled && (
-            <div
-              role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            >
-              Événement complet
-            </div>
-          )}
+          <div
+            id="attending-full-tooltip"
+            role="tooltip"
+            className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-opacity z-10 ${
+              isAttendingDisabled
+                ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                : 'hidden'
+            }`}
+          >
+            Événement complet
+          </div>
         </div>
       </div>
 

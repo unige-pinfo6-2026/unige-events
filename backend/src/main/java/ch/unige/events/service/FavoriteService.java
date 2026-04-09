@@ -1,19 +1,27 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
 public class FavoriteService {
+
+    @Inject
+    EntityManager entityManager;
 
     @Transactional
     public void addFavorite(String auth0Id, Long eventId) {
@@ -49,10 +57,16 @@ public class FavoriteService {
     public List<EventDTO> getFavorites(String auth0Id, int page, int size) {
         UUID userId = resolveUserId(auth0Id);
 
-        return Favorite.findByUser(userId, page, size).stream()
+        List<Favorite> favorites = Favorite.findByUser(userId, page, size);
+        List<Long> eventIds = favorites.stream().map(f -> f.eventId).toList();
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> interestedCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.INTERESTED, entityManager);
+        return favorites.stream()
                 .map(f -> Event.<Event>findByIdOptional(f.eventId))
                 .flatMap(Optional::stream)
-                .map(EventDTO::from)
+                .map(e -> EventDTO.from(e,
+                        attendingCounts.getOrDefault(e.id, 0L),
+                        interestedCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 

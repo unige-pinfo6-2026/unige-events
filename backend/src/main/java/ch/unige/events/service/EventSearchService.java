@@ -1,10 +1,14 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
@@ -27,6 +31,9 @@ import java.util.Map;
 public class EventSearchService {
 
     private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
+
+    @Inject
+    EntityManager entityManager;
 
     @Transactional
     public List<EventDTO> search(String q, EventCategory category,
@@ -64,6 +71,14 @@ public class EventSearchService {
             query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
         }
 
-        return query.page(page, size).list().stream().map(EventDTO::from).toList();
+        List<Event> events = query.page(page, size).list();
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(ids, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> interestedCounts = Attendance.countGroupedByStatus(ids, AttendanceStatus.INTERESTED, entityManager);
+        return events.stream()
+                .map(e -> EventDTO.from(e,
+                        attendingCounts.getOrDefault(e.id, 0L),
+                        interestedCounts.getOrDefault(e.id, 0L)))
+                .toList();
     }
 }

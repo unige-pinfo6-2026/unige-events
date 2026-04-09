@@ -108,6 +108,13 @@
 - Affiche un compteur live : "X personnes participent · Y intéressées".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
+### IcsExportButton
+
+- Affiche un bloc "Ajouter au calendrier" sur la page détail événement.
+- Props : `event` (objet `Event` complet).
+- Bouton "Télécharger .ics" : génère un fichier ICS via `generateIcs`, crée un Blob et déclenche le téléchargement côté client.
+- Lien "Google Calendar" : ouvre Google Calendar pré-rempli via `buildGoogleCalendarUrl`, s'ouvre dans un nouvel onglet.
+
 ### Avatar
 
 - Affiche soit une image soit des initiales à partir de displayName.
@@ -165,6 +172,11 @@
 
 - `attend(eventId, status)` : `POST /api/events/{id}/attend` avec body `{ status }` — upsert.
 - `unattend(eventId)` : `DELETE /api/events/{id}/attend`.
+
+### icsGenerator.ts
+
+- `generateIcs(event)` : retourne une chaîne RFC 5545 (.ics) avec VCALENDAR, VEVENT, UID, DTSTART, DTEND, SUMMARY, LOCATION et DESCRIPTION optionnelle. Échappe les caractères spéciaux et applique le line folding à 75 octets.
+- `buildGoogleCalendarUrl(event)` : retourne l'URL Google Calendar pré-remplie (action=TEMPLATE, text, dates, location, details optionnel).
 
 ### eventApi.ts
 
