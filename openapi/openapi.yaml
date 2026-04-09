@@ -186,10 +186,14 @@ components:
         attendingCount:
           type: integer
           format: int64
+          readOnly: true
+          minimum: 0
           description: Nombre d'utilisateurs inscrits avec le statut ATTENDING
         interestedCount:
           type: integer
           format: int64
+          readOnly: true
+          minimum: 0
           description: Nombre d'utilisateurs inscrits avec le statut INTERESTED
         createdAt:
           type: string

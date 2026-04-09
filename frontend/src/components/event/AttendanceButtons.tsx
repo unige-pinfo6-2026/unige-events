@@ -29,6 +29,7 @@ export default function AttendanceButtons({
     useAttendance(eventId, initialAttendingCount, initialInterestedCount, initialStatus)
 
   const isAttendingDisabled = isFull && currentStatus !== 'ATTENDING'
+  const tooltipId = `attending-full-tooltip-${eventId}`
 
   return (
     <div className="flex flex-col gap-3">
@@ -56,12 +57,13 @@ export default function AttendanceButtons({
           className="relative group"
           tabIndex={isAttendingDisabled ? 0 : undefined}
           role={isAttendingDisabled ? 'group' : undefined}
+          aria-describedby={isAttendingDisabled ? tooltipId : undefined}
         >
           <button
             type="button"
-            onClick={() => toggle('ATTENDING')}
-            disabled={loading || isAttendingDisabled}
-            aria-describedby={isAttendingDisabled ? 'attending-full-tooltip' : undefined}
+            onClick={() => { if (!isAttendingDisabled) toggle('ATTENDING') }}
+            disabled={loading}
+            aria-disabled={isAttendingDisabled ? true : undefined}
             className={
               currentStatus === 'ATTENDING'
                 ? buttonVariants.activeAttending
@@ -76,7 +78,7 @@ export default function AttendanceButtons({
           </button>
 
           <div
-            id="attending-full-tooltip"
+            id={tooltipId}
             role="tooltip"
             className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-opacity z-10 ${
               isAttendingDisabled

@@ -51,16 +51,17 @@ describe('AttendanceButtons', () => {
     it('tooltip div is always in the DOM and hidden via class', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById('attending-full-tooltip')
+      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
       expect(tooltip).not.toBeNull()
       expect(tooltip?.className).toContain('hidden')
     })
 
-    it('attending button has no aria-describedby', () => {
+    it('attending button has no aria-describedby on wrapper', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       const button = screen.getByRole('button', { name: /je participe/i })
-      expect(button.hasAttribute('aria-describedby')).toBe(false)
+      const wrapper = button.parentElement
+      expect(wrapper?.hasAttribute('aria-describedby')).toBe(false)
     })
   })
 
@@ -72,35 +73,44 @@ describe('AttendanceButtons', () => {
     it('tooltip element is in the DOM', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById('attending-full-tooltip')
+      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
       expect(tooltip).not.toBeNull()
     })
 
     it('tooltip element contains the correct text', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById('attending-full-tooltip')
+      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
       expect(tooltip?.textContent?.trim()).toBe('Événement complet')
     })
 
-    it('attending button has aria-describedby pointing to tooltip id', () => {
+    it('wrapper div has aria-describedby pointing to tooltip id', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       const button = screen.getByRole('button', { name: /je participe/i })
-      expect(button.getAttribute('aria-describedby')).toBe('attending-full-tooltip')
+      const wrapper = button.parentElement
+      expect(wrapper?.getAttribute('aria-describedby')).toBe(`attending-full-tooltip-${defaultProps.eventId}`)
     })
 
-    it('attending button is disabled', () => {
+    it('attending button is not truly disabled but has aria-disabled', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       const button = screen.getByRole('button', { name: /je participe/i })
-      expect((button as HTMLButtonElement).disabled).toBe(true)
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+      expect(button.getAttribute('aria-disabled')).toBe('true')
+    })
+
+    it('attending button is focusable when isFull is true', () => {
+      render(<AttendanceButtons {...defaultProps} />)
+
+      const button = screen.getByRole('button', { name: /je participe/i })
+      expect((button as HTMLButtonElement).disabled).toBe(false)
     })
 
     it('tooltip uses opacity classes (not hidden) when full', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById('attending-full-tooltip')
+      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
       expect(tooltip?.className).not.toContain('hidden')
       expect(tooltip?.className).toContain('opacity-0')
     })
@@ -118,7 +128,7 @@ describe('AttendanceButtons', () => {
       expect((button as HTMLButtonElement).disabled).toBe(false)
     })
 
-    it('attending button has no aria-describedby', () => {
+    it('attending button wrapper has no aria-describedby', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
@@ -126,7 +136,8 @@ describe('AttendanceButtons', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       const button = screen.getByRole('button', { name: /je participe/i })
-      expect(button.hasAttribute('aria-describedby')).toBe(false)
+      const wrapper = button.parentElement
+      expect(wrapper?.hasAttribute('aria-describedby')).toBe(false)
     })
   })
 
