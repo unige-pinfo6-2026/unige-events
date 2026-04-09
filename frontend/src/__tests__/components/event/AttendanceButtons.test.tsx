@@ -1,18 +1,33 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}))
 
 vi.mock('@/hooks/useAttendance', () => ({
   useAttendance: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
+
 import { useAttendance } from '@/hooks/useAttendance'
+import { useAuth } from '@/hooks/useAuth'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 
 const mockUseAttendance = vi.mocked(useAttendance)
+const mockUseAuth = vi.mocked(useAuth)
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  mockNavigate.mockClear()
+  mockUseAttendance.mockClear()
+})
 
 function makeHookResult(overrides: Partial<ReturnType<typeof useAttendance>> = {}): ReturnType<typeof useAttendance> {
   return {
@@ -38,6 +53,7 @@ describe('AttendanceButtons', () => {
   describe('when event is not full', () => {
     beforeEach(() => {
       mockUseAttendance.mockReturnValue(makeHookResult())
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
     })
 
     it('renders the attending button enabled', () => {
@@ -68,6 +84,7 @@ describe('AttendanceButtons', () => {
   describe('when event is full and user is not attending', () => {
     beforeEach(() => {
       mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: null }))
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
     })
 
     it('tooltip element is in the DOM', () => {
@@ -121,6 +138,7 @@ describe('AttendanceButtons', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
 
       render(<AttendanceButtons {...defaultProps} />)
 
@@ -132,6 +150,7 @@ describe('AttendanceButtons', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
 
       render(<AttendanceButtons {...defaultProps} />)
 
@@ -142,6 +161,10 @@ describe('AttendanceButtons', () => {
   })
 
   describe('counts display', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+    })
+
     it('shows attending count correctly', () => {
       mockUseAttendance.mockReturnValue(makeHookResult({ attendingCount: 12, interestedCount: 4 }))
 
@@ -157,6 +180,60 @@ describe('AttendanceButtons', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       screen.getByText(/1 personne participe/)
+    })
+  })
+
+  describe('unauthenticated user', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ isAuthenticated: false } as ReturnType<typeof useAuth>)
+      mockUseAttendance.mockReturnValue(makeHookResult())
+    })
+
+    it('clicking "Je suis intéressé(e)" navigates to /login without calling toggle', () => {
+      render(<AttendanceButtons {...defaultProps} />)
+      const toggle = mockUseAttendance.mock.results[0].value.toggle
+
+      fireEvent.click(screen.getByRole('button', { name: /je suis intéressé/i }))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/login')
+      expect(toggle).not.toHaveBeenCalled()
+    })
+
+    it('clicking "Je participe" navigates to /login without calling toggle', () => {
+      render(<AttendanceButtons {...defaultProps} />)
+      const toggle = mockUseAttendance.mock.results[0].value.toggle
+
+      fireEvent.click(screen.getByRole('button', { name: /je participe/i }))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/login')
+      expect(toggle).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('authenticated user', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+      mockUseAttendance.mockReturnValue(makeHookResult())
+    })
+
+    it('clicking "Je suis intéressé(e)" calls toggle, no redirect', () => {
+      render(<AttendanceButtons {...defaultProps} />)
+      const toggle = mockUseAttendance.mock.results[0].value.toggle
+
+      fireEvent.click(screen.getByRole('button', { name: /je suis intéressé/i }))
+
+      expect(toggle).toHaveBeenCalledWith('INTERESTED')
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('clicking "Je participe" calls toggle, no redirect', () => {
+      render(<AttendanceButtons {...defaultProps} />)
+      const toggle = mockUseAttendance.mock.results[0].value.toggle
+
+      fireEvent.click(screen.getByRole('button', { name: /je participe/i }))
+
+      expect(toggle).toHaveBeenCalledWith('ATTENDING')
+      expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
 })

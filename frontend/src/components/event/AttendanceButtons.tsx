@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
 import { useAttendance } from '@/hooks/useAttendance'
 import type { AttendanceStatus } from '@/types/attendance'
 import { Heart, Users } from 'lucide-react'
@@ -27,9 +29,19 @@ export default function AttendanceButtons({
 }: Readonly<AttendanceButtonsProps>) {
   const { currentStatus, attendingCount, interestedCount, loading, error, isFull, toggle } =
     useAttendance(eventId, initialAttendingCount, initialInterestedCount, initialStatus)
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
 
   const isAttendingDisabled = isFull && currentStatus !== 'ATTENDING'
   const tooltipId = `attending-full-tooltip-${eventId}`
+
+  const handleToggle = (status: AttendanceStatus) => {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+    toggle(status)
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -37,7 +49,7 @@ export default function AttendanceButtons({
         {/* Interested button */}
         <button
           type="button"
-          onClick={() => toggle('INTERESTED')}
+          onClick={() => handleToggle('INTERESTED')}
           disabled={loading}
           className={
             currentStatus === 'INTERESTED'
@@ -61,7 +73,7 @@ export default function AttendanceButtons({
         >
           <button
             type="button"
-            onClick={() => { if (!isAttendingDisabled) toggle('ATTENDING') }}
+            onClick={() => { if (!isAttendingDisabled) handleToggle('ATTENDING') }}
             disabled={loading}
             aria-disabled={isAttendingDisabled ? true : undefined}
             className={
