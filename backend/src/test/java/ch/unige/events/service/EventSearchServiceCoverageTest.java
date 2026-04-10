@@ -221,23 +221,6 @@ class EventSearchServiceCoverageTest {
 
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).attendingCount());
-        assertEquals(0L, result.get(0).interestedCount());
-    }
-
-    @Test
-    @TestTransaction
-    void search_withInterestedAttendance_returnsRealInterestedCount() {
-        deleteAll();
-        User user = persistUser("auth0|cnt2", "cnt2@example.com");
-        Event event = persistEvent("Interested Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user);
-        persistAttendance(user.id, event.id, AttendanceStatus.INTERESTED);
-
-        List<EventDTO> result = eventSearchService.search(null, EventCategory.ACADEMIC, null, null, 0, 20);
-
-        assertFalse(result.isEmpty());
-        EventDTO dto = result.stream().filter(e -> e.id().equals(event.id)).findFirst().orElseThrow();
-        assertEquals(0L, dto.attendingCount());
-        assertEquals(1L, dto.interestedCount());
     }
 
     // --- helpers ---

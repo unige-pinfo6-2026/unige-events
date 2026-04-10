@@ -47,10 +47,10 @@ class AttendanceServiceCoverageTest {
         User user = persistUser("auth0|att1", "att1@example.com");
         Event event = persistEvent("Event A", user, EventStatus.PUBLISHED, null);
 
-        AttendanceDTO dto = attendanceService.attend("auth0|att1", event.id, AttendanceStatus.INTERESTED);
+        AttendanceDTO dto = attendanceService.attend("auth0|att1", event.id, AttendanceStatus.ATTENDING);
 
         assertNotNull(dto.id());
-        assertEquals(AttendanceStatus.INTERESTED, dto.status());
+        assertEquals(AttendanceStatus.ATTENDING, dto.status());
         assertEquals(event.id, dto.eventId());
     }
 
@@ -60,11 +60,11 @@ class AttendanceServiceCoverageTest {
         User user = persistUser("auth0|att2", "att2@example.com");
         Event event = persistEvent("Event B", user, EventStatus.PUBLISHED, null);
 
-        attendanceService.attend("auth0|att2", event.id, AttendanceStatus.INTERESTED);
+        attendanceService.attend("auth0|att2", event.id, AttendanceStatus.ATTENDING);
         AttendanceDTO second = attendanceService.attend("auth0|att2", event.id, AttendanceStatus.ATTENDING);
 
         assertEquals(AttendanceStatus.ATTENDING, second.status());
-        // Doit toujours n'y avoir qu'une seule inscription
+        // La contrainte unique doit toujours n'avoir qu'une seule ligne
         long count = Attendance.count("userId = ?1 and eventId = ?2", user.id, event.id);
         assertEquals(1, count);
     }
@@ -75,7 +75,7 @@ class AttendanceServiceCoverageTest {
         persistUser("auth0|att3", "att3@example.com");
 
         assertThrows(NotFoundException.class,
-                () -> attendanceService.attend("auth0|att3", 999999L, AttendanceStatus.INTERESTED));
+                () -> attendanceService.attend("auth0|att3", 999999L, AttendanceStatus.ATTENDING));
     }
 
     @Test
@@ -95,7 +95,7 @@ class AttendanceServiceCoverageTest {
         Event event = persistEvent("Event C", user, EventStatus.PUBLISHED, null);
 
         assertThrows(NotFoundException.class,
-                () -> attendanceService.attend("auth0|nobody", event.id, AttendanceStatus.INTERESTED));
+                () -> attendanceService.attend("auth0|nobody", event.id, AttendanceStatus.ATTENDING));
     }
 
     @Test
@@ -117,27 +117,12 @@ class AttendanceServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void attend_capacityReached_interestedAllowed() {
-        User organizer = persistUser("auth0|org2", "org2@example.com");
-        Event event = persistEvent("Full Event 2", organizer, EventStatus.PUBLISHED, 1);
-
-        User user1 = persistUser("auth0|u3", "u3@example.com");
-        persistAttendance(user1.id, event.id, AttendanceStatus.ATTENDING);
-
-        // INTERESTED n'est pas bloqué par la capacité
-        persistUser("auth0|u4", "u4@example.com");
-        assertDoesNotThrow(
-                () -> attendanceService.attend("auth0|u4", event.id, AttendanceStatus.INTERESTED));
-    }
-
-    @Test
-    @TestTransaction
     void attend_underCapacity_attending_succeeds() {
         User organizer = persistUser("auth0|org4", "org4@example.com");
         Event event = persistEvent("Event with room", organizer, EventStatus.PUBLISHED, 5);
 
         // Aucun participant — la capacité n'est pas atteinte
-        User user = persistUser("auth0|u6", "u6@example.com");
+        persistUser("auth0|u6", "u6@example.com");
         AttendanceDTO dto = attendanceService.attend("auth0|u6", event.id, AttendanceStatus.ATTENDING);
 
         assertEquals(AttendanceStatus.ATTENDING, dto.status());
@@ -239,12 +224,12 @@ class AttendanceServiceCoverageTest {
     void getMyAttendances_withAttendances_returnsList() {
         User user = persistUser("auth0|my1", "my1@example.com");
         Event event = persistEvent("Event H", user, EventStatus.PUBLISHED, null);
-        persistAttendance(user.id, event.id, AttendanceStatus.INTERESTED);
+        persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
 
         List<AttendanceDTO> result = attendanceService.getMyAttendances("auth0|my1");
 
         assertEquals(1, result.size());
-        assertEquals(AttendanceStatus.INTERESTED, result.get(0).status());
+        assertEquals(AttendanceStatus.ATTENDING, result.get(0).status());
     }
 
     @Test
@@ -265,7 +250,7 @@ class AttendanceServiceCoverageTest {
     }
 
     // =========================================================
-    // attendingCount / interestedCount — persistance des comptes
+    // attendingCount — persistance des comptes
     // =========================================================
 
     @Test
@@ -275,10 +260,9 @@ class AttendanceServiceCoverageTest {
         Event event = persistEvent("Counted Event", organizer, EventStatus.PUBLISHED, null);
         persistUser("auth0|cnt-user", "cnt-user@example.com");
 
-        // Avant toute inscription — compteurs à 0
+        // Avant toute inscription — compteur à 0
         EventDTO before = eventService.getById(event.id);
         assertEquals(0, before.attendingCount());
-        assertEquals(0, before.interestedCount());
 
         // Inscription ATTENDING
         attendanceService.attend("auth0|cnt-user", event.id, AttendanceStatus.ATTENDING);
@@ -286,7 +270,6 @@ class AttendanceServiceCoverageTest {
 
         EventDTO afterAttend = eventService.getById(event.id);
         assertEquals(1, afterAttend.attendingCount());
-        assertEquals(0, afterAttend.interestedCount());
 
         // Désinscription
         attendanceService.removeAttendance("auth0|cnt-user", event.id);
@@ -294,44 +277,6 @@ class AttendanceServiceCoverageTest {
 
         EventDTO afterUnattend = eventService.getById(event.id);
         assertEquals(0, afterUnattend.attendingCount());
-        assertEquals(0, afterUnattend.interestedCount());
-    }
-
-    @Test
-    @TestTransaction
-    void interestedCount_incrementsAfterAttend() {
-        User organizer = persistUser("auth0|int-org", "int-org@example.com");
-        Event event = persistEvent("Interested Event", organizer, EventStatus.PUBLISHED, null);
-        persistUser("auth0|int-user", "int-user@example.com");
-
-        attendanceService.attend("auth0|int-user", event.id, AttendanceStatus.INTERESTED);
-        entityManager.flush();
-
-        EventDTO dto = eventService.getById(event.id);
-        assertEquals(0, dto.attendingCount());
-        assertEquals(1, dto.interestedCount());
-    }
-
-    @Test
-    @TestTransaction
-    void counts_updateCorrectly_whenStatusSwitches() {
-        User organizer = persistUser("auth0|sw-org", "sw-org@example.com");
-        Event event = persistEvent("Switch Event", organizer, EventStatus.PUBLISHED, null);
-        persistUser("auth0|sw-user", "sw-user@example.com");
-
-        // Start INTERESTED
-        attendanceService.attend("auth0|sw-user", event.id, AttendanceStatus.INTERESTED);
-        entityManager.flush();
-        EventDTO afterInterested = eventService.getById(event.id);
-        assertEquals(0, afterInterested.attendingCount());
-        assertEquals(1, afterInterested.interestedCount());
-
-        // Switch to ATTENDING
-        attendanceService.attend("auth0|sw-user", event.id, AttendanceStatus.ATTENDING);
-        entityManager.flush();
-        EventDTO afterSwitch = eventService.getById(event.id);
-        assertEquals(1, afterSwitch.attendingCount());
-        assertEquals(0, afterSwitch.interestedCount());
     }
 
     @Test
@@ -345,12 +290,11 @@ class AttendanceServiceCoverageTest {
 
         attendanceService.attend("auth0|mul-u1", event.id, AttendanceStatus.ATTENDING);
         attendanceService.attend("auth0|mul-u2", event.id, AttendanceStatus.ATTENDING);
-        attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.INTERESTED);
+        attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
         EventDTO dto = eventService.getById(event.id);
-        assertEquals(2, dto.attendingCount());
-        assertEquals(1, dto.interestedCount());
+        assertEquals(3, dto.attendingCount());
     }
 
     // =========================================================

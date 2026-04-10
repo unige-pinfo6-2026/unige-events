@@ -66,11 +66,8 @@ public class EventService {
         List<Event> events = query.page(page, size).list();
         List<Long> ids = events.stream().map(e -> e.id).toList();
         Map<Long, Long> attendingCounts = bulkCountByStatus(ids, AttendanceStatus.ATTENDING);
-        Map<Long, Long> interestedCounts = bulkCountByStatus(ids, AttendanceStatus.INTERESTED);
         return events.stream()
-                .map(e -> EventDTO.from(e,
-                        attendingCounts.getOrDefault(e.id, 0L),
-                        interestedCounts.getOrDefault(e.id, 0L)))
+                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 
@@ -94,15 +91,15 @@ public class EventService {
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        // A newly created event has no attendances yet — counts are 0.
-        return EventDTO.from(event, 0L, 0L);
+        // A newly created event has no attendances yet — count is 0.
+        return EventDTO.from(event, 0L);
     }
 
     @Transactional
     public EventDTO getById(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        return EventDTO.from(event, countAttending(id), countInterested(id));
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -126,7 +123,7 @@ public class EventService {
             event.status = request.status;
         }
 
-        return EventDTO.from(event, countAttending(id), countInterested(id));
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -160,7 +157,7 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        return EventDTO.from(event, countAttending(id), countInterested(id));
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -172,7 +169,7 @@ public class EventService {
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload);
-        return EventDTO.from(event, countAttending(id), countInterested(id));
+        return EventDTO.from(event, countAttending(id));
     }
 
     private Map<Long, Long> bulkCountByStatus(List<Long> eventIds, AttendanceStatus status) {
@@ -181,10 +178,6 @@ public class EventService {
 
     private long countAttending(Long eventId) {
         return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
-    }
-
-    private long countInterested(Long eventId) {
-        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.INTERESTED);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {

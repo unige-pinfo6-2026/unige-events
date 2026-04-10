@@ -2,9 +2,9 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
 import ch.unige.events.entity.Attendance;
-import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import ch.unige.events.config.AppConfig;
 import ch.unige.events.util.IcsBuilder;
@@ -13,8 +13,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -49,13 +52,26 @@ public class CalendarService {
                 .firstResultOptional()
                 .orElseThrow(() -> new NotFoundException("Calendar token not found"));
 
-        List<Event> events = Attendance.findAllByUser(user.id).stream()
-                .filter(a -> a.status == AttendanceStatus.INTERESTED
-                          || a.status == AttendanceStatus.ATTENDING)
+        Set<Long> eventIds = new HashSet<>();
+        List<Event> events = new ArrayList<>();
+
+        // Événements favoris (PUBLISHED)
+        Favorite.findAllByUser(user.id).stream()
+                .map(f -> Event.<Event>findByIdOptional(f.eventId))
+                .flatMap(Optional::stream)
+                .filter(e -> e.status == EventStatus.PUBLISHED)
+                .forEach(e -> {
+                    if (eventIds.add(e.id)) events.add(e);
+                });
+
+        // Événements ATTENDING (PUBLISHED, dédupliqués)
+        Attendance.findAllByUser(user.id).stream()
                 .map(a -> Event.<Event>findByIdOptional(a.eventId))
                 .flatMap(Optional::stream)
                 .filter(e -> e.status == EventStatus.PUBLISHED)
-                .toList();
+                .forEach(e -> {
+                    if (eventIds.add(e.id)) events.add(e);
+                });
 
         return IcsBuilder.buildIcsContent(events, appConfig.frontendUrl());
     }

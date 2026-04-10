@@ -74,11 +74,8 @@ public class EventSearchService {
         List<Event> events = query.page(page, size).list();
         List<Long> ids = events.stream().map(e -> e.id).toList();
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> interestedCounts = Attendance.countGroupedByStatus(ids, AttendanceStatus.INTERESTED, entityManager);
         return events.stream()
-                .map(e -> EventDTO.from(e,
-                        attendingCounts.getOrDefault(e.id, 0L),
-                        interestedCounts.getOrDefault(e.id, 0L)))
+                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 }

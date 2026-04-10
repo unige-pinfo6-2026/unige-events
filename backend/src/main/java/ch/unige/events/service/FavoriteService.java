@@ -60,13 +60,10 @@ public class FavoriteService {
         List<Favorite> favorites = Favorite.findByUser(userId, page, size);
         List<Long> eventIds = favorites.stream().map(f -> f.eventId).toList();
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> interestedCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.INTERESTED, entityManager);
         return favorites.stream()
                 .map(f -> Event.<Event>findByIdOptional(f.eventId))
                 .flatMap(Optional::stream)
-                .map(e -> EventDTO.from(e,
-                        attendingCounts.getOrDefault(e.id, 0L),
-                        interestedCounts.getOrDefault(e.id, 0L)))
+                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 

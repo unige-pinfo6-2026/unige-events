@@ -24,8 +24,8 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/s/{shortCode}` | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
 | `GET` | `/users/me/calendar-token` | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
 | `POST` | `/users/me/calendar-token/regenerate` | `@Authenticated` | Révoquer et régénérer le token | 200, 401, 404 |
-| `GET` | `/calendar/{calendarToken}.ics` | `@PermitAll` | Flux iCalendar des inscriptions explicites (INTERESTED + ATTENDING) | 200, 404 |
-| `POST` | `/events/{id}/attend` | `@Authenticated` | Upsert inscription (INTERESTED/ATTENDING) — 400 si event non publié, 409 si capacité pleine | 200, 400, 401, 404, 409 |
+| `GET` | `/calendar/{calendarToken}.ics` | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
+| `POST` | `/events/{id}/attend` | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si capacité pleine | 200, 400, 401, 404, 409 |
 | `DELETE` | `/events/{id}/attend` | `@Authenticated` | Se désinscrire | 204, 401, 404 |
 | `GET` | `/events/{id}/attendees` | `@Authenticated` | Liste paginée des inscriptions (créateur uniquement) | 200, 401, 403, 404 |
 | `GET` | `/users/me/attendances` | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |

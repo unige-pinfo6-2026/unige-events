@@ -34,16 +34,15 @@ public class AttendanceService {
 
         UUID userId = resolveUserId(auth0Id);
 
-        // Vérification capacité — uniquement pour ATTENDING
-        if (status == AttendanceStatus.ATTENDING && event.capacity != null) {
+        // Vérification capacité
+        if (event.capacity != null) {
             boolean alreadyAttending = Attendance.<Attendance>find(
-                    "userId = ?1 and eventId = ?2 and status = ?3",
-                    userId, eventId, AttendanceStatus.ATTENDING)
+                    "userId = ?1 and eventId = ?2",
+                    userId, eventId)
                     .firstResultOptional()
                     .isPresent();
             if (!alreadyAttending) {
-                long currentAttending = Attendance.count(
-                        "eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
+                long currentAttending = Attendance.count("eventId = ?1", eventId);
                 if (currentAttending >= event.capacity) {
                     throw new WebApplicationException(
                             Response.status(Response.Status.CONFLICT)

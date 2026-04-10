@@ -20,11 +20,10 @@ public record EventDTO(
         EventStatus status,
         Integer capacity,
         long attendingCount,
-        long interestedCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static EventDTO from(Event event, long attendingCount, long interestedCount) {
+    public static EventDTO from(Event event, long attendingCount) {
         return new EventDTO(
                 event.id,
                 event.title,
@@ -38,11 +37,8 @@ public record EventDTO(
                 event.status,
                 event.capacity,
                 attendingCount,
-                interestedCount,
                 event.createdAt,
                 event.updatedAt
         );
     }
-
-
 }

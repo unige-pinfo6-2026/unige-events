@@ -186,22 +186,6 @@ class FavoriteServiceCoverageTest {
 
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).attendingCount());
-        assertEquals(0L, result.get(0).interestedCount());
-    }
-
-    @Test
-    @TestTransaction
-    void getFavorites_withInterestedAttendance_returnsRealInterestedCount() {
-        User user = persistUser("auth0|cnt-fav2", "cnt-fav2@example.com");
-        Event event = persistEvent("Interested Favorite", user);
-        persistFavorite(user.id, event.id);
-        persistAttendanceRecord(user.id, event.id, AttendanceStatus.INTERESTED);
-
-        List<EventDTO> result = favoriteService.getFavorites("auth0|cnt-fav2", 0, 20);
-
-        assertEquals(1, result.size());
-        assertEquals(0L, result.get(0).attendingCount());
-        assertEquals(1L, result.get(0).interestedCount());
     }
 
     // =========================================================
