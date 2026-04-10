@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Calendar, Filter, User, PlusCircle, BarChart3, Bell, ChevronDown
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import FacultyMarquee from '@/components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
 import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
@@ -151,6 +151,15 @@ function GetStarted() {
 }
 
 export default function LandingPage() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.getElementById(location.hash.slice(1))
+      el?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [location.hash])
+
   return (
     <div>
       <Hero />

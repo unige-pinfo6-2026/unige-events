@@ -6,6 +6,12 @@ import { MemoryRouter } from 'react-router-dom'
 import Navbar from '@/components/Navbar'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
@@ -17,6 +23,7 @@ const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+  mockNavigate.mockReset()
 })
 
 function renderNavbar() {
@@ -143,6 +150,40 @@ describe('Navbar', () => {
     fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
     const deconnexionBtns = screen.getAllByText('Déconnexion')
     expect(deconnexionBtns.length).toBeGreaterThan(0)
+  })
+
+  it('scrolls to section when nav link clicked on home page', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    const mockScrollIntoView = vi.fn()
+    vi.spyOn(document, 'getElementById').mockReturnValue({ scrollIntoView: mockScrollIntoView } as unknown as HTMLElement)
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <Navbar />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByText('En ce moment'))
+    expect(document.getElementById).toHaveBeenCalledWith('events')
+    expect(mockScrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' })
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('navigates to home with hash when nav link clicked from another route', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+
+    render(
+      <MemoryRouter initialEntries={['/events/123']}>
+        <ThemeProvider>
+          <Navbar />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByText('En ce moment'))
+    expect(mockNavigate).toHaveBeenCalledWith('/#events')
   })
 
   it('calls logout from mobile menu', () => {

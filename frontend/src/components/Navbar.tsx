@@ -1,15 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import UserIdentity from './user/UserIdentity'
 import { ButtonPrimary } from './utils/Buttons'
 import { Skeleton } from './utils/Skeleton'
-import { TextLink } from './utils/Links'
 import { Banner } from '@/assets/Banner'
 import { ChevronDown, Menu, Moon, SearchIcon, Sun, X } from 'lucide-react'
 import type { User } from '@/types/user'
 
+
+function NavHashLink({ href, className, onClick, children }: Readonly<{
+  href: string
+  className?: string
+  onClick?: () => void
+  children: React.ReactNode
+}>) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  function handleClick(e: React.MouseEvent) {
+    e.preventDefault()
+    onClick?.()
+    const sectionId = href.slice(2) // removes "/#"
+    if (location.pathname === '/') {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+    } else {
+      navigate(href)
+    }
+  }
+
+  return (
+    <a href={href} onClick={handleClick} className={className}>
+      {children}
+    </a>
+  )
+}
 
 // TODO: Refactor NavButtons & Menu experience
 const navLinks = [
@@ -118,7 +144,9 @@ function DesktopNav() {
     <>
       <div className="hidden lg:flex items-center gap-8">
         {navLinks.map(link => (
-          <TextLink key={link.href} href={link.href}>{link.label}</TextLink>
+          <NavHashLink key={link.href} href={link.href} className="text-sm text-overlay hover:text-foreground transition-colors">
+            {link.label}
+          </NavHashLink>
         ))}
       </div>
 
@@ -144,9 +172,9 @@ function MobileMenu({ onClose }: Readonly<{
     <div className="lg:hidden flex flex-col border-t border-border">
       <div className="flex flex-col px-6 py-4">
         {navLinks.map(link => (
-          <a key={link.href} href={link.href} onClick={onClose} className="py-2 text-sm text-foreground/70 hover:text-foreground transition-colors">
+          <NavHashLink key={link.href} href={link.href} onClick={onClose} className="py-2 text-sm text-foreground/70 hover:text-foreground transition-colors">
             {link.label}
-          </a>
+          </NavHashLink>
         ))}
       </div>
 
