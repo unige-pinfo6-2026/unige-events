@@ -22,7 +22,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@TestProfile(CalendarServiceCoverageProfile.class)
+@TestProfile(SharedServiceCoverageProfile.class)
 class CalendarServiceCoverageTest {
 
     @Inject

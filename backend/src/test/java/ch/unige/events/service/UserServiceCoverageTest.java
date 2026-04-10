@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@TestProfile(UserServiceCoverageProfile.class)
+@TestProfile(SharedServiceCoverageProfile.class)
 class UserServiceCoverageTest {
 
     @jakarta.inject.Inject

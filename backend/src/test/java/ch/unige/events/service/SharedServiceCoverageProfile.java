@@ -5,7 +5,7 @@ import io.quarkus.test.junit.QuarkusTestProfile;
 import java.util.HashMap;
 import java.util.Map;
 
-class SharedServiceCoverageProfile implements QuarkusTestProfile {
+public class SharedServiceCoverageProfile implements QuarkusTestProfile {
 
     @Override
     public Map<String, String> getConfigOverrides() {
@@ -14,10 +14,13 @@ class SharedServiceCoverageProfile implements QuarkusTestProfile {
         overrides.put("quarkus.hibernate-orm.active", "true");
         overrides.put("quarkus.datasource.devservices.enabled", "true");
         overrides.put("quarkus.arc.exclude-types",
+                "ch.unige.events.service.AttendanceServiceMock," +
+                "ch.unige.events.service.CalendarServiceMock," +
+                "ch.unige.events.service.EventSearchServiceMock," +
+                "ch.unige.events.service.EventServiceMock," +
                 "ch.unige.events.service.FavoriteServiceMock," +
                 "ch.unige.events.service.ShareServiceMock," +
-                "ch.unige.events.service.CalendarServiceMock," +
-                "ch.unige.events.service.AttendanceServiceMock," +
+                "ch.unige.events.service.UserServiceMock," +
                 "ch.unige.events.resource.*");
         return overrides;
     }
