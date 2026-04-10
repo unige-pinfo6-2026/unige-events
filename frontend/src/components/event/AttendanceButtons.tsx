@@ -1,22 +1,18 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useAttendance } from '@/hooks/useAttendance'
-import type { AttendanceStatus } from '@/types/attendance'
-import { Heart, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
 
 interface AttendanceButtonsProps {
   eventId: number
   initialAttendingCount: number
-  initialInterestedCount: number
-  initialStatus: AttendanceStatus | null
+  initialStatus: 'ATTENDING' | null
 }
 
 const buttonBase =
   'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed'
 
 const buttonVariants = {
-  activeInterested: `${buttonBase} bg-accent/15 border-accent text-accent`,
-  inactiveInterested: `${buttonBase} bg-transparent border-border text-foreground/70 hover:border-accent/50 hover:text-accent`,
   activeAttending: `${buttonBase} bg-primary/15 border-primary text-primary`,
   inactiveAttending: `${buttonBase} bg-transparent border-border text-foreground/70 hover:border-primary/50 hover:text-primary`,
 }
@@ -24,46 +20,27 @@ const buttonVariants = {
 export default function AttendanceButtons({
   eventId,
   initialAttendingCount,
-  initialInterestedCount,
   initialStatus,
 }: Readonly<AttendanceButtonsProps>) {
-  const { currentStatus, attendingCount, interestedCount, loading, error, isFull, toggle } =
-    useAttendance(eventId, initialAttendingCount, initialInterestedCount, initialStatus)
+  const { currentStatus, attendingCount, loading, error, isFull, toggle } =
+    useAttendance(eventId, initialAttendingCount, initialStatus)
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
   const isAttendingDisabled = isFull && currentStatus !== 'ATTENDING'
   const tooltipId = `attending-full-tooltip-${eventId}`
 
-  const handleToggle = (status: AttendanceStatus) => {
+  const handleToggle = () => {
     if (!isAuthenticated) {
       navigate('/login')
       return
     }
-    toggle(status)
+    toggle('ATTENDING')
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
-        {/* Interested button */}
-        <button
-          type="button"
-          onClick={() => handleToggle('INTERESTED')}
-          disabled={loading}
-          className={
-            currentStatus === 'INTERESTED'
-              ? buttonVariants.activeInterested
-              : buttonVariants.inactiveInterested
-          }
-        >
-          <Heart
-            className="w-4 h-4"
-            fill={currentStatus === 'INTERESTED' ? 'currentColor' : 'none'}
-          />
-          Je suis intéressé(e)
-        </button>
-
         {/* Attending button with tooltip when full */}
         <div
           className="relative group"
@@ -73,7 +50,7 @@ export default function AttendanceButtons({
         >
           <button
             type="button"
-            onClick={() => { if (!isAttendingDisabled) handleToggle('ATTENDING') }}
+            onClick={() => { if (!isAttendingDisabled) handleToggle() }}
             disabled={loading}
             aria-disabled={isAttendingDisabled ? true : undefined}
             className={
@@ -105,8 +82,7 @@ export default function AttendanceButtons({
 
       {/* Live counter */}
       <p className="text-xs text-foreground/50">
-        {attendingCount} {attendingCount === 1 ? 'personne participe' : 'personnes participent'} ·{' '}
-        {interestedCount} intéressée{interestedCount !== 1 ? 's' : ''}
+        {attendingCount} {attendingCount === 1 ? 'personne participe' : 'personnes participent'}
       </p>
 
       {/* Error display */}

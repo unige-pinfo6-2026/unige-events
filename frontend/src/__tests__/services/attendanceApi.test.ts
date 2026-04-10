@@ -46,16 +46,6 @@ describe('attendanceApi', () => {
       expect(result).toEqual(sampleAttendance)
     })
 
-    it('posts INTERESTED status to /events/{id}/attend', async () => {
-      const interestedAttendance = { ...sampleAttendance, status: 'INTERESTED' as const }
-      mockApiPost.mockResolvedValue({ data: interestedAttendance } as Awaited<ReturnType<typeof api.post>>)
-
-      const result = await attend(42, 'INTERESTED')
-
-      expect(mockApiPost).toHaveBeenCalledWith('/events/42/attend', { status: 'INTERESTED' })
-      expect(result).toEqual(interestedAttendance)
-    })
-
     it('propagates API errors', async () => {
       mockApiPost.mockRejectedValue(new Error('Network error'))
 
@@ -81,7 +71,7 @@ describe('attendanceApi', () => {
 
   describe('getMyAttendance', () => {
     const allAttendances = [
-      { id: 1, userId: 'abc-123', eventId: 10, status: 'INTERESTED' as const, createdAt: '2026-04-08T10:00:00.000Z' },
+      { id: 1, userId: 'abc-123', eventId: 10, status: 'ATTENDING' as const, createdAt: '2026-04-08T10:00:00.000Z' },
       { id: 2, userId: 'abc-123', eventId: 42, status: 'ATTENDING' as const, createdAt: '2026-04-08T10:00:00.000Z' },
     ]
 
@@ -94,12 +84,12 @@ describe('attendanceApi', () => {
       expect(result).toBe('ATTENDING')
     })
 
-    it('returns INTERESTED for a different eventId', async () => {
+    it('returns ATTENDING for a different eventId', async () => {
       mockApiGet.mockResolvedValue({ data: allAttendances } as Awaited<ReturnType<typeof api.get>>)
 
       const result = await getMyAttendance(10)
 
-      expect(result).toBe('INTERESTED')
+      expect(result).toBe('ATTENDING')
     })
 
     it('returns null when the event is not in the list', async () => {

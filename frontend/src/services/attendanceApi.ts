@@ -2,7 +2,7 @@ import axios from 'axios'
 import api from './api'
 import type { Attendance, AttendanceStatus } from '@/types/attendance'
 
-export async function attend(eventId: number, status: AttendanceStatus): Promise<Attendance> {
+export async function attend(eventId: number, status: 'ATTENDING'): Promise<Attendance> {
   const response = await api.post<Attendance>(`/events/${eventId}/attend`, { status })
   return response.data
 }

@@ -6,29 +6,25 @@ import type { AttendanceStatus } from '@/types/attendance'
 interface AttendanceState {
   currentStatus: AttendanceStatus | null
   attendingCount: number
-  interestedCount: number
 }
 
 interface UseAttendanceResult {
   currentStatus: AttendanceStatus | null
   attendingCount: number
-  interestedCount: number
   loading: boolean
   error: string | null
   isFull: boolean
-  toggle: (status: AttendanceStatus) => void
+  toggle: (status: 'ATTENDING') => void
 }
 
 export function useAttendance(
   eventId: number,
   initialAttendingCount: number,
-  initialInterestedCount: number,
   initialStatus: AttendanceStatus | null,
 ): UseAttendanceResult {
   const [state, setState] = useState<AttendanceState>({
     currentStatus: initialStatus,
     attendingCount: initialAttendingCount,
-    interestedCount: initialInterestedCount,
   })
   // Start as true — buttons stay disabled until the real status is fetched.
   const [loading, setLoading] = useState(true)
@@ -59,7 +55,7 @@ export function useAttendance(
   }, [eventId])
 
   const toggle = useCallback(
-    (status: AttendanceStatus) => {
+    (status: 'ATTENDING') => {
       if (loading) return
 
       const prev = state
@@ -67,14 +63,7 @@ export function useAttendance(
       if (state.currentStatus === status) {
         const optimistic: AttendanceState = {
           currentStatus: null,
-          attendingCount:
-            status === 'ATTENDING'
-              ? Math.max(0, state.attendingCount - 1)
-              : state.attendingCount,
-          interestedCount:
-            status === 'INTERESTED'
-              ? Math.max(0, state.interestedCount - 1)
-              : state.interestedCount,
+          attendingCount: Math.max(0, state.attendingCount - 1),
         }
         setState(optimistic)
         setLoading(true)
@@ -89,17 +78,13 @@ export function useAttendance(
           })
       } else {
         let nextAttending = state.attendingCount
-        let nextInterested = state.interestedCount
 
         if (state.currentStatus === 'ATTENDING') nextAttending = Math.max(0, nextAttending - 1)
-        if (state.currentStatus === 'INTERESTED') nextInterested = Math.max(0, nextInterested - 1)
-        if (status === 'ATTENDING') nextAttending += 1
-        if (status === 'INTERESTED') nextInterested += 1
+        nextAttending += 1
 
         const optimistic: AttendanceState = {
           currentStatus: status,
           attendingCount: nextAttending,
-          interestedCount: nextInterested,
         }
         setState(optimistic)
         setLoading(true)
@@ -125,7 +110,6 @@ export function useAttendance(
   return {
     currentStatus: state.currentStatus,
     attendingCount: state.attendingCount,
-    interestedCount: state.interestedCount,
     loading,
     error,
     isFull,

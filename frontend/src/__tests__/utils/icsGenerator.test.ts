@@ -12,6 +12,7 @@ const mockEvent: Event = {
   category: 'ACADEMIC',
   creatorId: 'auth0|123',
   status: 'PUBLISHED',
+  attendingCount: 0,
   createdAt: '2025-01-01T00:00:00',
 }
 

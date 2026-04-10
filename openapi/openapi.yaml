@@ -1173,7 +1173,7 @@ paths:
       summary: S'inscrire à un événement (upsert)
       description: |
         Crée ou met à jour la participation de l'utilisateur connecté à l'événement.
-        **Upsert** : si une inscription existe déjà avec un statut différent, le statut est mis à jour.
+        **Upsert** : si une inscription existe déjà, elle est conservée (idempotent). Seul le statut ATTENDING est accepté.
         Retourne 409 si l'événement a atteint sa capacité maximale et que le statut demandé est ATTENDING.
       operationId: attendEvent
       tags: [events, attendance]

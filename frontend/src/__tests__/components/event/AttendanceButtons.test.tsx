@@ -33,7 +33,6 @@ function makeHookResult(overrides: Partial<ReturnType<typeof useAttendance>> = {
   return {
     currentStatus: null,
     attendingCount: 5,
-    interestedCount: 3,
     loading: false,
     error: null,
     isFull: false,
@@ -45,7 +44,6 @@ function makeHookResult(overrides: Partial<ReturnType<typeof useAttendance>> = {
 const defaultProps = {
   eventId: 42,
   initialAttendingCount: 5,
-  initialInterestedCount: 3,
   initialStatus: null,
 } as const
 
@@ -166,11 +164,10 @@ describe('AttendanceButtons', () => {
     })
 
     it('shows attending count correctly', () => {
-      mockUseAttendance.mockReturnValue(makeHookResult({ attendingCount: 12, interestedCount: 4 }))
+      mockUseAttendance.mockReturnValue(makeHookResult({ attendingCount: 12 }))
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      // getByText throws if not found — counts as assertion
       screen.getByText(/12 personnes participent/)
     })
 
@@ -189,16 +186,6 @@ describe('AttendanceButtons', () => {
       mockUseAttendance.mockReturnValue(makeHookResult())
     })
 
-    it('clicking "Je suis intéressé(e)" navigates to /login without calling toggle', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-      const toggle = mockUseAttendance.mock.results[0].value.toggle
-
-      fireEvent.click(screen.getByRole('button', { name: /je suis intéressé/i }))
-
-      expect(mockNavigate).toHaveBeenCalledWith('/login')
-      expect(toggle).not.toHaveBeenCalled()
-    })
-
     it('clicking "Je participe" navigates to /login without calling toggle', () => {
       render(<AttendanceButtons {...defaultProps} />)
       const toggle = mockUseAttendance.mock.results[0].value.toggle
@@ -214,16 +201,6 @@ describe('AttendanceButtons', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
       mockUseAttendance.mockReturnValue(makeHookResult())
-    })
-
-    it('clicking "Je suis intéressé(e)" calls toggle, no redirect', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-      const toggle = mockUseAttendance.mock.results[0].value.toggle
-
-      fireEvent.click(screen.getByRole('button', { name: /je suis intéressé/i }))
-
-      expect(toggle).toHaveBeenCalledWith('INTERESTED')
-      expect(mockNavigate).not.toHaveBeenCalled()
     })
 
     it('clicking "Je participe" calls toggle, no redirect', () => {

@@ -37,7 +37,7 @@ export default function CalendarSubscribeButton() {
       </div>
 
       <p className="text-sm text-foreground/50 leading-relaxed">
-        Abonnez-vous à votre calendrier personnel UNIGE Events. Il se met à jour automatiquement avec tous les événements auxquels vous participez ou êtes intéressé(e).
+        Abonnez-vous à votre calendrier personnel UNIGE Events. Il se met à jour automatiquement avec tous les événements que vous avez mis en favoris ou auxquels vous participez.
       </p>
 
       {loading && (

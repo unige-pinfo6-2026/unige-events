@@ -13,12 +13,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class CalendarService {
@@ -52,26 +51,29 @@ public class CalendarService {
                 .firstResultOptional()
                 .orElseThrow(() -> new NotFoundException("Calendar token not found"));
 
-        Set<Long> eventIds = new HashSet<>();
-        List<Event> events = new ArrayList<>();
+        // Collect all favorite event IDs
+        List<Long> favoriteIds = Favorite.findAllByUser(user.id).stream()
+                .map(f -> f.eventId)
+                .collect(Collectors.toList());
 
-        // Événements favoris (PUBLISHED)
-        Favorite.findAllByUser(user.id).stream()
-                .map(f -> Event.<Event>findByIdOptional(f.eventId))
-                .flatMap(Optional::stream)
-                .filter(e -> e.status == EventStatus.PUBLISHED)
-                .forEach(e -> {
-                    if (eventIds.add(e.id)) events.add(e);
-                });
+        // Collect all attending event IDs
+        List<Long> attendingIds = Attendance.findAllByUser(user.id).stream()
+                .map(a -> a.eventId)
+                .collect(Collectors.toList());
 
-        // Événements ATTENDING (PUBLISHED, dédupliqués)
-        Attendance.findAllByUser(user.id).stream()
-                .map(a -> Event.<Event>findByIdOptional(a.eventId))
-                .flatMap(Optional::stream)
-                .filter(e -> e.status == EventStatus.PUBLISHED)
-                .forEach(e -> {
-                    if (eventIds.add(e.id)) events.add(e);
-                });
+        // Combine into a deduplicated set
+        Set<Long> allIds = new HashSet<>();
+        allIds.addAll(favoriteIds);
+        allIds.addAll(attendingIds);
+
+        if (allIds.isEmpty()) {
+            return IcsBuilder.buildIcsContent(List.of(), appConfig.frontendUrl());
+        }
+
+        // Single bulk query for all PUBLISHED events
+        List<Event> events = Event.<Event>find(
+                "id IN ?1 AND status = ?2", allIds, EventStatus.PUBLISHED
+        ).list();
 
         return IcsBuilder.buildIcsContent(events, appConfig.frontendUrl());
     }

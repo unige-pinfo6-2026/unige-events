@@ -59,7 +59,7 @@ describe('LandingPage', () => {
     act(() => { vi.runAllTimers() })
 
     expect(document.getElementById).toHaveBeenCalledWith('features')
-    // top = getBoundingClientRect().top (300) + scrollY (100) - navbarHeight (72) = 328
+    // top = getBoundingClientRect().top (300) + scrollY (100) = 400 (no navbar offset)
     expect(mockScrollTo).toHaveBeenCalledWith({ top: 400, behavior: 'smooth' })
 
     vi.useRealTimers()

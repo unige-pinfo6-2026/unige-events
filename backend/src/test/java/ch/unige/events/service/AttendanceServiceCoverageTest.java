@@ -298,6 +298,23 @@ class AttendanceServiceCoverageTest {
     }
 
     // =========================================================
+    // Schema integrity — no INTERESTED rows after startup
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void noInterestedRowsExistAfterStartup() {
+        // The INTERESTED status was removed from AttendanceStatus.
+        // The test schema is drop-and-create so no legacy rows survive.
+        // A native query verifies the column constraint holds.
+        Number count = (Number) entityManager
+                .createNativeQuery("SELECT COUNT(*) FROM attendances WHERE status = 'INTERESTED'")
+                .getSingleResult();
+        assertEquals(0, count.longValue(),
+                "No attendance rows with status=INTERESTED should exist after startup");
+    }
+
+    // =========================================================
     // AttendanceDTO.from — couverture du factory method
     // =========================================================
 
