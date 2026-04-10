@@ -21,7 +21,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@TestProfile(EventSearchServiceCoverageProfile.class)
+@TestProfile(ShareServiceCoverageProfile.class)
 class EventSearchServiceCoverageTest {
 
     @Inject

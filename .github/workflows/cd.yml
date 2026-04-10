@@ -49,6 +49,18 @@ jobs:
               "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
             }
       
+      - name: Create MinIO secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-type: generic
+          secret-name: minio-secret
+          string-data: |
+            {
+              "MINIO_USER": "${{ vars.MINIO_USER }}",
+              "MINIO_PASSWORD": "${{ secrets.MINIO_PASSWORD }}"
+            }
+
       - name: Create API secret
         uses: azure/k8s-create-secret@v5
         with:
@@ -61,7 +73,9 @@ jobs:
               "OIDC_CLIENT_ID": "${{ vars.OIDC_CLIENT_ID }}",
               "OIDC_CLIENT_SECRET": "${{ secrets.OIDC_CLIENT_SECRET }}",
               "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}",
-              "APP_FRONTEND_URL": "${{ vars.APP_FRONTEND_URL }}"
+              "FRONTEND_URL": "${{ vars.FRONTEND_URL }}",
+              "S3_URL": "${{ vars.S3_URL }}",
+              "S3_BUCKET": "${{ vars.S3_BUCKET }}"
             }
       
       - name: Apply manifests

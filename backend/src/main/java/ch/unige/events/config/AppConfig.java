@@ -1,15 +1,17 @@
 package ch.unige.events.config;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import io.smallrye.config.ConfigMapping;
+import io.smallrye.config.WithName;
 
-@ApplicationScoped
-public class AppConfig {
+@ConfigMapping(prefix = "app")
+public interface AppConfig {
 
-    @ConfigProperty(name = "app.frontend.url", defaultValue = "http://localhost:5173")
-    String frontendUrl;
+    @WithName("frontend.url")
+    String frontendUrl();
 
-    public String frontendUrl() {
-        return frontendUrl;
-    }
+    @WithName("s3.url")
+    String s3Url();
+
+    @WithName("s3.bucket")
+    String s3Bucket();
 }

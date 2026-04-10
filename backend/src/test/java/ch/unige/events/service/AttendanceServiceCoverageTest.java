@@ -25,7 +25,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@TestProfile(AttendanceServiceCoverageProfile.class)
+@TestProfile(ShareServiceCoverageProfile.class)
 class AttendanceServiceCoverageTest {
 
     @Inject

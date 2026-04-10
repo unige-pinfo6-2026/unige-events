@@ -29,7 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@TestProfile(EventServiceCoverageProfile.class)
+@TestProfile(ShareServiceCoverageProfile.class)
 class EventServiceCoverageTest {
 
     @Inject
@@ -408,7 +408,7 @@ class EventServiceCoverageTest {
         EventDTO result = eventService.uploadImage(event.id, "auth0|img", upload, false);
 
         assertNotNull(result.bannerUrl());
-        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
+        assertTrue(result.bannerUrl().startsWith("http"));
         assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
@@ -425,7 +425,7 @@ class EventServiceCoverageTest {
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|admin2", upload, true);
 
-        assertTrue(result.bannerUrl().startsWith("/api/uploads/"));
+        assertTrue(result.bannerUrl().startsWith("http"));
     }
 
     @Test
