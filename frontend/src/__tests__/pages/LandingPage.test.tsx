@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LandingPage from '@/pages/LandingPage'
 
@@ -41,27 +41,35 @@ describe('LandingPage', () => {
     expect(container).toBeTruthy()
   })
 
-  it('scrolls to hash section on mount', async () => {
+  it('scrolls to hash section with navbar offset', () => {
     mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
-    const mockScrollIntoView = vi.fn()
-    vi.spyOn(document, 'getElementById').mockReturnValue({ scrollIntoView: mockScrollIntoView } as unknown as HTMLElement)
+    vi.useFakeTimers()
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+    const mockEl = { getBoundingClientRect: () => ({ top: 300 }) } as unknown as HTMLElement
+    vi.spyOn(document, 'getElementById').mockReturnValue(mockEl)
+    Object.defineProperty(globalThis, 'scrollY', { value: 100, configurable: true })
 
     render(
-      <MemoryRouter initialEntries={['/#events']}>
+      <MemoryRouter initialEntries={['/#features']}>
         <LandingPage />
       </MemoryRouter>,
     )
 
-    await waitFor(() => {
-      expect(document.getElementById).toHaveBeenCalledWith('events')
-      expect(mockScrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' })
-    })
+    act(() => { vi.runAllTimers() })
+
+    expect(document.getElementById).toHaveBeenCalledWith('features')
+    // top = getBoundingClientRect().top (300) + scrollY (100) - navbarHeight (72) = 328
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 328, behavior: 'smooth' })
+
+    vi.useRealTimers()
   })
 
-  it('does not scroll when no hash', async () => {
+  it('does not scroll when no hash', () => {
     mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
-    const mockScrollIntoView = vi.fn()
-    vi.spyOn(document, 'getElementById').mockReturnValue({ scrollIntoView: mockScrollIntoView } as unknown as HTMLElement)
+    vi.useFakeTimers()
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
 
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -69,9 +77,11 @@ describe('LandingPage', () => {
       </MemoryRouter>,
     )
 
-    await waitFor(() => {
-      expect(mockScrollIntoView).not.toHaveBeenCalled()
-    })
+    act(() => { vi.runAllTimers() })
+
+    expect(mockScrollTo).not.toHaveBeenCalled()
+
+    vi.useRealTimers()
   })
 
   it('toggles FAQ answer on click', () => {

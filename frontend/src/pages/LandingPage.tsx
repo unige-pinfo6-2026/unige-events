@@ -154,10 +154,26 @@ export default function LandingPage() {
   const location = useLocation()
 
   useEffect(() => {
-    if (location.hash) {
-      const el = document.getElementById(location.hash.slice(1))
-      el?.scrollIntoView({ behavior: 'smooth' })
+    if (!location.hash) return
+
+    const id = location.hash.slice(1)
+    let attempts = 0
+    const maxAttempts = 10
+
+    const tryScroll = () => {
+      const el = document.getElementById(id)
+      if (el) {
+        const top = el.getBoundingClientRect().top + globalThis.scrollY 
+        globalThis.scrollTo({ top, behavior: 'smooth' })
+        return
+      }
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(tryScroll, 100)
+      }
     }
+
+    setTimeout(tryScroll, 50)
   }, [location.hash])
 
   return (
