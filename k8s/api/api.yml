@@ -71,11 +71,6 @@ spec:
                 secretKeyRef:
                   name: api-secret
                   key: S3_ENDPOINT
-            - name: S3_BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: api-secret
-                  key: S3_BUCKET
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -86,6 +81,16 @@ spec:
                 secretKeyRef:
                   name: minio-secret
                   key: MINIO_PASSWORD
+            - name: S3_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: S3_URL
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: api-secret
+                  key: S3_BUCKET
           readinessProbe:
             tcpSocket:
               port: 8080
