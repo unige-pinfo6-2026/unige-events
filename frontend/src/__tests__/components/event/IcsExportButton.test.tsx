@@ -38,9 +38,18 @@ describe('IcsExportButton', () => {
     expect(screen.getByText('Ajouter au calendrier')).toBeTruthy()
   })
 
-  it('renders Apple Calendar / Outlook button', () => {
+  it('does not render Apple Calendar / Outlook button', () => {
     render(<IcsExportButton event={mockEvent} />)
-    expect(screen.getByText('Apple Calendar / Outlook')).toBeTruthy()
+    expect(screen.queryByText('Apple Calendar / Outlook')).toBeNull()
+  })
+
+  it('renders updated description', () => {
+    render(<IcsExportButton event={mockEvent} />)
+    expect(
+      screen.getByText(
+        'Compatible avec Apple Calendar (double-cliquez le fichier), Outlook et autres applications calendrier.',
+      ),
+    ).toBeTruthy()
   })
 
   it('triggers file download on button click', () => {
@@ -55,26 +64,6 @@ describe('IcsExportButton', () => {
 
     render(<IcsExportButton event={mockEvent} />)
     fireEvent.click(screen.getByText('Télécharger .ics'))
-
-    expect(createObjectURL).toHaveBeenCalledOnce()
-    expect(clickSpy).toHaveBeenCalledOnce()
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:test-url')
-
-    clickSpy.mockRestore()
-  })
-
-  it('Apple Calendar / Outlook button triggers download', () => {
-    const createObjectURL = vi.fn(() => 'blob:test-url')
-    const revokeObjectURL = vi.fn()
-    URL.createObjectURL = createObjectURL
-    URL.revokeObjectURL = revokeObjectURL
-
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {})
-
-    render(<IcsExportButton event={mockEvent} />)
-    fireEvent.click(screen.getByText('Apple Calendar / Outlook'))
 
     expect(createObjectURL).toHaveBeenCalledOnce()
     expect(clickSpy).toHaveBeenCalledOnce()

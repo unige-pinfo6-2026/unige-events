@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Calendar, Download, ExternalLink, RefreshCw } from 'lucide-react'
+import { Calendar, Check, Copy, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { getCalendarToken, regenerateCalendarToken } from '@/services/userService'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
 
@@ -9,6 +9,7 @@ export default function CalendarSubscribeButton() {
   const [error, setError] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [regenerated, setRegenerated] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     getCalendarToken()
@@ -27,6 +28,14 @@ export default function CalendarSubscribeButton() {
       })
       .catch(() => setError('Impossible de régénérer le lien.'))
       .finally(() => setRegenerating(false))
+  }
+
+  function handleCopyUrl() {
+    if (!token) return
+    navigator.clipboard.writeText(token.httpsUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   return (
@@ -52,19 +61,32 @@ export default function CalendarSubscribeButton() {
         <>
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <a
-                href={token.webcalUrl}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors self-start"
-              >
-                <Calendar className="w-4 h-4" />
-                S&apos;abonner (Apple / Outlook)
-              </a>
-              <p className="text-xs text-foreground/40 pl-1">Ouvre directement dans Apple Calendar ou Outlook</p>
+              <div className="flex items-center gap-2">
+                <a
+                  href={token.webcalUrl}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors self-start"
+                >
+                  <Calendar className="w-4 h-4" />
+                  S&apos;abonner (Apple / Outlook)
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopyUrl}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Lien copié !' : 'Copier le lien'}
+                </button>
+              </div>
+              <p className="text-xs text-foreground/40 pl-1">
+                macOS / iOS : s&apos;ouvre directement dans Apple Calendar<br />
+                Windows : collez le lien dans Outlook → Ajouter un calendrier → Depuis Internet
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <a
-                href={token.httpsUrl}
+                href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(token.httpsUrl)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold no-underline hover:border-accent/50 hover:text-accent transition-colors self-start"
@@ -78,7 +100,6 @@ export default function CalendarSubscribeButton() {
             <div className="flex flex-col gap-1.5">
               <a
                 href={token.httpsUrl}
-                download
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors self-start"
               >
                 <Download className="w-4 h-4" />

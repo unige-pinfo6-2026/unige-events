@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import * as userService from '@/services/userService'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
@@ -55,24 +55,25 @@ describe('CalendarSubscribeButton', () => {
     })
   })
 
-  it('Google Calendar link uses httpsUrl and opens in new tab', async () => {
+  it('Google Calendar link uses wrapped httpsUrl and opens in new tab', async () => {
     render(<CalendarSubscribeButton />)
 
     await waitFor(() => {
       const link = screen.getByText("S'abonner (Google Calendar)").closest('a')
-      expect(link?.getAttribute('href')).toBe(mockToken.httpsUrl)
+      const expected = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(mockToken.httpsUrl)}`
+      expect(link?.getAttribute('href')).toBe(expected)
       expect(link?.getAttribute('target')).toBe('_blank')
       expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
     })
   })
 
-  it('direct .ics link uses httpsUrl with download attribute', async () => {
+  it('direct .ics link uses httpsUrl without download attribute', async () => {
     render(<CalendarSubscribeButton />)
 
     await waitFor(() => {
       const link = screen.getByText('Télécharger le flux .ics').closest('a')
       expect(link?.getAttribute('href')).toBe(mockToken.httpsUrl)
-      expect(link?.hasAttribute('download')).toBe(true)
+      expect(link?.hasAttribute('download')).toBe(false)
     })
   })
 
@@ -130,5 +131,53 @@ describe('CalendarSubscribeButton', () => {
     expect(screen.queryByText("S'abonner (Apple / Outlook)")).toBeNull()
     expect(screen.queryByText("S'abonner (Google Calendar)")).toBeNull()
     expect(screen.queryByText('Télécharger le flux .ics')).toBeNull()
+  })
+
+  it('clicking Copier le lien calls clipboard.writeText with httpsUrl', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    render(<CalendarSubscribeButton />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Copier le lien')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByText('Copier le lien'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(mockToken.httpsUrl)
+    })
+  })
+
+  it('shows Lien copié ! confirmation after copy and resets after 2 seconds', async () => {
+    vi.useFakeTimers()
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    render(<CalendarSubscribeButton />)
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('Copier le lien')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Copier le lien'))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('Lien copié !')).toBeTruthy()
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(screen.queryByText('Lien copié !')).toBeNull()
+    expect(screen.getByText('Copier le lien')).toBeTruthy()
+
+    vi.useRealTimers()
   })
 })

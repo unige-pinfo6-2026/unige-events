@@ -29,7 +29,7 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
         Ajouter au calendrier
       </div>
       <p className="text-sm text-foreground/50 leading-relaxed">
-        Ajoutez cet événement à votre application calendrier. Le fichier .ics est compatible avec Apple Calendar, Google Calendar et Outlook.
+        Compatible avec Apple Calendar (double-cliquez le fichier), Outlook et autres applications calendrier.
       </p>
       <div className="flex gap-4 items-start">
         <button
@@ -40,17 +40,6 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
           <Download className="w-4 h-4" />
           Télécharger .ics
         </button>
-        <div className="flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors cursor-pointer"
-          >
-            <Calendar className="w-4 h-4" />
-            Apple Calendar / Outlook
-          </button>
-          
-        </div>
         <a
           href={googleCalendarUrl}
           target="_blank"
