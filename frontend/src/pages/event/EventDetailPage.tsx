@@ -138,15 +138,13 @@ export default function EventDetailPage() {
           )}
           {organizer && (
             <div className="flex items-center gap-3 text-sm text-foreground/60">
-              <div className="flex items-center gap-2">
-                <UserAvatar user={organizer} size={20} />
-                <span>
-                  Organisé par{' '}
-                  <strong className="text-foreground font-semibold">
-                    {organizer.displayName ?? organizer.email}
-                  </strong>
-                </span>
-              </div>
+              <UserAvatar user={organizer} size={20} className="shrink-0" />
+              <span>
+                Organisé par{' '}
+                <strong className="text-foreground font-semibold">
+                  {organizer.displayName ?? organizer.email}
+                </strong>
+              </span>
             </div>
           )}
         </div>
@@ -163,12 +161,14 @@ export default function EventDetailPage() {
       </div>
 
       {/* Attendance */}
-      <AttendanceButtons
-        key={event.id}
-        eventId={event.id}
-        initialAttendingCount={event.attendingCount}
-        initialStatus={null}
-      />
+      <div className="bg-background border border-border rounded-3xl px-7 py-5">
+        <AttendanceButtons
+          key={event.id}
+          eventId={event.id}
+          initialAttendingCount={event.attendingCount}
+          initialStatus={null}
+        />
+      </div>
 
       {/* ICS export */}
       <IcsExportButton event={event} />

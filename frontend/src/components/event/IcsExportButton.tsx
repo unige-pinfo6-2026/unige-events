@@ -1,9 +1,51 @@
-import { Calendar, Download, ExternalLink } from 'lucide-react'
+import { Apple, Calendar, Download, ExternalLink, type LucideIcon } from 'lucide-react'
 import type { Event } from '@/types/event'
 import { buildGoogleCalendarUrl, generateIcs } from '@/utils/icsGenerator'
 
 interface IcsExportButtonProps {
   event: Event
+}
+
+const calendarOptionVariants = {
+  download: 'hover:border-foreground/30 hover:text-foreground',
+  external: 'no-underline hover:border-accent/50 hover:text-accent',
+} as const
+
+const buttonBase =
+  'inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold bg-transparent transition-colors cursor-pointer'
+
+function CalendarOption({
+  icon: Icon,
+  label,
+  description,
+  variant,
+  onClick,
+  href,
+}: Readonly<{
+  icon: LucideIcon
+  label: string
+  description: string
+  variant: keyof typeof calendarOptionVariants
+  onClick?: () => void
+  href?: string
+}>) {
+  const className = `${buttonBase} ${calendarOptionVariants[variant]}`
+  return (
+    <div className="flex flex-col gap-1.5">
+      {href === undefined ? (
+        <button type="button" onClick={onClick} className={className}>
+          <Icon className="w-4 h-4" />
+          {label}
+        </button>
+      ) : (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+          <Icon className="w-4 h-4" />
+          {label}
+        </a>
+      )}
+      <p className="text-xs text-foreground/50 leading-relaxed">{description}</p>
+    </div>
+  )
 }
 
 export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps>) {
@@ -28,27 +70,28 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
         <Calendar className="w-4 h-4 text-foreground/50" />
         Ajouter au calendrier
       </div>
-      <p className="text-sm text-foreground/50 leading-relaxed">
-        Compatible avec Apple Calendar (double-cliquez le fichier), Outlook et autres applications calendrier.
-      </p>
-      <div className="flex gap-4 items-start">
-        <button
-          type="button"
+      <div className="flex flex-col gap-4">
+        <CalendarOption
+          icon={Apple}
+          label="Apple Calendar"
+          description="Double-cliquez le fichier téléchargé pour l'ouvrir dans Apple Calendar"
+          variant="download"
           onClick={handleDownload}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          Télécharger .ics
-        </button>
-        <a
+        />
+        <CalendarOption
+          icon={Download}
+          label="Outlook"
+          description="Téléchargez puis ouvrez le fichier dans Outlook pour l'importer"
+          variant="download"
+          onClick={handleDownload}
+        />
+        <CalendarOption
+          icon={ExternalLink}
+          label="Google Calendar"
+          description="Ouvre Google Calendar avec l'événement pré-rempli"
+          variant="external"
           href={googleCalendarUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold no-underline hover:border-accent/50 hover:text-accent transition-colors"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Google Calendar
-        </a>
+        />
       </div>
     </div>
   )

@@ -27,32 +27,24 @@ const mockEvent: Event = {
 afterEach(() => cleanup())
 
 describe('IcsExportButton', () => {
-  it('renders download button and Google Calendar link', () => {
-    render(<IcsExportButton event={mockEvent} />)
-    expect(screen.getByText('Télécharger .ics')).toBeTruthy()
-    expect(screen.getByText('Google Calendar')).toBeTruthy()
-  })
-
   it('renders section heading', () => {
     render(<IcsExportButton event={mockEvent} />)
     expect(screen.getByText('Ajouter au calendrier')).toBeTruthy()
   })
 
-  it('does not render Apple Calendar / Outlook button', () => {
+  it('renders Apple Calendar, Outlook, and Google Calendar buttons', () => {
     render(<IcsExportButton event={mockEvent} />)
-    expect(screen.queryByText('Apple Calendar / Outlook')).toBeNull()
+    expect(screen.getByText('Apple Calendar')).toBeTruthy()
+    expect(screen.getByText('Outlook')).toBeTruthy()
+    expect(screen.getByText('Google Calendar')).toBeTruthy()
   })
 
-  it('renders updated description', () => {
+  it('does not render generic download button', () => {
     render(<IcsExportButton event={mockEvent} />)
-    expect(
-      screen.getByText(
-        'Compatible avec Apple Calendar (double-cliquez le fichier), Outlook et autres applications calendrier.',
-      ),
-    ).toBeTruthy()
+    expect(screen.queryByText('Télécharger .ics')).toBeNull()
   })
 
-  it('triggers file download on button click', () => {
+  it('Apple Calendar button triggers file download on click', () => {
     const createObjectURL = vi.fn(() => 'blob:test-url')
     const revokeObjectURL = vi.fn()
     URL.createObjectURL = createObjectURL
@@ -63,7 +55,7 @@ describe('IcsExportButton', () => {
       .mockImplementation(() => {})
 
     render(<IcsExportButton event={mockEvent} />)
-    fireEvent.click(screen.getByText('Télécharger .ics'))
+    fireEvent.click(screen.getByText('Apple Calendar'))
 
     expect(createObjectURL).toHaveBeenCalledOnce()
     expect(clickSpy).toHaveBeenCalledOnce()
@@ -72,7 +64,27 @@ describe('IcsExportButton', () => {
     clickSpy.mockRestore()
   })
 
-  it('download anchor uses event id in filename', () => {
+  it('Outlook button triggers file download on click', () => {
+    const createObjectURL = vi.fn(() => 'blob:test-url')
+    const revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {})
+
+    render(<IcsExportButton event={mockEvent} />)
+    fireEvent.click(screen.getByText('Outlook'))
+
+    expect(createObjectURL).toHaveBeenCalledOnce()
+    expect(clickSpy).toHaveBeenCalledOnce()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:test-url')
+
+    clickSpy.mockRestore()
+  })
+
+  it('Apple Calendar download uses event id in filename', () => {
     const createObjectURL = vi.fn(() => 'blob:test-url')
     URL.createObjectURL = createObjectURL
     URL.revokeObjectURL = vi.fn()
@@ -85,7 +97,7 @@ describe('IcsExportButton', () => {
       })
 
     render(<IcsExportButton event={mockEvent} />)
-    fireEvent.click(screen.getByText('Télécharger .ics'))
+    fireEvent.click(screen.getByText('Apple Calendar'))
 
     expect(capturedDownload).toBe('event-42.ics')
 
@@ -100,5 +112,26 @@ describe('IcsExportButton', () => {
     )
     expect(link?.getAttribute('target')).toBe('_blank')
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('renders Apple Calendar description', () => {
+    render(<IcsExportButton event={mockEvent} />)
+    expect(
+      screen.getByText("Double-cliquez le fichier téléchargé pour l'ouvrir dans Apple Calendar"),
+    ).toBeTruthy()
+  })
+
+  it('renders Outlook description', () => {
+    render(<IcsExportButton event={mockEvent} />)
+    expect(
+      screen.getByText('Téléchargez puis ouvrez le fichier dans Outlook pour l\'importer'),
+    ).toBeTruthy()
+  })
+
+  it('renders Google Calendar description', () => {
+    render(<IcsExportButton event={mockEvent} />)
+    expect(
+      screen.getByText("Ouvre Google Calendar avec l'événement pré-rempli"),
+    ).toBeTruthy()
   })
 })
