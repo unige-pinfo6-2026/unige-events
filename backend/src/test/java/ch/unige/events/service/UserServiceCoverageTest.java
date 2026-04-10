@@ -502,7 +502,7 @@ class UserServiceCoverageTest {
         User result = userService.uploadImage("auth0|photo", upload);
 
         assertNotNull(result.avatarUrl);
-        assertTrue(result.avatarUrl.startsWith("/api/uploads/"));
+        assertTrue(result.avatarUrl.startsWith("http"));
         assertTrue(result.avatarUrl.endsWith(".jpg"));
     }
 
