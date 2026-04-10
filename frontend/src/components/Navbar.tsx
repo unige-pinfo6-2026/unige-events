@@ -25,6 +25,7 @@ const userMenuSections = [
     { label: 'Rechercher un événement', to: '/events/search' },
     { label: 'Événements à venir', to: '/events' },
     { label: 'Créer un événement', to: '/events/new' },
+    { label: 'Mes Favoris', to: '/favorites' },
   ],
   [{ label: 'Calendrier', to: '/calendar' }],
 ]

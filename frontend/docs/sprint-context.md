@@ -54,6 +54,20 @@ Fonctionnalités livrées :
 - useCalendarEvents : hook chargeant les événements du mois courant via GET /api/events?endDateFrom=, retourne les événements au format CalendarEvent (title, start, end, resource).
 - Lien "Vue Calendrier" dans la Navbar.
 
+## Sprint 4 — Favoris & Partage (SCRUM-91)
+
+Terminé le 2026-04-09.
+
+Fonctionnalités livrées :
+- FavoritesPage (/favorites, PrivateRoute) : grille d'EventCard favoris, état vide illustré, retrait instantané de la liste.
+- FavoriteButton : composant étoile toggle intégré dans EventCard et EventDetailPage, optimistic update avec rollback.
+- useFavorite : hook d'état local favori avec toggle async et retour de succès.
+- favoriteApi.ts : getFavorites, addFavorite, removeFavorite.
+- shareApi.ts : getShareUrl.
+- Bouton "Partager" dans EventDetailPage : copie l'URL dans le presse-papier, toast "Lien copié !" 3s via useToast.
+- Lien "Mes Favoris" dans la Navbar (menu utilisateur connecté uniquement).
+- Route /favorites enregistrée dans AppRouter sous PrivateRoute.
+
 ## Correctifs transverses — 2026-03-31
 
 Terminé.

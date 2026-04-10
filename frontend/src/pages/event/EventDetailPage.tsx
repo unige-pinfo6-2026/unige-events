@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent } from '@/hooks'
+import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { deleteEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
+import FavoriteButton from '@/components/event/FavoriteButton'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
 import { formatEventDateTime } from '@/utils/dateTime'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
-import { Calendar, MapPin, Users } from 'lucide-react'
+import { Calendar, MapPin, Share2, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 
@@ -16,6 +18,7 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, loading, error } = useEvent(eventId)
@@ -53,6 +56,14 @@ export default function EventDetailPage() {
   const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
 
+  function handleShare() {
+    if (!event) return
+    const url = globalThis.location.href
+    navigator.clipboard.writeText(url)
+      .then(() => toast.showToast('success', 'Lien copié !', 3000))
+      .catch(() => toast.showToast('error', `Copiez ce lien : ${url}`, 6000))
+  }
+
   async function handleDelete() {
     if (!event) return
     setDeleting(true)
@@ -85,6 +96,9 @@ export default function EventDetailPage() {
         >
           {category.name}
         </span>
+        <div className="absolute top-4 right-4 z-10">
+          <FavoriteButton eventId={event.id} />
+        </div>
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <h1 className="text-white text-2xl font-extrabold leading-snug drop-shadow-sm">
             {event.title}
@@ -95,24 +109,35 @@ export default function EventDetailPage() {
       {/* Main card */}
       <div className="bg-background border border-border rounded-3xl p-7 flex flex-col gap-6">
 
-        {/* Organizer actions row */}
-        {isOrganizer && (
-          <div className="flex gap-2 justify-end">
-            <Link
-              to={`/events/${event.id}/edit`}
-              className="px-4 py-2 rounded-xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
-            >
-              Modifier
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowConfirm(true)}
-              className="px-4 py-2 bg-error/10 border border-error/30 text-error rounded-xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-            >
-              Supprimer
-            </button>
-          </div>
-        )}
+        {/* Actions row */}
+        <div className="flex gap-2 justify-between items-center">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-foreground text-sm font-semibold cursor-pointer bg-transparent hover:border-foreground/30 transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            Partager
+          </button>
+
+          {isOrganizer && (
+            <div className="flex gap-2">
+              <Link
+                to={`/events/${event.id}/edit`}
+                className="px-4 py-2 rounded-xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+              >
+                Modifier
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(true)}
+                className="px-4 py-2 bg-error/10 border border-error/30 text-error rounded-xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+              >
+                Supprimer
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Meta */}
         <div className="flex flex-col gap-3">

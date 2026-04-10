@@ -12,6 +12,7 @@
 | /profile/me/edit | ProfileEditPage | fait |
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
+| /favorites | FavoritesPage | fait |
 
 ### LandingPage
 
@@ -24,9 +25,19 @@
 - Charge l'événement via useEvent(id).
 - Affiche la bannière, la catégorie, le titre, les dates, le lieu, la capacité et la description.
 - Charge l'organisateur via getUserById(event.creatorId).
+- Intègre FavoriteButton (étoile toggle) dans le coin supérieur droit de la bannière.
+- Bouton "Partager" : appelle getShareUrl(id) puis copie dans le presse-papier ; toast "Lien copié !" via useToast, 3 secondes.
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+
+### FavoritesPage
+
+- Route `/favorites`, protégée par PrivateRoute.
+- Charge la liste des favoris via getFavorites() (GET /api/users/me/favorites).
+- Grille d'EventCard avec FavoriteButton en état favori (étoile pleine).
+- Retirer un favori depuis la liste le supprime instantanément de l'affichage via onFavoriteRemove.
+- État vide : illustration étoile + message "Vous n'avez aucun favori pour le moment".
 
 ### CreateEventPage
 
@@ -76,7 +87,17 @@
 
 - Carte cliquable d'un événement (design glassmorphism, variables CSS thème).
 - Affiche bannière, badge catégorie, titre, date, lieu, capacité.
+- Intègre FavoriteButton dans le coin supérieur droit de la bannière.
+- Props optionnelles : `favorited` (booléen, défaut false), `onFavoriteRemove` (callback après retrait).
 - Utilise les icônes Lucide et les variables `bg-background`, `text-foreground`, `border-border`.
+
+### FavoriteButton
+
+- Bouton icône étoile toggle réutilisable (composant `components/event/`).
+- Props : `eventId`, `initialFavorited` (défaut false), `onRemove` (callback appelé après retrait réussi).
+- Utilise useFavorite pour l'état local et les appels POST/DELETE /api/events/{id}/favorite.
+- Optimistic update avec rollback si l'API échoue.
+- Stoppe la propagation du clic pour ne pas déclencher la navigation depuis EventCard.
 
 ### EventCards
 
@@ -133,6 +154,13 @@
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
+### useFavorite
+
+- Gère l'état favori d'un événement unique avec optimistic update.
+- Params : `eventId`, `initialFavorited` (défaut false).
+- Retourne `favorited`, `loading`, `toggle` (async, retourne boolean succès).
+- En cas d'erreur API, rollback de l'état local.
+
 ### useEventSearch
 
 - Initialise l'état depuis les query params URL au montage.
@@ -163,3 +191,13 @@
 
 - searchEvents(params) : recherche full-text d’événements via `GET /api/events/search`.
 - fetchSuggestions(query) : stub retournant un tableau vide (TODO — pas d’endpoint de suggestions dans openapi.yaml).
+
+### favoriteApi.ts
+
+- getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
+- addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
+- removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.
+
+### shareApi.ts
+
+- getShareUrl(eventId) : récupère l’URL de partage via `GET /api/events/{id}/share`.
