@@ -108,6 +108,15 @@
 - Affiche un compteur live : "X personnes participent · Y intéressées".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
+### CalendarSubscribeButton
+
+- Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
+- Sans props — charge automatiquement le token via `getCalendarToken()` au montage.
+- Trois liens : abonnement Apple/Outlook (`webcal://`), abonnement Google Calendar (`https://`, nouvel onglet), téléchargement direct `.ics` (attribut `download`).
+- Bouton "Révoquer et régénérer le lien" : appelle `regenerateCalendarToken()`, met à jour les trois URLs, affiche un message de confirmation.
+- Gère les états loading, error et regenerating.
+- Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
+
 ### IcsExportButton
 
 - Affiche un bloc "Ajouter au calendrier" sur la page détail événement.

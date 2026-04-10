@@ -9,6 +9,7 @@ import { GraduationCap, Lock, Mail, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import { BlobsCta } from '@/components/utils/Blobs'
+import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 
 function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; children: React.ReactNode }>) {
   return (
@@ -59,15 +60,21 @@ export default function ProfilePage() {
   if (error) return <InfoMessage type="error" message={error} />
   if (!profile) return null
 
+  const studyLevelName = profile.studyLevel
+    ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name
+    : null
+  const facultyEntry = profile.faculty ? FACULTIES[profile.faculty as Faculty] : null
+  const facultyName = facultyEntry?.name ?? null
+  const FacultyLogo = facultyEntry?.logo ?? null
+  const profileSubtitle = [studyLevelName, facultyName].filter(Boolean).join(' · ')
+
   if (!isOwnProfile && !profile.profilePublic) {
     return (
       <div>
-        {/* Banner */}
         <div className="relative h-52 overflow-hidden bg-linear-to-br from-foreground/5 via-foreground/3 to-foreground/5">
           <BlobsCta />
           <div className="absolute inset-0 bg-linear-to-t from-background/60 to-transparent" />
         </div>
-
         <div className="max-w-5xl mx-auto px-6 lg:px-8 -mt-10 flex justify-center pb-20">
           <div className="bg-linear-to-br from-background/90 to-background/60 backdrop-blur-xl border border-border rounded-3xl p-10 max-w-sm w-full flex flex-col items-center gap-4 text-center">
             <div className="w-16 h-16 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center">
@@ -87,8 +94,7 @@ export default function ProfilePage() {
 
   return (
     <div>
-
-      {/* Banner — full width */}
+      {/* Banner */}
       <div className="relative h-52 overflow-hidden bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20">
         <BlobsCta />
         <div className="absolute inset-0 bg-linear-to-t from-background/50 to-transparent" />
@@ -96,72 +102,79 @@ export default function ProfilePage() {
 
       <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
 
-        {/* Avatar + edit button */}
-        <div className="-mt-14 flex items-end justify-between gap-4 mb-6">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-full bg-linear-to-br from-accent to-pink-600 blur-xl opacity-40 scale-110 pointer-events-none" />
-            <UserAvatar user={profile} size={112} className="relative ring-4 ring-background shadow-2xl" />
+        {/* Header: avatar + name/subtitle + edit button */}
+        <div className="-mt-14 flex flex-wrap items-end justify-between gap-4 mb-8">
+          <div className="flex items-end gap-5">
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 rounded-full bg-linear-to-br from-accent to-pink-600 blur-xl opacity-40 scale-110 pointer-events-none" />
+              <UserAvatar user={profile} size={112} className="relative ring-4 ring-background shadow-2xl" />
+            </div>
+            <div className="pb-2">
+              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+                {profile.displayName}
+              </h1>
+              {profileSubtitle && (
+                <p className="text-sm text-foreground/40 mt-1 font-medium">{profileSubtitle}</p>
+              )}
+            </div>
           </div>
 
           {isOwnProfile && (
             <Link
               to="/profile/me/edit"
-              className="inline-flex items-center gap-2 self-end px-4 py-2 rounded-xl border-2 border-border text-sm font-semibold text-foreground no-underline hover:border-accent/50 hover:bg-foreground/5 transition-all"
+              className="inline-flex items-center gap-2 self-end px-4 py-2 rounded-xl border-2 border-border text-sm font-semibold text-foreground no-underline hover:border-accent/50 hover:bg-foreground/5 transition-all shrink-0"
             >
               Modifier
             </Link>
           )}
         </div>
 
-        {/* Name + Bio */}
-        <div className="mb-8">
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight mb-1">
-            {profile.displayName}
-          </h1>
-          {profile.bio && (
-            <p className="mt-3 text-foreground/60 leading-relaxed whitespace-pre-wrap max-w-2xl">{profile.bio}</p>
-          )}
-        </div>
+        {/* Content: about card (left) + calendar card (right on desktop) */}
+        <div className={`grid grid-cols-1 gap-6 ${isOwnProfile ? 'lg:grid-cols-2' : ''}`}>
 
-        {/* About + Interests */}
-        <div className="lg:w-4/10">
-          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-5">À propos</h2>
-            <div className="flex flex-col gap-4">
-              <AboutRow icon={Mail}>{profile.email}</AboutRow>
-              {profile.studyLevel && (
-                <AboutRow icon={GraduationCap}>
-                  {STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name}
-                </AboutRow>
-              )}
-              {profile.faculty && (() => {
-                const FacultyLogo = FACULTIES[profile.faculty as Faculty]?.logo
-                const facultyName = FACULTIES[profile.faculty as Faculty]?.name
-                return FacultyLogo ? (
-                  <div className="pt-1" role="img" aria-label={facultyName}>
+          {/* Left column: bio + about + interests */}
+          <div className="flex flex-col gap-6">
+            {profile.bio && (
+              <p className="text-foreground/60 leading-relaxed whitespace-pre-wrap">
+                {profile.bio}
+              </p>
+            )}
+
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-5">À propos</h2>
+              <div className="flex flex-col gap-4">
+                <AboutRow icon={Mail}>{profile.email}</AboutRow>
+                {studyLevelName && (
+                  <AboutRow icon={GraduationCap}>{studyLevelName}</AboutRow>
+                )}
+                {FacultyLogo && (
+                  <div className="pt-1" role="img" aria-label={facultyName ?? undefined}>
                     <FacultyLogo className="h-12 w-auto" />
                   </div>
-                ) : null
-              })()}
-            </div>
+                )}
+              </div>
 
-            {profile.interests && profile.interests.length > 0 && (
-              <>
-                <div className="border-t border-border my-6" />
-                <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-4">Centres d&apos;intérêt</h2>
-                <div className="flex flex-wrap gap-2">
-                  {profile.interests.map((interest) => (
-                    <span
-                      key={interest}
-                      className="bg-accent/5 border border-accent/20 text-foreground/70 rounded-full px-3 py-1 text-sm font-medium capitalize hover:border-accent/50 hover:text-foreground transition-colors"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
+              {profile.interests && profile.interests.length > 0 && (
+                <>
+                  <div className="border-t border-border my-6" />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-4">Centres d&apos;intérêt</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.interests.map((interest) => (
+                      <span
+                        key={interest}
+                        className="bg-accent/5 border border-accent/20 text-foreground/70 rounded-full px-3 py-1 text-sm font-medium capitalize hover:border-accent/50 hover:text-foreground transition-colors"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Right column: calendar subscription (own profile only) */}
+          {isOwnProfile && <CalendarSubscribeButton />}
         </div>
 
       </div>

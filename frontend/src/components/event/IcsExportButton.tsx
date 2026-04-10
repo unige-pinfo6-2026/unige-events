@@ -16,7 +16,7 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
     a.download = `event-${event.id}.ics`
     document.body.appendChild(a)
     a.click()
-    document.body.removeChild(a)
+    a.remove()
     URL.revokeObjectURL(url)
   }
 
@@ -28,7 +28,10 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
         <Calendar className="w-4 h-4 text-foreground/50" />
         Ajouter au calendrier
       </div>
-      <div className="flex flex-wrap gap-3">
+      <p className="text-sm text-foreground/50 leading-relaxed">
+        Ajoutez cet événement à votre application calendrier. Le fichier .ics est compatible avec Apple Calendar, Google Calendar et Outlook.
+      </p>
+      <div className="flex gap-4 items-start">
         <button
           type="button"
           onClick={handleDownload}
@@ -37,6 +40,17 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
           <Download className="w-4 h-4" />
           Télécharger .ics
         </button>
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-foreground/70 text-sm font-semibold bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors cursor-pointer"
+          >
+            <Calendar className="w-4 h-4" />
+            Apple Calendar / Outlook
+          </button>
+          
+        </div>
         <a
           href={googleCalendarUrl}
           target="_blank"

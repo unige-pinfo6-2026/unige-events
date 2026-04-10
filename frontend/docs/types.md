@@ -145,6 +145,23 @@ Body de `POST /events/{id}/attend`.
 
 ---
 
+## Types calendrier — `src/types/calendarToken.ts`
+
+### CalendarTokenResponse
+
+Réponse de `GET /api/users/me/calendar-token` et `POST /api/users/me/calendar-token/regenerate`.
+
+| Champ         | Type   | Requis |
+|---------------|--------|--------|
+| calendarToken | string (uuid) | oui |
+| webcalUrl     | string | oui    |
+| httpsUrl      | string | oui    |
+
+`webcalUrl` utilise le protocole `webcal://` (Apple Calendar, Outlook).
+`httpsUrl` est l'URL `https://` pour Google Calendar et le téléchargement direct.
+
+---
+
 ## Règles générales
 
 - Les types d'entités vivent dans `src/types/` et ne doivent pas être redéfinis ailleurs.
