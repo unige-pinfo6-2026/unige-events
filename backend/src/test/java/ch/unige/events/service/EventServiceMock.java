@@ -6,6 +6,7 @@ import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -65,13 +66,14 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
         return eventsById.values().stream()
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
                 .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
-                .map(e -> EventDTO.from(e, 0L))
+                .filter(e -> faculty == null || e.faculty == faculty)
+                .map(EventDTO::from)
                 .toList();
     }
 
@@ -89,6 +91,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.status = EventStatus.DRAFT;
@@ -97,7 +100,7 @@ public class EventServiceMock extends EventService {
         event.updatedAt = LocalDateTime.now();
 
         eventsById.put(event.id, event);
-        return EventDTO.from(event, 0L);
+        return EventDTO.from(event);
     }
 
     @Override
@@ -106,7 +109,7 @@ public class EventServiceMock extends EventService {
         if (event == null) {
             throw new NotFoundException();
         }
-        return EventDTO.from(event, 0L);
+        return EventDTO.from(event);
     }
 
     @Override
@@ -131,6 +134,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         if (request.status != null) {
@@ -138,7 +142,7 @@ public class EventServiceMock extends EventService {
         }
         event.updatedAt = LocalDateTime.now();
 
-        return EventDTO.from(event, 0L);
+        return EventDTO.from(event);
     }
 
     @Override
@@ -171,7 +175,7 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.status = EventStatus.PUBLISHED;
-        return EventDTO.from(e, 0L);
+        return EventDTO.from(e);
     }
 
     @Override
@@ -183,6 +187,6 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.bannerUrl = "/uploads/test-banner.jpg";
-        return EventDTO.from(e, 0L);
+        return EventDTO.from(e);
     }
 }

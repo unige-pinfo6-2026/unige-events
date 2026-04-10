@@ -5,6 +5,7 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
@@ -47,8 +48,9 @@ public class EventResource {
             @QueryParam("status") EventStatus status,
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId,
-            @QueryParam("endDateFrom") LocalDateTime endDateFrom) {
-        return eventService.getAll(page, size, status, category, organizerId, endDateFrom);
+            @QueryParam("endDateFrom") LocalDateTime endDateFrom,
+            @QueryParam("faculty") Faculty faculty) {
+        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty);
     }
 
     @POST

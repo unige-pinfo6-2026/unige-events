@@ -8,6 +8,7 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -35,7 +36,7 @@ public class EventService {
     @Inject EntityManager entityManager;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
@@ -54,6 +55,10 @@ public class EventService {
         if (endDateFrom != null) {
             conditions.add("endDate >= :endDateFrom");
             params.put("endDateFrom", endDateFrom);
+        }
+        if (faculty != null) {
+            conditions.add("faculty = :faculty");
+            params.put("faculty", faculty);
         }
 
         PanacheQuery<Event> query;
@@ -83,6 +88,7 @@ public class EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.creator = creator;
@@ -117,6 +123,7 @@ public class EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         if (request.status != null) {

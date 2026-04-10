@@ -1,6 +1,7 @@
 package ch.unige.events.resource;
 
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventSearchServiceMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -199,6 +200,68 @@ class EventSearchResourceTest {
         given()
                 .queryParam("page", 0)
                 .queryParam("size", 2)
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2));
+    }
+
+    // --- Filtre ?faculty= ---
+
+    @Test
+    void search_withFaculty_returnsFiltered() {
+        var e1 = eventSearchServiceMock.seedEvent("Labo Chimie", null, EventCategory.ACADEMIC, null);
+        e1.faculty = Faculty.SCIENCES;
+        var e2 = eventSearchServiceMock.seedEvent("Cours de Droit", null, EventCategory.ACADEMIC, null);
+        e2.faculty = Faculty.DROIT;
+
+        given()
+                .queryParam("faculty", "SCIENCES")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Labo Chimie"))
+                .body("[0].faculty", is("SCIENCES"));
+    }
+
+    @Test
+    void search_withFacultyNoMatch_returnsEmpty() {
+        var e = eventSearchServiceMock.seedEvent("Labo Chimie", null, EventCategory.ACADEMIC, null);
+        e.faculty = Faculty.SCIENCES;
+
+        given()
+                .queryParam("faculty", "DROIT")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(0));
+    }
+
+    @Test
+    void search_withFacultyAndQ_combined() {
+        var e1 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
+        e1.faculty = Faculty.SCIENCES;
+        var e2 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
+        e2.faculty = Faculty.LETTRES;
+
+        given()
+                .queryParam("q", "java")
+                .queryParam("faculty", "SCIENCES")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].faculty", is("SCIENCES"));
+    }
+
+    @Test
+    void search_withNullFaculty_returnsAll() {
+        var e1 = eventSearchServiceMock.seedEvent("Event A", null, EventCategory.ACADEMIC, null);
+        e1.faculty = Faculty.SCIENCES;
+        eventSearchServiceMock.seedEvent("Event B", null, EventCategory.ACADEMIC, null);
+
+        given()
                 .when().get("/events/search")
                 .then()
                 .statusCode(200)

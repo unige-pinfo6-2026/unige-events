@@ -5,6 +5,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.Faculty;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -36,7 +37,7 @@ public class EventSearchService {
     EntityManager entityManager;
 
     @Transactional
-    public List<EventDTO> search(String q, EventCategory category,
+    public List<EventDTO> search(String q, EventCategory category, Faculty faculty,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
         List<String> conditions = new ArrayList<>();
@@ -51,6 +52,10 @@ public class EventSearchService {
         if (category != null) {
             conditions.add("category = :category");
             params.put("category", category);
+        }
+        if (faculty != null) {
+            conditions.add("faculty = :faculty");
+            params.put("faculty", faculty);
         }
         if (dateFrom != null) {
             // Convert the Zurich calendar day to a UTC boundary, then compare the stored UTC timestamp directly.

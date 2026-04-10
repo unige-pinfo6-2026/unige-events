@@ -9,7 +9,8 @@ import java.util.Optional;
 @Entity
 @Table(name = "events", indexes = {
         @Index(name = "idx_event_creator", columnList = "creator_id"),
-        @Index(name = "idx_event_start_date", columnList = "start_date")
+        @Index(name = "idx_event_start_date", columnList = "start_date"),
+        @Index(name = "idx_event_faculty", columnList = "faculty")
 })
 public class Event extends PanacheEntity {
 
@@ -26,6 +27,9 @@ public class Event extends PanacheEntity {
 
     @Enumerated(EnumType.STRING)
     public EventCategory category;
+
+    @Enumerated(EnumType.STRING)
+    public Faculty faculty;
 
     public String bannerUrl;
 

@@ -2,6 +2,7 @@ package ch.unige.events.resource;
 
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventSearchService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -31,10 +32,11 @@ public class EventSearchResource {
     public List<EventDTO> search(
             @QueryParam("q") String q,
             @QueryParam("category") EventCategory category,
+            @QueryParam("faculty") Faculty faculty,
             @QueryParam("dateFrom") LocalDate dateFrom,
             @QueryParam("dateTo") LocalDate dateTo,
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
-        return eventSearchService.search(q, category, dateFrom, dateTo, page, size);
+        return eventSearchService.search(q, category, faculty, dateFrom, dateTo, page, size);
     }
 }

@@ -4,6 +4,7 @@ import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventServiceMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.SecurityAttribute;
@@ -450,5 +451,74 @@ class EventResourceTest {
                 .then()
                 .statusCode(403)
                 .body("error", equalTo("forbidden"));
+    }
+
+    // --- GET /events?faculty= ---
+
+    @Test
+    void getAll_withFacultyFilter_returnsFiltered() {
+        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
+        e1.faculty = Faculty.SCIENCES;
+        var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
+        e2.faculty = Faculty.LETTRES;
+
+        given()
+                .queryParam("faculty", "SCIENCES")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Event SCIENCES"))
+                .body("[0].faculty", is("SCIENCES"));
+    }
+
+    @Test
+    void getAll_withFacultyFilter_noMatch_returnsEmpty() {
+        var e = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
+        e.faculty = Faculty.SCIENCES;
+
+        given()
+                .queryParam("faculty", "DROIT")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(0));
+    }
+
+    // --- POST /events avec faculty ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice", attributes = {
+            @SecurityAttribute(key = "email", value = "alice@example.com")
+    })
+    void create_withFaculty_returnsFacultyInResponse() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Conférence Médecine";
+        req.location = "CMU";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CONFERENCE;
+        req.faculty = Faculty.MEDECINE;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("faculty", is("MEDECINE"));
+    }
+
+    @Test
+    void getAll_withNullFaculty_returnsAll() {
+        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event A");
+        e1.faculty = Faculty.SCIENCES;
+        eventServiceMock.seedEvent("auth0|alice", "Event B");
+
+        given()
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2));
     }
 }
