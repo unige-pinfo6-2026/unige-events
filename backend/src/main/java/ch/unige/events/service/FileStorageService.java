@@ -59,7 +59,7 @@ public class FileStorageService {
      * Stocke un fichier image dans S3 sous le préfixe donné.
      *
      * @param fileUpload le fichier reçu en multipart
-     * @param folder     le dossier S3 ("avatars" ou "banners")
+     * @param folder     le dossier S3 ("users/avatars" ou "events/banners")
      * @return la clé S3 complète, e.g. "avatars/uuid.jpg"
      */
     public String saveImage(FileUpload fileUpload, String folder) {
