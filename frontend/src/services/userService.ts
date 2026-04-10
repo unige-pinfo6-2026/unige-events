@@ -1,5 +1,6 @@
 import api from './api'
 import type { User } from '@/types/user'
+import type { CalendarTokenResponse } from '@/types/calendarToken'
 
 export async function getMe(): Promise<User> {
   const response = await api.get<User>('/users/me')
@@ -20,5 +21,15 @@ export async function uploadPhoto(file: File): Promise<User> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await api.post<User>('/users/me/image', formData)
+  return response.data
+}
+
+export async function getCalendarToken(): Promise<CalendarTokenResponse> {
+  const response = await api.get<CalendarTokenResponse>('/users/me/calendar-token')
+  return response.data
+}
+
+export async function regenerateCalendarToken(): Promise<CalendarTokenResponse> {
+  const response = await api.post<CalendarTokenResponse>('/users/me/calendar-token/regenerate')
   return response.data
 }

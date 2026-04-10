@@ -5,6 +5,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import ch.unige.events.util.IcsBuilder;
 import io.quarkus.test.TestTransaction;
@@ -102,23 +103,39 @@ class CalendarServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void generateIcsFeed_withAttendance_containsVevent() {
+    void generateIcsFeed_withFavorite_containsVevent() {
         User user = persistUser("auth0|cal5", "cal5@example.com");
         user.calendarToken = UUID.randomUUID();
         entityManager.flush();
 
-        Event event = persistEvent("Conférence UNIGE", user, EventStatus.PUBLISHED);
+        Event event = persistEvent("Conférence Favori", user, EventStatus.PUBLISHED);
+        persistFavorite(user.id, event.id);
+
+        String ics = calendarService.generateIcsFeed(user.calendarToken);
+
+        assertTrue(ics.contains("BEGIN:VEVENT"));
+        assertTrue(ics.contains("SUMMARY:Conférence Favori"));
+    }
+
+    @Test
+    @TestTransaction
+    void generateIcsFeed_withAttending_containsVevent() {
+        User user = persistUser("auth0|cal5b", "cal5b@example.com");
+        user.calendarToken = UUID.randomUUID();
+        entityManager.flush();
+
+        Event event = persistEvent("Conférence Attending", user, EventStatus.PUBLISHED);
         persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
 
         String ics = calendarService.generateIcsFeed(user.calendarToken);
 
         assertTrue(ics.contains("BEGIN:VEVENT"));
-        assertTrue(ics.contains("SUMMARY:Conférence UNIGE"));
+        assertTrue(ics.contains("SUMMARY:Conférence Attending"));
     }
 
     @Test
     @TestTransaction
-    void generateIcsFeed_noAttendance_noVevent() {
+    void generateIcsFeed_noFavoriteNoAttending_noVevent() {
         User user = persistUser("auth0|cal6", "cal6@example.com");
         user.calendarToken = UUID.randomUUID();
         entityManager.flush();
@@ -137,7 +154,7 @@ class CalendarServiceCoverageTest {
         entityManager.flush();
 
         Event event = persistEvent("Brouillon", user, EventStatus.DRAFT);
-        persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
+        persistFavorite(user.id, event.id);
 
         String ics = calendarService.generateIcsFeed(user.calendarToken);
 
@@ -146,18 +163,19 @@ class CalendarServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void generateIcsFeed_interestedStatusIncluded() {
-        User user = persistUser("auth0|cal8", "cal8@example.com");
+    void generateIcsFeed_favoriteAndAttending_sameEvent_appearsOnce() {
+        User user = persistUser("auth0|cal9", "cal9@example.com");
         user.calendarToken = UUID.randomUUID();
         entityManager.flush();
 
-        Event event = persistEvent("Conférence Interested", user, EventStatus.PUBLISHED);
-        persistAttendance(user.id, event.id, AttendanceStatus.INTERESTED);
+        Event event = persistEvent("Double Source", user, EventStatus.PUBLISHED);
+        persistFavorite(user.id, event.id);
+        persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
 
         String ics = calendarService.generateIcsFeed(user.calendarToken);
 
-        assertTrue(ics.contains("BEGIN:VEVENT"));
-        assertTrue(ics.contains("SUMMARY:Conférence Interested"));
+        long count = ics.lines().filter(l -> l.equals("BEGIN:VEVENT")).count();
+        assertEquals(1, count);
     }
 
     @Test
@@ -215,5 +233,9 @@ class CalendarServiceCoverageTest {
 
     private Attendance persistAttendance(UUID userId, Long eventId, AttendanceStatus status) {
         return ServiceCoverageTestHelper.persistAttendance(entityManager, userId, eventId, status);
+    }
+
+    private Favorite persistFavorite(UUID userId, Long eventId) {
+        return ServiceCoverageTestHelper.persistFavorite(entityManager, userId, eventId);
     }
 }

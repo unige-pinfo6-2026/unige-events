@@ -3,6 +3,7 @@ package ch.unige.events.service;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
@@ -51,5 +52,14 @@ final class ServiceCoverageTestHelper {
         em.persist(a);
         em.flush();
         return a;
+    }
+
+    static Favorite persistFavorite(EntityManager em, UUID userId, Long eventId) {
+        Favorite f = new Favorite();
+        f.userId = userId;
+        f.eventId = eventId;
+        em.persist(f);
+        em.flush();
+        return f;
     }
 }

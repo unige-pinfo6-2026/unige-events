@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Calendar, Filter, User, PlusCircle, BarChart3, Bell, ChevronDown
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import FacultyMarquee from '@/components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
 import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
@@ -151,6 +151,31 @@ function GetStarted() {
 }
 
 export default function LandingPage() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.hash) return
+
+    const id = location.hash.slice(1)
+    let attempts = 0
+    const maxAttempts = 10
+
+    const tryScroll = () => {
+      const el = document.getElementById(id)
+      if (el) {
+        const top = el.getBoundingClientRect().top + globalThis.scrollY 
+        globalThis.scrollTo({ top, behavior: 'smooth' })
+        return
+      }
+      attempts++
+      if (attempts < maxAttempts) {
+        setTimeout(tryScroll, 100)
+      }
+    }
+
+    setTimeout(tryScroll, 50)
+  }, [location.hash])
+
   return (
     <div>
       <Hero />
