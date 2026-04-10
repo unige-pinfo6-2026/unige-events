@@ -23,64 +23,64 @@ describe('FacultyBadge', () => {
   it('renders SCIENCES with blue classes', () => {
     render(<FacultyBadge faculty={Faculty.SCIENCES} />)
     const badge = screen.getByText('Sciences')
-    expect(badge.className).toContain('bg-blue-100')
-    expect(badge.className).toContain('text-blue-800')
+    expect(badge.className).toContain('bg-[#007E64]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders LETTRES with purple classes', () => {
     render(<FacultyBadge faculty={Faculty.LETTRES} />)
     const badge = screen.getByText('Lettres')
-    expect(badge.className).toContain('bg-purple-100')
-    expect(badge.className).toContain('text-purple-800')
+    expect(badge.className).toContain('bg-[#0067C5]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders DROIT with red classes', () => {
     render(<FacultyBadge faculty={Faculty.DROIT} />)
     const badge = screen.getByText('Droit')
-    expect(badge.className).toContain('bg-red-100')
-    expect(badge.className).toContain('text-red-800')
+    expect(badge.className).toContain('bg-[#F42941]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders MEDECINE with green classes', () => {
     render(<FacultyBadge faculty={Faculty.MEDECINE} />)
     const badge = screen.getByText('Médecine')
-    expect(badge.className).toContain('bg-green-100')
-    expect(badge.className).toContain('text-green-800')
+    expect(badge.className).toContain('bg-[#96004B]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders SES with yellow classes', () => {
     render(<FacultyBadge faculty={Faculty.SES} />)
     const badge = screen.getByText('SES')
-    expect(badge.className).toContain('bg-yellow-100')
-    expect(badge.className).toContain('text-yellow-800')
+    expect(badge.className).toContain('bg-[#F1AB00]')
+    expect(badge.className).toContain('text-gray-900')
   })
 
   it('renders PSYCHOLOGIE with pink classes', () => {
     render(<FacultyBadge faculty={Faculty.PSYCHOLOGIE} />)
     const badge = screen.getByText('Psychologie')
-    expect(badge.className).toContain('bg-pink-100')
-    expect(badge.className).toContain('text-pink-800')
+    expect(badge.className).toContain('bg-[#C69200]')
+    expect(badge.className).toContain('text-gray-900')
   })
 
   it('renders THEOLOGIE with orange classes', () => {
     render(<FacultyBadge faculty={Faculty.THEOLOGIE} />)
     const badge = screen.getByText('Théologie')
-    expect(badge.className).toContain('bg-orange-100')
-    expect(badge.className).toContain('text-orange-800')
+    expect(badge.className).toContain('bg-[#4B0B71]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders FTI with cyan classes', () => {
     render(<FacultyBadge faculty={Faculty.FTI} />)
     const badge = screen.getByText('FTI')
-    expect(badge.className).toContain('bg-cyan-100')
-    expect(badge.className).toContain('text-cyan-800')
+    expect(badge.className).toContain('bg-[#FF5C00]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders GSI with indigo classes', () => {
     render(<FacultyBadge faculty={Faculty.GSI} />)
     const badge = screen.getByText('GSI')
-    expect(badge.className).toContain('bg-indigo-100')
-    expect(badge.className).toContain('text-indigo-800')
+    expect(badge.className).toContain('bg-[#003580]')
+    expect(badge.className).toContain('text-white')
   })
 
   it('renders a span element', () => {
