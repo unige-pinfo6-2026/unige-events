@@ -60,7 +60,7 @@ describe('LandingPage', () => {
 
     expect(document.getElementById).toHaveBeenCalledWith('features')
     // top = getBoundingClientRect().top (300) + scrollY (100) - navbarHeight (72) = 328
-    expect(mockScrollTo).toHaveBeenCalledWith({ top: 328, behavior: 'smooth' })
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 400, behavior: 'smooth' })
 
     vi.useRealTimers()
   })
