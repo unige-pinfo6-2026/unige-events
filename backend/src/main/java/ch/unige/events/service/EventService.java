@@ -3,6 +3,8 @@ package ch.unige.events.service;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
@@ -10,6 +12,7 @@ import ch.unige.events.entity.User;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
@@ -29,6 +32,7 @@ import java.util.UUID;
 public class EventService {
 
     @Inject FileStorageService fileStorageService;
+    @Inject EntityManager entityManager;
 
     @Transactional
     public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
@@ -59,7 +63,12 @@ public class EventService {
             query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
         }
 
-        return query.page(page, size).list().stream().map(EventDTO::from).toList();
+        List<Event> events = query.page(page, size).list();
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = bulkCountByStatus(ids, AttendanceStatus.ATTENDING);
+        return events.stream()
+                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
+                .toList();
     }
 
     @Transactional
@@ -82,14 +91,15 @@ public class EventService {
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        return EventDTO.from(event);
+        // A newly created event has no attendances yet — count is 0.
+        return EventDTO.from(event, 0L);
     }
 
     @Transactional
     public EventDTO getById(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -113,7 +123,7 @@ public class EventService {
             event.status = request.status;
         }
 
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -147,7 +157,7 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id));
     }
 
     @Transactional
@@ -159,7 +169,15 @@ public class EventService {
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
-        return EventDTO.from(event);
+        return EventDTO.from(event, countAttending(id));
+    }
+
+    private Map<Long, Long> bulkCountByStatus(List<Long> eventIds, AttendanceStatus status) {
+        return Attendance.countGroupedByStatus(eventIds, status, entityManager);
+    }
+
+    private long countAttending(Long eventId) {
+        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {

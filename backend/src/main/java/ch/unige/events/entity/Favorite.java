@@ -42,5 +42,7 @@ public class Favorite extends PanacheEntity {
                 .list();
     }
 
-
+    public static List<Favorite> findAllByUser(UUID userId) {
+        return list("userId = ?1", userId);
+    }
 }

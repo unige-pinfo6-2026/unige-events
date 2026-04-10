@@ -85,6 +85,7 @@ const makeCalendarEvent = (id: number, title: string): CalendarEvent => ({
     category: 'CONFERENCE',
     status: 'PUBLISHED',
     creatorId: 'u1',
+    attendingCount: 0,
     createdAt: '2026-03-01T00:00:00',
   },
 })

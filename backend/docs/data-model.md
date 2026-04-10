@@ -68,7 +68,7 @@ Contrainte unique : `uq_favorite_user_event` sur `(user_id, event_id)`.
 
 Suppression physique autorisée (pas de soft-delete).
 
-Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByUser(UUID, int, int)`.
+Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByUser(UUID, int, int)`, `Favorite.findAllByUser(UUID)` (non paginé — utilisé par `CalendarService`).
 
 ---
 
@@ -150,10 +150,10 @@ Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}
 
 ```
 id, title, description, location, startDate, endDate, category, bannerUrl,
-creatorId (UUID — extrait de creator.id), status, capacity, createdAt, updatedAt
+creatorId (UUID — extrait de creator.id), status, capacity, attendingCount, createdAt, updatedAt
 ```
 
-Factory : `EventDTO.from(Event event)`
+Factory : `EventDTO.from(Event event, long attendingCount)`
 
 ### CreateEventRequest
 Body de création (`POST /events`). Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
@@ -204,7 +204,7 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
-| `AttendanceStatus` | `INTERESTED`, `ATTENDING` | Sprint 4 | Planifié |
+| `AttendanceStatus` | `ATTENDING` | Sprint 4 | ✅ Implémenté |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).

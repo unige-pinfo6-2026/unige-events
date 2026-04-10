@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProfilePage from '@/pages/profile/ProfilePage'
@@ -12,13 +12,20 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
+  getCalendarToken: vi.fn().mockResolvedValue({
+    calendarToken: 'test-token',
+    webcalUrl: 'webcal://example.com/cal.ics',
+    httpsUrl: 'https://example.com/cal.ics',
+  }),
+  regenerateCalendarToken: vi.fn(),
 }))
 
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById } from '@/services/userService'
+import { getUserById, getCalendarToken } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 
 const mockUser = {
   id: '123',
@@ -28,6 +35,14 @@ const mockUser = {
   profilePublic: true,
   createdAt: '2024-01-01',
 }
+
+beforeEach(() => {
+  mockGetCalendarToken.mockResolvedValue({
+    calendarToken: 'test-token',
+    webcalUrl: 'webcal://example.com/cal.ics',
+    httpsUrl: 'https://example.com/cal.ics',
+  })
+})
 
 afterEach(() => {
   cleanup()
@@ -106,7 +121,7 @@ describe('ProfilePage', () => {
     })
     renderProfilePage('me')
     expect(await screen.findByRole('img', { name: /Sciences/i })).toBeTruthy()
-    expect(screen.getByText(/Master/)).toBeTruthy()
+    expect(screen.getAllByText(/Master/).length).toBeGreaterThan(0)
   })
 
   it('renders bio when present', async () => {

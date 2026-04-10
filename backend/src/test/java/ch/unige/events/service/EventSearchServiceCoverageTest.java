@@ -1,6 +1,8 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
@@ -205,12 +207,39 @@ class EventSearchServiceCoverageTest {
         assertEquals(1, page2.size());
     }
 
+    // --- count tests ---
+
+    @Test
+    @TestTransaction
+    void search_withAttendance_returnsRealCounts() {
+        deleteAll();
+        User user = persistUser("auth0|cnt1", "cnt1@example.com");
+        Event event = persistEvent("Counted Event", "Desc", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = eventSearchService.search("Counted", null, null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).attendingCount());
+    }
+
     // --- helpers ---
 
     private void deleteAll() {
+        entityManager.createNativeQuery("delete from attendances").executeUpdate();
         entityManager.createNativeQuery("delete from events").executeUpdate();
         entityManager.createNativeQuery("delete from users").executeUpdate();
         entityManager.clear();
+    }
+
+    private Attendance persistAttendance(java.util.UUID userId, Long eventId, AttendanceStatus status) {
+        Attendance a = new Attendance();
+        a.userId = userId;
+        a.eventId = eventId;
+        a.status = status;
+        entityManager.persist(a);
+        entityManager.flush();
+        return a;
     }
 
     private User persistUser(String auth0Id, String email) {

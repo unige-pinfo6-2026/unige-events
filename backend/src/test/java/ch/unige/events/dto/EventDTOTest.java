@@ -19,7 +19,7 @@ class EventDTOTest {
         Event event = new Event();
         event.creator = organizer;
 
-        EventDTO dto = EventDTO.from(event);
+        EventDTO dto = EventDTO.from(event, 0L);
 
         assertEquals(organizer.id, dto.creatorId());
     }
@@ -29,7 +29,7 @@ class EventDTOTest {
         Event event = new Event();
         event.creator = null;
 
-        EventDTO dto = EventDTO.from(event);
+        EventDTO dto = EventDTO.from(event, 0L);
 
         assertNull(dto.creatorId());
     }
