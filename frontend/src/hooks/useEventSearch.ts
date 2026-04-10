@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchSuggestions, searchEvents } from '@/services/searchApi'
-import type { Event, EventCategory } from '@/types/event'
-import type { Faculty } from '@/types/faculty'
+import type { Event, EventCategory, Faculty } from '@/types/event'
 import type { SearchFilters, SearchParams } from '@/types/search'
 
 const DEFAULT_FILTERS: SearchFilters = { includePast: false }
@@ -96,10 +95,10 @@ export function useSearch(): UseSearchResult {
     // Fix 4: when includePast is false, enforce dateFrom >= today
     const futureDateFrom = f.dateFrom && f.dateFrom > today ? f.dateFrom : today
     const effectiveDateFrom = f.includePast ? f.dateFrom : futureDateFrom
-    // TODO: SCRUM-77 — faculty filter omitted; backend does not yet support it
     const params: SearchParams = {
       q: trimmed || undefined,
       category: f.category,
+      faculty: f.faculty,
       dateFrom: effectiveDateFrom,
       dateTo: f.dateTo,
     }

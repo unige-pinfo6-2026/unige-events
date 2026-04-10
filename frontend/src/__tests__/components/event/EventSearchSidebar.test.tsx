@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import EventSearchSidebar from '@/components/event/EventSearchSidebar'
+import { Faculty, FACULTY_LABELS } from '@/types/event'
 import type { SearchFilters } from '@/types/search'
 
 afterEach(() => {
@@ -57,11 +58,11 @@ describe('FilterSidebar', () => {
     expect(screen.getByText('Autre')).toBeTruthy()
   })
 
-  it('renders the faculty select with all options', () => {
+  it('renders a chip for every Faculty value', () => {
     renderSidebar()
-    expect(screen.getByText('Toutes les facultés')).toBeTruthy()
-    expect(screen.getByText('Faculté des Sciences')).toBeTruthy()
-    expect(screen.getByText('Faculté de Médecine')).toBeTruthy()
+    for (const f of Object.values(Faculty)) {
+      expect(screen.getByRole('button', { name: FACULTY_LABELS[f] })).toBeTruthy()
+    }
   })
 
   it('renders date from and date to inputs', () => {
@@ -112,15 +113,32 @@ describe('FilterSidebar', () => {
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ category: undefined }))
   })
 
-  it('faculty select is disabled (SCRUM-77 not yet implemented)', () => {
-    renderSidebar()
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.disabled).toBe(true)
+  it('selects a faculty chip and calls setFilters with that faculty', () => {
+    const setFilters = vi.fn()
+    renderSidebar(defaultFilters, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: Faculty.SCIENCES }))
   })
 
-  it('shows "Bientôt disponible" label below the faculty select', () => {
+  it('deselects faculty chip when clicking the active chip', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, faculty: Faculty.SCIENCES }, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: undefined }))
+  })
+
+  it('no faculty chip appears active when no faculty filter is set', () => {
     renderSidebar()
-    expect(screen.getByText('Bientôt disponible')).toBeTruthy()
+    const chips = Object.values(Faculty).map((f) => screen.getByRole('button', { name: FACULTY_LABELS[f] }))
+    for (const chip of chips) {
+      expect(chip.className).not.toContain('bg-accent')
+    }
+  })
+
+  it('the active faculty chip has bg-accent class', () => {
+    renderSidebar({ includePast: false, faculty: Faculty.DROIT })
+    const droitChip = screen.getByRole('button', { name: 'Droit' })
+    expect(droitChip.className).toContain('bg-accent')
   })
 
   it('calls setFilters with dateFrom when date input changes', () => {
@@ -148,11 +166,5 @@ describe('FilterSidebar', () => {
     renderSidebar({ includePast: false, dateFrom: '2026-05-01' })
     const input = screen.getByLabelText('De') as HTMLInputElement
     expect(input.value).toBe('2026-05-01')
-  })
-
-  it('shows the current faculty value', () => {
-    renderSidebar({ includePast: false, faculty: 'LAW' })
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('LAW')
   })
 })

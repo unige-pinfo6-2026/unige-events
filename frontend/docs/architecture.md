@@ -40,6 +40,14 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 | services/eventApi.ts | Liste, détail, création, édition, annulation et upload de bannière | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image |
 | services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 
+## Convention URL — filtre faculty
+
+Le filtre faculté sur la page de recherche utilise un paramètre query unique : `?faculty=SCIENCES`.
+- Valeur unique, correspondant exactement à une valeur de l'enum `Faculty` (`src/types/event.ts`).
+- Absent du paramètre URL quand aucune faculté n'est sélectionnée (jamais `?faculty=` vide).
+- Synchronisé dans les deux sens par `useSearch` (initialisation depuis URL → état, état → URL via `replace`).
+- Transmis tel quel à `GET /api/events/search?faculty=…`.
+
 ## Règles de cohérence
 
 - Toutes les routes protégées passent par PrivateRoute.

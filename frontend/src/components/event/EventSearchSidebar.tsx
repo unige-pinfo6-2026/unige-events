@@ -1,7 +1,6 @@
 import type { ChangeEvent } from 'react'
 import type { SearchFilters } from '@/types/search'
-import { EVENT_CATEGORIES, type EventCategory } from '@/types/event'
-import { FACULTIES, type Faculty } from '@/types/faculty'
+import { EVENT_CATEGORIES, FACULTY_LABELS, Faculty, type EventCategory } from '@/types/event'
 
 interface FilterSidebarProps {
   filters: SearchFilters
@@ -22,10 +21,6 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
     setFilters({...filters, category: e.target.value as EventCategory || undefined})
   }
   
-  function handleFacultyChange(e: ChangeEvent<HTMLSelectElement>) {
-    setFilters({...filters, faculty: e.target.value as Faculty || undefined})
-  }
-
   function handleDateFromChange(e: ChangeEvent<HTMLInputElement>) {
     setFilters({ ...filters, dateFrom: e.target.value || undefined })
   }
@@ -62,24 +57,25 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
 
       <div className="border-t border-border/50" />
 
-      {/* Faculty — TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event */}
+      {/* Faculty */}
       <div>
         <SectionLabel>Faculté</SectionLabel>
-        <select
-          value={filters.faculty ?? ''}
-          onChange={handleFacultyChange}
-          disabled
-          aria-disabled="true"
-          className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-sm opacity-50 cursor-not-allowed"
-        >
-          <option value="">Toutes les facultés</option>
-          {Object.entries(FACULTIES).map(([id, faculty]) => (
-            <option key={id} value={id}>
-              {faculty.name}
-            </option>
+        <div className="flex flex-wrap gap-2">
+          {Object.values(Faculty).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFilters({ ...filters, faculty: filters.faculty === id ? undefined : id })}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                filters.faculty === id
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-border text-foreground/60 hover:border-accent/40 hover:text-foreground'
+              }`}
+            >
+              {FACULTY_LABELS[id]}
+            </button>
           ))}
-        </select>
-        <p className="mt-1.5 text-xs text-foreground/30">Bientôt disponible</p>
+        </div>
       </div>
 
       <div className="border-t border-border/50" />

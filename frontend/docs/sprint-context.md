@@ -73,6 +73,19 @@ Fonctionnalités livrées :
 - `attendanceApi.ts` : `attend` (POST) et `unattend` (DELETE) sur `/api/events/{id}/attend`.
 - Types `AttendanceStatus`, `Attendance`, `AttendanceRequest` dans `src/types/attendance.ts`.
 - Tests unitaires pour `attendanceApi` et `useAttendance` (couverture ≥ 80 %).
+## Sprint 3 — Filtre faculty sur les événements (SCRUM-77 frontend) — 2026-04-10
+
+Terminé.
+
+Fonctionnalités livrées :
+- `Faculty` enum ajouté dans `src/types/event.ts` (9 valeurs : SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI) — correspond exactement à l'enum OpenAPI.
+- Champ `faculty: Faculty | null` ajouté au type `Event`, `CreateEventRequest` et `UpdateEventRequest`.
+- `FacultyBadge` (`src/components/faculty/FacultyBadge.tsx`) : pill coloré Tailwind par faculté, libellé français, aria-label. Export `FACULTY_LABELS`.
+- `EventCard` : affiche `<FacultyBadge>` si `event.faculty != null`.
+- `EventSearchSidebar` : filtre faculté activé, sélection par chips toggle (un par valeur Faculty, libellé français, sélection unique). Remplace l'ancien select désactivé.
+- `useEventSearch` : `faculty` ajouté aux `SearchParams` envoyés à l'API. Sync URL `?faculty=` (ajout / suppression).
+- `useEventForm` + `EventForm` : champ "Faculté concernée" select, option nulle ("Toutes les facultés"), valeur `Faculty | null` dans le payload de création/édition.
+- Tests unitaires : FacultyBadge (label + couleur × 9 valeurs), EventCard (badge affiché/absent), EventSearchSidebar (chips, sélection/désélection), useEventSearch (faculty dans les params API).
 
 ## Correctifs transverses — 2026-03-31
 

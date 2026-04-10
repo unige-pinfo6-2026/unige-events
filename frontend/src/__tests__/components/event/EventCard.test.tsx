@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventCard from '@/components/event/EventCard'
-import type { Event } from '@/types/event'
+import { Faculty, type Event } from '@/types/event'
 
 const mockEvent: Event = {
   id: 1,
@@ -13,6 +13,7 @@ const mockEvent: Event = {
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
   category: 'CONFERENCE',
+  faculty: null,
   status: 'PUBLISHED',
   creatorId: 'user-1',
   capacity: 200,
@@ -67,6 +68,30 @@ describe('EventCard', () => {
     for (const category of categories) {
       const { unmount } = renderCard({ ...mockEvent, category })
       expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+      unmount()
+      cleanup()
+    }
+  })
+
+  it('renders FacultyBadge when faculty is non-null', () => {
+    renderCard({ ...mockEvent, faculty: Faculty.SCIENCES })
+    expect(screen.getByText('Sciences')).toBeTruthy()
+  })
+
+  it('does not render FacultyBadge when faculty is null', () => {
+    renderCard({ ...mockEvent, faculty: null })
+    expect(screen.queryByText('Sciences')).toBeNull()
+  })
+
+  it('renders the correct faculty label for each Faculty value', () => {
+    const labels: Partial<Record<Faculty, string>> = {
+      [Faculty.LETTRES]: 'Lettres',
+      [Faculty.DROIT]: 'Droit',
+      [Faculty.MEDECINE]: 'Médecine',
+    }
+    for (const [faculty, label] of Object.entries(labels) as [Faculty, string][]) {
+      const { unmount } = renderCard({ ...mockEvent, faculty })
+      expect(screen.getByText(label)).toBeTruthy()
       unmount()
       cleanup()
     }

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
+import FacultyBadge from '@/components/faculty/FacultyBadge'
 
 export default function EventCard({ event }: Readonly<{ event: Event }>) {
   const category = EVENT_CATEGORIES[event.category]
@@ -57,6 +58,10 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
               </div>
             )}
           </div>
+
+          {event.faculty != null && (
+            <FacultyBadge faculty={event.faculty} />
+          )}
 
           {event.description && (
             <>

@@ -3,7 +3,7 @@ import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
 import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB } from '@/hooks/useEventForm'
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
-import { EVENT_CATEGORIES, EVENT_STATUSES } from '@/types/event'
+import { EVENT_CATEGORIES, EVENT_STATUSES, FACULTY_LABELS, Faculty } from '@/types/event'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus } from 'lucide-react'
@@ -224,6 +224,19 @@ export default function EventForm({
             >
               {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, s]) => (
                 <option key={id} value={id}>{s.name}</option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField label="Faculté concernée" htmlFor="event-faculty">
+            <Select
+              id="event-faculty"
+              value={values.faculty ?? ''}
+              onChange={(e) => onFieldChange('faculty', (e.target.value as Faculty) || null)}
+            >
+              <option value="">Toutes les facultés</option>
+              {Object.values(Faculty).map((id) => (
+                <option key={id} value={id}>{FACULTY_LABELS[id]}</option>
               ))}
             </Select>
           </FormField>

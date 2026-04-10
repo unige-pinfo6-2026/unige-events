@@ -31,6 +31,7 @@ const mockEvents = [
     startDate: '2026-04-10T14:00:00',
     endDate: '2026-04-10T17:00:00',
     category: 'CONFERENCE' as const,
+    faculty: null,
     status: 'PUBLISHED' as const,
     creatorId: 'user-1',
     createdAt: '2026-03-01T10:00:00',
@@ -368,7 +369,7 @@ describe('useSearch', () => {
     )
   })
 
-  it('does not include faculty in search params sent to the API', async () => {
+  it('includes faculty in search params sent to the API', async () => {
     mockSearchEvents.mockResolvedValue([])
 
     const { result } = renderHook(() => useSearch(), { wrapper })
@@ -382,7 +383,7 @@ describe('useSearch', () => {
     })
 
     expect(mockSearchEvents).toHaveBeenCalledWith(
-      expect.not.objectContaining({ faculty: expect.anything() }),
+      expect.objectContaining({ faculty: 'SCIENCES' }),
       expect.any(AbortSignal),
     )
   })

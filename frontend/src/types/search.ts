@@ -1,5 +1,4 @@
-import type { Event, EventCategory } from "./event"
-import type { Faculty } from "./faculty"
+import type { Event, EventCategory, Faculty } from "./event"
 
 export interface SearchFilters {
   category?: EventCategory

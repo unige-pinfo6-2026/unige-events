@@ -5,6 +5,14 @@ Source de vérité contrat API : `docs/openapi/openapi.yaml`.
 
 ## Types événements — `src/types/event.ts`
 
+### Faculty (enum)
+
+Défini comme `enum` TypeScript dans `src/types/event.ts`. Correspond exactement à l'enum OpenAPI `Faculty`.
+
+Valeurs : `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI`.
+
+La const `FACULTY_LABELS: Record<Faculty, string>` est également dans `src/types/event.ts` (libellés français pour l'UI).
+
 ### EventCategory
 
 Dérivé de `EVENT_CATEGORIES` (const object). Valeurs : `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER`.
@@ -37,6 +45,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | startDate   | string ISO 8601 | oui  |
 | endDate     | string ISO 8601 | oui  |
 | category    | EventCategory | oui    |
+| faculty     | Faculty \| null | oui  |
 | bannerUrl   | string        | non    |
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
@@ -49,7 +58,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `bannerUrl`, `capacity`, `status`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`.
 
 ### UpdateEventRequest
 
@@ -85,11 +94,13 @@ Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCT
 
 ## Types faculté — `src/types/faculty.ts`
 
-### Faculty
+### FACULTIES (const object)
 
-Dérivé de `FACULTIES` (const object). Valeurs : `SCIENCES`, `MEDECINE`, `LETTERS`, `ECONOMY`, `LAW`, `THEOLOGY`, `PSYCHOLOGY`, `TRANSLATION`.
+Données d'affichage pour les composants visuels (`FacultyCard`, `FacultyMarquee`).
+Clés : `SCIENCES`, `MEDECINE`, `LETTERS`, `ECONOMY`, `LAW`, `THEOLOGY`, `PSYCHOLOGY`, `TRANSLATION`.
+Chaque entrée expose `name` (libellé complet) et `logo` (composant SVG).
 
-Chaque entrée expose `name` (libellé français) et `logo` (composant SVG).
+> Note : le `Faculty` enum utilisé pour les événements et les filtres est dans `src/types/event.ts` — ses valeurs correspondent à l'enum OpenAPI.
 
 ---
 
@@ -100,7 +111,7 @@ Chaque entrée expose `name` (libellé français) et `logo` (composant SVG).
 Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 - q : string — terme de recherche full-text
 - category : EventCategory — filtre catégorie (valeur unique)
-- faculty : Faculty — filtre faculté
+- faculty : Faculty — filtre faculté (valeur unique de l'enum `Faculty` dans `src/types/event.ts`)
 - dateFrom : string (format date) — startDate >= dateFrom
 - dateTo : string (format date) — startDate <= dateTo
 - page : number (défaut 0)

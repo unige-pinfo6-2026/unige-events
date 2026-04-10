@@ -1,3 +1,29 @@
+export const Faculty = {
+  SCIENCES:    'SCIENCES',
+  LETTRES:     'LETTRES',
+  DROIT:       'DROIT',
+  MEDECINE:    'MEDECINE',
+  SES:         'SES',
+  PSYCHOLOGIE: 'PSYCHOLOGIE',
+  THEOLOGIE:   'THEOLOGIE',
+  FTI:         'FTI',
+  GSI:         'GSI',
+} as const
+
+export type Faculty = (typeof Faculty)[keyof typeof Faculty]
+
+export const FACULTY_LABELS: Record<Faculty, string> = {
+  SCIENCES:    'Sciences',
+  LETTRES:     'Lettres',
+  DROIT:       'Droit',
+  MEDECINE:    'Médecine',
+  SES:         'SES',
+  PSYCHOLOGIE: 'Psychologie',
+  THEOLOGIE:   'Théologie',
+  FTI:         'FTI',
+  GSI:         'GSI',
+}
+
 export type Event = {
   id: number
   title: string
@@ -6,6 +32,7 @@ export type Event = {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty: Faculty | null
   bannerUrl?: string
   creatorId: string
   status: EventStatus
@@ -41,6 +68,7 @@ export interface CreateEventRequest {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty?: Faculty | null
   bannerUrl?: string
   capacity?: number
   status?: EventStatus
@@ -53,6 +81,7 @@ export interface UpdateEventRequest {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty?: Faculty | null
   bannerUrl?: string
   capacity?: number
   status?: EventStatus

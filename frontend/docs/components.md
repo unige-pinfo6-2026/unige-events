@@ -72,10 +72,31 @@
 - Exporte aussi `inputClass(error?)` — classe CSS cohérente pour tous les inputs/selects/textareas.
 - Utilisé dans `EventForm` et `ProfileEditPage`.
 
+### FacultyBadge
+
+- Composant `src/components/faculty/FacultyBadge.tsx`.
+- Props : `{ faculty: Faculty }` (enum de `@/types/event`).
+- Rend un `<span>` pill Tailwind avec couleur distincte par valeur (9 couleurs).
+- Utilise `FACULTY_LABELS: Record<Faculty, string>` depuis `@/types/event` pour les libellés français.
+- `aria-label="Faculté : <label>"` sur le span.
+
+| Valeur      | Classe Tailwind                       | Libellé    |
+|-------------|---------------------------------------|------------|
+| SCIENCES    | `bg-blue-100 text-blue-800`           | Sciences   |
+| LETTRES     | `bg-purple-100 text-purple-800`       | Lettres    |
+| DROIT       | `bg-red-100 text-red-800`             | Droit      |
+| MEDECINE    | `bg-green-100 text-green-800`         | Médecine   |
+| SES         | `bg-yellow-100 text-yellow-800`       | SES        |
+| PSYCHOLOGIE | `bg-pink-100 text-pink-800`           | Psychologie|
+| THEOLOGIE   | `bg-orange-100 text-orange-800`       | Théologie  |
+| FTI         | `bg-cyan-100 text-cyan-800`           | FTI        |
+| GSI         | `bg-indigo-100 text-indigo-800`       | GSI        |
+
 ### EventCard
 
 - Carte cliquable d'un événement (design glassmorphism, variables CSS thème).
 - Affiche bannière, badge catégorie, titre, date, lieu, capacité.
+- Si `event.faculty` est non-null, affiche un `<FacultyBadge>` dans la section contenu.
 - Utilise les icônes Lucide et les variables `bg-background`, `text-foreground`, `border-border`.
 
 ### EventCards
@@ -88,15 +109,17 @@
 ### EventForm
 
 - Formulaire partagé entre création et édition.
-- Centralise les champs titre, description, lieu, dates, catégorie, capacité, statut et bannière.
+- Centralise les champs titre, description, lieu, dates, catégorie, **faculté**, capacité, statut et bannière.
+- Champ "Faculté concernée" : select avec option nulle ("Toutes les facultés") + 9 valeurs `Faculty`.
 - Garde le placeholder et l'aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
 
 ### FilterSidebar
 
 - Composant props-driven pour les filtres de la page de recherche.
-- Filtres : `category` (checkboxes à sélection exclusive, toggle), `faculty` (select), `dateFrom`/`dateTo` (date inputs), bouton reset.
-- Réutilise les constantes `EventCategory` et `Faculty` de `src/types/`.
+- Filtres : `category` (checkboxes à sélection exclusive, toggle), `faculty` (chips toggle, sélection unique), `dateFrom`/`dateTo` (date inputs), bouton reset.
+- Le filtre `faculty` : une rangée de chips cliquables, un par valeur `Faculty`, libellé français. Cliquer le chip actif le désélectionne. La valeur est transmise au paramètre `?faculty=` de l'URL et à l'API.
+- Réutilise `Faculty` enum et `FACULTY_LABELS` de `@/types/event` et `@/components/faculty/FacultyBadge`.
 - Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
 ### AttendanceButtons
