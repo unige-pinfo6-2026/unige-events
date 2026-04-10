@@ -158,7 +158,7 @@ public class EventService {
             throw new ForbiddenException("Only the event creator or an admin can upload a banner");
         }
 
-        event.bannerUrl = fileStorageService.saveImage(fileUpload);
+        event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
         return EventDTO.from(event);
     }
 

@@ -126,7 +126,7 @@ public class UserService {
     @Transactional
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        user.avatarUrl = fileStorageService.saveImage(fileUpload);
+        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars");
         flushEntityManager();
         return user;
     }
