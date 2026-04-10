@@ -103,7 +103,7 @@ export default function ProfilePage() {
       <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
 
         {/* Header: avatar + name/subtitle + edit button */}
-        <div className="-mt-14 flex flex-wrap items-end justify-between gap-4 mb-8">
+        <div className="relative z-10 -mt-14 flex flex-wrap items-end justify-between gap-4 mb-8">
           <div className="flex items-end gap-5">
             <div className="relative shrink-0">
               <div className="absolute inset-0 rounded-full bg-linear-to-br from-accent to-pink-600 blur-xl opacity-40 scale-110 pointer-events-none" />
