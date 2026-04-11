@@ -4,13 +4,14 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Entity
 @Table(name = "events", indexes = {
         @Index(name = "idx_event_creator", columnList = "creator_id"),
-        @Index(name = "idx_event_start_date", columnList = "start_date"),
-        @Index(name = "idx_event_faculty", columnList = "faculty")
+        @Index(name = "idx_event_start_date", columnList = "start_date")
 })
 public class Event extends PanacheEntity {
 
@@ -28,8 +29,11 @@ public class Event extends PanacheEntity {
     @Enumerated(EnumType.STRING)
     public EventCategory category;
 
+    @ElementCollection
     @Enumerated(EnumType.STRING)
-    public Faculty faculty;
+    @CollectionTable(name = "event_faculties", joinColumns = @JoinColumn(name = "event_id"))
+    @Column(name = "faculty")
+    public List<Faculty> faculties = new ArrayList<>();
 
     public String bannerUrl;
 

@@ -3,17 +3,13 @@ package ch.unige.events.service;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
-import ch.unige.events.entity.Attendance;
-import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
-import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
@@ -33,46 +29,47 @@ import java.util.UUID;
 public class EventService {
 
     @Inject FileStorageService fileStorageService;
-    @Inject EntityManager entityManager;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, List<Faculty> faculties) {
+        boolean filterFaculties = faculties != null && !faculties.isEmpty();
+
+        StringBuilder jpql = new StringBuilder("SELECT DISTINCT e FROM Event e");
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
+        if (filterFaculties) {
+            jpql.append(" JOIN e.faculties f");
+            conditions.add("f IN :faculties");
+            params.put("faculties", faculties);
+        }
         if (status != null) {
-            conditions.add("status = :status");
+            conditions.add("e.status = :status");
             params.put("status", status);
         }
         if (category != null) {
-            conditions.add("category = :category");
+            conditions.add("e.category = :category");
             params.put("category", category);
         }
         if (organizerId != null) {
-            conditions.add("creator.id = :organizerId");
+            conditions.add("e.creator.id = :organizerId");
             params.put("organizerId", organizerId);
         }
         if (endDateFrom != null) {
-            conditions.add("endDate >= :endDateFrom");
+            conditions.add("e.endDate >= :endDateFrom");
             params.put("endDateFrom", endDateFrom);
         }
-        if (faculty != null) {
-            conditions.add("faculty = :faculty");
-            params.put("faculty", faculty);
-        }
 
-        PanacheQuery<Event> query;
-        if (conditions.isEmpty()) {
-            query = Event.find("order by startDate, id");
-        } else {
-            query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
+        if (!conditions.isEmpty()) {
+            jpql.append(" WHERE ").append(String.join(" AND ", conditions));
         }
+        jpql.append(" ORDER BY e.startDate, e.id");
 
-        List<Event> events = query.page(page, size).list();
-        List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = bulkCountByStatus(ids, AttendanceStatus.ATTENDING);
-        return events.stream()
-                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
+        return Event.<Event>find(jpql.toString(), params)
+                .page(page, size)
+                .list()
+                .stream()
+                .map(EventDTO::from)
                 .toList();
     }
 
@@ -88,7 +85,7 @@ public class EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
-        event.faculty = request.faculty;
+        event.faculties = request.faculties != null ? new ArrayList<>(request.faculties) : new ArrayList<>();
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.creator = creator;
@@ -97,15 +94,14 @@ public class EventService {
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        // A newly created event has no attendances yet — count is 0.
-        return EventDTO.from(event, 0L);
+        return EventDTO.from(event);
     }
 
     @Transactional
     public EventDTO getById(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        return EventDTO.from(event, countAttending(id));
+        return EventDTO.from(event);
     }
 
     @Transactional
@@ -123,14 +119,14 @@ public class EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
-        event.faculty = request.faculty;
+        event.faculties = request.faculties != null ? new ArrayList<>(request.faculties) : new ArrayList<>();
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         if (request.status != null) {
             event.status = request.status;
         }
 
-        return EventDTO.from(event, countAttending(id));
+        return EventDTO.from(event);
     }
 
     @Transactional
@@ -164,7 +160,7 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        return EventDTO.from(event, countAttending(id));
+        return EventDTO.from(event);
     }
 
     @Transactional
@@ -175,16 +171,8 @@ public class EventService {
             throw new ForbiddenException("Only the event creator or an admin can upload a banner");
         }
 
-        event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
-        return EventDTO.from(event, countAttending(id));
-    }
-
-    private Map<Long, Long> bulkCountByStatus(List<Long> eventIds, AttendanceStatus status) {
-        return Attendance.countGroupedByStatus(eventIds, status, entityManager);
-    }
-
-    private long countAttending(Long eventId) {
-        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
+        event.bannerUrl = fileStorageService.saveImage(fileUpload);
+        return EventDTO.from(event);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {

@@ -171,10 +171,11 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        faculty:
-          $ref: '#/components/schemas/Faculty'
-          nullable: true
-          description: Faculté organisatrice ou cible de l'événement (optionnel)
+        faculties:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faculty'
+          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
         bannerUrl:
           type: string
           format: uri
@@ -224,11 +225,11 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        faculty:
-          allOf:
-            - $ref: '#/components/schemas/Faculty'
-          nullable: true
-          description: Faculté organisatrice ou cible de l'événement (optionnel)
+        faculties:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faculty'
+          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
         bannerUrl:
           type: string
           format: uri
@@ -270,11 +271,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/EventCategory'
           nullable: true
-        faculty:
-          allOf:
-            - $ref: '#/components/schemas/Faculty'
-          nullable: true
-          description: Faculté organisatrice ou cible de l'événement (optionnel)
+        faculties:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faculty'
+          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
         bannerUrl:
           type: string
           format: uri
@@ -852,11 +853,14 @@ paths:
           schema:
             type: string
             format: date-time
-        - name: faculty
+        - name: faculties
           in: query
-          description: Filtre les événements par faculté organisatrice ou cible
+          description: Filtre les événements par facultés (multi-valeur, ex. ?faculties=SCIENCES&faculties=DROIT)
+          explode: true
           schema:
-            $ref: '#/components/schemas/Faculty'
+            type: array
+            items:
+              $ref: '#/components/schemas/Faculty'
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -927,11 +931,14 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/EventCategory'
-        - name: faculty
+        - name: faculties
           in: query
-          description: Filtre les événements par faculté organisatrice ou cible (SCRUM-77)
+          description: Filtre les événements par facultés (multi-valeur, ex. ?faculties=SCIENCES&faculties=DROIT)
+          explode: true
           schema:
-            $ref: '#/components/schemas/Faculty'
+            type: array
+            items:
+              $ref: '#/components/schemas/Faculty'
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)

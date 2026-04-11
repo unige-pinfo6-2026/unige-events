@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -66,13 +67,13 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, List<Faculty> faculties) {
         return eventsById.values().stream()
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
                 .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
-                .filter(e -> faculty == null || e.faculty == faculty)
+                .filter(e -> faculties == null || faculties.isEmpty() || e.faculties.stream().anyMatch(faculties::contains))
                 .map(EventDTO::from)
                 .toList();
     }
@@ -91,7 +92,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
-        event.faculty = request.faculty;
+        event.faculties = request.faculties != null ? new ArrayList<>(request.faculties) : new ArrayList<>();
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.status = EventStatus.DRAFT;
@@ -134,7 +135,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
-        event.faculty = request.faculty;
+        event.faculties = request.faculties != null ? new ArrayList<>(request.faculties) : new ArrayList<>();
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         if (request.status != null) {

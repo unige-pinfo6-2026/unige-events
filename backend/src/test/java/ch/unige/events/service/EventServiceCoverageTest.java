@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -518,7 +519,7 @@ class EventServiceCoverageTest {
         assertTrue(result.bannerUrl().endsWith(".bin"));
     }
 
-    // --- faculty filter (SCRUM-77) ---
+    // --- faculties filter (SCRUM-77) ---
 
     @Test
     @TestTransaction
@@ -528,10 +529,10 @@ class EventServiceCoverageTest {
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
         persistEvent("Droit Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.DROIT);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, Faculty.SCIENCES);
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, List.of(Faculty.SCIENCES));
 
         assertEquals(1, result.size());
-        assertEquals(Faculty.SCIENCES, result.get(0).faculty());
+        assertTrue(result.get(0).faculties().contains(Faculty.SCIENCES));
     }
 
     @Test
@@ -549,15 +550,29 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void getAll_withMultipleFacultiesFilter_returnsMatching() {
+        deleteAll();
+        User user = persistUser("auth0|fac3", "fac3@example.com");
+        persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
+        persistEvent("Lettres Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.LETTRES);
+        persistEvent("Droit Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.DROIT);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, List.of(Faculty.SCIENCES, Faculty.LETTRES));
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
     void create_withFaculty_persistsFaculty() {
         deleteAll();
         persistUser("auth0|facCreate", "facCreate@example.com");
 
         CreateEventRequest req = validCreateRequest();
-        req.faculty = Faculty.MEDECINE;
+        req.faculties = new ArrayList<>(List.of(Faculty.MEDECINE));
         EventDTO result = eventService.create("auth0|facCreate", req);
 
-        assertEquals(Faculty.MEDECINE, result.faculty());
+        assertTrue(result.faculties().contains(Faculty.MEDECINE));
     }
 
     @Test
@@ -568,15 +583,16 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
 
         UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
-        req.faculty = Faculty.LETTRES;
+        req.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
         EventDTO result = eventService.update(event.id, "auth0|facUpd", req);
 
-        assertEquals(Faculty.LETTRES, result.faculty());
+        assertTrue(result.faculties().contains(Faculty.LETTRES));
     }
 
     // --- helpers ---
 
     private void deleteAll() {
+        entityManager.createNativeQuery("delete from event_faculties").executeUpdate();
         entityManager.createNativeQuery("delete from events").executeUpdate();
         entityManager.createNativeQuery("delete from users").executeUpdate();
         entityManager.clear();
@@ -606,7 +622,7 @@ class EventServiceCoverageTest {
         event.category = category;
         event.status = status;
         event.creator = creator;
-        event.faculty = faculty;
+        event.faculties = faculty != null ? new ArrayList<>(List.of(faculty)) : new ArrayList<>();
         entityManager.persist(event);
         entityManager.flush();
         return event;

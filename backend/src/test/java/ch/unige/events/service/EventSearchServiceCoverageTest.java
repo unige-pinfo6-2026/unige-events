@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -207,7 +208,7 @@ class EventSearchServiceCoverageTest {
         assertEquals(1, page2.size());
     }
 
-    // --- Filtre faculty (SCRUM-77) ---
+    // --- Filtre faculties (SCRUM-77) ---
 
     @Test
     @TestTransaction
@@ -217,10 +218,10 @@ class EventSearchServiceCoverageTest {
         persistEvent("Labo Chimie", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Cours de Droit", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, Faculty.DROIT);
 
-        List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, List.of(Faculty.SCIENCES), null, null, 0, 20);
 
         assertEquals(1, result.size());
-        assertEquals(Faculty.SCIENCES, result.get(0).faculty());
+        assertTrue(result.get(0).faculties().contains(Faculty.SCIENCES));
     }
 
     @Test
@@ -232,7 +233,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Match Sciences", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user, Faculty.SCIENCES);
         persistEvent("Conf Droit", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(3), user, Faculty.DROIT);
 
-        List<EventDTO> result = eventSearchService.search(null, EventCategory.CONFERENCE, Faculty.SCIENCES, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, EventCategory.CONFERENCE, List.of(Faculty.SCIENCES), null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Conf Sciences", result.get(0).title());
@@ -254,6 +255,7 @@ class EventSearchServiceCoverageTest {
     // --- helpers ---
 
     private void deleteAll() {
+        entityManager.createNativeQuery("delete from event_faculties").executeUpdate();
         entityManager.createNativeQuery("delete from events").executeUpdate();
         entityManager.createNativeQuery("delete from users").executeUpdate();
         entityManager.clear();
@@ -286,7 +288,7 @@ class EventSearchServiceCoverageTest {
         event.category = category;
         event.status = EventStatus.PUBLISHED;
         event.creator = creator;
-        event.faculty = faculty;
+        event.faculties = faculty != null ? new ArrayList<>(List.of(faculty)) : new ArrayList<>();
         entityManager.persist(event);
         entityManager.flush();
         return event;

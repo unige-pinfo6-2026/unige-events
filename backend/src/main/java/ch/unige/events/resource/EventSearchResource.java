@@ -32,11 +32,11 @@ public class EventSearchResource {
     public List<EventDTO> search(
             @QueryParam("q") String q,
             @QueryParam("category") EventCategory category,
-            @QueryParam("faculty") Faculty faculty,
+            @QueryParam("faculties") List<Faculty> faculties,
             @QueryParam("dateFrom") LocalDate dateFrom,
             @QueryParam("dateTo") LocalDate dateTo,
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
-        return eventSearchService.search(q, category, faculty, dateFrom, dateTo, page, size);
+        return eventSearchService.search(q, category, faculties, dateFrom, dateTo, page, size);
     }
 }

@@ -6,6 +6,8 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public record EventDTO(
@@ -16,7 +18,7 @@ public record EventDTO(
         LocalDateTime startDate,
         LocalDateTime endDate,
         EventCategory category,
-        Faculty faculty,
+        List<Faculty> faculties,
         String bannerUrl,
         UUID creatorId,
         EventStatus status,
@@ -34,7 +36,7 @@ public record EventDTO(
                 event.startDate,
                 event.endDate,
                 event.category,
-                event.faculty,
+                event.faculties != null ? new ArrayList<>(event.faculties) : new ArrayList<>(),
                 event.bannerUrl,
                 event.creator != null ? event.creator.id : null,
                 event.status,

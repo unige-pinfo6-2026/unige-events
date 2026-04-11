@@ -9,6 +9,8 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Champs communs à CreateEventRequest et UpdateEventRequest.
@@ -39,7 +41,7 @@ public abstract class EventRequestBase {
     @NotNull
     public EventCategory category;
 
-    public Faculty faculty;
+    public List<Faculty> faculties = new ArrayList<>();
 
     public String bannerUrl;
 

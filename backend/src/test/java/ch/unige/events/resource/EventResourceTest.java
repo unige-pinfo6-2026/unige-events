@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -453,39 +455,58 @@ class EventResourceTest {
                 .body("error", equalTo("forbidden"));
     }
 
-    // --- GET /events?faculty= ---
+    // --- GET /events?faculties= ---
 
     @Test
     void getAll_withFacultyFilter_returnsFiltered() {
         var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
-        e1.faculty = Faculty.SCIENCES;
+        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
         var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
-        e2.faculty = Faculty.LETTRES;
+        e2.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
 
         given()
-                .queryParam("faculty", "SCIENCES")
+                .queryParam("faculties", "SCIENCES")
                 .when().get("/events")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(1))
                 .body("[0].title", is("Event SCIENCES"))
-                .body("[0].faculty", is("SCIENCES"));
+                .body("[0].faculties", hasItem("SCIENCES"));
     }
 
     @Test
     void getAll_withFacultyFilter_noMatch_returnsEmpty() {
         var e = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
-        e.faculty = Faculty.SCIENCES;
+        e.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
 
         given()
-                .queryParam("faculty", "DROIT")
+                .queryParam("faculties", "DROIT")
                 .when().get("/events")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(0));
     }
 
-    // --- POST /events avec faculty ---
+    @Test
+    void getAll_withMultipleFacultiesFilter_returnsMatching() {
+        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
+        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
+        e2.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
+        var e3 = eventServiceMock.seedEvent("auth0|alice", "Event DROIT");
+        e3.faculties = new ArrayList<>(List.of(Faculty.DROIT));
+
+        given()
+                .queryParam("faculties", "SCIENCES")
+                .queryParam("faculties", "LETTRES")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2))
+                .body("title", hasItems("Event SCIENCES", "Event LETTRES"));
+    }
+
+    // --- POST /events avec faculties ---
 
     @Test
     @TestSecurity(user = "auth0|alice", attributes = {
@@ -498,7 +519,7 @@ class EventResourceTest {
         req.startDate = LocalDateTime.now().plusDays(1);
         req.endDate = LocalDateTime.now().plusDays(2);
         req.category = EventCategory.CONFERENCE;
-        req.faculty = Faculty.MEDECINE;
+        req.faculties = new ArrayList<>(List.of(Faculty.MEDECINE));
 
         given()
                 .contentType(ContentType.JSON)
@@ -506,13 +527,13 @@ class EventResourceTest {
                 .when().post("/events")
                 .then()
                 .statusCode(201)
-                .body("faculty", is("MEDECINE"));
+                .body("faculties", hasItem("MEDECINE"));
     }
 
     @Test
     void getAll_withNullFaculty_returnsAll() {
         var e1 = eventServiceMock.seedEvent("auth0|alice", "Event A");
-        e1.faculty = Faculty.SCIENCES;
+        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
         eventServiceMock.seedEvent("auth0|alice", "Event B");
 
         given()
