@@ -14,7 +14,7 @@
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
 	},
 
-	"forwardPorts": [8080, 5005, 5173],
+	"forwardPorts": [8080, 5005, 5173, 9001],
 
 	"postCreateCommand": "make install",
 	"customizations": {
