@@ -26,7 +26,6 @@ describe('EventForm', () => {
   it('renders capacity and image errors with the loading submit state', () => {
     render(
       <EventForm
-        title='Créer un événement'
         submitLabel='Créer'
         values={baseValues}
         errors={{ capacity: 'Capacité invalide', image: 'Image invalide' }}
@@ -43,7 +42,7 @@ describe('EventForm', () => {
     expect(screen.getByText('Capacité invalide')).toBeTruthy()
     expect(screen.getByText('Image invalide')).toBeTruthy()
     expect(screen.getByText('Ajoutez une image de couverture')).toBeTruthy()
-    expect(screen.getByText('PNG, JPG ou WEBP')).toBeTruthy()
+    expect(screen.getByText(/PNG, JPG ou WEBP/)).toBeTruthy()
     expect(screen.getByText(/\/ 120/)).toBeTruthy()
     expect(screen.getByText(/\/ 2000/)).toBeTruthy()
     expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).maxLength).toBe(120)
@@ -63,7 +62,6 @@ describe('EventForm', () => {
 
     render(
       <EventForm
-        title="Modifier l'événement"
         submitLabel='Enregistrer'
         values={baseValues}
         errors={{}}
@@ -100,7 +98,6 @@ describe('EventForm', () => {
 
       return (
         <EventForm
-          title='Créer un événement'
           submitLabel='Créer'
           values={values}
           errors={{}}

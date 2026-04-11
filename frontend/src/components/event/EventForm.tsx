@@ -9,7 +9,6 @@ import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus } from 'lucide-react'
 
 interface EventFormProps {
-  title: string
   submitLabel: string
   values: EventFormValues
   errors: EventFormErrors
@@ -48,7 +47,6 @@ function joinDateTime(datePart: string, hourPart: string, minutePart: string): s
 }
 
 export default function EventForm({
-  title,
   submitLabel,
   values,
   errors,
@@ -65,7 +63,7 @@ export default function EventForm({
 
   function setDatePart(field: 'startDate' | 'endDate', datePart: string, currentHourPart: string, currentMinutePart: string) {
     if (!datePart) {
-      onFieldChange(field, '' as EventFormValues[typeof field])
+      onFieldChange(field, '')
       return
     }
     const hourPart = currentHourPart || '00'
@@ -84,7 +82,7 @@ export default function EventForm({
     if (!datePart) return
     const nextHourPart = part === 'hour' ? value : hourPart
     const nextMinutePart = part === 'minute' ? value : minutePart
-    onFieldChange(field, joinDateTime(datePart, nextHourPart, nextMinutePart) as EventFormValues[typeof field])
+    onFieldChange(field, joinDateTime(datePart, nextHourPart, nextMinutePart))
   }
 
   function renderDateTimeField(
@@ -139,11 +137,12 @@ export default function EventForm({
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-background border border-border rounded-3xl p-8 max-sm:p-5">
-        <h1 className="text-3xl font-bold text-foreground mb-8">{title}</h1>
+    <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-8 max-sm:p-5">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
 
-        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+        {/* Section — Informations générales */}
+        <div className="flex flex-col gap-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground/30">Informations générales</p>
 
           <FormField label="Titre" htmlFor="event-title" required error={errors.title}>
             <Input
@@ -181,11 +180,24 @@ export default function EventForm({
               placeholder="Uni Mail, Salle MR060"
             />
           </FormField>
+        </div>
 
+        <div className="border-t border-border" />
+
+        {/* Section — Dates */}
+        <div className="flex flex-col gap-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground/30">Dates</p>
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate)}
             {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
           </div>
+        </div>
+
+        <div className="border-t border-border" />
+
+        {/* Section — Configuration */}
+        <div className="flex flex-col gap-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground/30">Configuration</p>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             <FormField label="Catégorie" htmlFor="event-category" required error={errors.category}>
@@ -227,8 +239,15 @@ export default function EventForm({
               ))}
             </Select>
           </FormField>
+        </div>
 
-          <FormField label="Bannière" htmlFor="event-banner" error={errors.image}>
+        <div className="border-t border-border" />
+
+        {/* Section — Bannière */}
+        <div className="flex flex-col gap-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground/30">Bannière</p>
+
+          <FormField label="" htmlFor="event-banner" error={errors.image}>
             <div className="flex flex-col gap-3">
               {imagePreview ? (
                 <img
@@ -237,13 +256,18 @@ export default function EventForm({
                   className="w-full max-h-72 min-h-40 rounded-2xl border border-border object-cover"
                 />
               ) : (
-                <div className="w-full min-h-40 rounded-2xl border border-border border-dashed flex flex-col items-center justify-center gap-2 p-6 text-foreground/30">
-                  <ImagePlus className="w-8 h-8" />
-                  <span className="text-sm">Ajoutez une image de couverture</span>
+                <div className="w-full min-h-48 rounded-2xl border border-border border-dashed flex flex-col items-center justify-center gap-3 p-8 text-foreground/30 hover:border-accent/40 hover:text-foreground/50 transition-all">
+                  <div className="w-12 h-12 rounded-2xl bg-foreground/5 border border-border flex items-center justify-center">
+                    <ImagePlus className="w-6 h-6" />
+                  </div>
+                  <div className="text-center">
+                    <span className="text-sm font-medium block">Ajoutez une image de couverture</span>
+                    <span className="text-xs mt-1 block opacity-70">PNG, JPG ou WEBP — max {IMAGE_MAX_SIZE_MB} Mo</span>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap mt-2">
                 <label
                   htmlFor="event-banner"
                   className="px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground/60 cursor-pointer hover:border-accent/50 hover:text-foreground transition-all flex-none"
@@ -251,22 +275,22 @@ export default function EventForm({
                   Choisir une image
                 </label>
                 <input id="event-banner" type="file" accept="image/*" onChange={onImageChange} className="hidden" />
-                <span className="text-sm text-foreground/40 flex-1 min-w-48 break-all flex flex-col gap-0.5">
-                  {selectedImageName ?? 'PNG, JPG ou WEBP'}
-                  <span className="text-xs opacity-75">Taille max : {IMAGE_MAX_SIZE_MB} Mo</span>
-                </span>
+                {selectedImageName && (
+                  <span className="text-sm text-foreground/40 flex-1 min-w-48 break-all">{selectedImageName}</span>
+                )}
               </div>
             </div>
           </FormField>
+        </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-border max-sm:flex-col-reverse">
-            <ButtonSecondary onClick={onCancel}>Annuler</ButtonSecondary>
-            <ButtonPrimary type="submit" disabled={submitting}>
-              {submitting ? 'Enregistrement...' : submitLabel}
-            </ButtonPrimary>
-          </div>
-        </form>
-      </div>
+        <div className="flex justify-end gap-3 pt-4 border-t border-border max-sm:flex-col-reverse">
+          <ButtonSecondary onClick={onCancel}>Annuler</ButtonSecondary>
+          <ButtonPrimary type="submit" disabled={submitting}>
+            {submitting ? 'Enregistrement...' : submitLabel}
+          </ButtonPrimary>
+        </div>
+
+      </form>
     </div>
   )
 }
