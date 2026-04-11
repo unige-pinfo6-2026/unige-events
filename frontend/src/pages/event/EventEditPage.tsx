@@ -65,7 +65,7 @@ export default function EventEditPage() {
   if (!event) return <InfoMessage type="error" message="Événement introuvable." />
 
   return (
-    <SectionWrapper padding="sm" size="md" background={<BlobsSubtle />}>
+    <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
       <SectionHeader
         align="left"
         heading="lg"

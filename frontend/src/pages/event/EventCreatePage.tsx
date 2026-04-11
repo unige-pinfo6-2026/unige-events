@@ -21,7 +21,7 @@ export default function EventCreatePage() {
   })
 
   return (
-    <SectionWrapper padding="sm" size="md" background={<BlobsSubtle />}>
+    <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
       <SectionHeader
         align="left"
         heading="lg"
@@ -39,6 +39,7 @@ export default function EventCreatePage() {
         onImageChange={form.handleImageChange}
         onSubmit={form.handleSubmit}
         onCancel={() => navigate('/')}
+        onSaveDraft={form.triggerDraftSave}
       />
     </SectionWrapper>
   )

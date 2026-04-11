@@ -85,11 +85,22 @@
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
 - Utilisé dans `LandingPage` (section Events).
 
+### CategoryPills
+
+- Sélecteur de catégorie en mode pills/chips (remplace le `<select>` dans EventForm).
+- Affiche un pill par entrée de `EVENT_CATEGORIES` ; le pill actif prend `bg-accent text-white`, les inactifs sont `outlined`.
+- Sélection exclusive — pas de déselection (la catégorie est requise).
+- Props : `value: '' | EventCategory`, `onChange: (category: EventCategory) => void`, `error?: string`.
+- Utilisé dans `EventForm` (Bande 3).
+
 ### EventForm
 
 - Formulaire partagé entre création et édition.
-- Centralise les champs titre, description, lieu, dates, catégorie, capacité, statut et bannière.
-- Garde le placeholder et l'aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
+- Layout v2 en **3 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
+  - Bande 1 : bannière cliquable (label englobant l'input file) | Titre + Description.
+  - Bande 2 : Lieu (avec icône MapPin) | Début | Fin (`grid-cols-[2fr_1fr_1fr]`).
+  - Bande 3 : CategoryPills | Capacité | Statut | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+- Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
 
 ### FilterSidebar
@@ -156,6 +167,7 @@
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
+- Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
 ### useEventSearch
