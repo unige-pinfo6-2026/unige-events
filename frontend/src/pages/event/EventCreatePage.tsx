@@ -29,6 +29,7 @@ export default function EventCreatePage() {
         subtitle="Renseignez les informations de votre événement pour le partager avec la communauté UNIGE."
       />
       <EventForm
+        mode="create"
         submitLabel="Créer l'événement"
         values={form.values}
         errors={form.errors}

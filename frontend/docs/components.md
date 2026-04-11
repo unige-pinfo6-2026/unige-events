@@ -85,23 +85,26 @@
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
 - Utilisé dans `LandingPage` (section Events).
 
-### CategoryPills
+### CategorySelect
 
-- Sélecteur de catégorie en mode pills/chips (remplace le `<select>` dans EventForm).
-- Affiche un pill par entrée de `EVENT_CATEGORIES` ; le pill actif prend `bg-accent text-white`, les inactifs sont `outlined`.
-- Sélection exclusive — pas de déselection (la catégorie est requise).
-- Props : `value: '' | EventCategory`, `onChange: (category: EventCategory) => void`, `error?: string`.
-- Utilisé dans `EventForm` (Bande 3).
+- Sélecteur de catégorie natif `<select>` avec point de couleur pour la catégorie sélectionnée.
+- Le point de couleur utilise `style={{ backgroundColor }}` — seule valeur inline autorisée (couleur hex dynamique).
+- Props : `value: '' | EventCategory`, `onChange: (category: EventCategory) => void`, `error?: string`, `id?: string`.
+- Remplace CategoryPills dans `EventForm` (Bande 3).
 
 ### EventForm
 
 - Formulaire partagé entre création et édition.
-- Layout v2 en **3 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
-  - Bande 1 : bannière cliquable (label englobant l'input file) | Titre + Description.
-  - Bande 2 : Lieu (avec icône MapPin) | Début | Fin (`grid-cols-[2fr_1fr_1fr]`).
-  - Bande 3 : CategoryPills | Capacité | Statut | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+- Prop `mode: 'create' | 'edit'` — contrôle l'affichage de la Bande 4 récurrence (create only) et la Bande 5 co-organisateurs (edit only).
+- Layout v3b en **5 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
+  - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
+  - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
+  - Bande 3 : CategorySelect | Capacité (spinners masqués) | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+  - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
+  - Bande 5 : shell co-organisateurs (edit only, S8).
 - Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
+- `ComingSoonBlock` : composant local non-exporté pour les shells backlog — icône + label + badge sprint + contenu mock.
 
 ### FilterSidebar
 

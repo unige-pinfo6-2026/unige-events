@@ -66,7 +66,7 @@ const DEFAULT_VALUES: EventFormValues = {
   endDate: '',
   category: '',
   capacity: '',
-  status: "DRAFT",
+  status: 'PUBLISHED',
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([

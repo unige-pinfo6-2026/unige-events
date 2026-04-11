@@ -26,6 +26,7 @@ describe('EventForm', () => {
   it('renders capacity and image errors with the loading submit state', () => {
     render(
       <EventForm
+        mode="create"
         submitLabel='Créer'
         values={baseValues}
         errors={{ capacity: 'Capacité invalide', image: 'Image invalide' }}
@@ -62,6 +63,7 @@ describe('EventForm', () => {
 
     render(
       <EventForm
+        mode="edit"
         submitLabel='Enregistrer'
         values={baseValues}
         errors={{}}
@@ -76,7 +78,6 @@ describe('EventForm', () => {
     )
 
     fireEvent.change(screen.getByLabelText(/Capacité/i), { target: { value: '200' } })
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
     fireEvent.change(document.querySelector('#event-banner') as HTMLInputElement, {
       target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] },
     })
@@ -85,7 +86,6 @@ describe('EventForm', () => {
     expect(screen.getByAltText('Aperçu de la bannière').getAttribute('src')).toBe('https://example.com/banner.png')
     expect(screen.getByText('banner.png')).toBeTruthy()
     expect(onFieldChange).toHaveBeenCalledWith('capacity', '200')
-    expect(onFieldChange).toHaveBeenCalledWith('status', 'PUBLISHED')
     expect(onImageChange).toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalled()
   })
@@ -98,6 +98,7 @@ describe('EventForm', () => {
 
       return (
         <EventForm
+          mode="create"
           submitLabel='Créer'
           values={values}
           errors={{}}

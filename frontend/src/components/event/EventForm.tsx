@@ -3,13 +3,14 @@ import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
 import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB } from '@/hooks/useEventForm'
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
-import { EVENT_STATUSES } from '@/types/event'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary } from '@/components/utils/Buttons'
-import { ImagePlus, MapPin } from 'lucide-react'
-import CategoryPills from '@/components/event/CategoryPills'
+import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import CategorySelect from '@/components/event/CategorySelect'
 
 interface EventFormProps {
+  mode: 'create' | 'edit'
   submitLabel: string
   values: EventFormValues
   errors: EventFormErrors
@@ -29,8 +30,44 @@ interface DateTimeParts {
   minutePart: string
 }
 
+interface ComingSoonBlockProps {
+  icon: LucideIcon
+  label: string
+  sprint: string
+  children?: React.ReactNode
+}
+
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'))
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0'))
+
+const comingSoonVariants = {
+  container: 'rounded-2xl border border-dashed border-border/40 bg-foreground/[0.018] px-4 py-3',
+  header:    'flex items-center justify-between gap-3',
+  iconLabel: 'flex items-center gap-2 text-foreground/30',
+  icon:      'w-4 h-4 shrink-0',
+  label:     'text-sm',
+  badge:     'text-[10px] font-semibold tracking-widest uppercase text-foreground/20 bg-foreground/5 px-2 py-0.5 rounded-full border border-border/30 shrink-0',
+  body:      'mt-3 pointer-events-none select-none opacity-30',
+} as const
+
+function ComingSoonBlock({ icon: Icon, label, sprint, children }: ComingSoonBlockProps) {
+  return (
+    <div className={comingSoonVariants.container}>
+      <div className={comingSoonVariants.header}>
+        <div className={comingSoonVariants.iconLabel}>
+          <Icon className={comingSoonVariants.icon} />
+          <span className={comingSoonVariants.label}>{label}</span>
+        </div>
+        <span className={comingSoonVariants.badge}>{sprint}</span>
+      </div>
+      {children && (
+        <div className={comingSoonVariants.body}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function splitDateTime(value: string): DateTimeParts {
   if (!value.includes('T')) {
@@ -49,6 +86,7 @@ function joinDateTime(datePart: string, hourPart: string, minutePart: string): s
 }
 
 export default function EventForm({
+  mode,
   submitLabel,
   values,
   errors,
@@ -146,7 +184,7 @@ export default function EventForm({
       <div className="grid grid-cols-[2fr_3fr] gap-6 max-lg:grid-cols-1">
 
         {/* Colonne gauche — Zone bannière cliquable */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 pt-7 max-lg:pt-0">
           <label htmlFor="event-banner" className="cursor-pointer block">
             {imagePreview ? (
               <img
@@ -225,16 +263,66 @@ export default function EventForm({
           </div>
         </FormField>
 
-        {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate)}
+        {/* Début — label row + shell allDay comme frères (pas dans <label>) */}
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <label htmlFor="event-startDate" className="block text-sm font-semibold text-foreground/60">
+              Début <span className="text-red-400"> *</span>
+            </label>
+            {/* Shell allDay — SCRUM-125 / S5 */}
+            <span aria-hidden="true" className="flex items-center gap-1.5 text-xs font-normal text-foreground/25 cursor-not-allowed select-none pointer-events-none">
+              <input type="checkbox" disabled className="opacity-25 accent-accent w-3.5 h-3.5" />
+              Toute la journée
+              <span className={comingSoonVariants.badge}>S5</span>
+            </span>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+            <Input
+              id="event-startDate"
+              type="date"
+              value={startDateTime.datePart}
+              onChange={(e) => setDatePart('startDate', e.target.value, startDateTime.hourPart, startDateTime.minutePart)}
+              error={errors.startDate}
+            />
+            <div className="flex items-center gap-1.5">
+              <label className="sr-only" htmlFor="event-startDate-hour">Heure de début</label>
+              <Select
+                id="event-startDate-hour"
+                value={startDateTime.hourPart}
+                onChange={(e) => setTimePart('startDate', startDateTime.datePart, startDateTime.hourPart, startDateTime.minutePart, 'hour', e.target.value)}
+                error={errors.startDate}
+                className="w-auto min-w-[4.5rem]"
+              >
+                <option value="">HH</option>
+                {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
+              </Select>
+              <span className="text-foreground/40 font-bold select-none">:</span>
+              <label className="sr-only" htmlFor="event-startDate-minute">Minute de début</label>
+              <Select
+                id="event-startDate-minute"
+                value={startDateTime.minutePart}
+                onChange={(e) => setTimePart('startDate', startDateTime.datePart, startDateTime.hourPart, startDateTime.minutePart, 'minute', e.target.value)}
+                error={errors.startDate}
+                className="w-auto min-w-[4.5rem]"
+              >
+                <option value="">MM</option>
+                {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </Select>
+            </div>
+          </div>
+          {errors.startDate && <p className="text-xs text-error mt-1.5">{errors.startDate}</p>}
+        </div>
+
         {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
 
       </div>
 
-      {/* Bande 3 — Catégorie | Capacité | Statut | CTA */}
+      {/* Bande 3 — Catégorie | Capacité | CTA */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
 
-        <FormField label="Catégorie" htmlFor="" required className="flex-1 min-w-48">
-          <CategoryPills
+        <FormField label="Catégorie" htmlFor="event-category" required className="w-48 flex-none">
+          <CategorySelect
+            id="event-category"
             value={values.category}
             onChange={(cat) => onFieldChange('category', cat)}
             error={errors.category}
@@ -251,19 +339,8 @@ export default function EventForm({
             onChange={(e) => onFieldChange('capacity', e.target.value)}
             error={errors.capacity}
             placeholder="∞"
+            className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
-        </FormField>
-
-        <FormField label="Statut" htmlFor="event-status" className="w-36 flex-none">
-          <Select
-            id="event-status"
-            value={values.status}
-            onChange={(e) => onFieldChange('status', e.target.value as EventFormValues['status'])}
-          >
-            {Object.entries(EVENT_STATUSES).filter(([id]) => id !== 'CANCELLED').map(([id, s]) => (
-              <option key={id} value={id}>{s.name}</option>
-            ))}
-          </Select>
         </FormField>
 
         {/* Zone CTA */}
@@ -294,6 +371,109 @@ export default function EventForm({
         </div>
 
       </div>
+
+      {/* Bande 4 — Shells champs additionnels (SCRUM-127/128/147/162) */}
+      <div className="flex flex-col gap-3">
+
+        {/* Ligne 1 : websiteUrl + contactEmail en grille 2 colonnes */}
+        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <ComingSoonBlock icon={Globe} label="Site web de l'événement" sprint="S6">
+            <div className="flex items-center gap-2 mt-0.5">
+              <Globe className="w-4 h-4 text-foreground/30 shrink-0" />
+              <div className="flex-1 rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20 bg-transparent">https://unige.ch/…</div>
+            </div>
+          </ComingSoonBlock>
+
+          <ComingSoonBlock icon={Mail} label="Email de contact" sprint="S6">
+            <div className="flex items-center gap-2 mt-0.5">
+              <Mail className="w-4 h-4 text-foreground/30 shrink-0" />
+              <div className="flex-1 rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20 bg-transparent">contact@unige.ch</div>
+            </div>
+          </ComingSoonBlock>
+        </div>
+
+        {/* Ligne 2 : deadline inscription (pleine largeur) */}
+        <ComingSoonBlock icon={CalendarClock} label="Date limite d'inscription" sprint="S6">
+          <div className="grid grid-cols-[1fr_auto] gap-2 mt-0.5 max-sm:grid-cols-1">
+            <div className="rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20">jj/mm/aaaa</div>
+            <div className="flex items-center gap-1">
+              <div className="rounded-xl border border-border/30 px-2 py-2 text-xs text-foreground/20 w-14">HH</div>
+              <span className="text-foreground/20 font-bold">:</span>
+              <div className="rounded-xl border border-border/30 px-2 py-2 text-xs text-foreground/20 w-14">MM</div>
+            </div>
+          </div>
+        </ComingSoonBlock>
+
+        {/* Ligne 3 : tags / mots-clés (pleine largeur) */}
+        <ComingSoonBlock icon={Tag} label="Mots-clés" sprint="S5">
+          <div className="flex flex-wrap gap-1.5 mt-0.5 min-h-8 rounded-xl border border-dashed border-border/30 bg-transparent px-3 py-2">
+            {(['conférence', 'réseau', 'emploi'] as const).map((tag) => (
+              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/20">
+                {tag} <span className="text-foreground/15">×</span>
+              </span>
+            ))}
+            <span className="text-xs text-foreground/15 ml-1">Ajoutez des mots-clés…</span>
+          </div>
+        </ComingSoonBlock>
+
+        <div className="border-t border-border/20" />
+
+        {/* Récurrence — create mode uniquement */}
+        {mode === 'create' && (
+          <ComingSoonBlock icon={Repeat} label="Répéter cet événement" sprint="S8">
+            <div className="flex gap-3 mt-2 flex-wrap opacity-100">
+              <div className="flex-1 min-w-36 rounded-xl border border-dashed border-border/30 px-3 py-2 text-xs text-foreground/20">Toutes les semaines ▾</div>
+              <div className="flex-1 min-w-36 rounded-xl border border-dashed border-border/30 px-3 py-2 text-xs text-foreground/20">Répéter jusqu'au…</div>
+            </div>
+          </ComingSoonBlock>
+        )}
+
+        {/* Pièces jointes — toujours visible */}
+        <ComingSoonBlock icon={Paperclip} label="Pièces jointes (PDF, DOCX, slides…)" sprint="S9">
+          <div className="mt-2 rounded-xl border border-dashed border-border/30 p-4 flex flex-col items-center gap-1.5 text-center">
+            <Paperclip className="w-5 h-5 text-foreground/15" />
+            <span className="text-xs text-foreground/15">Glissez vos fichiers ici ou cliquez pour parcourir</span>
+          </div>
+        </ComingSoonBlock>
+
+      </div>
+
+      {/* Bande 5 — Shell co-organisateurs (SCRUM-137) — edit only */}
+      {mode === 'edit' && (
+        <div className="flex flex-col gap-3 border-t border-border/30 pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-foreground/30">
+              <Users className="w-4 h-4" />
+              <span className="text-sm">Co-organisateurs</span>
+            </div>
+            <span className={comingSoonVariants.badge}>S8</span>
+          </div>
+
+          {/* Mock champ de recherche */}
+          <div className="pointer-events-none select-none opacity-40 max-w-sm">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
+              <div className="w-full rounded-xl border border-dashed border-border/40 bg-transparent px-4 py-2.5 pl-10 text-sm text-foreground/20">
+                Inviter un collaborateur…
+              </div>
+            </div>
+          </div>
+
+          {/* Mock chips */}
+          <div className="flex flex-wrap gap-2 pointer-events-none select-none opacity-35">
+            {[
+              { name: 'Alice Martin', status: 'Accepté' },
+              { name: 'Bob Chen', status: 'En attente' },
+            ].map((co) => (
+              <span key={co.name} className="inline-flex items-center gap-2 px-3 py-1 rounded-xl border border-dashed border-border/40 text-sm text-foreground/25">
+                <span>{co.name}</span>
+                <span className="text-xs text-foreground/20">{co.status}</span>
+                <span className="text-foreground/20">×</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}

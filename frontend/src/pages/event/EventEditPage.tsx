@@ -73,6 +73,7 @@ export default function EventEditPage() {
         subtitle="Mettez à jour les informations et republiez pour informer les participants."
       />
       <EventForm
+        mode="edit"
         submitLabel="Enregistrer"
         values={form.values}
         errors={form.errors}

@@ -215,7 +215,7 @@ describe('useEventForm', () => {
       endDate: '2099-04-10T12:00:00.000Z',
       category: 'SOCIAL',
       capacity: undefined,
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     })
     expect(onSuccess).toHaveBeenCalledWith(baseEvent)
   })
