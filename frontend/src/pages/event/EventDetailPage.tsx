@@ -18,12 +18,6 @@ import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
 import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Bookmark } from 'lucide-react'
 
-// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
-// Ensures <Skeleton> stays mounted for fixture capture even when the API fails instantly.
-const isBoneyardBuild =
-  typeof window !== 'undefined' &&
-  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
-
 function EventDetailFixture() {
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">
@@ -179,15 +173,13 @@ export default function EventDetailPage() {
 
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
-  if (loading || isBoneyardBuild) return (
+  if (loading) return (
     <Skeleton
       name="event-detail"
       loading={true}
-      fixture={<EventDetailFixture />}
       animate="pulse"
       color={skeletonColor}
       className="max-w-3xl mx-auto"
-      snapshotConfig={{ excludeTags: ['svg'] }}
     ><EventDetailFixture /></Skeleton>
   )
 

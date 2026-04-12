@@ -12,12 +12,6 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { BlobsCta } from '@/components/utils/Blobs'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 
-// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
-// Ensures <Skeleton> stays mounted for fixture capture even when auth is unavailable in headless mode.
-const isBoneyardBuild =
-  typeof window !== 'undefined' &&
-  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
-
 function ProfileFixture() {
   return (
     <div>
@@ -112,14 +106,12 @@ export default function ProfilePage() {
     }
   }, [id, isOwnProfile, currentUser, authLoading])
 
-  if (loading || isBoneyardBuild) return (
+  if (loading) return (
     <Skeleton
       name="profile"
       loading={true}
-      fixture={<ProfileFixture />}
       animate="pulse"
       color={skeletonColor}
-      snapshotConfig={{ excludeTags: ['svg'] }}
     ><ProfileFixture /></Skeleton>
   )
   if (error) return <InfoMessage type="error" message={error} />

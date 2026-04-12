@@ -12,11 +12,6 @@ import { EVENT_CATEGORIES } from '@/types/event'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
-const isBoneyardBuild =
-  typeof window !== 'undefined' &&
-  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
-
 // Cells (row*7+col) that show 1 event bar, and those that show 2
 const CALENDAR_EVENTS_1 = new Set([1, 3, 8, 11, 13, 18, 22, 25, 27, 31])
 const CALENDAR_EVENTS_2 = new Set([4, 9, 16, 23, 29])
@@ -171,15 +166,13 @@ export default function EventCalendar() {
     [navigate],
   )
 
-  if (loading || isBoneyardBuild) return (
+  if (loading) return (
     <Skeleton
       name="event-calendar"
       loading={true}
-      fixture={<EventCalendarFixture />}
       animate="pulse"
       color={skeletonColor}
       className="h-full"
-      snapshotConfig={{ excludeTags: ['svg'] }}
     ><EventCalendarFixture /></Skeleton>
   )
   if (error) return <InfoMessage type="error" message={error} />

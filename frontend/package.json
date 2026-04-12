@@ -10,7 +10,7 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "preview": "vite preview",
-    "bones": "boneyard-js build http://localhost:5173"
+    "skeleton": "node skeleton/generate.mjs"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.16.1",
