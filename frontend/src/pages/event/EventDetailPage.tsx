@@ -11,6 +11,7 @@ import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
+import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import IcsExportButton from '@/components/event/IcsExportButton'
 
@@ -83,6 +84,8 @@ export default function EventDetailPage() {
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, loading, error } = useEvent(eventId)
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
@@ -115,8 +118,8 @@ export default function EventDetailPage() {
       loading={true}
       fixture={<EventDetailFixture />}
       animate="pulse"
-      color="rgba(0,0,0,0.08)"
-      darkColor="rgba(255,255,255,0.06)"
+      color={skeletonColor}
+      className="max-w-3xl mx-auto"
       snapshotConfig={{ excludeTags: ['svg'] }}
     ><EventDetailFixture /></Skeleton>
   )

@@ -4,6 +4,8 @@
   "skeletons": {
     "event-cards": { "route": "/" },
     "event-detail": { "route": "/events/1" },
-    "profile": { "route": "/profile/me" }
+    "profile": { "route": "/profile/me" },
+    "search-results": { "route": "/events/search" },
+    "event-calendar": { "route": "/calendar" }
   }
 }

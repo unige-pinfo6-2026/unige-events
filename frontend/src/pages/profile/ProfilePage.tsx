@@ -8,14 +8,15 @@ import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Lock, Mail, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
+import { useTheme } from '@/contexts/ThemeContext'
 import { BlobsCta } from '@/components/utils/Blobs'
+import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 
 // Boneyard CLI sets window.__BONEYARD_BUILD before page load.
 // Ensures <Skeleton> stays mounted for fixture capture even when auth is unavailable in headless mode.
 const isBoneyardBuild =
   typeof window !== 'undefined' &&
   !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
-import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 
 function ProfileFixture() {
   return (
@@ -76,6 +77,8 @@ function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; childre
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
   const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -115,8 +118,7 @@ export default function ProfilePage() {
       loading={true}
       fixture={<ProfileFixture />}
       animate="pulse"
-      color="rgba(0,0,0,0.08)"
-      darkColor="rgba(255,255,255,0.06)"
+      color={skeletonColor}
       snapshotConfig={{ excludeTags: ['svg'] }}
     ><ProfileFixture /></Skeleton>
   )

@@ -1,16 +1,63 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, SearchIcon } from 'lucide-react'
+import { Skeleton } from 'boneyard-js/react'
 import EventCard from '@/components/event/EventCard'
 import EventSearchSidebar from '@/components/event/EventSearchSidebar'
 import { useSearch } from '@/hooks/useEventSearch'
+import { useTheme } from '@/contexts/ThemeContext'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
-import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import { InfoMessage } from '@/components/utils/InfoMessage'
+
+// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
+// Forces fixture visible during CLI capture (search loading is user-triggered, not automatic).
+const isBoneyardBuild =
+  typeof window !== 'undefined' &&
+  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
+
+function SearchResultsFixture() {
+  return (
+    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <article key={i} className="relative bg-background border border-border rounded-3xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-foreground/10 z-10" />
+          <div className="relative h-52 bg-foreground/10">
+            <div className="absolute bottom-0 left-0 right-0 h-28 bg-foreground/10" />
+            <span className="absolute top-4 left-4 h-6 w-24 rounded-full bg-foreground/20" />
+            <div className="absolute bottom-0 left-0 right-0 px-5 pb-5 flex flex-col gap-2">
+              <div className="h-6 w-4/5 rounded-md bg-foreground/25" />
+              <div className="h-4 w-1/2 rounded-md bg-foreground/20" />
+            </div>
+          </div>
+          <div className="p-5 flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded bg-foreground/15 shrink-0" />
+                <div className="h-4 w-40 rounded bg-foreground/10" />
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded bg-foreground/15 shrink-0" />
+                <div className="h-4 w-32 rounded bg-foreground/10" />
+              </div>
+            </div>
+            <div className="border-t border-border" />
+            <div className="flex flex-col gap-1.5">
+              <div className="h-3.5 w-full rounded bg-foreground/10" />
+              <div className="h-3.5 w-5/6 rounded bg-foreground/10" />
+              <div className="h-3.5 w-2/3 rounded bg-foreground/10" />
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
 
 function SearchPage() {
   const { query, setQuery, filters, setFilters, results, suggestions, loading, error, resetFilters, selectSuggestion, searchNow } =
     useSearch()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
 
   const [showSuggestions, setShowSuggestions] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -133,7 +180,16 @@ function SearchPage() {
                 {resultCount} événement{resultCount > 1 ? 's' : ''} trouvé{resultCount > 1 ? 's' : ''}
               </p>
 
-              {loading && <LoadingSpinner />}
+              {(loading || isBoneyardBuild) && (
+                <Skeleton
+                  name="search-results"
+                  loading={true}
+                  fixture={<SearchResultsFixture />}
+                  animate="pulse"
+                  color={skeletonColor}
+                  snapshotConfig={{ excludeTags: ['svg'] }}
+                ><SearchResultsFixture /></Skeleton>
+              )}
 
               {!loading && error && (
                 <InfoMessage type='error' message={error}/>
