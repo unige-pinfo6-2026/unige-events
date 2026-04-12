@@ -20,56 +20,25 @@ import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Bo
 
 function EventDetailFixture() {
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-5">
-      {/* Banner */}
-      <div className="relative h-72 rounded-3xl overflow-hidden bg-foreground/10">
-        <span className="absolute top-4 left-4 h-6 w-24 rounded-full bg-foreground/20" />
-        <div className="absolute bottom-6 left-6 right-6">
-          <div className="h-7 w-3/4 rounded bg-foreground/20" />
-        </div>
-      </div>
-
-      {/* Main card */}
-      <div className="bg-background border border-border rounded-3xl p-7 flex flex-col gap-6">
-        {/* Meta rows */}
+    <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+      {/* Main column (order-2 on mobile) */}
+      <div className="flex flex-col gap-5 max-lg:order-2">
+        <div className="h-72 lg:h-80 rounded-3xl" />
+        <div className="h-40 rounded-3xl" />
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
-            <div className="h-4 w-64 rounded bg-foreground/10" />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
-            <div className="h-4 w-48 rounded bg-foreground/10" />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
-            <div className="h-4 w-32 rounded bg-foreground/10" />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-foreground/10 shrink-0" />
-            <div className="h-4 w-40 rounded bg-foreground/10" />
-          </div>
-        </div>
-        {/* Description */}
-        <div className="border-t border-border" />
-        <div className="flex flex-col gap-2">
-          <div className="h-4 w-full rounded bg-foreground/10" />
-          <div className="h-4 w-11/12 rounded bg-foreground/10" />
-          <div className="h-4 w-4/5 rounded bg-foreground/10" />
-          <div className="h-4 w-2/3 rounded bg-foreground/10" />
+          <div className="h-20 rounded-2xl" />
+          <div className="h-20 rounded-2xl" />
+          <div className="h-20 rounded-2xl" />
+          <div className="h-20 rounded-2xl" />
         </div>
       </div>
-
-      {/* Attendance card */}
-      <div className="bg-background border border-border rounded-3xl px-7 py-5">
-        <div className="flex gap-3">
-          <div className="h-10 w-36 rounded-xl bg-foreground/10" />
-          <div className="h-10 w-36 rounded-xl bg-foreground/10" />
-        </div>
+      {/* Sidebar column (order-1 on mobile) */}
+      <div className="flex flex-col gap-4 max-lg:order-1">
+        <div className="h-72 rounded-3xl" />
+        <div className="h-44 rounded-3xl" />
+        <div className="h-[236px] rounded-3xl" />
+        <div className="h-[104px] rounded-2xl" />
       </div>
-
-      {/* ICS export button */}
-      <div className="h-12 rounded-2xl bg-foreground/10" />
     </div>
   )
 }
@@ -174,13 +143,19 @@ export default function EventDetailPage() {
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
   if (loading) return (
-    <Skeleton
-      name="event-detail"
-      loading={true}
-      animate="pulse"
-      color={skeletonColor}
-      className="max-w-3xl mx-auto"
-    ><EventDetailFixture /></Skeleton>
+    <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
+      <SectionHeader
+        title={<>Détails de <mark>l'événement</mark></>}
+        subtitle="Toutes les informations pour participer"
+        align="left"
+      />
+      <Skeleton
+        name="event-detail"
+        loading={true}
+        animate="pulse"
+        color={skeletonColor}
+      ><EventDetailFixture /></Skeleton>
+    </SectionWrapper>
   )
 
   if (error) return <InfoMessage type='error' message={error} />

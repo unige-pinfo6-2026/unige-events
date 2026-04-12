@@ -262,6 +262,244 @@ function genCalendar() {
   writeBones('event-calendar.bones.json', out)
 }
 
+// ============================================================
+// EVENT DETAIL — reworked 2-column grid page
+// Layout (from EventDetailPage.tsx):
+//   - SectionWrapper (size="lg" → max-w-5xl, container ≈ 960 at desktop)
+//   - SectionHeader (NOT skeletonned — rendered outside <Skeleton>)
+//   - Grid: `grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1`
+//     - Main col (order-2 on mobile): banner (h-72/h-80) + description card + 4 S5 shells
+//     - Sidebar col (order-1 on mobile): infos card + attendance card + ICS button
+// Breakpoints (container widths inside SectionWrapper size="lg"):
+//   - 343  → mobile, 1 col (banner h-72=288)
+//   - 720  → tablet, 1 col (banner h-72=288)
+//   - 960  → desktop, 2 cols (banner h-80=320)
+// ============================================================
+
+// Heights — must match what the fixture produces so scaleY=1
+const BANNER_H_MOBILE = 288  // h-72
+const BANNER_H_DESKTOP = 320 // h-80
+const DESC_H = 160
+const S5_SHELL_H = 80
+const S5_SHELL_GAP = 12
+const MAIN_GAP = 20          // gap-5
+const INFOS_CARD_H = 288
+const ATTENDANCE_CARD_H = 176
+const ICS_CARD_H = 236       // IcsExportButton is a full card: header + 3 option buttons
+const STATS_CARD_H = 104     // ComingSoonBlock with 3 stat boxes in grid-cols-3
+const SIDEBAR_GAP = 16       // gap-4
+const GRID_GAP = 24          // gap-6
+
+function mainColH(bannerH) {
+  const s5Block = 4 * S5_SHELL_H + 3 * S5_SHELL_GAP // 356
+  return bannerH + MAIN_GAP + DESC_H + MAIN_GAP + s5Block
+}
+function sidebarColH() {
+  return INFOS_CARD_H + SIDEBAR_GAP + ATTENDANCE_CARD_H + SIDEBAR_GAP + ICS_CARD_H + SIDEBAR_GAP + STATS_CARD_H
+}
+
+// Builder for a Banner bone group (leaf rect + badge + 2 title lines on top)
+function pushBanner(bones, pct, colX, colW, y0, bannerH) {
+  // Banner = leaf (darker) → represents the image zone
+  bones.push([pct.x(colX), y0, pct.w(colW), bannerH, 24])
+  // Category badge pill (container, lighter)
+  bones.push([pct.x(colX + 16), y0 + 16, pct.w(110), 24, 9999, true])
+  // Title line 1 (container, lighter) — anchored near banner bottom (p-6)
+  const titleBottomPad = 24
+  const t1H = 28
+  const t2H = 22
+  const t2Y = y0 + bannerH - titleBottomPad - t2H
+  const t1Y = t2Y - 8 - t1H
+  bones.push([pct.x(colX + 24), t1Y, pct.w(Math.round(colW * 0.75)), t1H, 6, true])
+  bones.push([pct.x(colX + 24), t2Y, pct.w(Math.round(colW * 0.55)), t2H, 6, true])
+}
+
+// Builder for the Description card
+function pushDescriptionCard(bones, pct, colX, colW, y0) {
+  // Card surface (container, lighter)
+  bones.push([pct.x(colX), y0, pct.w(colW), DESC_H, 24, true])
+  // "À propos" header (leaf)
+  bones.push([pct.x(colX + 24), y0 + 24, pct.w(48), 12, 4])
+  // 4 description lines (leaves)
+  const lineWs = [1.0, 0.95, 0.88, 0.72]
+  const innerW = colW - 48
+  for (let i = 0; i < 4; i++) {
+    bones.push([pct.x(colX + 24), y0 + 56 + i * 20, pct.w(Math.round(innerW * lineWs[i])), 12, 4])
+  }
+}
+
+// Builder for a ComingSoon shell (S5 style — dashed border, faded content)
+function pushComingSoonShell(bones, pct, colX, colW, y0) {
+  // Shell surface (container, lighter — but subtle: dashed bg/[0.018] in reality)
+  bones.push([pct.x(colX), y0, pct.w(colW), S5_SHELL_H, 16, true])
+  // Header row: icon + label on left, sprint badge on right
+  bones.push([pct.x(colX + 16), y0 + 16, pct.w(16), 16, 4])                      // icon
+  bones.push([pct.x(colX + 40), y0 + 18, pct.w(Math.round(colW * 0.45)), 12, 4]) // label
+  bones.push([pct.x(colX + colW - 46), y0 + 16, pct.w(30), 16, 9999])            // sprint badge
+  // Body (faded content)
+  bones.push([pct.x(colX + 16), y0 + 48, pct.w(Math.round((colW - 32) * 0.6)), 12, 4])
+}
+
+// Builder for the Infos clés sidebar card
+function pushInfosClesCard(bones, pct, colX, colW, y0) {
+  bones.push([pct.x(colX), y0, pct.w(colW), INFOS_CARD_H, 24, true])
+  // 3 info rows (icon + text)
+  for (let i = 0; i < 3; i++) {
+    const ry = y0 + 24 + i * 28
+    bones.push([pct.x(colX + 20), ry, pct.w(16), 16, 4])
+    const textW = Math.round((colW - 64) * [0.82, 0.62, 0.5][i])
+    bones.push([pct.x(colX + 44), ry + 2, pct.w(textW), 12, 4])
+  }
+  // Separator 1
+  bones.push([pct.x(colX + 20), y0 + 120, pct.w(colW - 40), 1, 0])
+  // Organizer row: avatar + 2 text lines
+  bones.push([pct.x(colX + 20), y0 + 136, pct.w(36), 36, 9999])                // avatar
+  bones.push([pct.x(colX + 68), y0 + 140, pct.w(60), 10, 4])                   // "Organisé par"
+  bones.push([pct.x(colX + 68), y0 + 156, pct.w(Math.round((colW - 88) * 0.6)), 14, 4]) // name
+  // Separator 2
+  bones.push([pct.x(colX + 20), y0 + 188, pct.w(colW - 40), 1, 0])
+  // Coming soon "Places dispo" header
+  bones.push([pct.x(colX + 20), y0 + 204, pct.w(16), 16, 4])
+  bones.push([pct.x(colX + 44), y0 + 206, pct.w(Math.round((colW - 64) * 0.5)), 12, 4])
+  bones.push([pct.x(colX + colW - 46), y0 + 204, pct.w(30), 16, 9999])
+  // Body pills (available / waitlist)
+  bones.push([pct.x(colX + 20), y0 + 236, pct.w(Math.round((colW - 40) * 0.48)), 24, 8, true])
+  bones.push([pct.x(colX + 20 + Math.round((colW - 40) * 0.48) + 8), y0 + 236, pct.w(Math.round((colW - 40) * 0.38)), 24, 8, true])
+}
+
+// Builder for the Attendance + Participants sidebar card
+function pushAttendanceCard(bones, pct, colX, colW, y0) {
+  bones.push([pct.x(colX), y0, pct.w(colW), ATTENDANCE_CARD_H, 24, true])
+  // Buttons row: 3 attendance circles + favoris button
+  // AttendanceButtons — group of 3 circular buttons
+  for (let i = 0; i < 3; i++) {
+    bones.push([pct.x(colX + 20 + i * 44), y0 + 20, pct.w(36), 36, 9999, true])
+  }
+  // Favoris button (flex-1)
+  const favX = colX + 20 + 3 * 44 + 8
+  const favW = colW - 20 - (favX - colX)
+  bones.push([pct.x(favX), y0 + 22, pct.w(favW), 32, 12, true])
+  // Separator
+  bones.push([pct.x(colX + 20), y0 + 76, pct.w(colW - 40), 1, 0])
+  // Coming soon "Participants" header
+  bones.push([pct.x(colX + 20), y0 + 92, pct.w(16), 16, 4])
+  bones.push([pct.x(colX + 44), y0 + 94, pct.w(Math.round((colW - 64) * 0.55)), 12, 4])
+  bones.push([pct.x(colX + colW - 46), y0 + 92, pct.w(30), 16, 9999])
+  // Avatars stack (3 overlapping circles) + counter text
+  for (let i = 0; i < 3; i++) {
+    bones.push([pct.x(colX + 20 + i * 20), y0 + 124, pct.w(32), 32, 9999, true])
+  }
+  bones.push([pct.x(colX + 90), y0 + 134, pct.w(Math.round((colW - 110) * 0.7)), 12, 4])
+}
+
+// Builder for the "Ajouter au calendrier" card (IcsExportButton — full card with 3 options)
+function pushIcsCard(bones, pct, colX, colW, y0) {
+  // Card surface (container, lighter)
+  bones.push([pct.x(colX), y0, pct.w(colW), ICS_CARD_H, 24, true])
+  // Header row: calendar icon + "Ajouter au calendrier" label
+  bones.push([pct.x(colX + 24), y0 + 26, pct.w(16), 16, 4])                               // icon (leaf)
+  bones.push([pct.x(colX + 44), y0 + 28, pct.w(Math.round((colW - 68) * 0.55)), 14, 4])   // label (leaf)
+  // 3 option buttons (containers = bordered button surfaces)
+  // y=24 (p-6 top) + 20 (header) + 16 (gap-4) = y0+60, each button 40 tall + 16 gap = 56 step
+  for (let i = 0; i < 3; i++) {
+    const btnY = y0 + 60 + i * 56
+    bones.push([pct.x(colX + 24), btnY, pct.w(colW - 48), 40, 12, true])
+    // Icon + label inside the button (leaves for contrast on the lighter button surface)
+    bones.push([pct.x(colX + 40), btnY + 12, pct.w(16), 16, 4])
+    bones.push([pct.x(colX + 64), btnY + 14, pct.w(Math.round((colW - 88) * 0.5)), 12, 4])
+  }
+}
+
+// Builder for the Main column (banner + description + 4 S5 shells)
+function pushMainCol(bones, pct, colX, colW, y0, bannerH) {
+  let y = y0
+  pushBanner(bones, pct, colX, colW, y, bannerH); y += bannerH + MAIN_GAP
+  pushDescriptionCard(bones, pct, colX, colW, y);  y += DESC_H + MAIN_GAP
+  for (let i = 0; i < 4; i++) {
+    pushComingSoonShell(bones, pct, colX, colW, y)
+    y += S5_SHELL_H + (i < 3 ? S5_SHELL_GAP : 0)
+  }
+}
+
+// Builder for the "Statistiques de participation" coming soon card (S6)
+// ComingSoonBlock shell with 3 stat boxes in grid-cols-3
+function pushStatsCard(bones, pct, colX, colW, y0) {
+  // Shell (container, lighter — dashed border in reality)
+  bones.push([pct.x(colX), y0, pct.w(colW), STATS_CARD_H, 16, true])
+  // Header row: icon + label + sprint badge
+  bones.push([pct.x(colX + 16), y0 + 14, pct.w(16), 16, 4])                                    // icon
+  bones.push([pct.x(colX + 40), y0 + 16, pct.w(Math.round((colW - 88) * 0.8)), 12, 4])         // label
+  bones.push([pct.x(colX + colW - 46), y0 + 14, pct.w(30), 16, 9999])                          // sprint badge
+  // 3 stat boxes (containers — each a bordered mini-card with value + label)
+  const bodyY = y0 + 42
+  const gapX = 8
+  const innerX = colX + 16
+  const innerW = colW - 32
+  const boxW = (innerW - 2 * gapX) / 3
+  for (let i = 0; i < 3; i++) {
+    const bx = innerX + i * (boxW + gapX)
+    bones.push([pct.x(bx), bodyY, pct.w(boxW), 44, 12, true])                                  // box surface
+    bones.push([pct.x(bx + (boxW - 16) / 2), bodyY + 10, pct.w(16), 14, 4])                    // value (centered)
+    bones.push([pct.x(bx + (boxW - 28) / 2), bodyY + 28, pct.w(28), 10, 4])                    // label (centered)
+  }
+}
+
+// Builder for the Sidebar column (infos + attendance + ICS card + stats card)
+function pushSidebarCol(bones, pct, colX, colW, y0) {
+  let y = y0
+  pushInfosClesCard(bones, pct, colX, colW, y);  y += INFOS_CARD_H + SIDEBAR_GAP
+  pushAttendanceCard(bones, pct, colX, colW, y); y += ATTENDANCE_CARD_H + SIDEBAR_GAP
+  pushIcsCard(bones, pct, colX, colW, y);        y += ICS_CARD_H + SIDEBAR_GAP
+  pushStatsCard(bones, pct, colX, colW, y)
+}
+
+function buildEventDetail(containerW) {
+  const pct = {
+    x: px => round(px * 100 / containerW),
+    w: px => round(px * 100 / containerW),
+  }
+  const bones = []
+  const desktop = containerW >= 900
+  if (desktop) {
+    // 2 cols: grid-cols-[3fr_2fr] gap-6
+    const avail = containerW - GRID_GAP
+    const mainW = Math.round(avail * 3 / 5)
+    const sideW = Math.round(avail * 2 / 5)
+    const sideX = mainW + GRID_GAP
+    pushMainCol(bones, pct, 0, mainW, 0, BANNER_H_DESKTOP)
+    pushSidebarCol(bones, pct, sideX, sideW, 0)
+  } else {
+    // 1 col, sidebar first (order-1), then main (order-2)
+    pushSidebarCol(bones, pct, 0, containerW, 0)
+    const mainY = sidebarColH() + GRID_GAP
+    pushMainCol(bones, pct, 0, containerW, mainY, BANNER_H_MOBILE)
+  }
+  return bones
+}
+
+function detailHeight(containerW) {
+  const desktop = containerW >= 900
+  if (desktop) return Math.max(mainColH(BANNER_H_DESKTOP), sidebarColH())
+  return sidebarColH() + GRID_GAP + mainColH(BANNER_H_MOBILE)
+}
+
+const DETAIL_CONTAINERS = [343, 720, 960]
+
+function genEventDetail() {
+  const out = { breakpoints: {} }
+  for (const cw of DETAIL_CONTAINERS) {
+    out.breakpoints[String(cw)] = {
+      name: 'event-detail',
+      viewportWidth: cw,
+      width: cw,
+      height: detailHeight(cw),
+      bones: buildEventDetail(cw),
+    }
+  }
+  writeBones('event-detail.bones.json', out)
+}
+
 genCards()
 genSearch()
 genCalendar()
+genEventDetail()
