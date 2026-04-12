@@ -1,263 +1,391 @@
-# Skeleton generator
+# Skeleton screens — documentation agent
 
-Générateur maison pour les skeleton screens affichés pendant le chargement des pages. Écrit des fichiers `.bones.json` dans [`../src/bones/`](../src/bones/) qui sont consommés au runtime par `<Skeleton>` du package `boneyard-js`.
+Ce fichier est la **source de vérité** pour tout agent qui implémente ou modifie un skeleton screen dans ce projet. Le lire en entier avant d'écrire le moindre bone.
 
-## Pourquoi un générateur custom (et pas la CLI boneyard) ?
+---
 
-À l'origine, boneyard propose une CLI (`npx boneyard-js build`) et un plugin Vite qui capturent automatiquement les positions des éléments en visitant les pages via Playwright. On a abandonné cette approche pour plusieurs raisons :
+## Règle fondamentale
 
-- **Routes protégées inaccessibles** : Playwright tourne sans authentification, donc impossible de visiter `/profile/me`, `/events/1`, `/calendar`, `/events/search` — tout ce qui passe par `PrivateRoute`. Le registry final ne contenait que `event-cards` (landing publique).
-- **Plugin Vite destructeur** : activé, il re-capture à chaque démarrage du dev server et à chaque HMR, écrasant systématiquement le travail en cours.
-- **Layouts complexes mal capturés** : les grids `auto-fit minmax(280, 320)` cap à 320px mais boneyard exprime tout en pourcentages de container width, qui eux scalent linéairement. Résultat : cards qui s'étirent ou rétrécissent entre les breakpoints.
-- **Pas de contrôle fin** sur la hiérarchie visuelle (zones claires/sombres, distribution manuelle d'events, lignes de grille, etc.).
+**Toute page ou composant qui effectue un appel API et affiche un état `loading` doit avoir un skeleton `.bones.json` correspondant.** C'est non négociable, au même titre que la gestion des états `loading / error / data`. L'agent ne demande pas de confirmation — il génère.
 
-Les skeletons actuels sont donc **définitifs** : ils ne sont plus régénérés automatiquement. Si tu touches au layout d'une page couverte (event card, détail événement, profil, calendrier, recherche), tu dois éditer le bloc correspondant dans [`generate.mjs`](./generate.mjs) et relancer `npm run skeleton`.
+---
 
-## Utilisation
+## Architecture
 
-```bash
-# Depuis frontend/
-npm run skeleton
-
-# Ou directement
-node skeleton/generate.mjs
+```
+frontend/
+├── skeleton/
+│   ├── README.md          ← ce fichier
+│   └── generate.mjs       ← générateur (node skeleton/generate.mjs)
+└── src/
+    └── bones/
+        ├── registry.js                 ← enregistre tous les bones au démarrage
+        ├── event-cards.bones.json      ← généré par generate.mjs
+        ├── search-results.bones.json   ← généré par generate.mjs
+        ├── event-calendar.bones.json   ← généré par generate.mjs
+        ├── event-detail.bones.json     ← généré par generate.mjs
+        ├── event-edit.bones.json       ← généré par generate.mjs
+        ├── profile.bones.json          ← manuel (ajusté à la main)
+        └── navbar-user.bones.json      ← manuel (inline element fixe)
 ```
 
-Le script écrit tous les `.bones.json` d'un coup (event-cards, search-results, event-calendar). Les autres skeletons (event-detail, profile) n'ont pas de fonction de génération — ils ont été tunés manuellement par la CLI au début puis ajustés dans le JSON ; on les considère stables.
+`src/bones/registry.js` est importé dans `src/main.tsx` au démarrage — sans cet import les bones ne sont jamais chargés.
 
-Aucun serveur, aucun browser, aucun build — ça tourne en ~100 ms.
+---
 
-## Comprendre le format `.bones.json`
+## Table des skeletons existants
 
-Un fichier `.bones.json` contient plusieurs breakpoints, chacun avec un tableau de "bones" (rectangles dessinés à l'écran).
+| `name` | Fichier | Composant consommateur | Méthode |
+|---|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` | `genCards()` dans generate.mjs |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` | `genSearch()` dans generate.mjs |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `genCalendar()` dans generate.mjs |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | `genEventDetail()` dans generate.mjs |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` | `genEventEdit()` dans generate.mjs |
+| `profile` | `profile.bones.json` | `ProfilePage` | manuel |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+
+Mettre cette table à jour dans `AGENTS.md` à chaque ajout.
+
+---
+
+## Décision : generate.mjs ou JSON manuel ?
+
+```
+Le layout utilise une grille CSS (grid, flex wrap, auto-fit) ?
+├── OUI → generate.mjs (calcul programmatique des positions)
+│         → écrire une fonction buildXxx(containerW) + genXxx()
+│         → lancer npm run skeleton après
+└── NON → JSON manuel
+          → élément inline fixe (ex: navbar-user)
+          → layout simple sans variation de colonnes
+```
+
+---
+
+## Format d'un bone
+
+```
+[x, y, width, height, borderRadius, isContainer?]
+```
+
+| Index | Nom | Unité | Description |
+|---|---|---|---|
+| 0 | `x` | % de container width | Position horizontale |
+| 1 | `y` | pixels (scalés) | Position verticale |
+| 2 | `width` | % de container width | Largeur |
+| 3 | `height` | pixels (scalés) | Hauteur |
+| 4 | `borderRadius` | pixels ou `"50%"` | Rayon des coins |
+| 5 | `isContainer` | boolean (optionnel) | Si `true` : couleur plus claire (fond distinct) |
+
+### Règle isContainer — hiérarchie visuelle 2 couleurs
+
+```
+isContainer = true  (plus clair)  → fond distinct : card, banner, pill, bouton, toolbar
+isContainer absent  (plus sombre) → contenu sur fond : texte, icône, séparateur, ligne
+```
+
+Exemple pour une event card :
+```
+Card outer    → true   (surface de la card)
+  Banner      → absent (zone image = plus sombre sur card claire)
+    Badge     → true   (pill visible sur banner sombre)
+    Titre     → true   (texte blanc sur banner sombre)
+  Icône meta  → absent (icône sombre sur card claire)
+  Texte meta  → absent (texte sombre sur card claire)
+```
+
+---
+
+## Format d'un fichier .bones.json
 
 ```jsonc
 {
   "breakpoints": {
     "320": {
-      "name": "event-cards",
-      "viewportWidth": 320,
-      "width": 320,
-      "height": 2428,
+      "name": "mon-skeleton",       // doit correspondre exactement au name= dans le JSX
+      "viewportWidth": 320,         // = containerW (pas le viewport)
+      "width": 320,                 // = containerW
+      "height": 480,                // hauteur intrinsèque du fixture au runtime — CRITIQUE
       "bones": [
-        [3.35, 0, 93.29, 388, 24, true],
-        [3.35, 0, 93.29, 208, 24],
-        ...
+        [0, 0, 100, 480, 24, true], // [x%, y_px, w%, h_px, borderRadius, isContainer?]
+        [4.17, 20, 60, 20, 4],
+        [4.17, 48, 40, 14, 4]
       ]
     },
-    "720": { ... },
-    ...
+    "720": { … },
+    "1216": { … }
   }
 }
 ```
 
-### Format d'un bone
+---
 
-Chaque bone est un tableau `[x, y, width, height, borderRadius, isContainer?]` :
+## Règle des breakpoints
 
-| Index | Nom | Type | Unité | Description |
-|---|---|---|---|---|
-| 0 | `x` | number | **% de container width** | Position horizontale |
-| 1 | `y` | number | **pixels** (scalés) | Position verticale |
-| 2 | `width` | number | **% de container width** | Largeur du bone |
-| 3 | `height` | number | **pixels** (scalés) | Hauteur du bone |
-| 4 | `borderRadius` | number | pixels (ou `"50%"`) | Rayon des coins |
-| 5 | `isContainer` | boolean (optionnel) | — | Si `true`, le bone est dessiné avec une **couleur plus claire** (`adjustColor(color, 0.45)` en light mode, `0.03` en dark mode) |
+Les clés de breakpoints sont des **container widths**, pas des viewport widths.
 
-> ⚠️ **x/w = pourcentage de la container width, pas du viewport.** Au runtime, boneyard mesure la largeur réelle du conteneur `<Skeleton>` via ResizeObserver et applique les percentages dessus.
+**Pourquoi :** boneyard mesure la largeur du container `<Skeleton>` via ResizeObserver. Les `x%` et `w%` sont relatifs à cette largeur — pas au viewport. Si on indexe par viewport, les percentages sont faux dès qu'il y a une sidebar ou un max-width.
 
-### Scaling vertical (scaleY)
+**Combien de breakpoints :**
+- Une BP par **transition de layout** (changement de nombre de colonnes, sidebar qui apparaît/disparaît, toolbar qui passe de stacked à row, etc.)
+- Ajouter des BPs intermédiaires si deux transitions sont éloignées (évite le stretching visible entre BPs)
+- **Minimum** : 1 BP pour un élément sans variation responsive (ex: `navbar-user`)
 
-Les `y` et `h` sont en pixels mais **scalés** au runtime :
-
-```
-scaleY = runtime_container_height / bones.height
-```
-
-Le `height` déclaré dans le breakpoint doit donc matcher la hauteur intrinsèque du fixture au runtime (la somme des cards + gaps, ou la hauteur fixe du parent style `h-[680px]` pour le calendrier). Sinon, tous les `y` et `h` sont stretched ou compressés.
-
-### Résolution du breakpoint (responsive)
-
-Au runtime, boneyard choisit le plus grand breakpoint dont la clé est `≤` à la largeur mesurée :
-
+**Comment boneyard choisit le bon breakpoint au runtime :**
 ```js
-// From boneyard-js/dist/shared.js
-const bps = Object.keys(bones.breakpoints).map(Number).sort((a, b) => a - b)
+// Plus grand breakpoint dont la clé est ≤ container width mesuré
 const match = [...bps].reverse().find(bp => width >= bp) ?? bps[0]
 ```
+→ La première BP doit couvrir le container le plus petit possible (souvent mobile).
 
-où `width = containerWidth` (si mesurée) ou `window.innerWidth` (avant le mount).
+---
 
-**Important** : on indexe les breakpoints sur la **container width attendue**, pas le viewport. C'est la seule façon d'avoir des percentages cohérents. Exemple pour la search page (sidebar `lg:w-60 = 240px` qui réduit le container à lg+), on utilise les clés `[327, 480, 700, 950]` et pas `[375, 768, 1024, 1280]`.
+## Règle du `height`
 
-## La hiérarchie visuelle 2-couleurs (flag `isContainer`)
+`height` dans le breakpoint = hauteur intrinsèque **exacte** du fixture au runtime.
 
-Le `<Skeleton>` affiche tous les bones avec **une seule couleur de base**, passée via la prop `color` (ici `rgba(255,255,255,0.15)` en dark mode, `rgba(0,0,0,0.08)` en light mode).
+Au runtime : `scaleY = runtime_container_height / bones.height`
 
-Mais il y a une exception : les bones avec `isContainer: true` sont rendus avec `adjustColor(color, 0.45)` en light mode — ce qui les rend **significativement plus clairs** que les autres bones. En dark mode, l'écart est plus subtil (0.03).
+Si `bones.height` ≠ hauteur réelle du fixture → tous les `y` et `h` sont étirés ou compressés → skeleton déformé.
 
-On exploite ça pour créer une **hiérarchie visuelle à deux niveaux** :
+**Comment calculer `height` :**
+- Layout en grille : `rows * cardHeight + (rows - 1) * gap`
+- Hauteur fixe CSS (`h-[680px]`) : utiliser cette valeur directement
+- Layout libre : sommer toutes les hauteurs d'éléments + gaps
 
-- **Container bones** (plus clairs) → surface du support : card, bouton, pill, toolbar, zone de "texte blanc" sur image
-- **Leaf bones** (plus sombres) → contenu : icônes, lignes de texte sur fond clair, séparateurs
+---
 
-**Exemple pour une event card** :
+## Workflow : créer un nouveau skeleton (JSON manuel)
 
+### 1. Identifier la structure visuelle
+
+Lire le composant cible. Relever :
+- Toutes les hauteurs fixes (Tailwind `h-[Xpx]`, `h-X`, padding, gap)
+- La grille CSS (colonnes, breakpoints Tailwind où le layout change)
+- Les éléments visuellement distincts (cards, banners, pills, icônes, textes)
+
+### 2. Choisir les container widths cibles
+
+Lister toutes les transitions de layout. Choisir une BP par transition + intermédiaires si besoin. Indexer sur la **largeur du container** (pas du viewport).
+
+### 3. Écrire les bones
+
+```js
+// Helpers — toujours calculer depuis containerW
+const pctX = px => Math.round(px * 10000 / containerW) / 100
+const pctW = px => Math.round(px * 10000 / containerW) / 100
+
+// Exemple : card surface + ligne de texte
+bones.push([0, 0, 100, 320, 24, true])              // card (container)
+bones.push([pctX(20), 20, pctW(180), 18, 4])         // titre (leaf)
+bones.push([pctX(20), 46, pctW(120), 14, 4])         // sous-titre (leaf)
 ```
-Card outer         = container (lighter)  → card surface
-  Banner           = leaf      (darker)   → image zone
-    Badge          = container (lighter)  → pill visible on dark banner
-    Title line     = container (lighter)  → white text on dark banner
-  Meta icon        = leaf      (darker)   → dark icon on light card
-  Meta text        = leaf      (darker)   → dark text on light card
-  Description      = leaf      (darker)   → dark text on light card
+
+### 4. Écrire le fichier .bones.json
+
+Le placer dans `frontend/src/bones/<nom>.bones.json`.
+
+### 5. Enregistrer dans registry.js
+
+```js
+// frontend/src/bones/registry.js
+import _mon_skeleton from './mon-skeleton.bones.json'
+
+registerBones({
+  // ... existants
+  "mon-skeleton": _mon_skeleton,
+})
 ```
 
-Cette inversion dynamique (leaf darker sur container lighter, ou container lighter sur container lighter inversé) donne au skeleton l'aspect "banner sombre avec texte clair, puis contenu sombre sur card claire" — exactement comme la vraie card.
+### 6. Écrire le fixture dans le composant
 
-**Règle du pouce** : si l'élément réel a un **fond distinct** (card surface, banner image, pill, bouton), c'est un container. Si c'est du **contenu sur un fond** (texte, icône, ligne), c'est une leaf.
+```tsx
+// Composant local, non-exporté, dans le même fichier que le composant cible.
+// Doit reproduire EXACTEMENT la structure CSS du layout réel.
+// Le contenu interne peut être vide — seules les dimensions comptent.
+function MonComposantFixture() {
+  return (
+    <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+      <div className="flex flex-col gap-5">
+        <div className="h-72 lg:h-80 rounded-3xl" />
+        <div className="h-40 rounded-3xl" />
+      </div>
+      <div className="flex flex-col gap-4">
+        <div className="h-72 rounded-3xl" />
+      </div>
+    </div>
+  )
+}
+```
 
-## Architecture du générateur
+**Le fixture est obligatoire.** Sans children avec des dimensions, le container `<Skeleton>` a une hauteur de 0px et les bones sont clippés par `overflow:hidden` → skeleton invisible.
 
-Le fichier [`generate.mjs`](./generate.mjs) est organisé en sections :
+### 7. Intégrer `<Skeleton>` dans le composant
 
-1. **Helpers** : `round`, `writeBones`, `makeCardsPayload`
-2. **Card template** : `buildCard()` — produit les bones d'une seule card à la position `(cardX_pct, y0)` avec des dimensions relatives à `containerW`. Réutilisé par event-cards ET search-results.
-3. **Auto-fit grid math** : `autoFitLayout()` — calcule le nombre de cols, la largeur du track, les x de chaque card selon le container width. Réplique le comportement de `grid-cols-[repeat(auto-fit,minmax(280px,320px))]`.
-4. **Fixed cols math** : `fixedColsLayout()` — variant pour `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`.
-5. **`genCards()`, `genSearch()`, `genCalendar()`** — un par skeleton. Itère sur les container widths cibles et écrit le `.bones.json`.
+```tsx
+import { Skeleton } from 'boneyard-js/react'
+import { useTheme } from '@/contexts/ThemeContext'
 
-### Ajouter un nouveau skeleton
+export default function MonComposant() {
+  const { data, loading, error } = useMonHook()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
 
-1. **Identifier la structure du composant réel**. Note les dimensions (hauteurs fixes, paddings, gaps), la grid CSS, les breakpoints Tailwind qui changent le layout, et les éléments visuels à représenter.
+  if (loading) return (
+    <Skeleton name="mon-skeleton" loading animate="pulse" color={skeletonColor}>
+      <MonComposantFixture />
+    </Skeleton>
+  )
+  if (error) return <InfoMessage type="error" message={error} />
+  return <div>{/* contenu réel */}</div>
+}
+```
 
-2. **Choisir les container widths cibles**. Combien et où ? Règle : une bp à chaque **transition de layout** (changement de nombre de colonnes, sidebar qui apparaît…) plus éventuellement des bps intermédiaires pour éviter le stretching entre deux bps éloignés. Exemple pour un grid auto-fit qui passe de 1 → 4 cols : 8 bps (cf. `EVENT_CARDS_CONTAINERS`).
+Props `<Skeleton>` obligatoires :
+- `name` → clé dans le registry (doit correspondre exactement)
+- `loading={true}` → active le mode skeleton
+- `animate="pulse"` → animation pulse
+- `color` → toujours conditionnel au thème (dark/light)
 
-3. **Écrire la fonction `build<Skeleton>()`** qui reçoit un `containerW` et retourne un tableau de bones :
-   ```js
-   function buildMySkeleton(containerW) {
-     const pctX = px => round(px * 100 / containerW)
-     const pctW = px => round(px * 100 / containerW)
-     const bones = []
-     // Outer surface
-     bones.push([0, 0, 100, HEIGHT, 24, true])
-     // Header
-     bones.push([pctX(20), 20, pctW(200), 32, 6, true])
-     // ...
-     return bones
-   }
-   ```
+### 8. Mettre à jour la documentation
 
-4. **Décider de la `height`** : doit matcher la hauteur intrinsèque du fixture au runtime. Si le fixture est rendu à l'intérieur d'un parent avec hauteur fixe (`h-[680px]`), utilise cette valeur. Sinon, somme les dimensions de tous les éléments.
+- `AGENTS.md` → table "Skeletons existants"
+- `docs/components.md` → section "Skeleton screens"
 
-5. **Écrire `gen<Skeleton>()`** qui itère sur les container widths et appelle `writeBones()` :
-   ```js
-   function genMySkeleton() {
-     const out = { breakpoints: {} }
-     for (const cw of [320, 720, 1216]) {
-       out.breakpoints[String(cw)] = {
-         name: 'my-skeleton',
-         viewportWidth: cw,
-         width: cw,
-         height: HEIGHT,
-         bones: buildMySkeleton(cw),
-       }
-     }
-     writeBones('my-skeleton.bones.json', out)
-   }
-   ```
+---
 
-6. **Appeler `genMySkeleton()` en bas du fichier**.
+## Workflow : ajouter un skeleton via generate.mjs
 
-7. **Côté composant React**, wrapper le contenu dans `<Skeleton>` avec le bon `name` :
-   ```tsx
-   import { Skeleton } from 'boneyard-js/react'
-   import { useTheme } from '@/contexts/ThemeContext'
+À utiliser pour toute page avec une grille CSS dynamique.
 
-   function MyFixture() {
-     // Un composant JSX qui a la MÊME structure CSS que le contenu final,
-     // rendu pendant le chargement avec visibility:hidden pour fournir
-     // les dimensions intrinsèques au container <Skeleton>.
-     return <div>...</div>
-   }
+### 1. Écrire la fonction `buildXxx(containerW)`
 
-   export default function MyPage() {
-     const { data, loading } = useMyHook()
-     const { theme } = useTheme()
-     const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+```js
+function buildMonSkeleton(containerW) {
+  const pctX = px => round(px * 100 / containerW)
+  const pctW = px => round(px * 100 / containerW)
+  const bones = []
 
-     if (loading) return (
-       <Skeleton
-         name="my-skeleton"
-         loading={true}
-         animate="pulse"
-         color={skeletonColor}
-       ><MyFixture /></Skeleton>
-     )
+  // Surface (container)
+  bones.push([0, 0, 100, HEIGHT, 24, true])
+  // Titre
+  bones.push([pctX(20), 20, pctW(200), 22, 6, true])
+  // ...
+  return bones
+}
+```
 
-     return <div>{/* contenu réel */}</div>
-   }
-   ```
+### 2. Écrire la fonction `genXxx()`
 
-8. **Ajouter l'import dans [`../src/bones/registry.js`](../src/bones/registry.js)** :
-   ```js
-   import _my_skeleton from './my-skeleton.bones.json'
+```js
+function genMonSkeleton() {
+  const out = { breakpoints: {} }
+  for (const cw of [320, 720, 1216]) {
+    out.breakpoints[String(cw)] = {
+      name: 'mon-skeleton',
+      viewportWidth: cw,
+      width: cw,
+      height: HEIGHT,
+      bones: buildMonSkeleton(cw),
+    }
+  }
+  writeBones('mon-skeleton.bones.json', out)
+}
+```
 
-   registerBones({
-     ...
-     "my-skeleton": _my_skeleton,
-   })
-   ```
+### 3. Appeler `genMonSkeleton()` en bas du fichier
 
-9. **Lancer `npm run skeleton`** → le JSON est généré, HMR recharge le registry, skeleton visible immédiatement.
+### 4. Lancer le générateur
 
-## Le fixture rendu en `children`
+```bash
+# depuis frontend/
+npm run skeleton
+```
 
-Le `<Skeleton>` reçoit deux choses :
+Le JSON est écrit dans `src/bones/`, HMR recharge le registry.
 
-- **Les bones** (via `name` → registry lookup) qui sont dessinés par-dessus en absolute
-- **Les children** (ton fixture component) rendus avec `visibility: hidden` pour **établir les dimensions intrinsèques** du container
+### 5. Suivre les étapes 5 à 8 du workflow manuel (registry, fixture, intégration, doc)
 
-C'est important : **sans children avec des dimensions, le container a une hauteur de 0px** et les bones sont clipped par `overflow:hidden`. On a eu le bug au début.
+---
 
-Le fixture doit donc refléter la **structure CSS réelle** du composant chargé (mêmes classes, mêmes heights fixes, mêmes breakpoints Tailwind). Le contenu interne des éléments peut être vide — seules les dimensions comptent.
+## Workflow : mettre à jour un skeleton existant
 
-**Ne pas confondre** avec la prop `fixture` de boneyard : celle-ci était utilisée UNIQUEMENT par la CLI au moment de la capture, on l'a retirée partout.
+Si le layout d'un composant change (nouveau composant, refactoring de grid, hauteurs modifiées) :
 
-## Pièges connus
+1. **Skeleton dans generate.mjs** → modifier `buildXxx()` / `genXxx()` + `npm run skeleton`
+2. **Skeleton manuel** → éditer directement le `.bones.json`
+3. **Fixture** → mettre à jour le composant fixture pour qu'il reflète le nouveau layout
+4. Vérifier que `bones.height` correspond toujours à la hauteur réelle du fixture
 
-### 1. Percentages vs container width
+---
 
-Les `x%` et `w%` sont relatifs à la **container width mesurée au runtime**, pas au viewport. Si tu calcules tes percentages en divisant par `vw` au lieu de `containerW`, ça compense parfois par hasard (car container ≈ vw - 48) mais pas quand il y a une sidebar ou un max-width qui réduit le container.
+## Pièges — NE PAS faire
 
-**Règle** : toujours calculer `px * 100 / containerW`, et nommer tes bps par container width.
+### ❌ Indexer les breakpoints par viewport width
 
-### 2. scaleY qui compresse verticalement
+```jsonc
+// FAUX — viewport width
+{ "breakpoints": { "375": {…}, "768": {…}, "1280": {…} } }
 
-Si le fixture produit une hauteur différente de `bones.height`, tout est stretched/compressed. Résultat : cards qui paraissent landscape alors que tu les as dessinées portrait.
+// CORRECT — container width (mesurée par ResizeObserver)
+{ "breakpoints": { "320": {…}, "720": {…}, "960": {…} } }
+```
 
-**Vérification** : calcule manuellement la hauteur intrinsèque du fixture (somme des heights + gaps) et assure-toi que `bones.height` matche. Pour les cards en grid : `rows * cardHeight + (rows - 1) * gap`.
+### ❌ Calculer les % depuis le viewport
 
-### 3. Grid `auto-fit` cap
+```js
+// FAUX
+const pctX = px => px * 100 / window.innerWidth
 
-`grid-cols-[repeat(auto-fit,minmax(280px,320px))]` cap les cards à 320 max et centre l'excédent via `justify-center`. Les percentages boneyard ne capent pas — ils scalent linéairement. Résultat : au runtime, si le container est plus large que prévu, la card bone dépasse 320 alors que la vraie card reste 320.
+// CORRECT
+const pctX = px => px * 100 / containerW
+```
 
-**Solution** : ajouter plusieurs breakpoints qui suivent les transitions du auto-fit (cf. `autoFitLayout()` + `EVENT_CARDS_CONTAINERS`).
+### ❌ height incorrect dans le breakpoint
 
-### 4. Border-radius uniforme
+Si le fixture produit `h = 640px` au runtime mais `bones.height = 480`, scaleY = 0.75 → tous les éléments sont 25% plus petits qu'attendu.
 
-Un bone a un seul `borderRadius` pour les 4 coins. Si tu veux un rectangle rounded-top-only (style banner en haut d'une card), tu ne peux pas. Compromis : soit les 4 coins arrondis (pinch visible en bas du banner), soit 0 (angles droits visibles au-dessus du card container rounded).
+### ❌ Fixture sans dimensions
 
-Dans la pratique, le pinch avec radius 24 sur banner + card container 24 est à peine visible en dark mode et passe très bien.
+```tsx
+// FAUX — le container sera height: 0, bones clippés
+function Fixture() { return <div /> }
 
-### 5. Fixture avec CSS qui ne scale pas linéairement
+// CORRECT — reproduit les dimensions du layout réel
+function Fixture() {
+  return (
+    <div className="h-72 rounded-3xl" /> // même classes que le vrai composant
+  )
+}
+```
 
-Si le fixture utilise des `max-w-[320px]` ou des `minmax()` qui cap, les percentages bones ne correspondront pas aux dimensions réelles au runtime (idem que le piège du auto-fit). Soit tu ajoutes des bps, soit tu simplifies le fixture avec un grid Tailwind fixe (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`).
+### ❌ borderRadius "50%" sur des rectangles
 
-## Fichiers concernés
+`"50%"` est réservé aux cercles (avatars). Pour des éléments rectangulaires arrondis, utiliser une valeur en pixels.
 
-- [`generate.mjs`](./generate.mjs) — le générateur (ce fichier)
-- [`../src/bones/*.bones.json`](../src/bones/) — les 5 skeletons générés (4 générés + event-detail/profile ajustés manuellement)
-- [`../src/bones/registry.js`](../src/bones/registry.js) — import + `registerBones()`
-- [`../src/main.tsx`](../src/main.tsx) — import du registry au startup (obligatoire)
-- Composants qui utilisent `<Skeleton>` : `EventCards`, `EventCalendar`, `EventDetailPage`, `ProfilePage`, `EventsSearchPage`
+### ❌ grid auto-fit sans BPs aux transitions de colonnes
+
+`grid-cols-[repeat(auto-fit,minmax(280px,320px))]` change de nombre de colonnes à ~580px, ~880px, ~1180px. Sans BP à chaque transition, les bones s'étirent linéairement alors que les vraies cards restent cappées à 320px.
+
+### ❌ Oublier le registry
+
+Un fichier `.bones.json` non importé dans `registry.js` → `<Skeleton>` ne trouve pas le name → erreur silencieuse, skeleton vide.
+
+### ❌ Utiliser LoadingSpinner à la place d'un skeleton
+
+`LoadingSpinner` est réservé à `PrivateRoute` et `LoadingPage`. Tout autre composant/page avec `loading` doit utiliser `<Skeleton>`.
+
+---
+
+## Checklist avant de commiter
+
+- [ ] Fichier `.bones.json` créé dans `src/bones/`
+- [ ] `registry.js` mis à jour avec l'import et la clé
+- [ ] Fixture local non-exporté dans le composant cible
+- [ ] `bones.height` = hauteur intrinsèque du fixture (calculé ou vérifié)
+- [ ] `skeletonColor` conditionnel au thème (dark/light)
+- [ ] `LoadingSpinner` retiré du composant si présent
+- [ ] Table skeletons mise à jour dans `AGENTS.md`
+- [ ] Section skeleton mise à jour dans `docs/components.md`
+- [ ] Si generate.mjs modifié : `npm run skeleton` relancé, JSON commité
