@@ -16,16 +16,19 @@ export default function CategoryPills({ value, onChange, error }: Readonly<Categ
   return (
     <div>
       <div className="flex flex-wrap gap-2">
-        {Object.entries(EVENT_CATEGORIES).map(([id, category]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id as EventCategory)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${pillVariants[value === id ? 'active' : 'inactive']}`}
-          >
-            {category.name}
-          </button>
-        ))}
+        {Object.entries(EVENT_CATEGORIES).map(([id, category]) => {
+          const variant: keyof typeof pillVariants = value === id ? 'active' : 'inactive'
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(id as EventCategory)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${pillVariants[variant]}`}
+            >
+              {category.name}
+            </button>
+          )
+        })}
       </div>
       {error && <p className="text-xs text-error mt-1.5">{error}</p>}
     </div>

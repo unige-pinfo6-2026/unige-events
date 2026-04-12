@@ -16,6 +16,7 @@ const selectVariants = {
 
 export default function CategorySelect({ id, value, onChange, error }: Readonly<CategorySelectProps>) {
   const dotColor = value ? EVENT_CATEGORIES[value].color : 'transparent'
+  const variant: keyof typeof selectVariants = error ? 'error' : 'default'
 
   return (
     <div>
@@ -30,7 +31,7 @@ export default function CategorySelect({ id, value, onChange, error }: Readonly<
             id={id}
             value={value}
             onChange={(e) => { if (e.target.value) onChange(e.target.value as EventCategory) }}
-            className={`w-full appearance-none rounded-xl border px-3 py-2 text-sm transition-colors outline-none cursor-pointer pr-8 ${selectVariants[error ? 'error' : 'default']}`}
+            className={`w-full appearance-none rounded-xl border px-3 py-2 text-sm transition-colors outline-none cursor-pointer pr-8 ${selectVariants[variant]}`}
           >
             <option value="">Choisir une catégorie…</option>
             {Object.entries(EVENT_CATEGORIES).map(([catId, cat]) => (

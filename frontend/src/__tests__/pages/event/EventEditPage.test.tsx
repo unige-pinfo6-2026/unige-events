@@ -91,7 +91,7 @@ describe('EditEventPage', () => {
       title: 'Forum 2026',
       location: existingEvent.location,
       bannerUrl: 'https://example.com/current-banner.png',
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     }))
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })
