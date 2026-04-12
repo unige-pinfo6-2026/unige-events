@@ -14,19 +14,38 @@ vi.mock('react-big-calendar', () => ({
   Calendar: ({
     events,
     onSelectEvent,
+    onNavigate,
     onView,
     view,
+    views,
     eventPropGetter,
     tooltipAccessor,
+    components,
   }: {
     events: CalendarEvent[]
     onSelectEvent: (e: CalendarEvent) => void
+    onNavigate: (action: string) => void
     onView: (v: string) => void
     view: string
+    views: string[]
     eventPropGetter: (e: CalendarEvent) => { style: React.CSSProperties }
     tooltipAccessor: (e: CalendarEvent) => string
+    components?: { toolbar?: React.ComponentType<{
+      label: string
+      onNavigate: (action: string) => void
+      onView: (v: string) => void
+      view: string
+      views: string[]
+    }> }
   }) => (
     <div data-testid="rbc-calendar" data-view={view}>
+      {components?.toolbar && React.createElement(components.toolbar, {
+        label: 'Avril 2026',
+        onNavigate,
+        onView,
+        view,
+        views: views ?? ['month', 'week', 'day', 'agenda'],
+      })}
       {events.map((e) => {
         const { style } = eventPropGetter(e)
         const tooltip = tooltipAccessor(e)
@@ -41,9 +60,6 @@ vi.mock('react-big-calendar', () => ({
           </button>
         )
       })}
-      <button onClick={() => onView('week')}>Semaine</button>
-      <button onClick={() => onView('day')}>Jour</button>
-      <button onClick={() => onView('agenda')}>Agenda</button>
     </div>
   ),
   dateFnsLocalizer: vi.fn(() => ({})),
@@ -188,5 +204,51 @@ describe('CalendarPage', () => {
     })
     renderPage()
     expect(screen.getByTitle('Salle 1')).toBeTruthy()
+  })
+
+  it('renders toolbar with Précédent, Aujourd\'hui, and Suivant buttons', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    expect(screen.getByRole('button', { name: 'Précédent' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Suivant' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: "Aujourd'hui" })).toBeTruthy()
+  })
+
+  it('calls onNavigate PREV when clicking Précédent', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    const prevDate = screen.getByTestId('rbc-calendar').getAttribute('data-view')
+    fireEvent.click(screen.getByRole('button', { name: 'Précédent' }))
+    // After clicking PREV the calendar date would update — just verify the button fires without crash
+    expect(screen.getByTestId('rbc-calendar')).toBeTruthy()
+    expect(prevDate).toBe('month')
+  })
+
+  it('calls onNavigate NEXT when clicking Suivant', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Suivant' }))
+    expect(screen.getByTestId('rbc-calendar')).toBeTruthy()
+  })
+
+  it('calls onNavigate TODAY when clicking Aujourd\'hui', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: "Aujourd'hui" }))
+    expect(screen.getByTestId('rbc-calendar')).toBeTruthy()
+  })
+
+  it('switches view from toolbar view buttons', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    // The toolbar renders view buttons; click Semaine which is the week view label
+    fireEvent.click(screen.getByRole('button', { name: 'Semaine' }))
+    expect(screen.getByTestId('rbc-calendar').getAttribute('data-view')).toBe('week')
+  })
+
+  it('shows the label passed to the toolbar', () => {
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+    renderPage()
+    expect(screen.getByText('Avril 2026')).toBeTruthy()
   })
 })

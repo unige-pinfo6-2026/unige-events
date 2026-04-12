@@ -186,6 +186,12 @@ describe('Navbar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/#events')
   })
 
+  it('shows the navbar-user skeleton while Auth0 is loading', () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    expect(document.querySelector('[data-boneyard="navbar-user"]')).toBeTruthy()
+  })
+
   it('calls logout from mobile menu', () => {
     const logout = vi.fn()
     mockUseAuth.mockReturnValue({

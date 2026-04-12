@@ -9,6 +9,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -17,7 +18,7 @@ const BONES_DIR = path.resolve(__dirname, '../src/bones')
 const round = n => Math.round(n * 10000) / 10000
 
 function writeBones(filename, payload) {
-  payload._hash = 'manual-' + Date.now()
+  payload._hash = createHash('sha1').update(JSON.stringify(payload)).digest('hex').slice(0, 12)
   const out = path.join(BONES_DIR, filename)
   fs.writeFileSync(out, JSON.stringify(payload, null, 2) + '\n')
   console.log(`wrote ${filename}`)
