@@ -79,12 +79,12 @@ Fonctionnalités livrées :
 Terminé le 2026-04-12.
 
 Fonctionnalités livrées :
-- [x] Skeleton screens Boneyard — EventCards, EventDetailPage, ProfilePage
-- Intégration de `boneyard-js` : plugin Vite, `boneyard.config.json` (breakpoints forcés pour Tailwind v4), import du registry dans `main.tsx`.
-- Renommage `Skeleton` → `SkeletonBlock` dans `src/components/utils/Skeleton.tsx` pour lever le conflit de nom avec `<Skeleton>` Boneyard.
-- Fixtures locales non-exportées dans chaque composant ciblé — JSX statique reproduisant le layout réel pour la capture CLI.
-- `LoadingSpinner` retiré d'`EventCards`, `EventDetailPage`, `ProfilePage` — conservé dans `PrivateRoute` et `LoadingPage`.
-- Fichiers `src/bones/` à générer manuellement via `npx boneyard-js build` (étape manuelle post-déploiement du dev server).
+- Skeleton screens Boneyard — `EventCards`, `EventDetailPage`, `ProfilePage`, `EventsSearchPage`, `EventCalendar`, `EventEditPage`, `Navbar` (bouton utilisateur).
+- Intégration de `boneyard-js` : import du registry dans `main.tsx`, générateur custom `skeleton/generate.mjs` (pas de CLI Playwright — routes protégées inaccessibles sans auth).
+- `src/components/utils/Skeleton.tsx` supprimé — `SkeletonBlock` retiré, remplacé par `<Skeleton>` de `boneyard-js/react` partout.
+- Fixtures locales non-exportées dans chaque composant ciblé — JSX statique reproduisant le layout réel pour établir les dimensions du container.
+- `LoadingSpinner` retiré des pages/composants couverts par un skeleton — conservé dans `PrivateRoute` et `LoadingPage`.
+- Règle établie : **tout futur composant ou page avec appel API doit générer son skeleton** (documenté dans `AGENTS.md` et `docs/dev-guide.md`).
 
 ## Correctifs transverses — 2026-03-31
 

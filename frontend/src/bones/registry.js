@@ -8,6 +8,7 @@ import _event_edit from './event-edit.bones.json'
 import _profile from './profile.bones.json'
 import _search_results from './search-results.bones.json'
 import _event_calendar from './event-calendar.bones.json'
+import _navbar_user from './navbar-user.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -16,4 +17,5 @@ registerBones({
   "profile": _profile,
   "search-results": _search_results,
   "event-calendar": _event_calendar,
+  "navbar-user": _navbar_user,
 })

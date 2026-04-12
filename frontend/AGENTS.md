@@ -274,6 +274,49 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement
 
+## Skeleton screens — règle non négociable
+
+**Toute page ou composant qui effectue un appel API et affiche un état `loading` doit avoir un skeleton `.bones.json` correspondant.** Les agents n'attendent pas que l'utilisateur le demande — c'est une obligation systématique au même titre que la gestion des états `loading`, `error` et `data`.
+
+### Quand générer un skeleton
+
+| Situation | Action requise |
+|---|---|
+| Nouvelle page avec appel API | Générer le skeleton avant de clore la tâche |
+| Nouveau composant avec appel API (hook `loading`) | Générer le skeleton |
+| Refactoring du layout d'une page déjà couverte | Mettre à jour le bloc dans `skeleton/generate.mjs` et relancer `npm run skeleton` |
+| Skeleton existant qui ne correspond plus au layout réel | Corriger immédiatement |
+
+### Comment générer
+
+Lire **en entier** `frontend/skeleton/README.md` avant d'écrire un skeleton. Les pièges sont documentés (percentages relatifs à la container width, scaleY, auto-fit cap, isContainer).
+
+1. **Identifier la structure visuelle** — hauteurs fixes, grilles, breakpoints Tailwind.
+2. **Choisir les container widths** — une par transition de layout.
+3. **Écrire les bones** dans `frontend/src/bones/<nom>.bones.json` (format `[x%, y_px, w%, h_px, borderRadius, isContainer?]`).
+4. **Enregistrer** dans `frontend/src/bones/registry.js`.
+5. **Intégrer `<Skeleton>`** dans le composant : `name`, `loading`, `animate="pulse"`, `color` (dark: `rgba(255,255,255,0.15)` / light: `rgba(0,0,0,0.08)`), enfants = fixture avec `visibility:hidden`.
+6. **Fixture obligatoire** — composant local non-exporté dont la structure CSS est identique au composant réel (mêmes classes, mêmes hauteurs) pour que le container ait des dimensions.
+
+### Skeletons existants (à tenir à jour)
+
+| Nom | Fichier bones | Composant consommateur |
+|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` |
+| `profile` | `profile.bones.json` | `ProfilePage` |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) |
+
+### Règle du pouce isContainer
+
+- `isContainer = true` (plus clair) → fond distinct : surface de card, banner, pill, bouton
+- `isContainer` absent (plus sombre) → contenu sur fond : texte, icône, ligne
+
+---
+
 ## Maintenance de la documentation
 **En tant qu'agent, tu dois mettre à jour la documentation dans les cas suivants :**
 
@@ -286,6 +329,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | Nouvelle route dans le router | `docs/architecture.md` (table de routage) |
 | `openapi.yaml` mis à jour | Le fichier unique est `openapi/openapi.yaml` — monorepo, pas de copie à synchroniser |
 | Fin de sprint / tâche terminée | `docs/sprint-context.md` |
+| Nouveau skeleton | `AGENTS.md` (table "Skeletons existants") + `docs/components.md` |
 
 **Règle d'or : si tu touches au code, tu touches à la doc correspondante dans le même commit.**
 

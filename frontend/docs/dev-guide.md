@@ -84,7 +84,8 @@ git config core.hooksPath .github/hooks
 3. Créer le service dans `src/services/` (utiliser l'instance `api` de `services/api.ts`)
 4. Créer le composant page dans `src/pages/NomPage.tsx`
 5. Ajouter la route dans `src/router/AppRouter.tsx`
-6. Mettre à jour `docs/components.md` (page) + `docs/architecture.md` (table de routage)
+6. **Si la page fait un appel API → générer le skeleton** (voir ci-dessous et `AGENTS.md` section Skeleton screens)
+7. Mettre à jour `docs/components.md` (page) + `docs/architecture.md` (table de routage)
 
 ---
 
@@ -95,6 +96,7 @@ git config core.hooksPath .github/hooks
 3. Ajouter/mettre à jour le type dans `src/types/index.ts`
 4. Ajouter la fonction dans `src/services/` — **utiliser `api` depuis `services/api.ts`**
 5. Mettre à jour `docs/types.md` + `docs/components.md` (section services)
+6. **Si le composant consommateur affiche un `loading` → générer le skeleton** (voir section ci-dessous)
 
 ```typescript
 // Exemple : ajouter getEvents dans eventService.ts
@@ -186,6 +188,81 @@ return <ActualComponent data={data} />
 ```
 
 Ne jamais afficher une page avec des données `undefined`, `null`, ou des `?` à la place de valeurs.
+
+**L'état `loading` ne doit pas être rendu avec un spinner ou `null` si la page/composant a un skeleton.** Voir section ci-dessous.
+
+---
+
+## Workflow : générer un skeleton screen
+
+**Obligatoire** pour toute page ou composant qui fait un appel API et affiche `loading`. Lire `frontend/skeleton/README.md` en entier avant d'écrire les bones.
+
+### Étapes
+
+1. **Analyser le layout réel** — noter toutes les hauteurs fixes, paddings, gaps, breakpoints Tailwind où le layout change.
+
+2. **Choisir les container widths** — une par transition de layout (changement de nb de colonnes, apparition de sidebar…). Indexer sur la **container width**, pas le viewport.
+
+3. **Écrire `frontend/src/bones/<nom>.bones.json`** :
+   ```jsonc
+   {
+     "breakpoints": {
+       "320": {
+         "name": "mon-skeleton",
+         "viewportWidth": 320,
+         "width": 320,
+         "height": 480,   // hauteur intrinsèque du fixture au runtime
+         "bones": [
+           // [x%, y_px, w%, h_px, borderRadius, isContainer?]
+           [0, 0, 100, 480, 24, true],   // surface (container = plus clair)
+           [4.17, 20, 60, 20, 4],        // titre (leaf = plus sombre)
+         ]
+       },
+       "720": { … }
+     }
+   }
+   ```
+   Règle `isContainer` : fond distinct (card, banner, pill, bouton) → `true`. Contenu sur fond (texte, icône) → omis.
+
+4. **Enregistrer dans `frontend/src/bones/registry.js`** :
+   ```js
+   import _mon_skeleton from './mon-skeleton.bones.json'
+   registerBones({ …, "mon-skeleton": _mon_skeleton })
+   ```
+
+5. **Intégrer dans le composant React** :
+   ```tsx
+   import { Skeleton } from 'boneyard-js/react'
+   import { useTheme } from '@/contexts/ThemeContext'
+
+   // Fixture locale non-exportée — même structure CSS que le contenu réel,
+   // rendue avec visibility:hidden pour établir les dimensions.
+   function MonComposantFixture() {
+     return <div className="…mêmes classes que le vrai layout…" />
+   }
+
+   export default function MonComposant() {
+     const { data, loading } = useMonHook()
+     const { theme } = useTheme()
+     const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+
+     if (loading) return (
+       <Skeleton name="mon-skeleton" loading animate="pulse" color={skeletonColor}>
+         <MonComposantFixture />
+       </Skeleton>
+     )
+     return <div>{/* contenu réel */}</div>
+   }
+   ```
+
+6. **Mettre à jour `AGENTS.md`** — table "Skeletons existants".
+
+### Pièges courants
+
+- `x%` et `w%` sont relatifs à la **container width**, pas au viewport.
+- `bones.height` doit matcher la hauteur intrinsèque du fixture au runtime — sinon tout est étiré/compressé.
+- Sans fixture avec dimensions, le container a `height: 0` et les bones sont clippés (`overflow:hidden`).
+- Pour un grid `auto-fit minmax(280px, 320px)`, ajouter plusieurs breakpoints aux transitions de colonnes (cf. `genCards()` dans `generate.mjs`).
 
 ---
 

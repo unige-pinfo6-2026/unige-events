@@ -138,17 +138,32 @@
 - Bouton "Télécharger .ics" : génère un fichier ICS via `generateIcs`, crée un Blob et déclenche le téléchargement côté client.
 - Lien "Google Calendar" : ouvre Google Calendar pré-rempli via `buildGoogleCalendarUrl`, s'ouvre dans un nouvel onglet.
 
-### SkeletonBlock
-
-- Rectangle pulse simple (Tailwind `animate-pulse`, `bg-foreground/10`, `rounded-xl`).
-- Usage : placeholders inline de petite taille (ex: bouton Auth0 dans la Navbar pendant `isLoading`).
-- Import : `import { SkeletonBlock } from '@/components/utils/Skeleton'`
-- Pour les skeleton screens de page complète, utiliser `<Skeleton>` de `boneyard-js/react` (cf. `EventCards`, `EventDetailPage`, `ProfilePage`).
-
 ### Avatar
 
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, les profils et la page détail événement.
+
+---
+
+## Skeleton screens
+
+Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Skeleton>` de `boneyard-js/react`. Le registry est dans `src/bones/registry.js`, importé au démarrage dans `main.tsx`.
+
+**Règle** : toute page ou composant avec un appel API et un état `loading` doit avoir un skeleton. Voir `AGENTS.md` (section Skeleton screens) et `frontend/skeleton/README.md` pour le workflow complet.
+
+| Skeleton `name` | Fichier bones | Composant consommateur | Généré par |
+|---|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` | `generate.mjs` |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | manuel |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` | `generate.mjs` |
+| `profile` | `profile.bones.json` | `ProfilePage` | manuel |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+
+Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
+
+Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer directement le JSON.
 
 
 ## Hooks
