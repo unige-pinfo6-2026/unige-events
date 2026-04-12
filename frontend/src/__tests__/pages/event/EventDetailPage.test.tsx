@@ -67,14 +67,14 @@ function renderPage(eventId = '1') {
 }
 
 describe('EventDetailPage', () => {
-  it('shows a loading spinner while loading', () => {
+  it('shows a skeleton while loading', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: null, loading: true, error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
 
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-detail"]')).toBeTruthy()
   })
 
   it('shows a localized invalid id message', () => {

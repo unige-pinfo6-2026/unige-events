@@ -42,10 +42,10 @@ function renderCards() {
 }
 
 describe('EventCards', () => {
-  it('shows spinner when loading with no events', () => {
+  it('shows skeleton when loading with no events', () => {
     mockUseEvents.mockReturnValue({ events: [], loading: true, error: null, hasMore: false, loadMore: vi.fn() })
     renderCards()
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 
   it('shows error message', () => {

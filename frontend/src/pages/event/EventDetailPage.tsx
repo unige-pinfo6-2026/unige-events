@@ -10,9 +10,71 @@ import { formatEventDateTime } from '@/utils/dateTime'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
-import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
+import { Skeleton } from 'boneyard-js/react'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import IcsExportButton from '@/components/event/IcsExportButton'
+
+// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
+// Ensures <Skeleton> stays mounted for fixture capture even when the API fails instantly.
+const isBoneyardBuild =
+  typeof window !== 'undefined' &&
+  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
+
+function EventDetailFixture() {
+  return (
+    <div className="max-w-3xl mx-auto flex flex-col gap-5">
+      {/* Banner */}
+      <div className="relative h-72 rounded-3xl overflow-hidden bg-foreground/10">
+        <span className="absolute top-4 left-4 h-6 w-24 rounded-full bg-foreground/20" />
+        <div className="absolute bottom-6 left-6 right-6">
+          <div className="h-7 w-3/4 rounded bg-foreground/20" />
+        </div>
+      </div>
+
+      {/* Main card */}
+      <div className="bg-background border border-border rounded-3xl p-7 flex flex-col gap-6">
+        {/* Meta rows */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
+            <div className="h-4 w-64 rounded bg-foreground/10" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
+            <div className="h-4 w-48 rounded bg-foreground/10" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-4 h-4 rounded bg-foreground/10 shrink-0" />
+            <div className="h-4 w-32 rounded bg-foreground/10" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-foreground/10 shrink-0" />
+            <div className="h-4 w-40 rounded bg-foreground/10" />
+          </div>
+        </div>
+        {/* Description */}
+        <div className="border-t border-border" />
+        <div className="flex flex-col gap-2">
+          <div className="h-4 w-full rounded bg-foreground/10" />
+          <div className="h-4 w-11/12 rounded bg-foreground/10" />
+          <div className="h-4 w-4/5 rounded bg-foreground/10" />
+          <div className="h-4 w-2/3 rounded bg-foreground/10" />
+        </div>
+      </div>
+
+      {/* Attendance card */}
+      <div className="bg-background border border-border rounded-3xl px-7 py-5">
+        <div className="flex gap-3">
+          <div className="h-10 w-36 rounded-xl bg-foreground/10" />
+          <div className="h-10 w-36 rounded-xl bg-foreground/10" />
+        </div>
+      </div>
+
+      {/* ICS export button */}
+      <div className="h-12 rounded-2xl bg-foreground/10" />
+    </div>
+  )
+}
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -47,7 +109,17 @@ export default function EventDetailPage() {
 
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
-  if (loading) return <LoadingSpinner/>
+  if (loading || isBoneyardBuild) return (
+    <Skeleton
+      name="event-detail"
+      loading={true}
+      fixture={<EventDetailFixture />}
+      animate="pulse"
+      color="rgba(0,0,0,0.08)"
+      darkColor="rgba(255,255,255,0.06)"
+      snapshotConfig={{ excludeTags: ['svg'] }}
+    ><EventDetailFixture /></Skeleton>
+  )
   
   if (error) return <InfoMessage type='error' message={error} />
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />

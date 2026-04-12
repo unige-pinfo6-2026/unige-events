@@ -7,7 +7,10 @@ install-backend:
 install-frontend:
 	cd frontend && npm install
 
-install: install-frontend install-backend
+install-playwright-deps:
+	cd frontend && npx playwright install-deps chromium
+
+install: install-frontend install-backend install-playwright-deps
 
 # Dev
 backend: install-backend

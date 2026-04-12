@@ -7,9 +7,62 @@ import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Lock, Mail, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
-import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
+import { Skeleton } from 'boneyard-js/react'
 import { BlobsCta } from '@/components/utils/Blobs'
+
+// Boneyard CLI sets window.__BONEYARD_BUILD before page load.
+// Ensures <Skeleton> stays mounted for fixture capture even when auth is unavailable in headless mode.
+const isBoneyardBuild =
+  typeof window !== 'undefined' &&
+  !!(window as { __BONEYARD_BUILD?: boolean }).__BONEYARD_BUILD
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
+
+function ProfileFixture() {
+  return (
+    <div>
+      {/* Banner */}
+      <div className="relative h-52 overflow-hidden bg-foreground/10" />
+
+      <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
+        {/* Header: avatar + name + edit button */}
+        <div className="relative -mt-14 flex flex-wrap items-end justify-between gap-4 mb-8">
+          <div className="flex items-end gap-5">
+            {/* Avatar 112px */}
+            <div className="relative shrink-0 w-28 h-28 rounded-full bg-foreground/10 ring-4 ring-background" />
+            <div className="pb-2 flex flex-col gap-2">
+              <div className="h-9 w-52 rounded bg-foreground/10" />
+              <div className="h-4 w-36 rounded bg-foreground/10" />
+            </div>
+          </div>
+        </div>
+
+        {/* Content grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* About card */}
+          <div className="flex flex-col gap-6">
+            <div className="bg-background border border-border rounded-3xl p-6">
+              <div className="h-3 w-16 rounded bg-foreground/10 mb-5" />
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded bg-foreground/10 shrink-0" />
+                  <div className="h-4 w-52 rounded bg-foreground/10" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded bg-foreground/10 shrink-0" />
+                  <div className="h-4 w-40 rounded bg-foreground/10" />
+                </div>
+                <div className="h-12 w-32 rounded bg-foreground/10" />
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar card */}
+          <div className="bg-background border border-border rounded-3xl p-6 h-48" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; children: React.ReactNode }>) {
   return (
@@ -56,7 +109,17 @@ export default function ProfilePage() {
     }
   }, [id, isOwnProfile, currentUser, authLoading])
 
-  if (loading) return <LoadingSpinner />
+  if (loading || isBoneyardBuild) return (
+    <Skeleton
+      name="profile"
+      loading={true}
+      fixture={<ProfileFixture />}
+      animate="pulse"
+      color="rgba(0,0,0,0.08)"
+      darkColor="rgba(255,255,255,0.06)"
+      snapshotConfig={{ excludeTags: ['svg'] }}
+    ><ProfileFixture /></Skeleton>
+  )
   if (error) return <InfoMessage type="error" message={error} />
   if (!profile) return null
 

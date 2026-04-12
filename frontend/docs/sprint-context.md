@@ -74,6 +74,18 @@ Fonctionnalités livrées :
 - Types `AttendanceStatus`, `Attendance`, `AttendanceRequest` dans `src/types/attendance.ts`.
 - Tests unitaires pour `attendanceApi` et `useAttendance` (couverture ≥ 80 %).
 
+## Sprint 4 — Skeleton screens Boneyard (2026-04-12)
+
+Terminé le 2026-04-12.
+
+Fonctionnalités livrées :
+- [x] Skeleton screens Boneyard — EventCards, EventDetailPage, ProfilePage
+- Intégration de `boneyard-js` : plugin Vite, `boneyard.config.json` (breakpoints forcés pour Tailwind v4), import du registry dans `main.tsx`.
+- Renommage `Skeleton` → `SkeletonBlock` dans `src/components/utils/Skeleton.tsx` pour lever le conflit de nom avec `<Skeleton>` Boneyard.
+- Fixtures locales non-exportées dans chaque composant ciblé — JSX statique reproduisant le layout réel pour la capture CLI.
+- `LoadingSpinner` retiré d'`EventCards`, `EventDetailPage`, `ProfilePage` — conservé dans `PrivateRoute` et `LoadingPage`.
+- Fichiers `src/bones/` à générer manuellement via `npx boneyard-js build` (étape manuelle post-déploiement du dev server).
+
 ## Correctifs transverses — 2026-03-31
 
 Terminé.

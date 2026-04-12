@@ -138,6 +138,13 @@
 - Bouton "Télécharger .ics" : génère un fichier ICS via `generateIcs`, crée un Blob et déclenche le téléchargement côté client.
 - Lien "Google Calendar" : ouvre Google Calendar pré-rempli via `buildGoogleCalendarUrl`, s'ouvre dans un nouvel onglet.
 
+### SkeletonBlock
+
+- Rectangle pulse simple (Tailwind `animate-pulse`, `bg-foreground/10`, `rounded-xl`).
+- Usage : placeholders inline de petite taille (ex: bouton Auth0 dans la Navbar pendant `isLoading`).
+- Import : `import { SkeletonBlock } from '@/components/utils/Skeleton'`
+- Pour les skeleton screens de page complète, utiliser `<Skeleton>` de `boneyard-js/react` (cf. `EventCards`, `EventDetailPage`, `ProfilePage`).
+
 ### Avatar
 
 - Affiche soit une image soit des initiales à partir de displayName.

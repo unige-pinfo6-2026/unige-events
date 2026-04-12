@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import UserIdentity from './user/UserIdentity'
 import { ButtonPrimary } from './utils/Buttons'
-import { Skeleton } from './utils/Skeleton'
+import { SkeletonBlock } from './utils/Skeleton'
 import { Banner } from '@/assets/Banner'
 import { ChevronDown, Menu, Moon, SearchIcon, Sun, X } from 'lucide-react'
 import type { User } from '@/types/user'
@@ -153,7 +153,7 @@ function DesktopNav() {
       <div className="hidden lg:flex items-center gap-6">
         <NavButtons/>
 
-        {isLoading && <Skeleton className="h-9 w-28" />}
+        {isLoading && <SkeletonBlock className="h-9 w-28" />}
         {!isLoading && (user
           ? <UserDropdown user={user} logout={logout} />
           : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
