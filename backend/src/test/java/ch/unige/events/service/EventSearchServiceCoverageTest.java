@@ -173,6 +173,31 @@ class EventSearchServiceCoverageTest {
         assertEquals("Conférence Java", result.get(0).title());
     }
 
+    // --- Filtre statut : les brouillons ne doivent jamais apparaître ---
+
+    @Test
+    @TestTransaction
+    void search_draftEvent_isNotReturned() {
+        deleteAll();
+        User user = persistUser("auth0|draft1", "draft1@example.com");
+        persistEvent("Événement publié", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        Event draft = new Event();
+        draft.title = "Brouillon secret";
+        draft.location = "Uni Mail";
+        draft.startDate = LocalDateTime.now().plusDays(2);
+        draft.endDate = draft.startDate.plusHours(2);
+        draft.category = EventCategory.ACADEMIC;
+        draft.status = EventStatus.DRAFT;
+        draft.creator = user;
+        entityManager.persist(draft);
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Événement publié", result.get(0).title());
+    }
+
     // --- Aucun résultat → 200 + liste vide ---
 
     @Test
