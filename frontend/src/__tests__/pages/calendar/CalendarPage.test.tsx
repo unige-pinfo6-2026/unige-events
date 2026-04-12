@@ -104,10 +104,10 @@ function renderPage() {
 }
 
 describe('CalendarPage', () => {
-  it('shows a spinner while loading', () => {
+  it('shows skeleton while loading', () => {
     mockUseCalendarEvents.mockReturnValue({ events: [], loading: true, error: null })
     renderPage()
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-calendar"]')).toBeTruthy()
   })
 
   it('shows the error message when fetch fails', () => {

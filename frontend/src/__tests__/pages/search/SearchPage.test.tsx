@@ -99,11 +99,11 @@ describe('SearchPage', () => {
     expect(screen.getByText((t) => t.includes('2') && t.includes('événements'))).toBeTruthy()
   })
 
-  it('shows a spinner when loading', () => {
+  it('shows skeleton when loading', () => {
     mockUseSearch.mockReturnValue(makeDefaultHook({ loading: true }))
     renderPage()
 
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="search-results"]')).toBeTruthy()
   })
 
   it('shows error message', () => {
