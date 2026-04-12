@@ -10,9 +10,15 @@ vi.mock('@/hooks/useEvents', () => ({
   useEvents: vi.fn(),
 }))
 
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
+}))
+
 import { useEvents } from '@/hooks/useEvents'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseEvents = useEvents as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 afterEach(() => {
   cleanup()
@@ -92,5 +98,12 @@ describe('EventCards', () => {
     mockUseEvents.mockReturnValue({ events: [mockEvent], loading: false, error: 'Erreur', hasMore: true, loadMore: vi.fn() })
     renderCards()
     expect(screen.queryByRole('button', { name: 'Charger plus' })).toBeNull()
+  })
+
+  it('shows skeleton with light theme skeleton color', () => {
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockUseEvents.mockReturnValue({ events: [], loading: true, error: null, hasMore: false, loadMore: vi.fn() })
+    renderCards()
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 })

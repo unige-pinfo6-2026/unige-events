@@ -76,6 +76,10 @@ vi.mock('date-fns', () => ({
 vi.mock('date-fns/locale', () => ({ fr: {} }))
 vi.mock('react-big-calendar/lib/css/react-big-calendar.css', () => ({}))
 
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -83,9 +87,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
+import { useTheme } from '@/contexts/ThemeContext'
 import CalendarPage from '@/pages/calendar/CalendarPage'
 
 const mockUseCalendarEvents = useCalendarEvents as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 const makeCalendarEvent = (id: number, title: string): CalendarEvent => ({
   title,
@@ -250,5 +256,12 @@ describe('CalendarPage', () => {
     mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
     renderPage()
     expect(screen.getByText('Avril 2026')).toBeTruthy()
+  })
+
+  it('shows skeleton with light theme color', () => {
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockUseCalendarEvents.mockReturnValue({ events: [], loading: true, error: null })
+    renderPage()
+    expect(document.querySelector('[data-boneyard="event-calendar"]')).toBeTruthy()
   })
 })

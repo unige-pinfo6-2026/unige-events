@@ -211,4 +211,15 @@ describe('EventDetailPage', () => {
     await waitFor(() => expect(mockGetUserById).toHaveBeenCalled())
     expect(screen.queryByText(/Organisé par/)).toBeNull()
   })
+
+  it('renders event with no capacity (InfoRow without color branch)', () => {
+    const eventNoCapacity = { ...mockEvent, capacity: undefined }
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: eventNoCapacity, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
+  })
 })
