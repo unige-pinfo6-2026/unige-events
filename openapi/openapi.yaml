@@ -183,6 +183,12 @@ components:
         capacity:
           type: integer
           nullable: true
+        attendingCount:
+          type: integer
+          format: int64
+          readOnly: true
+          minimum: 0
+          description: Nombre d'utilisateurs inscrits avec le statut ATTENDING
         createdAt:
           type: string
           format: date-time
@@ -269,7 +275,7 @@ components:
 
     Attendance:
       type: object
-      description: Inscription d'un utilisateur à un événement (INTERESTED ou ATTENDING)
+      description: Inscription d'un utilisateur à un événement (ATTENDING)
       properties:
         id:
           type: integer
@@ -294,7 +300,7 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/AttendanceStatus'
-          description: Statut souhaité — INTERESTED ou ATTENDING
+          description: Statut souhaité — ATTENDING
 
     Notification:
       type: object
@@ -349,8 +355,6 @@ components:
       properties:
         views:
           type: integer
-        interestedCount:
-          type: integer
         attendingCount:
           type: integer
         checkInCount:
@@ -391,7 +395,7 @@ components:
 
     AttendanceStatus:
       type: string
-      enum: [INTERESTED, ATTENDING]
+      enum: [ATTENDING]
 
     ReportStatus:
       type: string
@@ -738,8 +742,7 @@ paths:
     get:
       summary: Mes inscriptions aux événements
       description: |
-        Retourne toutes les inscriptions (INTERESTED et ATTENDING) de l'utilisateur connecté.
-        Le champ status permet au frontend de distinguer les deux niveaux d'engagement.
+        Retourne toutes les inscriptions (ATTENDING) de l'utilisateur connecté.
       operationId: getMyAttendances
       tags: [users, attendance]
       security:
@@ -764,9 +767,9 @@ paths:
     get:
       summary: Flux iCalendar personnel (webcal)
       description: |
-        Retourne le flux iCalendar RFC 5545 des événements PUBLISHED auxquels l'utilisateur
-        (identifié par son token personnel) s'est inscrit explicitement (statut INTERESTED
-        ou ATTENDING). Polled automatiquement par les applications calendrier.
+        Retourne le flux iCalendar RFC 5545 des événements PUBLISHED que l'utilisateur
+        (identifié par son token personnel) a mis en favori ou auxquels il est inscrit (ATTENDING).
+        Union des deux sources, dédupliquée. Polled automatiquement par les applications calendrier.
         Content-Type: text/calendar;charset=UTF-8.
         Authentification via token dans l'URL (pas de Bearer JWT requis).
       operationId: getCalendarFeed
@@ -1170,9 +1173,8 @@ paths:
       summary: S'inscrire à un événement (upsert)
       description: |
         Crée ou met à jour la participation de l'utilisateur connecté à l'événement.
-        **Upsert** : si une inscription existe déjà avec un statut différent, le statut est mis à jour.
+        **Upsert** : si une inscription existe déjà, elle est conservée (idempotent). Seul le statut ATTENDING est accepté.
         Retourne 409 si l'événement a atteint sa capacité maximale et que le statut demandé est ATTENDING.
-        INTERESTED n'est jamais bloqué par la capacité.
       operationId: attendEvent
       tags: [events, attendance]
       security:

@@ -40,9 +40,11 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | bannerUrl   | string        | non    |
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
-| capacity    | number        | non    |
-| createdAt   | string        | oui    |
-| updatedAt   | string        | non    |
+| capacity        | number        | non    |
+| attendingCount  | number        | non    |
+| interestedCount | number        | non    |
+| createdAt       | string        | oui    |
+| updatedAt       | string        | non    |
 
 ### CreateEventRequest
 
@@ -114,6 +116,51 @@ Exportée depuis `src/hooks/useEventSearch.ts` (non dans `src/types/`).
 Utilisée comme props par `FilterSidebar`.
 Champs : `category?`, `faculty?`, `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
 `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
+
+## Types présence — `src/types/attendance.ts`
+
+### AttendanceStatus
+
+`'INTERESTED' | 'ATTENDING'`
+
+### Attendance
+
+| Champ     | Type   | Requis |
+|-----------|--------|--------|
+| id        | number | oui    |
+| userId    | string | oui    |
+| eventId   | number | oui    |
+| status    | AttendanceStatus | oui |
+| createdAt | string | oui    |
+
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend`).
+
+### AttendanceRequest
+
+| Champ  | Type             | Requis |
+|--------|------------------|--------|
+| status | AttendanceStatus | oui    |
+
+Body de `POST /events/{id}/attend`.
+
+---
+
+## Types calendrier — `src/types/calendarToken.ts`
+
+### CalendarTokenResponse
+
+Réponse de `GET /api/users/me/calendar-token` et `POST /api/users/me/calendar-token/regenerate`.
+
+| Champ         | Type   | Requis |
+|---------------|--------|--------|
+| calendarToken | string (uuid) | oui |
+| webcalUrl     | string | oui    |
+| httpsUrl      | string | oui    |
+
+`webcalUrl` utilise le protocole `webcal://` (Apple Calendar, Outlook).
+`httpsUrl` est l'URL `https://` pour Google Calendar et le téléchargement direct.
+
+---
 
 ## Règles générales
 

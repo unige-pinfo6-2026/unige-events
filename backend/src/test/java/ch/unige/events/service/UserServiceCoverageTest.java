@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@TestProfile(UserServiceCoverageProfile.class)
+@TestProfile(ShareServiceCoverageProfile.class)
 class UserServiceCoverageTest {
 
     @jakarta.inject.Inject
@@ -502,7 +502,7 @@ class UserServiceCoverageTest {
         User result = userService.uploadImage("auth0|photo", upload);
 
         assertNotNull(result.avatarUrl);
-        assertTrue(result.avatarUrl.startsWith("/api/uploads/"));
+        assertTrue(result.avatarUrl.startsWith("http"));
         assertTrue(result.avatarUrl.endsWith(".jpg"));
     }
 

@@ -1,6 +1,8 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
@@ -19,7 +21,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@TestProfile(EventSearchServiceCoverageProfile.class)
+@TestProfile(ShareServiceCoverageProfile.class)
 class EventSearchServiceCoverageTest {
 
     @Inject
@@ -171,6 +173,31 @@ class EventSearchServiceCoverageTest {
         assertEquals("Conférence Java", result.get(0).title());
     }
 
+    // --- Filtre statut : les brouillons ne doivent jamais apparaître ---
+
+    @Test
+    @TestTransaction
+    void search_draftEvent_isNotReturned() {
+        deleteAll();
+        User user = persistUser("auth0|draft1", "draft1@example.com");
+        persistEvent("Événement publié", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        Event draft = new Event();
+        draft.title = "Brouillon secret";
+        draft.location = "Uni Mail";
+        draft.startDate = LocalDateTime.now().plusDays(2);
+        draft.endDate = draft.startDate.plusHours(2);
+        draft.category = EventCategory.ACADEMIC;
+        draft.status = EventStatus.DRAFT;
+        draft.creator = user;
+        entityManager.persist(draft);
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Événement publié", result.get(0).title());
+    }
+
     // --- Aucun résultat → 200 + liste vide ---
 
     @Test
@@ -205,12 +232,39 @@ class EventSearchServiceCoverageTest {
         assertEquals(1, page2.size());
     }
 
+    // --- count tests ---
+
+    @Test
+    @TestTransaction
+    void search_withAttendance_returnsRealCounts() {
+        deleteAll();
+        User user = persistUser("auth0|cnt1", "cnt1@example.com");
+        Event event = persistEvent("Counted Event", "Desc", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        persistAttendance(user.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = eventSearchService.search("Counted", null, null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).attendingCount());
+    }
+
     // --- helpers ---
 
     private void deleteAll() {
+        entityManager.createNativeQuery("delete from attendances").executeUpdate();
         entityManager.createNativeQuery("delete from events").executeUpdate();
         entityManager.createNativeQuery("delete from users").executeUpdate();
         entityManager.clear();
+    }
+
+    private Attendance persistAttendance(java.util.UUID userId, Long eventId, AttendanceStatus status) {
+        Attendance a = new Attendance();
+        a.userId = userId;
+        a.eventId = eventId;
+        a.status = status;
+        entityManager.persist(a);
+        entityManager.flush();
+        return a;
     }
 
     private User persistUser(String auth0Id, String email) {

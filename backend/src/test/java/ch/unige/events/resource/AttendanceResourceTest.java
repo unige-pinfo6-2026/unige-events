@@ -45,20 +45,6 @@ class AttendanceResourceTest {
     }
 
     @Test
-    @TestSecurity(user = "auth0|alice")
-    void attend_interested_returns200() {
-        Event event = attendanceServiceMock.seedEvent("Conférence UNIGE 2");
-
-        given()
-                .contentType(ContentType.JSON)
-                .body("{\"status\":\"INTERESTED\"}")
-                .when().post("/events/{id}/attend", event.id)
-                .then()
-                .statusCode(200)
-                .body("status", equalTo("INTERESTED"));
-    }
-
-    @Test
     void attend_unauthenticated_returns401() {
         given()
                 .contentType(ContentType.JSON)

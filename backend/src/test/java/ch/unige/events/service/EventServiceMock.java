@@ -71,7 +71,7 @@ public class EventServiceMock extends EventService {
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
                 .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
-                .map(EventDTO::from)
+                .map(e -> EventDTO.from(e, 0L))
                 .toList();
     }
 
@@ -97,7 +97,7 @@ public class EventServiceMock extends EventService {
         event.updatedAt = LocalDateTime.now();
 
         eventsById.put(event.id, event);
-        return EventDTO.from(event);
+        return EventDTO.from(event, 0L);
     }
 
     @Override
@@ -106,7 +106,7 @@ public class EventServiceMock extends EventService {
         if (event == null) {
             throw new NotFoundException();
         }
-        return EventDTO.from(event);
+        return EventDTO.from(event, 0L);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class EventServiceMock extends EventService {
         }
         event.updatedAt = LocalDateTime.now();
 
-        return EventDTO.from(event);
+        return EventDTO.from(event, 0L);
     }
 
     @Override
@@ -171,7 +171,7 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.status = EventStatus.PUBLISHED;
-        return EventDTO.from(e);
+        return EventDTO.from(e, 0L);
     }
 
     @Override
@@ -183,6 +183,6 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.bannerUrl = "/uploads/test-banner.jpg";
-        return EventDTO.from(e);
+        return EventDTO.from(e, 0L);
     }
 }

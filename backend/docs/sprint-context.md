@@ -79,10 +79,14 @@ Dernière mise à jour : 2026-04-06
 - [x] `GET /events/{id}/share` + `GET /s/{shortCode}` (shortlink redirect) — SCRUM-89 ✅
 - [x] `GET /users/me/calendar-token`, `DELETE /users/me/calendar-token`, `GET /calendar/{calendarToken}.ics` — SCRUM-89-bis ✅
 - [x] Entité `Attendance` (userId, eventId, status) + endpoints — SCRUM-88 ✅
-  - `POST /events/{id}/attend` (upsert INTERESTED/ATTENDING)
+  - `POST /events/{id}/attend` (upsert ATTENDING)
   - `DELETE /events/{id}/attend` (désinscription)
   - `GET /events/{id}/attendees` (créateur uniquement)
   - `GET /users/me/attendances`
+- [x] Suppression du statut `INTERESTED` — correctif backend ✅
+  - `AttendanceStatus` réduit à `ATTENDING` (INTERESTED redondant avec les favoris)
+  - `CalendarService.generateIcsFeed` : flux ICS = Favoris ∪ ATTENDING (PUBLISHED, dédupliqués)
+  - `EventDTO` : champ `interestedCount` supprimé
 
 ### Fixes PR #41 (post-review lead technique)
 - [x] Fix 1 — NPE body null `POST /events/{id}/attend` → `@NotNull` sur paramètre
@@ -99,7 +103,7 @@ Dernière mise à jour : 2026-04-06
 
 **Objectif :** Statistiques organisateur + liste des participants.
 
-- [ ] `GET /events/{id}/stats` (vues, interestedCount, attendingCount — créateur/admin uniquement)
+- [ ] `GET /events/{id}/stats` (vues, attendingCount — créateur/admin uniquement)
 - [ ] Incrémentation du compteur de vues à chaque `GET /events/{id}` (déduplication userId+eventId)
 
 ---

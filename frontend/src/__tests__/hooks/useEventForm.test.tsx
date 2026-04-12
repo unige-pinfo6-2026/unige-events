@@ -34,6 +34,7 @@ const baseEvent = {
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
   status: 'DRAFT' as const,
   capacity: 120,
+  attendingCount: 0,
   createdAt: '2026-03-27T09:00:00.000Z',
   bannerUrl: 'https://example.com/current-banner.png',
 }

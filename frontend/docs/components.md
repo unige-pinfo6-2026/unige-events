@@ -120,6 +120,31 @@
 - Réutilise les constantes `EventCategory` et `Faculty` de `src/types/`.
 - Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
+### AttendanceButtons
+
+- Affiche les boutons "Je suis intéressé(e)" et "Je participe" sur la page détail événement.
+- Props : `eventId`, `initialAttendingCount`, `initialInterestedCount`, `initialStatus`.
+- Gère les mises à jour optimistes via `useAttendance` : clic → état local mis à jour immédiatement, rollback en cas d'erreur.
+- Bouton ATTENDING désactivé avec tooltip "Événement complet" quand `isFull === true` et l'utilisateur n'est pas déjà ATTENDING.
+- Affiche un compteur live : "X personnes participent · Y intéressées".
+- Affiche un message d'erreur inline en cas d'erreur non-409.
+
+### CalendarSubscribeButton
+
+- Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
+- Sans props — charge automatiquement le token via `getCalendarToken()` au montage.
+- Trois liens : abonnement Apple/Outlook (`webcal://`), abonnement Google Calendar (`https://`, nouvel onglet), téléchargement direct `.ics` (attribut `download`).
+- Bouton "Révoquer et régénérer le lien" : appelle `regenerateCalendarToken()`, met à jour les trois URLs, affiche un message de confirmation.
+- Gère les états loading, error et regenerating.
+- Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
+
+### IcsExportButton
+
+- Affiche un bloc "Ajouter au calendrier" sur la page détail événement.
+- Props : `event` (objet `Event` complet).
+- Bouton "Télécharger .ics" : génère un fichier ICS via `generateIcs`, crée un Blob et déclenche le téléchargement côté client.
+- Lien "Google Calendar" : ouvre Google Calendar pré-rempli via `buildGoogleCalendarUrl`, s'ouvre dans un nouvel onglet.
+
 ### Avatar
 
 - Affiche soit une image soit des initiales à partir de displayName.
@@ -170,7 +195,25 @@
 - Expose : `query`, `setQuery`, `filters`, `setFilters`, `results`, `suggestions`, `loading`, `error`, `resetFilters()`, `selectSuggestion(text)`.
 - `selectSuggestion` définit `query`, vide `suggestions`, et déclenche immédiatement une recherche.
 
+### useAttendance
+
+- Gère l'état d'inscription d'un utilisateur à un événement.
+- Params : `eventId`, `initialAttendingCount`, `initialInterestedCount`, `initialStatus`.
+- Expose : `currentStatus`, `attendingCount`, `interestedCount`, `loading`, `error`, `isFull`, `toggle(status)`.
+- Mise à jour optimiste : état local mis à jour avant la résolution de l'API, rollback si erreur.
+- Erreur 409 → `isFull = true` (pas de message `error` générique dans ce cas).
+
 ## Services
+
+### attendanceApi.ts
+
+- `attend(eventId, status)` : `POST /api/events/{id}/attend` avec body `{ status }` — upsert.
+- `unattend(eventId)` : `DELETE /api/events/{id}/attend`.
+
+### icsGenerator.ts
+
+- `generateIcs(event)` : retourne une chaîne RFC 5545 (.ics) avec VCALENDAR, VEVENT, UID, DTSTART, DTEND, SUMMARY, LOCATION et DESCRIPTION optionnelle. Échappe les caractères spéciaux et applique le line folding à 75 octets.
+- `buildGoogleCalendarUrl(event)` : retourne l'URL Google Calendar pré-remplie (action=TEMPLATE, text, dates, location, details optionnel).
 
 ### eventApi.ts
 

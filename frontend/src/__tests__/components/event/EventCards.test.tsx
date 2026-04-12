@@ -33,6 +33,7 @@ const mockEvent: Event = {
   status: 'PUBLISHED',
   creatorId: 'user-1',
   capacity: 100,
+  attendingCount: 0,
   createdAt: '2026-03-01T10:00:00',
 }
 

@@ -55,6 +55,7 @@ Fonctionnalités livrées :
 - Lien "Vue Calendrier" dans la Navbar.
 
 ## Sprint 4 — Favoris & Partage (SCRUM-91)
+## Sprint 4 — Export ICS (SCRUM-100)
 
 Terminé le 2026-04-09.
 
@@ -67,6 +68,20 @@ Fonctionnalités livrées :
 - Bouton "Partager" dans EventDetailPage : copie l'URL dans le presse-papier, toast "Lien copié !" 3s via useToast.
 - Lien "Mes Favoris" dans la Navbar (menu utilisateur connecté uniquement).
 - Route /favorites enregistrée dans AppRouter sous PrivateRoute.
+- `icsGenerator.ts` (`src/utils/`) : `generateIcs(event)` conforme RFC 5545 (UTC, échappement, line folding 75 octets, DESCRIPTION optionnelle) et `buildGoogleCalendarUrl(event)`.
+- `IcsExportButton` (`src/components/event/IcsExportButton.tsx`) : bouton "Télécharger .ics" (Blob download) + lien "Google Calendar" (nouvel onglet), affiché sur `EventDetailPage`.
+- Tests unitaires `icsGenerator.test.ts` et composant `IcsExportButton.test.tsx` (couverture ≥ 80 %).
+
+## Sprint 4 — Présence / Attendance (SCRUM-90)
+
+Terminé le 2026-04-08.
+
+Fonctionnalités livrées :
+- `AttendanceButtons` (`src/components/event/AttendanceButtons.tsx`) : boutons "Je suis intéressé(e)" et "Je participe" sur `EventDetailPage`.
+- `useAttendance` hook : mise à jour optimiste, rollback sur erreur, flag `isFull` sur 409.
+- `attendanceApi.ts` : `attend` (POST) et `unattend` (DELETE) sur `/api/events/{id}/attend`.
+- Types `AttendanceStatus`, `Attendance`, `AttendanceRequest` dans `src/types/attendance.ts`.
+- Tests unitaires pour `attendanceApi` et `useAttendance` (couverture ≥ 80 %).
 
 ## Correctifs transverses — 2026-03-31
 
