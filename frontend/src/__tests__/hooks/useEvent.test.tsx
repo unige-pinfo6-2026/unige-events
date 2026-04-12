@@ -58,7 +58,7 @@ describe('useEvent', () => {
   })
 
   it('does not fetch when id is null', () => {
-    const { result } = renderHook(() => useEvent(null))
+    renderHook(() => useEvent(null))
     // loading starts true but never flips because effect returns early
     expect(mockGetById).not.toHaveBeenCalled()
   })
