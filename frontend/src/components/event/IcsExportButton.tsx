@@ -17,14 +17,12 @@ const buttonBase =
 function CalendarOption({
   icon: Icon,
   label,
-  description,
   variant,
   onClick,
   href,
 }: Readonly<{
   icon: LucideIcon
   label: string
-  description: string
   variant: keyof typeof calendarOptionVariants
   onClick?: () => void
   href?: string
@@ -43,7 +41,6 @@ function CalendarOption({
           {label}
         </a>
       )}
-      <p className="text-xs text-foreground/50 leading-relaxed">{description}</p>
     </div>
   )
 }
@@ -74,21 +71,18 @@ export default function IcsExportButton({ event }: Readonly<IcsExportButtonProps
         <CalendarOption
           icon={Apple}
           label="Apple Calendar"
-          description="Double-cliquez le fichier téléchargé pour l'ouvrir dans Apple Calendar"
           variant="download"
           onClick={handleDownload}
         />
         <CalendarOption
           icon={Download}
           label="Outlook"
-          description="Téléchargez puis ouvrez le fichier dans Outlook pour l'importer"
           variant="download"
           onClick={handleDownload}
         />
         <CalendarOption
           icon={ExternalLink}
           label="Google Calendar"
-          description="Ouvre Google Calendar avec l'événement pré-rempli"
           variant="external"
           href={googleCalendarUrl}
         />

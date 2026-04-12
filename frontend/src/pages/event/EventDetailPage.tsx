@@ -8,12 +8,15 @@ import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
 import { formatEventDateTime } from '@/utils/dateTime'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
-import { Calendar, MapPin, Users } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import IcsExportButton from '@/components/event/IcsExportButton'
+import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
+import { BlobsSubtle } from '@/components/utils/Blobs'
+import type { LucideIcon } from 'lucide-react'
+import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Bookmark } from 'lucide-react'
 
 // Boneyard CLI sets window.__BONEYARD_BUILD before page load.
 // Ensures <Skeleton> stays mounted for fixture capture even when the API fails instantly.
@@ -77,6 +80,70 @@ function EventDetailFixture() {
   )
 }
 
+// ─── Local composants non-exportés ────────────────────────────────────────────
+
+interface InfoRowProps {
+  icon: LucideIcon
+  color?: string
+  children: React.ReactNode
+}
+
+function InfoRow({ icon: Icon, color, children }: InfoRowProps) {
+  return (
+    <div className="flex items-start gap-3 text-sm text-foreground/60">
+      <Icon
+        className="w-4 h-4 shrink-0 mt-0.5"
+        style={color ? { color } : undefined}
+      />
+      <span className="leading-snug">{children}</span>
+    </div>
+  )
+}
+
+interface ComingSoonBlockProps {
+  icon: LucideIcon
+  label: string
+  sprint: string
+  children?: React.ReactNode
+}
+
+const comingSoonVariants = {
+  container: 'rounded-2xl border border-dashed border-border/40 bg-foreground/[0.018] px-4 py-3',
+  header:    'flex items-center justify-between gap-3',
+  iconLabel: 'flex items-center gap-2 text-foreground/30',
+  icon:      'w-4 h-4 shrink-0',
+  label:     'text-sm',
+  badge:     'text-[10px] font-semibold tracking-widest uppercase text-foreground/20 bg-foreground/5 px-2 py-0.5 rounded-full border border-border/30 shrink-0',
+  body:      'mt-3 pointer-events-none select-none opacity-30',
+} as const
+
+function ComingSoonBlock({ icon: Icon, label, sprint, children }: ComingSoonBlockProps) {
+  return (
+    <div className={comingSoonVariants.container}>
+      <div className={comingSoonVariants.header}>
+        <div className={comingSoonVariants.iconLabel}>
+          <Icon className={comingSoonVariants.icon} />
+          <span className={comingSoonVariants.label}>{label}</span>
+        </div>
+        <span className={comingSoonVariants.badge}>{sprint}</span>
+      </div>
+      {children && (
+        <div className={comingSoonVariants.body}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const capacityBadgeVariants = {
+  full:      'bg-error/10 border-error/30 text-error',
+  low:       'bg-orange-500/10 border-orange-500/30 text-orange-400',
+  available: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+} as const
+
+// ─── Page principale ───────────────────────────────────────────────────────────
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -123,7 +190,7 @@ export default function EventDetailPage() {
       snapshotConfig={{ excludeTags: ['svg'] }}
     ><EventDetailFixture /></Skeleton>
   )
-  
+
   if (error) return <InfoMessage type='error' message={error} />
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
@@ -143,114 +210,249 @@ export default function EventDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col gap-5">
+    <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
 
-      {/* Banner */}
-      <div
-        className="relative h-72 rounded-3xl overflow-hidden"
-        style={{
-          background: event.bannerUrl
-            ? `url(${event.bannerUrl}) center/cover`
-            : `linear-gradient(135deg, ${category.color}55, ${category.color}cc)`,
-        }}
-      >
-        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
-        <span
-          className="absolute top-4 left-4 text-white text-xs font-bold px-3 py-1.5 rounded-full tracking-wide backdrop-blur-sm"
-          style={{ background: `${category.color}cc` }}
-        >
-          {category.name}
-        </span>
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <h1 className="text-white text-2xl font-extrabold leading-snug drop-shadow-sm">
-            {event.title}
-          </h1>
-        </div>
-      </div>
+      <SectionHeader
+        title={<>Détails de <mark>l'événement</mark></>}
+        subtitle="Toutes les informations pour participer"
+        align="left"
+      />
 
-      {/* Main card */}
-      <div className="bg-background border border-border rounded-3xl p-7 flex flex-col gap-6">
+      {/* Grille deux colonnes */}
+      <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
 
-        {/* Organizer actions row */}
-        {isOrganizer && (
-          <div className="flex gap-2 justify-end">
-            <Link
-              to={`/events/${event.id}/edit`}
-              className="px-4 py-2 rounded-xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+        {/* Colonne principale — order-2 sur mobile */}
+        <div className="flex flex-col gap-5 max-lg:order-2">
+
+          {/* Bannière */}
+          <div
+            className="relative rounded-3xl overflow-hidden h-72 lg:h-80"
+            style={{
+              background: event.bannerUrl
+                ? `url(${event.bannerUrl}) center/cover`
+                : `linear-gradient(135deg, ${category.color}55, ${category.color}cc)`,
+            }}
+          >
+            <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
+            <span
+              className="absolute top-4 left-4 text-white text-xs font-bold px-3 py-1.5 rounded-full tracking-wide backdrop-blur-sm"
+              style={{ background: `${category.color}cc` }}
             >
-              Modifier
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowConfirm(true)}
-              className="px-4 py-2 bg-error/10 border border-error/30 text-error rounded-xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-            >
-              Supprimer
-            </button>
-          </div>
-        )}
-
-        {/* Meta */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-sm text-foreground/60">
-            <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-            <span>
-              {formatEventDateTime(event.startDate)}
-              <span className="text-foreground/30 mx-2">→</span>
-              {formatEventDateTime(event.endDate)}
+              {category.name}
             </span>
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <h1 className="text-white text-2xl lg:text-3xl font-extrabold leading-snug drop-shadow-sm">
+                {event.title}
+              </h1>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-foreground/60">
-            <MapPin className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-            <span>{event.location}</span>
-          </div>
-          {event.capacity !== undefined && (
-            <div className="flex items-center gap-3 text-sm text-foreground/60">
-              <Users className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-              <span>{event.capacity} places disponibles</span>
+
+          {/* Card description */}
+          {event.description && (
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-3">
+                À propos
+              </h2>
+              <p className="text-foreground/70 leading-relaxed whitespace-pre-wrap text-sm">
+                {event.description}
+              </p>
             </div>
           )}
-          {organizer && (
-            <div className="flex items-center gap-3 text-sm text-foreground/60">
-              <UserAvatar user={organizer} size={20} className="shrink-0" />
-              <span>
-                Organisé par{' '}
-                <strong className="text-foreground font-semibold">
-                  {organizer.displayName ?? organizer.email}
-                </strong>
-              </span>
-            </div>
-          )}
+
+          {/* Shells champs additionnels — S5 */}
+          <div className="flex flex-col gap-3">
+
+            <ComingSoonBlock icon={Globe} label="Site web de l'événement" sprint="S5">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-foreground/30 shrink-0" />
+                <span className="text-xs text-foreground/20 truncate">https://unige.ch/evenement…</span>
+              </div>
+            </ComingSoonBlock>
+
+            <ComingSoonBlock icon={Mail} label="Email de contact" sprint="S5">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-foreground/30 shrink-0" />
+                <span className="text-xs text-foreground/20">contact@unige.ch</span>
+              </div>
+            </ComingSoonBlock>
+
+            <ComingSoonBlock icon={CalendarClock} label="Date limite d'inscription" sprint="S5">
+              <span className="text-xs text-foreground/20">jj/mm/aaaa à HH:MM</span>
+            </ComingSoonBlock>
+
+            <ComingSoonBlock icon={Tag} label="Mots-clés" sprint="S5">
+              <div className="flex flex-wrap gap-1.5">
+                {(['conférence', 'réseau', 'emploi'] as const).map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/20"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </ComingSoonBlock>
+
+          </div>
+
         </div>
 
-        {/* Description */}
-        {event.description && (
-          <>
+        {/* Sidebar — order-1 sur mobile (remonte au-dessus) */}
+        <div className="flex flex-col gap-4 lg:sticky lg:top-6 max-lg:order-1">
+
+          {/* Card infos clés */}
+          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-5 border border-border flex flex-col gap-4">
+
+            <div className="flex flex-col gap-3">
+              <InfoRow icon={Calendar} color={category.color}>
+                <span>
+                  {formatEventDateTime(event.startDate)}
+                  <span className="text-foreground/30 mx-1.5">→</span>
+                  {formatEventDateTime(event.endDate)}
+                </span>
+              </InfoRow>
+
+              <InfoRow icon={MapPin} color={category.color}>
+                {event.location}
+              </InfoRow>
+
+              {event.capacity !== undefined && (
+                <InfoRow icon={Users} color={category.color}>
+                  {event.capacity} places au total
+                </InfoRow>
+              )}
+            </div>
+
             <div className="border-t border-border" />
-            <p className="text-foreground/70 leading-relaxed whitespace-pre-wrap text-sm">
-              {event.description}
-            </p>
-          </>
-        )}
-      </div>
 
-      {/* Attendance */}
-      <div className="bg-background border border-border rounded-3xl px-7 py-5">
-        <AttendanceButtons
-          key={event.id}
-          eventId={event.id}
-          initialAttendingCount={event.attendingCount}
-          initialStatus={null}
-        />
-      </div>
+            {/* Organisateur */}
+            {organizer && (
+              <Link
+                to={`/profile/${organizer.id}`}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
+              >
+                <UserAvatar user={organizer} size={36} className="shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs text-foreground/40">Organisé par</span>
+                  <span className="text-sm font-semibold text-foreground truncate">
+                    {organizer.displayName ?? organizer.email}
+                  </span>
+                </div>
+              </Link>
+            )}
 
-      {/* ICS export */}
-      <IcsExportButton event={event} />
+            {/* Shell places disponibles — S5 (SCRUM-130) */}
+            <div className="border-t border-border" />
+            <ComingSoonBlock icon={Users} label="Places disponibles" sprint="S5">
+              <div className="flex flex-wrap gap-2 mt-1">
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${capacityBadgeVariants.available}`}>
+                  8 places disponibles
+                </span>
+                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-foreground/5 border-border/30 text-foreground/20">
+                  2 en liste d'attente
+                </span>
+              </div>
+            </ComingSoonBlock>
+
+          </div>
+
+          {/* Card AttendanceButtons + Favoris + Participants */}
+          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-5 py-4 border border-border flex flex-col gap-4">
+
+            {/* Boutons participation + favoris */}
+            <div className="flex items-start gap-3">
+              <div className="shrink-0">
+                <AttendanceButtons
+                  key={event.id}
+                  eventId={event.id}
+                  initialAttendingCount={event.attendingCount}
+                  initialStatus={null}
+                />
+              </div>
+
+              {/* Bouton favoris — mock S6 */}
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  disabled
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border/40 bg-foreground/[0.018] text-foreground/20 text-sm font-semibold cursor-not-allowed"
+                >
+                  <Bookmark className="w-4 h-4 shrink-0" />
+                  Ajouter aux favoris
+                </button>
+                <span className="absolute -top-2 -right-2 text-[9px] font-semibold tracking-widest uppercase text-foreground/20 bg-background px-1.5 py-0.5 rounded-full border border-border/30">
+                  S6
+                </span>
+              </div>
+            </div>
+
+            <div className="border-t border-border" />
+
+            {/* Shell liste des participants — S6 */}
+            <ComingSoonBlock icon={Users} label="Liste des participants" sprint="S6">
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex -space-x-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="w-8 h-8 rounded-full bg-foreground/10 border-2 border-background"
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-foreground/20">12 participants · 4 intéressés</span>
+              </div>
+            </ComingSoonBlock>
+
+          </div>
+
+          {/* IcsExportButton */}
+          <IcsExportButton event={event} />
+
+          {/* Actions organisateur */}
+          {isOrganizer && (
+            <div className="flex flex-col gap-2">
+              <Link
+                to={`/events/${event.id}/edit`}
+                className="w-full text-center px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+              >
+                Modifier l'événement
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(true)}
+                className="w-full px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+              >
+                Supprimer l'événement
+              </button>
+            </div>
+          )}
+
+          {/* Shell statistiques organisateur — S6 (SCRUM-92) */}
+          {isOrganizer && (
+            <ComingSoonBlock icon={BarChart2} label="Statistiques de participation" sprint="S6">
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                {[
+                  { label: 'Vues', value: '—' },
+                  { label: 'Inscrits', value: '—' },
+                  { label: 'Intéressés', value: '—' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex flex-col items-center rounded-xl border border-border/30 bg-foreground/5 py-2">
+                    <span className="text-sm font-bold text-foreground/20">{value}</span>
+                    <span className="text-[10px] text-foreground/20 mt-0.5">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </ComingSoonBlock>
+          )}
+
+        </div>
+
+      </div>
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 
-      {/* Confirm delete modal */}
+      {/* Modale confirmation suppression — inchangée */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
@@ -279,6 +481,7 @@ export default function EventDetailPage() {
           </div>
         </div>
       )}
-    </div>
+
+    </SectionWrapper>
   )
 }

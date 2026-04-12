@@ -118,7 +118,7 @@ describe('EventDetailPage', () => {
     expect(screen.getByText(/Une super conférence/)).toBeTruthy()
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
-    expect(screen.getByText('200 places disponibles')).toBeTruthy()
+    expect(screen.getByText('200 places au total')).toBeTruthy()
     await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
   })
 
@@ -129,8 +129,8 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.getByRole('link', { name: 'Modifier' }).getAttribute('href')).toBe('/events/1/edit')
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: "Modifier l'événement" }).getAttribute('href')).toBe('/events/1/edit')
+    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
   })
 
   it('hides organizer actions for another user', () => {
@@ -140,8 +140,8 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.queryByRole('link', { name: 'Modifier' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull()
+    expect(screen.queryByRole('link', { name: "Modifier l'événement" })).toBeNull()
+    expect(screen.queryByRole('button', { name: "Supprimer l'événement" })).toBeNull()
   })
 
   it('opens and closes the delete confirmation modal', () => {
@@ -151,7 +151,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     expect(screen.getByRole('heading', { name: "Supprimer l'événement ?" })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
@@ -179,7 +179,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockDeleteEvent).toHaveBeenCalledWith(1))
@@ -194,11 +194,11 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull())
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
   })
 
   it('sets organizer to null when getUserById rejects', async () => {
