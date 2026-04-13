@@ -14,6 +14,10 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
 }))
 
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+
 import { useEvents } from '@/hooks/useEvents'
 import { useTheme } from '@/contexts/ThemeContext'
 

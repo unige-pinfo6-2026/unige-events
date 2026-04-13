@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useAuth, useEvent } from '@/hooks'
+import { useAuth, useEvent, useFavorite } from '@/hooks'
+import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { deleteEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
@@ -16,7 +17,7 @@ import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Bookmark } from 'lucide-react'
+import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Share2, Star } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -51,7 +52,7 @@ interface InfoRowProps {
   children: React.ReactNode
 }
 
-function InfoRow({ icon: Icon, color, children }: InfoRowProps) {
+function InfoRow({ icon: Icon, color, children }: Readonly<InfoRowProps>) {
   return (
     <div className="flex items-start gap-3 text-sm text-foreground/60">
       <Icon
@@ -80,7 +81,7 @@ const comingSoonVariants = {
   body:      'mt-3 pointer-events-none select-none opacity-30',
 } as const
 
-function ComingSoonBlock({ icon: Icon, label, sprint, children }: ComingSoonBlockProps) {
+function ComingSoonBlock({ icon: Icon, label, sprint, children }: Readonly<ComingSoonBlockProps>) {
   return (
     <div className={comingSoonVariants.container}>
       <div className={comingSoonVariants.header}>
@@ -99,6 +100,25 @@ function ComingSoonBlock({ icon: Icon, label, sprint, children }: ComingSoonBloc
   )
 }
 
+function FavoriteTextButton({ eventId }: Readonly<{ eventId: number }>) {
+  const { favorited, loading, toggle } = useFavorite(eventId)
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={loading}
+      className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border text-foreground text-sm font-semibold cursor-pointer bg-transparent hover:border-foreground/30 transition-colors disabled:opacity-50"
+    >
+      <Star
+        className="w-4 h-4 shrink-0"
+        fill={favorited ? '#facc15' : 'none'}
+        stroke={favorited ? '#facc15' : 'currentColor'}
+      />
+      {favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+    </button>
+  )
+}
+
 const capacityBadgeVariants = {
   full:      'bg-error/10 border-error/30 text-error',
   low:       'bg-orange-500/10 border-orange-500/30 text-orange-400',
@@ -111,6 +131,7 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, loading, error } = useEvent(eventId)
@@ -163,6 +184,18 @@ export default function EventDetailPage() {
 
   const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
+
+  function handleShare() {
+    if (!event) return
+    const url = globalThis.location.href
+    if (typeof navigator.clipboard?.writeText !== 'function') {
+      toast.showToast('error', `Copiez ce lien : ${url}`, 6000)
+      return
+    }
+    navigator.clipboard.writeText(url)
+      .then(() => toast.showToast('success', 'Lien copié !', 3000))
+      .catch(() => toast.showToast('error', `Copiez ce lien : ${url}`, 6000))
+  }
 
   async function handleDelete() {
     if (!event) return
@@ -327,32 +360,27 @@ export default function EventDetailPage() {
           {/* Card AttendanceButtons + Favoris + Participants */}
           <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-5 py-4 border border-border flex flex-col gap-4">
 
-            {/* Boutons participation + favoris */}
-            <div className="flex items-start gap-3">
-              <div className="shrink-0">
-                <AttendanceButtons
-                  key={event.id}
-                  eventId={event.id}
-                  initialAttendingCount={event.attendingCount}
-                  initialStatus={null}
-                />
-              </div>
+            {/* Favoris + partager */}
+            <div className="grid grid-cols-2 gap-3">
+              <FavoriteTextButton eventId={event.id} />
 
-              {/* Bouton favoris — mock S6 */}
-              <div className="relative flex-1">
-                <button
-                  type="button"
-                  disabled
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border/40 bg-foreground/[0.018] text-foreground/20 text-sm font-semibold cursor-not-allowed"
-                >
-                  <Bookmark className="w-4 h-4 shrink-0" />
-                  Ajouter aux favoris
-                </button>
-                <span className="absolute -top-2 -right-2 text-[9px] font-semibold tracking-widest uppercase text-foreground/20 bg-background px-1.5 py-0.5 rounded-full border border-border/30">
-                  S6
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border text-foreground text-sm font-semibold cursor-pointer bg-transparent hover:border-foreground/30 transition-colors"
+              >
+                <Share2 className="w-4 h-4 shrink-0" />
+                Partager
+              </button>
             </div>
+
+            {/* Boutons participation */}
+            <AttendanceButtons
+              key={event.id}
+              eventId={event.id}
+              initialAttendingCount={event.attendingCount}
+              initialStatus={null}
+            />
 
             <div className="border-t border-border" />
 
