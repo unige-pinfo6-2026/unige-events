@@ -105,4 +105,10 @@ describe('TagInput', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onChange).toHaveBeenCalledWith(['vitest'])
   })
+
+  it('focuses the input when clicking the container', () => {
+    const { container } = render(<TagInput value={[]} onChange={vi.fn()} />)
+    fireEvent.click(container.firstChild as HTMLElement)
+    expect(document.activeElement).toBe(screen.getByRole('textbox'))
+  })
 })
