@@ -114,7 +114,7 @@ function toFormValues(event?: Event | null): EventFormValues {
     startDate: toLocalDateTimeInputValue(event.startDate),
     endDate: toLocalDateTimeInputValue(event.endDate),
     category: event.category,
-    faculty: event.faculty,
+    faculty: event.faculty ?? null,
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
   }

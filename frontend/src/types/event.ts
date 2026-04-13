@@ -32,7 +32,7 @@ export type Event = {
   startDate: string
   endDate: string
   category: EventCategory
-  faculty: Faculty | null
+  faculty?: Faculty | null
   bannerUrl?: string
   creatorId: string
   status: EventStatus

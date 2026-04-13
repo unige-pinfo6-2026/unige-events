@@ -1,10 +1,14 @@
 package ch.unige.events.service;
 
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.Faculty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
@@ -28,24 +32,19 @@ public class EventSearchService {
 
     private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
 
+    @Inject EntityManager entityManager;
+
     @Transactional
-    public List<EventDTO> search(String q, EventCategory category, List<Faculty> faculties,
+    public List<EventDTO> search(String q, EventCategory category, Faculty faculty,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
-        boolean filterFaculties = faculties != null && !faculties.isEmpty();
-
         // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
         // Les parenthèses sont obligatoires pour isoler le OR face aux AND suivants
         // startDate is stored as UTC LocalDateTime; Zurich day boundaries are converted to UTC before comparing.
-        StringBuilder jpql = new StringBuilder("SELECT DISTINCT e FROM Event e");
+        StringBuilder jpql = new StringBuilder("SELECT e FROM Event e");
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
-        if (filterFaculties) {
-            jpql.append(" JOIN e.faculties f");
-            conditions.add("f IN :faculties");
-            params.put("faculties", faculties);
-        }
         if (q != null && !q.isBlank()) {
             conditions.add("(lower(e.title) like :q or lower(e.description) like :q)");
             params.put("q", "%" + q.toLowerCase(Locale.ROOT) + "%");
@@ -53,6 +52,10 @@ public class EventSearchService {
         if (category != null) {
             conditions.add("e.category = :category");
             params.put("category", category);
+        }
+        if (faculty != null) {
+            conditions.add("e.faculty = :faculty");
+            params.put("faculty", faculty);
         }
         if (dateFrom != null) {
             LocalDateTime dateFromUtc = dateFrom.atStartOfDay(ZURICH).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
@@ -70,11 +73,16 @@ public class EventSearchService {
         }
         jpql.append(" ORDER BY e.startDate, e.id");
 
-        return Event.<Event>find(jpql.toString(), params)
+        List<Event> events = Event.<Event>find(jpql.toString(), params)
                 .page(page, size)
-                .list()
-                .stream()
-                .map(EventDTO::from)
+                .list();
+
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.ATTENDING, entityManager);
+
+        return events.stream()
+                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
                 .toList();
     }
 }

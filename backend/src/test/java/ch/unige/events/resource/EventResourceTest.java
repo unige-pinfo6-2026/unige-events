@@ -15,8 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -455,58 +453,39 @@ class EventResourceTest {
                 .body("error", equalTo("forbidden"));
     }
 
-    // --- GET /events?faculties= ---
+    // --- GET /events?faculty= ---
 
     @Test
     void getAll_withFacultyFilter_returnsFiltered() {
         var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e1.faculty = Faculty.SCIENCES;
         var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
-        e2.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
+        e2.faculty = Faculty.LETTRES;
 
         given()
-                .queryParam("faculties", "SCIENCES")
+                .queryParam("faculty", "SCIENCES")
                 .when().get("/events")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(1))
                 .body("[0].title", is("Event SCIENCES"))
-                .body("[0].faculties", hasItem("SCIENCES"));
+                .body("[0].faculty", is("SCIENCES"));
     }
 
     @Test
     void getAll_withFacultyFilter_noMatch_returnsEmpty() {
         var e = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
-        e.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e.faculty = Faculty.SCIENCES;
 
         given()
-                .queryParam("faculties", "DROIT")
+                .queryParam("faculty", "DROIT")
                 .when().get("/events")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(0));
     }
 
-    @Test
-    void getAll_withMultipleFacultiesFilter_returnsMatching() {
-        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
-        var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
-        e2.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
-        var e3 = eventServiceMock.seedEvent("auth0|alice", "Event DROIT");
-        e3.faculties = new ArrayList<>(List.of(Faculty.DROIT));
-
-        given()
-                .queryParam("faculties", "SCIENCES")
-                .queryParam("faculties", "LETTRES")
-                .when().get("/events")
-                .then()
-                .statusCode(200)
-                .body("", hasSize(2))
-                .body("title", hasItems("Event SCIENCES", "Event LETTRES"));
-    }
-
-    // --- POST /events avec faculties ---
+    // --- POST /events avec faculty ---
 
     @Test
     @TestSecurity(user = "auth0|alice", attributes = {
@@ -519,7 +498,7 @@ class EventResourceTest {
         req.startDate = LocalDateTime.now().plusDays(1);
         req.endDate = LocalDateTime.now().plusDays(2);
         req.category = EventCategory.CONFERENCE;
-        req.faculties = new ArrayList<>(List.of(Faculty.MEDECINE));
+        req.faculty = Faculty.MEDECINE;
 
         given()
                 .contentType(ContentType.JSON)
@@ -527,13 +506,34 @@ class EventResourceTest {
                 .when().post("/events")
                 .then()
                 .statusCode(201)
-                .body("faculties", hasItem("MEDECINE"));
+                .body("faculty", is("MEDECINE"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice", attributes = {
+            @SecurityAttribute(key = "email", value = "alice@example.com")
+    })
+    void create_withoutFaculty_returnsNullFaculty() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Event sans faculté";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.OTHER;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("faculty", nullValue());
     }
 
     @Test
     void getAll_withNullFaculty_returnsAll() {
         var e1 = eventServiceMock.seedEvent("auth0|alice", "Event A");
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e1.faculty = Faculty.SCIENCES;
         eventServiceMock.seedEvent("auth0|alice", "Event B");
 
         given()

@@ -6,7 +6,6 @@ import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,33 +36,30 @@ class EventDTOTest {
     }
 
     @Test
-    void from_withFaculty_mapsFaculties() {
+    void from_withFaculty_mapsFaculty() {
         Event event = new Event();
-        event.faculties.add(Faculty.SCIENCES);
+        event.faculty = Faculty.SCIENCES;
 
-        EventDTO dto = EventDTO.from(event);
+        EventDTO dto = EventDTO.from(event, 0L);
 
-        assertTrue(dto.faculties().contains(Faculty.SCIENCES));
+        assertEquals(Faculty.SCIENCES, dto.faculty());
     }
 
     @Test
-    void from_withNoFaculty_returnsEmptyList() {
+    void from_withNullFaculty_returnsNullFaculty() {
         Event event = new Event();
 
-        EventDTO dto = EventDTO.from(event);
+        EventDTO dto = EventDTO.from(event, 0L);
 
-        assertTrue(dto.faculties().isEmpty());
+        assertNull(dto.faculty());
     }
 
     @Test
-    void from_withMultipleFaculties_mapsAll() {
+    void from_withAttendingCount_mapsAttendingCount() {
         Event event = new Event();
-        event.faculties.add(Faculty.SCIENCES);
-        event.faculties.add(Faculty.MEDECINE);
 
-        EventDTO dto = EventDTO.from(event);
+        EventDTO dto = EventDTO.from(event, 42L);
 
-        assertEquals(2, dto.faculties().size());
-        assertTrue(dto.faculties().containsAll(List.of(Faculty.SCIENCES, Faculty.MEDECINE)));
+        assertEquals(42L, dto.attendingCount());
     }
 }

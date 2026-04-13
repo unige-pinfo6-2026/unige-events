@@ -96,7 +96,7 @@
 
 - Carte cliquable d'un événement (design glassmorphism, variables CSS thème).
 - Affiche bannière, badge catégorie, titre, date, lieu, capacité.
-- Si `event.faculty` est non-null, affiche un `<FacultyBadge>` dans la section contenu.
+- Si `event.faculty` est non-null, affiche un `<FacultyBadge>` dans l'overlay de la bannière, directement sous le titre (même bloc flex-col que le titre).
 - Utilise les icônes Lucide et les variables `bg-background`, `text-foreground`, `border-border`.
 
 ### EventCards
@@ -110,7 +110,7 @@
 
 - Formulaire partagé entre création et édition.
 - Centralise les champs titre, description, lieu, dates, catégorie, **faculté**, capacité, statut et bannière.
-- Champ "Faculté concernée" : select avec option nulle ("Toutes les facultés") + 9 valeurs `Faculty`.
+- Champ "Faculté concernée" : select avec option nulle ("Aucune faculté") + 9 valeurs `Faculty`. Sélection unique, optionnelle.
 - Garde le placeholder et l'aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
 

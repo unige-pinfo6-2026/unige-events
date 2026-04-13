@@ -32,11 +32,14 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
             {category.name}
           </span>
 
-          {/* Title overlaid on banner */}
-          <div className="absolute bottom-0 left-0 right-0 p-5">
+          {/* Title + faculty overlaid on banner */}
+          <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col gap-2">
             <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm">
               {event.title}
             </h3>
+            {event.faculty != null && (
+              <FacultyBadge faculty={event.faculty} />
+            )}
           </div>
         </div>
 
@@ -58,10 +61,6 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
               </div>
             )}
           </div>
-
-          {event.faculty != null && (
-            <FacultyBadge faculty={event.faculty} />
-          )}
 
           {event.description && (
             <>

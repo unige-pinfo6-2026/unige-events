@@ -45,7 +45,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | startDate   | string ISO 8601 | oui  |
 | endDate     | string ISO 8601 | oui  |
 | category    | EventCategory | oui    |
-| faculty     | Faculty \| null | oui  |
+| faculty     | Faculty \| null | non    |
 | bannerUrl   | string        | non    |
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |

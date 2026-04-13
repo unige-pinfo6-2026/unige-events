@@ -11,8 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -208,32 +206,32 @@ class EventSearchResourceTest {
                 .body("", hasSize(2));
     }
 
-    // --- Filtre ?faculties= ---
+    // --- Filtre ?faculty= ---
 
     @Test
     void search_withFaculty_returnsFiltered() {
         var e1 = eventSearchServiceMock.seedEvent("Labo Chimie", null, EventCategory.ACADEMIC, null);
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e1.faculty = Faculty.SCIENCES;
         var e2 = eventSearchServiceMock.seedEvent("Cours de Droit", null, EventCategory.ACADEMIC, null);
-        e2.faculties = new ArrayList<>(List.of(Faculty.DROIT));
+        e2.faculty = Faculty.DROIT;
 
         given()
-                .queryParam("faculties", "SCIENCES")
+                .queryParam("faculty", "SCIENCES")
                 .when().get("/events/search")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(1))
                 .body("[0].title", is("Labo Chimie"))
-                .body("[0].faculties", hasItem("SCIENCES"));
+                .body("[0].faculty", is("SCIENCES"));
     }
 
     @Test
     void search_withFacultyNoMatch_returnsEmpty() {
         var e = eventSearchServiceMock.seedEvent("Labo Chimie", null, EventCategory.ACADEMIC, null);
-        e.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e.faculty = Faculty.SCIENCES;
 
         given()
-                .queryParam("faculties", "DROIT")
+                .queryParam("faculty", "DROIT")
                 .when().get("/events/search")
                 .then()
                 .statusCode(200)
@@ -243,24 +241,43 @@ class EventSearchResourceTest {
     @Test
     void search_withFacultyAndQ_combined() {
         var e1 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e1.faculty = Faculty.SCIENCES;
         var e2 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
-        e2.faculties = new ArrayList<>(List.of(Faculty.LETTRES));
+        e2.faculty = Faculty.LETTRES;
 
         given()
                 .queryParam("q", "java")
-                .queryParam("faculties", "SCIENCES")
+                .queryParam("faculty", "SCIENCES")
                 .when().get("/events/search")
                 .then()
                 .statusCode(200)
                 .body("", hasSize(1))
-                .body("[0].faculties", hasItem("SCIENCES"));
+                .body("[0].faculty", is("SCIENCES"));
+    }
+
+    @Test
+    void search_withFacultyAndCategory_combined() {
+        var e1 = eventSearchServiceMock.seedEvent("Conf Sciences", null, EventCategory.CONFERENCE, null);
+        e1.faculty = Faculty.SCIENCES;
+        var e2 = eventSearchServiceMock.seedEvent("Match Sciences", null, EventCategory.SPORTS, null);
+        e2.faculty = Faculty.SCIENCES;
+        var e3 = eventSearchServiceMock.seedEvent("Conf Droit", null, EventCategory.CONFERENCE, null);
+        e3.faculty = Faculty.DROIT;
+
+        given()
+                .queryParam("category", "CONFERENCE")
+                .queryParam("faculty", "SCIENCES")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Conf Sciences"));
     }
 
     @Test
     void search_withNullFaculty_returnsAll() {
         var e1 = eventSearchServiceMock.seedEvent("Event A", null, EventCategory.ACADEMIC, null);
-        e1.faculties = new ArrayList<>(List.of(Faculty.SCIENCES));
+        e1.faculty = Faculty.SCIENCES;
         eventSearchServiceMock.seedEvent("Event B", null, EventCategory.ACADEMIC, null);
 
         given()

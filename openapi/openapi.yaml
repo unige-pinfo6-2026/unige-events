@@ -171,11 +171,10 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        faculties:
-          type: array
-          items:
-            $ref: '#/components/schemas/Faculty'
-          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
+        faculty:
+          $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -225,11 +224,11 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
-        faculties:
-          type: array
-          items:
-            $ref: '#/components/schemas/Faculty'
-          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
+        faculty:
+          allOf:
+            - $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -271,11 +270,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/EventCategory'
           nullable: true
-        faculties:
-          type: array
-          items:
-            $ref: '#/components/schemas/Faculty'
-          description: Facultés organisatrices ou cibles de l'événement (vide = toutes)
+        faculty:
+          allOf:
+            - $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -853,14 +852,11 @@ paths:
           schema:
             type: string
             format: date-time
-        - name: faculties
+        - name: faculty
           in: query
-          description: Filtre les événements par facultés (multi-valeur, ex. ?faculties=SCIENCES&faculties=DROIT)
-          explode: true
+          description: Filtre les événements par faculté
           schema:
-            type: array
-            items:
-              $ref: '#/components/schemas/Faculty'
+            $ref: '#/components/schemas/Faculty'
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -917,7 +913,6 @@ paths:
       description: |
         Recherche insensible à la casse (ILIKE) sur le titre et la description.
         Filtres optionnels : category, faculty, plage de dates (startDate).
-        Le filtre faculty est actif depuis SCRUM-77.
       operationId: searchEvents
       tags: [events]
       security: []
@@ -931,14 +926,11 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/EventCategory'
-        - name: faculties
+        - name: faculty
           in: query
-          description: Filtre les événements par facultés (multi-valeur, ex. ?faculties=SCIENCES&faculties=DROIT)
-          explode: true
+          description: Filtre les événements par faculté
           schema:
-            type: array
-            items:
-              $ref: '#/components/schemas/Faculty'
+            $ref: '#/components/schemas/Faculty'
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)

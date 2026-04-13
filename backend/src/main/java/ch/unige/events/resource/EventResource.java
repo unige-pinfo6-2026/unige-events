@@ -49,8 +49,8 @@ public class EventResource {
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId,
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
-            @QueryParam("faculties") List<Faculty> faculties) {
-        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculties);
+            @QueryParam("faculty") Faculty faculty) {
+        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty);
     }
 
     @POST

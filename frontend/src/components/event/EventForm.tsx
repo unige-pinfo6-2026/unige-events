@@ -234,7 +234,7 @@ export default function EventForm({
               value={values.faculty ?? ''}
               onChange={(e) => onFieldChange('faculty', (e.target.value as Faculty) || null)}
             >
-              <option value="">Toutes les facultés</option>
+              <option value="">Aucune faculté</option>
               {Object.values(Faculty).map((id) => (
                 <option key={id} value={id}>{FACULTY_LABELS[id]}</option>
               ))}
