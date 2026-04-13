@@ -27,6 +27,7 @@ const sampleEvent: Event = {
   category: 'CONFERENCE',
   status: 'PUBLISHED',
   creatorId: 'user-1',
+  attendingCount: 0,
   createdAt: '2026-03-01T10:00:00',
 }
 
