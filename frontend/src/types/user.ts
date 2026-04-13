@@ -10,7 +10,9 @@ export type User = {
   bio?: string
   interests?: string[]
   avatarUrl?: string
+  username?: string
   profilePublic: boolean
+  admin: boolean
   createdAt: string
 }
 

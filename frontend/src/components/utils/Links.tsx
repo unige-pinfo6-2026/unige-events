@@ -1,4 +1,17 @@
+import { Link } from 'react-router-dom'
 import type { LucideIcon } from "lucide-react";
+
+export function ActionLink({ to, icon: Icon, label }: Readonly<{ to: string; icon: LucideIcon; label: string }>) {
+    return (
+        <Link
+            to={to}
+            aria-label={label}
+            className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground"
+        >
+            <Icon className="size-5" />
+        </Link>
+    )
+}
 
 export function TextLink({ href, decorate = false, children }: Readonly<{ href: string, decorate?: boolean, children: React.ReactNode }>) {
     return (

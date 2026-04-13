@@ -30,7 +30,7 @@ export default function Footer() {
                 <div className="flex flex-col lg:flex-row gap-24 justify-between">
                     {/* Brand */}
                     <div className="flex flex-col gap-4 max-w-100">
-                        <Banner className="w-52"/>
+                        <Banner size="lg" />
                         
                         <p className="text-sm text-overlay leading-relaxed mb-6">
                             La plateforme centralisée pour tous les événements universitaires. Connectons la communauté UNIGE.
