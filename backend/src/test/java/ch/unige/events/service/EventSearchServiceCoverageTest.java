@@ -241,7 +241,7 @@ class EventSearchServiceCoverageTest {
         deleteAll();
         User user = persistUser("auth0|sf1", "sf1@example.com");
         persistEvent("Labo Chimie", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
-        persistEvent("Cours de Droit", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, Faculty.DROIT);
+        persistEvent("Cours de Droit", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, Faculty.LAW);
 
         List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, null, null, null, 0, 20);
 
@@ -256,7 +256,7 @@ class EventSearchServiceCoverageTest {
         User user = persistUser("auth0|sf2", "sf2@example.com");
         persistEvent("Conf Sciences", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Match Sciences", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user, Faculty.SCIENCES);
-        persistEvent("Conf Droit", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(3), user, Faculty.DROIT);
+        persistEvent("Conf Droit", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(3), user, Faculty.LAW);
 
         List<EventDTO> result = eventSearchService.search(null, EventCategory.CONFERENCE, Faculty.SCIENCES, null, null, null, 0, 20);
 

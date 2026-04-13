@@ -460,7 +460,7 @@ class EventResourceTest {
         var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
         e1.faculty = Faculty.SCIENCES;
         var e2 = eventServiceMock.seedEvent("auth0|alice", "Event LETTRES");
-        e2.faculty = Faculty.LETTRES;
+        e2.faculty = Faculty.LETTERS;
 
         given()
                 .queryParam("faculty", "SCIENCES")
@@ -478,7 +478,7 @@ class EventResourceTest {
         e.faculty = Faculty.SCIENCES;
 
         given()
-                .queryParam("faculty", "DROIT")
+                .queryParam("faculty", "LAW")
                 .when().get("/events")
                 .then()
                 .statusCode(200)
@@ -498,7 +498,7 @@ class EventResourceTest {
         req.startDate = LocalDateTime.now().plusDays(1);
         req.endDate = LocalDateTime.now().plusDays(2);
         req.category = EventCategory.CONFERENCE;
-        req.faculty = Faculty.MEDECINE;
+        req.faculty = Faculty.MEDICINE;
 
         given()
                 .contentType(ContentType.JSON)
@@ -506,7 +506,7 @@ class EventResourceTest {
                 .when().post("/events")
                 .then()
                 .statusCode(201)
-                .body("faculty", is("MEDECINE"));
+                .body("faculty", is("MEDICINE"));
     }
 
     @Test

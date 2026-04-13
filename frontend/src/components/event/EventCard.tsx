@@ -43,7 +43,7 @@ export default function EventCard({
           </span>
 
           {/* Title + faculty overlaid on banner */}
-          <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col gap-2">
+          <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col gap-2"/>
           <div className="absolute top-4 right-4 z-10">
             <FavoriteButton eventId={event.id} initialFavorited={favorited} onRemove={onFavoriteRemove} />
           </div>

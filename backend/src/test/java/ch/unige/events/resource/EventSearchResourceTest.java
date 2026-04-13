@@ -213,7 +213,7 @@ class EventSearchResourceTest {
         var e1 = eventSearchServiceMock.seedEvent("Labo Chimie", null, EventCategory.ACADEMIC, null);
         e1.faculty = Faculty.SCIENCES;
         var e2 = eventSearchServiceMock.seedEvent("Cours de Droit", null, EventCategory.ACADEMIC, null);
-        e2.faculty = Faculty.DROIT;
+        e2.faculty = Faculty.LAW;
 
         given()
                 .queryParam("faculty", "SCIENCES")
@@ -231,7 +231,7 @@ class EventSearchResourceTest {
         e.faculty = Faculty.SCIENCES;
 
         given()
-                .queryParam("faculty", "DROIT")
+                .queryParam("faculty", "LAW")
                 .when().get("/events/search")
                 .then()
                 .statusCode(200)
@@ -243,7 +243,7 @@ class EventSearchResourceTest {
         var e1 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
         e1.faculty = Faculty.SCIENCES;
         var e2 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
-        e2.faculty = Faculty.LETTRES;
+        e2.faculty = Faculty.LETTERS;
 
         given()
                 .queryParam("q", "java")
@@ -262,7 +262,7 @@ class EventSearchResourceTest {
         var e2 = eventSearchServiceMock.seedEvent("Match Sciences", null, EventCategory.SPORTS, null);
         e2.faculty = Faculty.SCIENCES;
         var e3 = eventSearchServiceMock.seedEvent("Conf Droit", null, EventCategory.CONFERENCE, null);
-        e3.faculty = Faculty.DROIT;
+        e3.faculty = Faculty.LAW;
 
         given()
                 .queryParam("category", "CONFERENCE")

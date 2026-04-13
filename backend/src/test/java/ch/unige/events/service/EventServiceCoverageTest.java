@@ -526,7 +526,7 @@ class EventServiceCoverageTest {
         deleteAll();
         User user = persistUser("auth0|fac1", "fac1@example.com");
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
-        persistEvent("Droit Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.DROIT);
+        persistEvent("Law Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.LAW);
 
         List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, Faculty.SCIENCES, null);
 
@@ -554,10 +554,10 @@ class EventServiceCoverageTest {
         persistUser("auth0|facCreate", "facCreate@example.com");
 
         CreateEventRequest req = validCreateRequest();
-        req.faculty = Faculty.MEDECINE;
+        req.faculty = Faculty.MEDICINE;
         EventDTO result = eventService.create("auth0|facCreate", req);
 
-        assertEquals(Faculty.MEDECINE, result.faculty());
+        assertEquals(Faculty.MEDICINE, result.faculty());
     }
 
     @Test
@@ -568,10 +568,10 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
 
         UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
-        req.faculty = Faculty.LETTRES;
+        req.faculty = Faculty.LETTERS;
         EventDTO result = eventService.update(event.id, "auth0|facUpd", req);
 
-        assertEquals(Faculty.LETTRES, result.faculty());
+        assertEquals(Faculty.LETTERS, result.faculty());
     }
 
     @Test

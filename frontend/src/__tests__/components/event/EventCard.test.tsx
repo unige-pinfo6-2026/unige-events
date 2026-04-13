@@ -10,7 +10,6 @@ import { type Faculty } from '@/types/faculty'
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
 }))
-import type { Event } from '@/types/event'
 
 const mockEvent: Event = {
   id: 1,
