@@ -4,7 +4,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
-import { ButtonPrimary } from '@/components/utils/Buttons'
+import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
@@ -15,13 +15,18 @@ interface EventFormProps {
   values: EventFormValues
   errors: EventFormErrors
   submitting: boolean
+  draftSaving?: boolean
   imagePreview: string | null
   selectedImageName: string | null
   onFieldChange: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   onSubmit: (event: FormSubmitEvent) => Promise<void>
-  onCancel: () => void
+  onCancel?: () => void
   onSaveDraft?: () => Promise<void>
+  saveDraftLabel?: string
+  onDelete?: () => void | Promise<void>
+  deleting?: boolean
+  deleteLabel?: string
 }
 
 interface DateTimeParts {
@@ -91,6 +96,7 @@ export default function EventForm({
   values,
   errors,
   submitting,
+  draftSaving = false,
   imagePreview,
   selectedImageName,
   onFieldChange,
@@ -98,6 +104,10 @@ export default function EventForm({
   onSubmit,
   onCancel,
   onSaveDraft,
+  saveDraftLabel = 'Sauvegarder en Brouillon',
+  onDelete,
+  deleting = false,
+  deleteLabel = 'Supprimer',
 }: Readonly<EventFormProps>) {
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
@@ -344,30 +354,33 @@ export default function EventForm({
         </FormField>
 
         {/* Zone CTA */}
-        <div className="flex flex-col items-end gap-2 ml-auto max-sm:ml-0 max-sm:w-full">
+        <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+          {onDelete && (
+            <ButtonDestructive
+              onClick={() => { void onDelete() }}
+              disabled={deleting}
+              size="md"
+            >
+              {deleting ? 'Suppression...' : deleteLabel}
+            </ButtonDestructive>
+          )}
+          {onCancel && (
+            <ButtonSecondary onClick={onCancel} size="md">
+              Annuler
+            </ButtonSecondary>
+          )}
+          {onSaveDraft && (
+            <ButtonNeutral
+              onClick={() => { void onSaveDraft() }}
+              disabled={draftSaving}
+              size="md"
+            >
+              {draftSaving ? 'Enregistrement...' : saveDraftLabel}
+            </ButtonNeutral>
+          )}
           <ButtonPrimary type="submit" disabled={submitting} size="md">
             {submitting ? 'Enregistrement...' : submitLabel}
           </ButtonPrimary>
-
-          <div className="flex gap-4">
-            {onSaveDraft && (
-              <button
-                type="button"
-                onClick={() => { void onSaveDraft() }}
-                disabled={submitting}
-                className="text-xs text-foreground/40 hover:text-foreground/60 transition-all disabled:opacity-50"
-              >
-                Sauvegarder en Brouillon
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-xs text-foreground/40 hover:text-foreground/60 transition-all"
-            >
-              Annuler
-            </button>
-          </div>
         </div>
 
       </div>

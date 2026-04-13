@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import EventForm from '@/components/event/EventForm'
+import DraftsResumeStrip from '@/components/event/DraftsResumeStrip'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -13,6 +14,11 @@ export default function EventCreatePage() {
   const form = useEventForm({
     mode: 'create',
     onSuccess: (event) => {
+      if (event.status === 'DRAFT') {
+        showToast('success', 'Brouillon enregistré.')
+        navigate('/')
+        return
+      }
       showToast('success', 'Événement créé avec succès.')
       navigate(`/events/${event.id}`)
     },
@@ -28,12 +34,14 @@ export default function EventCreatePage() {
         title={<>Créer un <mark>événement</mark></>}
         subtitle="Renseignez les informations de votre événement pour le partager avec la communauté UNIGE."
       />
+      <DraftsResumeStrip />
       <EventForm
         mode="create"
         submitLabel="Créer l'événement"
         values={form.values}
         errors={form.errors}
         submitting={form.submitting}
+        draftSaving={form.draftSaving}
         imagePreview={form.imagePreview}
         selectedImageName={form.selectedImageName}
         onFieldChange={form.setFieldValue}

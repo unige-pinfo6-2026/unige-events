@@ -469,6 +469,34 @@ describe('useEventForm', () => {
     expect(onSuccess).toHaveBeenCalled()
   })
 
+  it('toggles draftSaving (not submitting) while triggerDraftSave is in flight', async () => {
+    let resolveCreate: (event: typeof baseEvent) => void = () => {}
+    mockCreateEvent.mockReturnValue(new Promise(r => { resolveCreate = r }))
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+    })
+
+    let pending: Promise<void> = Promise.resolve()
+    act(() => { pending = result.current.triggerDraftSave() })
+
+    expect(result.current.draftSaving).toBe(true)
+    expect(result.current.submitting).toBe(false)
+
+    await act(async () => {
+      resolveCreate({ ...baseEvent, status: 'DRAFT' })
+      await pending
+    })
+
+    expect(result.current.draftSaving).toBe(false)
+    expect(result.current.submitting).toBe(false)
+  })
+
   it('resets to incoming event values and uses the uploaded event response', async () => {
     const uploadedEvent = { ...baseEvent, bannerUrl: 'https://example.com/banner.png', status: 'PUBLISHED' as const }
     mockUpdateEvent.mockResolvedValue(baseEvent)

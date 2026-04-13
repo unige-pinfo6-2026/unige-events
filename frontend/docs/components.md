@@ -47,6 +47,8 @@
 - Bloque la soumission si la date de début est dans le passé.
 - Upload une bannière optionnelle puis redirige vers la page détail.
 - Affiche un toast de succès ou d'erreur.
+- Après un **save-draft** réussi : redirection vers `/` (landing page), pas vers `/events/:id` — sauvegarder en brouillon est un "je reprends plus tard".
+- Intègre `DraftsResumeStrip` entre le header et le formulaire pour reprendre les brouillons existants.
 
 ### EditEventPage
 
@@ -56,6 +58,9 @@
 - Réutilise les validations de formulaire, dont la date de début future.
 - Remplace la bannière via uploadEventImage(id, file).
 - Affiche un toast puis redirige vers /events/:id.
+- **Mode brouillon (resume)** : si l'event chargé a `status === 'DRAFT'`, la page bascule automatiquement en mode "terminer le brouillon" — titre "Terminer votre brouillon", bouton principal "Créer l'événement" qui force `status=PUBLISHED` via `form.triggerPublish()`, bouton secondaire renommé **"Enregistrer"** (via la prop `saveDraftLabel` de `EventForm` — l'event est déjà en brouillon, on ne "sauvegarde pas en brouillon", on l'enregistre tel quel pour plus tard), et "Annuler" renvoie vers `/`. La publication redirige vers `/events/:id` ; un re-save en brouillon redirige vers `/`.
+- Pendant un clic sur "Enregistrer", le bouton principal "Créer l'événement" reste **inchangé** (ni disabled, ni label "Enregistrement...") — seul le bouton secondaire passe en état de progression. Grâce au flag `draftSaving` séparé de `submitting` (voir `useEventForm`).
+- **Bouton "Supprimer le brouillon"** (uniquement en mode draft) : ouvre une modale de confirmation inline (même pattern visuel que la suppression sur `EventDetailPage`, sans composant partagé pour l'instant). Après confirmation → appel `deleteEvent(id)` → toast "Brouillon supprimé." → navigation vers `/`. En cas d'échec réseau → toast "Impossible de supprimer ce brouillon.", on reste sur la page. Le state `deleting` local garantit que le bouton principal "Créer l'événement" reste inerte pendant l'appel (même principe que `draftSaving`).
 
 ### EventsSearchPage
 
@@ -70,6 +75,17 @@
 - Résultats affichés via `EventCard`.
 
 ## Composants réutilisables
+
+### Buttons
+
+Composants centralisés dans `src/components/utils/Buttons.tsx`. API uniforme (`children`, `onClick`, `type`, `disabled`, `size`), variantes implémentées via une **const map typée** `buttonVariants` + classes de base partagées — pas de ternaires inline. Quatre variants exposés :
+
+- **`ButtonPrimary`** — gradient rose (`from-accent to-pink-600`), texte blanc, shadow colorée. Utilisé pour l'action primaire positive de chaque page (créer, enregistrer, publier).
+- **`ButtonSecondary`** — fond transparent + border, hover accent. Utilisé comme bouton "ghost" / annulation / navigation secondaire. Déjà en place dans `ProfileEditPage`, `LandingPage`, `EventForm` (bouton "Annuler").
+- **`ButtonNeutral`** — fond gris neutre rempli (`bg-foreground/8`) + border légère, texte foreground. Action neutre de sauvegarde/brouillon. Utilisé dans `EventForm` pour "Sauvegarder en Brouillon" / "Enregistrer".
+- **`ButtonDestructive`** — fond rouge atténué (`bg-error/10`) + border error + texte error. Action destructive. Utilisé dans `EventForm` pour "Supprimer le brouillon" (mode draft uniquement).
+
+Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background` avec un ring coloré selon le variant (accent pour primary/secondary/neutral, error pour destructive). Tailles disponibles : `sm` / `md` / `lg`, déclarées dans la const map `sizes`.
 
 ### Toast
 
@@ -120,10 +136,18 @@
 - Layout v3b en **5 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
   - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
   - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
-  - Bande 3 : CategorySelect | Capacité (spinners masqués) | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+  - Bande 3 : CategorySelect | Capacité (spinners masqués) | **zone CTA horizontale** qui remplit l'espace restant à droite et rassemble les vrais boutons d'action (voir ci-dessous).
   - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
   - Bande 5 : shell co-organisateurs (edit only, S8).
-- Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
+- **Zone CTA (Bande 3)** : rangée `flex flex-wrap items-center gap-3 ml-auto` qui prend sa largeur naturelle et se colle contre le bord droit du formulaire — laisse l'espace à gauche libre pour un futur champ `Faculté`. Chaque action est un vrai bouton (plus de micro-links texte) :
+  - `ButtonDestructive` "Supprimer le brouillon" — rendu uniquement si `onDelete` fourni (mode draft).
+  - `ButtonSecondary` "Annuler" — rendu uniquement si `onCancel` fourni. **Absent en mode draft-edit** : l'utilisateur peut "finir plus tard" en cliquant sur "Enregistrer" (save draft), ce qui rend le bouton Annuler redondant et permet de garder les 4 boutons sur une seule ligne.
+  - `ButtonNeutral` "Sauvegarder en Brouillon" / "Enregistrer" — rendu si `onSaveDraft` fourni, label contrôlé par `saveDraftLabel`.
+  - `ButtonPrimary` "Créer l'événement" / "Enregistrer" — action primaire rose, toujours à droite, label = `submitLabel`.
+  - Ordre sémantique de gauche à droite : destructif → annuler (si présent) → save (si présent) → primary. L'action dangereuse est bien séparée à gauche, l'action primaire bien mise en avant à droite.
+  - Responsive `< sm` : la rangée repasse en `flex-col` avec `items-stretch` → les boutons s'empilent verticalement pleine largeur.
+  - Les trois états loading (`submitting`, `draftSaving`, `deleting`) sont mutuellement exclusifs et n'affectent que le bouton concerné — les autres restent pleinement actifs pour ne pas induire en erreur.
+- Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ou EventEditPage (mode draft) ; affiche le bouton `ButtonNeutral` "Sauvegarder en Brouillon" quand présent.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
 - `ComingSoonBlock` : composant local non-exporté pour les shells backlog — icône + label + badge sprint + contenu mock.
 
@@ -164,6 +188,28 @@
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, les profils et la page détail événement.
 
+### DraftsResumeStrip
+
+- **Bannière collapsible** `@radix-ui/react-collapsible` insérée au-dessus de `EventForm` dans `CreateEventPage`.
+- **Header fixe (56 px)** toujours visible quand l'utilisateur a ≥ 1 brouillon : icône `Library` (lucide-react) + texte "Mes brouillons" à gauche, chevron `ChevronDown` à droite qui pivote à 180° quand le panneau est ouvert. Tout le header est cliquable (c'est le `Collapsible.Trigger`) — Entrée/Espace togglent aussi.
+- **Panneau dépliable** rendu en dessous, qui pousse le contenu de la page vers le bas (pas d'overlay). Le panneau contient le label "Reprendre un brouillon" + les `DraftResumeCard` + le bouton "Voir tout" à droite du rail.
+- **État initial : collapsed.** L'utilisateur doit cliquer pour voir ses brouillons. Pas de persistance `sessionStorage`/`localStorage` — à chaque montage, le panneau repart fermé.
+- **Animation** ~250 ms à l'ouverture, ~200 ms à la fermeture, via les keyframes `drafts-panel-open` / `drafts-panel-close` déclarées dans `index.css`. Elles consomment la variable CSS `--radix-collapsible-content-height` fournie par Radix. Désactivées si `prefers-reduced-motion: reduce` (via les préfixes `motion-safe:`). Le chevron utilise `motion-reduce:transition-none`.
+- **États** :
+  - `loading` → skeleton `drafts-resume-strip` systématiquement rendu (fichier bones manuel, même hauteur 56 px et même layout que le header collapsed : icône gauche + texte + chevron droit). Fixture interne `DraftsHeaderFixture`.
+  - `error` → retour `null`. Pas de header fantôme en cas d'échec réseau.
+  - `drafts.length === 0` → la bannière s'affiche quand même avec son header "Mes brouillons" cliquable ; le panneau déplié affiche un message centré **"Aucun brouillon"** (italique, `text-foreground/50`) au lieu des cartes. L'utilisateur voit toujours le même emplacement, sans CLS entre l'état vide et l'état peuplé.
+  - `drafts.length >= 1` → bannière collapsed, panneau contenant les cartes + bouton "Voir tout" conditionnel.
+- **Auto-dimensionné** : le nombre de cartes affichées **dans le panneau ouvert** est calculé dynamiquement en fonction de la largeur réelle du panneau (via `ResizeObserver` sur le `panelRef`, seulement quand `open === true`). Algorithme délégué à `computeStripLayout(availableWidth, totalDrafts)` (pure function dans `src/utils/draftsResumeStripLayout.ts`), totalement testable. Les constantes de layout vivent dans `STRIP_LAYOUT`.
+- **Bouton "Voir tout"** à droite du rail, visible si et seulement si `computeStripLayout` conclut que le nombre de brouillons dépasse ce que le panneau peut afficher à sa largeur courante. Clic → `/my-events` (route à venir avec SCRUM-93).
+- **Accessibilité** : `Collapsible.Trigger` gère nativement `aria-expanded` et `aria-controls`. Le panneau a `role="region"` + `aria-label="Liste de mes brouillons"`. Le rail des cartes a `role="toolbar"` + navigation clavier flèches gauche/droite entre cartes (inchangée). Pas de vol de focus à l'ouverture — l'utilisateur Tab dedans manuellement.
+
+### DraftResumeCard
+
+- Sous-composant de `DraftsResumeStrip`, carte compacte (`w-64 h-10`) d'un brouillon.
+- Affiche le titre tronqué (ou "Brouillon sans titre") et la date relative en français ("il y a 21 min"), basée sur `updatedAt ?? createdAt` — le temps s'actualise à chaque re-sauvegarde du brouillon.
+- Props : `draft: Event`, `onOpen: (id: number) => void`.
+
 ---
 
 ## Skeleton screens
@@ -181,6 +227,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+| `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
@@ -213,6 +260,8 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
+- Expose `triggerDraftSave()` (force `status=DRAFT` avant submit) et `triggerPublish()` (force `status=PUBLISHED` avant submit) — utilisés respectivement par le bouton "Sauvegarder en Brouillon" et par le flux draft-edit de `EditEventPage` pour publier un brouillon existant.
+- **Deux flags d'état séparés** : `submitting: boolean` (vrai pendant `handleSubmit` / `triggerPublish` — le flux "publiant") et `draftSaving: boolean` (vrai pendant `triggerDraftSave`). Cette séparation permet à `EventForm` de ne pas basculer le bouton principal en "Enregistrement..." quand l'utilisateur clique sur le bouton secondaire de sauvegarde brouillon — sinon on laissait croire à une publication en cours. Les deux flags sont mutuellement exclusifs : un appel entrant est ignoré si l'un des deux est déjà à `true` (garde-fou anti-double-clic).
 - Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
@@ -231,6 +280,15 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - Debounce 2000ms sur `query` + `filters` → `searchEvents` → met à jour `results`.
 - Expose : `query`, `setQuery`, `filters`, `setFilters`, `results`, `suggestions`, `loading`, `error`, `resetFilters()`, `selectSuggestion(text)`.
 - `selectSuggestion` définit `query`, vide `suggestions`, et déclenche immédiatement une recherche.
+
+### useMyDrafts
+
+- Charge les brouillons de l'utilisateur connecté via `GET /api/events?organizerId=X&status=DRAFT&size=10`.
+- Params : `organizerId: string | undefined`.
+- Retourne `{ drafts: Event[], loading: boolean, error: string | null }` — **pas** de `hasMore`, la décision d'afficher un bouton "Voir tout" vit côté composant (`DraftsResumeStrip`) car elle dépend de la largeur mesurée.
+- Constante `DRAFTS_FETCH_SIZE = 10` : pool large fetché en une requête ; le composant choisit ensuite combien en afficher selon la place disponible.
+- Tri local par `updatedAt` DESC (fallback `createdAt`).
+- Erreur réseau → `error` rempli + `console.warn`, `drafts = []`, pas de retry.
 
 ### useAttendance
 
@@ -260,6 +318,7 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - updateEvent(id, data) : mise à jour d'événement.
 - uploadEventImage(id, file) : upload de bannière et retour de l'événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d'un événement.
+- getMyDrafts(organizerId, limit = 5) : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
 - getAll(params) : liste paginée d’événements.
 - getById(id) : détail d’un événement.
 - createEvent(data) : création d’événement.

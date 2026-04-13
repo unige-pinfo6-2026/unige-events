@@ -13,6 +13,10 @@ vi.mock('@/services/eventApi', () => ({
   uploadEventImage: vi.fn(),
 }))
 
+vi.mock('@/components/event/DraftsResumeStrip', () => ({
+  default: () => null,
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -35,7 +39,7 @@ const createdEvent = {
   endDate: '2026-04-10T10:00:00.000Z',
   category: 'SOCIAL',
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
-  status: 'DRAFT',
+  status: 'PUBLISHED',
   capacity: 120,
   createdAt: '2026-03-27T09:00:00.000Z',
 }
@@ -202,6 +206,21 @@ describe('CreateEventPage', () => {
 
     expect(await screen.findByText('La création de l\'événement a échoué. Veuillez réessayer.')).toBeTruthy()
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('redirects to the landing page after saving as draft', async () => {
+    mockCreateEvent.mockResolvedValue({ ...createdEvent, status: 'DRAFT' })
+
+    renderPage()
+
+    fillRequiredFields()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+    expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy()
+    expect(mockCreateEvent).toHaveBeenCalledWith(expect.objectContaining({ status: 'DRAFT' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    expect(mockNavigate).not.toHaveBeenCalledWith('/events/42')
   })
 
   it('navigates back home when cancel is clicked', () => {

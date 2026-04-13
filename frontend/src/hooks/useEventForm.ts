@@ -45,12 +45,14 @@ interface UseEventFormResult {
   values: EventFormValues
   errors: EventFormErrors
   submitting: boolean
+  draftSaving: boolean
   imagePreview: string | null
   selectedImageName: string | null
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
   triggerDraftSave: () => Promise<void>
+  triggerPublish: () => Promise<void>
 }
 
 interface ValidationErrorDetail {
@@ -223,6 +225,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   const [values, setValues] = useState<EventFormValues>(() => toFormValues(initialEvent))
   const [errors, setErrors] = useState<EventFormErrors>({})
   const [submitting, setSubmitting] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(initialEvent?.bannerUrl ?? null)
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -341,7 +344,12 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     return Object.keys(nextErrors).length === 0
   }
 
-  async function submitForm() {
+  async function submitForm(kind: 'publish' | 'draft') {
+    if (submitting || draftSaving) {
+      forcedStatusRef.current = null
+      return
+    }
+
     const effectiveStatus: EventStatus = forcedStatusRef.current ?? values.status
     forcedStatusRef.current = null
 
@@ -349,7 +357,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       return
     }
 
-    setSubmitting(true)
+    const setInFlight = kind === 'publish' ? setSubmitting : setDraftSaving
+    setInFlight(true)
 
     let savedEvent: Event
 
@@ -387,7 +396,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     } catch (error) {
       onError?.(getApiErrorMessage(error, mode))
-      setSubmitting(false)
+      setInFlight(false)
       return
     }
 
@@ -400,29 +409,36 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     }
 
-    setSubmitting(false)
+    setInFlight(false)
     onSuccess?.(savedEvent)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitForm()
+    await submitForm('publish')
   }
 
   async function triggerDraftSave() {
     forcedStatusRef.current = 'DRAFT'
-    await submitForm()
+    await submitForm('draft')
+  }
+
+  async function triggerPublish() {
+    forcedStatusRef.current = 'PUBLISHED'
+    await submitForm('publish')
   }
 
   return {
     values,
     errors,
     submitting,
+    draftSaving,
     imagePreview,
     selectedImageName,
     setFieldValue,
     handleImageChange,
     handleSubmit,
     triggerDraftSave,
+    triggerPublish,
   }
 }

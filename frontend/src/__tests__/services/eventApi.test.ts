@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { createEvent, deleteEvent, getAll, getById, getMyDrafts, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -124,5 +124,26 @@ describe('eventApi', () => {
     await deleteEvent(42)
 
     expect(mockApiDelete).toHaveBeenCalledWith('/events/42')
+  })
+
+  it('getMyDrafts sends organizerId, status=DRAFT and size=5 by default', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+    const response = await getMyDrafts('uuid-123')
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events', {
+      params: { organizerId: 'uuid-123', status: 'DRAFT', size: 5 },
+    })
+    expect(response).toEqual([sampleEvent])
+  })
+
+  it('getMyDrafts honors a custom limit', async () => {
+    mockApiGet.mockResolvedValue({ data: [] } as unknown as Awaited<ReturnType<typeof api.get>>)
+
+    await getMyDrafts('uuid-123', 3)
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events', {
+      params: { organizerId: 'uuid-123', status: 'DRAFT', size: 3 },
+    })
   })
 })
