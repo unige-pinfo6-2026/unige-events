@@ -10,7 +10,7 @@ interface AttendanceButtonsProps {
 }
 
 const buttonBase =
-  'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed'
+  'flex w-full items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-base font-semibold transition-colors cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed'
 
 const buttonVariants = {
   activeAttending: `${buttonBase} bg-primary/15 border-primary text-primary`,
@@ -43,7 +43,7 @@ export default function AttendanceButtons({
       <div className="flex flex-wrap gap-3">
         {/* Attending button with tooltip when full */}
         <div
-          className="relative group"
+          className="relative group w-full"
           tabIndex={isAttendingDisabled ? 0 : undefined}
           role={isAttendingDisabled ? 'group' : undefined}
           aria-describedby={isAttendingDisabled ? tooltipId : undefined}
@@ -60,7 +60,7 @@ export default function AttendanceButtons({
             }
           >
             <Users
-              className="w-4 h-4"
+              className="w-5 h-5"
               fill={currentStatus === 'ATTENDING' ? 'currentColor' : 'none'}
             />
             Je participe
