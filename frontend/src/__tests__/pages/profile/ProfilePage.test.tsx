@@ -171,6 +171,12 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
   })
 
+  it('shows the profile skeleton while auth is loading', () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true })
+    renderProfilePage('me')
+    expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
+  })
+
   it('does not crash when faculty key is unknown', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, faculty: 'UNKNOWN_FACULTY' as never },

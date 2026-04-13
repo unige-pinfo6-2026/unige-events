@@ -449,6 +449,28 @@ describe('useEventForm', () => {
     expect(onError).toHaveBeenCalledWith('La création a échoué pour des raisons externes.')
   })
 
+  it('saves with DRAFT status when triggerDraftSave is called regardless of the current status field', async () => {
+    mockCreateEvent.mockResolvedValue({ ...baseEvent, status: 'DRAFT' })
+    const onSuccess = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onSuccess }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T10:00')
+      result.current.setFieldValue('endDate', '2099-04-10T12:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('status', 'PUBLISHED')
+    })
+
+    await act(async () => {
+      await result.current.triggerDraftSave()
+    })
+
+    expect(mockCreateEvent).toHaveBeenCalledWith(expect.objectContaining({ status: 'DRAFT' }))
+    expect(onSuccess).toHaveBeenCalled()
+  })
+
   it('resets to incoming event values and uses the uploaded event response', async () => {
     const uploadedEvent = { ...baseEvent, bannerUrl: 'https://example.com/banner.png', status: 'PUBLISHED' as const }
     mockUpdateEvent.mockResolvedValue(baseEvent)
@@ -481,7 +503,7 @@ describe('useEventForm', () => {
       title: 'Forum 2026',
       location: baseEvent.location,
       bannerUrl: 'https://example.com/current-banner.png',
-      status: 'PUBLISHED',
+      status: 'DRAFT',
     }))
     expect(mockUploadEventImage).toHaveBeenCalledWith(42, expect.any(File))
     expect(onSuccess).toHaveBeenCalledWith(uploadedEvent)

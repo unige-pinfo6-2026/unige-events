@@ -114,24 +114,24 @@ describe('IcsExportButton', () => {
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
   })
 
-  it('renders Apple Calendar description', () => {
+  it('does not render Apple Calendar description', () => {
     render(<IcsExportButton event={mockEvent} />)
     expect(
-      screen.getByText("Double-cliquez le fichier téléchargé pour l'ouvrir dans Apple Calendar"),
-    ).toBeTruthy()
+      screen.queryByText("Double-cliquez le fichier téléchargé pour l'ouvrir dans Apple Calendar"),
+    ).toBeNull()
   })
 
-  it('renders Outlook description', () => {
+  it('does not render Outlook description', () => {
     render(<IcsExportButton event={mockEvent} />)
     expect(
-      screen.getByText('Téléchargez puis ouvrez le fichier dans Outlook pour l\'importer'),
-    ).toBeTruthy()
+      screen.queryByText("Téléchargez puis ouvrez le fichier dans Outlook pour l'importer"),
+    ).toBeNull()
   })
 
-  it('renders Google Calendar description', () => {
+  it('does not render Google Calendar description', () => {
     render(<IcsExportButton event={mockEvent} />)
     expect(
-      screen.getByText("Ouvre Google Calendar avec l'événement pré-rempli"),
-    ).toBeTruthy()
+      screen.queryByText("Ouvre Google Calendar avec l'événement pré-rempli"),
+    ).toBeNull()
   })
 })

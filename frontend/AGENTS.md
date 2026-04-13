@@ -314,6 +314,36 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement
 
+## Skeleton screens — règle non négociable
+
+**Toute page ou composant qui effectue un appel API et affiche un état `loading` doit avoir un skeleton `.bones.json` correspondant.** Les agents ne demandent pas de confirmation — c'est une obligation systématique au même titre que la gestion des états `loading`, `error` et `data`.
+
+> **Lecture obligatoire avant toute implémentation frontend impliquant un chargement :**
+> [`frontend/skeleton/README.md`](skeleton/README.md) — workflows complets, format des bones, pièges, checklist.
+
+### Quand générer un skeleton
+
+| Situation | Action requise |
+|---|---|
+| Nouvelle page avec appel API | Générer le skeleton avant de clore la tâche |
+| Nouveau composant avec appel API (hook `loading`) | Générer le skeleton |
+| Refactoring du layout d'une page déjà couverte | Mettre à jour `skeleton/generate.mjs` et relancer `npm run skeleton` |
+| Skeleton existant qui ne correspond plus au layout réel | Corriger immédiatement |
+
+### Skeletons existants (à tenir à jour)
+
+| Nom | Fichier bones | Composant consommateur | Méthode |
+|---|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` | generate.mjs |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | generate.mjs |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` | generate.mjs |
+| `profile` | `profile.bones.json` | `ProfilePage` | manuel |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` | generate.mjs |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | generate.mjs |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+
+---
+
 ## Maintenance de la documentation
 **En tant qu'agent, tu dois mettre à jour la documentation dans les cas suivants :**
 
@@ -326,6 +356,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | Nouvelle route dans le router | `docs/architecture.md` (table de routage) |
 | `openapi.yaml` mis à jour | Le fichier unique est `openapi/openapi.yaml` — monorepo, pas de copie à synchroniser |
 | Fin de sprint / tâche terminée | `docs/sprint-context.md` |
+| Nouveau skeleton | `AGENTS.md` (table "Skeletons existants") + `docs/components.md` |
 
 **Règle d'or : si tu touches au code, tu touches à la doc correspondante dans le même commit.**
 

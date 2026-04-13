@@ -268,7 +268,7 @@ export default function EventForm({
         <div>
           <div className="flex items-center justify-between gap-3 mb-2">
             <label htmlFor="event-startDate" className="block text-sm font-semibold text-foreground/60">
-              Début <span className="text-red-400"> *</span>
+              Début <span className="text-error"> *</span>
             </label>
             {/* Shell allDay — SCRUM-125 / S5 */}
             <span aria-hidden="true" className="flex items-center gap-1.5 text-xs font-normal text-foreground/25 cursor-not-allowed select-none pointer-events-none">

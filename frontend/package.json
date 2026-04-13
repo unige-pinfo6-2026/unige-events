@@ -9,12 +9,14 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "skeleton": "node skeleton/generate.mjs"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.16.1",
     "@tailwindcss/vite": "^4.2.2",
     "axios": "^1.13.6",
+    "boneyard-js": "^1.7.3",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.0",

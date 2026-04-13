@@ -12,8 +12,9 @@ vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
 }))
+const mockShowToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: mockShowToast }),
 }))
 
 import { useAuth } from '@/hooks/useAuth'
@@ -74,14 +75,14 @@ function renderPage(eventId = '1') {
 }
 
 describe('EventDetailPage', () => {
-  it('shows a loading spinner while loading', () => {
+  it('shows a skeleton while loading', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: null, loading: true, error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
 
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-detail"]')).toBeTruthy()
   })
 
   it('shows a localized invalid id message', () => {
@@ -125,7 +126,7 @@ describe('EventDetailPage', () => {
     expect(screen.getByText(/Une super conférence/)).toBeTruthy()
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
-    expect(screen.getByText('200 places disponibles')).toBeTruthy()
+    expect(screen.getByText('200 places au total')).toBeTruthy()
     await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
   })
 
@@ -136,8 +137,8 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.getByRole('link', { name: 'Modifier' }).getAttribute('href')).toBe('/events/1/edit')
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: "Modifier l'événement" }).getAttribute('href')).toBe('/events/1/edit')
+    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
   })
 
   it('hides organizer actions for another user', () => {
@@ -147,8 +148,8 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.queryByRole('link', { name: 'Modifier' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull()
+    expect(screen.queryByRole('link', { name: "Modifier l'événement" })).toBeNull()
+    expect(screen.queryByRole('button', { name: "Supprimer l'événement" })).toBeNull()
   })
 
   it('opens and closes the delete confirmation modal', () => {
@@ -158,7 +159,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     expect(screen.getByRole('heading', { name: "Supprimer l'événement ?" })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
@@ -186,7 +187,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockDeleteEvent).toHaveBeenCalledWith(1))
@@ -201,11 +202,11 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull())
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
   })
 
   it('sets organizer to null when getUserById rejects', async () => {
@@ -217,5 +218,58 @@ describe('EventDetailPage', () => {
 
     await waitFor(() => expect(mockGetUserById).toHaveBeenCalled())
     expect(screen.queryByText(/Organisé par/)).toBeNull()
+  })
+
+  it('renders event with no capacity (InfoRow without color branch)', () => {
+    const eventNoCapacity = { ...mockEvent, capacity: undefined }
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: eventNoCapacity, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
+  })
+
+  it('copies the event URL and shows a success toast when sharing', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('success', 'Lien copié !', 3000))
+  })
+
+  it('shows a fallback error toast when clipboard writeText rejects', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('Copiez ce lien'), 6000))
+  })
+
+  it('shows a fallback error toast when clipboard API is unavailable', () => {
+    Object.assign(navigator, { clipboard: undefined })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('Copiez ce lien'), 6000)
   })
 })

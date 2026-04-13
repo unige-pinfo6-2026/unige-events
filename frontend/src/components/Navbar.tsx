@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Skeleton } from 'boneyard-js/react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../contexts/ThemeContext'
 import UserIdentity from './user/UserIdentity'
 import { ButtonPrimary } from './utils/Buttons'
-import { Skeleton } from './utils/Skeleton'
 import { Banner } from '@/assets/Banner'
 import { ChevronDown, Menu, Moon, SearchIcon, Sun, X } from 'lucide-react'
 import type { User } from '@/types/user'
@@ -138,8 +138,20 @@ function UserDropdown({ user, logout }: Readonly<{ user: User; logout: () => voi
   )
 }
 
+function UserDropdownFixture() {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="rounded-full shrink-0" style={{ width: 32, height: 32 }} />
+      <span className="text-sm font-semibold">Elie Bsd</span>
+      <div className="w-4 h-4" />
+    </div>
+  )
+}
+
 function DesktopNav() {
   const { user, login, logout, isLoading } = useAuth()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   return (
     <>
@@ -154,11 +166,17 @@ function DesktopNav() {
       <div className="hidden lg:flex items-center gap-6">
         <NavButtons/>
 
-        {isLoading && <Skeleton className="h-9 w-28" />}
-        {!isLoading && (user
-          ? <UserDropdown user={user} logout={logout} />
-          : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
-        )}
+        {isLoading
+          ? (
+            <Skeleton name="navbar-user" loading animate="pulse" color={skeletonColor}>
+              <UserDropdownFixture />
+            </Skeleton>
+          )
+          : (user
+            ? <UserDropdown user={user} logout={logout} />
+            : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+          )
+        }
       </div>
     </>
   )

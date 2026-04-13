@@ -101,6 +101,18 @@ Fonctionnalités livrées :
 - `useEventForm` + `EventForm` : champ "Faculté concernée" select, option par défaut « Toutes facultés » (envoyée comme `null` au backend), valeur `Faculty | null` dans le payload de création/édition.
 - Tests unitaires : FacultyBadge (label + couleur × 9 valeurs), EventCard (badge affiché/absent), EventSearchSidebar (chips, sélection/désélection), useEventSearch (faculty dans les params API).
 
+## Sprint 4 — Skeleton screens Boneyard (2026-04-12)
+
+Terminé le 2026-04-12.
+
+Fonctionnalités livrées :
+- Skeleton screens Boneyard — `EventCards`, `EventDetailPage`, `ProfilePage`, `EventsSearchPage`, `EventCalendar`, `EventEditPage`, `Navbar` (bouton utilisateur).
+- Intégration de `boneyard-js` : import du registry dans `main.tsx`, générateur custom `skeleton/generate.mjs` (pas de CLI Playwright — routes protégées inaccessibles sans auth).
+- `src/components/utils/Skeleton.tsx` supprimé — `SkeletonBlock` retiré, remplacé par `<Skeleton>` de `boneyard-js/react` partout.
+- Fixtures locales non-exportées dans chaque composant ciblé — JSX statique reproduisant le layout réel pour établir les dimensions du container.
+- `LoadingSpinner` retiré des pages/composants couverts par un skeleton — conservé dans `PrivateRoute` et `LoadingPage`.
+- Règle établie : **tout futur composant ou page avec appel API doit générer son skeleton** (documenté dans `AGENTS.md` et `docs/dev-guide.md`).
+
 ## Correctifs transverses — 2026-03-31
 
 Terminé.

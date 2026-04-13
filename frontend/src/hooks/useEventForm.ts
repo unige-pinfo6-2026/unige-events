@@ -346,7 +346,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   }
 
   async function submitForm() {
-    const effectiveStatus: EventStatus = forcedStatusRef.current ?? 'PUBLISHED'
+    const effectiveStatus: EventStatus = forcedStatusRef.current ?? values.status
     forcedStatusRef.current = null
 
     if (!validate()) {
