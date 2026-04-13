@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import FavoritesPage from '@/pages/favorites/FavoritesPage'
+import FavoritesPage from '@/pages/event/favorites/FavoritesPage'
 import type { Event } from '@/types/event'
 
 vi.mock('@/services/favoriteApi', () => ({
@@ -79,6 +79,6 @@ describe('FavoritesPage', () => {
   it('shows the page title', async () => {
     mockGetFavorites.mockResolvedValue([])
     renderPage()
-    await waitFor(() => expect(screen.getByText('Mes Favoris')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Mes Favoris/i })).toBeTruthy())
   })
 })

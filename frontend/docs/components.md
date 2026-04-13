@@ -12,7 +12,7 @@
 | /profile/me/edit | ProfileEditPage | fait |
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
-| /favorites | FavoritesPage | fait |
+| /events/favorites | FavoritesPage | fait |
 
 ### LandingPage
 

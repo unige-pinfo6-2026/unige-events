@@ -4,6 +4,8 @@ import { getFavorites } from '@/services/favoriteApi'
 import EventCard from '@/components/event/EventCard'
 import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
 import { InfoMessage } from '@/components/utils/InfoMessage'
+import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
+import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { Event } from '@/types/event'
 
 export default function FavoritesPage() {
@@ -35,11 +37,12 @@ export default function FavoritesPage() {
   if (error) return <InfoMessage type="error" message={error} />
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-8 py-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-extrabold text-foreground">Mes Favoris</h1>
-        <p className="text-sm text-foreground/50">Les événements que vous avez mis en favoris</p>
-      </div>
+    <SectionWrapper padding="sm" background={<BlobsSubtle />}>
+      <SectionHeader
+        align="left"
+        title={<>Mes <mark>Favoris</mark></>}
+        subtitle="Les événements que vous avez mis en favoris."
+      />
 
       {loading ? (
         <LoadingSpinner />
@@ -61,6 +64,6 @@ export default function FavoritesPage() {
           ))}
         </div>
       )}
-    </div>
+    </SectionWrapper>
   )
 }
