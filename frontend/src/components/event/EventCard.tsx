@@ -2,8 +2,17 @@ import { Link } from 'react-router-dom'
 import { Calendar, MapPin, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
+import FavoriteButton from './FavoriteButton'
 
-export default function EventCard({ event }: Readonly<{ event: Event }>) {
+export default function EventCard({
+  event,
+  favorited = false,
+  onFavoriteRemove,
+}: Readonly<{
+  event: Event
+  favorited?: boolean
+  onFavoriteRemove?: () => void
+}>) {
   const category = EVENT_CATEGORIES[event.category]
 
   return (
@@ -30,6 +39,10 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
           >
             {category.name}
           </span>
+
+          <div className="absolute top-4 right-4 z-10">
+            <FavoriteButton eventId={event.id} initialFavorited={favorited} onRemove={onFavoriteRemove} />
+          </div>
 
           {/* Title overlaid on banner */}
           <div className="absolute bottom-0 left-0 right-0 p-5">

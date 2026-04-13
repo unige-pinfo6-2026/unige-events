@@ -11,6 +11,10 @@ vi.mock('@/hooks/useEventSearch', () => ({
   useSearch: vi.fn(),
 }))
 
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+
 import { useSearch } from '@/hooks/useEventSearch'
 
 const mockUseSearch = useSearch as ReturnType<typeof vi.fn>

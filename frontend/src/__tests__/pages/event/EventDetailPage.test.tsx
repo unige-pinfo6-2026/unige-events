@@ -9,6 +9,12 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
 vi.mock('@/services/eventApi', () => ({ deleteEvent: vi.fn() }))
 vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}))
 
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
