@@ -6,6 +6,7 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.Faculty;
+import ch.unige.events.entity.EventStatus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -45,6 +46,9 @@ public class EventSearchService {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
+        conditions.add("e.status = :status");
+        params.put("status", EventStatus.PUBLISHED);
+
         if (q != null && !q.isBlank()) {
             conditions.add("(lower(e.title) like :q or lower(e.description) like :q)");
             params.put("q", "%" + q.toLowerCase(Locale.ROOT) + "%");
@@ -68,9 +72,7 @@ public class EventSearchService {
             params.put("dateTo", dateToUtc);
         }
 
-        if (!conditions.isEmpty()) {
-            jpql.append(" WHERE ").append(String.join(" AND ", conditions));
-        }
+        jpql.append(" WHERE ").append(String.join(" AND ", conditions));
         jpql.append(" ORDER BY e.startDate, e.id");
 
         List<Event> events = Event.<Event>find(jpql.toString(), params)

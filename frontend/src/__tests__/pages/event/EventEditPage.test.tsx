@@ -85,7 +85,6 @@ describe('EditEventPage', () => {
     renderPage()
     await screen.findByDisplayValue(existingEvent.title)
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum 2026' } })
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(await screen.findByText('Événement mis à jour avec succès.')).toBeTruthy()

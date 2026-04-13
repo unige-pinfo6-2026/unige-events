@@ -152,7 +152,7 @@ describe('CreateEventPage', () => {
       location: createdEvent.location,
       category: createdEvent.category,
       capacity: 120,
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     }))
     expect(mockUploadEventImage).toHaveBeenCalledWith(42, file)
 
@@ -165,7 +165,6 @@ describe('CreateEventPage', () => {
     renderPage()
 
     fillRequiredFields()
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
 

@@ -217,7 +217,7 @@ describe('useEventForm', () => {
       category: 'SOCIAL',
       faculty: null,
       capacity: undefined,
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     })
     expect(onSuccess).toHaveBeenCalledWith(baseEvent)
   })
@@ -481,7 +481,7 @@ describe('useEventForm', () => {
       title: 'Forum 2026',
       location: baseEvent.location,
       bannerUrl: 'https://example.com/current-banner.png',
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     }))
     expect(mockUploadEventImage).toHaveBeenCalledWith(42, expect.any(File))
     expect(onSuccess).toHaveBeenCalledWith(uploadedEvent)
