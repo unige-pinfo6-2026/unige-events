@@ -26,7 +26,7 @@ describe('EventForm', () => {
   it('renders capacity and image errors with the loading submit state', () => {
     render(
       <EventForm
-        title='Créer un événement'
+        mode="create"
         submitLabel='Créer'
         values={baseValues}
         errors={{ capacity: 'Capacité invalide', image: 'Image invalide' }}
@@ -43,7 +43,7 @@ describe('EventForm', () => {
     expect(screen.getByText('Capacité invalide')).toBeTruthy()
     expect(screen.getByText('Image invalide')).toBeTruthy()
     expect(screen.getByText('Ajoutez une image de couverture')).toBeTruthy()
-    expect(screen.getByText('PNG, JPG ou WEBP')).toBeTruthy()
+    expect(screen.getByText(/PNG, JPG ou WEBP/)).toBeTruthy()
     expect(screen.getByText(/\/ 120/)).toBeTruthy()
     expect(screen.getByText(/\/ 2000/)).toBeTruthy()
     expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).maxLength).toBe(120)
@@ -63,7 +63,7 @@ describe('EventForm', () => {
 
     render(
       <EventForm
-        title="Modifier l'événement"
+        mode="edit"
         submitLabel='Enregistrer'
         values={baseValues}
         errors={{}}
@@ -78,7 +78,6 @@ describe('EventForm', () => {
     )
 
     fireEvent.change(screen.getByLabelText(/Capacité/i), { target: { value: '200' } })
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
     fireEvent.change(document.querySelector('#event-banner') as HTMLInputElement, {
       target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] },
     })
@@ -87,7 +86,6 @@ describe('EventForm', () => {
     expect(screen.getByAltText('Aperçu de la bannière').getAttribute('src')).toBe('https://example.com/banner.png')
     expect(screen.getByText('banner.png')).toBeTruthy()
     expect(onFieldChange).toHaveBeenCalledWith('capacity', '200')
-    expect(onFieldChange).toHaveBeenCalledWith('status', 'PUBLISHED')
     expect(onImageChange).toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalled()
   })
@@ -100,7 +98,7 @@ describe('EventForm', () => {
 
       return (
         <EventForm
-          title='Créer un événement'
+          mode="create"
           submitLabel='Créer'
           values={values}
           errors={{}}

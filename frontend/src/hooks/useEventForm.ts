@@ -50,6 +50,7 @@ interface UseEventFormResult {
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  triggerDraftSave: () => Promise<void>
 }
 
 interface ValidationErrorDetail {
@@ -65,7 +66,7 @@ const DEFAULT_VALUES: EventFormValues = {
   endDate: '',
   category: '',
   capacity: '',
-  status: "DRAFT",
+  status: 'PUBLISHED',
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -226,6 +227,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const forcedStatusRef = useRef<EventStatus | null>(null)
 
   useEffect(() => {
     setValues(toFormValues(initialEvent))
@@ -340,6 +342,9 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   }
 
   async function submitForm() {
+    const effectiveStatus: EventStatus = forcedStatusRef.current ?? 'PUBLISHED'
+    forcedStatusRef.current = null
+
     if (!validate()) {
       return
     }
@@ -358,7 +363,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         endDate: toApiDateTime(values.endDate),
         category: values.category || "OTHER",
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
-        status: values.status,
+        status: effectiveStatus,
       }
 
       if (mode === 'create') {
@@ -404,6 +409,11 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     await submitForm()
   }
 
+  async function triggerDraftSave() {
+    forcedStatusRef.current = 'DRAFT'
+    await submitForm()
+  }
+
   return {
     values,
     errors,
@@ -413,5 +423,6 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     setFieldValue,
     handleImageChange,
     handleSubmit,
+    triggerDraftSave,
   }
 }

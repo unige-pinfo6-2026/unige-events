@@ -85,12 +85,26 @@
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
 - Utilisé dans `LandingPage` (section Events).
 
+### CategorySelect
+
+- Sélecteur de catégorie natif `<select>` avec point de couleur pour la catégorie sélectionnée.
+- Le point de couleur utilise `style={{ backgroundColor }}` — seule valeur inline autorisée (couleur hex dynamique).
+- Props : `value: '' | EventCategory`, `onChange: (category: EventCategory) => void`, `error?: string`, `id?: string`.
+- Remplace CategoryPills dans `EventForm` (Bande 3).
+
 ### EventForm
 
 - Formulaire partagé entre création et édition.
-- Centralise les champs titre, description, lieu, dates, catégorie, capacité, statut et bannière.
-- Garde le placeholder et l'aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
+- Prop `mode: 'create' | 'edit'` — contrôle l'affichage de la Bande 4 récurrence (create only) et la Bande 5 co-organisateurs (edit only).
+- Layout v3b en **5 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
+  - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
+  - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
+  - Bande 3 : CategorySelect | Capacité (spinners masqués) | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+  - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
+  - Bande 5 : shell co-organisateurs (edit only, S8).
+- Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
+- `ComingSoonBlock` : composant local non-exporté pour les shells backlog — icône + label + badge sprint + contenu mock.
 
 ### FilterSidebar
 
@@ -156,6 +170,7 @@
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
+- Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
 ### useEventSearch
