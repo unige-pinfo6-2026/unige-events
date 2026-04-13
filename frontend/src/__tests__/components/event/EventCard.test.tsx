@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventCard from '@/components/event/EventCard'
 import { type Event } from '@/types/event'
 import { type Faculty } from '@/types/faculty'
+
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+import type { Event } from '@/types/event'
 
 const mockEvent: Event = {
   id: 1,

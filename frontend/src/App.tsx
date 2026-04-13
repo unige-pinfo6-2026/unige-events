@@ -1,6 +1,7 @@
 import { AuthProvider } from "./contexts/AuthContext"
 import { ThemeProvider } from "./contexts/ThemeContext"
 import { ToastProvider } from "./contexts/ToastContext"
+import { FavoritesProvider } from "./contexts/FavoritesContext"
 import AppRouter from "./router/AppRouter"
 
 function App() {
@@ -8,7 +9,9 @@ function App() {
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <AppRouter />
+          <FavoritesProvider>
+            <AppRouter />
+          </FavoritesProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
