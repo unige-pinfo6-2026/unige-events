@@ -5,6 +5,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.EventStatus;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -42,6 +43,9 @@ public class EventSearchService {
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
+        conditions.add("status = :status");
+        params.put("status", EventStatus.PUBLISHED);
+
         if (q != null && !q.isBlank()) {
             // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
             // Les parenthèses sont obligatoires pour isoler le OR face aux AND suivants
@@ -64,12 +68,8 @@ public class EventSearchService {
             params.put("dateTo", dateToUtc);
         }
 
-        PanacheQuery<Event> query;
-        if (conditions.isEmpty()) {
-            query = Event.find("order by startDate, id");
-        } else {
-            query = Event.find(String.join(" AND ", conditions) + " order by startDate, id", params);
-        }
+        PanacheQuery<Event> query = Event.find(
+                String.join(" AND ", conditions) + " order by startDate, id", params);
 
         List<Event> events = query.page(page, size).list();
         List<Long> ids = events.stream().map(e -> e.id).toList();
