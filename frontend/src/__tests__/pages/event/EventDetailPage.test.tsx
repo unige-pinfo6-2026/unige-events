@@ -12,8 +12,9 @@ vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
 }))
+const mockShowToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: mockShowToast }),
 }))
 
 import { useAuth } from '@/hooks/useAuth'
@@ -227,5 +228,47 @@ describe('EventDetailPage', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
+  })
+
+  it('copies the event URL and shows a success toast when sharing', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('success', 'Lien copié !', 3000))
+  })
+
+  it('shows a fallback error toast when clipboard writeText rejects', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('Copiez ce lien'), 6000))
+  })
+
+  it('shows a fallback error toast when clipboard API is unavailable', () => {
+    Object.assign(navigator, { clipboard: undefined })
+
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
+    expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('Copiez ce lien'), 6000)
   })
 })
