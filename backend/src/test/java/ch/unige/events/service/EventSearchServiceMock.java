@@ -59,7 +59,8 @@ public class EventSearchServiceMock extends EventSearchService {
     }
 
     @Override
-    public List<EventDTO> search(String q, EventCategory category, Faculty faculty,
+    @SuppressWarnings("java:S107")
+    public List<EventDTO> search(String q, EventCategory category, Faculty faculty, Boolean facultyNone,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
         return eventsById.values().stream()
@@ -70,7 +71,13 @@ public class EventSearchServiceMock extends EventSearchService {
                             || (e.description != null && e.description.toLowerCase().contains(lower));
                 })
                 .filter(e -> category == null || e.category == category)
-                .filter(e -> faculty == null || e.faculty == faculty)
+                .filter(e -> {
+                    // facultyNone=true has priority over faculty — mutually exclusive filter.
+                    if (Boolean.TRUE.equals(facultyNone)) {
+                        return e.faculty == null;
+                    }
+                    return faculty == null || e.faculty == faculty;
+                })
                 .filter(e -> dateFrom == null || !e.startDate.isBefore(dateFrom.atStartOfDay()))
                 .filter(e -> dateTo == null || !e.startDate.isAfter(dateTo.atTime(23, 59, 59)))
                 .sorted(Comparator.comparing((Event e) -> e.startDate).thenComparingLong(e -> e.id))

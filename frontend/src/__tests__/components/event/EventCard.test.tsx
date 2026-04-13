@@ -73,14 +73,19 @@ describe('EventCard', () => {
     }
   })
 
-  it('renders FacultyBadge when faculty is non-null', () => {
+  it('renders FacultyBadge with the faculty label when faculty is set', () => {
     renderCard({ ...mockEvent, faculty: Faculty.SCIENCES })
     expect(screen.getByText('Sciences')).toBeTruthy()
   })
 
-  it('does not render FacultyBadge when faculty is null', () => {
+  it('renders a neutral "Toutes facultés" badge when faculty is null', () => {
     renderCard({ ...mockEvent, faculty: null })
-    expect(screen.queryByText('Sciences')).toBeNull()
+    expect(screen.getByText('Toutes facultés')).toBeTruthy()
+  })
+
+  it('renders a neutral "Toutes facultés" badge when faculty is undefined', () => {
+    renderCard({ ...mockEvent, faculty: undefined })
+    expect(screen.getByText('Toutes facultés')).toBeTruthy()
   })
 
   it('renders the correct faculty label for each Faculty value', () => {

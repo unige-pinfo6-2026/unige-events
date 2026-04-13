@@ -66,13 +66,20 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
+    @SuppressWarnings("java:S107")
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone) {
         return eventsById.values().stream()
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
                 .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
-                .filter(e -> faculty == null || e.faculty == faculty)
+                .filter(e -> {
+                    // facultyNone=true has priority over faculty — mutually exclusive filter.
+                    if (Boolean.TRUE.equals(facultyNone)) {
+                        return e.faculty == null;
+                    }
+                    return faculty == null || e.faculty == faculty;
+                })
                 .map(e -> EventDTO.from(e, 0L))
                 .toList();
     }

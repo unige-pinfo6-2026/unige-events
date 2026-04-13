@@ -36,7 +36,8 @@ public class EventSearchService {
     @Inject EntityManager entityManager;
 
     @Transactional
-    public List<EventDTO> search(String q, EventCategory category, Faculty faculty,
+    @SuppressWarnings("java:S107") // Filter-heavy search endpoint — flat params match the REST query signature 1:1.
+    public List<EventDTO> search(String q, EventCategory category, Faculty faculty, Boolean facultyNone,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
         // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
@@ -57,7 +58,10 @@ public class EventSearchService {
             conditions.add("e.category = :category");
             params.put("category", category);
         }
-        if (faculty != null) {
+        // facultyNone=true has priority over faculty — mutually exclusive filter.
+        if (Boolean.TRUE.equals(facultyNone)) {
+            conditions.add("e.faculty IS NULL");
+        } else if (faculty != null) {
             conditions.add("e.faculty = :faculty");
             params.put("faculty", faculty);
         }

@@ -857,6 +857,14 @@ paths:
           description: Filtre les événements par faculté
           schema:
             $ref: '#/components/schemas/Faculty'
+        - name: facultyNone
+          in: query
+          description: |
+            Si true, retourne uniquement les événements dont `faculty` est null
+            (non rattachés à une faculté précise). Mutuellement exclusif avec le
+            paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -931,6 +939,14 @@ paths:
           description: Filtre les événements par faculté
           schema:
             $ref: '#/components/schemas/Faculty'
+        - name: facultyNone
+          in: query
+          description: |
+            Si true, retourne uniquement les événements dont `faculty` est null
+            (non rattachés à une faculté précise). Mutuellement exclusif avec le
+            paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
+          schema:
+            type: boolean
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)

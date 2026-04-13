@@ -79,12 +79,12 @@ Terminé.
 
 Fonctionnalités livrées :
 - `Faculty` enum ajouté dans `src/types/event.ts` (9 valeurs : SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI) — correspond exactement à l'enum OpenAPI.
-- Champ `faculty: Faculty | null` ajouté au type `Event`, `CreateEventRequest` et `UpdateEventRequest`.
-- `FacultyBadge` (`src/components/faculty/FacultyBadge.tsx`) : pill coloré Tailwind par faculté, libellé français, aria-label. Export `FACULTY_LABELS`.
-- `EventCard` : affiche `<FacultyBadge>` si `event.faculty != null`.
-- `EventSearchSidebar` : filtre faculté activé, sélection par chips toggle (un par valeur Faculty, libellé français, sélection unique). Remplace l'ancien select désactivé.
-- `useEventSearch` : `faculty` ajouté aux `SearchParams` envoyés à l'API. Sync URL `?faculty=` (ajout / suppression).
-- `useEventForm` + `EventForm` : champ "Faculté concernée" select, option nulle ("Toutes les facultés"), valeur `Faculty | null` dans le payload de création/édition.
+- Champ `faculty` ajouté aux types métier : sur `Event`, signature `faculty?: Faculty | null` (champ potentiellement absent dans certains mocks ou payloads) ; sur `CreateEventRequest` et `UpdateEventRequest`, signature `faculty?: Faculty | null`.
+- `FacultyBadge` (`src/components/faculty/FacultyBadge.tsx`) : pill coloré hex officiel UNIGE par faculté (9 couleurs), libellé français, aria-label. Accepte `Faculty | null | undefined` : quand la valeur est absente, rend un badge neutre « Toutes facultés » (`bg-foreground/10 text-foreground/70`) plutôt qu'une absence de badge.
+- `EventCard` : affiche systématiquement le `<FacultyBadge>` dans l'overlay de la bannière (sous le titre) — faculté nommée ou « Toutes facultés » neutre selon `event.faculty`.
+- `EventSearchSidebar` : filtre faculté activé, sélection par chips toggle (un par valeur Faculty, libellé français, sélection unique). Remplace l'ancien select désactivé. Un chip supplémentaire « Toutes facultés » (stocké comme `facultyNone: true`) isole les événements non rattachés à une faculté précise — mutex client avec les chips Faculty nommés, mutex serveur documenté dans openapi.yaml (facultyNone gagne si les deux sont envoyés).
+- `useEventSearch` : `faculty` et `facultyNone` ajoutés aux `SearchParams` envoyés à l'API. Sync URL `?faculty=` / `?facultyNone=true` (ajout / suppression, mutuellement exclusifs).
+- `useEventForm` + `EventForm` : champ "Faculté concernée" select, option par défaut « Toutes facultés » (envoyée comme `null` au backend), valeur `Faculty | null` dans le payload de création/édition.
 - Tests unitaires : FacultyBadge (label + couleur × 9 valeurs), EventCard (badge affiché/absent), EventSearchSidebar (chips, sélection/désélection), useEventSearch (faculty dans les params API).
 
 ## Correctifs transverses — 2026-03-31

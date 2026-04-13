@@ -42,6 +42,7 @@ public class EventResource {
 
     @GET
     @PermitAll
+    @SuppressWarnings("java:S107") // Filter-heavy list endpoint — flat params match the REST query signature 1:1.
     public List<EventDTO> getAll(
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
@@ -49,8 +50,9 @@ public class EventResource {
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId,
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
-            @QueryParam("faculty") Faculty faculty) {
-        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty);
+            @QueryParam("faculty") Faculty faculty,
+            @QueryParam("facultyNone") Boolean facultyNone) {
+        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty, facultyNone);
     }
 
     @POST

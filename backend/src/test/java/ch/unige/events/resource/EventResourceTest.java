@@ -542,4 +542,38 @@ class EventResourceTest {
                 .statusCode(200)
                 .body("", hasSize(2));
     }
+
+    // --- GET /events?facultyNone= ---
+
+    @Test
+    void getAll_withFacultyNoneFilter_returnsOnlyUnaffiliated() {
+        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
+        e1.faculty = Faculty.SCIENCES;
+        eventServiceMock.seedEvent("auth0|alice", "Event sans faculté");
+
+        given()
+                .queryParam("facultyNone", "true")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Event sans faculté"))
+                .body("[0].faculty", nullValue());
+    }
+
+    @Test
+    void getAll_withFacultyNoneAndFaculty_facultyNoneWins() {
+        var e1 = eventServiceMock.seedEvent("auth0|alice", "Event SCIENCES");
+        e1.faculty = Faculty.SCIENCES;
+        eventServiceMock.seedEvent("auth0|alice", "Event sans faculté");
+
+        given()
+                .queryParam("faculty", "SCIENCES")
+                .queryParam("facultyNone", "true")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].faculty", nullValue());
+    }
 }

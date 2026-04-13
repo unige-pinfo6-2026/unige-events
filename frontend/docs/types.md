@@ -5,9 +5,14 @@ Source de vérité contrat API : `docs/openapi/openapi.yaml`.
 
 ## Types événements — `src/types/event.ts`
 
-### Faculty (enum)
+### Faculty
 
-Défini comme `enum` TypeScript dans `src/types/event.ts`. Correspond exactement à l'enum OpenAPI `Faculty`.
+Défini dans `src/types/event.ts` comme **const object `as const` + type union dérivé** — pas un vrai `enum` TypeScript, mais exactement l'ensemble de valeurs de l'enum OpenAPI `Faculty`.
+
+```ts
+export const Faculty = { SCIENCES: 'SCIENCES', LETTRES: 'LETTRES', /* … */ } as const
+export type Faculty = (typeof Faculty)[keyof typeof Faculty]
+```
 
 Valeurs : `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI`.
 
@@ -112,6 +117,7 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 - q : string — terme de recherche full-text
 - category : EventCategory — filtre catégorie (valeur unique)
 - faculty : Faculty — filtre faculté (valeur unique de l'enum `Faculty` dans `src/types/event.ts`)
+- facultyNone : boolean — si `true`, filtre sur les événements dont `faculty` est null (non rattachés à une faculté précise). Mutuellement exclusif avec `faculty` côté UI ; côté serveur, `facultyNone` a priorité si les deux sont fournis.
 - dateFrom : string (format date) — startDate >= dateFrom
 - dateTo : string (format date) — startDate <= dateTo
 - page : number (défaut 0)
@@ -123,10 +129,10 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 
 ### SearchFilters
 
-Exportée depuis `src/hooks/useEventSearch.ts` (non dans `src/types/`).
+Définie dans `src/types/search.ts`.
 Utilisée comme props par `FilterSidebar`.
-Champs : `category?`, `faculty?`, `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
-`includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
+Champs : `category?`, `faculty?`, `facultyNone?` (boolean — chip « Toutes facultés »), `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
+Mutex `faculty` / `facultyNone` : l'UI garantit qu'au plus un des deux est actif. `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
 
 ## Types présence — `src/types/attendance.ts`
 

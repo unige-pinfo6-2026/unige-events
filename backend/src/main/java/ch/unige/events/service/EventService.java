@@ -36,12 +36,16 @@ public class EventService {
     @Inject EntityManager entityManager;
 
     @Transactional
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty) {
+    @SuppressWarnings("java:S107") // Filter-heavy list endpoint — flat params match the REST query signature 1:1.
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone) {
         StringBuilder jpql = new StringBuilder("SELECT e FROM Event e");
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
 
-        if (faculty != null) {
+        // facultyNone=true has priority over faculty — mutually exclusive filter.
+        if (Boolean.TRUE.equals(facultyNone)) {
+            conditions.add("e.faculty IS NULL");
+        } else if (faculty != null) {
             conditions.add("e.faculty = :faculty");
             params.put("faculty", faculty);
         }

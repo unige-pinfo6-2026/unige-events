@@ -286,4 +286,38 @@ class EventSearchResourceTest {
                 .statusCode(200)
                 .body("", hasSize(2));
     }
+
+    // --- Filtre ?facultyNone= ---
+
+    @Test
+    void search_withFacultyNoneFilter_returnsOnlyUnaffiliated() {
+        var e1 = eventSearchServiceMock.seedEvent("Sciences Event", null, EventCategory.ACADEMIC, null);
+        e1.faculty = Faculty.SCIENCES;
+        eventSearchServiceMock.seedEvent("Event sans faculté", null, EventCategory.ACADEMIC, null);
+
+        given()
+                .queryParam("facultyNone", "true")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Event sans faculté"))
+                .body("[0].faculty", nullValue());
+    }
+
+    @Test
+    void search_withFacultyNoneAndFaculty_facultyNoneWins() {
+        var e1 = eventSearchServiceMock.seedEvent("Sciences Event", null, EventCategory.ACADEMIC, null);
+        e1.faculty = Faculty.SCIENCES;
+        eventSearchServiceMock.seedEvent("Event sans faculté", null, EventCategory.ACADEMIC, null);
+
+        given()
+                .queryParam("faculty", "SCIENCES")
+                .queryParam("facultyNone", "true")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].faculty", nullValue());
+    }
 }

@@ -27,6 +27,7 @@ export function useSearch(): UseSearchResult {
   const [filters, setFiltersState] = useState<SearchFilters>({
     category: (searchParams.get('category') as EventCategory) || undefined,
     faculty: (searchParams.get('faculty') as Faculty) || undefined,
+    facultyNone: searchParams.get('facultyNone') === 'true' ? true : undefined,
     dateFrom: searchParams.get('dateFrom') || undefined,
     dateTo: searchParams.get('dateTo') || undefined,
     includePast: searchParams.get('includePast') === 'true',
@@ -54,7 +55,11 @@ export function useSearch(): UseSearchResult {
     const trimmedQuery = query.trim()
     if (trimmedQuery) params.q = trimmedQuery
     if (filters.category) params.category = filters.category
-    if (filters.faculty) params.faculty = filters.faculty
+    if (filters.facultyNone) {
+      params.facultyNone = 'true'
+    } else if (filters.faculty) {
+      params.faculty = filters.faculty
+    }
     if (filters.dateFrom) params.dateFrom = filters.dateFrom
     if (filters.dateTo) params.dateTo = filters.dateTo
     if (filters.includePast) params.includePast = 'true'
@@ -95,10 +100,12 @@ export function useSearch(): UseSearchResult {
     // Fix 4: when includePast is false, enforce dateFrom >= today
     const futureDateFrom = f.dateFrom && f.dateFrom > today ? f.dateFrom : today
     const effectiveDateFrom = f.includePast ? f.dateFrom : futureDateFrom
+    // Mutex côté client : facultyNone=true ignore faculty.
     const params: SearchParams = {
       q: trimmed || undefined,
       category: f.category,
-      faculty: f.faculty,
+      faculty: f.facultyNone ? undefined : f.faculty,
+      facultyNone: f.facultyNone || undefined,
       dateFrom: effectiveDateFrom,
       dateTo: f.dateTo,
     }

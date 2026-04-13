@@ -12,11 +12,19 @@ const FACULTY_COLORS: Record<Faculty, string> = {
   GSI:         'bg-[#003580] text-white',
 }
 
-export default function FacultyBadge({ faculty }: Readonly<{ faculty: Faculty }>) {
-  const label = FACULTY_LABELS[faculty]
+const ALL_FACULTIES_LABEL = 'Toutes facultés'
+const ALL_FACULTIES_CLASSES = 'bg-foreground/10 text-foreground/70'
+
+interface FacultyBadgeProps {
+  faculty: Faculty | null | undefined
+}
+
+export default function FacultyBadge({ faculty }: Readonly<FacultyBadgeProps>) {
+  const label = faculty == null ? ALL_FACULTIES_LABEL : FACULTY_LABELS[faculty]
+  const classes = faculty == null ? ALL_FACULTIES_CLASSES : FACULTY_COLORS[faculty]
   return (
     <span
-      className={`inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full ${FACULTY_COLORS[faculty]}`}
+      className={`inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full ${classes}`}
       aria-label={`Faculté : ${label}`}
     >
       {label}

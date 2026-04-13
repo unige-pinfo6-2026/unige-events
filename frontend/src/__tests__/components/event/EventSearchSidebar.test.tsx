@@ -141,6 +141,57 @@ describe('FilterSidebar', () => {
     expect(droitChip.className).toContain('bg-accent')
   })
 
+  it('renders a "Toutes facultés" chip alongside the faculty chips', () => {
+    renderSidebar()
+    expect(screen.getByRole('button', { name: 'Toutes facultés' })).toBeTruthy()
+  })
+
+  it('clicking_toutesFacultes_chip_sets_facultyNone_true', () => {
+    const setFilters = vi.fn()
+    renderSidebar(defaultFilters, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Toutes facultés' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ facultyNone: true }))
+  })
+
+  it('clicking_toutesFacultes_chip_clears_faculty', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, faculty: Faculty.SCIENCES }, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Toutes facultés' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({
+      facultyNone: true,
+      faculty: undefined,
+    }))
+  })
+
+  it('clicking_faculty_chip_clears_facultyNone', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, facultyNone: true }, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({
+      faculty: Faculty.SCIENCES,
+      facultyNone: undefined,
+    }))
+  })
+
+  it('toutes_facultes_chip_is_active_when_facultyNone_is_true', () => {
+    renderSidebar({ includePast: false, facultyNone: true })
+    const chip = screen.getByRole('button', { name: 'Toutes facultés' })
+    expect(chip.className).toContain('bg-accent')
+  })
+
+  it('deselect_toutes_facultes_chip_clears_facultyNone', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, facultyNone: true }, setFilters)
+    fireEvent.click(screen.getByRole('button', { name: 'Toutes facultés' }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ facultyNone: undefined }))
+  })
+
+  it('no faculty chip appears active when facultyNone is true', () => {
+    renderSidebar({ includePast: false, facultyNone: true, faculty: Faculty.SCIENCES })
+    const sciencesChip = screen.getByRole('button', { name: 'Sciences' })
+    expect(sciencesChip.className).not.toContain('bg-accent')
+  })
+
   it('calls setFilters with dateFrom when date input changes', () => {
     const setFilters = vi.fn()
     renderSidebar(defaultFilters, setFilters)

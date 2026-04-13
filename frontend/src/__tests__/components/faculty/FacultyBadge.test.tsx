@@ -20,63 +20,63 @@ describe('FacultyBadge', () => {
     cleanup()
   })
 
-  it('renders SCIENCES with blue classes', () => {
+  it('renders SCIENCES with its UNIGE teal background and white text', () => {
     render(<FacultyBadge faculty={Faculty.SCIENCES} />)
     const badge = screen.getByText('Sciences')
     expect(badge.className).toContain('bg-[#007E64]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders LETTRES with purple classes', () => {
+  it('renders LETTRES with its UNIGE blue background and white text', () => {
     render(<FacultyBadge faculty={Faculty.LETTRES} />)
     const badge = screen.getByText('Lettres')
     expect(badge.className).toContain('bg-[#0067C5]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders DROIT with red classes', () => {
+  it('renders DROIT with its UNIGE red background and white text', () => {
     render(<FacultyBadge faculty={Faculty.DROIT} />)
     const badge = screen.getByText('Droit')
     expect(badge.className).toContain('bg-[#F42941]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders MEDECINE with green classes', () => {
+  it('renders MEDECINE with its UNIGE magenta background and white text', () => {
     render(<FacultyBadge faculty={Faculty.MEDECINE} />)
     const badge = screen.getByText('Médecine')
     expect(badge.className).toContain('bg-[#96004B]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders SES with yellow classes', () => {
+  it('renders SES with its UNIGE amber background and dark text', () => {
     render(<FacultyBadge faculty={Faculty.SES} />)
     const badge = screen.getByText('SES')
     expect(badge.className).toContain('bg-[#F1AB00]')
     expect(badge.className).toContain('text-gray-900')
   })
 
-  it('renders PSYCHOLOGIE with pink classes', () => {
+  it('renders PSYCHOLOGIE with its UNIGE gold background and dark text', () => {
     render(<FacultyBadge faculty={Faculty.PSYCHOLOGIE} />)
     const badge = screen.getByText('Psychologie')
     expect(badge.className).toContain('bg-[#C69200]')
     expect(badge.className).toContain('text-gray-900')
   })
 
-  it('renders THEOLOGIE with orange classes', () => {
+  it('renders THEOLOGIE with its UNIGE deep purple background and white text', () => {
     render(<FacultyBadge faculty={Faculty.THEOLOGIE} />)
     const badge = screen.getByText('Théologie')
     expect(badge.className).toContain('bg-[#4B0B71]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders FTI with cyan classes', () => {
+  it('renders FTI with its UNIGE orange background and white text', () => {
     render(<FacultyBadge faculty={Faculty.FTI} />)
     const badge = screen.getByText('FTI')
     expect(badge.className).toContain('bg-[#FF5C00]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders GSI with indigo classes', () => {
+  it('renders GSI with its UNIGE navy background and white text', () => {
     render(<FacultyBadge faculty={Faculty.GSI} />)
     const badge = screen.getByText('GSI')
     expect(badge.className).toContain('bg-[#003580]')
@@ -93,5 +93,23 @@ describe('FacultyBadge', () => {
     for (const f of Object.values(Faculty)) {
       expect(FACULTY_LABELS[f]).toBeTruthy()
     }
+  })
+
+  it('renders "Toutes facultés" with a neutral background when faculty is null', () => {
+    render(<FacultyBadge faculty={null} />)
+    const badge = screen.getByText('Toutes facultés')
+    expect(badge.className).toContain('bg-foreground/10')
+    expect(badge.className).toContain('text-foreground/70')
+  })
+
+  it('renders "Toutes facultés" with a neutral background when faculty is undefined', () => {
+    render(<FacultyBadge faculty={undefined} />)
+    expect(screen.getByText('Toutes facultés')).toBeTruthy()
+  })
+
+  it('uses aria-label "Faculté : Toutes facultés" when faculty is null', () => {
+    render(<FacultyBadge faculty={null} />)
+    const badge = screen.getByRole('generic', { name: 'Faculté : Toutes facultés' })
+    expect(badge).toBeTruthy()
   })
 })

@@ -1,5 +1,5 @@
 import api from './api'
-import type { CreateEventRequest, Event, EventCategory, EventStatus, UpdateEventRequest } from '@/types/event'
+import type { CreateEventRequest, Event, EventCategory, EventStatus, Faculty, UpdateEventRequest } from '@/types/event'
 
 export interface EventsParams {
   page?: number
@@ -8,6 +8,8 @@ export interface EventsParams {
   category?: EventCategory
   organizerId?: string
   endDateFrom?: string
+  faculty?: Faculty
+  facultyNone?: boolean
 }
 
 export async function getAll(params: EventsParams = {}): Promise<Event[]> {
