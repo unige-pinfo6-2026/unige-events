@@ -6,7 +6,7 @@ Ce fichier est la **source de vérité** pour tout agent qui implémente ou modi
 
 ## Règle fondamentale
 
-**Toute page ou composant qui effectue un appel API et affiche un état `loading` doit avoir un skeleton `.bones.json` correspondant.** C'est non négociable, au même titre que la gestion des états `loading / error / data`. L'agent ne demande pas de confirmation — il génère.
+**Toute page ou composant qui effectue un appel API et affiche un état `loading` (survient généralement lorsqu'un fetch de données depuis la base données est nécessaire) doit avoir un skeleton `.bones.json` correspondant.** C'est non négociable, au même titre que la gestion des états `loading / error / data`. L'agent ne demande pas de confirmation — il génère.
 
 ---
 
