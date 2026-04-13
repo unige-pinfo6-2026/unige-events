@@ -2,6 +2,7 @@ package ch.unige.events.dto;
 
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import org.junit.jupiter.api.Test;
 
@@ -32,5 +33,33 @@ class EventDTOTest {
         EventDTO dto = EventDTO.from(event, 0L);
 
         assertNull(dto.creatorId());
+    }
+
+    @Test
+    void from_withFaculty_mapsFaculty() {
+        Event event = new Event();
+        event.faculty = Faculty.SCIENCES;
+
+        EventDTO dto = EventDTO.from(event, 0L);
+
+        assertEquals(Faculty.SCIENCES, dto.faculty());
+    }
+
+    @Test
+    void from_withNullFaculty_returnsNullFaculty() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 0L);
+
+        assertNull(dto.faculty());
+    }
+
+    @Test
+    void from_withAttendingCount_mapsAttendingCount() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 42L);
+
+        assertEquals(42L, dto.attendingCount());
     }
 }

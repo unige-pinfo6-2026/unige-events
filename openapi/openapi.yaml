@@ -171,6 +171,10 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
+        faculty:
+          $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -220,6 +224,11 @@ components:
           format: date-time
         category:
           $ref: '#/components/schemas/EventCategory'
+        faculty:
+          allOf:
+            - $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -261,6 +270,11 @@ components:
           allOf:
             - $ref: '#/components/schemas/EventCategory'
           nullable: true
+        faculty:
+          allOf:
+            - $ref: '#/components/schemas/Faculty'
+          nullable: true
+          description: Faculté organisatrice ou cible de l'événement (optionnel)
         bannerUrl:
           type: string
           format: uri
@@ -838,6 +852,19 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: faculty
+          in: query
+          description: Filtre les événements par faculté
+          schema:
+            $ref: '#/components/schemas/Faculty'
+        - name: facultyNone
+          in: query
+          description: |
+            Si true, retourne uniquement les événements dont `faculty` est null
+            (non rattachés à une faculté précise). Mutuellement exclusif avec le
+            paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -893,9 +920,7 @@ paths:
       summary: Recherche full-text d'événements
       description: |
         Recherche insensible à la casse (ILIKE) sur le titre et la description.
-        Filtres optionnels : category, plage de dates (startDate).
-        Le paramètre faculty sera activé par SCRUM-77 (champ non encore présent sur Event).
-        **TODO: endpoint non encore implémenté côté backend ni frontend.**
+        Filtres optionnels : category, faculty, plage de dates (startDate).
       operationId: searchEvents
       tags: [events]
       security: []
@@ -911,9 +936,17 @@ paths:
             $ref: '#/components/schemas/EventCategory'
         - name: faculty
           in: query
-          description: "TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event"
+          description: Filtre les événements par faculté
           schema:
             $ref: '#/components/schemas/Faculty'
+        - name: facultyNone
+          in: query
+          description: |
+            Si true, retourne uniquement les événements dont `faculty` est null
+            (non rattachés à une faculté précise). Mutuellement exclusif avec le
+            paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
+          schema:
+            type: boolean
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)

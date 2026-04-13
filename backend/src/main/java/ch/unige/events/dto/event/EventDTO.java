@@ -3,6 +3,7 @@ package ch.unige.events.dto.event;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -15,6 +16,7 @@ public record EventDTO(
         LocalDateTime startDate,
         LocalDateTime endDate,
         EventCategory category,
+        Faculty faculty,
         String bannerUrl,
         UUID creatorId,
         EventStatus status,
@@ -32,6 +34,7 @@ public record EventDTO(
                 event.startDate,
                 event.endDate,
                 event.category,
+                event.faculty,
                 event.bannerUrl,
                 event.creator != null ? event.creator.id : null,
                 event.status,

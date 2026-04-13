@@ -5,6 +5,7 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
@@ -41,14 +42,17 @@ public class EventResource {
 
     @GET
     @PermitAll
+    @SuppressWarnings("java:S107") // Filter-heavy list endpoint — flat params match the REST query signature 1:1.
     public List<EventDTO> getAll(
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size,
             @QueryParam("status") EventStatus status,
             @QueryParam("category") EventCategory category,
             @QueryParam("organizerId") UUID organizerId,
-            @QueryParam("endDateFrom") LocalDateTime endDateFrom) {
-        return eventService.getAll(page, size, status, category, organizerId, endDateFrom);
+            @QueryParam("endDateFrom") LocalDateTime endDateFrom,
+            @QueryParam("faculty") Faculty faculty,
+            @QueryParam("facultyNone") Boolean facultyNone) {
+        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty, facultyNone);
     }
 
     @POST

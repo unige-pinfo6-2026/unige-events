@@ -6,6 +6,7 @@ import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -48,7 +49,7 @@ class EventServiceCoverageTest {
         persistEvent("Event 1", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Event 2", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null);
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
 
         assertEquals(2, result.size());
     }
@@ -61,7 +62,7 @@ class EventServiceCoverageTest {
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, EventStatus.PUBLISHED, null, null, null);
+        List<EventDTO> result = eventService.getAll(0, 20, EventStatus.PUBLISHED, null, null, null, null, null);
 
         assertEquals(1, result.size());
         assertEquals("Published", result.get(0).title());
@@ -75,7 +76,7 @@ class EventServiceCoverageTest {
         persistEvent("Academic", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Sports", EventCategory.SPORTS, EventStatus.DRAFT, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, EventCategory.SPORTS, null, null);
+        List<EventDTO> result = eventService.getAll(0, 20, null, EventCategory.SPORTS, null, null, null, null);
 
         assertEquals(1, result.size());
         assertEquals("Sports", result.get(0).title());
@@ -90,7 +91,7 @@ class EventServiceCoverageTest {
         persistEvent("Alice's event", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
         persistEvent("Bob's event", EventCategory.ACADEMIC, EventStatus.DRAFT, bob);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, alice.id, null);
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, alice.id, null, null, null);
 
         assertEquals(1, result.size());
         assertEquals("Alice's event", result.get(0).title());
@@ -104,7 +105,7 @@ class EventServiceCoverageTest {
         persistEvent("Active Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
         persistEvent("Also Active", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
 
-        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, LocalDateTime.now().minusDays(1));
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, LocalDateTime.now().minusDays(1), null, null);
 
         assertEquals(2, result.size());
     }
@@ -118,8 +119,8 @@ class EventServiceCoverageTest {
         persistEvent("E2", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("E3", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
-        List<EventDTO> page0 = eventService.getAll(0, 2, null, null, null, null);
-        List<EventDTO> page1 = eventService.getAll(1, 2, null, null, null, null);
+        List<EventDTO> page0 = eventService.getAll(0, 2, null, null, null, null, null, null);
+        List<EventDTO> page1 = eventService.getAll(1, 2, null, null, null, null, null, null);
 
         assertEquals(2, page0.size());
         assertEquals(1, page1.size());
@@ -517,6 +518,105 @@ class EventServiceCoverageTest {
         assertTrue(result.bannerUrl().endsWith(".bin"));
     }
 
+    // --- faculty filter (SCRUM-77) ---
+
+    @Test
+    @TestTransaction
+    void getAll_withFacultyFilter_returnsMatchingEvents() {
+        deleteAll();
+        User user = persistUser("auth0|fac1", "fac1@example.com");
+        persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
+        persistEvent("Law Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.LAW);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, Faculty.SCIENCES, null);
+
+        assertEquals(1, result.size());
+        assertEquals(Faculty.SCIENCES, result.get(0).faculty());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_withFacultyNull_returnsAll() {
+        deleteAll();
+        User user = persistUser("auth0|fac2", "fac2@example.com");
+        persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
+        persistEvent("No Faculty", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withFaculty_persistsFaculty() {
+        deleteAll();
+        persistUser("auth0|facCreate", "facCreate@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.faculty = Faculty.MEDICINE;
+        EventDTO result = eventService.create("auth0|facCreate", req);
+
+        assertEquals(Faculty.MEDICINE, result.faculty());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withFaculty_updatesFaculty() {
+        deleteAll();
+        User user = persistUser("auth0|facUpd", "facUpd@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.faculty = Faculty.LETTERS;
+        EventDTO result = eventService.update(event.id, "auth0|facUpd", req);
+
+        assertEquals(Faculty.LETTERS, result.faculty());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_withFacultyNone_returnsNullFacultyEvents() {
+        deleteAll();
+        User user = persistUser("auth0|facNone", "facNone@example.com");
+        persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
+        persistEvent("No Faculty Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, true);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).faculty());
+        assertEquals("No Faculty Event", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_withFacultyNoneAndFaculty_facultyNoneWins() {
+        deleteAll();
+        User user = persistUser("auth0|facNonePrio", "facNonePrio@example.com");
+        persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
+        persistEvent("No Faculty Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, Faculty.SCIENCES, true);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).faculty());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withNullFaculty_clearsFaculty() {
+        deleteAll();
+        User user = persistUser("auth0|facClr", "facClr@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.faculty = null;
+        EventDTO result = eventService.update(event.id, "auth0|facClr", req);
+
+        assertNull(result.faculty());
+    }
+
     // --- helpers ---
 
     private void deleteAll() {
@@ -537,6 +637,10 @@ class EventServiceCoverageTest {
     }
 
     private Event persistEvent(String title, EventCategory category, EventStatus status, User creator) {
+        return persistEvent(title, category, status, creator, null);
+    }
+
+    private Event persistEvent(String title, EventCategory category, EventStatus status, User creator, Faculty faculty) {
         Event event = new Event();
         event.title = title;
         event.location = "Uni Mail";
@@ -545,6 +649,7 @@ class EventServiceCoverageTest {
         event.category = category;
         event.status = status;
         event.creator = creator;
+        event.faculty = faculty;
         entityManager.persist(event);
         entityManager.flush();
         return event;

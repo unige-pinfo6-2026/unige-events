@@ -20,6 +20,7 @@ const makeEvent = (id: number, startDate: string, endDate: string) => ({
   startDate,
   endDate,
   category: 'CONFERENCE' as const,
+  faculty: null,
   status: 'PUBLISHED' as const,
   creatorId: 'u1',
   createdAt: '2026-03-01T00:00:00',

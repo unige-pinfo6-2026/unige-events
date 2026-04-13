@@ -9,6 +9,7 @@ import {
   type EventStatus,
   type UpdateEventRequest,
 } from '@/types/event'
+import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
 
 export interface EventFormValues {
@@ -18,6 +19,7 @@ export interface EventFormValues {
   startDate: string
   endDate: string
   category: '' | EventCategory
+  faculty: Faculty | null
   capacity: string
   status: EventStatus
 }
@@ -65,6 +67,7 @@ const DEFAULT_VALUES: EventFormValues = {
   startDate: '',
   endDate: '',
   category: '',
+  faculty: null,
   capacity: '',
   status: 'PUBLISHED',
 }
@@ -112,6 +115,7 @@ function toFormValues(event?: Event | null): EventFormValues {
     startDate: toLocalDateTimeInputValue(event.startDate),
     endDate: toLocalDateTimeInputValue(event.endDate),
     category: event.category,
+    faculty: event.faculty ?? null,
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
   }
@@ -362,6 +366,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         startDate: toApiDateTime(values.startDate),
         endDate: toApiDateTime(values.endDate),
         category: values.category || "OTHER",
+        faculty: values.faculty,
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: effectiveStatus,
       }
