@@ -230,7 +230,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 export default function MonComposant() {
   const { data, loading, error } = useMonHook()
   const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   if (loading) return (
     <Skeleton name="mon-skeleton" loading animate="pulse" color={skeletonColor}>

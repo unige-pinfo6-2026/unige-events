@@ -154,7 +154,7 @@ export default function EventCalendar() {
   const [currentView, setCurrentView] = useState<View>(Views.MONTH)
   const { events, loading, error } = useCalendarEvents(currentDate)
   const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
     const category = EVENT_CATEGORIES[event.resource.category ?? 'OTHER']

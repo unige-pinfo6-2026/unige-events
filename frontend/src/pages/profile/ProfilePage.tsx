@@ -72,7 +72,7 @@ export default function ProfilePage() {
   const { id } = useParams<{ id: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

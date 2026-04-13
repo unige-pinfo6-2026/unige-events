@@ -63,7 +63,7 @@ export default function EventEditPage() {
   const { showToast } = useToast()
   const { id } = useParams<{ id: string }>()
   const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
 
