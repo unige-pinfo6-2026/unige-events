@@ -3,20 +3,41 @@
 Les types vivent dans `src/types/` et sont répartis par domaine.
 Source de vérité contrat API : `docs/openapi/openapi.yaml`.
 
+## Types faculté — `src/types/faculty.ts`
+
+### FACULTIES (const object) + Faculty
+
+Source unique pour tout ce qui concerne les facultés. `Faculty` est dérivé via `keyof typeof FACULTIES`.
+
+```ts
+export const FACULTIES = { SCIENCES: { … }, MEDICINE: { … }, … } as const
+export type Faculty = keyof typeof FACULTIES
+// → 'SCIENCES' | 'MEDICINE' | 'LETTERS' | 'SOCIAL_SCIENCES' | 'GSEM' | 'LAW' | 'THEOLOGY' | 'PSYCHOLOGY' | 'FTI'
+```
+
+Chaque entrée expose : `name` (libellé complet), `abbr` (abréviation), `logo` (composant SVG), `color` (couleur hex officielle UNIGE).
+
+| Clé             | name                                                        | abbr        | color     |
+|-----------------|-------------------------------------------------------------|-------------|-----------|
+| SCIENCES        | Faculté des Sciences                                        | Sciences    | `#318063` |
+| MEDICINE        | Faculté de Médecine                                         | Médecine    | `#9a0050` |
+| LETTERS         | Faculté des Lettres                                         | Lettres     | `#046fcb` |
+| SOCIAL_SCIENCES | Faculté des Sciences de la Société                          | SdS         | `#fcb000` |
+| GSEM            | Faculté d'Économie et de Management                         | GSEM        | `#425878` |
+| LAW             | Faculté de Droit                                            | Droit       | `#ba0c2f` |
+| THEOLOGY        | Faculté Autonome de Théologie Protestante                   | Théologie   | `#490674` |
+| PSYCHOLOGY      | Faculté de Psychologie et des Sciences de l'Éducation       | Psychologie | `#00b1ae` |
+| FTI             | Faculté de Traduction et d'Interprétation                   | FTI         | `#fe5900` |
+
+> `SOCIAL_SCIENCES` et `GSEM` utilisent le logo `Economy` en placeholder — logos dédiés à créer dans `src/assets/faculty/`.
+
+---
+
 ## Types événements — `src/types/event.ts`
 
 ### Faculty
 
-Défini dans `src/types/event.ts` comme **const object `as const` + type union dérivé** — pas un vrai `enum` TypeScript, mais exactement l'ensemble de valeurs de l'enum OpenAPI `Faculty`.
-
-```ts
-export const Faculty = { SCIENCES: 'SCIENCES', LETTRES: 'LETTRES', /* … */ } as const
-export type Faculty = (typeof Faculty)[keyof typeof Faculty]
-```
-
-Valeurs : `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI`.
-
-La const `FACULTY_LABELS: Record<Faculty, string>` est également dans `src/types/event.ts` (libellés français pour l'UI).
+Re-exporté depuis `src/types/faculty.ts` — voir section ci-dessus. `event.ts` l'importe via `import type { Faculty } from "./faculty"`.
 
 ### EventCategory
 
@@ -97,16 +118,6 @@ Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCT
 
 ---
 
-## Types faculté — `src/types/faculty.ts`
-
-### FACULTIES (const object)
-
-Données d'affichage pour les composants visuels (`FacultyCard`, `FacultyMarquee`).
-Clés : `SCIENCES`, `MEDECINE`, `LETTERS`, `ECONOMY`, `LAW`, `THEOLOGY`, `PSYCHOLOGY`, `TRANSLATION`.
-Chaque entrée expose `name` (libellé complet) et `logo` (composant SVG).
-
-> Note : le `Faculty` enum utilisé pour les événements et les filtres est dans `src/types/event.ts` — ses valeurs correspondent à l'enum OpenAPI.
-
 ---
 
 ## Types recherche
@@ -116,7 +127,7 @@ Chaque entrée expose `name` (libellé complet) et `logo` (composant SVG).
 Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 - q : string — terme de recherche full-text
 - category : EventCategory — filtre catégorie (valeur unique)
-- faculty : Faculty — filtre faculté (valeur unique de l'enum `Faculty` dans `src/types/event.ts`)
+- faculty : Faculty — filtre faculté (valeur unique de `Faculty` depuis `src/types/faculty.ts`)
 - facultyNone : boolean — si `true`, filtre sur les événements dont `faculty` est null (non rattachés à une faculté précise). Mutuellement exclusif avec `faculty` côté UI ; côté serveur, `facultyNone` a priorité si les deux sont fournis.
 - dateFrom : string (format date) — startDate >= dateFrom
 - dateTo : string (format date) — startDate <= dateTo
@@ -183,5 +194,6 @@ Réponse de `GET /api/users/me/calendar-token` et `POST /api/users/me/calendar-t
 
 - Les types d'entités vivent dans `src/types/` et ne doivent pas être redéfinis ailleurs.
 - `EventCategory`, `EventStatus`, `StudyLevel`, `Faculty` sont dérivés via `keyof typeof` — ne pas les déclarer manuellement.
+- `Faculty` est défini dans `src/types/faculty.ts` et importé partout ailleurs — ne jamais le redéfinir dans `event.ts` ou ailleurs.
 - Les champs restent en camelCase exactement comme dans le backend.
 - Le frontend ne doit pas utiliser `any`.

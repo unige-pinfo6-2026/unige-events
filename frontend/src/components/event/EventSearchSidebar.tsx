@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react'
 import type { SearchFilters } from '@/types/search'
-import { EVENT_CATEGORIES, FACULTY_LABELS, Faculty, type EventCategory } from '@/types/event'
+import { EVENT_CATEGORIES, type EventCategory } from '@/types/event'
+import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface FilterSidebarProps {
   filters: SearchFilters
@@ -77,13 +78,13 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
           >
             Toutes facultés
           </button>
-          {Object.values(Faculty).map((id) => (
+          {Object.entries(FACULTIES).map(([id, faculty]) => (
             <button
               key={id}
               type="button"
               onClick={() => setFilters({
                 ...filters,
-                faculty: filters.faculty === id ? undefined : id,
+                faculty: filters.faculty === id ? undefined : id as Faculty,
                 facultyNone: undefined,
               })}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
@@ -92,7 +93,7 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
                   : 'border-border text-foreground/60 hover:border-accent/40 hover:text-foreground'
               }`}
             >
-              {FACULTY_LABELS[id]}
+              {faculty.abbr}
             </button>
           ))}
         </div>

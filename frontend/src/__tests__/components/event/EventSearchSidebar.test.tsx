@@ -3,7 +3,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import EventSearchSidebar from '@/components/event/EventSearchSidebar'
-import { Faculty, FACULTY_LABELS } from '@/types/event'
+import { FACULTIES } from '@/types/faculty'
+import type { Faculty } from '@/types/faculty'
 import type { SearchFilters } from '@/types/search'
 
 afterEach(() => {
@@ -22,6 +23,8 @@ function renderSidebar(
     <EventSearchSidebar filters={filters} setFilters={setFilters} resetFilters={resetFilters} />,
   )
 }
+
+const ALL_IDS = Object.keys(FACULTIES) as Faculty[]
 
 describe('FilterSidebar', () => {
   it('renders the includePast checkbox', () => {
@@ -60,8 +63,8 @@ describe('FilterSidebar', () => {
 
   it('renders a chip for every Faculty value', () => {
     renderSidebar()
-    for (const f of Object.values(Faculty)) {
-      expect(screen.getByRole('button', { name: FACULTY_LABELS[f] })).toBeTruthy()
+    for (const id of ALL_IDS) {
+      expect(screen.getByRole('button', { name: FACULTIES[id].abbr })).toBeTruthy()
     }
   })
 
@@ -117,28 +120,28 @@ describe('FilterSidebar', () => {
     const setFilters = vi.fn()
     renderSidebar(defaultFilters, setFilters)
     fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
-    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: Faculty.SCIENCES }))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: 'SCIENCES' }))
   })
 
   it('deselects faculty chip when clicking the active chip', () => {
     const setFilters = vi.fn()
-    renderSidebar({ includePast: false, faculty: Faculty.SCIENCES }, setFilters)
+    renderSidebar({ includePast: false, faculty: 'SCIENCES' }, setFilters)
     fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ faculty: undefined }))
   })
 
   it('no faculty chip appears active when no faculty filter is set', () => {
     renderSidebar()
-    const chips = Object.values(Faculty).map((f) => screen.getByRole('button', { name: FACULTY_LABELS[f] }))
+    const chips = ALL_IDS.map((id) => screen.getByRole('button', { name: FACULTIES[id].abbr }))
     for (const chip of chips) {
       expect(chip.className).not.toContain('bg-accent')
     }
   })
 
   it('the active faculty chip has bg-accent class', () => {
-    renderSidebar({ includePast: false, faculty: Faculty.DROIT })
-    const droitChip = screen.getByRole('button', { name: 'Droit' })
-    expect(droitChip.className).toContain('bg-accent')
+    renderSidebar({ includePast: false, faculty: 'LAW' })
+    const chip = screen.getByRole('button', { name: 'Droit' })
+    expect(chip.className).toContain('bg-accent')
   })
 
   it('renders a "Toutes facultés" chip alongside the faculty chips', () => {
@@ -155,7 +158,7 @@ describe('FilterSidebar', () => {
 
   it('clicking_toutesFacultes_chip_clears_faculty', () => {
     const setFilters = vi.fn()
-    renderSidebar({ includePast: false, faculty: Faculty.SCIENCES }, setFilters)
+    renderSidebar({ includePast: false, faculty: 'SCIENCES' }, setFilters)
     fireEvent.click(screen.getByRole('button', { name: 'Toutes facultés' }))
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({
       facultyNone: true,
@@ -168,7 +171,7 @@ describe('FilterSidebar', () => {
     renderSidebar({ includePast: false, facultyNone: true }, setFilters)
     fireEvent.click(screen.getByRole('button', { name: 'Sciences' }))
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({
-      faculty: Faculty.SCIENCES,
+      faculty: 'SCIENCES',
       facultyNone: undefined,
     }))
   })
@@ -187,7 +190,7 @@ describe('FilterSidebar', () => {
   })
 
   it('no faculty chip appears active when facultyNone is true', () => {
-    renderSidebar({ includePast: false, facultyNone: true, faculty: Faculty.SCIENCES })
+    renderSidebar({ includePast: false, facultyNone: true, faculty: 'SCIENCES' })
     const sciencesChip = screen.getByRole('button', { name: 'Sciences' })
     expect(sciencesChip.className).not.toContain('bg-accent')
   })

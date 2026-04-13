@@ -3,6 +3,7 @@ import { Calendar, MapPin, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
+import type { Faculty } from '@/types/faculty'
 
 export default function EventCard({ event }: Readonly<{ event: Event }>) {
   const category = EVENT_CATEGORIES[event.category]
@@ -37,7 +38,7 @@ export default function EventCard({ event }: Readonly<{ event: Event }>) {
             <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm">
               {event.title}
             </h3>
-            <FacultyBadge faculty={event.faculty} />
+            <FacultyBadge id={event.faculty as Faculty} />
           </div>
         </div>
 

@@ -75,24 +75,23 @@
 ### FacultyBadge
 
 - Composant `src/components/faculty/FacultyBadge.tsx`.
-- Props : `{ faculty: Faculty }` (enum de `@/types/event`).
-- Props : `{ faculty: Faculty | null | undefined }` — accepte aussi `null`/`undefined` pour couvrir le cas « événement non rattaché à une faculté ».
-- Quand `faculty` est défini : rend un `<span>` pill avec la couleur de fond hex officielle UNIGE de la faculté (via `bg-[#RRGGBB]`) et le libellé français issu de `FACULTY_LABELS`.
-- Quand `faculty` vaut `null` ou `undefined` : rend un `<span>` pill **neutre** (`bg-foreground/10 text-foreground/70`) avec le libellé « **Toutes facultés** » — l'absence de faculté spécifique est rendue comme une valeur à part entière, pas comme l'absence de badge.
-- `aria-label="Faculté : <label>"` sur le span (y compris pour « Toutes facultés »).
-- La palette exacte est définie dans le composant ; mettre à jour `FacultyBadge.tsx` et non ce tableau en cas de refonte graphique.
+- Props : `{ id: Faculty }` — importe `Faculty` depuis `@/types/faculty`.
+- Rend un `<span>` pill avec la couleur de fond hex officielle UNIGE via `style={{ backgroundColor: faculty.color }}` (inline style — pas de classe Tailwind dynamique, Tailwind ne peut pas générer `bg-[#...]` à la compilation).
+- Libellé : `faculty.abbr` issu de `FACULTIES[id]`.
+- `aria-label` : `faculty.name` (nom complet de la faculté).
+- Les couleurs et libellés sont centralisés dans `FACULTIES` (`@/types/faculty`) — ne pas les redéfinir dans le composant.
 
-| Valeur      | Couleur de fond | Texte          | Libellé     |
-|-------------|-----------------|----------------|-------------|
-| SCIENCES    | `#007E64`       | `text-white`   | Sciences    |
-| LETTRES     | `#0067C5`       | `text-white`   | Lettres     |
-| DROIT       | `#F42941`       | `text-white`   | Droit       |
-| MEDECINE    | `#96004B`       | `text-white`   | Médecine    |
-| SES         | `#F1AB00`       | `text-gray-900`| SES         |
-| PSYCHOLOGIE | `#C69200`       | `text-gray-900`| Psychologie |
-| THEOLOGIE   | `#4B0B71`       | `text-white`   | Théologie   |
-| FTI         | `#FF5C00`       | `text-white`   | FTI         |
-| GSI         | `#003580`       | `text-white`   | GSI         |
+| ID              | Couleur       | Abréviation |
+|-----------------|---------------|-------------|
+| SCIENCES        | `#318063`     | Sciences    |
+| MEDICINE        | `#9a0050`     | Médecine    |
+| LETTERS         | `#046fcb`     | Lettres     |
+| SOCIAL_SCIENCES | `#fcb000`     | SdS         |
+| GSEM            | `#425878`     | GSEM        |
+| LAW             | `#ba0c2f`     | Droit       |
+| THEOLOGY        | `#490674`     | Théologie   |
+| PSYCHOLOGY      | `#00b1ae`     | Psychologie |
+| FTI             | `#fe5900`     | FTI         |
 
 ### EventCard
 
@@ -126,7 +125,7 @@
   - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
   - Bande 5 : shell co-organisateurs (edit only, S8).
 - Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
-- Champ "Faculté concernée" (Bande 3, à côté de CategorySelect et Capacité) : select avec option par défaut "Toutes facultés" (valeur vide, envoyée au backend comme `null`) + 9 valeurs `Faculty`. Sélection unique, optionnelle — le défaut signifie que l'événement n'est pas rattaché à une faculté en particulier et apparaît alors avec un badge neutre « Toutes facultés » sur la carte.
+- Champ "Faculté concernée" (Bande 3, à côté de CategorySelect et Capacité) : select avec option par défaut "Toutes facultés" (valeur vide, envoyée au backend comme `null`) + 9 valeurs issues de `Object.entries(FACULTIES)` (libellé `faculty.name`). Importe `FACULTIES` et `Faculty` depuis `@/types/faculty`. Sélection unique, optionnelle — le défaut signifie que l'événement n'est pas rattaché à une faculté en particulier.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
 - `ComingSoonBlock` : composant local non-exporté pour les shells backlog — icône + label + badge sprint + contenu mock.
 
@@ -137,7 +136,7 @@
 - Le filtre `faculty` : une rangée de chips cliquables commençant par un chip « Toutes facultés » puis un chip par valeur `Faculty`, libellé français. Cliquer le chip actif le désélectionne. La valeur est transmise au paramètre `?faculty=` de l'URL et à l'API.
 - Le chip « Toutes facultés » (stocké comme `filters.facultyNone: true`) isole les événements dont `faculty` vaut `null` — c'est-à-dire ceux qui n'ont pas été rattachés à une faculté précise. Il est transmis au backend via `?facultyNone=true`.
 - **Mutex client/serveur** : sélectionner « Toutes facultés » remet `faculty: undefined` ; sélectionner une faculté nommée remet `facultyNone: undefined`. Côté serveur, si les deux arrivent dans la même requête, `facultyNone` gagne (règle documentée dans openapi.yaml).
-- Réutilise `Faculty` enum et `FACULTY_LABELS` de `@/types/event` et `@/components/faculty/FacultyBadge`.
+- Importe `FACULTIES` et `Faculty` depuis `@/types/faculty` (plus de `FACULTY_LABELS` ni d'enum `Faculty` dans `@/types/event`). Les libellés des chips utilisent `faculty.abbr`.
 - Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
 ### AttendanceButtons

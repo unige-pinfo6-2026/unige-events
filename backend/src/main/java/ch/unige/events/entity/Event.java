@@ -26,9 +26,11 @@ public class Event extends PanacheEntity {
     public LocalDateTime endDate;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     public EventCategory category;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     public Faculty faculty;
 
     public String bannerUrl;
@@ -38,6 +40,7 @@ public class Event extends PanacheEntity {
     public User creator;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     public EventStatus status = EventStatus.DRAFT;
 
     public Integer capacity;

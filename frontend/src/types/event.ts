@@ -1,28 +1,4 @@
-export const Faculty = {
-  SCIENCES:    'SCIENCES',
-  LETTRES:     'LETTRES',
-  DROIT:       'DROIT',
-  MEDECINE:    'MEDECINE',
-  SES:         'SES',
-  PSYCHOLOGIE: 'PSYCHOLOGIE',
-  THEOLOGIE:   'THEOLOGIE',
-  FTI:         'FTI',
-  GSI:         'GSI',
-} as const
-
-export type Faculty = (typeof Faculty)[keyof typeof Faculty]
-
-export const FACULTY_LABELS: Record<Faculty, string> = {
-  SCIENCES:    'Sciences',
-  LETTRES:     'Lettres',
-  DROIT:       'Droit',
-  MEDECINE:    'Médecine',
-  SES:         'SES',
-  PSYCHOLOGIE: 'Psychologie',
-  THEOLOGIE:   'Théologie',
-  FTI:         'FTI',
-  GSI:         'GSI',
-}
+import type { Faculty } from "./faculty"
 
 export type Event = {
   id: number

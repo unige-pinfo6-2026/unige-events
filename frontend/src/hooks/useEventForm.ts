@@ -7,9 +7,9 @@ import {
   type Event,
   type EventCategory,
   type EventStatus,
-  type Faculty,
   type UpdateEventRequest,
 } from '@/types/event'
+import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
 
 export interface EventFormValues {

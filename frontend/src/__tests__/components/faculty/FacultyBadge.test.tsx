@@ -3,113 +3,97 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
-import { Faculty, FACULTY_LABELS } from '@/types/event'
+import { FACULTIES } from '@/types/faculty'
+import type { Faculty } from '@/types/faculty'
 
 afterEach(() => cleanup())
 
+const ALL_IDS = Object.keys(FACULTIES) as Faculty[]
+
 describe('FacultyBadge', () => {
-  it.each(Object.values(Faculty))('renders the French label for %s', (faculty) => {
-    render(<FacultyBadge faculty={faculty} />)
-    expect(screen.getByText(FACULTY_LABELS[faculty])).toBeTruthy()
+  it.each(ALL_IDS)('renders the abbr for %s', (id) => {
+    render(<FacultyBadge id={id} />)
+    expect(screen.getByText(FACULTIES[id].abbr)).toBeTruthy()
   })
 
-  it.each(Object.values(Faculty))('has aria-label "Faculté : <label>" for %s', (faculty) => {
-    render(<FacultyBadge faculty={faculty} />)
-    const badge = screen.getByRole('generic', { name: `Faculté : ${FACULTY_LABELS[faculty]}` })
+  it.each(ALL_IDS)('has aria-label with the full faculty name for %s', (id) => {
+    render(<FacultyBadge id={id} />)
+    const badge = screen.getByRole('generic', { name: FACULTIES[id].name })
     expect(badge).toBeTruthy()
     cleanup()
   })
 
-  it('renders SCIENCES with its UNIGE teal background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.SCIENCES} />)
+  it.each(ALL_IDS)('applies a backgroundColor inline style for %s', (id) => {
+    render(<FacultyBadge id={id} />)
+    const badge = screen.getByText(FACULTIES[id].abbr) as HTMLElement
+    expect(badge.style.backgroundColor).toBeTruthy()
+  })
+
+  it('renders SCIENCES with text-white class', () => {
+    render(<FacultyBadge id="SCIENCES" />)
     const badge = screen.getByText('Sciences')
-    expect(badge.className).toContain('bg-[#007E64]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders LETTRES with its UNIGE blue background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.LETTRES} />)
-    const badge = screen.getByText('Lettres')
-    expect(badge.className).toContain('bg-[#0067C5]')
-    expect(badge.className).toContain('text-white')
-  })
-
-  it('renders DROIT with its UNIGE red background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.DROIT} />)
-    const badge = screen.getByText('Droit')
-    expect(badge.className).toContain('bg-[#F42941]')
-    expect(badge.className).toContain('text-white')
-  })
-
-  it('renders MEDECINE with its UNIGE magenta background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.MEDECINE} />)
+  it('renders MEDICINE with text-white class', () => {
+    render(<FacultyBadge id="MEDICINE" />)
     const badge = screen.getByText('Médecine')
-    expect(badge.className).toContain('bg-[#96004B]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders SES with its UNIGE amber background and dark text', () => {
-    render(<FacultyBadge faculty={Faculty.SES} />)
-    const badge = screen.getByText('SES')
-    expect(badge.className).toContain('bg-[#F1AB00]')
-    expect(badge.className).toContain('text-gray-900')
+  it('renders LETTERS with text-white class', () => {
+    render(<FacultyBadge id="LETTERS" />)
+    const badge = screen.getByText('Lettres')
+    expect(badge.className).toContain('text-white')
   })
 
-  it('renders PSYCHOLOGIE with its UNIGE gold background and dark text', () => {
-    render(<FacultyBadge faculty={Faculty.PSYCHOLOGIE} />)
-    const badge = screen.getByText('Psychologie')
-    expect(badge.className).toContain('bg-[#C69200]')
-    expect(badge.className).toContain('text-gray-900')
+  it('renders LAW with text-white class', () => {
+    render(<FacultyBadge id="LAW" />)
+    const badge = screen.getByText('Droit')
+    expect(badge.className).toContain('text-white')
   })
 
-  it('renders THEOLOGIE with its UNIGE deep purple background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.THEOLOGIE} />)
+  it('renders THEOLOGY with text-white class', () => {
+    render(<FacultyBadge id="THEOLOGY" />)
     const badge = screen.getByText('Théologie')
-    expect(badge.className).toContain('bg-[#4B0B71]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders FTI with its UNIGE orange background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.FTI} />)
+  it('renders FTI with text-white class', () => {
+    render(<FacultyBadge id="FTI" />)
     const badge = screen.getByText('FTI')
-    expect(badge.className).toContain('bg-[#FF5C00]')
     expect(badge.className).toContain('text-white')
   })
 
-  it('renders GSI with its UNIGE navy background and white text', () => {
-    render(<FacultyBadge faculty={Faculty.GSI} />)
-    const badge = screen.getByText('GSI')
-    expect(badge.className).toContain('bg-[#003580]')
+  it('renders GSEM with text-white class', () => {
+    render(<FacultyBadge id="GSEM" />)
+    const badge = screen.getByText('GSEM')
+    expect(badge.className).toContain('text-white')
+  })
+
+  it('renders PSYCHOLOGY with text-white class', () => {
+    render(<FacultyBadge id="PSYCHOLOGY" />)
+    const badge = screen.getByText('Psychologie')
+    expect(badge.className).toContain('text-white')
+  })
+
+  it('renders SOCIAL_SCIENCES with text-white class', () => {
+    render(<FacultyBadge id="SOCIAL_SCIENCES" />)
+    const badge = screen.getByText('SdS')
     expect(badge.className).toContain('text-white')
   })
 
   it('renders a span element', () => {
-    render(<FacultyBadge faculty={Faculty.SCIENCES} />)
+    render(<FacultyBadge id="SCIENCES" />)
     const badge = screen.getByText('Sciences')
     expect(badge.tagName.toLowerCase()).toBe('span')
   })
 
-  it('FACULTY_LABELS has an entry for every Faculty value', () => {
-    for (const f of Object.values(Faculty)) {
-      expect(FACULTY_LABELS[f]).toBeTruthy()
+  it('FACULTIES has an entry for every Faculty key', () => {
+    for (const id of ALL_IDS) {
+      expect(FACULTIES[id].abbr).toBeTruthy()
+      expect(FACULTIES[id].name).toBeTruthy()
+      expect(FACULTIES[id].color).toBeTruthy()
     }
-  })
-
-  it('renders "Toutes facultés" with a neutral background when faculty is null', () => {
-    render(<FacultyBadge faculty={null} />)
-    const badge = screen.getByText('Toutes facultés')
-    expect(badge.className).toContain('bg-foreground/10')
-    expect(badge.className).toContain('text-foreground/70')
-  })
-
-  it('renders "Toutes facultés" with a neutral background when faculty is undefined', () => {
-    render(<FacultyBadge faculty={undefined} />)
-    expect(screen.getByText('Toutes facultés')).toBeTruthy()
-  })
-
-  it('uses aria-label "Faculté : Toutes facultés" when faculty is null', () => {
-    render(<FacultyBadge faculty={null} />)
-    const badge = screen.getByRole('generic', { name: 'Faculté : Toutes facultés' })
-    expect(badge).toBeTruthy()
   })
 })

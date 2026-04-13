@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventCard from '@/components/event/EventCard'
-import { Faculty, type Event } from '@/types/event'
+import { type Event } from '@/types/event'
+import { type Faculty } from '@/types/faculty'
 
 const mockEvent: Event = {
   id: 1,
@@ -74,7 +75,7 @@ describe('EventCard', () => {
   })
 
   it('renders FacultyBadge with the faculty label when faculty is set', () => {
-    renderCard({ ...mockEvent, faculty: Faculty.SCIENCES })
+    renderCard({ ...mockEvent, faculty: 'SCIENCES' })
     expect(screen.getByText('Sciences')).toBeTruthy()
   })
 
@@ -90,10 +91,11 @@ describe('EventCard', () => {
 
   it('renders the correct faculty label for each Faculty value', () => {
     const labels: Partial<Record<Faculty, string>> = {
-      [Faculty.LETTRES]: 'Lettres',
-      [Faculty.DROIT]: 'Droit',
-      [Faculty.MEDECINE]: 'Médecine',
+      'LETTERS': 'Lettres',
+      'LAW': 'Droit',
+      'MEDICINE': 'Médecine',
     }
+
     for (const [faculty, label] of Object.entries(labels) as [Faculty, string][]) {
       const { unmount } = renderCard({ ...mockEvent, faculty })
       expect(screen.getByText(label)).toBeTruthy()

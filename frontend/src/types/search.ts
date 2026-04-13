@@ -1,4 +1,5 @@
-import type { Event, EventCategory, Faculty } from "./event"
+import type { Event, EventCategory } from "./event"
+import type { Faculty } from "./faculty"
 
 // `faculty` et `facultyNone` sont mutuellement exclusifs côté UI :
 // `facultyNone: true` signifie « uniquement les events sans faculté rattachée »

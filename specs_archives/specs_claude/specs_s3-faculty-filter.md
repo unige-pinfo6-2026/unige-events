@@ -39,16 +39,14 @@ La branche a implémenté **plusieurs facultés par événement** (`List<Faculty
 
 **Frontend (déjà fait, à conserver / ajuster)** :
 
-- [`types/event.ts`](../../frontend/src/types/event.ts:27-43) : `Event.faculty: Faculty | null` (unique) + `CreateEventRequest.faculty?: Faculty | null` + `UpdateEventRequest.faculty?: Faculty | null` ✅ déjà au bon format singulier — seule modification : rendre `Event.faculty` **optionnel** (`faculty?: Faculty | null`) pour que les mocks de test sans faculté soient valides.
-- [`components/faculty/FacultyBadge.tsx`](../../frontend/src/components/faculty/FacultyBadge.tsx) : composant badge unique déjà prêt ✅
-- [`components/event/EventForm.tsx`](../../frontend/src/components/event/EventForm.tsx:231-242) : champ faculty déjà présent dans le formulaire ✅ (à vérifier visuellement : alignement dimensionnel avec le champ « Catégorie » comme dans le commit `bafc623 align CategorySelect dimensions with Capacité input`)
-- [`hooks/useEventForm.ts`](../../frontend/src/hooks/useEventForm.ts:22,69,117,364) : `faculty` géré dans les values/defaults/toFormValues/payload ✅
-- [`components/event/EventSearchSidebar.tsx`](../../frontend/src/components/event/EventSearchSidebar.tsx:61-79) : section filtre Faculty en sélection unique (toggle) déjà présente ✅
-- [`types/search.ts`](../../frontend/src/types/search.ts:3-19) : `SearchFilters.faculty?: Faculty` + `SearchParams.faculty?: Faculty` (singulier) ✅
-- [`hooks/useEventSearch.ts`](../../frontend/src/hooks/useEventSearch.ts:29,57,101) : URL sync + payload `faculty` singulier ✅
-- [`components/event/EventCard.tsx`](../../frontend/src/components/event/EventCard.tsx:62-64) : badge `FacultyBadge` rendu conditionnellement, **mais dans le bloc `content` après date/lieu/capacité** — à déplacer « directement sous le titre », c.-à-d. comme premier élément du bloc content (le titre étant superposé en bas de la bannière, le premier élément du content apparaît visuellement juste en-dessous).
-
-**Frontend (à ignorer)** — [`types/faculty.ts`](../../frontend/src/types/faculty.ts) est un autre fichier utilisé pour `FacultyCard` / `FacultyMarquee` (logos des facultés de la landing page). Il a ses propres clés (`LAW`, `LETTERS`, etc.) et n'est pas lié au filtre d'events. **Ne pas le toucher**.
+- [`types/faculty.ts`](../../frontend/src/types/faculty.ts) ✅ **source unique de vérité** — `FACULTIES` const object (`as const`) + `Faculty = keyof typeof FACULTIES`. Clés anglaises : `SCIENCES`, `MEDICINE`, `LETTERS`, `SOCIAL_SCIENCES`, `GSEM`, `LAW`, `THEOLOGY`, `PSYCHOLOGY`, `FTI`. Chaque entrée expose `name`, `abbr`, `logo`, `color` (hex). `Faculty` est importé depuis ce fichier partout — plus rien dans `event.ts`.
+- [`types/event.ts`](../../frontend/src/types/event.ts) ✅ — `Faculty` supprimé du fichier, importé depuis `./faculty`. `Event.faculty?: Faculty | null`, `CreateEventRequest.faculty?: Faculty | null`, `UpdateEventRequest.faculty?: Faculty | null`.
+- [`components/faculty/FacultyBadge.tsx`](../../frontend/src/components/faculty/FacultyBadge.tsx) ✅ — prop `id: Faculty` (non nullable). Couleur via `style={{ backgroundColor: faculty.color }}` (inline style — pas de classe Tailwind dynamique). Libellé : `faculty.abbr`. `aria-label` : `faculty.name`.
+- [`components/event/EventForm.tsx`](../../frontend/src/components/event/EventForm.tsx) ✅ — select faculté via `Object.entries(FACULTIES)`, libellé `faculty.name`. Import depuis `@/types/faculty`.
+- [`components/event/EventSearchSidebar.tsx`](../../frontend/src/components/event/EventSearchSidebar.tsx) ✅ — chips faculté via `Object.entries(FACULTIES)`, libellé `faculty.abbr`. Import depuis `@/types/faculty`.
+- [`types/search.ts`](../../frontend/src/types/search.ts) ✅ — `Faculty` importé depuis `./faculty`.
+- [`hooks/useEventForm.ts`](../../frontend/src/hooks/useEventForm.ts) ✅ — `faculty` géré dans values/defaults/toFormValues/payload.
+- [`hooks/useEventSearch.ts`](../../frontend/src/hooks/useEventSearch.ts) ✅ — URL sync + payload `faculty` singulier.
 
 ### Stratégie de correction pour `EventDTO.from(Event, long)`
 
@@ -157,21 +155,31 @@ Mettre aussi à jour la `description` du path (ligne ~917-920) :
 
 ---
 
-## Étape 1 — `Faculty.java` (déjà présent — vérifier)
+## Étape 1 — `Faculty.java` (mis à jour — IDs anglais)
 
 **Fichier :** `backend/src/main/java/ch/unige/events/entity/Faculty.java`
 
-Déjà correct ([Faculty.java](../../backend/src/main/java/ch/unige/events/entity/Faculty.java)) :
+> ⚠️ **Mis à jour post-sprint** : les valeurs ont été renommées en anglais pour aligner backend et frontend.
 
 ```java
 package ch.unige.events.entity;
 
 public enum Faculty {
-    SCIENCES, LETTRES, DROIT, MEDECINE, SES, PSYCHOLOGIE, THEOLOGIE, FTI, GSI
+    SCIENCES, MEDICINE, LETTERS, SOCIAL_SCIENCES, GSEM, LAW, THEOLOGY, PSYCHOLOGY, FTI
 }
 ```
 
-**Aucune modification.**
+Correspondance anciens → nouveaux IDs :
+
+| Ancien       | Nouveau         |
+|--------------|-----------------|
+| MEDECINE     | MEDICINE        |
+| LETTRES      | LETTERS         |
+| SES          | SOCIAL_SCIENCES |
+| GSI          | GSEM            |
+| DROIT        | LAW             |
+| THEOLOGIE    | THEOLOGY        |
+| PSYCHOLOGIE  | PSYCHOLOGY      |
 
 ---
 
@@ -193,8 +201,11 @@ Par :
 
 ```java
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255)")
     public Faculty faculty;
 ```
+
+> ⚠️ **Mis à jour post-sprint** : `@Column(columnDefinition = "varchar(255)")` est requis sur tous les champs `@Enumerated(EnumType.STRING)` pour empêcher Hibernate 6+ de générer un CHECK constraint PostgreSQL listant les valeurs de l'enum. Ce constraint n'est jamais mis à jour automatiquement en mode `update`, ce qui provoque une `ConstraintViolationException` lors de tout changement de l'enum. Même annotation appliquée à `category` et `status`.
 
 Et mettre à jour l'annotation `@Table` pour ajouter l'index :
 
@@ -888,7 +899,7 @@ Documenter la présence du champ `faculty?: Faculty | null` sur `Event` et l'emp
 | `attendingCount` réel | Jamais `0L` pour `getAll`/`search`/`getById`/`update`/`publish`/`uploadImage` — seul `create` a le droit au `0L` littéral |
 | camelCase partout | Java, JSON, TS, params de requête — jamais de snake_case |
 | Pas de ternaires imbriqués côté React | Const maps et conditionnels simples uniquement |
-| Labels FR | `FACULTY_LABELS` déjà en français — conserver |
+| Labels FR | Libellés dans `FACULTIES[id].name` / `FACULTIES[id].abbr` (`@/types/faculty`) — `FACULTY_LABELS` supprimé |
 | Rendu conditionnel `event.faculty != null` | Couvre `null` **et** `undefined` (optionnel côté TS) — ne jamais utiliser `!== null` strict |
 | 200 + `[]` si aucun résultat | Jamais de 404 sur filtres qui ne matchent rien |
 | Test mocks cohérents | Les mocks qui simulent des events en mémoire doivent utiliser `faculty` unique |

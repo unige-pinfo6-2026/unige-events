@@ -8,8 +8,7 @@ import { ButtonPrimary } from '@/components/utils/Buttons'
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
-import { FACULTY_LABELS, Faculty } from '@/types/event'
-
+import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface EventFormProps {
   mode: 'create' | 'edit'
@@ -338,8 +337,8 @@ export default function EventForm({
             onChange={(e) => onFieldChange('faculty', (e.target.value as Faculty) || null)}
           >
             <option value="">Toutes facultés</option>
-            {Object.values(Faculty).map((id) => (
-              <option key={id} value={id}>{FACULTY_LABELS[id]}</option>
+            {Object.entries(FACULTIES).map(([id, faculty]) => (
+              <option key={id} value={id}>{faculty.name}</option>
             ))}
           </Select>
         </FormField>

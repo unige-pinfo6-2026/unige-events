@@ -145,6 +145,46 @@ Un composant qui n'appartient clairement qu'à un seul domaine va dans le dossie
 - Toujours typer les props, les réponses API, et les états
 - Ne jamais redéfinir les types d'entités hors de `src/types/`
 
+### Pattern — données statiques typées (`as const` + `keyof typeof`)
+
+Pour toute liste de données statiques avec des métadonnées associées (facultés, catégories, rôles…), utiliser un objet `as const` et dériver le type union depuis ses clés :
+
+```ts
+// ✅ Correct — src/types/faculty.ts
+export const FACULTIES = {
+  SCIENCES: { name: 'Faculté des Sciences', abbr: 'Sciences', logo: Sciences },
+  MEDECINE: { name: 'Faculté de Médecine', abbr: 'Médecine', logo: Medicine },
+  // ...
+} as const
+
+export type Faculty = keyof typeof FACULTIES
+// → 'SCIENCES' | 'MEDECINE' | ...
+
+// ❌ Interdit — Record avec string trop large, ou enum séparé
+export type Faculty = string
+export const FACULTIES: Record<string, { name: string }> = { ... }
+```
+
+**Avantages :**
+- Single source of truth : ajouter/supprimer une entrée met à jour le type automatiquement
+- Autocomplétion et vérification exhaustive à la compilation
+- Les métadonnées (libellé, icône, abréviation…) sont colocalisées avec les clés
+
+**Caveat `Object.entries()`** : `Object.entries()` widens les clés en `string`. Caster explicitement quand on assigne à un type dérivé :
+
+```tsx
+// Object.entries retourne [string, ...]
+Object.entries(FACULTIES).map(([id, faculty]) => (
+  <button
+    onClick={() => setFilters({ ...filters, faculty: id as Faculty })}
+  >
+    {faculty.abbr}
+  </button>
+))
+```
+
+Ce cast est sûr car les clés proviennent directement de l'objet `FACULTIES`.
+
 ### Imports — toujours utiliser l'alias `@`
 `@` est un alias vers `src/` (configuré dans `tsconfig.app.json`). **Toujours utiliser `@/` pour les imports internes** — jamais de chemins relatifs avec `../`.
 
