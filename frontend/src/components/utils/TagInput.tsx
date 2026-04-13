@@ -45,7 +45,6 @@ export default function TagInput({ value, onChange, placeholder = 'Add a tag...'
   return (
     <div
       className="flex flex-wrap items-center gap-2 w-full px-3 py-2 rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-accent/20 focus-within:border-accent/50 transition-all"
-      onClick={() => inputRef.current?.focus()}
     >
       {value.map((tag, i) => (
         <span
