@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useAuth } from '@/hooks'
+import { useAuth } from '@/hooks/useAuth'
 import { getFavorites } from '@/services/favoriteApi'
 
 interface FavoritesContextValue {

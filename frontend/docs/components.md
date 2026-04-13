@@ -26,14 +26,14 @@
 - Affiche la bannière, la catégorie, le titre, les dates, le lieu, la capacité et la description.
 - Charge l'organisateur via getUserById(event.creatorId).
 - Intègre FavoriteButton (étoile toggle) dans le coin supérieur droit de la bannière.
-- Bouton "Partager" : appelle getShareUrl(id) puis copie dans le presse-papier ; toast "Lien copié !" via useToast, 3 secondes.
+- Bouton "Partager" : copie `location.href` dans le presse-papier ; toast "Lien copié !" via useToast, 3 secondes.
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
 
 ### FavoritesPage
 
-- Route `/favorites`, protégée par PrivateRoute.
+- Route `/events/favorites`, protégée par PrivateRoute.
 - Charge la liste des favoris via getFavorites() (GET /api/users/me/favorites).
 - Grille d'EventCard avec FavoriteButton en état favori (étoile pleine).
 - Retirer un favori depuis la liste le supprime instantanément de l'affichage via onFavoriteRemove.
@@ -240,7 +240,3 @@
 - getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
 - addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
 - removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.
-
-### shareApi.ts
-
-- getShareUrl(eventId) : récupère l’URL de partage via `GET /api/events/{id}/share`.

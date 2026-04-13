@@ -5,7 +5,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { FavoritesProvider, useFavoritesContext } from '@/contexts/FavoritesContext'
 
-vi.mock('@/hooks', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
@@ -13,7 +13,7 @@ vi.mock('@/services/favoriteApi', () => ({
   getFavorites: vi.fn(),
 }))
 
-import { useAuth } from '@/hooks'
+import { useAuth } from '@/hooks/useAuth'
 import { getFavorites } from '@/services/favoriteApi'
 import type { Event } from '@/types/event'
 

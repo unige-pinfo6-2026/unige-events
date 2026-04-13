@@ -61,6 +61,10 @@ export default function EventDetailPage() {
   function handleShare() {
     if (!event) return
     const url = globalThis.location.href
+    if (typeof navigator.clipboard?.writeText !== 'function') {
+      toast.showToast('error', `Copiez ce lien : ${url}`, 6000)
+      return
+    }
     navigator.clipboard.writeText(url)
       .then(() => toast.showToast('success', 'Lien copié !', 3000))
       .catch(() => toast.showToast('error', `Copiez ce lien : ${url}`, 6000))

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FavoritesPage from '@/pages/event/favorites/FavoritesPage'
 import type { Event } from '@/types/event'
@@ -10,8 +10,9 @@ vi.mock('@/services/favoriteApi', () => ({
   getFavorites: vi.fn(),
 }))
 
+const mockToggle = vi.fn()
 vi.mock('@/hooks/useFavorite', () => ({
-  useFavorite: () => ({ favorited: true, loading: false, toggle: vi.fn() }),
+  useFavorite: () => ({ favorited: true, loading: false, toggle: mockToggle }),
 }))
 
 import { getFavorites } from '@/services/favoriteApi'
@@ -69,12 +70,15 @@ describe('FavoritesPage', () => {
     await waitFor(() => expect(screen.getByText(/Impossible de charger vos favoris/)).toBeTruthy())
   })
 
-  it('removes an event from the list when onFavoriteRemove is called', async () => {
-    const toggle = vi.fn().mockResolvedValue(true)
-    vi.mocked(vi.fn()).mockReturnValue({ favorited: true, loading: false, toggle })
+  it('removes an event from the list when the favorite star is clicked', async () => {
+    mockToggle.mockResolvedValue(true)
     mockGetFavorites.mockResolvedValue([sampleEvent])
     renderPage()
     await waitFor(() => expect(screen.getByText('Conférence IA')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /retirer des favoris/i }))
+
+    await waitFor(() => expect(screen.queryByText('Conférence IA')).toBeNull())
   })
 
   it('shows the page title', async () => {

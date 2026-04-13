@@ -12,8 +12,18 @@ vi.mock('@/contexts/FavoritesContext', () => ({
   useFavoritesContext: vi.fn(),
 }))
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({ isAuthenticated: true })),
+}))
+
 import { addFavorite, removeFavorite } from '@/services/favoriteApi'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useFavorite } from '@/hooks/useFavorite'
 
 const mockAddFavorite = vi.mocked(addFavorite)
@@ -107,6 +117,19 @@ describe('useFavorite', () => {
 
     expect(markUnfavorited).toHaveBeenCalledWith(1)
     expect(markFavorited).toHaveBeenCalledWith(1)
+    expect(success!).toBe(false)
+  })
+
+  it('redirects to /login and does not call API when not authenticated', async () => {
+    setupContext([])
+    vi.mocked(useAuth).mockReturnValueOnce({ isAuthenticated: false } as ReturnType<typeof useAuth>)
+
+    const { result } = renderHook(() => useFavorite(1))
+    let success: boolean
+    await act(async () => { success = await result.current.toggle() })
+
+    expect(mockNavigate).toHaveBeenCalledWith('/login')
+    expect(mockAddFavorite).not.toHaveBeenCalled()
     expect(success!).toBe(false)
   })
 

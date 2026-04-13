@@ -41,7 +41,6 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 | services/eventApi.ts | Liste, détail, création, édition, annulation et upload de bannière | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image |
 | services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 | services/favoriteApi.ts | Liste, ajout et retrait des favoris | GET /api/users/me/favorites, POST/DELETE /api/events/{id}/favorite |
-| services/shareApi.ts | URL de partage d'un événement | GET /api/events/{id}/share |
 
 ## Règles de cohérence
 
