@@ -1,3 +1,5 @@
+import type { Faculty } from "./faculty"
+
 export type Event = {
   id: number
   title: string
@@ -6,6 +8,7 @@ export type Event = {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty?: Faculty | null
   bannerUrl?: string
   creatorId: string
   status: EventStatus
@@ -41,6 +44,7 @@ export interface CreateEventRequest {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty?: Faculty | null
   bannerUrl?: string
   capacity?: number
   status?: EventStatus
@@ -53,6 +57,7 @@ export interface UpdateEventRequest {
   startDate: string
   endDate: string
   category: EventCategory
+  faculty?: Faculty | null
   bannerUrl?: string
   capacity?: number
   status?: EventStatus

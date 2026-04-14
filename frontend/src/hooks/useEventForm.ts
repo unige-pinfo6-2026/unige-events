@@ -9,6 +9,7 @@ import {
   type EventStatus,
   type UpdateEventRequest,
 } from '@/types/event'
+import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
 
 export interface EventFormValues {
@@ -18,6 +19,7 @@ export interface EventFormValues {
   startDate: string
   endDate: string
   category: '' | EventCategory
+  faculty: Faculty | null
   capacity: string
   status: EventStatus
 }
@@ -50,6 +52,7 @@ interface UseEventFormResult {
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  triggerDraftSave: () => Promise<void>
 }
 
 interface ValidationErrorDetail {
@@ -64,8 +67,9 @@ const DEFAULT_VALUES: EventFormValues = {
   startDate: '',
   endDate: '',
   category: '',
+  faculty: null,
   capacity: '',
-  status: "DRAFT",
+  status: 'PUBLISHED',
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -111,6 +115,7 @@ function toFormValues(event?: Event | null): EventFormValues {
     startDate: toLocalDateTimeInputValue(event.startDate),
     endDate: toLocalDateTimeInputValue(event.endDate),
     category: event.category,
+    faculty: event.faculty ?? null,
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
   }
@@ -226,6 +231,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const forcedStatusRef = useRef<EventStatus | null>(null)
 
   useEffect(() => {
     setValues(toFormValues(initialEvent))
@@ -340,6 +346,9 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   }
 
   async function submitForm() {
+    const effectiveStatus: EventStatus = forcedStatusRef.current ?? values.status
+    forcedStatusRef.current = null
+
     if (!validate()) {
       return
     }
@@ -357,8 +366,9 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         startDate: toApiDateTime(values.startDate),
         endDate: toApiDateTime(values.endDate),
         category: values.category || "OTHER",
+        faculty: values.faculty,
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
-        status: values.status,
+        status: effectiveStatus,
       }
 
       if (mode === 'create') {
@@ -404,6 +414,11 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     await submitForm()
   }
 
+  async function triggerDraftSave() {
+    forcedStatusRef.current = 'DRAFT'
+    await submitForm()
+  }
+
   return {
     values,
     errors,
@@ -413,5 +428,6 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     setFieldValue,
     handleImageChange,
     handleSubmit,
+    triggerDraftSave,
   }
 }

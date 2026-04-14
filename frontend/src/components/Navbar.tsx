@@ -6,7 +6,7 @@ import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
 import { ThemeToggle } from '@/components/utils/ThemeToggle'
 import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
-import { Skeleton } from '@/components/utils/Skeleton'
+import { Skeleton } from 'boneyard-js/react'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
@@ -94,8 +94,20 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
   )
 }
 
+function UserDropdownFixture() {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="rounded-full shrink-0" style={{ width: 32, height: 32 }} />
+      <span className="text-sm font-semibold">Elie Bsd</span>
+      <div className="w-4 h-4" />
+    </div>
+  )
+}
+
 function DesktopNav() {
   const { user, login, logout, isLoading } = useAuth()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   return (
     <div className="hidden lg:flex items-center gap-3">

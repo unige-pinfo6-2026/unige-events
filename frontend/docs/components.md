@@ -12,6 +12,7 @@
 | /profile/me/edit | ProfileEditPage | fait |
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
+| /events/favorites | FavoritesPage | fait |
 
 ### LandingPage
 
@@ -24,9 +25,19 @@
 - Charge l'événement via useEvent(id).
 - Affiche la bannière, la catégorie, le titre, les dates, le lieu, la capacité et la description.
 - Charge l'organisateur via getUserById(event.creatorId).
+- Intègre FavoriteButton (étoile toggle) dans le coin supérieur droit de la bannière.
+- Bouton "Partager" : copie `location.href` dans le presse-papier ; toast "Lien copié !" via useToast, 3 secondes.
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+
+### FavoritesPage
+
+- Route `/events/favorites`, protégée par PrivateRoute.
+- Charge la liste des favoris via getFavorites() (GET /api/users/me/favorites).
+- Grille d'EventCard avec FavoriteButton en état favori (étoile pleine).
+- Retirer un favori depuis la liste le supprime instantanément de l'affichage via onFavoriteRemove.
+- État vide : illustration étoile + message "Vous n'avez aucun favori pour le moment".
 
 ### CreateEventPage
 
@@ -72,11 +83,43 @@
 - Exporte aussi `inputClass(error?)` — classe CSS cohérente pour tous les inputs/selects/textareas.
 - Utilisé dans `EventForm` et `ProfileEditPage`.
 
+### FacultyBadge
+
+- Composant `src/components/faculty/FacultyBadge.tsx`.
+- Props : `{ id: Faculty }` — importe `Faculty` depuis `@/types/faculty`.
+- Rend un `<span>` pill avec la couleur de fond hex officielle UNIGE via `style={{ backgroundColor: faculty.color }}` (inline style — pas de classe Tailwind dynamique, Tailwind ne peut pas générer `bg-[#...]` à la compilation).
+- Libellé : `faculty.abbr` issu de `FACULTIES[id]`.
+- `aria-label` : `faculty.name` (nom complet de la faculté).
+- Les couleurs et libellés sont centralisés dans `FACULTIES` (`@/types/faculty`) — ne pas les redéfinir dans le composant.
+
+| ID              | Couleur       | Abréviation |
+|-----------------|---------------|-------------|
+| SCIENCES        | `#318063`     | Sciences    |
+| MEDICINE        | `#9a0050`     | Médecine    |
+| LETTERS         | `#046fcb`     | Lettres     |
+| SOCIAL_SCIENCES | `#fcb000`     | SdS         |
+| GSEM            | `#425878`     | GSEM        |
+| LAW             | `#ba0c2f`     | Droit       |
+| THEOLOGY        | `#490674`     | Théologie   |
+| PSYCHOLOGY      | `#00b1ae`     | Psychologie |
+| FTI             | `#fe5900`     | FTI         |
+
 ### EventCard
 
 - Carte cliquable d'un événement (design glassmorphism, variables CSS thème).
 - Affiche bannière, badge catégorie, titre, date, lieu, capacité.
+- Affiche systématiquement un `<FacultyBadge>` dans l'overlay de la bannière, directement sous le titre (même bloc flex-col que le titre). Quand `event.faculty` est défini, le badge montre la faculté ; sinon il affiche « Toutes facultés » avec un style neutre.
+- Intègre FavoriteButton dans le coin supérieur droit de la bannière.
+- Props optionnelles : `favorited` (booléen, défaut false), `onFavoriteRemove` (callback après retrait).
 - Utilise les icônes Lucide et les variables `bg-background`, `text-foreground`, `border-border`.
+
+### FavoriteButton
+
+- Bouton icône étoile toggle réutilisable (composant `components/event/`).
+- Props : `eventId`, `initialFavorited` (défaut false), `onRemove` (callback appelé après retrait réussi).
+- Utilise useFavorite pour l'état local et les appels POST/DELETE /api/events/{id}/favorite.
+- Optimistic update avec rollback si l'API échoue.
+- Stoppe la propagation du clic pour ne pas déclencher la navigation depuis EventCard.
 
 ### EventCards
 
@@ -85,18 +128,36 @@
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
 - Utilisé dans `LandingPage` (section Events).
 
+### CategorySelect
+
+- Sélecteur de catégorie natif `<select>` avec point de couleur pour la catégorie sélectionnée.
+- Le point de couleur utilise `style={{ backgroundColor }}` — seule valeur inline autorisée (couleur hex dynamique).
+- Props : `value: '' | EventCategory`, `onChange: (category: EventCategory) => void`, `error?: string`, `id?: string`.
+- Remplace CategoryPills dans `EventForm` (Bande 3).
+
 ### EventForm
 
 - Formulaire partagé entre création et édition.
-- Centralise les champs titre, description, lieu, dates, catégorie, capacité, statut et bannière.
-- Garde le placeholder et l'aperçu de bannière contenus proprement dans la carte, y compris sur mobile et avec des noms de fichiers longs.
+- Prop `mode: 'create' | 'edit'` — contrôle l'affichage de la Bande 4 récurrence (create only) et la Bande 5 co-organisateurs (edit only).
+- Layout v3b en **5 bandes horizontales** (CSS grid + flex) sans card glassmorphism.
+  - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
+  - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
+  - Bande 3 : CategorySelect | Capacité (spinners masqués) | zone CTA avec lien "Sauvegarder en Brouillon" (optionnel).
+  - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
+  - Bande 5 : shell co-organisateurs (edit only, S8).
+- Prop `onSaveDraft?: () => Promise<void>` — passée uniquement depuis EventCreatePage ; affiche le lien "Sauvegarder en Brouillon" quand présent.
+- Champ "Faculté concernée" (Bande 3, à côté de CategorySelect et Capacité) : select avec option par défaut "Toutes facultés" (valeur vide, envoyée au backend comme `null`) + 9 valeurs issues de `Object.entries(FACULTIES)` (libellé `faculty.name`). Importe `FACULTIES` et `Faculty` depuis `@/types/faculty`. Sélection unique, optionnelle — le défaut signifie que l'événement n'est pas rattaché à une faculté en particulier.
 - Reçoit ses valeurs, erreurs et callbacks depuis useEventForm.
+- `ComingSoonBlock` : composant local non-exporté pour les shells backlog — icône + label + badge sprint + contenu mock.
 
 ### FilterSidebar
 
 - Composant props-driven pour les filtres de la page de recherche.
-- Filtres : `category` (checkboxes à sélection exclusive, toggle), `faculty` (select), `dateFrom`/`dateTo` (date inputs), bouton reset.
-- Réutilise les constantes `EventCategory` et `Faculty` de `src/types/`.
+- Filtres : `category` (checkboxes à sélection exclusive, toggle), `faculty` (chips toggle, sélection unique), `facultyNone` (chip « Toutes facultés »), `dateFrom`/`dateTo` (date inputs), bouton reset.
+- Le filtre `faculty` : une rangée de chips cliquables commençant par un chip « Toutes facultés » puis un chip par valeur `Faculty`, libellé français. Cliquer le chip actif le désélectionne. La valeur est transmise au paramètre `?faculty=` de l'URL et à l'API.
+- Le chip « Toutes facultés » (stocké comme `filters.facultyNone: true`) isole les événements dont `faculty` vaut `null` — c'est-à-dire ceux qui n'ont pas été rattachés à une faculté précise. Il est transmis au backend via `?facultyNone=true`.
+- **Mutex client/serveur** : sélectionner « Toutes facultés » remet `faculty: undefined` ; sélectionner une faculté nommée remet `facultyNone: undefined`. Côté serveur, si les deux arrivent dans la même requête, `facultyNone` gagne (règle documentée dans openapi.yaml).
+- Importe `FACULTIES` et `Faculty` depuis `@/types/faculty` (plus de `FACULTY_LABELS` ni d'enum `Faculty` dans `@/types/event`). Les libellés des chips utilisent `faculty.abbr`.
 - Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
 ### Dropdown
@@ -137,6 +198,28 @@
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, les profils et la page détail événement.
 
+---
+
+## Skeleton screens
+
+Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Skeleton>` de `boneyard-js/react`. Le registry est dans `src/bones/registry.js`, importé au démarrage dans `main.tsx`.
+
+**Règle** : toute page ou composant avec un appel API et un état `loading` doit avoir un skeleton. Voir `AGENTS.md` (section Skeleton screens) et `frontend/skeleton/README.md` pour le workflow complet.
+
+| Skeleton `name` | Fichier bones | Composant consommateur | Généré par |
+|---|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` | `generate.mjs` |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | manuel |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` | `generate.mjs` |
+| `profile` | `profile.bones.json` | `ProfilePage` | manuel |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+
+Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
+
+Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer directement le JSON.
+
 
 ## Hooks
 
@@ -164,7 +247,15 @@
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
+- Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
+
+### useFavorite
+
+- Gère l'état favori d'un événement unique avec optimistic update.
+- Params : `eventId`, `initialFavorited` (défaut false).
+- Retourne `favorited`, `loading`, `toggle` (async, retourne boolean succès).
+- En cas d'erreur API, rollback de l'état local.
 
 ### useEventSearch
 
@@ -214,3 +305,9 @@
 
 - searchEvents(params) : recherche full-text d’événements via `GET /api/events/search`.
 - fetchSuggestions(query) : stub retournant un tableau vide (TODO — pas d’endpoint de suggestions dans openapi.yaml).
+
+### favoriteApi.ts
+
+- getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
+- addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
+- removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.

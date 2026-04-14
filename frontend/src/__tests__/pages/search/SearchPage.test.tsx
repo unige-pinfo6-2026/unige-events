@@ -11,6 +11,10 @@ vi.mock('@/hooks/useEventSearch', () => ({
   useSearch: vi.fn(),
 }))
 
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+
 import { useSearch } from '@/hooks/useEventSearch'
 
 const mockUseSearch = useSearch as ReturnType<typeof vi.fn>
@@ -22,6 +26,7 @@ const mockEvent: Event = {
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
   category: 'CONFERENCE',
+  faculty: null,
   status: 'PUBLISHED',
   creatorId: 'user-1',
   attendingCount: 0,
@@ -99,11 +104,11 @@ describe('SearchPage', () => {
     expect(screen.getByText((t) => t.includes('2') && t.includes('événements'))).toBeTruthy()
   })
 
-  it('shows a spinner when loading', () => {
+  it('shows skeleton when loading', () => {
     mockUseSearch.mockReturnValue(makeDefaultHook({ loading: true }))
     renderPage()
 
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="search-results"]')).toBeTruthy()
   })
 
   it('shows error message', () => {

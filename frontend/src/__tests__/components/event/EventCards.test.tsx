@@ -10,9 +10,19 @@ vi.mock('@/hooks/useEvents', () => ({
   useEvents: vi.fn(),
 }))
 
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
+}))
+
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
+
 import { useEvents } from '@/hooks/useEvents'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseEvents = useEvents as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 afterEach(() => {
   cleanup()
@@ -26,6 +36,7 @@ const mockEvent: Event = {
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
   category: 'CONFERENCE',
+  faculty: null,
   status: 'PUBLISHED',
   creatorId: 'user-1',
   capacity: 100,
@@ -42,10 +53,10 @@ function renderCards() {
 }
 
 describe('EventCards', () => {
-  it('shows spinner when loading with no events', () => {
+  it('shows skeleton when loading with no events', () => {
     mockUseEvents.mockReturnValue({ events: [], loading: true, error: null, hasMore: false, loadMore: vi.fn() })
     renderCards()
-    expect(document.querySelector('.animate-spin')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 
   it('shows error message', () => {
@@ -92,5 +103,12 @@ describe('EventCards', () => {
     mockUseEvents.mockReturnValue({ events: [mockEvent], loading: false, error: 'Erreur', hasMore: true, loadMore: vi.fn() })
     renderCards()
     expect(screen.queryByRole('button', { name: 'Charger plus' })).toBeNull()
+  })
+
+  it('shows skeleton with light theme skeleton color', () => {
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockUseEvents.mockReturnValue({ events: [], loading: true, error: null, hasMore: false, loadMore: vi.fn() })
+    renderCards()
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 })

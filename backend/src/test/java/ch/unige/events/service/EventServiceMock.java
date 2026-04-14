@@ -6,6 +6,7 @@ import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -65,12 +66,20 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom) {
+    @SuppressWarnings("java:S107")
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone) {
         return eventsById.values().stream()
                 .filter(e -> status == null || e.status == status)
                 .filter(e -> category == null || e.category == category)
                 .filter(e -> organizerId == null || (e.creator != null && organizerId.equals(e.creator.id)))
                 .filter(e -> endDateFrom == null || (e.endDate != null && !e.endDate.isBefore(endDateFrom)))
+                .filter(e -> {
+                    // facultyNone=true has priority over faculty — mutually exclusive filter.
+                    if (Boolean.TRUE.equals(facultyNone)) {
+                        return e.faculty == null;
+                    }
+                    return faculty == null || e.faculty == faculty;
+                })
                 .map(e -> EventDTO.from(e, 0L))
                 .toList();
     }
@@ -89,6 +98,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.status = EventStatus.DRAFT;
@@ -131,6 +141,7 @@ public class EventServiceMock extends EventService {
         event.startDate = request.startDate;
         event.endDate = request.endDate;
         event.category = request.category;
+        event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         if (request.status != null) {

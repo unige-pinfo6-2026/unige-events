@@ -35,6 +35,7 @@ const existingEvent = {
   startDate: '2099-04-10T08:00:00.000Z',
   endDate: '2099-04-10T10:00:00.000Z',
   category: 'SOCIAL',
+  faculty: null,
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
   status: 'DRAFT',
   capacity: 120,
@@ -84,7 +85,6 @@ describe('EditEventPage', () => {
     renderPage()
     await screen.findByDisplayValue(existingEvent.title)
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum 2026' } })
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(await screen.findByText('Événement mis à jour avec succès.')).toBeTruthy()
@@ -92,7 +92,7 @@ describe('EditEventPage', () => {
       title: 'Forum 2026',
       location: existingEvent.location,
       bannerUrl: 'https://example.com/current-banner.png',
-      status: 'PUBLISHED',
+      status: 'DRAFT',
     }))
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'), { timeout: 2000 })

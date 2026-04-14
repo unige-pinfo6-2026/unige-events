@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set kubectl context
-        uses: azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v5
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
@@ -77,7 +77,18 @@ jobs:
               "S3_URL": "${{ vars.S3_URL }}",
               "S3_BUCKET": "${{ vars.S3_BUCKET }}"
             }
-      
+
+      - name: Create DuckDNS secret
+        uses: azure/k8s-create-secret@v5
+        with:
+          namespace: cert-manager
+          secret-type: generic
+          secret-name: dns-secret
+          string-data: |
+            {
+              "DUCKDNS_TOKEN": "${{ secrets.DUCKDNS_TOKEN }}"
+            }
+
       - name: Apply manifests
         run: kubectl apply -f k8s/ -R
 

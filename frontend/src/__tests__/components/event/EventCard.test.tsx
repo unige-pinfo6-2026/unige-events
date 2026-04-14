@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventCard from '@/components/event/EventCard'
-import type { Event } from '@/types/event'
+import { type Event } from '@/types/event'
+import { type Faculty } from '@/types/faculty'
+
+vi.mock('@/hooks/useFavorite', () => ({
+  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+}))
 
 const mockEvent: Event = {
   id: 1,
@@ -13,6 +18,7 @@ const mockEvent: Event = {
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
   category: 'CONFERENCE',
+  faculty: null,
   status: 'PUBLISHED',
   creatorId: 'user-1',
   capacity: 200,
@@ -67,6 +73,36 @@ describe('EventCard', () => {
     for (const category of categories) {
       const { unmount } = renderCard({ ...mockEvent, category })
       expect(screen.getAllByRole('article').length).toBeGreaterThan(0)
+      unmount()
+      cleanup()
+    }
+  })
+
+  it('renders FacultyBadge with the faculty label when faculty is set', () => {
+    renderCard({ ...mockEvent, faculty: 'SCIENCES' })
+    expect(screen.getByText('Sciences')).toBeTruthy()
+  })
+
+  it('renders a neutral "Toutes facultés" badge when faculty is null', () => {
+    renderCard({ ...mockEvent, faculty: null })
+    expect(screen.getByText('Toutes facultés')).toBeTruthy()
+  })
+
+  it('renders a neutral "Toutes facultés" badge when faculty is undefined', () => {
+    renderCard({ ...mockEvent, faculty: undefined })
+    expect(screen.getByText('Toutes facultés')).toBeTruthy()
+  })
+
+  it('renders the correct faculty label for each Faculty value', () => {
+    const labels: Partial<Record<Faculty, string>> = {
+      'LETTERS': 'Lettres',
+      'LAW': 'Droit',
+      'MEDICINE': 'Médecine',
+    }
+
+    for (const [faculty, label] of Object.entries(labels) as [Faculty, string][]) {
+      const { unmount } = renderCard({ ...mockEvent, faculty })
+      expect(screen.getByText(label)).toBeTruthy()
       unmount()
       cleanup()
     }

@@ -34,6 +34,7 @@ const createdEvent = {
   startDate: '2026-04-10T08:00:00.000Z',
   endDate: '2026-04-10T10:00:00.000Z',
   category: 'SOCIAL',
+  faculty: null,
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
   status: 'DRAFT',
   capacity: 120,
@@ -151,7 +152,7 @@ describe('CreateEventPage', () => {
       location: createdEvent.location,
       category: createdEvent.category,
       capacity: 120,
-      status: 'DRAFT',
+      status: 'PUBLISHED',
     }))
     expect(mockUploadEventImage).toHaveBeenCalledWith(42, file)
 
@@ -164,7 +165,6 @@ describe('CreateEventPage', () => {
     renderPage()
 
     fillRequiredFields()
-    fireEvent.change(screen.getByLabelText(/Statut/i), { target: { value: 'PUBLISHED' } })
 
     fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
 

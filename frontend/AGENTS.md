@@ -145,6 +145,46 @@ Un composant qui n'appartient clairement qu'à un seul domaine va dans le dossie
 - Toujours typer les props, les réponses API, et les états
 - Ne jamais redéfinir les types d'entités hors de `src/types/`
 
+### Pattern — données statiques typées (`as const` + `keyof typeof`)
+
+Pour toute liste de données statiques avec des métadonnées associées (facultés, catégories, rôles…), utiliser un objet `as const` et dériver le type union depuis ses clés :
+
+```ts
+// ✅ Correct — src/types/faculty.ts
+export const FACULTIES = {
+  SCIENCES: { name: 'Faculté des Sciences', abbr: 'Sciences', logo: Sciences },
+  MEDECINE: { name: 'Faculté de Médecine', abbr: 'Médecine', logo: Medicine },
+  // ...
+} as const
+
+export type Faculty = keyof typeof FACULTIES
+// → 'SCIENCES' | 'MEDECINE' | ...
+
+// ❌ Interdit — Record avec string trop large, ou enum séparé
+export type Faculty = string
+export const FACULTIES: Record<string, { name: string }> = { ... }
+```
+
+**Avantages :**
+- Single source of truth : ajouter/supprimer une entrée met à jour le type automatiquement
+- Autocomplétion et vérification exhaustive à la compilation
+- Les métadonnées (libellé, icône, abréviation…) sont colocalisées avec les clés
+
+**Caveat `Object.entries()`** : `Object.entries()` widens les clés en `string`. Caster explicitement quand on assigne à un type dérivé :
+
+```tsx
+// Object.entries retourne [string, ...]
+Object.entries(FACULTIES).map(([id, faculty]) => (
+  <button
+    onClick={() => setFilters({ ...filters, faculty: id as Faculty })}
+  >
+    {faculty.abbr}
+  </button>
+))
+```
+
+Ce cast est sûr car les clés proviennent directement de l'objet `FACULTIES`.
+
 ### Imports — toujours utiliser l'alias `@`
 `@` est un alias vers `src/` (configuré dans `tsconfig.app.json`). **Toujours utiliser `@/` pour les imports internes** — jamais de chemins relatifs avec `../`.
 
@@ -274,6 +314,36 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 - `docs/dev-guide.md` — guide de démarrage et workflows
 - `docs/sprint-context.md` — état d'avancement
 
+## Skeleton screens — règle non négociable
+
+**Toute page ou composant qui effectue un appel API et affiche un état `loading` doit avoir un skeleton `.bones.json` correspondant.** Les agents ne demandent pas de confirmation — c'est une obligation systématique au même titre que la gestion des états `loading`, `error` et `data`.
+
+> **Lecture obligatoire avant toute implémentation frontend impliquant un chargement :**
+> [`frontend/skeleton/README.md`](skeleton/README.md) — workflows complets, format des bones, pièges, checklist.
+
+### Quand générer un skeleton
+
+| Situation | Action requise |
+|---|---|
+| Nouvelle page avec appel API | Générer le skeleton avant de clore la tâche |
+| Nouveau composant avec appel API (hook `loading`) | Générer le skeleton |
+| Refactoring du layout d'une page déjà couverte | Mettre à jour `skeleton/generate.mjs` et relancer `npm run skeleton` |
+| Skeleton existant qui ne correspond plus au layout réel | Corriger immédiatement |
+
+### Skeletons existants (à tenir à jour)
+
+| Nom | Fichier bones | Composant consommateur | Méthode |
+|---|---|---|---|
+| `event-cards` | `event-cards.bones.json` | `EventCards` | generate.mjs |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | generate.mjs |
+| `event-edit` | `event-edit.bones.json` | `EventEditPage` | generate.mjs |
+| `profile` | `profile.bones.json` | `ProfilePage` | manuel |
+| `search-results` | `search-results.bones.json` | `EventsSearchPage` | generate.mjs |
+| `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | generate.mjs |
+| `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+
+---
+
 ## Maintenance de la documentation
 **En tant qu'agent, tu dois mettre à jour la documentation dans les cas suivants :**
 
@@ -286,6 +356,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | Nouvelle route dans le router | `docs/architecture.md` (table de routage) |
 | `openapi.yaml` mis à jour | Le fichier unique est `openapi/openapi.yaml` — monorepo, pas de copie à synchroniser |
 | Fin de sprint / tâche terminée | `docs/sprint-context.md` |
+| Nouveau skeleton | `AGENTS.md` (table "Skeletons existants") + `docs/components.md` |
 
 **Règle d'or : si tu touches au code, tu touches à la doc correspondante dans le même commit.**
 
