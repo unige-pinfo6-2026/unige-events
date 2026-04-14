@@ -138,7 +138,7 @@ export default function EventDetailPage() {
           )}
           {organizer && (
             <div className="flex items-center gap-3 text-sm text-foreground/60">
-              <UserAvatar user={organizer} size={20} className="shrink-0" />
+              <UserAvatar user={organizer} size='sm' className="shrink-0" />
               <span>
                 Organisé par{' '}
                 <strong className="text-foreground font-semibold">

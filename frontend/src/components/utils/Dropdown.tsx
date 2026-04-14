@@ -34,7 +34,7 @@ export function Dropdown({
       {/* Invisible bridge prevents the gap between trigger and panel from closing the hover */}
       <div className="absolute top-full left-0 h-2 w-full" />
       <div className={`invisible group-hover:visible opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-150 absolute top-[calc(100%+0.5rem)] ${aligns[align]}`}>
-        <div className={"w-52 rounded-xl bg-background border border-border shadow-xl overflow-hidden z-50"}>
+        <div className={"w-max rounded-xl bg-background border border-border shadow-xl overflow-hidden z-50"}>
           {children}
         </div>
       </div>

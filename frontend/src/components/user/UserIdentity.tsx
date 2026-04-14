@@ -1,6 +1,7 @@
 import type { User } from '@/types/user'
 import UserAvatar from './UserAvatar'
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/hooks'
 
 interface UserIdentityProps {
   user: User,
@@ -14,9 +15,12 @@ const variants = {
 
 export default function UserIdentity({ user, variant = 'inline' }: Readonly<UserIdentityProps>) {
   const { wrapper, avatarSize, nameSize } = variants[variant]
+  
+  const { user: currentUser } = useAuth()
+  const profileUrl = currentUser?.id === user.id ? '/profile/me' : `/profile/${user.id}`
 
   return (
-    <Link to={`/profile/me`} className={wrapper}>
+    <Link to={profileUrl} className={wrapper}>
       <UserAvatar user={user} size={avatarSize} />
 
       <div className="flex flex-col gap-0.5">

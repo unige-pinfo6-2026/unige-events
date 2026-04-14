@@ -50,6 +50,21 @@ const sidebarItemClass = (isActive = false) =>
     isActive ? 'bg-accent/10 text-accent' : 'text-foreground/60 hover:text-foreground hover:bg-foreground/5'
   }`
 
+const logoutVariants = {
+  dropdown: { item: 'flex items-center gap-3 w-full px-4 py-3 text-sm text-error hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-4' },
+  sidebar:  { item: 'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-error hover:bg-error/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-5' },
+} as const
+
+function LogoutButton({ onClick, variant }: Readonly<{ onClick: () => void; variant: keyof typeof logoutVariants }>) {
+  const { item, icon } = logoutVariants[variant]
+  return (
+    <button type="button" onClick={onClick} className={item}>
+      <LogOut className={`${icon} shrink-0`} />
+      Déconnexion
+    </button>
+  )
+}
+
 // ─── Desktop ──────────────────────────────────────────────────────────────────
 
 function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
@@ -68,8 +83,11 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
 
   return (
     <Dropdown trigger={trigger}>
-      {link.subLinks.map(sub => (
-        <Link key={sub.to} to={sub.to} className={dropdownItemClass}>{sub.label}</Link>
+      {link.subLinks.map(({ to, icon: Icon, label }) => (
+        <Link key={to} to={to} className={dropdownItemClass}>
+          <Icon className="size-4 shrink-0" />
+          {label}
+        </Link>
       ))}
     </Dropdown>
   )
@@ -97,14 +115,7 @@ function DesktopNav() {
               </Link>
             ))}
             <div className="border-t border-border" />
-            <button
-              type="button"
-              onClick={logout}
-              className="flex items-center gap-3 w-full px-4 py-3 text-sm text-error hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
-            >
-              <LogOut className="size-4 shrink-0" />
-              Déconnexion
-            </button>
+            <LogoutButton onClick={logout} variant="dropdown" />
           </Dropdown>
         )
         : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
@@ -140,15 +151,16 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
         <ChevronDown className={`size-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="flex flex-col pl-11 mt-1 gap-0.5">
-          {link.subLinks.map(sub => (
+        <div className="flex flex-col pl-6 mt-1 gap-0.5">
+          {link.subLinks.map(({ to, icon: Icon, label }) => (
             <Link
-              key={sub.to}
-              to={sub.to}
+              key={to}
+              to={to}
               onClick={onClose}
-              className="px-3 py-2 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
             >
-              {sub.label}
+              <Icon className="size-4 shrink-0" />
+              {label}
             </Link>
           ))}
         </div>
@@ -161,16 +173,18 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
   const { user, login, logout } = useAuth()
 
   return createPortal(
-    <>
+    <div className="relative lg:hidden">
       <div aria-hidden="true" className="fixed inset-0 backdrop-blur-lg z-40" onClick={onClose} />
 
       <div className="fixed top-0 left-0 h-screen w-72 bg-background border-r border-border z-50 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 border-b border-border shrink-0 h-navbar">
-          <Banner />
-          <IconButton label="Fermer le menu" onClick={onClose}>
-            <X className="size-5" />
-          </IconButton>
+        <div className="relative border-b border-border">
+          <div className="flex items-center justify-between px-4 shrink-0 h-navbar">
+            <Banner />
+            <IconButton label="Fermer le menu" onClick={onClose}>
+              <X className="size-5" />
+            </IconButton>
+          </div>
         </div>
 
         {/* User identity */}
@@ -197,21 +211,14 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
                   {label}
                 </Link>
               ))}
-              <button
-                type="button"
-                onClick={() => { onClose(); logout() }}
-                className={`${sidebarItemClass()} w-full cursor-pointer bg-transparent border-0 text-error hover:bg-error/5`}
-              >
-                <LogOut className="size-5 shrink-0" />
-                Déconnexion
-              </button>
+              <LogoutButton onClick={() => { onClose(); logout() }} variant="sidebar" />
             </>
           ) : (
             <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
           )}
         </div>
       </div>
-    </>,
+    </div>,
     document.body,
   )
 }
@@ -222,7 +229,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <nav className="border-b border-border">
+    <nav className="relative border-b border-border">
       <div className="max-w-7xl mx-auto flex items-center justify-between h-navbar px-4 sm:px-6 lg:px-8">
         {/* Left */}
         <div className="flex items-center gap-10">
@@ -238,6 +245,9 @@ export default function Navbar() {
 
           {/* Mobile */}
           <div className="flex lg:hidden items-center gap-1">
+            {actionButtons.map(({ to, icon, label }) => (
+              <ActionLink key={to} to={to} icon={icon} label={label} />
+            ))}
             <ThemeToggle />
             <IconButton
               label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}

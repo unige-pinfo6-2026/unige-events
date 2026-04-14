@@ -11,7 +11,8 @@ const sizes = {
   'sm': "size-8",
   'md': "size-10",
   'lg': "size-12",
-  'xl': "size-14"
+  'xl': "size-16",
+  'profile': "size-28"
 } as const
 
 export default function UserAvatar({ user, size = "lg", className }: Readonly<UserAvatarProps>) {

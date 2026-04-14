@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
 
 const sizes = {
-  md: 'w-32',
+  md: 'w-36',
   lg: 'w-52',
 }
 
