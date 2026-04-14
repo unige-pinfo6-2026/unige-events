@@ -2,21 +2,28 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useTheme } from '@/contexts/ThemeContext'
 import UserIdentity from '@/components/user/UserIdentity'
-import { ButtonPrimary } from '@/components/utils/Buttons'
+import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
+import { ThemeToggle } from '@/components/utils/ThemeToggle'
 import { Skeleton } from '@/components/utils/Skeleton'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
-import { Calendar, ChevronDown, Heart, LayoutDashboard, LogOut, Menu, Moon, Search, Shield, SquarePlus, Sun, Ticket, User, X } from 'lucide-react'
+import { Calendar, ChevronDown, Heart, LayoutDashboard, LogOut, Menu, Search, Shield, SquarePlus, Ticket, User, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { User as UserType } from '@/types/user'
 
-type NavItem = { to: string; icon: LucideIcon; label: string; adminOnly?: boolean, subLinks?: NavItem[] }
+// ─── Types & données ──────────────────────────────────────────────────────────
+
+type NavItem = { to: string; icon: LucideIcon; label: string; adminOnly?: boolean; subLinks?: NavItem[] }
 
 const navLinks: NavItem[] = [
-  { label: 'Événements', to: '/events', icon: Ticket },
+  { label: 'Événements', to: '/events', icon: Ticket,
+    subLinks: [
+      { label: 'Rechercher un événement', to: '/events/search', icon: Search },
+      { label: 'Créer un événement', to: '/events/new', icon: SquarePlus },
+    ],
+  },
   { label: 'Calendrier', to: '/calendar', icon: Calendar },
 ]
 
@@ -31,6 +38,10 @@ const userMenuItems: NavItem[] = [
   { label: 'Mes favoris', to: '/events/favorites', icon: Heart },
   { label: 'Administration', to: '/admin', icon: Shield, adminOnly: true },
 ]
+
+const visibleUserMenu = (user: UserType) => userMenuItems.filter(i => !i.adminOnly || user.admin)
+
+// ─── Styles partagés ──────────────────────────────────────────────────────────
 
 const dropdownItemClass = 'flex items-center gap-3 px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors'
 
@@ -53,9 +64,7 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
     </NavLink>
   )
 
-  if (!link.subLinks) {
-    return trigger
-  }
+  if (!link.subLinks) return trigger
 
   return (
     <Dropdown trigger={trigger}>
@@ -66,45 +75,41 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
   )
 }
 
-function NavActions() {
-  const { theme, toggleTheme } = useTheme()
+function DesktopNav() {
+  const { user, login, logout, isLoading } = useAuth()
 
   return (
-    <div className="flex items-center gap-1">
-      {actionButtons.map(({ to, icon, label }) => (
-        <ActionLink key={to} to={to} icon={icon} label={label} />
-      ))}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-        className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
-      >
-        {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
-      </button>
+    <div className="hidden lg:flex items-center gap-3">
+      <div className="flex items-center gap-1">
+        {actionButtons.map(({ to, icon, label }) => (
+          <ActionLink key={to} to={to} icon={icon} label={label} />
+        ))}
+        <ThemeToggle />
+      </div>
+      {isLoading && <Skeleton className="h-9 w-28" />}
+      {!isLoading && (user
+        ? (
+          <Dropdown align="right" trigger={<UserIdentity user={user} />}>
+            {visibleUserMenu(user).map(({ to, icon: Icon, label }) => (
+              <Link key={to} to={to} className={dropdownItemClass}>
+                <Icon className="size-4 shrink-0" />
+                {label}
+              </Link>
+            ))}
+            <div className="border-t border-border" />
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-3 w-full px-4 py-3 text-sm text-error hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Déconnexion
+            </button>
+          </Dropdown>
+        )
+        : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+      )}
     </div>
-  )
-}
-
-function UserDropdownMenu({ user, logout }: Readonly<{ user: UserType; logout: () => void }>) {
-  return (
-    <Dropdown align="right" trigger={<UserIdentity user={user} />}>
-      {userMenuItems.filter(item => !item.adminOnly || user.admin).map(({ to, icon: Icon, label }) => (
-        <Link key={to} to={to} className={dropdownItemClass}>
-          <Icon className="size-4 shrink-0" />
-          {label}
-        </Link>
-      ))}
-      <div className="border-t border-border" />
-      <button
-        type="button"
-        onClick={logout}
-        className="flex items-center gap-3 w-full px-4 py-3 text-sm text-error hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
-      >
-        <LogOut className="size-4 shrink-0" />
-        Déconnexion
-      </button>
-    </Dropdown>
   )
 }
 
@@ -155,101 +160,71 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
 function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
   const { user, login, logout } = useAuth()
 
-  return createPortal((
+  return createPortal(
     <>
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 backdrop-blur-lg z-40"
-        onClick={onClose}
-      />
+      <div aria-hidden="true" className="fixed inset-0 backdrop-blur-lg z-40" onClick={onClose} />
 
       <div className="fixed top-0 left-0 h-screen w-72 bg-background border-r border-border z-50 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 border-b border-border shrink-0 h-navbar">
           <Banner />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer le menu"
-            className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
-          >
+          <IconButton label="Fermer le menu" onClick={onClose}>
             <X className="size-5" />
-          </button>
+          </IconButton>
         </div>
 
-        {/* User profile */}
+        {/* User identity */}
         {user && (
           <div className="p-4 border-b border-border shrink-0">
             <UserIdentity user={user} variant="card" />
           </div>
         )}
 
-        {/* Scrollable nav area */}
-        <nav className="flex flex-col flex-1 overflow-y-auto p-4 justify-between">
-          <div className="flex flex-col">
-            {/* navLinks with icons + accordion */}
-            {navLinks.map(link => (
-              <MobileNavItem key={link.to} link={link} onClose={onClose} />
-            ))}
-          </div>
-
-          <div className="flex flex-col">
-            {/* actionButtons with labels */}
-            {actionButtons.map(({ to, icon: Icon, label }) => (
-              <NavLink key={to} to={to} onClick={onClose} className={({ isActive }) => sidebarItemClass(isActive)}>
-                <Icon className="size-5 shrink-0" />
-                {label}
-              </NavLink>
-            ))}
-          </div>
+        {/* Nav */}
+        <nav className="flex flex-col flex-1 overflow-y-auto p-4">
+          {navLinks.map(link => (
+            <MobileNavItem key={link.to} link={link} onClose={onClose} />
+          ))}
         </nav>
 
-        {/* Profile section */}
-        <div className="flex flex-col p-4 border-t border-border shrink-0">
+        {/* User menu */}
+        <div className="flex flex-col gap-0.5 p-4 border-t border-border shrink-0">
           {user ? (
             <>
-              {userMenuItems.filter(item => !item.adminOnly || user.admin).map(({ to, icon: Icon, label }) => (
+              {visibleUserMenu(user).map(({ to, icon: Icon, label }) => (
                 <Link key={to} to={to} onClick={onClose} className={sidebarItemClass()}>
                   <Icon className="size-5 shrink-0" />
                   {label}
                 </Link>
               ))}
-
-              <div className={sidebarItemClass()}>
-                <button
-                  type="button"
-                  onClick={() => { onClose(); logout() }}
-                  className="flex items-center gap-3 w-full rounded-xl text-sm font-medium text-error hover:bg-error/5 transition-colors cursor-pointer bg-transparent border-0"
-                >
-                  <LogOut className="size-5 shrink-0" />
-                  Déconnexion
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => { onClose(); logout() }}
+                className={`${sidebarItemClass()} w-full cursor-pointer bg-transparent border-0 text-error hover:bg-error/5`}
+              >
+                <LogOut className="size-5 shrink-0" />
+                Déconnexion
+              </button>
             </>
           ) : (
-            <div className={sidebarItemClass()}>
-              <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
-            </div>
+            <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
           )}
         </div>
-
       </div>
-    </>
-  ), document.body)
+    </>,
+    document.body,
+  )
 }
 
 // ─── Root navbar ──────────────────────────────────────────────────────────────
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { user, login, logout, isLoading } = useAuth()
-  const { theme, toggleTheme } = useTheme()
 
   return (
     <nav className="border-b border-border">
       <div className="max-w-7xl mx-auto flex items-center justify-between h-navbar px-4 sm:px-6 lg:px-8">
-
-        {/* Left: Banner + desktop navlinks */}
+        {/* Left */}
         <div className="flex items-center gap-10">
           <Banner />
           <div className="hidden lg:flex gap-8">
@@ -257,45 +232,25 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Right: desktop actions+user / mobile theme+hamburger */}
+        {/* Right */}
         <div className="flex items-center gap-1">
+          <DesktopNav />
 
-          {/* Desktop only */}
-          <div className="hidden lg:flex items-center gap-3">
-            <NavActions />
-            {isLoading && <Skeleton className="h-9 w-28" />}
-            {!isLoading && (user
-              ? <UserDropdownMenu user={user} logout={logout} />
-              : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
-            )}
-          </div>
-
-          {/* Mobile only: theme + hamburger */}
+          {/* Mobile */}
           <div className="flex lg:hidden items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-              className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
-            >
-              {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
-            </button>
-            <button
-              type="button"
+            <ThemeToggle />
+            <IconButton
+              label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               onClick={() => setMobileMenuOpen(p => !p)}
-              aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-              className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
             >
               <Menu className="size-6" />
-            </button>
+            </IconButton>
           </div>
-
         </div>
+
       </div>
 
-      {mobileMenuOpen && (
-        <MobileMenu onClose={() => setMobileMenuOpen(false)} />
-      )}
+      {mobileMenuOpen && <MobileMenu onClose={() => setMobileMenuOpen(false)} />}
     </nav>
   )
 }
