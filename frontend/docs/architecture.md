@@ -26,6 +26,7 @@ Model : src/hooks, src/contexts et src/types
 | /events/:id/edit | EditEventPage | pages/event/EventEditPage.tsx | PrivateRoute |
 | /calendar | CalendarPage | pages/CalendarPage.tsx | publique |
 | /events/favorites | FavoritesPage | pages/event/favorites/FavoritesPage.tsx | PrivateRoute |
+| /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute |
 | /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
 | * | redirect | — | redirect vers /home |
 
@@ -38,7 +39,7 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 | services/api.ts | Instance Axios centrale et intercepteur Bearer | — |
 | services/tokenStore.ts | Lecture et écriture du token access_token | — |
 | services/userService.ts | Lecture et mise à jour du profil utilisateur | GET /api/users/me, GET /api/users/{id}, PUT /api/users/me |
-| services/eventApi.ts | Liste, détail, création, édition, annulation et upload de bannière | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image |
+| services/eventApi.ts | Liste, détail, création, édition, annulation, upload de bannière et publication DRAFT→PUBLISHED | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image, PATCH /api/events/{id}/publish |
 | services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 | services/favoriteApi.ts | Liste, ajout et retrait des favoris | GET /api/users/me/favorites, POST/DELETE /api/events/{id}/favorite |
 

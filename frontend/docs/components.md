@@ -13,6 +13,7 @@
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
 | /events/favorites | FavoritesPage | fait |
+| /my-events | MyEventsPage | fait |
 
 ### LandingPage
 
@@ -38,6 +39,17 @@
 - Grille d'EventCard avec FavoriteButton en état favori (étoile pleine).
 - Retirer un favori depuis la liste le supprime instantanément de l'affichage via onFavoriteRemove.
 - État vide : illustration étoile + message "Vous n'avez aucun favori pour le moment".
+
+### MyEventsPage
+
+- Route `/my-events`, protégée par PrivateRoute — dashboard personnel centralisant favoris, participations et publications.
+- Navigation par onglets persistés en query string (`?tab=favoris|participations|publications`) via `useSearchParams`.
+- Onglet **Mes Favoris** : charge `getFavorites()`, grille d'`EventCard`, état vide illustré (étoile), retrait instantané via `onFavoriteRemove`.
+- Onglet **Mes Participations** : charge `useMyParticipations()` — stub qui renvoie actuellement `[]`, en attente de l'endpoint backend. Affiche un badge "Inscrit" sur chaque card.
+- Onglet **Mes Publications** : charge `useMyEvents(user.id, status)` via `GET /api/events?organizerId=<id>&status=<STATUS>`. Sous-onglets `?status=published|draft|cancelled` (STATUS_TABS const map). Vue table en desktop, cards empilées en mobile. Actions par événement : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal`). Badge de statut via `statusBadgeVariants` const map. Tri par `startDate` décroissante.
+- Bouton flottant "Créer un événement" (bas-droite) affiché quand l'onglet `publications` est actif.
+- `ConfirmModal` local non-exporté : wrapper réutilisable pour toute confirmation destructive dans la page.
+- Skeleton `my-events` affiché pendant chaque chargement d'onglet.
 
 ### CreateEventPage
 
@@ -215,6 +227,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+| `my-events` | `my-events.bones.json` | `MyEventsPage` | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
@@ -250,6 +263,21 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
 
+### useMyEvents
+
+- Hook pour l'onglet Mes Publications : charge les événements de l'organisateur pour un statut donné (`PUBLISHED | DRAFT | CANCELLED`).
+- Signature : `useMyEvents(organizerId: string | null, status: EventStatus)`.
+- Retourne `events`, `loading`, `error`, `refresh`, `publish(id)`, `cancel(id)`.
+- `publish` appelle `PATCH /events/{id}/publish` puis retire localement l'événement de la liste courante.
+- `cancel` appelle `DELETE /events/{id}` puis retire localement l'événement.
+- Tri par `startDate` décroissante.
+
+### useMyParticipations
+
+- Hook pour l'onglet Mes Participations : charge les événements auxquels l'utilisateur s'est inscrit.
+- Retourne `events`, `loading`, `error`, `refresh`.
+- Implémenté via le stub `getMyParticipations()` — retourne `[]` tant que le backend n'expose pas d'endpoint enrichi.
+
 ### useFavorite
 
 - Gère l'état favori d'un événement unique avec optimistic update.
@@ -280,6 +308,8 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 
 - `attend(eventId, status)` : `POST /api/events/{id}/attend` avec body `{ status }` — upsert.
 - `unattend(eventId)` : `DELETE /api/events/{id}/attend`.
+- `getMyAttendance(eventId)` : filtre `GET /api/users/me/attendances` pour retourner le statut de l'utilisateur sur un événement.
+- `getMyParticipations()` : **stub** retournant `[]`. TODO : remplacer par l'appel réel quand le backend exposera un endpoint d'événements participés enrichis.
 
 ### icsGenerator.ts
 
@@ -300,6 +330,7 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - updateEvent(id, data) : mise à jour d’événement.
 - uploadEventImage(id, file) : upload de bannière et retour de l’événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d’un événement.
+- publishEvent(id) : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
 
 ### searchApi.ts
 

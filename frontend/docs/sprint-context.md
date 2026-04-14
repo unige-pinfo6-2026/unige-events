@@ -1,6 +1,21 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-03
+Dernière mise à jour : 2026-04-14
+
+## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
+
+En cours.
+
+Fonctionnalités livrées :
+- `MyEventsPage` (`/my-events`, PrivateRoute) — dashboard personnel unifié avec navigation par onglets persistés en query string (`?tab=favoris|participations|publications`).
+- Onglet **Mes Favoris** : réutilise `getFavorites()`, grille d'`EventCard` avec retrait instantané via `onFavoriteRemove`, état vide illustré.
+- Onglet **Mes Participations** : `getMyParticipations()` stub dans `attendanceApi.ts` (retourne `[]`) + hook `useMyParticipations` — en attente d'un endpoint backend dédié ; l'UI est câblée et affiche l'état vide.
+- Onglet **Mes Publications** : sous-onglets `Publiés / Brouillons / Annulés` (const map `STATUS_TABS`), vue table desktop + cards mobile. Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Badge de statut via `statusBadgeVariants` const map. Tri `startDate` décroissante. Bouton flottant "Créer un événement".
+- `publishEvent(id)` ajouté à `eventApi.ts` (PATCH /events/{id}/publish).
+- Hook `useMyEvents(organizerId, status)` avec cache local invalidé après `publish`/`cancel`.
+- Skeleton `my-events.bones.json` ajouté au registry.
+- Navbar : menu utilisateur mis à jour — "Mes événements" pointe vers `/my-events`, "Mes favoris" retiré (désormais sous-onglet `?tab=favoris`).
+- Route `/my-events` enregistrée sous `PrivateRoute`.
 
 ## Sprint 1 — Authentification & profils
 

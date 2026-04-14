@@ -9,7 +9,7 @@ import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
-import { Calendar, ChevronDown, Heart, LayoutDashboard, LogOut, Menu, Search, Shield, SquarePlus, Ticket, User, X } from 'lucide-react'
+import { Calendar, ChevronDown, LayoutDashboard, LogOut, Menu, Search, Shield, SquarePlus, Ticket, User, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { User as UserType } from '@/types/user'
 
@@ -34,8 +34,7 @@ const actionButtons: NavItem[] = [
 
 const userMenuItems: NavItem[] = [
   { label: 'Mon profil', to: '/profile/me', icon: User },
-  { label: 'Mes événements', to: '/events/me', icon: LayoutDashboard },
-  { label: 'Mes favoris', to: '/events/favorites', icon: Heart },
+  { label: 'Mes événements', to: '/my-events', icon: LayoutDashboard },
   { label: 'Administration', to: '/admin', icon: Shield, adminOnly: true },
 ]
 

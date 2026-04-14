@@ -1,6 +1,7 @@
 import axios from 'axios'
 import api from './api'
 import type { Attendance, AttendanceStatus } from '@/types/attendance'
+import type { Event } from '@/types/event'
 
 export async function attend(eventId: number, status: 'ATTENDING'): Promise<Attendance> {
   const response = await api.post<Attendance>(`/events/${eventId}/attend`, { status })
@@ -21,6 +22,19 @@ export async function unattend(eventId: number): Promise<void> {
  *
  * For all non-401 errors the error is rethrown.
  */
+/**
+ * Stub — returns an empty list until the backend delivers a dedicated endpoint
+ * to fetch the current user's attended events (with full Event payloads, not
+ * just the Attendance rows returned by /users/me/attendances).
+ *
+ * TODO: replace with GET /api/users/me/attendances when backend delivers
+ * (enriched with event data so /my-events "Mes Participations" tab can render
+ * EventCards without N+1 calls to /events/{id}).
+ */
+export async function getMyParticipations(): Promise<Event[]> {
+  return []
+}
+
 export async function getMyAttendance(eventId: number): Promise<AttendanceStatus | null> {
   try {
     const response = await api.get<Attendance[]>('/users/me/attendances')
