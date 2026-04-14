@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
@@ -229,6 +229,9 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { pathname } = useLocation()
+
+  useEffect(() => { setMobileMenuOpen(false) }, [pathname])
 
   return (
     <nav className="relative border-b border-border">
