@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-03
+Dernière mise à jour : 2026-04-14
 
 ## Sprint 1 — Authentification & profils
 
@@ -99,6 +99,21 @@ Fonctionnalités livrées :
 - Fixtures locales non-exportées dans chaque composant ciblé — JSX statique reproduisant le layout réel pour établir les dimensions du container.
 - `LoadingSpinner` retiré des pages/composants couverts par un skeleton — conservé dans `PrivateRoute` et `LoadingPage`.
 - Règle établie : **tout futur composant ou page avec appel API doit générer son skeleton** (documenté dans `AGENTS.md` et `docs/dev-guide.md`).
+
+## Sprint 4 — Refonte visuelle `DraftResumeCard` (2026-04-14)
+
+Terminé le 2026-04-14.
+
+Refonte UI des mini cartes de brouillon affichées dans le panneau déplié de `DraftsResumeStrip`, restées jusque-là très sèches (`w-64 h-10`, titre + temps relatif uniquement).
+
+- **Nouveau format chip ~288×72 px** (`w-72 h-[72px]`) cohérent avec le langage visuel d'`EventCard` sans en dupliquer l'emprise : glassmorphism `bg-background/60 backdrop-blur-xl`, border qui s'éclaire au hover (`border-foreground/30`), lift `motion-safe:hover:-translate-y-0.5`, gradient décoratif `rounded-bl-full` dans le coin haut-droit.
+- **Teinte catégorielle** via `EVENT_CATEGORIES[draft.category].color` (source canonique partagée avec `EventCard` et `EventCalendar`) : rail vertical 3 px collé au bord gauche + gradient horizontal subtil qui baigne la surface de la carte. Les cartes de catégories différentes se différencient visuellement en un coup d'œil.
+- **Chaîne de fallback meta ligne 2** : `location` → `startDate` (formaté `fr-CH` `day month`) → nom de catégorie. Une ligne de meta n'est jamais vide, on surface **ce que l'utilisateur a déjà rempli** — ce qui aide à reconnaître le brouillon au lieu d'afficher des placeholders.
+- **Tag `FilePen` + "Brouillon"** en haut à droite de la ligne 1, signalant l'état de façon explicite mais discrète (`text-[10px] uppercase tracking-wider text-foreground/40`).
+- **Const map `titleVariants`** pour les deux classes de titre (rempli vs vide) — applique le pattern `AGENTS.md` au lieu du ternaire inline sur `className` présent dans l'ancienne version.
+- **`STRIP_LAYOUT.cardWidth`** bumpé de 256 → 288 dans `src/utils/draftsResumeStripLayout.ts`. Les 9 tests de `computeStripLayout` continuent de passer tel quel (vérifié à la main sur tous les cas : largeurs 100/200/400/500/1700/2000 avec 1 à 8 brouillons). Aucun test à modifier côté layout.
+- **Tests `DraftsResumeStrip`** : 4 nouveaux tests ajoutés pour couvrir le rendu du lieu, les deux branches de fallback (date courte, nom de catégorie) et la présence du tag "Brouillon" par carte. Tous les tests existants (`getByText`, `getByRole('button', { name: /.../ })`, `/Reprendre le brouillon/`, ArrowRight focus, `Brouillon sans titre` whitespace) restent verts sans modification.
+- **Skeleton `drafts-resume-strip`** inchangé : il représente le header collapsed (56 px), pas les cartes — celles-ci n'apparaissent que dans le panneau déplié, qui n'est pas rendu pendant `loading`.
 
 ## Sprint 4 — Correctifs brouillons 2026-04-13 (5e passe)
 

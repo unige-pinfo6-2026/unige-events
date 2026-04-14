@@ -206,8 +206,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 ### DraftResumeCard
 
-- Sous-composant de `DraftsResumeStrip`, carte compacte (`w-64 h-10`) d'un brouillon.
-- Affiche le titre tronqué (ou "Brouillon sans titre") et la date relative en français ("il y a 21 min"), basée sur `updatedAt ?? createdAt` — le temps s'actualise à chaque re-sauvegarde du brouillon.
+- Sous-composant de `DraftsResumeStrip`, carte chip-like compacte (`w-72 h-[72px]`, soit 288×72 px) d'un brouillon.
+- Langage visuel aligné sur `EventCard` (glassmorphism `bg-background/60 backdrop-blur-xl`, border `border-border` → hover `border-foreground/30`, lift `motion-safe:hover:-translate-y-0.5`, gradient décoratif coin haut-droit `rounded-bl-full`) mais restreint à un format dock.
+- **Teinte catégorielle** : rail vertical 3 px collé à gauche + gradient horizontal `linear-gradient(to right, {categoryColor}26, transparent 72%)` qui baigne subtilement la surface. La couleur provient de `EVENT_CATEGORIES[draft.category].color` — même source que `EventCard` et `EventCalendar`, zéro duplication.
+- **Hiérarchie typographique** en deux lignes :
+  - Ligne 1 : titre tronqué en `text-sm font-semibold text-foreground` (ou "Brouillon sans titre" en italique `text-foreground/60`) + tag `FilePen` + "Brouillon" en `text-[10px] uppercase tracking-wider text-foreground/40` collé à droite.
+  - Ligne 2 : icône de meta teintée à la couleur de catégorie + label + `·` + temps relatif en `text-foreground/45`.
+- **Chaîne de fallback meta** (priorité décroissante) : `location` non vide → `MapPin` + lieu · sinon `startDate` parseable → `Calendar` + date courte `day month` en `fr-CH` (ex. "1 mai") · sinon `Tag` + nom de catégorie. **Jamais de ligne vide** — un champ absent est remplacé, pas affiché en placeholder.
+- Deux variantes de classes titre encapsulées dans une const map `titleVariants: Record<'filled' \| 'empty', string>` (pattern `AGENTS.md`, pas de ternaire inline sur les classes).
+- Accessibilité : `aria-label` complet `"Reprendre le brouillon « {title} » — {category}, modifié {relativeTime}"`. Tous les éléments décoratifs (rail, gradient, corner glow, icônes meta) sont `aria-hidden`. Navigation clavier flèches gauche/droite toujours gérée par le parent `DraftsResumeStrip` (inchangée).
 - Props : `draft: Event`, `onOpen: (id: number) => void`.
 
 ---

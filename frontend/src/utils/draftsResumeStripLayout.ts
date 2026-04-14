@@ -1,5 +1,5 @@
 export const STRIP_LAYOUT = {
-  cardWidth: 256,
+  cardWidth: 288,
   cardGap: 12,
   labelWidth: 220,
   labelGap: 16,

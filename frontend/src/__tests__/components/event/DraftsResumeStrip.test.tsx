@@ -246,6 +246,51 @@ describe('DraftsResumeStrip', () => {
     expect(screen.queryByText(/Expirée/)).toBeNull()
   })
 
+  it('renders the location with an icon when the draft has a location', () => {
+    stub([makeDraft({ id: 1, title: 'With location', location: 'Uni Mail' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    expect(screen.getByText('Uni Mail')).toBeTruthy()
+  })
+
+  it('falls back to a compact start date when the draft has no location', () => {
+    stub([
+      makeDraft({
+        id: 1,
+        title: 'No location',
+        location: '   ',
+        startDate: '2099-05-01T10:00:00.000Z',
+      }),
+    ])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    expect(screen.getByText(/mai/i)).toBeTruthy()
+  })
+
+  it('falls back to the category name when neither location nor a valid start date is present', () => {
+    stub([
+      makeDraft({
+        id: 1,
+        title: 'Only category',
+        location: '',
+        startDate: '',
+        category: 'ACADEMIC',
+      }),
+    ])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    expect(screen.getByText('Académique')).toBeTruthy()
+  })
+
+  it('renders a "Brouillon" tag on each card in addition to the header trigger', () => {
+    stub([makeDraft({ id: 1, title: 'Tagged' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    // Header trigger "Mes brouillons" + per-card "Brouillon" tag = 2 distinct matches.
+    const cardTag = screen.getByText('Brouillon')
+    expect(cardTag).toBeTruthy()
+  })
+
   it('does not crash when updatedAt is missing (sort still works on createdAt)', () => {
     stub([makeDraft({ id: 1, title: 'NoUpdatedAt', updatedAt: undefined })])
     render(<DraftsResumeStrip />)
