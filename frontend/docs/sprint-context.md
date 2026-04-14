@@ -7,15 +7,16 @@ Dernière mise à jour : 2026-04-14
 En cours.
 
 Fonctionnalités livrées :
-- `MyEventsPage` (`/my-events`, PrivateRoute) — dashboard personnel unifié avec navigation par onglets persistés en query string (`?tab=favoris|participations|publications`).
-- Onglet **Mes Favoris** : réutilise `getFavorites()`, grille d'`EventCard` avec retrait instantané via `onFavoriteRemove`, état vide illustré.
-- Onglet **Mes Participations** : `getMyParticipations()` stub dans `attendanceApi.ts` (retourne `[]`) + hook `useMyParticipations` — en attente d'un endpoint backend dédié ; l'UI est câblée et affiche l'état vide.
-- Onglet **Mes Publications** : sous-onglets `Publiés / Brouillons / Annulés` (const map `STATUS_TABS`), vue table desktop + cards mobile. Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Badge de statut via `statusBadgeVariants` const map. Tri `startDate` décroissante. Bouton flottant "Créer un événement".
+- **Split en trois pages indépendantes** après premier review :
+  - `MyFavoritesPage` (`/my-events/favorites`) — grille d'`EventCard` via `getFavorites()`.
+  - `MyParticipationsPage` (`/my-events/participations`) — grille d'`EventCard` avec badge "Inscrit" via `useMyParticipations` (stub `getMyParticipations()` retourne `[]` en attendant l'endpoint backend enrichi).
+  - `MyPublicationsPage` (`/my-events/publications`) — dashboard organisateur avec sous-onglets `Publiés / Brouillons / Annulés` (`?status=published|draft|cancelled`). **Layout cards** (`PublicationCard` local) sur tous les breakpoints (plus de table) : bannière ou gradient fallback basé sur la catégorie, badges catégorie/statut en overlay, actions Modifier / Publier (DRAFT) / Annuler. Tri `startDate` décroissante. Bouton flottant "Créer un événement".
+- `MyEventsPage` gardé uniquement comme redirect vers `/my-events/favorites`.
 - `publishEvent(id)` ajouté à `eventApi.ts` (PATCH /events/{id}/publish).
-- Hook `useMyEvents(organizerId, status)` avec cache local invalidé après `publish`/`cancel`.
-- Skeleton `my-events.bones.json` ajouté au registry.
-- Navbar : menu utilisateur mis à jour — "Mes événements" pointe vers `/my-events`, "Mes favoris" retiré (désormais sous-onglet `?tab=favoris`).
-- Route `/my-events` enregistrée sous `PrivateRoute`.
+- Hooks : `useMyEvents(organizerId, status)` (publish/cancel avec cache local invalidé) et `useMyParticipations()`.
+- Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
+- **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
+- Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
 
 ## Sprint 1 — Authentification & profils
 

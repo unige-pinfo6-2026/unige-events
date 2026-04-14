@@ -13,7 +13,10 @@
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
 | /events/favorites | FavoritesPage | fait |
-| /my-events | MyEventsPage | fait |
+| /my-events | MyEventsPage | redirect → /my-events/favorites |
+| /my-events/favorites | MyFavoritesPage | fait |
+| /my-events/participations | MyParticipationsPage | fait (stub backend) |
+| /my-events/publications | MyPublicationsPage | fait |
 
 ### LandingPage
 
@@ -40,16 +43,37 @@
 - Retirer un favori depuis la liste le supprime instantanément de l'affichage via onFavoriteRemove.
 - État vide : illustration étoile + message "Vous n'avez aucun favori pour le moment".
 
-### MyEventsPage
+### MyEventsPage — redirect
 
-- Route `/my-events`, protégée par PrivateRoute — dashboard personnel centralisant favoris, participations et publications.
-- Navigation par onglets persistés en query string (`?tab=favoris|participations|publications`) via `useSearchParams`.
-- Onglet **Mes Favoris** : charge `getFavorites()`, grille d'`EventCard`, état vide illustré (étoile), retrait instantané via `onFavoriteRemove`.
-- Onglet **Mes Participations** : charge `useMyParticipations()` — stub qui renvoie actuellement `[]`, en attente de l'endpoint backend. Affiche un badge "Inscrit" sur chaque card.
-- Onglet **Mes Publications** : charge `useMyEvents(user.id, status)` via `GET /api/events?organizerId=<id>&status=<STATUS>`. Sous-onglets `?status=published|draft|cancelled` (STATUS_TABS const map). Vue table en desktop, cards empilées en mobile. Actions par événement : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal`). Badge de statut via `statusBadgeVariants` const map. Tri par `startDate` décroissante.
-- Bouton flottant "Créer un événement" (bas-droite) affiché quand l'onglet `publications` est actif.
-- `ConfirmModal` local non-exporté : wrapper réutilisable pour toute confirmation destructive dans la page.
-- Skeleton `my-events` affiché pendant chaque chargement d'onglet.
+- `/my-events` est un simple redirect vers `/my-events/favorites` (PrivateRoute).
+- Les trois pages enfants (favoris, participations, publications) sont indépendantes et accessibles via le dropdown utilisateur dans la Navbar (sous-menu nested sous "Mes événements").
+
+### MyFavoritesPage
+
+- Route `/my-events/favorites`, protégée par PrivateRoute.
+- Charge `getFavorites()` (GET /api/users/me/favorites).
+- Grille d'`EventCard` (étoile pleine, retrait instantané via `onFavoriteRemove`).
+- État vide : icône étoile + "Aucun favori pour le moment".
+- Skeleton `my-events`.
+
+### MyParticipationsPage
+
+- Route `/my-events/participations`, protégée par PrivateRoute.
+- Charge `useMyParticipations()` — actuellement câblé au stub `getMyParticipations()` (retourne `[]` en attendant un endpoint backend enrichi).
+- Grille d'`EventCard` avec badge "Inscrit" en overlay sur chaque card. Synchronise l'état favori via `useFavoritesContext`.
+- État vide : icône calendrier + "Vous ne participez à aucun événement".
+- Skeleton `my-events`.
+
+### MyPublicationsPage
+
+- Route `/my-events/publications`, protégée par PrivateRoute — dashboard organisateur (SCRUM-93).
+- Charge `useMyEvents(user.id, status)` via `GET /api/events?organizerId=<id>&status=<STATUS>`.
+- Sous-onglets statut persistés en query string (`?status=published|draft|cancelled`) via `useSearchParams` (const map `STATUS_TABS`).
+- **Layout cards sur tous les breakpoints** (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5`) — pas de table.
+- `PublicationCard` local non-exporté : bannière de l'événement (ou gradient fallback basé sur la couleur de catégorie), badge catégorie en top-left, badge statut en top-right (via const map `statusVariants`), titre `line-clamp-1` avec tooltip `title`, date + participants, actions en footer (Modifier, Publier si DRAFT, Annuler).
+- Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Tri par `startDate` décroissante.
+- Bouton flottant "Créer un événement" en bas-droite.
+- Skeleton `my-events`.
 
 ### CreateEventPage
 

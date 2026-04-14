@@ -1,0 +1,303 @@
+import { useCallback, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Users } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { useMyEvents } from '@/hooks/useMyEvents'
+import { useToast } from '@/hooks/useToast'
+import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
+import { BlobsSubtle } from '@/components/utils/Blobs'
+import { InfoMessage } from '@/components/utils/InfoMessage'
+import { ButtonPrimary } from '@/components/utils/Buttons'
+import { Skeleton } from 'boneyard-js/react'
+import { useTheme } from '@/contexts/ThemeContext'
+import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
+import { formatEventDateTimeCompact } from '@/utils/dateTime'
+import { EventGridFixture } from './shared'
+
+// ─── Const maps ───────────────────────────────────────────────────────────────
+
+const STATUS_TABS = {
+  PUBLISHED: { label: 'Publiés',    param: 'published' },
+  DRAFT:     { label: 'Brouillons', param: 'draft' },
+  CANCELLED: { label: 'Annulés',    param: 'cancelled' },
+} as const
+
+const STATUS_KEYS = Object.keys(STATUS_TABS) as EventStatus[]
+
+const statusVariants = {
+  PUBLISHED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
+  DRAFT:     'bg-amber-500/20 text-amber-400 border-amber-500/40',
+  CANCELLED: 'bg-red-500/20 text-red-400 border-red-500/40',
+} as const
+
+function paramToStatus(param: string | null): EventStatus {
+  for (const key of STATUS_KEYS) {
+    if (STATUS_TABS[key].param === param) return key
+  }
+  return 'PUBLISHED'
+}
+
+// ─── Sous-tabs statut ─────────────────────────────────────────────────────────
+
+interface StatusTabsProps {
+  active: EventStatus
+  onChange: (status: EventStatus) => void
+}
+
+function StatusTabs({ active, onChange }: Readonly<StatusTabsProps>) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {STATUS_KEYS.map(key => {
+        const { label } = STATUS_TABS[key]
+        const isActive = key === active
+        const base = 'px-4 py-1.5 rounded-full text-xs font-semibold border cursor-pointer bg-transparent transition-colors'
+        const state = isActive
+          ? 'border-accent text-accent bg-accent/10'
+          : 'border-border text-foreground/60 hover:text-foreground hover:border-foreground/30'
+        return (
+          <button key={key} type="button" onClick={() => onChange(key)} className={`${base} ${state}`}>
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Confirm modal ────────────────────────────────────────────────────────────
+
+interface ConfirmModalProps {
+  title: string
+  message: React.ReactNode
+  confirmLabel: string
+  pending: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function ConfirmModal({ title, message, confirmLabel, pending, onConfirm, onClose }: Readonly<ConfirmModalProps>) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
+        <h2 className="text-lg font-bold text-foreground mb-2">{title}</h2>
+        <div className="text-sm text-foreground/50 mb-6">{message}</div>
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold disabled:opacity-50 hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
+          >
+            {pending ? '…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── PublicationCard ──────────────────────────────────────────────────────────
+
+interface PublicationCardProps {
+  event: Event
+  publishing: boolean
+  onPublish: (id: number) => void
+  onCancel: (event: Event) => void
+}
+
+function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<PublicationCardProps>) {
+  const category = EVENT_CATEGORIES[event.category]
+  const statusClass = statusVariants[event.status]
+  const banner = event.bannerUrl
+    ? { backgroundImage: `url(${event.bannerUrl})` }
+    : { background: `linear-gradient(135deg, ${category.color}55, ${category.color}cc)` }
+
+  return (
+    <article className="group flex flex-col rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 hover:-translate-y-0.5">
+      {/* Banner */}
+      <div className="relative h-36 bg-cover bg-center" style={banner}>
+        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
+        <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
+
+        <span
+          className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide backdrop-blur-sm"
+          style={{ background: `${category.color}dd` }}
+        >
+          {category.name}
+        </span>
+
+        <span className={`absolute top-3 right-3 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border backdrop-blur-md ${statusClass}`}>
+          {EVENT_STATUSES[event.status].name}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col gap-2 p-4 flex-1">
+        <Link
+          to={`/events/${event.id}`}
+          title={event.title}
+          className="text-base font-bold text-foreground hover:text-accent no-underline line-clamp-1 break-words"
+        >
+          {event.title}
+        </Link>
+        <div className="flex items-center gap-2 text-xs text-foreground/55">
+          <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
+          <span className="truncate">{formatEventDateTimeCompact(event.startDate)}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-foreground/55">
+          <Users className="size-3.5 shrink-0" style={{ color: category.color }} />
+          <span>
+            {event.attendingCount}
+            {event.capacity != null && <span className="text-foreground/35"> / {event.capacity}</span>} participants
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2 p-3 border-t border-border">
+        <Link
+          to={`/events/${event.id}/edit`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
+        >
+          <Pencil className="size-3.5" />
+          Modifier
+        </Link>
+        {event.status === 'DRAFT' && (
+          <button
+            type="button"
+            onClick={() => onPublish(event.id)}
+            disabled={publishing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+          >
+            <Send className="size-3.5" />
+            Publier
+          </button>
+        )}
+        {event.status !== 'CANCELLED' && (
+          <button
+            type="button"
+            onClick={() => onCancel(event)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
+          >
+            <Trash2 className="size-3.5" />
+            Annuler
+          </button>
+        )}
+      </div>
+    </article>
+  )
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+
+export default function MyPublicationsPage() {
+  const { user } = useAuth()
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = paramToStatus(searchParams.get('status'))
+
+  const { events, loading, error, publish, cancel } = useMyEvents(user?.id ?? null, status)
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+
+  const [toCancel, setToCancel] = useState<Event | null>(null)
+  const [pending, setPending] = useState(false)
+  const [publishingId, setPublishingId] = useState<number | null>(null)
+
+  const setStatus = useCallback((next: EventStatus) => {
+    const sp = new URLSearchParams(searchParams)
+    sp.set('status', STATUS_TABS[next].param)
+    setSearchParams(sp, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  async function handlePublish(id: number) {
+    setPublishingId(id)
+    const ok = await publish(id)
+    setPublishingId(null)
+    if (ok) toast.showToast('success', 'Événement publié.')
+    else toast.showToast('error', 'Impossible de publier cet événement.')
+  }
+
+  async function handleCancel() {
+    if (!toCancel) return
+    setPending(true)
+    const ok = await cancel(toCancel.id)
+    setPending(false)
+    setToCancel(null)
+    if (ok) toast.showToast('success', 'Événement annulé.')
+    else toast.showToast('error', 'Impossible d\'annuler cet événement.')
+  }
+
+  return (
+    <SectionWrapper padding="sm" background={<BlobsSubtle />}>
+      <SectionHeader
+        align="left"
+        title={<>Mes <mark>Publications</mark></>}
+        subtitle="Gérez les événements que vous organisez."
+      />
+
+      <StatusTabs active={status} onChange={setStatus} />
+
+      {loading && (
+        <Skeleton name="my-events" loading animate="pulse" color={skeletonColor}>
+          <EventGridFixture />
+        </Skeleton>
+      )}
+      {!loading && error && <InfoMessage type="error" message={error} />}
+      {!loading && !error && events.length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+          <LayoutDashboard className="w-16 h-16 text-foreground/20" />
+          <p className="text-foreground/50 text-lg font-medium">Aucun événement dans cette catégorie</p>
+          <p className="text-foreground/35 text-sm">Créez votre premier événement pour démarrer.</p>
+          <Link to="/events/new" className="mt-2">
+            <ButtonPrimary size="sm">
+              <Plus className="size-4" />
+              Créer un événement
+            </ButtonPrimary>
+          </Link>
+        </div>
+      )}
+      {!loading && !error && events.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {events.map(event => (
+            <PublicationCard
+              key={event.id}
+              event={event}
+              publishing={publishingId === event.id}
+              onPublish={handlePublish}
+              onCancel={setToCancel}
+            />
+          ))}
+        </div>
+      )}
+
+      <Link
+        to="/events/new"
+        aria-label="Créer un événement"
+        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-linear-to-r from-accent to-pink-600 text-white font-semibold shadow-xl shadow-accent/30 no-underline hover:from-accent/90 hover:to-pink-600/90 transition-colors"
+      >
+        <Plus className="size-5" />
+        Créer un événement
+      </Link>
+
+      {toCancel && (
+        <ConfirmModal
+          title="Annuler l'événement ?"
+          message={<>Cette action annulera l'événement <strong className="text-foreground">"{toCancel.title}"</strong>. Elle est irréversible.</>}
+          confirmLabel="Confirmer"
+          pending={pending}
+          onConfirm={handleCancel}
+          onClose={() => setToCancel(null)}
+        />
+      )}
+    </SectionWrapper>
+  )
+}
