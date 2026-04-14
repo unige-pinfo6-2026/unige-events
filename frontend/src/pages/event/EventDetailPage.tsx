@@ -332,7 +332,7 @@ export default function EventDetailPage() {
                 to={`/profile/${organizer.id}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
               >
-                <UserAvatar user={organizer} size={36} className="shrink-0" />
+                <UserAvatar user={organizer} size='sm' className="shrink-0" />
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs text-foreground/40">Organisé par</span>
                   <span className="text-sm font-semibold text-foreground truncate">

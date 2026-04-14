@@ -124,7 +124,7 @@ export default function ProfileEditPage() {
 
           {/* Photo */}
           <div className="flex items-center gap-5">
-            <UserAvatar user={previewUser} size={64} />
+            <UserAvatar user={previewUser} size='xl' />
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="photo-input"

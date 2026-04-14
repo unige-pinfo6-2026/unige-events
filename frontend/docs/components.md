@@ -160,6 +160,14 @@
 - Importe `FACULTIES` et `Faculty` depuis `@/types/faculty` (plus de `FACULTY_LABELS` ni d'enum `Faculty` dans `@/types/event`). Les libellés des chips utilisent `faculty.abbr`.
 - Les changements de filtres appellent `setFilters` immédiatement sans debounce côté composant.
 
+### Dropdown
+
+- `src/components/utils/Dropdown.tsx` — wrapper hover CSS pur, aucun state.
+- Variantes déclarées via const map typée (pattern `Blobs.tsx`) : `const aligns = { left, right }`, type inféré `keyof typeof aligns`.
+- Inclut automatiquement le `ChevronDown` (rotation au hover via `group-hover:rotate-180`) — ne pas l'ajouter dans le `trigger`.
+- Props : `trigger` (ReactNode affiché en permanence), `children` (contenu du panel), `align` (`keyof typeof aligns`, défaut `'left'`).
+- Utilisé dans `Navbar` : `UserDropdownMenu` (`align="right"`), `NavItem` (`align` par défaut).
+
 ### AttendanceButtons
 
 - Affiche les boutons "Je suis intéressé(e)" et "Je participe" sur la page détail événement.
