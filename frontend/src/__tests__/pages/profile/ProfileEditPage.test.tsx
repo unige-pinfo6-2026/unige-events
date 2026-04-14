@@ -15,6 +15,8 @@ vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   updateProfile: vi.fn(),
   uploadPhoto: vi.fn(),
+  uploadBanner: vi.fn(),
+  deleteBanner: vi.fn(),
 }))
 
 const mockNavigate = vi.fn()
@@ -24,12 +26,14 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { useAuth } from '@/hooks/useAuth'
-import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
+import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetMe = getMe as ReturnType<typeof vi.fn>
 const mockUpdateProfile = updateProfile as ReturnType<typeof vi.fn>
 const mockUploadPhoto = uploadPhoto as ReturnType<typeof vi.fn>
+const mockUploadBanner = uploadBanner as ReturnType<typeof vi.fn>
+const mockDeleteBanner = deleteBanner as ReturnType<typeof vi.fn>
 
 const mockUser = {
   id: '123',
@@ -243,5 +247,93 @@ describe('ProfileEditPage', () => {
     fireEvent.change(input, { target: { value: 'test' } })
     fireEvent.keyDown(input, { key: 'a' })
     expect(screen.queryByText('test')).toBeNull()
+  })
+
+  it('shows banner preview when user has bannerUrl', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' } })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const banner = document.querySelector<HTMLElement>('[style*="banner.jpg"]')
+    expect(banner).toBeTruthy()
+    expect(banner!.style.backgroundImage).toContain('banner.jpg')
+  })
+
+  it('shows gradient placeholder when user has no bannerUrl', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: null } })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    expect(document.querySelector('[style*="banner"]')).toBeNull()
+  })
+
+  it('rejects non-image banner file', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+    const file = new File(['data'], 'document.pdf', { type: 'application/pdf' })
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(await screen.findByText('Le fichier doit être une image.')).toBeTruthy()
+  })
+
+  it('rejects banner file larger than 5MB', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+    const largeFile = new File(['x'.repeat(6 * 1024 * 1024)], 'big.jpg', { type: 'image/jpeg' })
+    fireEvent.change(input, { target: { files: [largeFile] } })
+    expect(await screen.findByText('La bannière ne doit pas dépasser 5 Mo.')).toBeTruthy()
+  })
+
+  it('shows banner preview after selecting a valid banner file', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:banner-preview-url')
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+    const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
+    fireEvent.change(input, { target: { files: [file] } })
+    await waitFor(() => {
+      const banner = document.querySelector<HTMLElement>('[style*="banner-preview-url"]')
+      expect(banner).toBeTruthy()
+    })
+  })
+
+  it('calls uploadBanner on submit when banner file is selected', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
+    mockUpdateProfile.mockResolvedValue({})
+    mockGetMe.mockResolvedValue(mockUser)
+    mockUploadBanner.mockResolvedValue({ bannerUrl: 'https://example.com/new-banner.jpg' })
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:banner-preview-url')
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+    const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
+    fireEvent.change(input, { target: { files: [file] } })
+    fireEvent.click(screen.getByText('Enregistrer'))
+    await screen.findByText('Profil mis à jour avec succès.')
+    expect(mockUploadBanner).toHaveBeenCalledWith(file)
+  })
+
+  it('calls deleteBanner on submit when banner is deleted', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' }, updateUser: vi.fn() })
+    mockUpdateProfile.mockResolvedValue({})
+    mockGetMe.mockResolvedValue(mockUser)
+    mockDeleteBanner.mockResolvedValue({ bannerUrl: null })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    fireEvent.click(screen.getByText('Supprimer la bannière'))
+    fireEvent.click(screen.getByText('Enregistrer'))
+    await screen.findByText('Profil mis à jour avec succès.')
+    expect(mockDeleteBanner).toHaveBeenCalled()
+  })
+
+  it('hides delete button after banner is deleted', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' } })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    expect(screen.getByText('Supprimer la bannière')).toBeTruthy()
+    fireEvent.click(screen.getByText('Supprimer la bannière'))
+    await waitFor(() => expect(screen.queryByText('Supprimer la bannière')).toBeNull())
   })
 })

@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { getMe, getUserById, updateProfile, uploadPhoto } from '@/services/userService'
+import { deleteBanner, getMe, getUserById, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
 
 vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
     put: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
@@ -16,6 +17,7 @@ import api from '@/services/api'
 const mockApiGet = api.get as ReturnType<typeof vi.fn>
 const mockApiPut = api.put as ReturnType<typeof vi.fn>
 const mockApiPost = api.post as ReturnType<typeof vi.fn>
+const mockApiDelete = api.delete as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -60,6 +62,30 @@ describe('userService', () => {
         '/users/me/image',
         expect.any(FormData),
       )
+    })
+  })
+
+  describe('uploadBanner', () => {
+    it('posts file to /users/me/banner and returns updated user', async () => {
+      const user = { id: '1', bannerUrl: '/api/uploads/banner.jpg' }
+      mockApiPost.mockResolvedValue({ data: user })
+      const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
+      const result = await uploadBanner(file)
+      expect(result).toEqual(user)
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/users/me/banner',
+        expect.any(FormData),
+      )
+    })
+  })
+
+  describe('deleteBanner', () => {
+    it('calls DELETE /users/me/banner and returns updated user', async () => {
+      const user = { id: '1', bannerUrl: null }
+      mockApiDelete.mockResolvedValue({ data: user })
+      const result = await deleteBanner()
+      expect(result).toEqual(user)
+      expect(mockApiDelete).toHaveBeenCalledWith('/users/me/banner')
     })
   })
 })

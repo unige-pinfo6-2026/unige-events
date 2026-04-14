@@ -184,4 +184,22 @@ describe('ProfilePage', () => {
     renderProfilePage('me')
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
   })
+
+  it('renders banner image when bannerUrl is set', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' },
+    })
+    renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    const banner = document.querySelector<HTMLElement>('[style*="banner.jpg"]')
+    expect(banner).toBeTruthy()
+    expect(banner!.style.backgroundImage).toContain('banner.jpg')
+  })
+
+  it('renders gradient fallback when bannerUrl is null', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: null } })
+    renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(document.querySelector('[style*="banner"]')).toBeNull()
+  })
 })

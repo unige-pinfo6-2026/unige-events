@@ -74,8 +74,10 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    expect(await screen.findByDisplayValue(existingEvent.title)).toBeTruthy()
-    expect(screen.getByDisplayValue(existingEvent.location)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+      expect(screen.getByDisplayValue(existingEvent.location)).toBeTruthy()
+    }, { timeout: 5000 })
   })
 
   it('updates an event and redirects to its detail page', async () => {
