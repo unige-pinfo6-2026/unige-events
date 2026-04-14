@@ -6,7 +6,6 @@ import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
 import { ThemeToggle } from '@/components/utils/ThemeToggle'
 import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
-import { Skeleton } from 'boneyard-js/react'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
@@ -94,20 +93,8 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
   )
 }
 
-function UserDropdownFixture() {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="rounded-full shrink-0" style={{ width: 32, height: 32 }} />
-      <span className="text-sm font-semibold">Elie Bsd</span>
-      <div className="w-4 h-4" />
-    </div>
-  )
-}
-
 function DesktopNav() {
   const { user, login, logout, isLoading } = useAuth()
-  const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   return (
     <div className="hidden lg:flex items-center gap-3">
@@ -118,7 +105,7 @@ function DesktopNav() {
         <ThemeToggle />
         <NotificationsDropdown />
       </div>
-      {isLoading && <Skeleton className="h-9 w-28" />}
+      {isLoading && <UserIdentity user={null} loading />}
       {!isLoading && (user
         ? (
           <Dropdown align="right" trigger={<UserIdentity user={user} />}>
@@ -184,7 +171,7 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
 }
 
 function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
-  const { user, login, logout } = useAuth()
+  const { user, login, logout, isLoading } = useAuth()
 
   return createPortal(
     <div className="relative lg:hidden">
@@ -202,9 +189,9 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
         </div>
 
         {/* User identity */}
-        {user && (
+        {(isLoading || user) && (
           <div className="p-4 border-b border-border shrink-0">
-            <UserIdentity user={user} variant="card" />
+            <UserIdentity user={user ?? null} loading={isLoading} variant="card" />
           </div>
         )}
 
@@ -265,8 +252,10 @@ export default function Navbar() {
             {actionButtons.map(({ to, icon, label }) => (
               <ActionLink key={to} to={to} icon={icon} label={label} />
             ))}
+
             <ThemeToggle />
-        <NotificationsDropdown />
+            <NotificationsDropdown />
+
             <IconButton
               label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               onClick={() => setMobileMenuOpen(p => !p)}
