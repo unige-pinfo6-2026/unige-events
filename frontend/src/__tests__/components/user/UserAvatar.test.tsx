@@ -14,6 +14,7 @@ const baseUser: User = {
   displayName: 'Alice Martin',
   profilePublic: true,
   createdAt: '2024-01-01',
+  admin: false,
 }
 
 describe('UserAvatar', () => {
@@ -47,16 +48,15 @@ describe('UserAvatar', () => {
   })
 
   it('applies the specified size', () => {
-    const { container } = render(<UserAvatar user={baseUser} size={64} />)
+    const { container } = render(<UserAvatar user={baseUser} size="xl" />)
     const div = container.querySelector('div') as HTMLDivElement
-    expect(div.style.width).toBe('64px')
-    expect(div.style.height).toBe('64px')
+    expect(div.className).toContain('size-16')
   })
 
-  it('applies default size of 40', () => {
+  it('applies default size lg', () => {
     const { container } = render(<UserAvatar user={baseUser} />)
     const div = container.querySelector('div') as HTMLDivElement
-    expect(div.style.width).toBe('40px')
+    expect(div.className).toContain('size-12')
   })
 
   it('applies custom className', () => {

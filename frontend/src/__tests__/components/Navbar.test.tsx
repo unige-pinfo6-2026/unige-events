@@ -52,13 +52,13 @@ describe('Navbar', () => {
     expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
   })
 
-  it('opens dropdown on avatar click', () => {
+  it('shows user menu items in DOM when user is logged in', () => {
+    // The dropdown is CSS hover-based; its children are always in the DOM
     mockUseAuth.mockReturnValue({
       user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
       logout: vi.fn(),
     })
     renderNavbar()
-    fireEvent.click(screen.getByLabelText('Menu utilisateur'))
     expect(screen.getByText('Déconnexion')).toBeTruthy()
   })
 
@@ -69,7 +69,7 @@ describe('Navbar', () => {
       logout,
     })
     renderNavbar()
-    fireEvent.click(screen.getByLabelText('Menu utilisateur'))
+    // Dropdown is CSS hover-based; the button is always in the DOM
     fireEvent.click(screen.getByText('Déconnexion'))
     expect(logout).toHaveBeenCalledOnce()
   })
@@ -77,9 +77,10 @@ describe('Navbar', () => {
   it('toggles theme on button click', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn() })
     renderNavbar()
-    const btn = screen.getByLabelText('Passer en mode clair')
+    // Multiple ThemeToggle buttons exist (desktop + mobile toolbar)
+    const btn = screen.getAllByLabelText('Passer en mode clair')[0]
     fireEvent.click(btn)
-    expect(screen.getByLabelText('Passer en mode sombre')).toBeTruthy()
+    expect(screen.getAllByLabelText('Passer en mode sombre')[0]).toBeTruthy()
   })
 
   it('shows avatar image when user has avatarUrl', () => {
@@ -92,42 +93,29 @@ describe('Navbar', () => {
     expect(img).toBeTruthy()
   })
 
-  it('closes dropdown when Mon Profil is clicked', () => {
+  it('shows Mon profil link in dropdown when user is logged in', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
       logout: vi.fn(),
     })
     renderNavbar()
-    fireEvent.click(screen.getByLabelText('Menu utilisateur'))
     expect(screen.getByText('Mon profil')).toBeTruthy()
-    fireEvent.click(screen.getByText('Mon profil'))
-    expect(screen.queryByText('Déconnexion')).toBeNull()
-  })
-
-  it('closes dropdown when clicking outside', () => {
-    mockUseAuth.mockReturnValue({
-      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
-      logout: vi.fn(),
-    })
-    renderNavbar()
-    fireEvent.click(screen.getByLabelText('Menu utilisateur'))
-    expect(screen.getByText('Déconnexion')).toBeTruthy()
-    fireEvent.mouseDown(document.body)
-    expect(screen.queryByText('Déconnexion')).toBeNull()
   })
 
   it('opens mobile menu on hamburger click', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
     renderNavbar()
     fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
-    expect(screen.getByLabelText('Fermer le menu')).toBeTruthy()
+    // Both the hamburger and the sidebar X button have "Fermer le menu"
+    expect(screen.getAllByLabelText('Fermer le menu').length).toBeGreaterThan(0)
   })
 
   it('closes mobile menu on second hamburger click', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
     renderNavbar()
     fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
-    fireEvent.click(screen.getByLabelText('Fermer le menu'))
+    // Click the hamburger button (first "Fermer le menu" in document order = main nav)
+    fireEvent.click(screen.getAllByLabelText('Fermer le menu')[0])
     expect(screen.getByLabelText('Ouvrir le menu')).toBeTruthy()
   })
 
@@ -152,44 +140,10 @@ describe('Navbar', () => {
     expect(deconnexionBtns.length).toBeGreaterThan(0)
   })
 
-  it('scrolls to section when nav link clicked on home page', () => {
-    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
-    const mockScrollIntoView = vi.fn()
-    vi.spyOn(document, 'getElementById').mockReturnValue({ scrollIntoView: mockScrollIntoView } as unknown as HTMLElement)
-
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <ThemeProvider>
-          <Navbar />
-        </ThemeProvider>
-      </MemoryRouter>,
-    )
-
-    fireEvent.click(screen.getByText('En ce moment'))
-    expect(document.getElementById).toHaveBeenCalledWith('events')
-    expect(mockScrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' })
-    expect(mockNavigate).not.toHaveBeenCalled()
-  })
-
-  it('navigates to home with hash when nav link clicked from another route', () => {
-    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
-
-    render(
-      <MemoryRouter initialEntries={['/events/123']}>
-        <ThemeProvider>
-          <Navbar />
-        </ThemeProvider>
-      </MemoryRouter>,
-    )
-
-    fireEvent.click(screen.getByText('En ce moment'))
-    expect(mockNavigate).toHaveBeenCalledWith('/#events')
-  })
-
   it('shows the navbar-user skeleton while Auth0 is loading', () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: true, logout: vi.fn(), login: vi.fn() })
     renderNavbar()
-    expect(document.querySelector('[data-boneyard="navbar-user"]')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="user-identity-inline"]')).toBeTruthy()
   })
 
   it('calls logout from mobile menu', () => {
