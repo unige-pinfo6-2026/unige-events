@@ -19,16 +19,18 @@ export function Dropdown({
   trigger,
   children,
   align = 'left',
+  showChevron = true,
 }: Readonly<{
   trigger: React.ReactNode
   children: React.ReactNode
   align?: keyof typeof aligns
+  showChevron?: boolean
 }>) {
   return (
     <div className="group relative">
       <div className="flex items-center gap-1">
         {trigger}
-        <ChevronDown className="size-4 text-foreground/50 transition-transform duration-200 group-hover:rotate-180" />
+        {showChevron && <ChevronDown className="size-4 text-foreground/50 transition-transform duration-200 group-hover:rotate-180" />}
       </div>
 
       {/* Invisible bridge prevents the gap between trigger and panel from closing the hover */}

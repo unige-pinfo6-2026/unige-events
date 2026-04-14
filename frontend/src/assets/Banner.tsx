@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom"
 
 const sizes = {
-  md: 'w-36',
-  lg: 'w-52',
+  md: 'size-36',
+  lg: 'size-52',
 }
 
 export const Banner = ({ size = 'md' }: { size?: keyof typeof sizes }) => {

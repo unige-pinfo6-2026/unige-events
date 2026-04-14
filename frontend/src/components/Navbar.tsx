@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
 import { ThemeToggle } from '@/components/utils/ThemeToggle'
+import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
 import { Skeleton } from '@/components/utils/Skeleton'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
@@ -103,6 +104,7 @@ function DesktopNav() {
           <ActionLink key={to} to={to} icon={icon} label={label} />
         ))}
         <ThemeToggle />
+        <NotificationsDropdown />
       </div>
       {isLoading && <Skeleton className="h-9 w-28" />}
       {!isLoading && (user
@@ -249,6 +251,7 @@ export default function Navbar() {
               <ActionLink key={to} to={to} icon={icon} label={label} />
             ))}
             <ThemeToggle />
+        <NotificationsDropdown />
             <IconButton
               label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               onClick={() => setMobileMenuOpen(p => !p)}
