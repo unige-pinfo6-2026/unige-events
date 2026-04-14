@@ -99,7 +99,7 @@ function MyEventsSkeleton() {
 
 function MainTabs({ active, onChange }: Readonly<{ active: TabKey; onChange: (tab: TabKey) => void }>) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b border-border">
+    <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border">
       {TAB_KEYS.map(key => {
         const { label, icon: Icon } = TABS[key]
         const isActive = key === active
@@ -269,8 +269,8 @@ function PublicationRow({ event, onPublish, onCancel, publishing }: Readonly<Pub
   const badge = statusBadgeVariants[event.status]
   return (
     <tr className="border-b border-border/50 hover:bg-foreground/3 transition-colors">
-      <td className="px-4 py-4">
-        <Link to={`/events/${event.id}`} className="text-sm font-semibold text-foreground hover:text-accent no-underline">
+      <td className="px-4 py-4 truncate" title={event.title}>
+        <Link to={`/events/${event.id}`} className="block truncate text-sm font-semibold text-foreground hover:text-accent no-underline">
           {event.title}
         </Link>
       </td>
@@ -328,9 +328,13 @@ function PublicationRow({ event, onPublish, onCancel, publishing }: Readonly<Pub
 function PublicationCard({ event, onPublish, onCancel, publishing }: Readonly<PublicationRowProps>) {
   const badge = statusBadgeVariants[event.status]
   return (
-    <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-2xl p-5 border border-border flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <Link to={`/events/${event.id}`} className="text-base font-semibold text-foreground hover:text-accent no-underline">
+    <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-2xl p-5 border border-border flex flex-col gap-3 overflow-hidden">
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        <Link
+          to={`/events/${event.id}`}
+          className="text-base font-semibold text-foreground hover:text-accent no-underline line-clamp-2 min-w-0 break-words"
+          title={event.title}
+        >
           {event.title}
         </Link>
         <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border shrink-0 ${badge}`}>
@@ -347,7 +351,7 @@ function PublicationCard({ event, onPublish, onCancel, publishing }: Readonly<Pu
           {event.attendingCount}{event.capacity != null ? ` / ${event.capacity}` : ''} participants
         </span>
       </div>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         <Link
           to={`/events/${event.id}/edit`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
@@ -435,15 +439,15 @@ function PublicationsTab({ organizerId, status, onStatusChange }: Readonly<Publi
       {!loading && !error && events.length > 0 && (
         <>
           {/* Desktop : table */}
-          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border bg-background/40 backdrop-blur-xl">
-            <table className="w-full text-left border-collapse">
+          <div className="hidden md:block w-full overflow-hidden rounded-2xl border border-border bg-background/40 backdrop-blur-xl">
+            <table className="w-full table-fixed text-left border-collapse">
               <thead className="bg-foreground/5">
                 <tr>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Titre</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Date</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Participants</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Statut</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40 text-right">Actions</th>
+                  <th className="w-[40%] px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Titre</th>
+                  <th className="w-[20%] px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Date</th>
+                  <th className="w-[12%] px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Participants</th>
+                  <th className="w-[10%] px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40">Statut</th>
+                  <th className="w-[18%] px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-foreground/40 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -534,7 +538,9 @@ export default function MyEventsPage() {
 
       <MainTabs active={activeTab} onChange={setTab} />
 
-      {tabContent}
+      <div className="w-full overflow-hidden">
+        {tabContent}
+      </div>
 
       {activeTab === 'publications' && (
         <Link
