@@ -109,6 +109,7 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | bio           | string     | non    |
 | interests     | string[]   | non    |
 | avatarUrl     | string     | non    |
+| bannerUrl     | string \| null | non |
 | profilePublic | boolean    | oui    |
 | createdAt     | string     | oui    |
 

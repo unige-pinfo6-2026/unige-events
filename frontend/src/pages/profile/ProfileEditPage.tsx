@@ -1,22 +1,24 @@
 import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { getMe, updateProfile, uploadPhoto } from '@/services/userService'
+import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
 import { FACULTIES } from '@/types/faculty'
 import { STUDY_LEVELS, type User } from '@/types/user'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
-import { X } from 'lucide-react'
+import { ImagePlus, Trash2, X } from 'lucide-react'
 import UserAvatar from '@/components/user/UserAvatar'
 import { useToast } from '@/hooks/useToast'
 
 const MAX_BIO_LENGTH = 500
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024
+const MAX_BANNER_SIZE = 5 * 1024 * 1024
 
 interface FormErrors {
   name?: string
   bio?: string
   photo?: string
+  banner?: string
 }
 
 export default function ProfileEditPage() {
@@ -34,6 +36,9 @@ export default function ProfileEditPage() {
   const [profilePublic, setProfilePublic] = useState(false)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+  const [bannerDeleted, setBannerDeleted] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,6 +51,7 @@ export default function ProfileEditPage() {
       setInterests(user.interests ?? [])
       setProfilePublic(user.profilePublic ?? false)
       if (user.avatarUrl) setPhotoPreview(user.avatarUrl)
+      if (user.bannerUrl) setBannerPreview(user.bannerUrl)
     }
   }, [user])
 
@@ -63,6 +69,30 @@ export default function ProfileEditPage() {
     setErrors((prev) => ({ ...prev, photo: undefined }))
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  function handleBannerChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setErrors((prev) => ({ ...prev, banner: 'Le fichier doit être une image.' }))
+      return
+    }
+    if (file.size > MAX_BANNER_SIZE) {
+      setErrors((prev) => ({ ...prev, banner: 'La bannière ne doit pas dépasser 5 Mo.' }))
+      return
+    }
+    setErrors((prev) => ({ ...prev, banner: undefined }))
+    setBannerFile(file)
+    setBannerPreview(URL.createObjectURL(file))
+    setBannerDeleted(false)
+  }
+
+  function handleBannerDelete() {
+    setBannerFile(null)
+    setBannerPreview(null)
+    setBannerDeleted(true)
+    setErrors((prev) => ({ ...prev, banner: undefined }))
   }
 
   function handleInterestKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
@@ -93,6 +123,8 @@ export default function ProfileEditPage() {
     setSubmitting(true)
     try {
       if (photoFile) await uploadPhoto(photoFile)
+      if (bannerFile) await uploadBanner(bannerFile)
+      else if (bannerDeleted) await deleteBanner()
       const profileData: Partial<User> = {
         displayName: name.trim(),
         faculty: faculty as User['faculty'],
@@ -121,6 +153,45 @@ export default function ProfileEditPage() {
         <h1 className="text-3xl font-bold text-foreground mb-8">Modifier mon profil</h1>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+
+          {/* Banner */}
+          <div className="flex flex-col gap-3">
+            <div
+              className="relative h-32 rounded-2xl overflow-hidden bg-cover bg-center"
+              style={
+                bannerPreview
+                  ? { backgroundImage: `url(${bannerPreview})` }
+                  : undefined
+              }
+            >
+              {!bannerPreview && (
+                <div className="absolute inset-0 bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20" />
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <label
+                htmlFor="banner-input"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground/60 cursor-pointer hover:border-accent/50 hover:text-foreground transition-all"
+              >
+                <ImagePlus className="w-4 h-4" />
+                Changer la bannière
+              </label>
+              <input id="banner-input" type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+              {bannerPreview !== null && (
+                <button
+                  type="button"
+                  onClick={handleBannerDelete}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground/60 hover:border-error/50 hover:text-error transition-all cursor-pointer bg-transparent"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Supprimer la bannière
+                </button>
+              )}
+            </div>
+            {errors.banner && <p className="text-xs text-error">{errors.banner}</p>}
+          </div>
+
+          <div className="border-t border-border" />
 
           {/* Photo */}
           <div className="flex items-center gap-5">

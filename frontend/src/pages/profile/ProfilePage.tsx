@@ -152,8 +152,20 @@ export default function ProfilePage() {
   return (
     <div>
       {/* Banner */}
-      <div className="relative h-52 overflow-hidden bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20">
-        <BlobsCta />
+      <div
+        className="relative h-52 overflow-hidden bg-cover bg-center"
+        style={
+          profile.bannerUrl
+            ? { backgroundImage: `url(${profile.bannerUrl})` }
+            : undefined
+        }
+      >
+        {!profile.bannerUrl && (
+          <>
+            <div className="absolute inset-0 bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20" />
+            <BlobsCta />
+          </>
+        )}
         <div className="absolute inset-0 bg-linear-to-t from-background/50 to-transparent" />
       </div>
 

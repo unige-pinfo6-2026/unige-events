@@ -63,6 +63,10 @@ components:
           type: string
           format: uri
           nullable: true
+        bannerUrl:
+          type: string
+          format: uri
+          nullable: true
         profilePublic:
           type: boolean
         admin:
@@ -83,6 +87,7 @@ components:
         bio: "Étudiante en informatique"
         interests: ["tech", "music"]
         avatarUrl: "https://example.com/avatar.png"
+        bannerUrl: null
         profilePublic: true
         createdAt: "2026-03-01T09:00:00"
 
