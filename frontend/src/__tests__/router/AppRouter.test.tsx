@@ -48,7 +48,10 @@ describe('AppRouter', () => {
       </ToastProvider>,
     )
 
-    expect(await screen.findByText(/Événements à venir/i)).toBeTruthy()
+    // AppRouter lazy-imports every page — under heavy parallel test load the dynamic
+    // import can outlast the default 1000ms waitFor window, leaving the Suspense fallback
+    // (LoadingPage spinner) visible when findByText resolves. Give it enough breathing room.
+    expect(await screen.findByText(/Événements à venir/i, undefined, { timeout: 15000 })).toBeTruthy()
   })
 
   it('shows 404 page for unknown routes', async () => {
@@ -71,7 +74,7 @@ describe('AppRouter', () => {
       </ToastProvider>,
     )
 
-    expect(await screen.findByText('Page introuvable')).toBeTruthy()
+    expect(await screen.findByText('Page introuvable', undefined, { timeout: 15000 })).toBeTruthy()
   })
 
   it('blocks protected routes when not authenticated', async () => {
@@ -94,6 +97,6 @@ describe('AppRouter', () => {
       </ToastProvider>,
     )
 
-    expect(await screen.findByText(/Redirection vers la page de connexion/)).toBeTruthy()
+    expect(await screen.findByText(/Redirection vers la page de connexion/, undefined, { timeout: 15000 })).toBeTruthy()
   })
 })
