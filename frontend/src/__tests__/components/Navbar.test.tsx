@@ -225,6 +225,25 @@ describe('Navbar', () => {
     }
   })
 
+  it('opens "Mes événements" submenu on mouse enter and closes on mouse leave', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+
+    const btn = Array.from(screen.getAllByText('Mes événements'))
+      .find(el => el.closest('button'))!
+      .closest('button')!
+    const wrapper = btn.parentElement!
+
+    fireEvent.mouseEnter(wrapper)
+    expect(btn.getAttribute('aria-expanded')).toBe('true')
+
+    fireEvent.mouseLeave(wrapper)
+    expect(btn.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('expands mobile "Mes événements" submenu with click toggle', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },

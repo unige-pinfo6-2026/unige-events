@@ -121,59 +121,63 @@ function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<Pu
     ? { backgroundImage: `url(${event.bannerUrl})` }
     : { background: `linear-gradient(135deg, ${category.color}55, ${category.color}cc)` }
 
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
+
   return (
     <article className="group flex flex-col rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 hover:-translate-y-0.5">
-      {/* Banner */}
-      <div className="relative h-36 bg-cover bg-center" style={banner}>
-        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
-        <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
+      <Link to={`/events/${event.id}`} className="flex flex-col flex-1 no-underline text-inherit" aria-label={event.title}>
+        {/* Banner */}
+        <div className="relative h-36 bg-cover bg-center" style={banner}>
+          <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
+          <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
 
-        <span
-          className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide backdrop-blur-sm"
-          style={{ background: `${category.color}dd` }}
-        >
-          {category.name}
-        </span>
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-col gap-2 p-4 flex-1">
-        <div className="flex items-start gap-3">
-          <Link
-            to={`/events/${event.id}`}
-            title={event.title}
-            className="flex-1 min-w-0 text-base font-bold text-foreground hover:text-accent no-underline line-clamp-1 break-words"
+          <span
+            className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide backdrop-blur-sm"
+            style={{ background: `${category.color}dd` }}
           >
-            {event.title}
-          </Link>
-          <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${statusClass}`}>
-            {EVENT_STATUSES[event.status].name}
+            {category.name}
           </span>
         </div>
-        {event.faculty ? (
-          <FacultyBadge id={event.faculty} />
-        ) : (
-          <span className="inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-foreground/10 text-foreground/70">
-            Toutes facultés
-          </span>
-        )}
-        <div className="flex items-center gap-2 text-xs text-foreground/55">
-          <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
-          <span className="truncate">{formatEventDateTimeCompact(event.startDate)}</span>
+
+        {/* Body */}
+        <div className="flex flex-col gap-2 p-4 flex-1">
+          <div className="flex items-start gap-3">
+            <span
+              title={event.title}
+              className="flex-1 min-w-0 text-base font-bold text-foreground group-hover:text-accent line-clamp-1 break-words"
+            >
+              {event.title}
+            </span>
+            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${statusClass}`}>
+              {EVENT_STATUSES[event.status].name}
+            </span>
+          </div>
+          {event.faculty ? (
+            <FacultyBadge id={event.faculty} />
+          ) : (
+            <span className="inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-foreground/10 text-foreground/70">
+              Toutes facultés
+            </span>
+          )}
+          <div className="flex items-center gap-2 text-xs text-foreground/55">
+            <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
+            <span className="truncate">{formatEventDateTimeCompact(event.startDate)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-foreground/55">
+            <Users className="size-3.5 shrink-0" style={{ color: category.color }} />
+            <span>
+              {event.attendingCount}
+              {event.capacity != null && <span className="text-foreground/35"> / {event.capacity}</span>} participants
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-foreground/55">
-          <Users className="size-3.5 shrink-0" style={{ color: category.color }} />
-          <span>
-            {event.attendingCount}
-            {event.capacity != null && <span className="text-foreground/35"> / {event.capacity}</span>} participants
-          </span>
-        </div>
-      </div>
+      </Link>
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 p-3 border-t border-border">
         <Link
           to={`/events/${event.id}/edit`}
+          onClick={stop}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
         >
           <Pencil className="size-3.5" />
@@ -182,7 +186,7 @@ function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<Pu
         {event.status === 'DRAFT' && (
           <button
             type="button"
-            onClick={() => onPublish(event.id)}
+            onClick={(e) => { stop(e); onPublish(event.id) }}
             disabled={publishing}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
           >
@@ -193,7 +197,7 @@ function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<Pu
         {event.status !== 'CANCELLED' && (
           <button
             type="button"
-            onClick={() => onCancel(event)}
+            onClick={(e) => { stop(e); onCancel(event) }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
           >
             <Trash2 className="size-3.5" />

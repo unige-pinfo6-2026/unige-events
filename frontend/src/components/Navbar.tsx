@@ -73,7 +73,11 @@ function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
     )
   }
   return (
-    <div className="group/nested">
+    <div
+      className="group/nested"
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
       <button
         type="button"
         onClick={() => setExpanded(p => !p)}
@@ -82,9 +86,9 @@ function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
       >
         <Icon className="size-4 shrink-0" />
         <span className="flex-1">{item.label}</span>
-        <ChevronDown className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''} group-hover/nested:rotate-180`} />
+        <ChevronDown className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
       </button>
-      <div className={`grid transition-[grid-template-rows] duration-200 ${expanded || 'group-hover/nested:grid-rows-[1fr]'} group-focus-within/nested:grid-rows-[1fr]`} style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}>
+      <div className="grid transition-[grid-template-rows] duration-200" style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}>
         <div className="overflow-hidden">
           {item.subLinks.map(({ to, icon: SubIcon, label }) => (
             <Link key={to} to={to} className={dropdownSubItemClass} onClick={() => setExpanded(false)}>

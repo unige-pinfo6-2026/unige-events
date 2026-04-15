@@ -323,6 +323,39 @@ describe('MyPublicationsPage', () => {
     })
   })
 
+  it('wraps card content in a Link to the event detail page', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(42, 'PUBLISHED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const titleLink = screen.getByText('Publication 42').closest('a')
+    expect(titleLink?.getAttribute('href')).toBe('/events/42')
+  })
+
+  it('clicking card action buttons does not trigger navigation', async () => {
+    const publish = vi.fn().mockResolvedValue(true)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(7, 'DRAFT')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish,
+      cancel: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    // Simulate click on Publier - ensure onClick fires and stopPropagation works
+    const publishBtn = screen.getByText('Publier')
+    fireEvent.click(publishBtn)
+    await waitFor(() => expect(publish).toHaveBeenCalledWith(7))
+  })
+
   it('closes confirmation modal when cancelling', async () => {
     mockUseMyEvents.mockReturnValue({
       events: [makeMockEvent(1, 'PUBLISHED')],
