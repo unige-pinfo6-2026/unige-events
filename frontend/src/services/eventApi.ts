@@ -45,6 +45,16 @@ export async function deleteEvent(id: number): Promise<void> {
   await api.delete('/events/' + id)
 }
 
+export async function cancelEvent(id: number): Promise<Event> {
+  const response = await api.patch<Event>('/events/' + id + '/cancel')
+  return response.data
+}
+
+export async function restoreEvent(id: number): Promise<Event> {
+  const response = await api.patch<Event>('/events/' + id + '/restore')
+  return response.data
+}
+
 export async function publishEvent(id: number): Promise<Event> {
   const response = await api.patch<Event>('/events/' + id + '/publish')
   return response.data

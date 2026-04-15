@@ -66,6 +66,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -80,6 +82,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -97,6 +101,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -111,6 +117,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -125,6 +133,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -139,6 +149,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -155,6 +167,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -170,6 +184,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -185,6 +201,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -201,6 +219,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -215,6 +235,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -229,6 +251,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -246,6 +270,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish,
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -266,6 +292,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel,
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -289,6 +317,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish,
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -309,6 +339,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel,
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -331,6 +363,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -347,6 +381,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish,
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)
@@ -354,6 +390,185 @@ describe('MyPublicationsPage', () => {
     const publishBtn = screen.getByText('Publier')
     fireEvent.click(publishBtn)
     await waitFor(() => expect(publish).toHaveBeenCalledWith(7))
+  })
+
+  it('"Annuler" button uses the Ban icon, not Trash2', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'PUBLISHED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const cancelButton = screen.getAllByText('Annuler')[0].closest('button')!
+    expect(cancelButton.querySelector('.lucide-ban')).toBeTruthy()
+    expect(cancelButton.querySelector('.lucide-trash-2')).toBeFalsy()
+  })
+
+  it('"Annuler" on DRAFT tab uses the Ban icon', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'DRAFT')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const cancelButton = screen.getAllByText('Annuler')[0].closest('button')!
+    expect(cancelButton.querySelector('.lucide-ban')).toBeTruthy()
+  })
+
+  it('CANCELLED tab does not render Modifier button', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    expect(screen.queryByText('Modifier')).toBeFalsy()
+  })
+
+  it('CANCELLED tab renders "Remettre en brouillon" and "Supprimer" with correct icons', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const restoreBtn = screen.getByText('Remettre en brouillon').closest('button')!
+    const deleteBtn = screen.getByText('Supprimer').closest('button')!
+    expect(restoreBtn.querySelector('.lucide-undo-2')).toBeTruthy()
+    expect(deleteBtn.querySelector('.lucide-trash-2')).toBeTruthy()
+    expect(deleteBtn.className).toContain('text-error')
+  })
+
+  it('"Remettre en brouillon" calls restore and fires stopPropagation', async () => {
+    const restore = vi.fn().mockResolvedValue(true)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(9, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore,
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const restoreBtn = screen.getByText('Remettre en brouillon')
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+    const stopSpy = vi.spyOn(event, 'stopPropagation')
+    restoreBtn.dispatchEvent(event)
+    expect(stopSpy).toHaveBeenCalled()
+    await waitFor(() => expect(restore).toHaveBeenCalledWith(9))
+  })
+
+  it('"Remettre en brouillon" shows error toast when restore fails', async () => {
+    const restore = vi.fn().mockResolvedValue(false)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(9, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore,
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Remettre en brouillon'))
+    await waitFor(() => expect(restore).toHaveBeenCalledWith(9))
+  })
+
+  it('"Supprimer" opens a confirmation dialog and does NOT delete on cancel', async () => {
+    const permanentlyDelete = vi.fn().mockResolvedValue(true)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(3, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete,
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Supprimer'))
+    expect(screen.getByText('Supprimer définitivement ?')).toBeTruthy()
+
+    // Cancel the dialog (modal's "Annuler" button)
+    const modalCancel = screen.getByRole('button', { name: 'Annuler' })
+    fireEvent.click(modalCancel)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Supprimer définitivement ?')).toBeFalsy()
+    })
+    expect(permanentlyDelete).not.toHaveBeenCalled()
+  })
+
+  it('"Supprimer" confirmation calls permanentlyDelete', async () => {
+    const permanentlyDelete = vi.fn().mockResolvedValue(true)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(3, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete,
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Supprimer'))
+    const confirmButtons = screen.getAllByRole('button', { name: 'Supprimer' })
+    fireEvent.click(confirmButtons.at(-1)!)
+
+    await waitFor(() => expect(permanentlyDelete).toHaveBeenCalledWith(3))
+  })
+
+  it('"Supprimer" shows error toast when deletion fails', async () => {
+    const permanentlyDelete = vi.fn().mockResolvedValue(false)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(3, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete,
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Supprimer'))
+    const confirmButtons = screen.getAllByRole('button', { name: 'Supprimer' })
+    fireEvent.click(confirmButtons.at(-1)!)
+    await waitFor(() => expect(permanentlyDelete).toHaveBeenCalledWith(3))
   })
 
   it('closes confirmation modal when cancelling', async () => {
@@ -364,6 +579,8 @@ describe('MyPublicationsPage', () => {
       refresh: vi.fn(),
       publish: vi.fn(),
       cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
     })
 
     renderWithProviders(<MyPublicationsPage />)

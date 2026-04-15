@@ -9,13 +9,17 @@ vi.mock('@/services/eventApi', () => ({
   getAll: vi.fn(),
   publishEvent: vi.fn(),
   deleteEvent: vi.fn(),
+  cancelEvent: vi.fn(),
+  restoreEvent: vi.fn(),
 }))
 
-import { getAll, publishEvent, deleteEvent } from '@/services/eventApi'
+import { getAll, publishEvent, deleteEvent, cancelEvent, restoreEvent } from '@/services/eventApi'
 
 const mockGetAll = getAll as ReturnType<typeof vi.fn>
 const mockPublishEvent = publishEvent as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
+const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
+const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
 
 const makeMockEvent = (id: number, startDate: string) => ({
   id,
@@ -106,10 +110,10 @@ describe('useMyEvents', () => {
     expect(publishResult).toBe(true)
   })
 
-  it('cancel() calls deleteEvent and removes event from list', async () => {
+  it('cancel() calls cancelEvent and removes event from list', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
     mockGetAll.mockResolvedValue([event])
-    mockDeleteEvent.mockResolvedValue({})
+    mockCancelEvent.mockResolvedValue({})
 
     const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -120,9 +124,68 @@ describe('useMyEvents', () => {
       cancelResult = await result.current.cancel(42)
     })
 
-    expect(mockDeleteEvent).toHaveBeenCalledWith(42)
+    expect(mockCancelEvent).toHaveBeenCalledWith(42)
     expect(result.current.events).toHaveLength(0)
     expect(cancelResult).toBe(true)
+  })
+
+  it('restore() calls restoreEvent and removes event from list', async () => {
+    const event = makeMockEvent(42, '2026-04-10T14:00:00')
+    mockGetAll.mockResolvedValue([event])
+    mockRestoreEvent.mockResolvedValue({})
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.restore(42) })
+
+    expect(mockRestoreEvent).toHaveBeenCalledWith(42)
+    expect(result.current.events).toHaveLength(0)
+    expect(ok).toBe(true)
+  })
+
+  it('restore() returns false when restoreEvent fails', async () => {
+    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockRestoreEvent.mockRejectedValue(new Error('API'))
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.restore(42) })
+
+    expect(ok).toBe(false)
+    expect(result.current.events).toHaveLength(1)
+  })
+
+  it('permanentlyDelete() calls deleteEvent and removes event from list', async () => {
+    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockDeleteEvent.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.permanentlyDelete(42) })
+
+    expect(mockDeleteEvent).toHaveBeenCalledWith(42)
+    expect(result.current.events).toHaveLength(0)
+    expect(ok).toBe(true)
+  })
+
+  it('permanentlyDelete() returns false when deleteEvent fails', async () => {
+    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockDeleteEvent.mockRejectedValue(new Error('API'))
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.permanentlyDelete(42) })
+
+    expect(ok).toBe(false)
+    expect(result.current.events).toHaveLength(1)
   })
 
   it('refresh() re-fetches events', async () => {
@@ -159,10 +222,10 @@ describe('useMyEvents', () => {
     expect(result.current.events).toHaveLength(1)
   })
 
-  it('cancel() returns false when deleteEvent fails', async () => {
+  it('cancel() returns false when cancelEvent fails', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
     mockGetAll.mockResolvedValue([event])
-    mockDeleteEvent.mockRejectedValue(new Error('API error'))
+    mockCancelEvent.mockRejectedValue(new Error('API error'))
 
     const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -173,9 +236,8 @@ describe('useMyEvents', () => {
       cancelResult = await result.current.cancel(42)
     })
 
-    expect(mockDeleteEvent).toHaveBeenCalledWith(42)
+    expect(mockCancelEvent).toHaveBeenCalledWith(42)
     expect(cancelResult).toBe(false)
-    // Event should still be in the list since cancel failed
     expect(result.current.events).toHaveLength(1)
   })
 })

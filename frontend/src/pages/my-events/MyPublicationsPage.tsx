@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Users } from 'lucide-react'
+import { Ban, Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Undo2, Users } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useMyEvents } from '@/hooks/useMyEvents'
 import { useToast } from '@/hooks/useToast'
@@ -110,11 +110,14 @@ function ConfirmModal({ title, message, confirmLabel, pending, onConfirm, onClos
 interface PublicationCardProps {
   event: Event
   publishing: boolean
+  restoring: boolean
   onPublish: (id: number) => void
   onCancel: (event: Event) => void
+  onRestore: (id: number) => void
+  onDelete: (event: Event) => void
 }
 
-function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<PublicationCardProps>) {
+function PublicationCard({ event, publishing, restoring, onPublish, onCancel, onRestore, onDelete }: Readonly<PublicationCardProps>) {
   const category = EVENT_CATEGORIES[event.category]
   const statusClass = statusVariants[event.status]
   const banner = event.bannerUrl
@@ -175,34 +178,56 @@ function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<Pu
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 p-3 border-t border-border">
-        <Link
-          to={`/events/${event.id}/edit`}
-          onClick={stop}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
-        >
-          <Pencil className="size-3.5" />
-          Modifier
-        </Link>
-        {event.status === 'DRAFT' && (
-          <button
-            type="button"
-            onClick={(e) => { stop(e); onPublish(event.id) }}
-            disabled={publishing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-          >
-            <Send className="size-3.5" />
-            Publier
-          </button>
-        )}
-        {event.status !== 'CANCELLED' && (
-          <button
-            type="button"
-            onClick={(e) => { stop(e); onCancel(event) }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
-          >
-            <Trash2 className="size-3.5" />
-            Annuler
-          </button>
+        {event.status === 'CANCELLED' ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { stop(e); onRestore(event.id) }}
+              disabled={restoring}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold cursor-pointer bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <Undo2 className="size-3.5" />
+              Remettre en brouillon
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { stop(e); onDelete(event) }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
+            >
+              <Trash2 className="size-3.5" />
+              Supprimer
+            </button>
+          </>
+        ) : (
+          <>
+            <Link
+              to={`/events/${event.id}/edit`}
+              onClick={stop}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
+            >
+              <Pencil className="size-3.5" />
+              Modifier
+            </Link>
+            {event.status === 'DRAFT' && (
+              <button
+                type="button"
+                onClick={(e) => { stop(e); onPublish(event.id) }}
+                disabled={publishing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+              >
+                <Send className="size-3.5" />
+                Publier
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { stop(e); onCancel(event) }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
+            >
+              <Ban className="size-3.5" />
+              Annuler
+            </button>
+          </>
         )}
       </div>
     </article>
@@ -217,13 +242,16 @@ export default function MyPublicationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const status = paramToStatus(searchParams.get('status'))
 
-  const { events, loading, error, publish, cancel } = useMyEvents(user?.id ?? null, status)
+  const { events, loading, error, publish, cancel, restore, permanentlyDelete } = useMyEvents(user?.id ?? null, status)
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   const [toCancel, setToCancel] = useState<Event | null>(null)
+  const [toDelete, setToDelete] = useState<Event | null>(null)
   const [pending, setPending] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
   const [publishingId, setPublishingId] = useState<number | null>(null)
+  const [restoringId, setRestoringId] = useState<number | null>(null)
 
   const setStatus = useCallback((next: EventStatus) => {
     const sp = new URLSearchParams(searchParams)
@@ -247,6 +275,24 @@ export default function MyPublicationsPage() {
     setToCancel(null)
     if (ok) toast.showToast('success', 'Événement annulé.')
     else toast.showToast('error', 'Impossible d\'annuler cet événement.')
+  }
+
+  async function handleRestore(id: number) {
+    setRestoringId(id)
+    const ok = await restore(id)
+    setRestoringId(null)
+    if (ok) toast.showToast('success', 'Événement remis en brouillon.')
+    else toast.showToast('error', 'Impossible de restaurer cet événement.')
+  }
+
+  async function handleDelete() {
+    if (!toDelete) return
+    setDeletePending(true)
+    const ok = await permanentlyDelete(toDelete.id)
+    setDeletePending(false)
+    setToDelete(null)
+    if (ok) toast.showToast('success', 'Événement supprimé définitivement.')
+    else toast.showToast('error', 'Impossible de supprimer cet événement.')
   }
 
   return (
@@ -285,8 +331,11 @@ export default function MyPublicationsPage() {
               key={event.id}
               event={event}
               publishing={publishingId === event.id}
+              restoring={restoringId === event.id}
               onPublish={handlePublish}
               onCancel={setToCancel}
+              onRestore={handleRestore}
+              onDelete={setToDelete}
             />
           ))}
         </div>
@@ -309,6 +358,17 @@ export default function MyPublicationsPage() {
           pending={pending}
           onConfirm={handleCancel}
           onClose={() => setToCancel(null)}
+        />
+      )}
+
+      {toDelete && (
+        <ConfirmModal
+          title="Supprimer définitivement ?"
+          message={<>Cette action supprimera définitivement l'événement <strong className="text-foreground">"{toDelete.title}"</strong>. Cette opération est irréversible.</>}
+          confirmLabel="Supprimer"
+          pending={deletePending}
+          onConfirm={handleDelete}
+          onClose={() => setToDelete(null)}
         />
       )}
     </SectionWrapper>

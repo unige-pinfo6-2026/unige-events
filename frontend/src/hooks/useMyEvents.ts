@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { deleteEvent, getAll, publishEvent } from '@/services/eventApi'
+import { cancelEvent, deleteEvent, getAll, publishEvent, restoreEvent } from '@/services/eventApi'
 import type { Event, EventStatus } from '@/types/event'
 
 interface UseMyEventsResult {
@@ -9,6 +9,8 @@ interface UseMyEventsResult {
   refresh: () => void
   publish: (id: number) => Promise<boolean>
   cancel: (id: number) => Promise<boolean>
+  restore: (id: number) => Promise<boolean>
+  permanentlyDelete: (id: number) => Promise<boolean>
 }
 
 export function useMyEvents(organizerId: string | null, status: EventStatus): UseMyEventsResult {
@@ -52,6 +54,26 @@ export function useMyEvents(organizerId: string | null, status: EventStatus): Us
 
   const cancel = useCallback(async (id: number) => {
     try {
+      await cancelEvent(id)
+      setEvents(prev => prev.filter(e => e.id !== id))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
+  const restore = useCallback(async (id: number) => {
+    try {
+      await restoreEvent(id)
+      setEvents(prev => prev.filter(e => e.id !== id))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
+  const permanentlyDelete = useCallback(async (id: number) => {
+    try {
       await deleteEvent(id)
       setEvents(prev => prev.filter(e => e.id !== id))
       return true
@@ -60,5 +82,5 @@ export function useMyEvents(organizerId: string | null, status: EventStatus): Us
     }
   }, [])
 
-  return { events, loading, error, refresh: fetch, publish, cancel }
+  return { events, loading, error, refresh: fetch, publish, cancel, restore, permanentlyDelete }
 }
