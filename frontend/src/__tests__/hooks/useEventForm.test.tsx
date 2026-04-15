@@ -33,6 +33,7 @@ const baseEvent = {
   startDate: '2099-04-10T08:00:00.000Z',
   endDate: '2099-04-10T10:00:00.000Z',
   category: 'SOCIAL' as const,
+  faculty: null,
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
   status: 'DRAFT' as const,
   capacity: 120,
@@ -217,6 +218,7 @@ describe('useEventForm', () => {
       startDate: '2099-04-10T10:00:00.000Z',
       endDate: '2099-04-10T12:00:00.000Z',
       category: 'SOCIAL',
+      faculty: null,
       capacity: undefined,
       status: 'PUBLISHED',
     })

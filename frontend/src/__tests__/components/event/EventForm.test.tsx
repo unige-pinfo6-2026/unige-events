@@ -13,6 +13,7 @@ const baseValues: EventFormValues = {
   startDate: '2026-04-10T10:00',
   endDate: '2026-04-10T12:00',
   category: 'SOCIAL',
+  faculty: null,
   capacity: '120',
   status: 'DRAFT',
 }
@@ -107,7 +108,7 @@ describe('EventForm', () => {
           selectedImageName={null}
           onFieldChange={(field, value) => {
             if (field === 'startDate') {
-              emittedValues.push(value)
+              emittedValues.push(value as string)
             }
             setValues((current) => ({ ...current, [field]: value }))
           }}

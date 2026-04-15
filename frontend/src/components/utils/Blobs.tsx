@@ -10,20 +10,20 @@ const colors = {
   purple: 'bg-purple-600/15',
   blue: 'bg-blue-600/15',
   pink: 'bg-pink-500/20',
-}
+} as const
 
 const sizes = {
   sm: 'w-[300px] h-[300px]',
   md: 'w-[450px] h-[450px]',
   lg: 'w-[600px] h-[600px]',
-}
+} as const
 
 const positions = {
   'top-left': 'top-0 left-1/4',
   'top-right': 'top-0 right-1/4',
   'bottom-left': 'bottom-0 left-1/4',
   'bottom-right': 'bottom-0 right-1/4',
-}
+} as const
 
 function Blob({ color = 'accent', size = 'md', position = 'top-left', delay = 0 }: Readonly<BlobProps>) {
   return (

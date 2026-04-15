@@ -25,6 +25,7 @@ const mockUser = {
   displayName: 'Jean Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',
+  admin: false,
 }
 
 function TestConsumer() {

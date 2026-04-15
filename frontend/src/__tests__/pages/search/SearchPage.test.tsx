@@ -26,6 +26,7 @@ const mockEvent: Event = {
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
   category: 'CONFERENCE',
+  faculty: null,
   status: 'PUBLISHED',
   creatorId: 'user-1',
   attendingCount: 0,

@@ -1,6 +1,7 @@
 package ch.unige.events.dto.event;
 
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.Faculty;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -37,6 +38,8 @@ public abstract class EventRequestBase {
 
     @NotNull
     public EventCategory category;
+
+    public Faculty faculty;
 
     public String bannerUrl;
 

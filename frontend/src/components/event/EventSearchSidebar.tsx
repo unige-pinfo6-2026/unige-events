@@ -22,10 +22,6 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
     setFilters({...filters, category: e.target.value as EventCategory || undefined})
   }
   
-  function handleFacultyChange(e: ChangeEvent<HTMLSelectElement>) {
-    setFilters({...filters, faculty: e.target.value as Faculty || undefined})
-  }
-
   function handleDateFromChange(e: ChangeEvent<HTMLInputElement>) {
     setFilters({ ...filters, dateFrom: e.target.value || undefined })
   }
@@ -62,24 +58,45 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
 
       <div className="border-t border-border/50" />
 
-      {/* Faculty — TODO: SCRUM-77 — filtre activé quand le champ faculty sera ajouté à l'entité Event */}
+      {/* Faculty — chips (mutex entre le chip « Toutes facultés » et les facultés nommées) */}
       <div>
         <SectionLabel>Faculté</SectionLabel>
-        <select
-          value={filters.faculty ?? ''}
-          onChange={handleFacultyChange}
-          disabled
-          aria-disabled="true"
-          className="w-full px-3 py-2 rounded-xl border border-border bg-background/60 text-sm opacity-50 cursor-not-allowed"
-        >
-          <option value="">Toutes les facultés</option>
+        <div className="flex flex-wrap gap-2">
+          <button
+            key="NONE"
+            type="button"
+            onClick={() => setFilters({
+              ...filters,
+              facultyNone: filters.facultyNone ? undefined : true,
+              faculty: filters.facultyNone ? filters.faculty : undefined,
+            })}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+              filters.facultyNone
+                ? 'bg-accent text-white border-accent'
+                : 'border-border text-foreground/60 hover:border-accent/40 hover:text-foreground'
+            }`}
+          >
+            Toutes facultés
+          </button>
           {Object.entries(FACULTIES).map(([id, faculty]) => (
-            <option key={id} value={id}>
-              {faculty.name}
-            </option>
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFilters({
+                ...filters,
+                faculty: filters.faculty === id ? undefined : id as Faculty,
+                facultyNone: undefined,
+              })}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                filters.faculty === id && !filters.facultyNone
+                  ? 'bg-accent text-white border-accent'
+                  : 'border-border text-foreground/60 hover:border-accent/40 hover:text-foreground'
+              }`}
+            >
+              {faculty.abbr}
+            </button>
           ))}
-        </select>
-        <p className="mt-1.5 text-xs text-foreground/30">Bientôt disponible</p>
+        </div>
       </div>
 
       <div className="border-t border-border/50" />

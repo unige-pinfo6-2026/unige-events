@@ -20,12 +20,19 @@ dev:
 	$(MAKE) -j2 frontend backend
 
 # Tests
-test-backend:
+test-backend: install-backend
 	cd backend && ./mvnw clean verify -B
 
-test-frontend:
+test-frontend: install-frontend
 	cd frontend && npm run lint && npm run test:coverage && npm run build
 
 test: test-backend test-frontend
+
+# Build
+build-backend:
+	cd backend && ./mvnw clean package -B
+
+build-frontend:
+	cd backend && npm run build
 
 .DEFAULT_GOAL := install

@@ -31,6 +31,7 @@ const mockEvents = [
     startDate: '2026-04-10T14:00:00',
     endDate: '2026-04-10T17:00:00',
     category: 'CONFERENCE' as const,
+    faculty: null,
     status: 'PUBLISHED' as const,
     creatorId: 'user-1',
     createdAt: '2026-03-01T10:00:00',
@@ -368,7 +369,7 @@ describe('useSearch', () => {
     )
   })
 
-  it('does not include faculty in search params sent to the API', async () => {
+  it('includes faculty in search params sent to the API', async () => {
     mockSearchEvents.mockResolvedValue([])
 
     const { result } = renderHook(() => useSearch(), { wrapper })
@@ -382,7 +383,7 @@ describe('useSearch', () => {
     })
 
     expect(mockSearchEvents).toHaveBeenCalledWith(
-      expect.not.objectContaining({ faculty: expect.anything() }),
+      expect.objectContaining({ faculty: 'SCIENCES' }),
       expect.any(AbortSignal),
     )
   })
@@ -637,5 +638,89 @@ describe('useSearch', () => {
 
     expect(result.current.results[0].id).toBe(2)  // sooner first
     expect(result.current.results[1].id).toBe(1)  // later second
+  })
+
+  // --- facultyNone filter (mutex avec faculty) ---
+
+  it('reads_facultyNone_from_url_on_mount', () => {
+    function wrapperWithFacultyNone({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?facultyNone=true'] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: wrapperWithFacultyNone })
+    expect(result.current.filters.facultyNone).toBe(true)
+  })
+
+  it('syncs_facultyNone_to_url_when_set', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false, facultyNone: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchParams.get('facultyNone')).toBe('true')
+  })
+
+  it('does_not_add_facultyNone_to_url_when_false_or_undefined', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: false, facultyNone: undefined })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchParams.get('facultyNone')).toBeNull()
+  })
+
+  it('sends_facultyNone_in_api_params_when_set', async () => {
+    mockSearchEvents.mockResolvedValue([])
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: true, facultyNone: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ facultyNone: true, faculty: undefined }),
+      expect.any(AbortSignal),
+    )
+  })
+
+  it('setting_faculty_clears_facultyNone_in_url', async () => {
+    function wrapperWithFacultyNone({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?facultyNone=true'] }, children)
+    }
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper: wrapperWithFacultyNone })
+
+    expect(result.current.searchParams.get('facultyNone')).toBe('true')
+
+    act(() => {
+      result.current.setFilters({ includePast: false, faculty: 'SCIENCES', facultyNone: undefined })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchParams.get('faculty')).toBe('SCIENCES')
+    expect(result.current.searchParams.get('facultyNone')).toBeNull()
+  })
+
+  it('facultyNone_true_overrides_faculty_in_api_params', async () => {
+    mockSearchEvents.mockResolvedValue([])
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ includePast: true, faculty: 'SCIENCES', facultyNone: true })
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ facultyNone: true, faculty: undefined }),
+      expect.any(AbortSignal),
+    )
   })
 })

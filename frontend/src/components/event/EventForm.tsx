@@ -8,6 +8,7 @@ import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
+import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface EventFormProps {
   mode: 'create' | 'edit'
@@ -327,7 +328,7 @@ export default function EventForm({
 
       </div>
 
-      {/* Bande 3 — Catégorie | Capacité | CTA */}
+      {/* Bande 3 — Catégorie | Faculté | Capacité | CTA */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
 
         <FormField label="Catégorie" htmlFor="event-category" required className="w-48 flex-none">
@@ -339,7 +340,21 @@ export default function EventForm({
           />
         </FormField>
 
+        <FormField label="Faculté concernée" htmlFor="event-faculty" className="w-56 flex-none">
+          <Select
+            id="event-faculty"
+            value={values.faculty ?? ''}
+            onChange={(e) => onFieldChange('faculty', (e.target.value as Faculty) || null)}
+          >
+            <option value="">Toutes facultés</option>
+            {Object.entries(FACULTIES).map(([id, faculty]) => (
+              <option key={id} value={id}>{faculty.name}</option>
+            ))}
+          </Select>
+        </FormField>
+
         <FormField label="Capacité" htmlFor="event-capacity" error={errors.capacity} className="w-24 flex-none">
+
           <Input
             id="event-capacity"
             type="number"

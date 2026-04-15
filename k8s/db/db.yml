@@ -19,9 +19,6 @@ spec:
           image: postgres:16
           ports:
             - containerPort: 5432
-          envFrom:
-            - secretRef:
-                name: db-secret
           env:
             - name: POSTGRES_DB
               valueFrom:
@@ -43,7 +40,7 @@ spec:
               mountPath: /var/lib/postgresql/data
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "$(DB_USER)"]
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER"]
             initialDelaySeconds: 5
             periodSeconds: 10
   volumeClaimTemplates:

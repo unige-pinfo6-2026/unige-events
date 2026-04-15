@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { useSearch } from '@/hooks/useEventSearch'
 import type { ReactNode } from 'react'
@@ -34,6 +34,7 @@ const mockEvent = {
 }
 
 afterEach(() => {
+  cleanup()
   vi.resetAllMocks()
   vi.useRealTimers()
 })

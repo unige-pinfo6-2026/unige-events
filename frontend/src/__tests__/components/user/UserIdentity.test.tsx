@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import UserIdentity from '@/components/user/UserIdentity'
 import type { User } from '@/types/user'
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({ user: null, isLoading: false, logout: vi.fn(), login: vi.fn() })),
+}))
 
 afterEach(() => { cleanup() })
 
@@ -14,31 +19,43 @@ const user: User = {
   displayName: 'Bob Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',
+  admin: false,
+}
+
+function renderUserIdentity(props: Parameters<typeof UserIdentity>[0]) {
+  return render(
+    <MemoryRouter>
+      <UserIdentity {...props} />
+    </MemoryRouter>,
+  )
 }
 
 describe('UserIdentity', () => {
   it('renders the user display name', () => {
-    render(<UserIdentity user={user} />)
+    renderUserIdentity({ user })
     expect(screen.getByText('Bob Dupont')).toBeTruthy()
   })
 
   it('renders the avatar', () => {
-    render(<UserIdentity user={user} />)
+    renderUserIdentity({ user })
     expect(screen.getByText('BD')).toBeTruthy()
   })
 
-  it('renders avatar with custom size', () => {
-    const { container } = render(<UserIdentity user={user} avatarSize={48} />)
-    // Find the inner div (avatar container) which has inline style
-    const avatarDiv = Array.from(container.querySelectorAll('div')).find(
-      (el) => el.style.width !== '',
-    ) as HTMLDivElement
-    expect(avatarDiv?.style.width).toBe('48px')
+  it('renders avatar with sm size in inline variant (default)', () => {
+    const { container } = renderUserIdentity({ user })
+    const avatarDiv = container.querySelector('div[class*="size-"]') as HTMLDivElement
+    expect(avatarDiv?.className).toContain('size-8')
+  })
+
+  it('renders avatar with lg size in card variant', () => {
+    const { container } = renderUserIdentity({ user, variant: 'card' })
+    const avatarDiv = container.querySelector('div[class*="size-"]') as HTMLDivElement
+    expect(avatarDiv?.className).toContain('size-12')
   })
 
   it('renders avatar with avatar url', () => {
     const userWithAvatar = { ...user, avatarUrl: 'https://example.com/avatar.jpg' }
-    render(<UserIdentity user={userWithAvatar} />)
+    renderUserIdentity({ user: userWithAvatar })
     const img = screen.getByAltText('Bob Dupont') as HTMLImageElement
     expect(img.src).toContain('example.com/avatar.jpg')
   })

@@ -164,7 +164,7 @@ export default function ProfilePage() {
           <div className="flex items-end gap-5">
             <div className="relative shrink-0">
               <div className="absolute inset-0 rounded-full bg-linear-to-br from-accent to-pink-600 blur-xl opacity-40 scale-110 pointer-events-none" />
-              <UserAvatar user={profile} size={112} className="relative ring-4 ring-background shadow-2xl" />
+              <UserAvatar user={profile} size={"profile"} className="relative ring-4 ring-background shadow-2xl" />
             </div>
             <div className="pb-2">
               <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">

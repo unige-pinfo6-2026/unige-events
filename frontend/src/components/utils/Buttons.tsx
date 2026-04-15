@@ -12,6 +12,12 @@ interface ButtonProps {
   disabled?: boolean
 }
 
+interface IconButtonProps {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}
+
 const sizes = {
   'sm': 'px-4 py-2 text-sm',
   'md': 'px-6 py-3 text-md',
@@ -80,4 +86,17 @@ export function ButtonNeutral(props: Readonly<ButtonProps>) {
 
 export function ButtonDestructive(props: Readonly<ButtonProps>) {
   return <Button variant="destructive" {...props} />
+}
+
+export function IconButton({ label, onClick, children }: Readonly<IconButtonProps>) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="p-2 rounded-lg hover:bg-foreground/5 transition-colors text-foreground cursor-pointer bg-transparent border-0"
+    >
+      {children}
+    </button>
+  )
 }

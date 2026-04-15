@@ -1,0 +1,14 @@
+{
+  "breakpoints": {
+    "96": {
+      "name": "user-identity-inline",
+      "viewportWidth": 96,
+      "width": 96,
+      "height": 32,
+      "bones": [
+        [0, 0, 33.33, 32, "50%"],
+        [45.83, 6, 54.17, 20, 4]
+      ]
+    }
+  }
+}

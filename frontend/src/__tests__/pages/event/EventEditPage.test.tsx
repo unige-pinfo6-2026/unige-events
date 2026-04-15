@@ -37,6 +37,7 @@ const existingEvent = {
   startDate: '2099-04-10T08:00:00.000Z',
   endDate: '2099-04-10T10:00:00.000Z',
   category: 'SOCIAL',
+  faculty: null,
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
   status: 'PUBLISHED',
   capacity: 120,

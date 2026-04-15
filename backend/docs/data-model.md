@@ -41,6 +41,7 @@ Table : `events`
 | `startDate` | `startDate` | `LocalDateTime` | `start_date` | `@NotNull`, `@Future` |
 | `endDate` | `endDate` | `LocalDateTime` | `end_date` | `@NotNull` |
 | `category` | `category` | `EventCategory` | `category` | `@NotNull`, `@Enumerated(STRING)` |
+| `faculty` | `faculty` | `Faculty` | `faculty` | nullable, `@Enumerated(STRING)` — SCRUM-77 |
 | `bannerUrl` | `bannerUrl` | `String` | `banner_url` | nullable |
 | `creator` | — | `User` | `creator_id` | `@ManyToOne(LAZY)`, `@JoinColumn` — FK vers `users.id` |
 | `status` | `status` | `EventStatus` | `status` | `@NotNull`, `@Enumerated(STRING)`, default `DRAFT` |
@@ -49,7 +50,7 @@ Table : `events`
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
-Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
+Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty)
 
 ---
 
@@ -149,11 +150,13 @@ Factory : `UserPublicResponse.from(User u)`
 Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
 
 ```
-id, title, description, location, startDate, endDate, category, bannerUrl,
+id, title, description, location, startDate, endDate, category, faculty, bannerUrl,
 creatorId (UUID — extrait de creator.id), status, capacity, attendingCount, createdAt, updatedAt
 ```
 
 Factory : `EventDTO.from(Event event, long attendingCount)`
+
+`attendingCount` correspond au nombre d'inscriptions dont le statut est `ATTENDING` pour cet événement (chargé via `Attendance.countGroupedByStatus` en batch pour les listes, ou `Attendance.count` pour les événements unitaires).
 
 ### CreateEventRequest
 Body de création (`POST /events`). Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
@@ -204,6 +207,7 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
+| `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING` | Sprint 4 | ✅ Implémenté |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
 
@@ -212,6 +216,8 @@ Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 ### Valeurs de champs `faculty` et `studyLevel`
 
 Ces champs sont actuellement stockés en `String` dans l'entité `User` — **pas de contrainte enum côté backend**. La validation des valeurs est faite côté frontend uniquement.
+
+> **SCRUM-77 :** Le champ `faculty` sur l'entité `Event` utilise désormais l'enum Java `Faculty` (`@Enumerated(STRING)`). Sur `User`, `faculty` reste un `String` libre.
 
 Valeurs attendues pour `faculty` (cohérentes avec les types TypeScript frontend) :
 
