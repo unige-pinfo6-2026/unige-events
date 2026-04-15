@@ -16,6 +16,7 @@ const baseValues: EventFormValues = {
   faculty: null,
   capacity: '120',
   status: 'DRAFT',
+  allDay: false,
 }
 
 afterEach(() => {
@@ -89,6 +90,55 @@ describe('EventForm', () => {
     expect(onFieldChange).toHaveBeenCalledWith('capacity', '200')
     expect(onImageChange).toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('toggles the allDay checkbox and forwards the change', () => {
+    const onFieldChange = vi.fn()
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel='Créer'
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={onFieldChange}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const checkbox = screen.getByLabelText(/Toute la journée/i) as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+    expect(screen.getByTestId('start-time-selectors').className).not.toContain('hidden')
+
+    fireEvent.click(checkbox)
+    expect(onFieldChange).toHaveBeenCalledWith('allDay', true)
+  })
+
+  it('hides the time selectors when allDay is true', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel='Créer'
+        values={{ ...baseValues, allDay: true }}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect((screen.getByLabelText(/Toute la journée/i) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByTestId('start-time-selectors').className).toContain('hidden')
+    expect(screen.getByTestId('endDate-time-selectors').className).toContain('hidden')
   })
 
   it('combines date and time parts into datetime values', () => {

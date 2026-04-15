@@ -379,9 +379,9 @@ export default function EventDetailPage() {
             <div className="flex flex-col gap-3">
               <InfoRow icon={Calendar} color={category.color}>
                 <span>
-                  {formatEventDateTime(event.startDate)}
+                  {formatEventDateTime(event.startDate, event.allDay)}
                   <span className="text-foreground/30 mx-1.5">→</span>
-                  {formatEventDateTime(event.endDate)}
+                  {formatEventDateTime(event.endDate, event.allDay)}
                 </span>
               </InfoRow>
 

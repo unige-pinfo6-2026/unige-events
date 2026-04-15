@@ -2,6 +2,7 @@ package ch.unige.events.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -44,6 +45,10 @@ public class Event extends PanacheEntity {
     public EventStatus status = EventStatus.DRAFT;
 
     public Integer capacity;
+
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    public boolean allDay = false;
 
     @Column(unique = true)
     public String shareCode;

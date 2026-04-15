@@ -22,6 +22,7 @@ export interface EventFormValues {
   faculty: Faculty | null
   capacity: string
   status: EventStatus
+  allDay: boolean
 }
 
 export interface EventFormErrors {
@@ -70,6 +71,7 @@ const DEFAULT_VALUES: EventFormValues = {
   faculty: null,
   capacity: '',
   status: 'PUBLISHED',
+  allDay: false,
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -103,6 +105,17 @@ function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
 }
 
+function applyAllDayBounds(dateTime: string, allDay: boolean, bound: 'start' | 'end'): string {
+  if (!allDay || !dateTime) {
+    return dateTime
+  }
+  const datePart = dateTime.split('T')[0]
+  if (!datePart) {
+    return dateTime
+  }
+  return bound === 'start' ? `${datePart}T00:00` : `${datePart}T23:59`
+}
+
 function toFormValues(event?: Event | null): EventFormValues {
   if (!event) {
     return { ...DEFAULT_VALUES }
@@ -118,6 +131,7 @@ function toFormValues(event?: Event | null): EventFormValues {
     faculty: event.faculty ?? null,
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
+    allDay: event.allDay ?? false,
   }
 }
 
@@ -314,8 +328,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     }
 
     if (values.startDate && values.endDate) {
-      const startDate = new Date(values.startDate)
-      const endDate = new Date(values.endDate)
+      const startDate = new Date(applyAllDayBounds(values.startDate, values.allDay, 'start'))
+      const endDate = new Date(applyAllDayBounds(values.endDate, values.allDay, 'end'))
 
       if (Number.isNaN(startDate.getTime())) {
         nextErrors.startDate = 'La date de début est invalide.'
@@ -363,12 +377,13 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         title: values.title.trim(),
         description: values.description.trim() || undefined,
         location: values.location.trim(),
-        startDate: toApiDateTime(values.startDate),
-        endDate: toApiDateTime(values.endDate),
+        startDate: toApiDateTime(applyAllDayBounds(values.startDate, values.allDay, 'start')),
+        endDate: toApiDateTime(applyAllDayBounds(values.endDate, values.allDay, 'end')),
         category: values.category || "OTHER",
         faculty: values.faculty,
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: effectiveStatus,
+        allDay: values.allDay,
       }
 
       if (mode === 'create') {

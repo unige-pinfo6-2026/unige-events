@@ -136,7 +136,7 @@ export default function EventForm({
   ) {
     return (
       <FormField label={label} htmlFor={inputId} required error={error}>
-        <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+        <div className={values.allDay ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1'}>
           <Input
             id={inputId}
             type="date"
@@ -144,7 +144,7 @@ export default function EventForm({
             onChange={(e) => setDatePart(field, e.target.value, dt.hourPart, dt.minutePart)}
             error={error}
           />
-          <div className="flex items-center gap-1.5">
+          <div className={`flex items-center gap-1.5 ${values.allDay ? 'hidden' : ''}`} data-testid={`${field}-time-selectors`}>
             <label className="sr-only" htmlFor={`${inputId}-hour`}>
               {field === 'startDate' ? 'Heure de début' : 'Heure de fin'}
             </label>
@@ -270,14 +270,18 @@ export default function EventForm({
             <label htmlFor="event-startDate" className="block text-sm font-semibold text-foreground/60">
               Début <span className="text-error"> *</span>
             </label>
-            {/* Shell allDay — SCRUM-125 / S5 */}
-            <span aria-hidden="true" className="flex items-center gap-1.5 text-xs font-normal text-foreground/25 cursor-not-allowed select-none pointer-events-none">
-              <input type="checkbox" disabled className="opacity-25 accent-accent w-3.5 h-3.5" />
+            <label htmlFor="event-allDay" className="flex items-center gap-1.5 text-xs font-normal text-foreground/60 hover:text-foreground cursor-pointer select-none">
+              <input
+                id="event-allDay"
+                type="checkbox"
+                checked={values.allDay}
+                onChange={(e) => onFieldChange('allDay', e.target.checked)}
+                className="accent-accent w-3.5 h-3.5"
+              />
               Toute la journée
-              <span className={comingSoonVariants.badge}>S5</span>
-            </span>
+            </label>
           </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+          <div className={values.allDay ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1'}>
             <Input
               id="event-startDate"
               type="date"
@@ -285,7 +289,7 @@ export default function EventForm({
               onChange={(e) => setDatePart('startDate', e.target.value, startDateTime.hourPart, startDateTime.minutePart)}
               error={errors.startDate}
             />
-            <div className="flex items-center gap-1.5">
+            <div className={`flex items-center gap-1.5 ${values.allDay ? 'hidden' : ''}`} data-testid="start-time-selectors">
               <label className="sr-only" htmlFor="event-startDate-hour">Heure de début</label>
               <Select
                 id="event-startDate-hour"

@@ -187,6 +187,10 @@ components:
         capacity:
           type: integer
           nullable: true
+        allDay:
+          type: boolean
+          default: false
+          description: Indicates whether the event spans the entire day
         attendingCount:
           type: integer
           format: int64
@@ -241,6 +245,10 @@ components:
           enum: [DRAFT, PUBLISHED]
           nullable: true
           description: Statut initial de l'événement. DRAFT ou PUBLISHED uniquement. Par défaut DRAFT si absent.
+        allDay:
+          type: boolean
+          nullable: true
+          description: Indicates whether the event spans the entire day. Defaults to false if absent.
 
     UpdateEventRequest:
       type: object
@@ -286,6 +294,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/EventStatus'
           nullable: true
+        allDay:
+          type: boolean
+          nullable: true
+          description: Indicates whether the event spans the entire day. Defaults to false if absent.
 
     Attendance:
       type: object

@@ -819,6 +819,124 @@ class EventServiceCoverageTest {
         assertNull(result.faculty());
     }
 
+    // --- allDay (SCRUM-117) ---
+
+    @Test
+    @TestTransaction
+    void create_withAllDayTrue_persistsTrue() {
+        deleteAll();
+        persistUser("auth0|allDayT", "allDayT@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = true;
+        EventDTO result = eventService.create("auth0|allDayT", req);
+
+        assertTrue(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withAllDayFalse_persistsFalse() {
+        deleteAll();
+        persistUser("auth0|allDayF", "allDayF@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = false;
+        EventDTO result = eventService.create("auth0|allDayF", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withAllDayNull_defaultsToFalse() {
+        deleteAll();
+        persistUser("auth0|allDayN", "allDayN@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = null;
+        EventDTO result = eventService.create("auth0|allDayN", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayTrue_setsTrue() {
+        deleteAll();
+        User user = persistUser("auth0|updADT", "updADT@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = true;
+        EventDTO result = eventService.update(event.id, "auth0|updADT", req);
+
+        assertTrue(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayFalse_setsFalse() {
+        deleteAll();
+        User user = persistUser("auth0|updADF", "updADF@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.allDay = true;
+        entityManager.flush();
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = false;
+        EventDTO result = eventService.update(event.id, "auth0|updADF", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayNull_defaultsToFalse() {
+        deleteAll();
+        User user = persistUser("auth0|updADN", "updADN@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.allDay = true;
+        entityManager.flush();
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = null;
+        EventDTO result = eventService.update(event.id, "auth0|updADN", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_thenGetById_preservesAllDay() {
+        deleteAll();
+        persistUser("auth0|adPersist", "adPersist@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = true;
+        EventDTO created = eventService.create("auth0|adPersist", req);
+        entityManager.flush();
+        entityManager.clear();
+
+        EventDTO fetched = eventService.getById(created.id());
+        assertTrue(fetched.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withoutAllDay_persistedDefaultsToFalse() {
+        deleteAll();
+        persistUser("auth0|adDefault", "adDefault@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        EventDTO created = eventService.create("auth0|adDefault", req);
+        entityManager.flush();
+        entityManager.clear();
+
+        EventDTO fetched = eventService.getById(created.id());
+        assertFalse(fetched.allDay());
+    }
+
     // --- helpers ---
 
     private void deleteAll() {

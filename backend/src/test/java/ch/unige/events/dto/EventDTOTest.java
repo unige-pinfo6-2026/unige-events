@@ -55,6 +55,25 @@ class EventDTOTest {
     }
 
     @Test
+    void from_withAllDayTrue_mapsAllDay() {
+        Event event = new Event();
+        event.allDay = true;
+
+        EventDTO dto = EventDTO.from(event, 0L);
+
+        assertTrue(dto.allDay());
+    }
+
+    @Test
+    void from_withAllDayFalse_mapsAllDay() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 0L);
+
+        assertFalse(dto.allDay());
+    }
+
+    @Test
     void from_withAttendingCount_mapsAttendingCount() {
         Event event = new Event();
 

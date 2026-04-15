@@ -99,6 +99,7 @@ public class EventService {
         event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
+        event.allDay = Boolean.TRUE.equals(request.allDay);
         event.creator = creator;
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
@@ -137,6 +138,7 @@ public class EventService {
         event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
+        event.allDay = Boolean.TRUE.equals(request.allDay);
         if (request.status != null) {
             event.status = request.status;
         }
