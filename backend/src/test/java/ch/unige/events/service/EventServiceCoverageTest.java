@@ -274,16 +274,141 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void delete_asCreator_setsStatusCancelled() {
+    void delete_cancelledEvent_asCreator_removesEntity() {
         deleteAll();
         User user = persistUser("auth0|deleter", "deleter@example.com");
-        Event event = persistEvent("Cancel Me", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        Event event = persistEvent("Delete Me", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+        Long id = event.id;
 
-        eventService.delete(event.id, "auth0|deleter");
+        eventService.delete(id, "auth0|deleter");
 
         entityManager.flush();
-        entityManager.refresh(event);
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertNull(Event.findById(id));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_nonCancelledEvent_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|delNonCan", "delNonCan@example.com");
+        Event event = persistEvent("Draft Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.delete(event.id, "auth0|delNonCan"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    // --- cancel ---
+
+    @Test
+    @TestTransaction
+    void cancel_draftEvent_setsStatusCancelled() {
+        deleteAll();
+        User user = persistUser("auth0|canc1", "canc1@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        EventDTO result = eventService.cancel(event.id, "auth0|canc1");
+
+        assertEquals(EventStatus.CANCELLED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_publishedEvent_setsStatusCancelled() {
+        deleteAll();
+        User user = persistUser("auth0|canc2", "canc2@example.com");
+        Event event = persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        EventDTO result = eventService.cancel(event.id, "auth0|canc2");
+
+        assertEquals(EventStatus.CANCELLED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_alreadyCancelled_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|canc3", "canc3@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.cancel(event.id, "auth0|canc3"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_unknownEvent_throwsNotFound() {
+        deleteAll();
+        assertThrows(NotFoundException.class, () -> eventService.cancel(999999L, "auth0|x"));
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_notCreator_throwsForbidden() {
+        deleteAll();
+        User user = persistUser("auth0|cancOwn", "cancOwn@example.com");
+        Event event = persistEvent("Owner", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        assertThrows(ForbiddenException.class, () -> eventService.cancel(event.id, "auth0|intruder"));
+    }
+
+    // --- restore ---
+
+    @Test
+    @TestTransaction
+    void restore_cancelledEvent_setsStatusDraft() {
+        deleteAll();
+        User user = persistUser("auth0|rest1", "rest1@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        EventDTO result = eventService.restore(event.id, "auth0|rest1");
+
+        assertEquals(EventStatus.DRAFT, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_nonCancelled_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|rest2", "rest2@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.restore(event.id, "auth0|rest2"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_unknownEvent_throwsNotFound() {
+        deleteAll();
+        assertThrows(NotFoundException.class, () -> eventService.restore(999999L, "auth0|x"));
+    }
+
+    @Test
+    @TestTransaction
+    void restore_notCreator_throwsForbidden() {
+        deleteAll();
+        User user = persistUser("auth0|restOwn", "restOwn@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        assertThrows(ForbiddenException.class, () -> eventService.restore(event.id, "auth0|intruder"));
+    }
+
+    // --- update rejects cancelled ---
+
+    @Test
+    @TestTransaction
+    void update_cancelledEvent_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|updCan", "updCan@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        UpdateEventRequest req = validUpdateRequest("New", EventCategory.ACADEMIC, null);
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.update(event.id, "auth0|updCan", req));
+        assertEquals(409, ex.getResponse().getStatus());
     }
 
     @Test

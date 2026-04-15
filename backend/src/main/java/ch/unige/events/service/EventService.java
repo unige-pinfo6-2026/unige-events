@@ -124,6 +124,10 @@ public class EventService {
             throw new ForbiddenException("Only the event creator can update this event");
         }
 
+        if (event.status == EventStatus.CANCELLED) {
+            throw conflict("Cancelled events cannot be modified. Restore the event first.");
+        }
+
         event.title = request.title;
         event.description = request.description;
         event.location = request.location;
@@ -146,10 +150,55 @@ public class EventService {
                 .orElseThrow(NotFoundException::new);
 
         if (!isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator can delete this event");
+        }
+
+        if (event.status != EventStatus.CANCELLED) {
+            throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
+        }
+
+        event.delete();
+    }
+
+    @Transactional
+    public EventDTO cancel(Long id, String auth0Id) {
+        Event event = Event.<Event>findByIdOptional(id)
+                .orElseThrow(NotFoundException::new);
+
+        if (!isCreator(event, auth0Id)) {
             throw new ForbiddenException("Only the event creator can cancel this event");
         }
 
+        if (event.status == EventStatus.CANCELLED) {
+            throw conflict("Event is already cancelled");
+        }
+
         event.status = EventStatus.CANCELLED;
+        return EventDTO.from(event, countAttending(id));
+    }
+
+    @Transactional
+    public EventDTO restore(Long id, String auth0Id) {
+        Event event = Event.<Event>findByIdOptional(id)
+                .orElseThrow(NotFoundException::new);
+
+        if (!isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator can restore this event");
+        }
+
+        if (event.status != EventStatus.CANCELLED) {
+            throw conflict("Only cancelled events can be restored to draft");
+        }
+
+        event.status = EventStatus.DRAFT;
+        return EventDTO.from(event, countAttending(id));
+    }
+
+    private static WebApplicationException conflict(String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.CONFLICT)
+                        .entity(Map.of("error", "conflict", "message", message))
+                        .build());
     }
 
     @Transactional
@@ -164,10 +213,7 @@ public class EventService {
             String message = event.status == EventStatus.PUBLISHED
                     ? "Event is already published"
                     : "Event cannot be published: current status is " + event.status;
-            throw new WebApplicationException(
-                    Response.status(Response.Status.CONFLICT)
-                            .entity(Map.of("error", "conflict", "message", message))
-                            .build());
+            throw conflict(message);
         }
 
         event.status = EventStatus.PUBLISHED;

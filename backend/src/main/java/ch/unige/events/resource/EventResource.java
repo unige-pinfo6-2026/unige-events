@@ -90,6 +90,24 @@ public class EventResource {
     }
 
     @PATCH
+    @Path("/{id}/cancel")
+    @Authenticated
+    public Response cancel(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        EventDTO cancelled = eventService.cancel(id, auth0Id);
+        return Response.ok(cancelled).build();
+    }
+
+    @PATCH
+    @Path("/{id}/restore")
+    @Authenticated
+    public Response restore(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        EventDTO restored = eventService.restore(id, auth0Id);
+        return Response.ok(restored).build();
+    }
+
+    @PATCH
     @Path("/{id}/publish")
     @RolesAllowed({"ORGANIZER", "ADMIN"})
     public Response publish(@PathParam("id") Long id) {

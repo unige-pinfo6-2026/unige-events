@@ -1059,9 +1059,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit — l'événement est annulé et ne peut pas être modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
     delete:
-      summary: Annuler un événement — soft-delete (status → CANCELLED)
+      summary: Supprimer définitivement un événement annulé (hard-delete)
+      description: |
+        Supprime définitivement l'événement de la base. Opération irréversible.
+        L'événement doit être en statut CANCELLED — sinon 409. Pour annuler un événement,
+        utiliser PATCH /events/{id}/cancel d'abord.
       operationId: deleteEvent
       tags: [events]
       security:
@@ -1075,7 +1085,7 @@ paths:
             format: int64
       responses:
         '204':
-          description: Événement annulé (soft-delete, status = CANCELLED)
+          description: Événement supprimé définitivement
         '401':
           description: Token absent ou invalide
           content:
@@ -1090,6 +1100,110 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit — l'événement n'est pas en statut CANCELLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/cancel:
+    patch:
+      summary: Annuler un événement (DRAFT/PUBLISHED → CANCELLED)
+      description: |
+        Passe le statut de l'événement à CANCELLED. L'événement reste en base et
+        demeure interrogeable. Réservé au créateur. Retourne 409 si déjà annulé.
+      operationId: cancelEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement annulé — retourne l'EventDTO avec status CANCELLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Pas le créateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit — l'événement est déjà annulé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/restore:
+    patch:
+      summary: Restaurer un événement annulé (CANCELLED → DRAFT)
+      description: |
+        Remet un événement annulé au statut DRAFT. Réservé au créateur.
+        Retourne 409 si l'événement n'est pas en statut CANCELLED.
+      operationId: restoreEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement restauré — retourne l'EventDTO avec status DRAFT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Pas le créateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Conflit — l'événement n'est pas en statut CANCELLED
           content:
             application/json:
               schema:
