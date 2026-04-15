@@ -4,7 +4,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
-import { ButtonPrimary } from '@/components/utils/Buttons'
+import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
@@ -296,7 +296,7 @@ export default function EventForm({
         </div>
       </section>
 
-      {/* Bande 3 — Catégorie | Faculté | Capacité | CTA */}
+      {/* Bande 3 — Catégorie | Faculté | Capacité */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
 
         <FormField label="Catégorie" htmlFor="event-category" required className="w-48 flex-none">
@@ -336,34 +336,32 @@ export default function EventForm({
           />
         </FormField>
 
-        {/* Zone CTA */}
-        <div className="flex flex-col items-end gap-2 ml-auto max-sm:ml-0 max-sm:w-full">
-          <ButtonPrimary type="submit" disabled={submitting} size="md">
-            {submitting ? 'Enregistrement...' : submitLabel}
-          </ButtonPrimary>
-
-          <div className="flex gap-4">
-            {onSaveDraft && (
-              <button
-                type="button"
-                onClick={() => { void onSaveDraft() }}
-                disabled={submitting}
-                className="text-xs text-foreground/40 hover:text-foreground/60 transition-all disabled:opacity-50"
-              >
-                Sauvegarder en Brouillon
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-xs text-foreground/40 hover:text-foreground/60 transition-all"
-            >
-              Annuler
-            </button>
-          </div>
-        </div>
-
       </div>
+
+      {/* Bande actions — boutons alignés à droite */}
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border/30 max-sm:flex-col max-sm:items-stretch">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-md font-semibold text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
+        >
+          Annuler
+        </button>
+        {onSaveDraft && (
+          <ButtonSecondary
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={() => { void onSaveDraft() }}
+          >
+            Sauvegarder en Brouillon
+          </ButtonSecondary>
+        )}
+        <ButtonPrimary type="submit" disabled={submitting} size="sm">
+          {submitting ? 'Enregistrement...' : submitLabel}
+        </ButtonPrimary>
+      </div>
+
 
       {/* Bande 4 — Shells champs additionnels (SCRUM-127/128/147/162) */}
       <div className="flex flex-col gap-3">
@@ -470,6 +468,8 @@ export default function EventForm({
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}
+
+      
 
     </form>
   )
