@@ -346,7 +346,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       URL.revokeObjectURL(objectUrlRef.current)
     }
     // Flush any pending debounced write so a fast unmount (e.g. refresh) doesn't drop
-    // the last keystrokes. Safe in edit mode because no write is ever scheduled there.
+    // the last keystrokes. Applies to both create and edit mode: pendingPersistRef
+    // carries the right per-flow storage key along with the latest form values.
     flushPersist()
   }, [])
 

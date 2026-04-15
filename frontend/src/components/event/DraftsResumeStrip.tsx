@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ChevronDown, Library } from 'lucide-react'
+import { ChevronDown, Library } from 'lucide-react'
 import * as Collapsible from '@radix-ui/react-collapsible'
 import { Skeleton } from 'boneyard-js/react'
 import { useAuth } from '@/hooks/useAuth'
@@ -61,9 +61,9 @@ export default function DraftsResumeStrip() {
     return () => observer.disconnect()
   }, [open, drafts.length])
 
-  const { displayedDrafts, showViewAll } = useMemo(() => {
-    const { displayCount, showViewAll: svw } = computeStripLayout(availableWidth, drafts.length)
-    return { displayedDrafts: drafts.slice(0, displayCount), showViewAll: svw }
+  const displayedDrafts = useMemo(() => {
+    const { displayCount } = computeStripLayout(availableWidth, drafts.length)
+    return drafts.slice(0, displayCount)
   }, [availableWidth, drafts])
 
   if (loading) {
@@ -130,17 +130,9 @@ export default function DraftsResumeStrip() {
                 />
               ))}
             </div>
-            {showViewAll && (
-              <button
-                type="button"
-                onClick={() => navigate('/my-events')}
-                aria-label="Voir tous mes brouillons"
-                className="shrink-0 flex items-center gap-1 rounded-xl border border-border/50 bg-background/40 hover:bg-background/80 px-3 h-10 text-xs text-foreground/70 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <span>Voir tout</span>
-                <ArrowRight className="size-4" aria-hidden />
-              </button>
-            )}
+            {/* "Voir tout" button will be re-enabled once /my-events exists (SCRUM-93).
+                The rail's overflow-x-auto still lets the user reach overflow cards by
+                scrolling horizontally, so hiding the button is a graceful fallback. */}
           </div>
         )}
       </Collapsible.Content>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
@@ -122,7 +123,7 @@ export default function EventEditPage() {
     onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
-  async function handleDraftEditSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
+  async function handleDraftEditSubmit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault()
     await form.triggerPublish()
   }

@@ -112,6 +112,7 @@ export default function EventForm({
 }: Readonly<EventFormProps>) {
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
+  const busy = submitting || draftSaving || deleting
 
   function setDatePart(field: 'startDate' | 'endDate', datePart: string, currentHourPart: string, currentMinutePart: string) {
     if (!datePart) {
@@ -368,32 +369,34 @@ export default function EventForm({
           />
         </FormField>
 
-        {/* Zone CTA */}
+        {/* Zone CTA — publish / draft save / delete are mutually exclusive: while any
+            one is in flight, all other action buttons are disabled to prevent concurrent
+            mutations on the same event (e.g. clicking "Supprimer" during a save-draft). */}
         <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
           {onDelete && (
             <ButtonDestructive
               onClick={() => { void onDelete() }}
-              disabled={deleting}
+              disabled={busy}
               size="md"
             >
               {deleting ? 'Suppression...' : deleteLabel}
             </ButtonDestructive>
           )}
           {onCancel && (
-            <ButtonSecondary onClick={onCancel} size="md">
+            <ButtonSecondary onClick={onCancel} disabled={busy} size="md">
               Annuler
             </ButtonSecondary>
           )}
           {onSaveDraft && (
             <ButtonNeutral
               onClick={() => { void onSaveDraft() }}
-              disabled={draftSaving}
+              disabled={busy}
               size="md"
             >
               {draftSaving ? 'Enregistrement...' : saveDraftLabel}
             </ButtonNeutral>
           )}
-          <ButtonPrimary type="submit" disabled={submitting} size="md">
+          <ButtonPrimary type="submit" disabled={busy} size="md">
             {submitting ? 'Enregistrement...' : submitLabel}
           </ButtonPrimary>
         </div>

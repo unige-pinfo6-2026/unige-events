@@ -333,15 +333,16 @@ describe('DraftsResumeStrip', () => {
     ;(globalThis as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver = originalRO
   })
 
-  it('renders the "Voir tout" button when the container is too narrow for all drafts', () => {
+  it('never renders the "Voir tout" button (route /my-events not wired yet — SCRUM-93)', () => {
+    // Even when the rail overflows (6 drafts in a 500px container), the Voir tout
+    // button must not appear — its target route doesn't exist and would 404. The
+    // rail's overflow-x-auto lets the user reach the extra cards by scrolling.
     stubBoundingRect(500)
     stub(
       Array.from({ length: 6 }, (_, i) => makeDraft({ id: i + 1, title: `Draft ${i + 1}` })),
     )
     render(<DraftsResumeStrip />)
     openPanel()
-    const moreButton = screen.getByRole('button', { name: /Voir tous mes brouillons/ })
-    fireEvent.click(moreButton)
-    expect(mockNavigate).toHaveBeenCalledWith('/my-events')
+    expect(screen.queryByRole('button', { name: /Voir tous mes brouillons/ })).toBeNull()
   })
 })

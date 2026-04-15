@@ -256,11 +256,13 @@ describe('EditEventPage', () => {
       await screen.findByDisplayValue(draftEvent.title)
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
-      // The main button must not flip to "Enregistrement..." while the draft
-      // save is in flight — it is reserved for the publish flow.
+      // The main button must not flip to "Enregistrement..." while the draft save is
+      // in flight — that label is reserved for the publish flow. It IS disabled though,
+      // because the three mutations (publish / draft save / delete) are mutually
+      // exclusive to prevent concurrent calls on the same event.
       const mainButton = screen.getByRole('button', { name: "Créer l'événement" }) as HTMLButtonElement
       expect(mainButton).toBeTruthy()
-      expect(mainButton.disabled).toBe(false)
+      expect(mainButton.disabled).toBe(true)
       expect(mainButton.textContent).not.toContain('Enregistrement')
 
       resolveUpdate({ ...draftEvent, status: 'DRAFT' })
@@ -349,8 +351,11 @@ describe('EditEventPage', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
       fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
+      // Same mutex: the main button is disabled while delete is in flight to block
+      // a "publish on top of delete" race, but the label must not flip to
+      // "Enregistrement..." — that belongs to the publish flow only.
       const mainButton = screen.getByRole('button', { name: "Créer l'événement" }) as HTMLButtonElement
-      expect(mainButton.disabled).toBe(false)
+      expect(mainButton.disabled).toBe(true)
       expect(mainButton.textContent).not.toContain('Enregistrement')
 
       resolveDelete()
