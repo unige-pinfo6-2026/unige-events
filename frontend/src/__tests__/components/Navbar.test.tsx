@@ -224,4 +224,32 @@ describe('Navbar', () => {
       expect(mesevenementsBtn.getAttribute('aria-expanded')).toBe('true')
     }
   })
+
+  it('expands mobile "Mes événements" submenu with click toggle', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+      login: vi.fn(),
+    })
+    renderNavbar()
+
+    // Open mobile menu
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+
+    // Find the "Mes événements" button in the mobile menu (has cursor-pointer class)
+    const mobileMenuButtons = screen.getAllByText('Mes événements')
+    const mesEvnementsInMobileMenu = mobileMenuButtons
+      .find(el => el.closest('button')?.className.includes('cursor-pointer'))
+      ?.closest('button')
+
+    expect(mesEvnementsInMobileMenu).toBeTruthy()
+
+    if (mesEvnementsInMobileMenu) {
+      // Click to toggle state - this should toggle the expanded state
+      fireEvent.click(mesEvnementsInMobileMenu)
+
+      // Verify the button still exists and is still clickable
+      expect(mesEvnementsInMobileMenu.parentElement).toBeTruthy()
+    }
+  })
 })

@@ -138,4 +138,44 @@ describe('useMyEvents', () => {
 
     await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(2))
   })
+
+  it('publish() returns false when publishEvent fails', async () => {
+    const event = makeMockEvent(42, '2026-04-10T14:00:00')
+    mockGetAll.mockResolvedValue([event])
+    mockPublishEvent.mockRejectedValue(new Error('API error'))
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'DRAFT'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.events).toHaveLength(1)
+
+    let publishResult: boolean | undefined
+    await act(async () => {
+      publishResult = await result.current.publish(42)
+    })
+
+    expect(mockPublishEvent).toHaveBeenCalledWith(42)
+    expect(publishResult).toBe(false)
+    // Event should still be in the list since publish failed
+    expect(result.current.events).toHaveLength(1)
+  })
+
+  it('cancel() returns false when deleteEvent fails', async () => {
+    const event = makeMockEvent(42, '2026-04-10T14:00:00')
+    mockGetAll.mockResolvedValue([event])
+    mockDeleteEvent.mockRejectedValue(new Error('API error'))
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.events).toHaveLength(1)
+
+    let cancelResult: boolean | undefined
+    await act(async () => {
+      cancelResult = await result.current.cancel(42)
+    })
+
+    expect(mockDeleteEvent).toHaveBeenCalledWith(42)
+    expect(cancelResult).toBe(false)
+    // Event should still be in the list since cancel failed
+    expect(result.current.events).toHaveLength(1)
+  })
 })

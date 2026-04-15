@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 
@@ -62,5 +62,20 @@ describe('UserAvatar', () => {
   it('applies custom className', () => {
     const { container } = render(<UserAvatar user={baseUser} className="extra-class" />)
     expect(container.querySelector('div')?.className).toContain('extra-class')
+  })
+
+  it('shows initials when image fails to load (onError callback)', () => {
+    const user = { ...baseUser, avatarUrl: 'https://invalid.example.com/avatar.jpg' }
+    render(<UserAvatar user={user} />)
+
+    // Get the image element
+    const img = screen.getByAltText('Alice Martin') as HTMLImageElement
+    expect(img).toBeTruthy()
+
+    // Trigger the error event to test the onError callback
+    fireEvent.error(img)
+
+    // After error, initials should be displayed
+    expect(screen.getByText('AM')).toBeTruthy()
   })
 })

@@ -11,7 +11,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { attend, getMyAttendance, unattend } from '@/services/attendanceApi'
+import { attend, getMyAttendance, getMyParticipations, unattend } from '@/services/attendanceApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiPost = vi.mocked(api.post)
@@ -134,6 +134,15 @@ describe('attendanceApi', () => {
       mockApiGet.mockRejectedValue(new Error('Network error'))
 
       await expect(getMyAttendance(42)).rejects.toThrow('Network error')
+    })
+  })
+
+  describe('getMyParticipations', () => {
+    it('returns an empty array (stub)', async () => {
+      const result = await getMyParticipations()
+
+      expect(result).toEqual([])
+      expect(Array.isArray(result)).toBe(true)
     })
   })
 })

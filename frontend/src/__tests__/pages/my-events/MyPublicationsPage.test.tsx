@@ -280,6 +280,49 @@ describe('MyPublicationsPage', () => {
     })
   })
 
+  it('publish fails silently when hook returns false', async () => {
+    const publish = vi.fn().mockResolvedValue(false)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'DRAFT')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish,
+      cancel: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const publishButton = screen.getByText('Publier')
+    fireEvent.click(publishButton)
+
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith(1)
+    })
+  })
+
+  it('cancel fails silently when hook returns false', async () => {
+    const cancel = vi.fn().mockResolvedValue(false)
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'PUBLISHED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel,
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const cancelButtons = screen.getAllByText('Annuler')
+    fireEvent.click(cancelButtons[0])
+
+    const confirmButton = screen.getByRole('button', { name: 'Confirmer' })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(cancel).toHaveBeenCalledWith(1)
+    })
+  })
+
   it('closes confirmation modal when cancelling', async () => {
     mockUseMyEvents.mockReturnValue({
       events: [makeMockEvent(1, 'PUBLISHED')],
