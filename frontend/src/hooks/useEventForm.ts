@@ -344,7 +344,6 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     // Flush any pending debounced write so a fast unmount (e.g. refresh) doesn't drop
     // the last keystrokes. Safe in edit mode because no write is ever scheduled there.
     flushPersist()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function setFieldValue<K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) {
