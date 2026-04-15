@@ -91,6 +91,55 @@ describe('EventForm', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 
+  it('calls onSaveDraft when the draft button is clicked', () => {
+    const onSaveDraft = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+        onSaveDraft={onSaveDraft}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+    expect(onSaveDraft).toHaveBeenCalled()
+  })
+
+  it('clears the date field when date input is cleared', () => {
+    const onFieldChange = vi.fn()
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={{ ...baseValues, startDate: '2099-04-10T10:00' }}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={onFieldChange}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '' } })
+
+    expect(onFieldChange).toHaveBeenCalledWith('startDate', '')
+  })
+
   it('combines date and time parts into datetime values', () => {
     const emittedValues: string[] = []
 

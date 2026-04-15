@@ -180,6 +180,30 @@ describe('AttendanceButtons', () => {
     })
   })
 
+  describe('error display', () => {
+    it('shows error message when error is set', () => {
+      mockUseAttendance.mockReturnValue(makeHookResult({ error: 'Une erreur est survenue.' }))
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+
+      expect(screen.getByText('Une erreur est survenue.')).toBeTruthy()
+    })
+  })
+
+  describe('click when disabled', () => {
+    it('does not call toggle when attending button is clicked while disabled', () => {
+      const toggle = vi.fn()
+      mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: null, toggle }))
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+      fireEvent.click(screen.getByRole('button', { name: /je participe/i }))
+
+      expect(toggle).not.toHaveBeenCalled()
+    })
+  })
+
   describe('unauthenticated user', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue({ isAuthenticated: false } as ReturnType<typeof useAuth>)
