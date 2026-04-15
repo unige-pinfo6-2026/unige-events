@@ -58,6 +58,80 @@ class EventResourceTest {
                 .body("[0].title", is("Event PUBLISHED"));
     }
 
+    // --- GET /events?organizerId=... — hardening (SCRUM-133) ---
+
+    @Test
+    void getAll_organizerIdWithoutStatus_implicitlyFiltersPublished() {
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Draft", EventStatus.DRAFT, LocalDateTime.now());
+        var published = eventServiceMock.seedEventWithStatus("auth0|alice", "Published", EventStatus.PUBLISHED, LocalDateTime.now());
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Cancelled", EventStatus.CANCELLED, LocalDateTime.now());
+        var organizerId = published.creator.id;
+
+        given()
+                .queryParam("organizerId", organizerId.toString())
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Published"));
+    }
+
+    @Test
+    void getAll_organizerIdWithStatusPublished_allowed() {
+        var published = eventServiceMock.seedEventWithStatus("auth0|alice", "Published", EventStatus.PUBLISHED, LocalDateTime.now());
+        var organizerId = published.creator.id;
+
+        given()
+                .queryParam("organizerId", organizerId.toString())
+                .queryParam("status", "PUBLISHED")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Published"));
+    }
+
+    @Test
+    void getAll_organizerIdWithStatusDraft_returns400() {
+        var draft = eventServiceMock.seedEventWithStatus("auth0|alice", "Draft", EventStatus.DRAFT, LocalDateTime.now());
+        var organizerId = draft.creator.id;
+
+        given()
+                .queryParam("organizerId", organizerId.toString())
+                .queryParam("status", "DRAFT")
+                .when().get("/events")
+                .then()
+                .statusCode(400)
+                .body("error", is("organizer_filter_requires_published"));
+    }
+
+    @Test
+    void getAll_organizerIdWithStatusCancelled_returns400() {
+        var cancelled = eventServiceMock.seedEventWithStatus("auth0|alice", "Cancelled", EventStatus.CANCELLED, LocalDateTime.now());
+        var organizerId = cancelled.creator.id;
+
+        given()
+                .queryParam("organizerId", organizerId.toString())
+                .queryParam("status", "CANCELLED")
+                .when().get("/events")
+                .then()
+                .statusCode(400)
+                .body("error", is("organizer_filter_requires_published"));
+    }
+
+    @Test
+    void getAll_withoutOrganizerId_statusDraftStillAllowed() {
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Draft", EventStatus.DRAFT, LocalDateTime.now());
+
+        given()
+                .queryParam("status", "DRAFT")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Draft"));
+    }
+
     // --- POST /events ---
 
     @Test

@@ -34,6 +34,8 @@ public class EventServiceMock extends EventService {
     public static volatile boolean forceForbiddenOnDelete = false;
     public static volatile boolean forceConflictOnPublish = false;
     public static volatile boolean forceBadMimeOnUpload = false;
+    public static volatile boolean forceMyEventsNotFound = false;
+    public static volatile String myEventsExpectedAuth0Id = null;
 
     public void reset() {
         eventsById.clear();
@@ -42,6 +44,8 @@ public class EventServiceMock extends EventService {
         forceForbiddenOnDelete = false;
         forceConflictOnPublish = false;
         forceBadMimeOnUpload = false;
+        forceMyEventsNotFound = false;
+        myEventsExpectedAuth0Id = null;
     }
 
     public Event seedEvent(String creatorAuth0Id, String title) {
@@ -62,6 +66,13 @@ public class EventServiceMock extends EventService {
         event.updatedAt = LocalDateTime.now();
 
         eventsById.put(event.id, event);
+        return event;
+    }
+
+    public Event seedEventWithStatus(String creatorAuth0Id, String title, EventStatus status, LocalDateTime createdAt) {
+        Event event = seedEvent(creatorAuth0Id, title);
+        event.status = status;
+        event.createdAt = createdAt;
         return event;
     }
 
@@ -247,6 +258,26 @@ public class EventServiceMock extends EventService {
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.status = EventStatus.PUBLISHED;
         return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L);
+    }
+
+    @Override
+    public List<EventDTO> getMyEvents(String auth0Id, EventStatus status, int page, int size) {
+        if (forceMyEventsNotFound) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
+        return eventsById.values().stream()
+                .filter(e -> e.creator != null && e.creator.auth0Id != null
+                        && (myEventsExpectedAuth0Id == null
+                                ? e.creator.auth0Id.equals(auth0Id)
+                                : e.creator.auth0Id.equals(myEventsExpectedAuth0Id)))
+                .filter(e -> status == null || e.status == status)
+                .sorted((a, b) -> {
+                    int cmp = b.createdAt.compareTo(a.createdAt);
+                    if (cmp != 0) return cmp;
+                    return Long.compare(b.id, a.id);
+                })
+                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L))
+                .toList();
     }
 
     @Override
