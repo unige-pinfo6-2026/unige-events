@@ -3,11 +3,15 @@ package ch.unige.events.service;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
+import ch.unige.events.entity.Attendance;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
+
+import java.util.UUID;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -935,6 +939,177 @@ class EventServiceCoverageTest {
 
         EventDTO fetched = eventService.getById(created.id());
         assertFalse(fetched.allDay());
+    }
+
+    // =========================================================
+    // SCRUM-126 + SCRUM-129 — nouveaux champs et compteurs
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void create_withNewFieldsAndTags_persistsNormalized() {
+        deleteAll();
+        persistUser("auth0|tags1", "tags1@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.websiteUrl = "https://example.com/e";
+        req.contactEmail = "orga@example.com";
+        req.registrationDeadline = LocalDateTime.now().plusDays(1);
+        req.tags = new java.util.ArrayList<>(java.util.Arrays.asList("Foo", " FOO ", "bar", "foo"));
+
+        EventDTO created = eventService.create("auth0|tags1", req);
+
+        assertEquals("https://example.com/e", created.websiteUrl());
+        assertEquals("orga@example.com", created.contactEmail());
+        assertNotNull(created.registrationDeadline());
+        // Normalisation : trim + lowercase + dédup, ordre d'insertion préservé
+        assertEquals(java.util.List.of("foo", "bar"), created.tags());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withNullTags_persistsEmpty() {
+        deleteAll();
+        persistUser("auth0|tagsnull", "tagsnull@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.tags = null;
+
+        EventDTO created = eventService.create("auth0|tagsnull", req);
+
+        assertNotNull(created.tags());
+        assertTrue(created.tags().isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withTagsCleared_persistsEmpty() {
+        deleteAll();
+        User user = persistUser("auth0|tagsclr", "tagsclr@example.com");
+        Event event = persistEvent("Tagged", EventCategory.CULTURAL, EventStatus.DRAFT, user);
+        event.tags = new java.util.ArrayList<>(java.util.Arrays.asList("old1", "old2"));
+        entityManager.flush();
+
+        UpdateEventRequest req = validUpdateRequest("Tagged", EventCategory.CULTURAL, null);
+        req.tags = new java.util.ArrayList<>();
+
+        EventDTO updated = eventService.update(event.id, "auth0|tagsclr", req);
+
+        assertTrue(updated.tags().isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_withCapacityAndAttending_computesAvailableSpots() {
+        deleteAll();
+        User user = persistUser("auth0|spots", "spots@example.com");
+        Event event = persistEvent("Spots", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
+        event.capacity = 5;
+        entityManager.flush();
+
+        // 3 ATTENDING
+        User a1 = persistUser("auth0|sp-a1", "a1@example.com");
+        User a2 = persistUser("auth0|sp-a2", "a2@example.com");
+        User a3 = persistUser("auth0|sp-a3", "a3@example.com");
+        persistAttendanceForEvent(event.id, a1.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, a2.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, a3.id, AttendanceStatus.ATTENDING);
+        // 2 WAITLISTED
+        User w1 = persistUser("auth0|sp-w1", "w1@example.com");
+        User w2 = persistUser("auth0|sp-w2", "w2@example.com");
+        persistAttendanceForEvent(event.id, w1.id, AttendanceStatus.WAITLISTED);
+        persistAttendanceForEvent(event.id, w2.id, AttendanceStatus.WAITLISTED);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id);
+
+        assertEquals(3L, dto.attendingCount());
+        assertEquals(2L, dto.availableSpots());
+        assertEquals(2L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_capacityReducedBelowAttending_clampsAvailableSpotsToZero() {
+        deleteAll();
+        User user = persistUser("auth0|clamp", "clamp@example.com");
+        Event event = persistEvent("Clamp", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
+        event.capacity = 2;
+        entityManager.flush();
+
+        User a1 = persistUser("auth0|cl-1", "cl-1@example.com");
+        User a2 = persistUser("auth0|cl-2", "cl-2@example.com");
+        User a3 = persistUser("auth0|cl-3", "cl-3@example.com");
+        persistAttendanceForEvent(event.id, a1.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, a2.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, a3.id, AttendanceStatus.ATTENDING);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id);
+
+        assertEquals(3L, dto.attendingCount());
+        assertEquals(0L, dto.availableSpots());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_returnsWaitlistedCountsInBulk() {
+        deleteAll();
+        User user = persistUser("auth0|bulk", "bulk@example.com");
+        Event e1 = persistEvent("Bulk1", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
+        e1.capacity = 1;
+        Event e2 = persistEvent("Bulk2", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
+        e2.capacity = 1;
+        entityManager.flush();
+
+        User a1 = persistUser("auth0|b-a1", "b-a1@example.com");
+        User a2 = persistUser("auth0|b-a2", "b-a2@example.com");
+        persistAttendanceForEvent(e1.id, a1.id, AttendanceStatus.WAITLISTED);
+        persistAttendanceForEvent(e1.id, a2.id, AttendanceStatus.WAITLISTED);
+        persistAttendanceForEvent(e2.id, a1.id, AttendanceStatus.WAITLISTED);
+        entityManager.flush();
+
+        List<EventDTO> all = eventService.getAll(0, 20, EventStatus.PUBLISHED, null, null, null, null, null);
+
+        EventDTO dto1 = all.stream().filter(d -> d.id().equals(e1.id)).findFirst().orElseThrow();
+        EventDTO dto2 = all.stream().filter(d -> d.id().equals(e2.id)).findFirst().orElseThrow();
+        assertEquals(2L, dto1.waitlistedCount());
+        assertEquals(1L, dto2.waitlistedCount());
+    }
+
+    @Test
+    void computeAvailableSpots_nullCapacity_returnsNull() {
+        assertNull(EventService.computeAvailableSpots(null, 0L));
+    }
+
+    @Test
+    void computeAvailableSpots_attendingBelowCapacity_returnsRemaining() {
+        assertEquals(3L, EventService.computeAvailableSpots(5, 2L));
+    }
+
+    @Test
+    void computeAvailableSpots_attendingAboveCapacity_returnsZero() {
+        assertEquals(0L, EventService.computeAvailableSpots(5, 10L));
+    }
+
+    @Test
+    void normalizeTags_nullInput_returnsEmptyList() {
+        assertTrue(EventService.normalizeTags(null).isEmpty());
+    }
+
+    @Test
+    void normalizeTags_dedupAndLowercase_preservesFirstOccurrenceOrder() {
+        java.util.List<String> result = EventService.normalizeTags(
+                java.util.Arrays.asList("Foo", " BAR ", "foo", "bar", null, "", "  "));
+        assertEquals(java.util.List.of("foo", "bar"), result);
+    }
+
+    private void persistAttendanceForEvent(Long eventId, UUID userId, AttendanceStatus status) {
+        Attendance a = new Attendance();
+        a.userId = userId;
+        a.eventId = eventId;
+        a.status = status;
+        entityManager.persist(a);
     }
 
     // --- helpers ---

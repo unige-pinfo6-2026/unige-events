@@ -68,7 +68,7 @@ public class FavoriteServiceMock extends FavoriteService {
                 .filter(Objects::nonNull)
                 .skip((long) page * size)
                 .limit(size)
-                .map(e -> EventDTO.from(e, 0L))
+                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L))
                 .toList();
     }
 }

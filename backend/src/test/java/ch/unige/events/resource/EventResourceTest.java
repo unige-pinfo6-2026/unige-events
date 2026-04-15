@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
@@ -733,5 +735,146 @@ class EventResourceTest {
                 .statusCode(200)
                 .body("", hasSize(1))
                 .body("[0].faculty", nullValue());
+    }
+
+    // =========================================================
+    // SCRUM-126 — websiteUrl, contactEmail, registrationDeadline, tags
+    // =========================================================
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void create_withAllNewFields_persistsAndReturns() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Avec URL et email";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CONFERENCE;
+        req.websiteUrl = "https://unige.ch/events/42";
+        req.contactEmail = "orga@unige.ch";
+        req.registrationDeadline = LocalDateTime.now().plusHours(12);
+        req.tags = new ArrayList<>(Arrays.asList("cinema", "plein-air"));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("websiteUrl", is("https://unige.ch/events/42"))
+                .body("contactEmail", is("orga@unige.ch"))
+                .body("registrationDeadline", notNullValue())
+                .body("tags", hasSize(2))
+                .body("tags", hasItems("cinema", "plein-air"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void create_withInvalidWebsiteUrl_returns400() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Bad URL";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CONFERENCE;
+        req.websiteUrl = "not-a-url";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void create_withInvalidContactEmail_returns400() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Bad Email";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CONFERENCE;
+        req.contactEmail = "foo@";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void create_withDuplicateTags_returnsNormalized() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Normalized tags";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CULTURAL;
+        req.tags = new ArrayList<>(Arrays.asList("Foo", "FOO", "bar", " foo "));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("tags", hasSize(2))
+                .body("tags[0]", is("foo"))
+                .body("tags[1]", is("bar"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void create_registrationDeadlineInPast_accepted() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Deadline past";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.CONFERENCE;
+        req.registrationDeadline = LocalDateTime.now().minusDays(1);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("registrationDeadline", notNullValue());
+    }
+
+    // =========================================================
+    // SCRUM-129 — availableSpots / waitlistedCount exposed in response
+    // =========================================================
+
+    @Test
+    void getById_withoutCapacity_returnsNullAvailableSpots() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Sans capacité");
+        event.capacity = null;
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("availableSpots", nullValue())
+                .body("waitlistedCount", equalTo(0));
+    }
+
+    @Test
+    void getById_withCapacity_returnsAvailableSpots() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Avec capacité");
+        event.capacity = 10;
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("availableSpots", equalTo(10))
+                .body("waitlistedCount", equalTo(0));
     }
 }

@@ -6,6 +6,7 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record EventDTO(
@@ -23,10 +24,21 @@ public record EventDTO(
         Integer capacity,
         boolean allDay,
         long attendingCount,
+        Long availableSpots,
+        long waitlistedCount,
+        String websiteUrl,
+        String contactEmail,
+        LocalDateTime registrationDeadline,
+        List<String> tags,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static EventDTO from(Event event, long attendingCount) {
+    public static EventDTO from(
+            Event event,
+            long attendingCount,
+            Long availableSpots,
+            long waitlistedCount
+    ) {
         return new EventDTO(
                 event.id,
                 event.title,
@@ -42,6 +54,12 @@ public record EventDTO(
                 event.capacity,
                 event.allDay,
                 attendingCount,
+                availableSpots,
+                waitlistedCount,
+                event.websiteUrl,
+                event.contactEmail,
+                event.registrationDeadline,
+                event.tags != null ? List.copyOf(event.tags) : List.of(),
                 event.createdAt,
                 event.updatedAt
         );

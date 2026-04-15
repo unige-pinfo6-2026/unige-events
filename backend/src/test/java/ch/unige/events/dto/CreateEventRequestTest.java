@@ -9,7 +9,10 @@ import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -126,6 +129,95 @@ class CreateEventRequestTest {
     void nullCapacity_noViolation() {
         CreateEventRequest req = validRequest();
         req.capacity = null;
+
+        assertTrue(validator.validate(req).isEmpty());
+    }
+
+    // --- SCRUM-126 — validations sur les 4 nouveaux champs ---
+
+    @Test
+    void invalidWebsiteUrl_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.websiteUrl = "not-a-url";
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertTrue(violations.stream().anyMatch(v -> "websiteUrl".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void validWebsiteUrl_noViolation() {
+        CreateEventRequest req = validRequest();
+        req.websiteUrl = "https://example.com/path?q=1";
+
+        assertTrue(validator.validate(req).isEmpty());
+    }
+
+    @Test
+    void invalidContactEmail_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.contactEmail = "foo@";
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertTrue(violations.stream().anyMatch(v -> "contactEmail".equals(v.getPropertyPath().toString())));
+    }
+
+    @Test
+    void validContactEmail_noViolation() {
+        CreateEventRequest req = validRequest();
+        req.contactEmail = "organizer@unige.ch";
+
+        assertTrue(validator.validate(req).isEmpty());
+    }
+
+    @Test
+    void tooManyTags_hasViolation() {
+        CreateEventRequest req = validRequest();
+        List<String> tags = new ArrayList<>();
+        IntStream.range(0, 25).forEach(i -> tags.add("tag" + i));
+        req.tags = tags;
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().startsWith("tags")));
+    }
+
+    @Test
+    void blankTagElement_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.tags = new ArrayList<>(List.of("valid", "  "));
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().contains("tags")));
+    }
+
+    @Test
+    void tooLongTagElement_hasViolation() {
+        CreateEventRequest req = validRequest();
+        req.tags = new ArrayList<>(List.of("a".repeat(65)));
+
+        Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
+
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().contains("tags")));
+    }
+
+    @Test
+    void allNewFieldsEmpty_noViolation() {
+        CreateEventRequest req = validRequest();
+        req.websiteUrl = null;
+        req.contactEmail = null;
+        req.registrationDeadline = null;
+        req.tags = new ArrayList<>();
+
+        assertTrue(validator.validate(req).isEmpty());
+    }
+
+    @Test
+    void registrationDeadlineInPast_noViolation() {
+        CreateEventRequest req = validRequest();
+        req.registrationDeadline = LocalDateTime.now().minusDays(10);
 
         assertTrue(validator.validate(req).isEmpty());
     }

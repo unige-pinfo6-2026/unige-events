@@ -122,6 +122,49 @@ class AttendanceResourceTest {
                 .statusCode(400);
     }
 
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void attend_registrationClosed_returns409() {
+        Event event = attendanceServiceMock.seedEvent("Closed Registration");
+        AttendanceServiceMock.forceRegistrationClosed = true;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"status\":\"ATTENDING\"}")
+                .when().post("/events/{id}/attend", event.id)
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("registration_closed"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void attend_capacityReached_returnsWaitlisted() {
+        Event event = attendanceServiceMock.seedEvent("Full Event Waitlist");
+        AttendanceServiceMock.returnWaitlisted = true;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"status\":\"ATTENDING\"}")
+                .when().post("/events/{id}/attend", event.id)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("WAITLISTED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void attend_withWaitlistedInBody_returns400() {
+        Event event = attendanceServiceMock.seedEvent("Waitlist Rejected");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"status\":\"WAITLISTED\"}")
+                .when().post("/events/{id}/attend", event.id)
+                .then()
+                .statusCode(400);
+    }
+
     // =========================================================
     // DELETE /events/{id}/attend
     // =========================================================

@@ -86,9 +86,15 @@ public class EventSearchService {
         List<Long> ids = events.stream().map(e -> e.id).toList();
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
                 ids, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.WAITLISTED, entityManager);
 
         return events.stream()
-                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
+                .map(e -> {
+                    long att = attendingCounts.getOrDefault(e.id, 0L);
+                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait);
+                })
                 .toList();
     }
 }
