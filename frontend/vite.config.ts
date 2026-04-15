@@ -30,6 +30,7 @@ export default defineConfig(() => {
     test: {
       setupFiles: ['src/__tests__/setup.ts'],
       testTimeout: 30000,
+      maxForks: 4,
       coverage: {
         provider: 'v8',
         reporter: ['text', 'lcov'],

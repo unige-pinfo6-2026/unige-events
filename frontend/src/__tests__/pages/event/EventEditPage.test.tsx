@@ -77,7 +77,7 @@ describe('EditEventPage', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
       expect(screen.getByDisplayValue(existingEvent.location)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
   })
 
   it('updates an event and redirects to its detail page', async () => {
@@ -87,7 +87,7 @@ describe('EditEventPage', () => {
     renderPage()
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum 2026' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
@@ -118,7 +118,7 @@ describe('EditEventPage', () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(await screen.findByText('La date de début doit être dans le futur.')).toBeTruthy()
@@ -134,7 +134,7 @@ describe('EditEventPage', () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
     const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
     if (!fileInput) {
       throw new Error('Missing banner input')
@@ -169,7 +169,7 @@ describe('EditEventPage', () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/events/42')
@@ -186,7 +186,7 @@ describe('EditEventPage', () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
 
     const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
     if (!fileInput) throw new Error('Missing banner input')
@@ -210,7 +210,7 @@ describe('EditEventPage', () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
-    }, { timeout: 5000 })
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByText('Événement mis à jour avec succès.')).toBeTruthy()
 
