@@ -252,6 +252,7 @@ Le thème est défini dans `src/index.css` via `@theme` (TailwindCSS v4). **Touj
 | `--color-foreground` | `text-foreground` (+ `/60`, `/40`…) | Texte (avec opacités) |
 | `--color-border` | `border-border` | Bordures standard |
 | `--color-error` | `text/bg/border-error` | Erreurs de validation, messages d'échec, champs invalides |
+| `--color-warning` | `text/bg/border-warning` | États d'avertissement non-bloquants (ex. badge "Brouillon" sur `EventCard`). Amber `rgb(245,158,11)`. |
 | `--color-overlay` | — | Fond semi-transparent pour modales |
 | `--font-primary` | `font-primary` | Police Inter |
 | `--height-navbar` | `h-navbar` | Hauteur de la navbar |

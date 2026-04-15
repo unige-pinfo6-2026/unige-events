@@ -100,6 +100,15 @@ Fonctionnalités livrées :
 - `LoadingSpinner` retiré des pages/composants couverts par un skeleton — conservé dans `PrivateRoute` et `LoadingPage`.
 - Règle établie : **tout futur composant ou page avec appel API doit générer son skeleton** (documenté dans `AGENTS.md` et `docs/dev-guide.md`).
 
+## Sprint 4 — Tag "Brouillon" amber sur `DraftResumeCard` (2026-04-14)
+
+Terminé le 2026-04-14.
+
+Mise en valeur du tag "Brouillon" affiché en haut à droite de chaque mini carte dans le panneau déplié de `DraftsResumeStrip` : le tag était jusque-là gris atténué (`text-foreground/40`), peu lisible.
+
+- **`DraftResumeCard.tsx`** : le tag "Brouillon" ligne 1 passe d'un simple `text-foreground/40` à une pill `bg-warning/20 text-warning border-warning/40` avec border et `px-2 py-0.5 rounded-full`, uppercase `text-[10px] font-bold tracking-widest`. L'icône `FilePen` reste à gauche du texte. Le texte affiché est inchangé, donc les tests existants qui cherchent `Brouillon` passent tels quels sans modification.
+- **Design token `--color-warning`** ajouté dans `index.css` (`rgb(245, 158, 11)` — amber). Expose les utilitaires Tailwind `bg-warning`, `text-warning`, `border-warning`. Ajouté à la table "Design tokens CSS" dans `AGENTS.md`. Premier cas d'usage : le tag "Brouillon". Réutilisable pour tout futur état d'avertissement non-bloquant. Choix d'implémentation conforme aux conventions AGENTS.md — aucune couleur Tailwind brute type `amber-400` n'est introduite.
+
 ## Sprint 4 — Refonte visuelle `DraftResumeCard` (2026-04-14)
 
 Terminé le 2026-04-14.

@@ -72,7 +72,7 @@ export default function DraftResumeCard({ draft, onOpen }: Readonly<DraftResumeC
       <div className="relative flex min-w-0 flex-1 flex-col justify-center gap-1 pl-4 pr-3">
         <div className="flex items-center gap-2 min-w-0">
           <p className={`${titleVariants[titleVariant]} flex-1 min-w-0`}>{title}</p>
-          <span className="flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
+          <span className="flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border bg-warning/20 text-warning border-warning/40">
             <FilePen className="w-3 h-3" aria-hidden />
             Brouillon
           </span>
