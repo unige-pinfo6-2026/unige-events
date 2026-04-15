@@ -111,11 +111,11 @@ describe('EventForm', () => {
       />,
     )
 
-    const checkbox = screen.getByLabelText(/Toute la journée/i) as HTMLInputElement
-    expect(checkbox.checked).toBe(false)
-    expect(screen.getByTestId('start-time-selectors').className).not.toContain('hidden')
+    const toggle = screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-100')
 
-    fireEvent.click(checkbox)
+    fireEvent.click(toggle)
     expect(onFieldChange).toHaveBeenCalledWith('allDay', true)
   })
 
@@ -136,9 +136,9 @@ describe('EventForm', () => {
       />,
     )
 
-    expect((screen.getByLabelText(/Toute la journée/i) as HTMLInputElement).checked).toBe(true)
-    expect(screen.getByTestId('start-time-selectors').className).toContain('hidden')
-    expect(screen.getByTestId('endDate-time-selectors').className).toContain('hidden')
+    expect((screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-0')
+    expect(screen.getByTestId('endDate-time-selectors').className).toContain('opacity-0')
   })
 
   it('combines date and time parts into datetime values', () => {
