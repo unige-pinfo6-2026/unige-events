@@ -31,13 +31,11 @@ export function computeStripLayout(availableWidth: number, totalDrafts: number):
   const labelReserved = showsLabel ? STRIP_LAYOUT.labelWidth + STRIP_LAYOUT.labelGap : 0
   const innerWidth = availableWidth - STRIP_LAYOUT.containerHorizontalPadding - labelReserved
 
-  const slotsWithoutButton = slotsFor(innerWidth)
-  if (totalDrafts <= slotsWithoutButton) {
-    return { displayCount: totalDrafts, showViewAll: false }
-  }
-
-  const innerWidthWithButton = innerWidth - STRIP_LAYOUT.viewAllButtonWidth - STRIP_LAYOUT.viewAllButtonGap
-  const slotsWithButton = Math.max(1, slotsFor(innerWidthWithButton))
-  const displayCount = Math.min(slotsWithButton, totalDrafts)
-  return { displayCount, showViewAll: displayCount < totalDrafts }
+  // Always display as many cards as naturally fit in the rail, regardless of whether
+  // the "Voir tout" button is going to be appended next to them. The button piggy-backs
+  // on the `overflow-x-auto` safety net of the rail on tight containers — it must never
+  // steal a slot that would otherwise show a card. Minimum 1 card to avoid an empty rail.
+  const naturalSlots = Math.max(1, slotsFor(innerWidth))
+  const displayCount = Math.min(naturalSlots, totalDrafts)
+  return { displayCount, showViewAll: totalDrafts > displayCount }
 }

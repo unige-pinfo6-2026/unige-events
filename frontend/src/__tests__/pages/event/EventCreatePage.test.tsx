@@ -54,6 +54,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.resetAllMocks()
   sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
+  sessionStorage.removeItem('unige:event-create-draft')
 })
 
 function renderPage() {
@@ -228,6 +229,16 @@ describe('CreateEventPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('clears the persisted create-form draft from sessionStorage when cancel is clicked', () => {
+    sessionStorage.setItem('unige:event-create-draft', JSON.stringify({ title: 'À effacer' }))
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(sessionStorage.getItem('unige:event-create-draft')).toBeNull()
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 

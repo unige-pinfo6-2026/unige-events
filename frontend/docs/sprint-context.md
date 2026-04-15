@@ -100,6 +100,44 @@ Fonctionnalités livrées :
 - `LoadingSpinner` retiré des pages/composants couverts par un skeleton — conservé dans `PrivateRoute` et `LoadingPage`.
 - Règle établie : **tout futur composant ou page avec appel API doit générer son skeleton** (documenté dans `AGENTS.md` et `docs/dev-guide.md`).
 
+## Sprint 4 — Persistance du form edit + fix layout bannière (2026-04-14)
+
+Terminé le 2026-04-14.
+
+Deux correctifs complémentaires au flux brouillons :
+
+**1. Extension de la persistance sessionStorage au flux edit** (en plus du flux create déjà en place).
+
+- `useEventForm.ts` : les helpers `readPersistedForm` / `writePersistedForm` / `clearPersistedForm` prennent maintenant une clé en paramètre. Nouvelle constante `EDIT_FORM_KEY_PREFIX = 'unige:event-edit-draft:'` pour dériver une clé par event id (`editFormKey(id)`).
+- Nouvelle fonction interne `currentPersistKey()` dans le hook qui retourne la bonne clé selon le mode (`DRAFT_FORM_KEY` en create, `editFormKey(initialEvent.id)` en edit, `null` si edit-mode avant que l'event async ne soit chargé).
+- Le `pendingPersistRef` stocke `{ key, values }` plutôt que `values` seul — garantit qu'un write debouncé armé sur une clé donnée ne peut jamais tirer sur une autre clé si le contexte change entre temps.
+- Le `useEffect([initialEvent, mode])` tente maintenant une restauration depuis `readPersistedForm(editFormKey(initialEvent.id))` en mode edit avant de tomber sur `toFormValues(initialEvent)`. L'ordre : sessionStorage d'abord, backend ensuite.
+- `EventEditPage.tsx` appelle `form.clearPersistedDraft()` sur le clic "Annuler" (mode edit publish, pas draft-edit qui n'a pas d'Annuler) et juste après une suppression réussie de brouillon dans `confirmDeleteDraft`.
+- 6 nouveaux tests dans un describe block dédié `sessionStorage persistence (edit mode, per-event key)` : hydratation depuis la clé per-event, fallback sur `initialEvent` si la clé est absente, isolation depuis la clé create, debounce sur la clé per-event, nettoyage après submission réussie, isolation entre deux event ids distincts.
+- Docs `components.md` section `useEventForm` mise à jour pour refléter les deux flux persistés.
+
+**2. Fix bug layout de la bannière brouillons** — le bouton "Voir tout" volait un slot de carte sur les containers moyens (~900-1024 px) avec 3+ brouillons, faisant passer l'affichage de 2 cartes à 1 carte + bouton.
+
+- `draftsResumeStripLayout.ts` : l'algorithme `computeStripLayout` ne réserve plus l'espace du bouton "Voir tout" avant de compter les slots. Il calcule `naturalSlots = slotsFor(innerWidth)` (sans retirer la largeur du bouton), affiche ce nombre de cartes, et ajoute le bouton en plus si `totalDrafts > displayCount`. Le rail dispose déjà d'un `overflow-x-auto` comme filet de sécurité pour les cas où le bouton débordefait vraiment.
+- Simplification visible : la branche "with button" a disparu, l'algorithme est maintenant en 2 returns (early exit + happy path) au lieu de 3.
+- Les 9 tests existants de `computeStripLayout` continuent de passer sans modification (vérifié mentalement sur tous les cas). **1 nouveau test régression** ajouté : `computeStripLayout(1024, 3)` doit retourner `{ displayCount: 2, showViewAll: true }` — le cas exact que le user a remonté.
+
+## Sprint 4 — Persistance du formulaire de création (sessionStorage) (2026-04-14)
+
+Terminé le 2026-04-14.
+
+Garde-fou anti-refresh accidentel sur `/events/new` : les saisies en cours ne sont plus perdues quand l'utilisateur rafraîchit la page, ferme/rouvre l'onglet par erreur, ou revient en arrière après un clic involontaire.
+
+- **`useEventForm.ts`** : ajout de 3 helpers internes `readPersistedForm` / `writePersistedForm` / `clearPersistedForm` qui sérialisent l'état `EventFormValues` sous la clé `unige:event-create-draft` dans `sessionStorage`. Toutes les opérations sont wrappées dans `try/catch` pour gérer proprement les environnements où `sessionStorage` est indisponible (mode privé, quota dépassé) — la corruption du JSON déclenche un `console.warn` + nettoyage silencieux.
+- **Hydratation au montage** (create mode uniquement) : l'initialisation de `useState<EventFormValues>` lit la clé `sessionStorage` via un `useState(() => …)` synchrone et merge avec `DEFAULT_VALUES` pour tolérer les évolutions futures du shape (nouveaux champs → valeurs par défaut). Le mode `edit` reste strictement piloté par `initialEvent`, `sessionStorage` n'est jamais lu côté edit.
+- **Persistance à la saisie** (create mode uniquement, **debouncée 300 ms**) : chaque appel à `setFieldValue` réarme un timer (`DRAFT_FORM_PERSIST_DEBOUNCE_MS`, aligné sur les 300 ms de `useEventSearch`) qui écrit dans `sessionStorage` après inactivité. Pattern explicitement demandé par le devops du projet ("même principe de debounce time"). Collapse les frappes rapides en une seule écriture. `schedulePersist` / `flushPersist` / `cancelPersist` encapsulés dans des refs internes (`persistTimerRef`, `pendingPersistRef`).
+- **Flush sur unmount** : le `useEffect` de cleanup (existant pour `revokeObjectURL`) flush la dernière valeur en attente si le composant est démonté pendant qu'un timer est en vol — garantie que les dernières lettres tapées survivent à un refresh accidentel même dans le timing le plus défavorable.
+- **Nettoyage automatique** : la clé est supprimée après chaque `submitForm('publish' | 'draft')` réussi en mode create (l'event est désormais en DB). Exposée aussi via une nouvelle méthode publique `clearPersistedDraft()` du hook, appelée par `EventCreatePage` dans l'handler `onCancel` juste avant le `navigate('/')`. La clé **n'est pas** nettoyée sur un démontage passif du composant (navigation interne sans submit / cancel) ni sur une soumission échouée — l'utilisateur retrouve ses saisies en revenant ou en retentant.
+- **Limitation assumée** : la bannière image n'est pas persistée (`File` non sérialisable, `blob:` URL morte au refresh). C'est la seule donnée non-recoverable sur refresh, documenté dans la doc `useEventForm`.
+- **Tests `useEventForm.test.tsx`** : nouveau describe block `sessionStorage persistence (create mode only)` — démarrage sur `DEFAULT_VALUES` clé absente, hydratation depuis un JSON persisté, **debounce vérifié via `vi.useFakeTimers()` + `vi.advanceTimersByTime(320)`** (pas d'écriture avant le fire du timer, collapse des frappes rapides en une seule écriture), flush sur unmount avec timer encore armé, nettoyage après submission réussie, isolation du mode `edit`, `clearPersistedDraft()` exposé. `sessionStorage.clear()` ajouté dans `afterEach`.
+- **Test `EventCreatePage.test.tsx`** : 1 nouveau cas vérifiant que cliquer sur "Annuler" après avoir pré-seedé la clé la supprime avant `navigate('/')`. `sessionStorage.removeItem` ajouté dans `afterEach`.
+- **Interaction avec le flow brouillons DB** : les deux systèmes de persistance sont orthogonaux. `sessionStorage` couvre l'état volatile pré-save (garde-fou anti-refresh), la DB couvre l'état de brouillon explicite (reprendre plus tard, multi-appareils). Un `triggerDraftSave` réussi nettoie la clé `sessionStorage` parce que l'état vit désormais en DB et apparaîtra dans le strip au prochain retour sur `/events/new`.
+
 ## Sprint 4 — Tag "Brouillon" amber sur `DraftResumeCard` (2026-04-14)
 
 Terminé le 2026-04-14.

@@ -4,6 +4,8 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FormEvent } from 'react'
 import {
+  DRAFT_FORM_KEY,
+  EDIT_FORM_KEY_PREFIX,
   EVENT_DESCRIPTION_MAX_LENGTH,
   EVENT_TITLE_MAX_LENGTH,
   IMAGE_MAX_SIZE_BYTES,
@@ -48,6 +50,7 @@ function submitEvent() {
 afterEach(() => {
   vi.useRealTimers()
   vi.resetAllMocks()
+  sessionStorage.clear()
 })
 
 describe('useEventForm', () => {
@@ -533,5 +536,197 @@ describe('useEventForm', () => {
     }))
     expect(mockUploadEventImage).toHaveBeenCalledWith(42, expect.any(File))
     expect(onSuccess).toHaveBeenCalledWith(uploadedEvent)
+  })
+
+  describe('sessionStorage persistence (create mode only)', () => {
+    it('starts with DEFAULT_VALUES when sessionStorage is empty on mount', () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.title).toBe('')
+      expect(result.current.values.location).toBe('')
+      expect(result.current.values.category).toBe('')
+    })
+
+    it('hydrates from sessionStorage when a valid JSON is persisted', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({
+        title: 'Forum persisté',
+        location: 'Uni Dufour',
+        startDate: '2099-04-10T10:00',
+        endDate: '2099-04-10T12:00',
+        category: 'SOCIAL',
+        capacity: '50',
+        status: 'PUBLISHED',
+        description: 'Hydraté depuis sessionStorage',
+      }))
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.title).toBe('Forum persisté')
+      expect(result.current.values.location).toBe('Uni Dufour')
+      expect(result.current.values.category).toBe('SOCIAL')
+      expect(result.current.values.description).toBe('Hydraté depuis sessionStorage')
+    })
+
+    it('debounces writes to sessionStorage in create mode (no write before the timer fires)', () => {
+      vi.useFakeTimers()
+      try {
+        const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+        act(() => {
+          result.current.setFieldValue('title', 'Nouveau titre')
+        })
+        // Before the debounce timer fires, nothing is persisted yet.
+        expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+        act(() => { vi.advanceTimersByTime(320) })
+        const raw = sessionStorage.getItem(DRAFT_FORM_KEY)
+        expect(raw).not.toBeNull()
+        const parsed = JSON.parse(raw!) as { title?: string }
+        expect(parsed.title).toBe('Nouveau titre')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('collapses rapid setFieldValue calls into a single debounced write', () => {
+      vi.useFakeTimers()
+      try {
+        const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+        act(() => {
+          result.current.setFieldValue('title', 'A')
+          result.current.setFieldValue('title', 'AB')
+          result.current.setFieldValue('title', 'ABC')
+        })
+        expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+        act(() => { vi.advanceTimersByTime(320) })
+        const parsed = JSON.parse(sessionStorage.getItem(DRAFT_FORM_KEY)!) as { title?: string }
+        expect(parsed.title).toBe('ABC')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('flushes pending debounced write on unmount so refresh keeps the last keystrokes', () => {
+      vi.useFakeTimers()
+      try {
+        const { result, unmount } = renderHook(() => useEventForm({ mode: 'create' }))
+        act(() => {
+          result.current.setFieldValue('title', 'Almost saved')
+        })
+        // Do NOT advance timers — simulate an immediate refresh (unmount) while the
+        // debounce timer is still armed.
+        expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+        unmount()
+        const parsed = JSON.parse(sessionStorage.getItem(DRAFT_FORM_KEY)!) as { title?: string }
+        expect(parsed.title).toBe('Almost saved')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('clears sessionStorage after a successful create submission', async () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Sera publié' }))
+      mockCreateEvent.mockResolvedValue({ ...baseEvent, status: 'PUBLISHED' })
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => {
+        result.current.setFieldValue('title', 'Forum')
+        result.current.setFieldValue('location', 'Uni Dufour')
+        result.current.setFieldValue('startDate', '2099-04-10T10:00')
+        result.current.setFieldValue('endDate', '2099-04-10T12:00')
+        result.current.setFieldValue('category', 'SOCIAL')
+      })
+      await act(async () => {
+        await result.current.handleSubmit(submitEvent())
+      })
+      expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+    })
+
+    it('does not read from sessionStorage in edit mode', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Leak' }))
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      expect(result.current.values.title).toBe(baseEvent.title)
+      expect(result.current.values.title).not.toBe('Leak')
+    })
+
+    it('exposes clearPersistedDraft that wipes the key on demand', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'À effacer' }))
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => { result.current.clearPersistedDraft() })
+      expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+    })
+  })
+
+  describe('sessionStorage persistence (edit mode, per-event key)', () => {
+    const editKey = `${EDIT_FORM_KEY_PREFIX}${baseEvent.id}`
+
+    it('hydrates from the per-event key when a persisted form exists for this event', async () => {
+      sessionStorage.setItem(editKey, JSON.stringify({
+        title: 'Unsaved title',
+        location: 'Unsaved location',
+        startDate: '2099-04-10T10:00',
+        endDate: '2099-04-10T12:00',
+        category: 'SOCIAL',
+        capacity: '30',
+        status: 'PUBLISHED',
+        description: 'Draft recovered from sessionStorage',
+      }))
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      await waitFor(() => expect(result.current.values.title).toBe('Unsaved title'))
+      expect(result.current.values.location).toBe('Unsaved location')
+      expect(result.current.values.description).toBe('Draft recovered from sessionStorage')
+    })
+
+    it('falls back to initialEvent when the per-event key is absent', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      await waitFor(() => expect(result.current.values.title).toBe(baseEvent.title))
+      expect(result.current.values.location).toBe(baseEvent.location)
+    })
+
+    it('does not hydrate from the create key when in edit mode', async () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Create leak' }))
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      await waitFor(() => expect(result.current.values.title).toBe(baseEvent.title))
+    })
+
+    it('debounces writes to the per-event key after setFieldValue', () => {
+      vi.useFakeTimers()
+      try {
+        const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+        act(() => { result.current.setFieldValue('title', 'Edited title') })
+        expect(sessionStorage.getItem(editKey)).toBeNull()
+        act(() => { vi.advanceTimersByTime(320) })
+        const parsed = JSON.parse(sessionStorage.getItem(editKey)!) as { title?: string }
+        expect(parsed.title).toBe('Edited title')
+        // Must NOT touch the create key from edit mode.
+        expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('clears the per-event key after a successful edit submission', async () => {
+      sessionStorage.setItem(editKey, JSON.stringify({
+        title: 'Will be cleared',
+        location: baseEvent.location,
+        startDate: '2099-04-10T08:00',
+        endDate: '2099-04-10T10:00',
+        category: baseEvent.category,
+        capacity: '120',
+        status: baseEvent.status,
+      }))
+      mockUpdateEvent.mockResolvedValue({ ...baseEvent, title: 'Updated' })
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      // Hydration from sessionStorage runs in the useEffect, wait for it to land.
+      await waitFor(() => expect(result.current.values.title).toBe('Will be cleared'))
+      await act(async () => {
+        await result.current.handleSubmit(submitEvent())
+      })
+      expect(sessionStorage.getItem(editKey)).toBeNull()
+    })
+
+    it('isolates per-event keys — two different events do not collide', () => {
+      const otherEvent = { ...baseEvent, id: 99 }
+      sessionStorage.setItem(`${EDIT_FORM_KEY_PREFIX}99`, JSON.stringify({ title: 'Other event' }))
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+      // Hydration uses the key for baseEvent.id (42), not the one for event 99.
+      expect(result.current.values.title).toBe(baseEvent.title)
+      expect(result.current.values.title).not.toBe('Other event')
+      void otherEvent
+    })
   })
 })

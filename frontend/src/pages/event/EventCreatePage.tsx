@@ -47,7 +47,10 @@ export default function EventCreatePage() {
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
         onSubmit={form.handleSubmit}
-        onCancel={() => navigate('/')}
+        onCancel={() => {
+          form.clearPersistedDraft()
+          navigate('/')
+        }}
         onSaveDraft={form.triggerDraftSave}
       />
     </SectionWrapper>

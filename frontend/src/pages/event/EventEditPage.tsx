@@ -132,6 +132,7 @@ export default function EventEditPage() {
     setDeleting(true)
     try {
       await deleteEvent(eventId)
+      form.clearPersistedDraft()
       showToast('success', 'Brouillon supprimé.')
       navigate('/')
     } catch {
@@ -190,7 +191,10 @@ export default function EventEditPage() {
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
         onSubmit={draftMode ? handleDraftEditSubmit : form.handleSubmit}
-        onCancel={draftMode ? undefined : () => navigate(`/events/${event.id}`)}
+        onCancel={draftMode ? undefined : () => {
+          form.clearPersistedDraft()
+          navigate(`/events/${event.id}`)
+        }}
         onSaveDraft={draftMode ? form.triggerDraftSave : undefined}
         saveDraftLabel={draftMode ? 'Enregistrer' : undefined}
         onDelete={draftMode ? () => setShowDeleteConfirm(true) : undefined}

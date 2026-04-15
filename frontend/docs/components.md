@@ -271,6 +271,20 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - **Deux flags d'état séparés** : `submitting: boolean` (vrai pendant `handleSubmit` / `triggerPublish` — le flux "publiant") et `draftSaving: boolean` (vrai pendant `triggerDraftSave`). Cette séparation permet à `EventForm` de ne pas basculer le bouton principal en "Enregistrement..." quand l'utilisateur clique sur le bouton secondaire de sauvegarde brouillon — sinon on laissait croire à une publication en cours. Les deux flags sont mutuellement exclusifs : un appel entrant est ignoré si l'un des deux est déjà à `true` (garde-fou anti-double-clic).
 - Expose `triggerDraftSave()` : force `status = 'DRAFT'` via un `useRef` interne avant d'appeler `submitForm()`, indépendamment du statut sélectionné dans l'UI.
 - Après upload de bannière, réutilise l'événement retourné par l'API.
+- **Persistance `sessionStorage` des deux flux (create ET edit)** : les valeurs du formulaire sont automatiquement sauvegardées et restaurées au remount. Garde-fou anti-refresh transparent pour l'utilisateur, scopé à l'onglet du navigateur.
+  - **Clés distinctes** pour isoler les flux :
+    - **Create mode** : clé unique `unige:event-create-draft` (`DRAFT_FORM_KEY`), lue synchroniquement dans le `useState` initializer.
+    - **Edit mode** : clé par event `unige:event-edit-draft:{id}` (`${EDIT_FORM_KEY_PREFIX}${event.id}`), lue dans le `useEffect` qui dépend de `[initialEvent, mode]` — parce que l'id n'est connu qu'après le chargement async via `getById`. Deux events édités successivement (ou dans plusieurs onglets) ne se marchent pas dessus.
+  - **Debounce 300 ms** (`DRAFT_FORM_PERSIST_DEBOUNCE_MS`, aligné sur `useEventSearch`) : chaque `setFieldValue` réarme un timer qui écrit dans `sessionStorage` après 300 ms d'inactivité. Les frappes rapides sont collapsées en une seule écriture, zéro spam du storage. Pattern demandé explicitement par le devops.
+  - **Pending write typé avec sa clé** : le ref `pendingPersistRef` stocke `{ key, values }` et non juste `values`, pour qu'une écriture armée sur la clé d'un event donné ne puisse jamais fire sur une autre clé si le contexte change entre temps.
+  - **Flush sur unmount** : si le composant est démonté pendant qu'un timer est en vol (ex. refresh accidentel au milieu d'une frappe), l'`useEffect` de cleanup flush la dernière valeur en attente dans `sessionStorage` avant disparition. Garantie que les dernières lettres tapées ne sont pas perdues même dans le pire timing.
+  - **Cancel + clear** après soumission réussie (publish / save draft / delete) et via la méthode publique `clearPersistedDraft()` exposée par le hook. Appelée par :
+    - `CreateEventPage` sur le clic "Annuler"
+    - `EventEditPage` sur le clic "Annuler" (mode edit publish)
+    - `EventEditPage` après une suppression réussie de brouillon
+    Le cancel tue d'abord le timer pending avant le `removeItem` pour éviter qu'une écriture en vol ne ressuscite la clé juste après le nettoyage.
+  - **La bannière image n'est pas persistée** (`File` non sérialisable, `blob:` URL volatile) — seule donnée non-recoverable sur refresh, compromis assumé.
+  - Les erreurs `sessionStorage` (mode privé, quota dépassé) sont silencieusement ignorées, le form reste fonctionnel en pur état React.
 
 ### useFavorite
 
