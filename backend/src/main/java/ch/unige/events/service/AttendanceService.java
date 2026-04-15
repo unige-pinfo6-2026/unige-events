@@ -38,10 +38,15 @@ public class AttendanceService {
             throw new BadRequestException("Only ATTENDING is accepted as a request status");
         }
 
-        Event event = Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(() -> new NotFoundException("Event not found"));
+        // Verrou pessimiste pris tôt et systématiquement : sérialise les attends/removes
+        // concurrents sur le même event et supprime la race sur l'unique constraint
+        // (userId, eventId). La pré-existence, le count capacité et l'insertion vivent
+        // tous sous ce verrou.
+        Event event = entityManager.find(Event.class, eventId, LockModeType.PESSIMISTIC_WRITE);
+        if (event == null) {
+            throw new NotFoundException("Event not found");
+        }
 
-        // Vérification statut — uniquement les events PUBLISHED
         if (event.status != EventStatus.PUBLISHED) {
             throw new BadRequestException("Cannot attend a non-published event");
         }
@@ -60,7 +65,7 @@ public class AttendanceService {
 
         UUID userId = resolveUserId(auth0Id);
 
-        // Idempotence : si déjà inscrit (ATTENDING ou WAITLISTED), renvoyer tel quel
+        // Idempotence sous verrou : si déjà inscrit (ATTENDING ou WAITLISTED), renvoyer tel quel
         Attendance existing = Attendance.<Attendance>find(
                 "userId = ?1 and eventId = ?2", userId, eventId)
                 .firstResultOptional()
@@ -69,19 +74,14 @@ public class AttendanceService {
             return AttendanceDTO.from(existing);
         }
 
-        // Détermination du statut effectif (ATTENDING ou WAITLISTED) sous verrou
+        // Détermination du statut effectif (ATTENDING ou WAITLISTED)
         AttendanceStatus effective;
         if (event.capacity == null) {
             effective = AttendanceStatus.ATTENDING;
         } else {
-            // Verrou pessimiste sur l'Event pour sérialiser les inscriptions concurrentes
-            Event locked = entityManager.find(Event.class, eventId, LockModeType.PESSIMISTIC_WRITE);
-            if (locked == null) {
-                throw new NotFoundException("Event not found");
-            }
             long currentAttending = Attendance.count(
                     "eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
-            effective = (currentAttending < locked.capacity)
+            effective = (currentAttending < event.capacity)
                     ? AttendanceStatus.ATTENDING
                     : AttendanceStatus.WAITLISTED;
         }
@@ -105,15 +105,19 @@ public class AttendanceService {
                 .orElseThrow(() -> new NotFoundException("Attendance not found"));
 
         AttendanceStatus removed = attendance.status;
+
+        // Verrou pessimiste pris AVANT le delete : sérialise avec les attends concurrents
+        // et garantit que la décision de promotion voit un état cohérent du compteur.
+        Event event = entityManager.find(Event.class, eventId, LockModeType.PESSIMISTIC_WRITE);
+
         attendance.delete();
 
-        // Promotion uniquement si on libère un slot ATTENDING
-        if (removed != AttendanceStatus.ATTENDING) {
-            return;
-        }
-
-        Event event = entityManager.find(Event.class, eventId, LockModeType.PESSIMISTIC_WRITE);
-        if (event == null || event.capacity == null || event.status == EventStatus.CANCELLED) {
+        // Promotion uniquement si on libère un slot ATTENDING, sur un event avec capacité,
+        // qui n'est pas annulé.
+        if (removed != AttendanceStatus.ATTENDING
+                || event == null
+                || event.capacity == null
+                || event.status == EventStatus.CANCELLED) {
             return;
         }
 

@@ -468,9 +468,6 @@ export default function EventForm({
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}
-
-      
-
     </form>
   )
 }

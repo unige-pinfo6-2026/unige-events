@@ -194,7 +194,7 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
           )}
           <div className="flex items-center gap-2 text-xs text-foreground/55">
             <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
-            <span className="truncate">{formatEventDateTimeCompact(event.startDate)}</span>
+            <span className="truncate">{formatEventDateTimeCompact(event.startDate, event.allDay)}</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-foreground/55">
             <Users className="size-3.5 shrink-0" style={{ color: category.color }} />

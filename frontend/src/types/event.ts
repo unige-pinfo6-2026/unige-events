@@ -13,7 +13,7 @@ export type Event = {
   creatorId: string
   status: EventStatus
   capacity?: number
-  allDay?: boolean
+  allDay: boolean
   attendingCount: number
   createdAt: string
   updatedAt?: string
