@@ -13,7 +13,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, publishEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { createEvent, deleteEvent, getAll, getById, getMyEvents, publishEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -138,5 +138,32 @@ describe('eventApi', () => {
 
     expect(mockApiPatch).toHaveBeenCalledWith('/events/42/publish')
     expect(response).toEqual(publishedEvent)
+  })
+
+  it('getMyEvents calls /users/me/events with status param', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+    const response = await getMyEvents({ status: 'DRAFT' })
+
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', { params: { status: 'DRAFT' } })
+    expect(response).toEqual([sampleEvent])
+  })
+
+  it('getMyEvents calls /users/me/events with empty params by default', async () => {
+    mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+
+    await getMyEvents()
+
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', { params: {} })
+  })
+
+  it('getMyEvents returns the response data', async () => {
+    const events = [sampleEvent, { ...sampleEvent, id: 43, title: 'Other' }]
+    mockApiGet.mockResolvedValue({ data: events } as Awaited<ReturnType<typeof api.get>>)
+
+    const response = await getMyEvents({ page: 0, size: 50 })
+
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', { params: { page: 0, size: 50 } })
+    expect(response).toEqual(events)
   })
 })

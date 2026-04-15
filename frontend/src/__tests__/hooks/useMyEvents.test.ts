@@ -6,16 +6,16 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { useMyEvents } from '@/hooks/useMyEvents'
 
 vi.mock('@/services/eventApi', () => ({
-  getAll: vi.fn(),
+  getMyEvents: vi.fn(),
   publishEvent: vi.fn(),
   deleteEvent: vi.fn(),
   cancelEvent: vi.fn(),
   restoreEvent: vi.fn(),
 }))
 
-import { getAll, publishEvent, deleteEvent, cancelEvent, restoreEvent } from '@/services/eventApi'
+import { getMyEvents, publishEvent, deleteEvent, cancelEvent, restoreEvent } from '@/services/eventApi'
 
-const mockGetAll = getAll as ReturnType<typeof vi.fn>
+const mockGetMyEvents = getMyEvents as ReturnType<typeof vi.fn>
 const mockPublishEvent = publishEvent as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
@@ -27,6 +27,7 @@ const makeMockEvent = (id: number, startDate: string) => ({
   location: 'Location',
   startDate,
   endDate: '2026-04-10T17:00:00',
+  allDay: false,
   category: 'CONFERENCE' as const,
   faculty: null,
   status: 'PUBLISHED' as const,
@@ -41,50 +42,65 @@ const makeMockEvent = (id: number, startDate: string) => ({
 afterEach(() => vi.resetAllMocks())
 
 describe('useMyEvents', () => {
-  it('fetches events when organizerId is provided', async () => {
-    mockGetAll.mockResolvedValue([
+  it('fetches events on mount with the status param', async () => {
+    mockGetMyEvents.mockResolvedValue([
       makeMockEvent(1, '2026-04-10T14:00:00'),
       makeMockEvent(2, '2026-04-11T14:00:00'),
     ])
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(result.current.events).toHaveLength(2)
     expect(result.current.error).toBeNull()
-    expect(mockGetAll).toHaveBeenCalledWith({
-      organizerId: 'org-1',
+    expect(mockGetMyEvents).toHaveBeenCalledWith({
       status: 'PUBLISHED',
       size: 100,
     })
   })
 
-  it('sorts events by startDate descending', async () => {
-    mockGetAll.mockResolvedValue([
-      makeMockEvent(1, '2026-04-10T14:00:00'),
-      makeMockEvent(2, '2026-04-11T14:00:00'),
+  it('does not sort events on the client — trusts server-side createdAt DESC ordering', async () => {
+    const serverOrder = [
       makeMockEvent(3, '2026-04-09T14:00:00'),
-    ])
+      makeMockEvent(1, '2026-04-11T14:00:00'),
+      makeMockEvent(2, '2026-04-10T14:00:00'),
+    ]
+    mockGetMyEvents.mockResolvedValue(serverOrder)
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(result.current.events[0].id).toBe(2) // latest
-    expect(result.current.events[1].id).toBe(1)
-    expect(result.current.events[2].id).toBe(3) // earliest
+    expect(result.current.events.map(e => e.id)).toEqual([3, 1, 2])
   })
 
-  it('returns empty array and clears error when organizerId is null', async () => {
-    const { result } = renderHook(() => useMyEvents(null, 'PUBLISHED'))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+  it('never passes organizerId in the request', async () => {
+    mockGetMyEvents.mockResolvedValue([])
 
-    expect(result.current.events).toEqual([])
-    expect(result.current.error).toBeNull()
+    renderHook(() => useMyEvents('DRAFT'))
+    await waitFor(() => expect(mockGetMyEvents).toHaveBeenCalled())
+
+    const callArg = mockGetMyEvents.mock.calls[0][0] ?? {}
+    expect(callArg).not.toHaveProperty('organizerId')
+  })
+
+  it('re-fetches when the status changes', async () => {
+    mockGetMyEvents.mockResolvedValue([])
+
+    const { rerender } = renderHook(
+      ({ status }: { status: 'DRAFT' | 'PUBLISHED' }) => useMyEvents(status),
+      { initialProps: { status: 'DRAFT' } },
+    )
+    await waitFor(() => expect(mockGetMyEvents).toHaveBeenCalledTimes(1))
+    expect(mockGetMyEvents).toHaveBeenLastCalledWith({ status: 'DRAFT', size: 100 })
+
+    rerender({ status: 'PUBLISHED' })
+    await waitFor(() => expect(mockGetMyEvents).toHaveBeenCalledTimes(2))
+    expect(mockGetMyEvents).toHaveBeenLastCalledWith({ status: 'PUBLISHED', size: 100 })
   })
 
   it('sets error message when fetch fails', async () => {
-    mockGetAll.mockRejectedValue(new Error('Network error'))
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    mockGetMyEvents.mockRejectedValue(new Error('Network error'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(result.current.error).toBe('Impossible de charger vos événements.')
@@ -93,10 +109,10 @@ describe('useMyEvents', () => {
 
   it('publish() calls publishEvent and removes event from list', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     mockPublishEvent.mockResolvedValue({})
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'DRAFT'))
+    const { result } = renderHook(() => useMyEvents('DRAFT'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 
@@ -112,10 +128,10 @@ describe('useMyEvents', () => {
 
   it('cancel() calls cancelEvent and removes event from list', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     mockCancelEvent.mockResolvedValue({})
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 
@@ -131,10 +147,10 @@ describe('useMyEvents', () => {
 
   it('restore() calls restoreEvent and removes event from list', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     mockRestoreEvent.mockResolvedValue({})
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    const { result } = renderHook(() => useMyEvents('CANCELLED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let ok: boolean | undefined
@@ -146,10 +162,10 @@ describe('useMyEvents', () => {
   })
 
   it('restore() returns false when restoreEvent fails', async () => {
-    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockGetMyEvents.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
     mockRestoreEvent.mockRejectedValue(new Error('API'))
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    const { result } = renderHook(() => useMyEvents('CANCELLED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let ok: boolean | undefined
@@ -160,10 +176,10 @@ describe('useMyEvents', () => {
   })
 
   it('permanentlyDelete() calls deleteEvent and removes event from list', async () => {
-    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockGetMyEvents.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
     mockDeleteEvent.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    const { result } = renderHook(() => useMyEvents('CANCELLED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let ok: boolean | undefined
@@ -175,10 +191,10 @@ describe('useMyEvents', () => {
   })
 
   it('permanentlyDelete() returns false when deleteEvent fails', async () => {
-    mockGetAll.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
+    mockGetMyEvents.mockResolvedValue([makeMockEvent(42, '2026-04-10T14:00:00')])
     mockDeleteEvent.mockRejectedValue(new Error('API'))
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'CANCELLED'))
+    const { result } = renderHook(() => useMyEvents('CANCELLED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let ok: boolean | undefined
@@ -189,25 +205,25 @@ describe('useMyEvents', () => {
   })
 
   it('refresh() re-fetches events', async () => {
-    mockGetAll.mockResolvedValue([makeMockEvent(1, '2026-04-10T14:00:00')])
+    mockGetMyEvents.mockResolvedValue([makeMockEvent(1, '2026-04-10T14:00:00')])
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(mockGetAll).toHaveBeenCalledTimes(1)
+    expect(mockGetMyEvents).toHaveBeenCalledTimes(1)
 
     act(() => {
       result.current.refresh()
     })
 
-    await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(mockGetMyEvents).toHaveBeenCalledTimes(2))
   })
 
   it('publish() returns ok:false with empty errors for non-axios failure', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     mockPublishEvent.mockRejectedValue(new Error('API error'))
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'DRAFT'))
+    const { result } = renderHook(() => useMyEvents('DRAFT'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 
@@ -223,14 +239,14 @@ describe('useMyEvents', () => {
 
   it('publish() extracts validation errors from axios 422 response', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     const axiosError = Object.assign(new Error('Request failed'), {
       isAxiosError: true,
       response: { status: 422, data: { error: 'validation_failed', errors: ['Err A', 'Err B'] } },
     })
     mockPublishEvent.mockRejectedValue(axiosError)
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'DRAFT'))
+    const { result } = renderHook(() => useMyEvents('DRAFT'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     let publishResult: { ok: boolean; errors?: string[] } | undefined
@@ -244,10 +260,10 @@ describe('useMyEvents', () => {
 
   it('cancel() returns false when cancelEvent fails', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
-    mockGetAll.mockResolvedValue([event])
+    mockGetMyEvents.mockResolvedValue([event])
     mockCancelEvent.mockRejectedValue(new Error('API error'))
 
-    const { result } = renderHook(() => useMyEvents('org-1', 'PUBLISHED'))
+    const { result } = renderHook(() => useMyEvents('PUBLISHED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 

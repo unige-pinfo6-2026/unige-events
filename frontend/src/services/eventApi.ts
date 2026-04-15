@@ -18,6 +18,17 @@ export async function getAll(params: EventsParams = {}): Promise<Event[]> {
   return response.data
 }
 
+export interface MyEventsParams {
+  status?: EventStatus
+  page?: number
+  size?: number
+}
+
+export async function getMyEvents(params: MyEventsParams = {}): Promise<Event[]> {
+  const response = await api.get<Event[]>('/users/me/events', { params })
+  return response.data
+}
+
 export async function getById(id: number): Promise<Event> {
   const response = await api.get<Event>('/events/' + id)
   return response.data
