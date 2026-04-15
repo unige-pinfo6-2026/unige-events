@@ -336,4 +336,34 @@ describe('ProfileEditPage', () => {
     fireEvent.click(screen.getByText('Supprimer la bannière'))
     await waitFor(() => expect(screen.queryByText('Supprimer la bannière')).toBeNull())
   })
+
+  it('does nothing when photo input receives no file', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#photo-input')!
+    fireEvent.change(input, { target: { files: [] } })
+    expect(screen.queryByText('Le fichier doit être une image.')).toBeNull()
+  })
+
+  it('does nothing when banner input receives no file', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+    fireEvent.change(input, { target: { files: [] } })
+    expect(screen.queryByText('Le fichier doit être une image.')).toBeNull()
+  })
+
+  it('uses empty fallbacks when user fields are undefined', async () => {
+    const sparseUser = {
+      id: '123', auth0Id: 'auth0|123', email: 'test@example.com',
+      displayName: undefined, bio: undefined, interests: undefined,
+      profilePublic: undefined, createdAt: '2024-01-01',
+    }
+    mockUseAuth.mockReturnValue({ user: sparseUser as never })
+    renderProfileEditPage()
+    const nameInput = await screen.findByPlaceholderText('Votre nom complet')
+    expect((nameInput as HTMLInputElement).value).toBe('')
+  })
 })

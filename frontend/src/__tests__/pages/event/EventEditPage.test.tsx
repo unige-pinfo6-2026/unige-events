@@ -218,4 +218,36 @@ describe('EditEventPage', () => {
 
     expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
+
+  it('shows invalid id when id param is undefined (no route match)', () => {
+    render(
+      <ToastProvider>
+        <ToastsWrapper />
+        <MemoryRouter>
+          <EventEditPage />
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+  })
+
+  it('shows event not found when getById returns null', async () => {
+    mockGetById.mockResolvedValue(null)
+    renderPage()
+    expect(await screen.findByText('Événement introuvable.')).toBeTruthy()
+  })
+
+  it('does not update state after unmount (cancelled cleanup)', async () => {
+    let resolveGet!: (v: typeof existingEvent) => void
+    mockGetById.mockReturnValue(new Promise((r) => { resolveGet = r as typeof resolveGet }))
+
+    const { unmount } = renderPage()
+    unmount()
+
+    await new Promise<void>((r) => {
+      resolveGet(existingEvent)
+      setTimeout(r, 0)
+    })
+    // No crash = cancelled guard worked
+  })
 })

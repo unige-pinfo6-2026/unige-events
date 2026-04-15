@@ -21,6 +21,10 @@ describe('dateTime utils', () => {
     expect(toLocalDateTimeInputValue('2026-04-10T18:45:30Z')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
   })
 
+  it('returns empty string for an invalid date', () => {
+    expect(toLocalDateTimeInputValue('not-a-date')).toBe('')
+  })
+
   it('formats long and compact event dates', () => {
     const full = formatEventDateTime('2026-04-10T18:45:00Z')
     const compact = formatEventDateTimeCompact('2026-04-10T18:45:00Z')

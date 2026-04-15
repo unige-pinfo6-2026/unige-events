@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { deleteBanner, getMe, getUserById, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
+import { deleteBanner, getCalendarToken, getMe, getUserById, regenerateCalendarToken, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
 
 vi.mock('@/services/api', () => ({
   default: {
@@ -86,6 +86,26 @@ describe('userService', () => {
       const result = await deleteBanner()
       expect(result).toEqual(user)
       expect(mockApiDelete).toHaveBeenCalledWith('/users/me/banner')
+    })
+  })
+
+  describe('getCalendarToken', () => {
+    it('returns calendar token from GET /users/me/calendar-token', async () => {
+      const token = { calendarToken: 'tok', webcalUrl: 'webcal://x', httpsUrl: 'https://x' }
+      mockApiGet.mockResolvedValue({ data: token })
+      const result = await getCalendarToken()
+      expect(result).toEqual(token)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/calendar-token')
+    })
+  })
+
+  describe('regenerateCalendarToken', () => {
+    it('returns new token from POST /users/me/calendar-token/regenerate', async () => {
+      const token = { calendarToken: 'new', webcalUrl: 'webcal://y', httpsUrl: 'https://y' }
+      mockApiPost.mockResolvedValue({ data: token })
+      const result = await regenerateCalendarToken()
+      expect(result).toEqual(token)
+      expect(mockApiPost).toHaveBeenCalledWith('/users/me/calendar-token/regenerate')
     })
   })
 })

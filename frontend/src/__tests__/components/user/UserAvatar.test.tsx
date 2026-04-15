@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 
@@ -62,5 +62,13 @@ describe('UserAvatar', () => {
   it('applies custom className', () => {
     const { container } = render(<UserAvatar user={baseUser} className="extra-class" />)
     expect(container.querySelector('div')?.className).toContain('extra-class')
+  })
+
+  it('falls back to initials when the image fails to load', () => {
+    const user = { ...baseUser, avatarUrl: 'https://example.com/avatar.jpg' }
+    render(<UserAvatar user={user} />)
+    const img = screen.getByAltText('Alice Martin') as HTMLImageElement
+    fireEvent.error(img)
+    expect(screen.getByText('AM')).toBeTruthy()
   })
 })

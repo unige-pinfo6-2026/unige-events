@@ -59,4 +59,19 @@ describe('UserIdentity', () => {
     const img = screen.getByAltText('Bob Dupont') as HTMLImageElement
     expect(img.src).toContain('example.com/avatar.jpg')
   })
+
+  it('renders nothing when user is null and not loading', () => {
+    const { container } = renderUserIdentity({ user: null })
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders skeleton when loading', () => {
+    const { container } = renderUserIdentity({ user: null, loading: true })
+    expect(container.firstChild).toBeTruthy()
+  })
+
+  it('renders username in card variant', () => {
+    renderUserIdentity({ user: { ...user, username: 'bobdup' }, variant: 'card' })
+    expect(screen.getByText('@bobdup')).toBeTruthy()
+  })
 })
