@@ -19,6 +19,7 @@ export function useMyEvents(organizerId: string | null, status: EventStatus): Us
   const fetch = useCallback(async () => {
     if (!organizerId) {
       setEvents([])
+      setError(null)
       setLoading(false)
       return
     }

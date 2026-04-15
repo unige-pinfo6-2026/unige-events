@@ -32,8 +32,10 @@ export default function MyParticipationsPage() {
       {!loading && !error && events.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
           <Calendar className="w-16 h-16 text-foreground/20" />
-          <p className="text-foreground/50 text-lg font-medium">Vous ne participez à aucun événement</p>
-          <p className="text-foreground/35 text-sm">Inscrivez-vous à un événement pour le retrouver ici.</p>
+          <p className="text-foreground/50 text-lg font-medium">Vos participations ne sont pas encore disponibles</p>
+          <p className="text-foreground/35 text-sm">
+            Cette fonctionnalité sera bientôt disponible.
+          </p>
         </div>
       )}
       {!loading && !error && events.length > 0 && (

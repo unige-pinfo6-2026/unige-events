@@ -251,7 +251,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
-| `my-events` | `my-events.bones.json` | `MyEventsPage` | manuel |
+| `my-events` | `my-events.bones.json` | `MyFavoritesPage, MyParticipationsPage, MyPublicationsPage` | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 

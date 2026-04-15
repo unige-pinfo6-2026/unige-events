@@ -11,7 +11,6 @@ import { ButtonPrimary } from '@/components/utils/Buttons'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
-import type { Faculty } from '@/types/faculty'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import { EventGridFixture } from './shared'
@@ -151,7 +150,13 @@ function PublicationCard({ event, publishing, onPublish, onCancel }: Readonly<Pu
             {EVENT_STATUSES[event.status].name}
           </span>
         </div>
-        <FacultyBadge id={event.faculty as Faculty} />
+        {event.faculty ? (
+          <FacultyBadge id={event.faculty} />
+        ) : (
+          <span className="inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-foreground/10 text-foreground/70">
+            Toutes facultés
+          </span>
+        )}
         <div className="flex items-center gap-2 text-xs text-foreground/55">
           <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
           <span className="truncate">{formatEventDateTimeCompact(event.startDate)}</span>

@@ -13,16 +13,6 @@ export async function unattend(eventId: number): Promise<void> {
 }
 
 /**
- * Returns the current user's attendance status for a given event, or null when:
- * - the user has no attendance record for the event, or
- * - the user is not authenticated (401 response).
- *
- * Uses GET /users/me/attendances (returns all attendances) and filters
- * client-side — no per-event endpoint exists yet.
- *
- * For all non-401 errors the error is rethrown.
- */
-/**
  * Stub — returns an empty list until the backend delivers a dedicated endpoint
  * to fetch the current user's attended events (with full Event payloads, not
  * just the Attendance rows returned by /users/me/attendances).
@@ -35,6 +25,16 @@ export async function getMyParticipations(): Promise<Event[]> {
   return []
 }
 
+/**
+ * Returns the current user's attendance status for a given event, or null when:
+ * - the user has no attendance record for the event, or
+ * - the user is not authenticated (401 response).
+ *
+ * Uses GET /users/me/attendances (returns all attendances) and filters
+ * client-side — no per-event endpoint exists yet.
+ *
+ * For all non-401 errors the error is rethrown.
+ */
 export async function getMyAttendance(eventId: number): Promise<AttendanceStatus | null> {
   try {
     const response = await api.get<Attendance[]>('/users/me/attendances')

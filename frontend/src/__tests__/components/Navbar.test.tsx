@@ -159,4 +159,69 @@ describe('Navbar', () => {
     fireEvent.click(deconnexionBtns.at(-1)!)
     expect(logout).toHaveBeenCalled()
   })
+
+  it('renders "Mes événements" dropdown item with ChevronDown', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+    expect(screen.getByText('Mes événements')).toBeTruthy()
+  })
+
+  it('clicking "Mes événements" expands sub-links', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+
+    // Click the "Mes événements" button to expand
+    const mesevenementsBtn = Array.from(screen.getAllByText('Mes événements')).find(
+      el => el.closest('button'),
+    )
+    if (mesevenementsBtn?.closest('button')) {
+      fireEvent.click(mesevenementsBtn.closest('button')!)
+    }
+
+    // Sub-links should be visible after click
+    expect(screen.getByText('Mes Favoris')).toBeTruthy()
+    expect(screen.getByText('Mes Participations')).toBeTruthy()
+    expect(screen.getByText('Mes Publications')).toBeTruthy()
+  })
+
+  it('sub-links have correct hrefs', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+
+    const favoritesLink = screen.getByText('Mes Favoris').closest('a')
+    const participationsLink = screen.getByText('Mes Participations').closest('a')
+    const publicationsLink = screen.getByText('Mes Publications').closest('a')
+
+    expect(favoritesLink?.getAttribute('href')).toBe('/my-events/favorites')
+    expect(participationsLink?.getAttribute('href')).toBe('/my-events/participations')
+    expect(publicationsLink?.getAttribute('href')).toBe('/my-events/publications')
+  })
+
+  it('sets aria-expanded on "Mes événements" button', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+
+    const mesevenementsBtn = Array.from(screen.getAllByText('Mes événements')).find(
+      el => el.closest('button'),
+    )?.closest('button')
+
+    expect(mesevenementsBtn?.getAttribute('aria-expanded')).toBe('false')
+
+    if (mesevenementsBtn) {
+      fireEvent.click(mesevenementsBtn)
+      expect(mesevenementsBtn.getAttribute('aria-expanded')).toBe('true')
+    }
+  })
 })
