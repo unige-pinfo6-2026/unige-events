@@ -262,7 +262,7 @@ describe('MyPublicationsPage', () => {
   })
 
   it('calls publish when "Publier" button is clicked', async () => {
-    const publish = vi.fn().mockResolvedValue(true)
+    const publish = vi.fn().mockResolvedValue({ ok: true })
     mockUseMyEvents.mockReturnValue({
       events: [makeMockEvent(1, 'DRAFT')],
       loading: false,
@@ -308,8 +308,8 @@ describe('MyPublicationsPage', () => {
     })
   })
 
-  it('publish fails silently when hook returns false', async () => {
-    const publish = vi.fn().mockResolvedValue(false)
+  it('publish fails silently when hook returns empty errors', async () => {
+    const publish = vi.fn().mockResolvedValue({ ok: false, errors: [] })
     mockUseMyEvents.mockReturnValue({
       events: [makeMockEvent(1, 'DRAFT')],
       loading: false,
@@ -373,7 +373,7 @@ describe('MyPublicationsPage', () => {
   })
 
   it('clicking card action buttons does not trigger navigation', async () => {
-    const publish = vi.fn().mockResolvedValue(true)
+    const publish = vi.fn().mockResolvedValue({ ok: true })
     mockUseMyEvents.mockReturnValue({
       events: [makeMockEvent(7, 'DRAFT')],
       loading: false,
@@ -600,6 +600,70 @@ describe('MyPublicationsPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Annuler l\'événement ?')).toBeFalsy()
+    })
+  })
+
+  it('"Annuler" modal text says cancellation is reversible (not irréversible)', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'PUBLISHED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getAllByText('Annuler')[0])
+    expect(screen.getByText(/remettre en brouillon depuis l'onglet Annulés/)).toBeTruthy()
+    expect(screen.queryByText(/irréversible/i)).toBeFalsy()
+  })
+
+  it('"Supprimer" modal text says deletion is irréversible', () => {
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'CANCELLED')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Supprimer'))
+    expect(screen.getByText(/irréversible/i)).toBeTruthy()
+    expect(screen.getAllByText(/définitivement/i).length).toBeGreaterThan(0)
+  })
+
+  it('publish with validation errors opens error modal listing each error', async () => {
+    const publish = vi.fn().mockResolvedValue({
+      ok: false,
+      errors: ['La date de l\'événement doit être dans le futur', 'Le titre est obligatoire'],
+    })
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'DRAFT')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish,
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Publier'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Impossible de publier cet événement')).toBeTruthy()
+    })
+    expect(screen.getByText('La date de l\'événement doit être dans le futur')).toBeTruthy()
+    expect(screen.getByText('Le titre est obligatoire')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }))
+    await waitFor(() => {
+      expect(screen.queryByText('Impossible de publier cet événement')).toBeFalsy()
     })
   })
 })

@@ -194,7 +194,33 @@ describe('EventDetailPage', () => {
     expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull()
   })
 
-  it('"Annuler l\'événement" calls cancelEvent and navigates to my-events cancelled tab', async () => {
+  it('"Annuler l\'événement" opens confirmation modal and does not call API without confirm', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+
+    expect(screen.getByRole('heading', { name: "Annuler l'événement ?" })).toBeTruthy()
+    expect(screen.getByText(/remettre en brouillon depuis l'onglet Annulés/)).toBeTruthy()
+    expect(mockCancelEvent).not.toHaveBeenCalled()
+  })
+
+  it('"Annuler l\'événement" cancel button on confirmation closes modal without calling API', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(screen.queryByRole('heading', { name: "Annuler l'événement ?" })).toBeNull()
+    expect(mockCancelEvent).not.toHaveBeenCalled()
+  })
+
+  it('"Annuler l\'événement" confirm calls cancelEvent and navigates to my-events cancelled tab', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
@@ -202,12 +228,13 @@ describe('EventDetailPage', () => {
 
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockCancelEvent).toHaveBeenCalledWith(1))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/my-events/publications?status=cancelled'))
   })
 
-  it('"Annuler l\'événement" shows error toast on failure', async () => {
+  it('"Annuler l\'événement" shows error toast on API failure', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
@@ -215,6 +242,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
     fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('annuler')))
   })

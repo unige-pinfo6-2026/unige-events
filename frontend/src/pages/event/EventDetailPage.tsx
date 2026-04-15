@@ -125,6 +125,44 @@ const capacityBadgeVariants = {
   available: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
 } as const
 
+interface ConfirmDialogProps {
+  title: string
+  message: React.ReactNode
+  confirmLabel: string
+  pending: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function ConfirmDialog({ title, message, confirmLabel, pending, onConfirm, onClose }: Readonly<ConfirmDialogProps>) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
+        <h2 className="text-lg font-bold text-foreground mb-2">{title}</h2>
+        <div className="text-sm text-foreground/50 mb-6">{message}</div>
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold disabled:opacity-50 hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -139,6 +177,7 @@ export default function EventDetailPage() {
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
@@ -221,6 +260,7 @@ export default function EventDetailPage() {
       toast.showToast('success', 'Événement annulé.')
       navigate('/my-events/publications?status=cancelled')
     } catch {
+      setShowCancelConfirm(false)
       toast.showToast('error', 'Impossible d\'annuler cet événement.')
     } finally {
       setCancelling(false)
@@ -450,7 +490,7 @@ export default function EventDetailPage() {
                   </Link>
                   <button
                     type="button"
-                    onClick={handleCancelEvent}
+                    onClick={() => setShowCancelConfirm(true)}
                     disabled={cancelling}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-orange-500/40 text-orange-400 bg-transparent text-sm font-semibold cursor-pointer hover:bg-orange-500/10 transition-colors disabled:opacity-50"
                   >
@@ -507,34 +547,26 @@ export default function EventDetailPage() {
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 
-      {/* Modale confirmation suppression — inchangée */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
-            <h2 className="text-lg font-bold text-foreground mb-2">Supprimer l'événement ?</h2>
-            <p className="text-sm text-foreground/50 mb-6">
-              Cette action annulera l'événement <strong className="text-foreground">"{event.title}"</strong>. Elle est irréversible.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                disabled={deleting}
-                className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold disabled:opacity-50 hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
-              >
-                {deleting ? 'Suppression...' : 'Confirmer'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Supprimer l'événement ?"
+          message={<>Cette action supprimera définitivement l'événement <strong className="text-foreground">"{event.title}"</strong>. Elle est irréversible.</>}
+          confirmLabel={deleting ? 'Suppression...' : 'Confirmer'}
+          pending={deleting}
+          onConfirm={handleDelete}
+          onClose={() => setShowConfirm(false)}
+        />
+      )}
+
+      {showCancelConfirm && (
+        <ConfirmDialog
+          title="Annuler l'événement ?"
+          message={<>Cette action annulera l'événement <strong className="text-foreground">"{event.title}"</strong>. Vous pourrez le remettre en brouillon depuis l'onglet Annulés.</>}
+          confirmLabel={cancelling ? '…' : 'Confirmer'}
+          pending={cancelling}
+          onConfirm={handleCancelEvent}
+          onClose={() => setShowCancelConfirm(false)}
+        />
       )}
 
     </SectionWrapper>

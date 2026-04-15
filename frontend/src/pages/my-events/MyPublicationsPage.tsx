@@ -105,6 +105,36 @@ function ConfirmModal({ title, message, confirmLabel, pending, onConfirm, onClos
   )
 }
 
+// ─── Publish errors modal ────────────────────────────────────────────────────
+
+interface PublishErrorsModalProps {
+  errors: string[]
+  onClose: () => void
+}
+
+function PublishErrorsModal({ errors, onClose }: Readonly<PublishErrorsModalProps>) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-3xl p-8 max-w-md w-[90%] shadow-2xl">
+        <h2 className="text-lg font-bold text-foreground mb-3">Impossible de publier cet événement</h2>
+        <p className="text-sm text-foreground/60 mb-3">Corrigez les points suivants avant de publier :</p>
+        <ul className="list-disc pl-5 mb-6 text-sm text-error space-y-1">
+          {errors.map((err) => <li key={err}>{err}</li>)}
+        </ul>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── PublicationCard ──────────────────────────────────────────────────────────
 
 interface PublicationCardProps {
@@ -252,6 +282,7 @@ export default function MyPublicationsPage() {
   const [deletePending, setDeletePending] = useState(false)
   const [publishingId, setPublishingId] = useState<number | null>(null)
   const [restoringId, setRestoringId] = useState<number | null>(null)
+  const [publishErrors, setPublishErrors] = useState<string[] | null>(null)
 
   const setStatus = useCallback((next: EventStatus) => {
     const sp = new URLSearchParams(searchParams)
@@ -261,10 +292,17 @@ export default function MyPublicationsPage() {
 
   async function handlePublish(id: number) {
     setPublishingId(id)
-    const ok = await publish(id)
+    const result = await publish(id)
     setPublishingId(null)
-    if (ok) toast.showToast('success', 'Événement publié.')
-    else toast.showToast('error', 'Impossible de publier cet événement.')
+    if (result.ok) {
+      toast.showToast('success', 'Événement publié.')
+      return
+    }
+    if (result.errors.length > 0) {
+      setPublishErrors(result.errors)
+    } else {
+      toast.showToast('error', 'Impossible de publier cet événement.')
+    }
   }
 
   async function handleCancel() {
@@ -353,12 +391,16 @@ export default function MyPublicationsPage() {
       {toCancel && (
         <ConfirmModal
           title="Annuler l'événement ?"
-          message={<>Cette action annulera l'événement <strong className="text-foreground">"{toCancel.title}"</strong>. Elle est irréversible.</>}
+          message={<>Cette action annulera l'événement <strong className="text-foreground">"{toCancel.title}"</strong>. Vous pourrez le remettre en brouillon depuis l'onglet Annulés.</>}
           confirmLabel="Confirmer"
           pending={pending}
           onConfirm={handleCancel}
           onClose={() => setToCancel(null)}
         />
+      )}
+
+      {publishErrors && (
+        <PublishErrorsModal errors={publishErrors} onClose={() => setPublishErrors(null)} />
       )}
 
       {toDelete && (

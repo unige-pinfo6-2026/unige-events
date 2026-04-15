@@ -100,14 +100,14 @@ describe('useMyEvents', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 
-    let publishResult: boolean | undefined
+    let publishResult: { ok: boolean } | undefined
     await act(async () => {
       publishResult = await result.current.publish(42)
     })
 
     expect(mockPublishEvent).toHaveBeenCalledWith(42)
     expect(result.current.events).toHaveLength(0)
-    expect(publishResult).toBe(true)
+    expect(publishResult).toEqual({ ok: true })
   })
 
   it('cancel() calls cancelEvent and removes event from list', async () => {
@@ -202,7 +202,7 @@ describe('useMyEvents', () => {
     await waitFor(() => expect(mockGetAll).toHaveBeenCalledTimes(2))
   })
 
-  it('publish() returns false when publishEvent fails', async () => {
+  it('publish() returns ok:false with empty errors for non-axios failure', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
     mockGetAll.mockResolvedValue([event])
     mockPublishEvent.mockRejectedValue(new Error('API error'))
@@ -211,14 +211,34 @@ describe('useMyEvents', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.events).toHaveLength(1)
 
-    let publishResult: boolean | undefined
+    let publishResult: { ok: boolean; errors?: string[] } | undefined
     await act(async () => {
       publishResult = await result.current.publish(42)
     })
 
     expect(mockPublishEvent).toHaveBeenCalledWith(42)
-    expect(publishResult).toBe(false)
-    // Event should still be in the list since publish failed
+    expect(publishResult).toEqual({ ok: false, errors: [] })
+    expect(result.current.events).toHaveLength(1)
+  })
+
+  it('publish() extracts validation errors from axios 422 response', async () => {
+    const event = makeMockEvent(42, '2026-04-10T14:00:00')
+    mockGetAll.mockResolvedValue([event])
+    const axiosError = Object.assign(new Error('Request failed'), {
+      isAxiosError: true,
+      response: { status: 422, data: { error: 'validation_failed', errors: ['Err A', 'Err B'] } },
+    })
+    mockPublishEvent.mockRejectedValue(axiosError)
+
+    const { result } = renderHook(() => useMyEvents('org-1', 'DRAFT'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let publishResult: { ok: boolean; errors?: string[] } | undefined
+    await act(async () => {
+      publishResult = await result.current.publish(42)
+    })
+
+    expect(publishResult).toEqual({ ok: false, errors: ['Err A', 'Err B'] })
     expect(result.current.events).toHaveLength(1)
   })
 

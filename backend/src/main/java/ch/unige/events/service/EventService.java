@@ -216,8 +216,38 @@ public class EventService {
             throw conflict(message);
         }
 
+        List<String> errors = collectPublishValidationErrors(event);
+        if (!errors.isEmpty()) {
+            throw new WebApplicationException(
+                    Response.status(422)
+                            .entity(Map.of("error", "validation_failed", "errors", errors))
+                            .build());
+        }
+
         event.status = EventStatus.PUBLISHED;
         return EventDTO.from(event, countAttending(id));
+    }
+
+    private static List<String> collectPublishValidationErrors(Event event) {
+        List<String> errors = new ArrayList<>();
+        if (event.title == null || event.title.isBlank()) {
+            errors.add("Le titre est obligatoire");
+        }
+        if (event.location == null || event.location.isBlank()) {
+            errors.add("Le lieu est obligatoire");
+        }
+        if (event.category == null) {
+            errors.add("La catégorie est obligatoire");
+        }
+        if (event.startDate == null || !event.startDate.isAfter(LocalDateTime.now())) {
+            errors.add("La date de l'événement doit être dans le futur");
+        }
+        if (event.endDate == null) {
+            errors.add("La date de fin est obligatoire");
+        } else if (event.startDate != null && !event.endDate.isAfter(event.startDate)) {
+            errors.add("La date de fin doit être après la date de début");
+        }
+        return errors;
     }
 
     @Transactional

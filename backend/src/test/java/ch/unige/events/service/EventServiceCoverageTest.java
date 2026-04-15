@@ -518,6 +518,62 @@ class EventServiceCoverageTest {
         assertEquals(409, ex.getResponse().getStatus());
     }
 
+    @Test
+    @TestTransaction
+    void publish_pastStartDate_throws422WithErrors() {
+        deleteAll();
+        User user = persistUser("auth0|past", "past@example.com");
+        Event event = persistEvent("Past", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.startDate = LocalDateTime.now().minusDays(1);
+        event.endDate = LocalDateTime.now().minusDays(1).plusHours(2);
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|past", false));
+        assertEquals(422, ex.getResponse().getStatus());
+        Object entity = ex.getResponse().getEntity();
+        assertTrue(entity.toString().contains("date"));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_missingRequiredFields_throws422WithAllErrors() {
+        deleteAll();
+        User user = persistUser("auth0|miss", "miss@example.com");
+        Event event = persistEvent("X", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.title = "  ";
+        event.location = "";
+        event.category = null;
+        event.endDate = null;
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|miss", false));
+        assertEquals(422, ex.getResponse().getStatus());
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> body = (java.util.Map<String, Object>) ex.getResponse().getEntity();
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) body.get("errors");
+        assertTrue(errors.stream().anyMatch(e -> e.contains("titre")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("lieu")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("catégorie")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("fin")));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_endDateBeforeStartDate_throws422() {
+        deleteAll();
+        User user = persistUser("auth0|end", "end@example.com");
+        Event event = persistEvent("E", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.endDate = event.startDate.minusHours(1);
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|end", false));
+        assertEquals(422, ex.getResponse().getStatus());
+    }
+
     // --- uploadImage ---
 
     @Test
