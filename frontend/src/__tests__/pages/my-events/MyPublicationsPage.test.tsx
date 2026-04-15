@@ -637,6 +637,24 @@ describe('MyPublicationsPage', () => {
     expect(screen.getAllByText(/définitivement/i).length).toBeGreaterThan(0)
   })
 
+  it('publish with non-validation error (empty errors) shows toast, not modal', async () => {
+    const publish = vi.fn().mockResolvedValue({ ok: false, errors: [] })
+    mockUseMyEvents.mockReturnValue({
+      events: [makeMockEvent(1, 'DRAFT')],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish,
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+    renderWithProviders(<MyPublicationsPage />)
+    fireEvent.click(screen.getByText('Publier'))
+    await waitFor(() => expect(publish).toHaveBeenCalledWith(1))
+    expect(screen.queryByText('Impossible de publier cet événement')).toBeFalsy()
+  })
+
   it('publish with validation errors opens error modal listing each error', async () => {
     const publish = vi.fn().mockResolvedValue({
       ok: false,

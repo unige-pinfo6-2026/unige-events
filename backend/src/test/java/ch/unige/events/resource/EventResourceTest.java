@@ -477,18 +477,6 @@ class EventResourceTest {
     // --- PATCH /events/{id}/publish ---
 
     @Test
-    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
-    void publishAsOrganiserOwnerReturns200() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
-
-        given()
-                .when().patch("/events/" + event.id + "/publish")
-                .then()
-                .statusCode(200)
-                .body("status", equalTo("PUBLISHED"));
-    }
-
-    @Test
     @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
     void publishAsAdminOnAnyEventReturns200() {
         var event = eventServiceMock.seedEvent("auth0|bob", "Bob's Draft Event");
@@ -511,14 +499,19 @@ class EventResourceTest {
     }
 
     @Test
-    @TestSecurity(user = "auth0|alice", roles = {"STUDENT"})
-    void publishAsStudentReturns403() {
+    @TestSecurity(user = "auth0|alice")
+    void publishAsAuthenticatedOwnerWithoutRolesReturns200() {
+        // Regression: the publish endpoint was previously locked behind
+        // @RolesAllowed({"ORGANIZER","ADMIN"}), blocking regular users
+        // from publishing their own drafts. It is now @Authenticated — the
+        // owner-or-admin check lives in the service layer.
         var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
 
         given()
                 .when().patch("/events/" + event.id + "/publish")
                 .then()
-                .statusCode(403);
+                .statusCode(200)
+                .body("status", equalTo("PUBLISHED"));
     }
 
     @Test

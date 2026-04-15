@@ -562,6 +562,27 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void publish_fullLifecycle_publishedCancelledRestoredPublishedAgain() {
+        deleteAll();
+        User user = persistUser("auth0|cycle", "cycle@example.com");
+        Event event = persistEvent("Cycle", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        eventService.cancel(event.id, "auth0|cycle");
+        entityManager.flush();
+        entityManager.refresh(event);
+        assertEquals(EventStatus.CANCELLED, event.status);
+
+        eventService.restore(event.id, "auth0|cycle");
+        entityManager.flush();
+        entityManager.refresh(event);
+        assertEquals(EventStatus.DRAFT, event.status);
+
+        EventDTO republished = eventService.publish(event.id, "auth0|cycle", false);
+        assertEquals(EventStatus.PUBLISHED, republished.status());
+    }
+
+    @Test
+    @TestTransaction
     void publish_endDateBeforeStartDate_throws422() {
         deleteAll();
         User user = persistUser("auth0|end", "end@example.com");

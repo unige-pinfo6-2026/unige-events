@@ -9,7 +9,6 @@ import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -107,9 +106,13 @@ public class EventResource {
         return Response.ok(restored).build();
     }
 
+    // Publish requires only @Authenticated — creator-or-admin enforcement lives in
+    // EventService.publish(). Previously @RolesAllowed({"ORGANIZER","ADMIN"}) locked out
+    // regular users from publishing their own drafts, even though the POST /events
+    // endpoint lets any authenticated user create a PUBLISHED event directly.
     @PATCH
     @Path("/{id}/publish")
-    @RolesAllowed({"ORGANIZER", "ADMIN"})
+    @Authenticated
     public Response publish(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");

@@ -1214,7 +1214,8 @@ paths:
       summary: Publier un événement (DRAFT → PUBLISHED)
       description: |
         Passe le statut de l'événement de DRAFT à PUBLISHED.
-        Réservé au créateur de l'événement (rôle ORGANIZER) ou à un administrateur (rôle ADMIN).
+        Accessible à tout utilisateur authentifié — le service vérifie ensuite
+        que l'appelant est le créateur de l'événement ou un administrateur.
         Retourne 409 si l'événement n'est pas en statut DRAFT (déjà publié ou annulé).
       operationId: publishEvent
       tags: [events]
