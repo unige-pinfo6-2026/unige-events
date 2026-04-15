@@ -7,7 +7,11 @@ import EventDetailPage from '@/pages/event/EventDetailPage'
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
-vi.mock('@/services/eventApi', () => ({ deleteEvent: vi.fn() }))
+vi.mock('@/services/eventApi', () => ({
+  deleteEvent: vi.fn(),
+  cancelEvent: vi.fn(),
+  restoreEvent: vi.fn(),
+}))
 vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
@@ -19,13 +23,15 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
-import { deleteEvent } from '@/services/eventApi'
+import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
+const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
+const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 
 const mockUser = {
@@ -130,15 +136,20 @@ describe('EventDetailPage', () => {
     await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
   })
 
-  it('shows organizer-only actions with the final edit route', () => {
+  it('shows organizer-only actions with the final edit route on PUBLISHED', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
 
-    expect(screen.getByRole('link', { name: "Modifier l'événement" }).getAttribute('href')).toBe('/events/1/edit')
-    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
+    const editLink = screen.getByRole('link', { name: /Modifier l'événement/ })
+    expect(editLink.getAttribute('href')).toBe('/events/1/edit')
+    expect(editLink.querySelector('.lucide-pencil')).toBeTruthy()
+    const cancelBtn = screen.getByRole('button', { name: /Annuler l'événement/ })
+    expect(cancelBtn.querySelector('.lucide-ban')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Remettre en brouillon/ })).toBeNull()
   })
 
   it('hides organizer actions for another user', () => {
@@ -148,22 +159,89 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.queryByRole('link', { name: "Modifier l'événement" })).toBeNull()
-    expect(screen.queryByRole('button', { name: "Supprimer l'événement" })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Modifier l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Annuler l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
   })
 
-  it('opens and closes the delete confirmation modal', () => {
+  it('CANCELLED event shows Remettre en brouillon (Undo2) and Supprimer (Trash2) and hides Modifier/Annuler', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
+    expect(screen.queryByRole('link', { name: /Modifier l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Annuler l'événement/ })).toBeNull()
+    const restoreBtn = screen.getByRole('button', { name: /Remettre en brouillon/ })
+    expect(restoreBtn.querySelector('.lucide-undo-2')).toBeTruthy()
+    const deleteBtn = screen.getByRole('button', { name: /Supprimer l'événement/ })
+    expect(deleteBtn.querySelector('.lucide-trash-2')).toBeTruthy()
+    expect(deleteBtn.className).toContain('text-error')
+  })
+
+  it('opens and closes the delete confirmation modal on CANCELLED events', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Supprimer l'événement/ }))
     expect(screen.getByRole('heading', { name: "Supprimer l'événement ?" })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
     expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull()
+  })
+
+  it('"Annuler l\'événement" calls cancelEvent and navigates to my-events cancelled tab', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+    mockCancelEvent.mockResolvedValue({})
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+
+    await waitFor(() => expect(mockCancelEvent).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/my-events/publications?status=cancelled'))
+  })
+
+  it('"Annuler l\'événement" shows error toast on failure', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+    mockCancelEvent.mockRejectedValue(new Error('fail'))
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Annuler l'événement/ }))
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('annuler')))
+  })
+
+  it('"Remettre en brouillon" calls restoreEvent and navigates to drafts', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+    mockRestoreEvent.mockResolvedValue({})
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Remettre en brouillon/ }))
+
+    await waitFor(() => expect(mockRestoreEvent).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/my-events/publications?status=draft'))
+  })
+
+  it('"Remettre en brouillon" shows error toast on failure', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockGetUserById.mockResolvedValue(null)
+    mockRestoreEvent.mockRejectedValue(new Error('fail'))
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /Remettre en brouillon/ }))
+
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('restaurer')))
   })
 
   it('shows a banner warning toast when bannerUploadError is present in sessionStorage', async () => {
@@ -179,34 +257,34 @@ describe('EventDetailPage', () => {
     expect(sessionStorage.getItem(BANNER_UPLOAD_ERROR_KEY)).toBeNull()
   })
 
-  it('calls deleteEvent and navigates home on confirm', async () => {
+  it('calls deleteEvent and navigates to my-events cancelled on confirm', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
     mockDeleteEvent.mockResolvedValue(undefined)
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
+    fireEvent.click(screen.getByRole('button', { name: /Supprimer l'événement/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(mockDeleteEvent).toHaveBeenCalledWith(1))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/my-events/publications?status=cancelled'))
   })
 
   it('hides confirm modal and re-enables button when deleteEvent fails', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
     mockGetUserById.mockResolvedValue(null)
     mockDeleteEvent.mockRejectedValue(new Error('network error'))
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: "Supprimer l'événement" }))
+    fireEvent.click(screen.getByRole('button', { name: /Supprimer l'événement/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
     await waitFor(() => expect(screen.queryByRole('heading', { name: "Supprimer l'événement ?" })).toBeNull())
-    expect(screen.getByRole('button', { name: "Supprimer l'événement" })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Supprimer l'événement/ })).toBeTruthy()
   })
 
   it('sets organizer to null when getUserById rejects', async () => {

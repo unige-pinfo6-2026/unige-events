@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
-import { deleteEvent } from '@/services/eventApi'
+import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
@@ -17,7 +17,7 @@ import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Share2, Star } from 'lucide-react'
+import { Ban, BarChart2, Calendar, CalendarClock, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -139,6 +139,8 @@ export default function EventDetailPage() {
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
   const [bannerWarning, setBannerWarning] = useState<string | null>(null)
 
@@ -202,10 +204,40 @@ export default function EventDetailPage() {
     setDeleting(true)
     try {
       await deleteEvent(event.id)
-      navigate('/')
+      toast.showToast('success', 'Événement supprimé définitivement.')
+      navigate('/my-events/publications?status=cancelled')
     } catch {
       setDeleting(false)
       setShowConfirm(false)
+      toast.showToast('error', 'Impossible de supprimer cet événement.')
+    }
+  }
+
+  async function handleCancelEvent() {
+    if (!event) return
+    setCancelling(true)
+    try {
+      await cancelEvent(event.id)
+      toast.showToast('success', 'Événement annulé.')
+      navigate('/my-events/publications?status=cancelled')
+    } catch {
+      toast.showToast('error', 'Impossible d\'annuler cet événement.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  async function handleRestore() {
+    if (!event) return
+    setRestoring(true)
+    try {
+      await restoreEvent(event.id)
+      toast.showToast('success', 'Événement remis en brouillon.')
+      navigate('/my-events/publications?status=draft')
+    } catch {
+      toast.showToast('error', 'Impossible de restaurer cet événement.')
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -407,19 +439,47 @@ export default function EventDetailPage() {
           {/* Actions organisateur */}
           {isOrganizer && (
             <div className="flex flex-col gap-2">
-              <Link
-                to={`/events/${event.id}/edit`}
-                className="w-full text-center px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
-              >
-                Modifier l'événement
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowConfirm(true)}
-                className="w-full px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-              >
-                Supprimer l'événement
-              </button>
+              {event.status !== 'CANCELLED' && (
+                <>
+                  <Link
+                    to={`/events/${event.id}/edit`}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+                  >
+                    <Pencil className="w-4 h-4 shrink-0" />
+                    Modifier l'événement
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleCancelEvent}
+                    disabled={cancelling}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-orange-500/40 text-orange-400 bg-transparent text-sm font-semibold cursor-pointer hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                  >
+                    <Ban className="w-4 h-4 shrink-0" />
+                    Annuler l'événement
+                  </button>
+                </>
+              )}
+              {event.status === 'CANCELLED' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRestore}
+                    disabled={restoring}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold cursor-pointer bg-transparent hover:border-foreground/30 transition-colors disabled:opacity-50"
+                  >
+                    <Undo2 className="w-4 h-4 shrink-0" />
+                    Remettre en brouillon
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(true)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    Supprimer l'événement
+                  </button>
+                </>
+              )}
             </div>
           )}
 
