@@ -265,6 +265,20 @@ Valeurs attendues pour `studyLevel` :
 
 ---
 
+## Endpoint `GET /users/me/events` (SCRUM-133)
+
+Retourne tous les événements où `creator.id = <utilisateur authentifié>`, triés par `createdAt DESC` (tie-breaker `id DESC`). Inclut **tous les statuts** (`DRAFT`, `PUBLISHED`, `CANCELLED`) par défaut. Paramètres :
+
+- `status` (optionnel, `EventStatus`) : filtre sur un statut précis.
+- `page` (défaut `0`, min `0`).
+- `size` (défaut `20`, min `1`, max `100`).
+
+**Règle d'autorisation** : l'identité provient du JWT via `SecurityIdentity.getPrincipal().getName()`. Il n'existe aucun moyen d'énumérer les événements d'un autre utilisateur via cet endpoint, c'est pourquoi `DRAFT` et `CANCELLED` peuvent être retournés sans vérification supplémentaire.
+
+**Complémentarité avec `GET /events?organizerId=`** : le filtre public `organizerId` reste disponible pour lister les événements publiés d'un organisateur, mais il force `status = PUBLISHED` (coercition silencieuse si `status` absent, rejet `400 organizer_filter_requires_published` si un autre statut est demandé). Ce verrou ferme la faille qui permettait précédemment d'énumérer les brouillons d'un autre utilisateur via `GET /events?organizerId=<uuid>&status=DRAFT`.
+
+---
+
 ## Gestion du schéma
 
 Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).

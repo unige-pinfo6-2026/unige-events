@@ -355,6 +355,7 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 - uploadEventImage(id, file) : upload de bannière et retour de l’événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d’un événement.
 - publishEvent(id) : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
+- getMyEvents(params) : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
 
 ### searchApi.ts
 
