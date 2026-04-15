@@ -9,6 +9,7 @@ const mockEvent: Event = {
   location: 'Room 101',
   startDate: '2025-06-15T10:00:00',
   endDate: '2025-06-15T12:00:00',
+  allDay: false,
   category: 'ACADEMIC',
   creatorId: 'auth0|123',
   status: 'PUBLISHED',

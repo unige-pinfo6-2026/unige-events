@@ -35,6 +35,7 @@ const mockEvent: Event = {
   location: 'Uni Dufour',
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
+  allDay: false,
   category: 'CONFERENCE',
   faculty: null,
   status: 'PUBLISHED',
