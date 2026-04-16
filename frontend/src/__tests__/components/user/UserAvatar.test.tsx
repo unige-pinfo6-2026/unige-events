@@ -58,11 +58,18 @@ describe('UserAvatar', () => {
     expect(container.querySelector('div')?.className).toContain('extra-class')
   })
 
-  it('falls back to initials when the image fails to load', () => {
-    const user = { ...baseUser, avatarUrl: 'https://example.com/avatar.jpg' }
+  it('shows initials when image fails to load (onError callback)', () => {
+    const user = { ...baseUser, avatarUrl: 'https://invalid.example.com/avatar.jpg' }
     render(<UserAvatar user={user} />)
+
+    // Get the image element
     const img = screen.getByAltText('Alice Martin') as HTMLImageElement
+    expect(img).toBeTruthy()
+
+    // Trigger the error event to test the onError callback
     fireEvent.error(img)
+
+    // After error, initials should be displayed
     expect(screen.getByText('AM')).toBeTruthy()
   })
 })

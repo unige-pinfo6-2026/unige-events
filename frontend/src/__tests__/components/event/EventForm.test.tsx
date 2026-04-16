@@ -16,6 +16,7 @@ const baseValues: EventFormValues = {
   faculty: null,
   capacity: '120',
   status: 'DRAFT',
+  allDay: false,
 }
 
 afterEach(() => {
@@ -93,6 +94,7 @@ describe('EventForm', () => {
 
   it('calls onSaveDraft when the draft button is clicked', () => {
     const onSaveDraft = vi.fn().mockResolvedValue(undefined)
+    const onFieldChange = vi.fn()
 
     render(
       <EventForm
@@ -124,6 +126,27 @@ describe('EventForm', () => {
         mode="create"
         submitLabel="Créer"
         values={{ ...baseValues, startDate: '2099-04-10T10:00' }}
+        onFieldChange={onFieldChange}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const toggle = screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-100')
+
+    fireEvent.click(toggle)
+    expect(onFieldChange).toHaveBeenCalledWith('allDay', true)
+  })
+
+  it('hides the time selectors when allDay is true', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel='Créer'
+        values={{ ...baseValues, allDay: true }}
         errors={{}}
         submitting={false}
         imagePreview={null}
@@ -138,6 +161,9 @@ describe('EventForm', () => {
     fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '' } })
 
     expect(onFieldChange).toHaveBeenCalledWith('startDate', '')
+    expect((screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-0')
+    expect(screen.getByTestId('endDate-time-selectors').className).toContain('opacity-0')
   })
 
   it('combines date and time parts into datetime values', () => {

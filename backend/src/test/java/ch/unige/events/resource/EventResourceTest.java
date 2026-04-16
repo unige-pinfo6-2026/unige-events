@@ -267,13 +267,178 @@ class EventResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|alice")
-    void delete_asCreator_returns204() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "À annuler");
+    void delete_cancelledEvent_asCreator_returns204() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "À supprimer");
+        event.status = EventStatus.CANCELLED;
 
         given()
                 .when().delete("/events/" + event.id)
                 .then()
                 .statusCode(204);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void delete_nonCancelledEvent_returns409() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft");
+
+        given()
+                .when().delete("/events/" + event.id)
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("conflict"));
+    }
+
+    // --- PATCH /events/{id}/cancel ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void cancel_draftEvent_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft");
+
+        given()
+                .when().patch("/events/" + event.id + "/cancel")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("CANCELLED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void cancel_publishedEvent_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Published");
+        event.status = EventStatus.PUBLISHED;
+
+        given()
+                .when().patch("/events/" + event.id + "/cancel")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("CANCELLED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void cancel_alreadyCancelled_returns409() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Already cancelled");
+        event.status = EventStatus.CANCELLED;
+
+        given()
+                .when().patch("/events/" + event.id + "/cancel")
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("conflict"));
+    }
+
+    @Test
+    void cancel_unauthenticated_returns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft");
+
+        given()
+                .when().patch("/events/" + event.id + "/cancel")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void cancel_notCreator_returns403() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Alice's");
+
+        given()
+                .when().patch("/events/" + event.id + "/cancel")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void cancel_unknownEvent_returns404() {
+        given()
+                .when().patch("/events/9999/cancel")
+                .then()
+                .statusCode(404);
+    }
+
+    // --- PATCH /events/{id}/restore ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void restore_cancelledEvent_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Cancelled");
+        event.status = EventStatus.CANCELLED;
+
+        given()
+                .when().patch("/events/" + event.id + "/restore")
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("DRAFT"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void restore_nonCancelled_returns409() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft");
+
+        given()
+                .when().patch("/events/" + event.id + "/restore")
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("conflict"));
+    }
+
+    @Test
+    void restore_unauthenticated_returns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Draft");
+
+        given()
+                .when().patch("/events/" + event.id + "/restore")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void restore_notCreator_returns403() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Alice's");
+        event.status = EventStatus.CANCELLED;
+
+        given()
+                .when().patch("/events/" + event.id + "/restore")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void restore_unknownEvent_returns404() {
+        given()
+                .when().patch("/events/9999/restore")
+                .then()
+                .statusCode(404);
+    }
+
+    // --- PUT /events/{id} on a CANCELLED event ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void update_cancelledEvent_returns409() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Cancelled");
+        event.status = EventStatus.CANCELLED;
+
+        UpdateEventRequest req = new UpdateEventRequest();
+        req.title = "New";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(2);
+        req.category = EventCategory.ACADEMIC;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().put("/events/" + event.id)
+                .then()
+                .statusCode(409)
+                .body("error", equalTo("conflict"));
     }
 
     @Test
@@ -312,18 +477,6 @@ class EventResourceTest {
     // --- PATCH /events/{id}/publish ---
 
     @Test
-    @TestSecurity(user = "auth0|alice", roles = {"ORGANIZER"})
-    void publishAsOrganiserOwnerReturns200() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
-
-        given()
-                .when().patch("/events/" + event.id + "/publish")
-                .then()
-                .statusCode(200)
-                .body("status", equalTo("PUBLISHED"));
-    }
-
-    @Test
     @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
     void publishAsAdminOnAnyEventReturns200() {
         var event = eventServiceMock.seedEvent("auth0|bob", "Bob's Draft Event");
@@ -346,14 +499,19 @@ class EventResourceTest {
     }
 
     @Test
-    @TestSecurity(user = "auth0|alice", roles = {"STUDENT"})
-    void publishAsStudentReturns403() {
+    @TestSecurity(user = "auth0|alice")
+    void publishAsAuthenticatedOwnerWithoutRolesReturns200() {
+        // Regression: the publish endpoint was previously locked behind
+        // @RolesAllowed({"ORGANIZER","ADMIN"}), blocking regular users
+        // from publishing their own drafts. It is now @Authenticated — the
+        // owner-or-admin check lives in the service layer.
         var event = eventServiceMock.seedEvent("auth0|alice", "Draft Event");
 
         given()
                 .when().patch("/events/" + event.id + "/publish")
                 .then()
-                .statusCode(403);
+                .statusCode(200)
+                .body("status", equalTo("PUBLISHED"));
     }
 
     @Test

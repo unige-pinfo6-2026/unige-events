@@ -9,7 +9,7 @@ import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
-import { Calendar, ChevronDown, Heart, LayoutDashboard, LogOut, Menu, Search, Shield, SquarePlus, Ticket, User, X } from 'lucide-react'
+import { Calendar, ChevronDown, LayoutDashboard, LayoutGrid, LogOut, Menu, Search, Shield, SquarePlus, Star, Ticket, User, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { User as UserType } from '@/types/user'
 
@@ -32,11 +32,16 @@ const actionButtons: NavItem[] = [
   { label: 'Créer un événement', to: '/events/new', icon: SquarePlus },
 ]
 
+const myEventsSubLinks: NavItem[] = [
+  { label: 'Mes Favoris',        to: '/my-events/favorites',      icon: Star },
+  { label: 'Mes Participations', to: '/my-events/participations', icon: Calendar },
+  { label: 'Mes Publications',   to: '/my-events/publications',   icon: LayoutGrid },
+]
+
 const userMenuItems: NavItem[] = [
-  { label: 'Mon profil', to: '/profile/me', icon: User },
-  { label: 'Mes événements', to: '/events/me', icon: LayoutDashboard },
-  { label: 'Mes favoris', to: '/events/favorites', icon: Heart },
-  { label: 'Administration', to: '/admin', icon: Shield, adminOnly: true },
+  { label: 'Mon profil',     to: '/profile/me', icon: User },
+  { label: 'Mes événements', to: '/my-events',  icon: LayoutDashboard, subLinks: myEventsSubLinks },
+  { label: 'Administration', to: '/admin',      icon: Shield, adminOnly: true },
 ]
 
 const visibleUserMenu = (user: UserType) => userMenuItems.filter(i => !i.adminOnly || user.admin)
@@ -44,6 +49,7 @@ const visibleUserMenu = (user: UserType) => userMenuItems.filter(i => !i.adminOn
 // ─── Styles partagés ──────────────────────────────────────────────────────────
 
 const dropdownItemClass = 'flex items-center gap-3 px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors'
+const dropdownSubItemClass = 'flex items-center gap-3 pl-10 pr-4 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors'
 
 const sidebarItemClass = (isActive = false) =>
   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
@@ -54,6 +60,47 @@ const logoutVariants = {
   dropdown: { item: 'flex items-center gap-3 w-full px-4 py-3 text-sm text-error hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-4' },
   sidebar:  { item: 'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-error hover:bg-error/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-5' },
 } as const
+
+function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
+  const [expanded, setExpanded] = useState(false)
+  const Icon = item.icon
+  if (!item.subLinks) {
+    return (
+      <Link to={item.to} className={dropdownItemClass}>
+        <Icon className="size-4 shrink-0" />
+        {item.label}
+      </Link>
+    )
+  }
+  return (
+    <div
+      className="group/nested"
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded(p => !p)}
+        aria-expanded={expanded}
+        className={`${dropdownItemClass} w-full text-left cursor-pointer select-none bg-transparent border-0`}
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="flex-1">{item.label}</span>
+        <ChevronDown className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      <div className="grid transition-[grid-template-rows] duration-200" style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}>
+        <div className="overflow-hidden">
+          {item.subLinks.map(({ to, icon: SubIcon, label }) => (
+            <Link key={to} to={to} className={dropdownSubItemClass} onClick={() => setExpanded(false)}>
+              <SubIcon className="size-4 shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function LogoutButton({ onClick, variant }: Readonly<{ onClick: () => void; variant: keyof typeof logoutVariants }>) {
   const { item, icon } = logoutVariants[variant]
@@ -109,11 +156,8 @@ function DesktopNav() {
       {!isLoading && (user
         ? (
           <Dropdown align="right" trigger={<UserIdentity user={user} />}>
-            {visibleUserMenu(user).map(({ to, icon: Icon, label }) => (
-              <Link key={to} to={to} className={dropdownItemClass}>
-                <Icon className="size-4 shrink-0" />
-                {label}
-              </Link>
+            {visibleUserMenu(user).map(item => (
+              <UserDropdownItem key={item.to} item={item} />
             ))}
             <div className="border-t border-border" />
             <LogoutButton onClick={logout} variant="dropdown" />
@@ -206,11 +250,8 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
         <div className="flex flex-col gap-0.5 p-4 border-t border-border shrink-0">
           {user ? (
             <>
-              {visibleUserMenu(user).map(({ to, icon: Icon, label }) => (
-                <Link key={to} to={to} onClick={onClose} className={sidebarItemClass()}>
-                  <Icon className="size-5 shrink-0" />
-                  {label}
-                </Link>
+              {visibleUserMenu(user).map(item => (
+                <MobileNavItem key={item.to} link={item} onClose={onClose} />
               ))}
               <LogoutButton onClick={() => { onClose(); logout() }} variant="sidebar" />
             </>

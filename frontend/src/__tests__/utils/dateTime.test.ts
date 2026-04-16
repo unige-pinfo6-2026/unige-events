@@ -32,4 +32,21 @@ describe('dateTime utils', () => {
     expect(full.length).toBeGreaterThan(0)
     expect(compact.length).toBeGreaterThan(0)
   })
+
+  it('omits time when allDay is true (long)', () => {
+    const withTime = formatEventDateTime('2026-04-10T14:00:00Z', false)
+    const allDay = formatEventDateTime('2026-04-10T14:00:00Z', true)
+
+    expect(withTime).toMatch(/\d{2}:\d{2}/)
+    expect(allDay).not.toMatch(/\d{2}:\d{2}/)
+    expect(allDay).toMatch(/avril/)
+  })
+
+  it('omits time when allDay is true (compact)', () => {
+    const withTime = formatEventDateTimeCompact('2026-04-10T14:00:00Z', false)
+    const allDay = formatEventDateTimeCompact('2026-04-10T14:00:00Z', true)
+
+    expect(withTime).toMatch(/\d{2}:\d{2}/)
+    expect(allDay).not.toMatch(/\d{2}:\d{2}/)
+  })
 })

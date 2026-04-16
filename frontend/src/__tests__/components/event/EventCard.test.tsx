@@ -93,6 +93,16 @@ describe('EventCard', () => {
     expect(screen.getByText('Toutes facultés')).toBeTruthy()
   })
 
+  it('shows time when allDay is false', () => {
+    renderCard({ ...mockEvent, allDay: false })
+    expect(screen.getByText(/\d{2}:\d{2}/)).toBeTruthy()
+  })
+
+  it('hides time when allDay is true', () => {
+    renderCard({ ...mockEvent, allDay: true })
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+  })
+
   it('renders the correct faculty label for each Faculty value', () => {
     const labels: Partial<Record<Faculty, string>> = {
       'LETTERS': 'Lettres',

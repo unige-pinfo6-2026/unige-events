@@ -13,6 +13,7 @@ export type Event = {
   creatorId: string
   status: EventStatus
   capacity?: number
+  allDay?: boolean
   attendingCount: number
   createdAt: string
   updatedAt?: string
@@ -48,6 +49,7 @@ export interface CreateEventRequest {
   bannerUrl?: string
   capacity?: number
   status?: EventStatus
+  allDay?: boolean
 }
 
 export interface UpdateEventRequest {
@@ -61,4 +63,5 @@ export interface UpdateEventRequest {
   bannerUrl?: string
   capacity?: number
   status?: EventStatus
+  allDay?: boolean
 }

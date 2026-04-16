@@ -16,6 +16,10 @@ const CalendarPage = lazy(() => import('@/pages/calendar/CalendarPage'))
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
 const ProfileEditPage = lazy(() => import('@/pages/profile/ProfileEditPage'))
 const FavoritesPage = lazy(() => import('@/pages/event/favorites/FavoritesPage'))
+const MyEventsPage = lazy(() => import('@/pages/my-events/MyEventsPage'))
+const MyFavoritesPage = lazy(() => import('@/pages/my-events/MyFavoritesPage'))
+const MyParticipationsPage = lazy(() => import('@/pages/my-events/MyParticipationsPage'))
+const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const AppRouter = () => {
@@ -50,6 +54,13 @@ const AppRouter = () => {
                 <Route path="new" element={<EventCreatePage />} />
                 <Route path=":id/edit" element={<EventEditPage />} />
                 <Route path="favorites" element={<FavoritesPage />} />
+              </Route>
+
+              <Route path="/my-events">
+                <Route index element={<MyEventsPage />} />
+                <Route path="favorites" element={<MyFavoritesPage />} />
+                <Route path="participations" element={<MyParticipationsPage />} />
+                <Route path="publications" element={<MyPublicationsPage />} />
               </Route>
             </Route>
 

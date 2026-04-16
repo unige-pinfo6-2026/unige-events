@@ -4,7 +4,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
-import { ButtonPrimary } from '@/components/utils/Buttons'
+import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
@@ -134,9 +134,12 @@ export default function EventForm({
     dt: DateTimeParts,
     error: string | undefined,
   ) {
+    const timeSelectorClass = values.allDay
+      ? 'max-w-0 opacity-0 pointer-events-none overflow-hidden'
+      : 'max-w-56 opacity-100'
     return (
       <FormField label={label} htmlFor={inputId} required error={error}>
-        <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
+        <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1 items-center">
           <Input
             id={inputId}
             type="date"
@@ -144,7 +147,11 @@ export default function EventForm({
             onChange={(e) => setDatePart(field, e.target.value, dt.hourPart, dt.minutePart)}
             error={error}
           />
-          <div className="flex items-center gap-1.5">
+          <div
+            className={`flex items-center gap-1.5 transition-all duration-200 ease-out ${timeSelectorClass}`}
+            data-testid={`${field}-time-selectors`}
+            aria-hidden={values.allDay}
+          >
             <label className="sr-only" htmlFor={`${inputId}-hour`}>
               {field === 'startDate' ? 'Heure de début' : 'Heure de fin'}
             </label>
@@ -246,79 +253,50 @@ export default function EventForm({
 
       </div>
 
-      {/* Bande 2 — Lieu | Début | Fin */}
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 max-sm:grid-cols-1">
+      {/* Bande 2a — Lieu */}
+      <FormField label="Lieu" htmlFor="event-location" required error={errors.location}>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
+          <Input
+            id="event-location"
+            type="text"
+            value={values.location}
+            onChange={(e) => onFieldChange('location', e.target.value)}
+            error={errors.location}
+            placeholder="Uni Mail, Salle MR060"
+            className="pl-10"
+          />
+        </div>
+      </FormField>
 
-        <FormField label="Lieu" htmlFor="event-location" required error={errors.location}>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
-            <Input
-              id="event-location"
-              type="text"
-              value={values.location}
-              onChange={(e) => onFieldChange('location', e.target.value)}
-              error={errors.location}
-              placeholder="Uni Mail, Salle MR060"
-              className="pl-10"
-            />
-          </div>
-        </FormField>
-
-        {/* Début — label row + shell allDay comme frères (pas dans <label>) */}
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <label htmlFor="event-startDate" className="block text-sm font-semibold text-foreground/60">
-              Début <span className="text-error"> *</span>
-            </label>
-            {/* Shell allDay — SCRUM-125 / S5 */}
-            <span aria-hidden="true" className="flex items-center gap-1.5 text-xs font-normal text-foreground/25 cursor-not-allowed select-none pointer-events-none">
-              <input type="checkbox" disabled className="opacity-25 accent-accent w-3.5 h-3.5" />
-              Toute la journée
-              <span className={comingSoonVariants.badge}>S5</span>
+      {/* Bande 2b — Date & heure (groupée) */}
+      <section className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-foreground/[0.015] px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-foreground/60">Date & heure</span>
+          <label htmlFor="event-allDay" className="inline-flex items-center gap-2.5 text-xs font-normal text-foreground/60 hover:text-foreground cursor-pointer select-none">
+            <span>Toute la journée</span>
+            <span className="relative inline-block w-10 h-5.5">
+              <input
+                id="event-allDay"
+                type="checkbox"
+                role="switch"
+                checked={values.allDay}
+                onChange={(e) => onFieldChange('allDay', e.target.checked)}
+                className="sr-only peer"
+              />
+              <span className="absolute inset-0 rounded-full border border-border bg-foreground/10 peer-checked:bg-accent peer-checked:border-accent transition-colors" aria-hidden="true" />
+              <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4.5" aria-hidden="true" />
             </span>
-          </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1">
-            <Input
-              id="event-startDate"
-              type="date"
-              value={startDateTime.datePart}
-              onChange={(e) => setDatePart('startDate', e.target.value, startDateTime.hourPart, startDateTime.minutePart)}
-              error={errors.startDate}
-            />
-            <div className="flex items-center gap-1.5">
-              <label className="sr-only" htmlFor="event-startDate-hour">Heure de début</label>
-              <Select
-                id="event-startDate-hour"
-                value={startDateTime.hourPart}
-                onChange={(e) => setTimePart('startDate', startDateTime.datePart, startDateTime.hourPart, startDateTime.minutePart, 'hour', e.target.value)}
-                error={errors.startDate}
-                className="w-auto min-w-[4.5rem]"
-              >
-                <option value="">HH</option>
-                {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
-              </Select>
-              <span className="text-foreground/40 font-bold select-none">:</span>
-              <label className="sr-only" htmlFor="event-startDate-minute">Minute de début</label>
-              <Select
-                id="event-startDate-minute"
-                value={startDateTime.minutePart}
-                onChange={(e) => setTimePart('startDate', startDateTime.datePart, startDateTime.hourPart, startDateTime.minutePart, 'minute', e.target.value)}
-                error={errors.startDate}
-                className="w-auto min-w-[4.5rem]"
-              >
-                <option value="">MM</option>
-                {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </Select>
-            </div>
-          </div>
-          {errors.startDate && <p className="text-xs text-error mt-1.5">{errors.startDate}</p>}
+          </label>
         </div>
 
-        {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+          {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate)}
+          {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
+        </div>
+      </section>
 
-      </div>
-
-      {/* Bande 3 — Catégorie | Faculté | Capacité | CTA */}
+      {/* Bande 3 — Catégorie | Faculté | Capacité */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
 
         <FormField label="Catégorie" htmlFor="event-category" required className="w-48 flex-none">
@@ -358,34 +336,32 @@ export default function EventForm({
           />
         </FormField>
 
-        {/* Zone CTA */}
-        <div className="flex flex-col items-end gap-2 ml-auto max-sm:ml-0 max-sm:w-full">
-          <ButtonPrimary type="submit" disabled={submitting} size="md">
-            {submitting ? 'Enregistrement...' : submitLabel}
-          </ButtonPrimary>
-
-          <div className="flex gap-4">
-            {onSaveDraft && (
-              <button
-                type="button"
-                onClick={() => { void onSaveDraft() }}
-                disabled={submitting}
-                className="text-xs text-foreground/40 hover:text-foreground/60 transition-all disabled:opacity-50"
-              >
-                Sauvegarder en Brouillon
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onCancel}
-              className="text-xs text-foreground/40 hover:text-foreground/60 transition-all"
-            >
-              Annuler
-            </button>
-          </div>
-        </div>
-
       </div>
+
+      {/* Bande actions — boutons alignés à droite */}
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border/30 max-sm:flex-col max-sm:items-stretch">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-md font-semibold text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
+        >
+          Annuler
+        </button>
+        {onSaveDraft && (
+          <ButtonSecondary
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={() => { void onSaveDraft() }}
+          >
+            Sauvegarder en Brouillon
+          </ButtonSecondary>
+        )}
+        <ButtonPrimary type="submit" disabled={submitting} size="sm">
+          {submitting ? 'Enregistrement...' : submitLabel}
+        </ButtonPrimary>
+      </div>
+
 
       {/* Bande 4 — Shells champs additionnels (SCRUM-127/128/147/162) */}
       <div className="flex flex-col gap-3">
@@ -492,6 +468,8 @@ export default function EventForm({
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}
+
+      
 
     </form>
   )

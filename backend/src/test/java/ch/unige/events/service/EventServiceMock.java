@@ -134,6 +134,12 @@ public class EventServiceMock extends EventService {
         if (!isCreator) {
             throw new ForbiddenException("Only the event creator can update this event");
         }
+        if (event.status == EventStatus.CANCELLED) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", "Cancelled events cannot be modified"))
+                            .build());
+        }
 
         event.title = request.title;
         event.description = request.description;
@@ -165,9 +171,59 @@ public class EventServiceMock extends EventService {
                 && event.creator.auth0Id != null
                 && event.creator.auth0Id.equals(auth0Id);
         if (!isCreator) {
+            throw new ForbiddenException("Only the event creator can delete this event");
+        }
+        if (event.status != EventStatus.CANCELLED) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", "Only cancelled events can be permanently deleted"))
+                            .build());
+        }
+        eventsById.remove(id);
+    }
+
+    @Override
+    public EventDTO cancel(Long id, String auth0Id) {
+        Event event = eventsById.get(id);
+        if (event == null) {
+            throw new NotFoundException();
+        }
+        boolean isCreator = event.creator != null
+                && event.creator.auth0Id != null
+                && event.creator.auth0Id.equals(auth0Id);
+        if (!isCreator) {
             throw new ForbiddenException("Only the event creator can cancel this event");
         }
+        if (event.status == EventStatus.CANCELLED) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", "Event is already cancelled"))
+                            .build());
+        }
         event.status = EventStatus.CANCELLED;
+        return EventDTO.from(event, 0L);
+    }
+
+    @Override
+    public EventDTO restore(Long id, String auth0Id) {
+        Event event = eventsById.get(id);
+        if (event == null) {
+            throw new NotFoundException();
+        }
+        boolean isCreator = event.creator != null
+                && event.creator.auth0Id != null
+                && event.creator.auth0Id.equals(auth0Id);
+        if (!isCreator) {
+            throw new ForbiddenException("Only the event creator can restore this event");
+        }
+        if (event.status != EventStatus.CANCELLED) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "conflict", "message", "Only cancelled events can be restored to draft"))
+                            .build());
+        }
+        event.status = EventStatus.DRAFT;
+        return EventDTO.from(event, 0L);
     }
 
     @Override

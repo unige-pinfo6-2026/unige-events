@@ -45,4 +45,6 @@ public abstract class EventRequestBase {
 
     @Positive
     public Integer capacity;
+
+    public Boolean allDay;
 }

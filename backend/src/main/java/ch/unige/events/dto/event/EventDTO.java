@@ -21,6 +21,7 @@ public record EventDTO(
         UUID creatorId,
         EventStatus status,
         Integer capacity,
+        boolean allDay,
         long attendingCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
@@ -39,6 +40,7 @@ public record EventDTO(
                 event.creator != null ? event.creator.id : null,
                 event.status,
                 event.capacity,
+                event.allDay,
                 attendingCount,
                 event.createdAt,
                 event.updatedAt
