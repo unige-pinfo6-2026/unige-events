@@ -46,9 +46,11 @@ export function useCalendarEvents(date: Date): UseCalendarEventsResult {
     }
   }, [])
 
+  const year = date.getFullYear()
+  const month = date.getMonth()
   useEffect(() => {
-    fetchEvents(date)
-  }, [fetchEvents, date])
+    fetchEvents(new Date(year, month, 1))
+  }, [fetchEvents, year, month])
 
   return { events, loading, error }
 }

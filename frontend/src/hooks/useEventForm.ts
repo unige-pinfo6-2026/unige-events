@@ -48,13 +48,29 @@ interface UseEventFormResult {
   values: EventFormValues
   errors: EventFormErrors
   submitting: boolean
+  draftSaving: boolean
   imagePreview: string | null
   selectedImageName: string | null
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
   triggerDraftSave: () => Promise<void>
+  triggerPublish: () => Promise<void>
+  clearPersistedDraft: () => void
 }
+
+// Local persistence for the in-progress form so an accidental refresh of the page
+// does not wipe the user's entries. Scoped to the browser tab via sessionStorage.
+// The banner image is intentionally NOT persisted (File objects aren't serializable
+// and blob: URLs die on refresh anyway).
+// - Create flow uses a single key.
+// - Edit flow uses one key per event id so multiple drafts being edited in different
+//   tabs (or successive visits in the same tab) don't collide.
+export const DRAFT_FORM_KEY = 'unige:event-create-draft'
+export const EDIT_FORM_KEY_PREFIX = 'unige:event-edit-draft:'
+// Debounce interval for persisting form changes. Aligned with useEventSearch (300ms for
+// suggestions) — feels instant to the user, batches rapid keystrokes in one write.
+export const DRAFT_FORM_PERSIST_DEBOUNCE_MS = 300
 
 interface ValidationErrorDetail {
   field?: string | null
@@ -137,6 +153,34 @@ function toFormValues(event?: Event | null): EventFormValues {
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function readPersistedForm(key: string): EventFormValues | null {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (!isObject(parsed)) return null
+    return { ...DEFAULT_VALUES, ...(parsed as Partial<EventFormValues>) }
+  } catch (err) {
+    console.warn('[useEventForm] failed to restore persisted form', err)
+    try { sessionStorage.removeItem(key) } catch { /* ignore */ }
+    return null
+  }
+}
+
+function writePersistedForm(key: string, values: EventFormValues) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(values))
+  } catch { /* ignore quota / private mode */ }
+}
+
+function clearPersistedForm(key: string) {
+  try { sessionStorage.removeItem(key) } catch { /* ignore */ }
+}
+
+function editFormKey(eventId: number): string {
+  return `${EDIT_FORM_KEY_PREFIX}${eventId}`
 }
 
 function isProbablyFrenchMessage(message: string): boolean {
@@ -238,31 +282,97 @@ function getApiErrorMessage(error: unknown, mode: 'create' | 'edit'): string {
 }
 
 export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerError }: UseEventFormOptions): UseEventFormResult {
-  const [values, setValues] = useState<EventFormValues>(() => toFormValues(initialEvent))
+  const [values, setValues] = useState<EventFormValues>(() => {
+    // Create mode: try sessionStorage first. Edit mode hydration happens in the effect
+    // below once `initialEvent` is loaded (its id is required to compute the per-event key).
+    if (mode === 'create') {
+      const persisted = readPersistedForm(DRAFT_FORM_KEY)
+      if (persisted) return persisted
+    }
+    return toFormValues(initialEvent)
+  })
   const [errors, setErrors] = useState<EventFormErrors>({})
   const [submitting, setSubmitting] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(initialEvent?.bannerUrl ?? null)
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const forcedStatusRef = useRef<EventStatus | null>(null)
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPersistRef = useRef<{ key: string; values: EventFormValues } | null>(null)
+
+  function currentPersistKey(): string | null {
+    if (mode === 'create') return DRAFT_FORM_KEY
+    if (initialEvent?.id != null) return editFormKey(initialEvent.id)
+    return null
+  }
+
+  function flushPersist() {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current)
+      persistTimerRef.current = null
+    }
+    if (pendingPersistRef.current) {
+      writePersistedForm(pendingPersistRef.current.key, pendingPersistRef.current.values)
+      pendingPersistRef.current = null
+    }
+  }
+
+  function cancelPersist() {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current)
+      persistTimerRef.current = null
+    }
+    pendingPersistRef.current = null
+  }
+
+  function schedulePersist(next: EventFormValues) {
+    const key = currentPersistKey()
+    if (!key) return
+    pendingPersistRef.current = { key, values: next }
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+    persistTimerRef.current = setTimeout(() => {
+      if (pendingPersistRef.current) writePersistedForm(pendingPersistRef.current.key, pendingPersistRef.current.values)
+      pendingPersistRef.current = null
+      persistTimerRef.current = null
+    }, DRAFT_FORM_PERSIST_DEBOUNCE_MS)
+  }
 
   useEffect(() => {
-    setValues(toFormValues(initialEvent))
-    setImagePreview(initialEvent?.bannerUrl ?? null)
+    // Only fire when we actually receive an event to hydrate from (edit mode, after the
+    // async getById resolves). In create mode initialEvent is always nullish and resetting
+    // here would wipe the sessionStorage hydration performed in the useState initializer.
+    if (!initialEvent) return
+    // Edit mode: prefer a per-event persisted form if the user had unsaved edits from a
+    // previous render of the same event (typical F5 recovery). Fall back to the event
+    // loaded from the backend otherwise.
+    const persisted = mode === 'edit' ? readPersistedForm(editFormKey(initialEvent.id)) : null
+    setValues(persisted ?? toFormValues(initialEvent))
+    setImagePreview(initialEvent.bannerUrl ?? null)
     setSelectedImageName(null)
     setImageFile(null)
     setErrors({})
-  }, [initialEvent])
+  }, [initialEvent, mode])
 
   useEffect(() => () => {
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current)
     }
+    // Flush any pending debounced write so a fast unmount (e.g. refresh) doesn't drop
+    // the last keystrokes. Applies to both create and edit mode: pendingPersistRef
+    // carries the right per-flow storage key along with the latest form values.
+    flushPersist()
   }, [])
 
   function setFieldValue<K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) {
-    setValues((current) => ({ ...current, [field]: value }))
+    setValues((current) => {
+      const next = { ...current, [field]: value }
+      // schedulePersist is a no-op if currentPersistKey() returns null (edit mode before
+      // the async event load), so we can call it unconditionally for both flows.
+      schedulePersist(next)
+      return next
+    })
 
     if (VALIDATABLE_FIELDS.has(field as keyof EventFormErrors)) {
       setErrors((current) => ({ ...current, [field]: undefined }))
@@ -359,7 +469,12 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     return Object.keys(nextErrors).length === 0
   }
 
-  async function submitForm() {
+  async function submitForm(kind: 'publish' | 'draft') {
+    if (submitting || draftSaving) {
+      forcedStatusRef.current = null
+      return
+    }
+
     const effectiveStatus: EventStatus = forcedStatusRef.current ?? values.status
     forcedStatusRef.current = null
 
@@ -367,7 +482,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       return
     }
 
-    setSubmitting(true)
+    const setInFlight = kind === 'publish' ? setSubmitting : setDraftSaving
+    setInFlight(true)
 
     let savedEvent: Event
 
@@ -407,7 +523,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     } catch (error) {
       onError?.(getApiErrorMessage(error, mode))
-      setSubmitting(false)
+      setInFlight(false)
       return
     }
 
@@ -420,29 +536,49 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     }
 
-    setSubmitting(false)
+    setInFlight(false)
+    // Clean up any in-flight debounced write + the persisted key for the current flow.
+    // Works for both create (single key) and edit (per-event key): once the backend has
+    // accepted the payload, the sessionStorage cache is stale and must not resurrect.
+    cancelPersist()
+    const key = currentPersistKey()
+    if (key) clearPersistedForm(key)
     onSuccess?.(savedEvent)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await submitForm()
+    await submitForm('publish')
   }
 
   async function triggerDraftSave() {
     forcedStatusRef.current = 'DRAFT'
-    await submitForm()
+    await submitForm('draft')
+  }
+
+  async function triggerPublish() {
+    forcedStatusRef.current = 'PUBLISHED'
+    await submitForm('publish')
+  }
+
+  function clearPersistedDraft() {
+    cancelPersist()
+    const key = currentPersistKey()
+    if (key) clearPersistedForm(key)
   }
 
   return {
     values,
     errors,
     submitting,
+    draftSaving,
     imagePreview,
     selectedImageName,
     setFieldValue,
     handleImageChange,
     handleSubmit,
     triggerDraftSave,
+    triggerPublish,
+    clearPersistedDraft,
   }
 }

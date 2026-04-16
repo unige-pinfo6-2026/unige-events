@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
+import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
 
 afterEach(() => { cleanup() })
 
@@ -92,5 +92,57 @@ describe('ButtonSecondary', () => {
   it('renders with lg size', () => {
     const { container } = render(<ButtonSecondary size="lg">Grand</ButtonSecondary>)
     expect(container.querySelector('button')?.className).toContain('px-8')
+  })
+})
+
+describe('ButtonNeutral', () => {
+  it('renders button text', () => {
+    render(<ButtonNeutral>Enregistrer</ButtonNeutral>)
+    expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeTruthy()
+  })
+
+  it('calls onClick when clicked', () => {
+    const onClick = vi.fn()
+    render(<ButtonNeutral onClick={onClick}>Cliquer</ButtonNeutral>)
+    fireEvent.click(screen.getByRole('button'))
+    expect(onClick).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled when disabled prop is true', () => {
+    render(<ButtonNeutral disabled>Désactivé</ButtonNeutral>)
+    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('applies the neutral variant classes (filled grey)', () => {
+    const { container } = render(<ButtonNeutral>Neutral</ButtonNeutral>)
+    const className = container.querySelector('button')?.className ?? ''
+    expect(className).toContain('bg-foreground/8')
+    expect(className).toContain('text-foreground')
+  })
+})
+
+describe('ButtonDestructive', () => {
+  it('renders button text', () => {
+    render(<ButtonDestructive>Supprimer</ButtonDestructive>)
+    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeTruthy()
+  })
+
+  it('calls onClick when clicked', () => {
+    const onClick = vi.fn()
+    render(<ButtonDestructive onClick={onClick}>Cliquer</ButtonDestructive>)
+    fireEvent.click(screen.getByRole('button'))
+    expect(onClick).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled when disabled prop is true', () => {
+    render(<ButtonDestructive disabled>Désactivé</ButtonDestructive>)
+    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('applies the destructive variant classes (red)', () => {
+    const { container } = render(<ButtonDestructive>Destroy</ButtonDestructive>)
+    const className = container.querySelector('button')?.className ?? ''
+    expect(className).toContain('bg-error/10')
+    expect(className).toContain('text-error')
   })
 })

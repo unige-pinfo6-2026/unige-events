@@ -10,6 +10,7 @@ import _search_results from './search-results.bones.json'
 import _event_calendar from './event-calendar.bones.json'
 import _user_identity_inline from './user-identity-inline.bones.json'
 import _user_identity_card from './user-identity-card.bones.json'
+import _drafts_resume_strip from './drafts-resume-strip.bones.json'
 import _my_events from './my-events.bones.json'
 
 registerBones({
@@ -21,5 +22,6 @@ registerBones({
   "event-calendar": _event_calendar,
   "user-identity-inline": _user_identity_inline,
   "user-identity-card": _user_identity_card,
+  "drafts-resume-strip": _drafts_resume_strip,
   "my-events": _my_events,
 })

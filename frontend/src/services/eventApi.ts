@@ -45,6 +45,19 @@ export async function deleteEvent(id: number): Promise<void> {
   await api.delete('/events/' + id)
 }
 
+const MAX_DRAFTS_FETCH = 5
+
+export async function getMyDrafts(
+  organizerId: string,
+  limit: number = MAX_DRAFTS_FETCH,
+): Promise<Event[]> {
+  return getAll({
+    organizerId,
+    status: 'DRAFT',
+    size: limit,
+  })
+}
+
 export async function cancelEvent(id: number): Promise<Event> {
   const response = await api.patch<Event>('/events/' + id + '/cancel')
   return response.data

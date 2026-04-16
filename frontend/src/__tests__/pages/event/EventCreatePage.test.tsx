@@ -13,6 +13,10 @@ vi.mock('@/services/eventApi', () => ({
   uploadEventImage: vi.fn(),
 }))
 
+vi.mock('@/components/event/DraftsResumeStrip', () => ({
+  default: () => null,
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -36,7 +40,7 @@ const createdEvent = {
   category: 'SOCIAL',
   faculty: null,
   creatorId: '8b24e4aa-fdea-4e04-bf56-bdb2ddb7fc11',
-  status: 'DRAFT',
+  status: 'PUBLISHED',
   capacity: 120,
   createdAt: '2026-03-27T09:00:00.000Z',
 }
@@ -51,6 +55,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.resetAllMocks()
   sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
+  sessionStorage.removeItem('unige:event-create-draft')
 })
 
 function renderPage() {
@@ -205,11 +210,36 @@ describe('CreateEventPage', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('redirects to the landing page after saving as draft', async () => {
+    mockCreateEvent.mockResolvedValue({ ...createdEvent, status: 'DRAFT' })
+
+    renderPage()
+
+    fillRequiredFields()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+    expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy()
+    expect(mockCreateEvent).toHaveBeenCalledWith(expect.objectContaining({ status: 'DRAFT' }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    expect(mockNavigate).not.toHaveBeenCalledWith('/events/42')
+  })
+
   it('navigates back home when cancel is clicked', () => {
     renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('clears the persisted create-form draft from sessionStorage when cancel is clicked', () => {
+    sessionStorage.setItem('unige:event-create-draft', JSON.stringify({ title: 'À effacer' }))
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(sessionStorage.getItem('unige:event-create-draft')).toBeNull()
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
