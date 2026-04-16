@@ -4,7 +4,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
-import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
+import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
@@ -16,13 +16,18 @@ interface EventFormProps {
   values: EventFormValues
   errors: EventFormErrors
   submitting: boolean
+  draftSaving?: boolean
   imagePreview: string | null
   selectedImageName: string | null
   onFieldChange: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void
   onSubmit: (event: FormSubmitEvent) => Promise<void>
-  onCancel: () => void
+  onCancel?: () => void
   onSaveDraft?: () => Promise<void>
+  saveDraftLabel?: string
+  onDelete?: () => void | Promise<void>
+  deleting?: boolean
+  deleteLabel?: string
 }
 
 interface DateTimeParts {
@@ -92,6 +97,7 @@ export default function EventForm({
   values,
   errors,
   submitting,
+  draftSaving = false,
   imagePreview,
   selectedImageName,
   onFieldChange,
@@ -99,9 +105,14 @@ export default function EventForm({
   onSubmit,
   onCancel,
   onSaveDraft,
+  saveDraftLabel = 'Sauvegarder en Brouillon',
+  onDelete,
+  deleting = false,
+  deleteLabel = 'Supprimer',
 }: Readonly<EventFormProps>) {
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
+  const busy = submitting || draftSaving || deleting
 
   function setDatePart(field: 'startDate' | 'endDate', datePart: string, currentHourPart: string, currentMinutePart: string) {
     if (!datePart) {
@@ -338,30 +349,38 @@ export default function EventForm({
           />
         </FormField>
 
-      </div>
+        {/* Zone CTA — publish / draft save / delete are mutually exclusive: while any
+            one is in flight, all other action buttons are disabled to prevent concurrent
+            mutations on the same event (e.g. clicking "Supprimer" during a save-draft). */}
+        <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+          {onDelete && (
+            <ButtonDestructive
+              onClick={() => { void onDelete() }}
+              disabled={busy}
+              size="md"
+            >
+              {deleting ? 'Suppression...' : deleteLabel}
+            </ButtonDestructive>
+          )}
+          {onCancel && (
+            <ButtonSecondary onClick={onCancel} disabled={busy} size="md">
+              Annuler
+            </ButtonSecondary>
+          )}
+          {onSaveDraft && (
+            <ButtonNeutral
+              onClick={() => { void onSaveDraft() }}
+              disabled={busy}
+              size="md"
+            >
+              {draftSaving ? 'Enregistrement...' : saveDraftLabel}
+            </ButtonNeutral>
+          )}
+          <ButtonPrimary type="submit" disabled={busy} size="md">
+            {submitting ? 'Enregistrement...' : submitLabel}
+          </ButtonPrimary>
+        </div>
 
-      {/* Bande actions — boutons alignés à droite */}
-      <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border/30 max-sm:flex-col max-sm:items-stretch">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-md font-semibold text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
-        >
-          Annuler
-        </button>
-        {onSaveDraft && (
-          <ButtonSecondary
-            type="button"
-            size="sm"
-            disabled={submitting}
-            onClick={() => { void onSaveDraft() }}
-          >
-            Sauvegarder en Brouillon
-          </ButtonSecondary>
-        )}
-        <ButtonPrimary type="submit" disabled={submitting} size="sm">
-          {submitting ? 'Enregistrement...' : submitLabel}
-        </ButtonPrimary>
       </div>
 
 

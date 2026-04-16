@@ -21,10 +21,50 @@ interface IconButtonProps {
 const sizes = {
   'sm': 'px-4 py-2 text-sm',
   'md': 'px-6 py-3 text-md',
-  'lg': 'px-8 py-4 text-lg'
+  'lg': 'px-8 py-4 text-lg',
+} as const
+
+const buttonBase =
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+
+const buttonVariants = {
+  primary:
+    'border-0 bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 focus-visible:ring-accent',
+  secondary:
+    'border-2 border-border bg-transparent text-foreground hover:border-accent/50 hover:bg-background/5 focus-visible:ring-accent',
+  neutral:
+    'border border-border/50 bg-foreground/8 text-foreground hover:bg-foreground/15 focus-visible:ring-accent',
+  destructive:
+    'border border-error/40 bg-error/10 text-error hover:bg-error/20 focus-visible:ring-error',
+} as const
+
+type ButtonVariant = keyof typeof buttonVariants
+
+function buttonClass(variant: ButtonVariant, size: keyof typeof sizes): string {
+  return `${buttonBase} ${buttonVariants[variant]} ${sizes[size]}`
 }
 
-export function ButtonsWrapper({ children } : Readonly<ButtonsWrapperProps>) {
+function Button({
+  variant,
+  size = 'md',
+  children,
+  onClick,
+  type = 'button',
+  disabled,
+}: Readonly<ButtonProps & { variant: ButtonVariant }>) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={buttonClass(variant, size)}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function ButtonsWrapper({ children }: Readonly<ButtonsWrapperProps>) {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
       {children}
@@ -32,30 +72,20 @@ export function ButtonsWrapper({ children } : Readonly<ButtonsWrapperProps>) {
   )
 }
 
-export function ButtonPrimary({ size = 'md', children, onClick, type = 'button', disabled }: Readonly<ButtonProps>) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl bg-linear-to-r from-accent to-pink-600 hover:from-accent/90 hover:to-pink-600/90 text-white shadow-xl shadow-accent/30 transition-all cursor-pointer border-0 disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]}`}
-    >
-      {children}
-    </button>
-  )
+export function ButtonPrimary(props: Readonly<ButtonProps>) {
+  return <Button variant="primary" {...props} />
 }
 
-export function ButtonSecondary({ size = 'md', children, onClick, type = 'button', disabled }: Readonly<ButtonProps>) {
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-2 font-semibold rounded-xl border-2 border-border hover:border-accent/50 hover:bg-background/5 text-foreground transition-all cursor-pointer bg-transparent disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]}`}
-    >
-      {children}
-    </button>
-  )
+export function ButtonSecondary(props: Readonly<ButtonProps>) {
+  return <Button variant="secondary" {...props} />
+}
+
+export function ButtonNeutral(props: Readonly<ButtonProps>) {
+  return <Button variant="neutral" {...props} />
+}
+
+export function ButtonDestructive(props: Readonly<ButtonProps>) {
+  return <Button variant="destructive" {...props} />
 }
 
 export function IconButton({ label, onClick, children }: Readonly<IconButtonProps>) {

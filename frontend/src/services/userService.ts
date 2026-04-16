@@ -24,6 +24,18 @@ export async function uploadPhoto(file: File): Promise<User> {
   return response.data
 }
 
+export async function uploadBanner(file: File): Promise<User> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await api.post<User>('/users/me/banner', formData)
+  return response.data
+}
+
+export async function deleteBanner(): Promise<User> {
+  const response = await api.delete<User>('/users/me/banner')
+  return response.data
+}
+
 export async function getCalendarToken(): Promise<CalendarTokenResponse> {
   const response = await api.get<CalendarTokenResponse>('/users/me/calendar-token')
   return response.data

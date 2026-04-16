@@ -17,10 +17,13 @@
   --color-border: rgba(0, 0, 0, 0.2);
   --color-success: rgb(34, 197, 94);
   --color-error: rgb(220, 38, 38);
+  --color-warning: rgb(245, 158, 11);
 
   --animate-marquee: marquee 20s linear infinite;
   --animate-toast-in: toast-in 0.4s ease-out forwards;
   --animate-toast-out: toast-out 0.4s ease-in forwards;
+  --animate-drafts-panel-open: drafts-panel-open 0.25s ease-out;
+  --animate-drafts-panel-close: drafts-panel-close 0.2s ease-in;
 }
 
 [data-theme="dark"] {
@@ -63,6 +66,16 @@ mark {
 @keyframes toast-out {
   from { transform: translateX(0); opacity: 1; }
   to { transform: translateX(calc(100% + 1.5rem)); opacity: 0; }
+}
+
+@keyframes drafts-panel-open {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+@keyframes drafts-panel-close {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
 }
 
 /* ── react-big-calendar theme overrides ─────────────────────────────── */

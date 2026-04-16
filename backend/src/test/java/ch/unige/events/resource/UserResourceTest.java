@@ -293,6 +293,93 @@ class UserResourceTest {
             .body("error", equalTo("not_found"));
     }
 
+    // --- POST /users/me/banner ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerSuccess() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("bannerUrl", notNullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerInvalidMimeReturns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceBadMimeOnBannerUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void uploadBannerUnauthenticatedReturns401() {
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerUserNotFoundReturns404() {
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "banner.jpg", "fake-jpeg-bytes".getBytes(), "image/jpeg")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
+
+    // --- DELETE /users/me/banner ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void deleteBannerSuccess() {
+        var user = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        user.bannerUrl = "/api/uploads/test-banner.jpg";
+
+        given()
+            .when().delete("/users/me/banner")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("bannerUrl", equalTo(null));
+    }
+
+    @Test
+    void deleteBannerUnauthenticatedReturns401() {
+        given()
+            .when().delete("/users/me/banner")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void deleteBannerUserNotFoundReturns404() {
+        given()
+            .when().delete("/users/me/banner")
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
+
     // --- GET /users/me/favorites ---
 
     @Test

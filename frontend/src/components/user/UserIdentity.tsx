@@ -12,8 +12,8 @@ interface UserIdentityProps {
 }
 
 const variants = {
-  inline: { wrapper: 'flex items-center gap-3', avatarSize: "sm", nameSize: "sm" },
-  card: { wrapper: 'flex flex-row items-center gap-3', avatarSize: "lg", nameSize: "lg" },
+  inline: { wrapper: 'flex items-center gap-3', avatarClass: 'size-8', nameSize: 'sm' },
+  card: { wrapper: 'flex flex-row items-center gap-3', avatarClass: 'size-12', nameSize: 'lg' },
 } as const
 
 const fixtureVariants = {
@@ -35,7 +35,7 @@ const fixtureVariants = {
 } as const
 
 export default function UserIdentity({ user, loading = false, variant = 'inline' }: Readonly<UserIdentityProps>) {
-  const { wrapper, avatarSize, nameSize } = variants[variant]
+  const { wrapper, avatarClass, nameSize } = variants[variant]
   const { user: currentUser } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
@@ -53,7 +53,7 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
 
   return (
     <Link to={profileUrl} className={wrapper}>
-      <UserAvatar user={user} size={avatarSize} />
+      <UserAvatar user={user} className={avatarClass} />
 
       <div className="flex flex-col gap-0.5">
         <span className={`text-${nameSize} font-semibold text-foreground`}>{user.displayName}</span>

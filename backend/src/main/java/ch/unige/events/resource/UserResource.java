@@ -223,6 +223,34 @@ public class UserResource {
         return Response.ok(UserProfileResponse.from(updated)).build();
     }
 
+    /**
+     * POST /api/users/me/banner
+     * Upload de la bannière de profil — met à jour bannerUrl avec le chemin /api/uploads/...
+     */
+    @POST
+    @Path("/me/banner")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Authenticated
+    public Response uploadBanner(@RestForm("file") FileUpload file) {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.uploadBanner(auth0Id, file);
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
+    /**
+     * DELETE /api/users/me/banner
+     * Supprime la bannière de profil — remet bannerUrl à null
+     */
+    @DELETE
+    @Path("/me/banner")
+    @Authenticated
+    @Consumes(MediaType.WILDCARD)
+    public Response deleteBanner() {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.deleteBanner(auth0Id);
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
     @GET
     @Path("/me/favorites")
     @Authenticated

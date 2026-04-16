@@ -13,6 +13,7 @@ import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
+import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -297,14 +298,7 @@ export default function EventDetailPage() {
         <div className="flex flex-col gap-5 max-lg:order-2">
 
           {/* Bannière */}
-          <div
-            className="relative rounded-3xl overflow-hidden h-72 lg:h-80"
-            style={{
-              background: event.bannerUrl
-                ? `url(${event.bannerUrl}) center/cover`
-                : `linear-gradient(135deg, ${category.color}55, ${category.color}cc)`,
-            }}
-          >
+          <EventBanner event={event} className="rounded-3xl h-72 lg:h-80">
             <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
             <span
@@ -318,7 +312,7 @@ export default function EventDetailPage() {
                 {event.title}
               </h1>
             </div>
-          </div>
+          </EventBanner>
 
           {/* Card description */}
           {event.description && (
@@ -404,7 +398,7 @@ export default function EventDetailPage() {
                 to={`/profile/${organizer.id}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
               >
-                <UserAvatar user={organizer} size='sm' className="shrink-0" />
+                <UserAvatar user={organizer} className="size-8 shrink-0" />
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs text-foreground/40">Organisé par</span>
                   <span className="text-sm font-semibold text-foreground truncate">

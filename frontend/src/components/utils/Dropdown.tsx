@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 
 const aligns = {
@@ -26,8 +28,16 @@ export function Dropdown({
   align?: keyof typeof aligns
   showChevron?: boolean
 }>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>(':focus')
+    el?.blur()
+  }, [pathname])
+
   return (
-    <div className="group relative">
+    <div ref={ref} className="group relative">
       <div className="flex items-center gap-1">
         {trigger}
         {showChevron && <ChevronDown className="size-4 text-foreground/50 transition-transform duration-200 group-hover:rotate-180" />}

@@ -292,6 +292,7 @@ Le thème est défini dans `src/index.css` via `@theme` (TailwindCSS v4). **Touj
 | `--color-foreground` | `text-foreground` (+ `/60`, `/40`…) | Texte (avec opacités) |
 | `--color-border` | `border-border` | Bordures standard |
 | `--color-error` | `text/bg/border-error` | Erreurs de validation, messages d'échec, champs invalides |
+| `--color-warning` | `text/bg/border-warning` | États d'avertissement non-bloquants (ex. badge "Brouillon" sur `EventCard`). Amber `rgb(245,158,11)`. |
 | `--color-overlay` | — | Fond semi-transparent pour modales |
 | `--font-primary` | `font-primary` | Police Inter |
 | `--height-navbar` | `h-navbar` | Hauteur de la navbar |
@@ -334,16 +335,15 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 
 | Nom | Fichier bones | Composant consommateur | Méthode |
 |---|---|---|---|
-| `event-cards` | `event-cards.bones.json` | `EventCards`, `MyFavoritesPage`, `MyParticipationsPage` | generate.mjs |
+| `event-cards` | `event-cards.bones.json` | `EventCards` | generate.mjs |
 | `event-detail` | `event-detail.bones.json` | `EventDetailPage` | generate.mjs |
 | `event-edit` | `event-edit.bones.json` | `EventEditPage` | generate.mjs |
-| `my-publications` | `my-publications.bones.json` | `MyPublicationsPage` | generate.mjs |
 | `profile` | `profile.bones.json` | `ProfilePage` | manuel |
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | generate.mjs |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | generate.mjs |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
-| `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
-| `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
+| `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel) | manuel |
+| `my-events` | `my-events.bones.json` | Pages `/my-events/*` | manuel |
 
 ---
 
