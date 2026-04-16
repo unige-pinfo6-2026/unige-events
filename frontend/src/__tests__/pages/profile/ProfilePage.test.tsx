@@ -197,9 +197,9 @@ describe('ProfilePage', () => {
     })
     renderProfilePage('me')
     await screen.findByRole('heading', { level: 1, name: 'Test User' })
-    const banner = document.querySelector<HTMLElement>('[style*="banner.jpg"]')
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
     expect(banner).toBeTruthy()
-    expect(banner!.style.backgroundImage).toContain('banner.jpg')
+    expect(banner!.src).toContain('banner.jpg')
   })
 
   it('renders gradient fallback when bannerUrl is null', async () => {

@@ -110,7 +110,7 @@ describe('EventCard', () => {
 
   it('renders banner image when bannerUrl is set', () => {
     renderCard({ ...mockEvent, bannerUrl: 'https://example.com/banner.jpg' })
-    const banner = document.querySelector<HTMLElement>('[style*="banner.jpg"]')
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
     expect(banner).toBeTruthy()
   })
 

@@ -47,16 +47,10 @@ describe('UserAvatar', () => {
     expect(container.firstChild).toBeTruthy()
   })
 
-  it('applies the specified size', () => {
-    const { container } = render(<UserAvatar user={baseUser} size="xl" />)
+  it('applies size via className', () => {
+    const { container } = render(<UserAvatar user={baseUser} className="size-16" />)
     const div = container.querySelector('div') as HTMLDivElement
     expect(div.className).toContain('size-16')
-  })
-
-  it('applies default size lg', () => {
-    const { container } = render(<UserAvatar user={baseUser} />)
-    const div = container.querySelector('div') as HTMLDivElement
-    expect(div.className).toContain('size-12')
   })
 
   it('applies custom className', () => {

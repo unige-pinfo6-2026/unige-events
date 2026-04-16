@@ -253,9 +253,9 @@ describe('ProfileEditPage', () => {
     mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' } })
     renderProfileEditPage()
     await screen.findByDisplayValue('Test User')
-    const banner = document.querySelector<HTMLElement>('[style*="banner.jpg"]')
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
     expect(banner).toBeTruthy()
-    expect(banner!.style.backgroundImage).toContain('banner.jpg')
+    expect(banner!.src).toContain('banner.jpg')
   })
 
   it('shows gradient placeholder when user has no bannerUrl', async () => {
@@ -294,7 +294,7 @@ describe('ProfileEditPage', () => {
     const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
     fireEvent.change(input, { target: { files: [file] } })
     await waitFor(() => {
-      const banner = document.querySelector<HTMLElement>('[style*="banner-preview-url"]')
+      const banner = document.querySelector<HTMLImageElement>('img[src*="banner-preview-url"]')
       expect(banner).toBeTruthy()
     })
   })

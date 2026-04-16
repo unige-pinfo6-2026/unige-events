@@ -8,6 +8,7 @@ import FormField, { Input, Select, Textarea } from '@/components/utils/FormField
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, Trash2, X } from 'lucide-react'
 import UserAvatar from '@/components/user/UserAvatar'
+import UserBanner from '@/components/user/UserBanner'
 import { useToast } from '@/hooks/useToast'
 
 const MAX_BIO_LENGTH = 500
@@ -145,7 +146,7 @@ export default function ProfileEditPage() {
     }
   }
 
-  const previewUser = user ? { ...user, displayName: name, avatarUrl: photoPreview ?? user.avatarUrl } : null
+  const previewUser = user ? { ...user, displayName: name, avatarUrl: photoPreview ?? user.avatarUrl, bannerUrl: bannerPreview } : null
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -156,18 +157,7 @@ export default function ProfileEditPage() {
 
           {/* Banner */}
           <div className="flex flex-col gap-3">
-            <div
-              className="relative h-32 rounded-2xl overflow-hidden bg-cover bg-center"
-              style={
-                bannerPreview
-                  ? { backgroundImage: `url(${bannerPreview})` }
-                  : undefined
-              }
-            >
-              {!bannerPreview && (
-                <div className="absolute inset-0 bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20" />
-              )}
-            </div>
+            <UserBanner user={previewUser} className="h-32 rounded-2xl" />
             <div className="flex gap-2 flex-wrap">
               <label
                 htmlFor="banner-input"
@@ -195,7 +185,7 @@ export default function ProfileEditPage() {
 
           {/* Photo */}
           <div className="flex items-center gap-5">
-            <UserAvatar user={previewUser} size='xl' />
+            <UserAvatar user={previewUser} className="size-16" />
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="photo-input"
