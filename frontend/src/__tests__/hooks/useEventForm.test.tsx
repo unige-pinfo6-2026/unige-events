@@ -717,6 +717,7 @@ describe('useEventForm', () => {
         await act(async () => {
           await result.current.handleSubmit(submitEvent())
         })
+        
         expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
       } finally {
         vi.useRealTimers()

@@ -343,7 +343,6 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | generate.mjs |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel) | manuel |
-| `my-events` | `my-events.bones.json` | Pages `/my-events/*` | manuel |
 
 ---
 

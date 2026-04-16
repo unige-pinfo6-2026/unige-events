@@ -307,7 +307,6 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
 | `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
-| `my-events` | `my-events.bones.json` | `MyFavoritesPage, MyParticipationsPage, MyPublicationsPage` | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
