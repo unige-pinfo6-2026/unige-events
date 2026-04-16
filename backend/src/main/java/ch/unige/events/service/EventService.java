@@ -77,19 +77,7 @@ public class EventService {
                 .page(page, size)
                 .list();
 
-        List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
-
-        return events.stream()
-                .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
-                })
-                .toList();
+        return toEventDTOs(events);
     }
 
     @Transactional
@@ -110,19 +98,7 @@ public class EventService {
                 .page(page, size)
                 .list();
 
-        List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
-
-        return events.stream()
-                .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
-                })
-                .toList();
+        return toEventDTOs(events);
     }
 
     @Transactional
@@ -317,6 +293,21 @@ public class EventService {
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
         long attUpload = countAttending(id);
         return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id));
+    }
+
+    private List<EventDTO> toEventDTOs(List<Event> events) {
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.WAITLISTED, entityManager);
+        return events.stream()
+                .map(e -> {
+                    long att = attendingCounts.getOrDefault(e.id, 0L);
+                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
+                })
+                .toList();
     }
 
     private static long countAttending(Long eventId) {
