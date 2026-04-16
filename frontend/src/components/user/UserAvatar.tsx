@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { User } from "@/types/user"
 
 interface UserAvatarProps {
@@ -17,6 +17,10 @@ const sizes = {
 
 export default function UserAvatar({ user, size = "lg", className }: Readonly<UserAvatarProps>) {
   const [error, setError] = useState(false)
+
+  useEffect(() => {
+    setError(false)
+  }, [user?.avatarUrl])
 
   const initials = (user?.displayName ?? '').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
 
