@@ -18,23 +18,21 @@ export function toLocalDateTimeInputValue(dateTime: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export function formatEventDateTime(dateTime: string): string {
+export function formatEventDateTime(dateTime: string, allDay: boolean = false): string {
   return parseApiUtcDateTime(dateTime).toLocaleString('fr-CH', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    ...(allDay ? {} : { hour: '2-digit', minute: '2-digit' }),
   })
 }
 
-export function formatEventDateTimeCompact(dateTime: string): string {
+export function formatEventDateTimeCompact(dateTime: string, allDay: boolean = false): string {
   return parseApiUtcDateTime(dateTime).toLocaleString('fr-CH', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    ...(allDay ? {} : { hour: '2-digit', minute: '2-digit' }),
   })
 }

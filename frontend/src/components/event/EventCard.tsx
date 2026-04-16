@@ -62,7 +62,7 @@ export default function EventCard({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-              <span className="font-medium">{formatEventDateTimeCompact(event.startDate)}</span>
+              <span className="font-medium">{formatEventDateTimeCompact(event.startDate, event.allDay)}</span>
             </div>
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <MapPin className="w-4 h-4 shrink-0" style={{ color: category.color }} />

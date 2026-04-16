@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
-import { deleteEvent } from '@/services/eventApi'
+import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
@@ -17,7 +17,7 @@ import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Calendar, MapPin, Users, Globe, Mail, CalendarClock, Tag, BarChart2, Share2, Star } from 'lucide-react'
+import { Ban, BarChart2, Calendar, CalendarClock, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -125,6 +125,44 @@ const capacityBadgeVariants = {
   available: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
 } as const
 
+interface ConfirmDialogProps {
+  title: string
+  message: React.ReactNode
+  confirmLabel: string
+  pending: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function ConfirmDialog({ title, message, confirmLabel, pending, onConfirm, onClose }: Readonly<ConfirmDialogProps>) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
+        <h2 className="text-lg font-bold text-foreground mb-2">{title}</h2>
+        <div className="text-sm text-foreground/50 mb-6">{message}</div>
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold disabled:opacity-50 hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -139,6 +177,9 @@ export default function EventDetailPage() {
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const [organizer, setOrganizer] = useState<User | null>(null)
   const [bannerWarning, setBannerWarning] = useState<string | null>(null)
 
@@ -202,10 +243,41 @@ export default function EventDetailPage() {
     setDeleting(true)
     try {
       await deleteEvent(event.id)
-      navigate('/')
+      toast.showToast('success', 'Événement supprimé définitivement.')
+      navigate('/my-events/publications?status=cancelled')
     } catch {
       setDeleting(false)
       setShowConfirm(false)
+      toast.showToast('error', 'Impossible de supprimer cet événement.')
+    }
+  }
+
+  async function handleCancelEvent() {
+    if (!event) return
+    setCancelling(true)
+    try {
+      await cancelEvent(event.id)
+      toast.showToast('success', 'Événement annulé.')
+      navigate('/my-events/publications?status=cancelled')
+    } catch {
+      setShowCancelConfirm(false)
+      toast.showToast('error', 'Impossible d\'annuler cet événement.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  async function handleRestore() {
+    if (!event) return
+    setRestoring(true)
+    try {
+      await restoreEvent(event.id)
+      toast.showToast('success', 'Événement remis en brouillon.')
+      navigate('/my-events/publications?status=draft')
+    } catch {
+      toast.showToast('error', 'Impossible de restaurer cet événement.')
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -307,9 +379,9 @@ export default function EventDetailPage() {
             <div className="flex flex-col gap-3">
               <InfoRow icon={Calendar} color={category.color}>
                 <span>
-                  {formatEventDateTime(event.startDate)}
+                  {formatEventDateTime(event.startDate, event.allDay)}
                   <span className="text-foreground/30 mx-1.5">→</span>
-                  {formatEventDateTime(event.endDate)}
+                  {formatEventDateTime(event.endDate, event.allDay)}
                 </span>
               </InfoRow>
 
@@ -407,19 +479,47 @@ export default function EventDetailPage() {
           {/* Actions organisateur */}
           {isOrganizer && (
             <div className="flex flex-col gap-2">
-              <Link
-                to={`/events/${event.id}/edit`}
-                className="w-full text-center px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
-              >
-                Modifier l'événement
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowConfirm(true)}
-                className="w-full px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-              >
-                Supprimer l'événement
-              </button>
+              {event.status !== 'CANCELLED' && (
+                <>
+                  <Link
+                    to={`/events/${event.id}/edit`}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+                  >
+                    <Pencil className="w-4 h-4 shrink-0" />
+                    Modifier l'événement
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    disabled={cancelling}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-orange-500/40 text-orange-400 bg-transparent text-sm font-semibold cursor-pointer hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                  >
+                    <Ban className="w-4 h-4 shrink-0" />
+                    Annuler l'événement
+                  </button>
+                </>
+              )}
+              {event.status === 'CANCELLED' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRestore}
+                    disabled={restoring}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold cursor-pointer bg-transparent hover:border-foreground/30 transition-colors disabled:opacity-50"
+                  >
+                    <Undo2 className="w-4 h-4 shrink-0" />
+                    Remettre en brouillon
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(true)}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    Supprimer l'événement
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -447,34 +547,26 @@ export default function EventDetailPage() {
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 
-      {/* Modale confirmation suppression — inchangée */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
-            <h2 className="text-lg font-bold text-foreground mb-2">Supprimer l'événement ?</h2>
-            <p className="text-sm text-foreground/50 mb-6">
-              Cette action annulera l'événement <strong className="text-foreground">"{event.title}"</strong>. Elle est irréversible.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowConfirm(false)}
-                disabled={deleting}
-                className="px-4 py-2.5 rounded-xl border border-border text-foreground text-sm font-semibold disabled:opacity-50 hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-4 py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-50 hover:bg-error/80 transition-colors cursor-pointer border-0"
-              >
-                {deleting ? 'Suppression...' : 'Confirmer'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Supprimer l'événement ?"
+          message={<>Cette action supprimera définitivement l'événement <strong className="text-foreground">"{event.title}"</strong>. Elle est irréversible.</>}
+          confirmLabel={deleting ? 'Suppression...' : 'Confirmer'}
+          pending={deleting}
+          onConfirm={handleDelete}
+          onClose={() => setShowConfirm(false)}
+        />
+      )}
+
+      {showCancelConfirm && (
+        <ConfirmDialog
+          title="Annuler l'événement ?"
+          message={<>Cette action annulera l'événement <strong className="text-foreground">"{event.title}"</strong>. Vous pourrez le remettre en brouillon depuis l'onglet Annulés.</>}
+          confirmLabel={cancelling ? '…' : 'Confirmer'}
+          pending={cancelling}
+          onConfirm={handleCancelEvent}
+          onClose={() => setShowCancelConfirm(false)}
+        />
       )}
 
     </SectionWrapper>

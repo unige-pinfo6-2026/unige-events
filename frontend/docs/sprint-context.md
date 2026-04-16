@@ -1,6 +1,22 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-03
+Dernière mise à jour : 2026-04-14
+
+## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
+
+En cours.
+
+Fonctionnalités livrées :
+- **Split en trois pages indépendantes** après premier review :
+  - `MyFavoritesPage` (`/my-events/favorites`) — grille d'`EventCard` via `getFavorites()`.
+  - `MyParticipationsPage` (`/my-events/participations`) — grille d'`EventCard` avec badge "Inscrit" via `useMyParticipations` (stub `getMyParticipations()` retourne `[]` en attendant l'endpoint backend enrichi).
+  - `MyPublicationsPage` (`/my-events/publications`) — dashboard organisateur avec sous-onglets `Publiés / Brouillons / Annulés` (`?status=published|draft|cancelled`). **Layout cards** (`PublicationCard` local) sur tous les breakpoints (plus de table) : bannière ou gradient fallback basé sur la catégorie, badges catégorie/statut en overlay, actions Modifier / Publier (DRAFT) / Annuler. Tri `startDate` décroissante. Bouton flottant "Créer un événement".
+- `MyEventsPage` gardé uniquement comme redirect vers `/my-events/favorites`.
+- `publishEvent(id)` ajouté à `eventApi.ts` (PATCH /events/{id}/publish).
+- Hooks : `useMyEvents(organizerId, status)` (publish/cancel avec cache local invalidé) et `useMyParticipations()`.
+- Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
+- **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
+- Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
 
 ## Sprint 1 — Authentification & profils
 

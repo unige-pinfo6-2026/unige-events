@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { getMe, getUserById, updateProfile, uploadPhoto } from '@/services/userService'
+import { getMe, getUserById, updateProfile, uploadPhoto, getCalendarToken, regenerateCalendarToken } from '@/services/userService'
 
 vi.mock('@/services/api', () => ({
   default: {
@@ -60,6 +60,26 @@ describe('userService', () => {
         '/users/me/image',
         expect.any(FormData),
       )
+    })
+  })
+
+  describe('getCalendarToken', () => {
+    it('returns calendar token from GET /users/me/calendar-token', async () => {
+      const token = { token: 'abc-123-def', expiresAt: '2026-04-15' }
+      mockApiGet.mockResolvedValue({ data: token })
+      const result = await getCalendarToken()
+      expect(result).toEqual(token)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/calendar-token')
+    })
+  })
+
+  describe('regenerateCalendarToken', () => {
+    it('posts to /users/me/calendar-token/regenerate and returns new token', async () => {
+      const token = { token: 'new-token-xyz', expiresAt: '2026-05-15' }
+      mockApiPost.mockResolvedValue({ data: token })
+      const result = await regenerateCalendarToken()
+      expect(result).toEqual(token)
+      expect(mockApiPost).toHaveBeenCalledWith('/users/me/calendar-token/regenerate')
     })
   })
 })

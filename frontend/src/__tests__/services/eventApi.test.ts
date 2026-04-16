@@ -8,16 +8,18 @@ vi.mock('@/services/api', () => ({
     delete: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
   },
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { createEvent, deleteEvent, getAll, getById, publishEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
 const mockApiPost = vi.mocked(api.post)
 const mockApiPut = vi.mocked(api.put)
+const mockApiPatch = vi.mocked(api.patch)
 
 const sampleEvent = {
   id: 42,
@@ -39,6 +41,7 @@ beforeEach(() => {
   mockApiDelete.mockReset()
   mockApiPost.mockReset()
   mockApiPut.mockReset()
+  mockApiPatch.mockReset()
 })
 
 afterEach(() => {
@@ -125,5 +128,15 @@ describe('eventApi', () => {
     await deleteEvent(42)
 
     expect(mockApiDelete).toHaveBeenCalledWith('/events/42')
+  })
+
+  it('publishes an event (DRAFT → PUBLISHED)', async () => {
+    const publishedEvent = { ...sampleEvent, status: 'PUBLISHED' as const }
+    mockApiPatch.mockResolvedValue({ data: publishedEvent } as Awaited<ReturnType<typeof api.patch>>)
+
+    const response = await publishEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/publish')
+    expect(response).toEqual(publishedEvent)
   })
 })
