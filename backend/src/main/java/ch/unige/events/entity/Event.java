@@ -2,9 +2,13 @@ package ch.unige.events.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.validator.constraints.URL;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Entity
@@ -49,6 +53,25 @@ public class Event extends PanacheEntity {
     @Column(nullable = false)
     @ColumnDefault("false")
     public boolean allDay = false;
+
+    @URL
+    @Column(length = 500)
+    public String websiteUrl;
+
+    @Email
+    @Column(length = 255)
+    public String contactEmail;
+
+    public LocalDateTime registrationDeadline;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "event_tags",
+            joinColumns = @JoinColumn(name = "event_id"),
+            foreignKey = @ForeignKey(name = "fk_event_tags_event")
+    )
+    @Column(name = "tag", nullable = false, length = 64)
+    public List<String> tags = new ArrayList<>();
 
     @Column(unique = true)
     public String shareCode;

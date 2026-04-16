@@ -100,7 +100,7 @@ class AttendanceServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void attend_capacityReached_throwsConflict() {
+    void attend_capacityReached_placesInWaitlist() {
         User organizer = persistUser("auth0|org1", "org1@example.com");
         Event event = persistEvent("Full Event", organizer, EventStatus.PUBLISHED, 1);
 
@@ -108,11 +108,11 @@ class AttendanceServiceCoverageTest {
         User user1 = persistUser("auth0|u1", "u1@example.com");
         persistAttendance(user1.id, event.id, AttendanceStatus.ATTENDING);
 
-        // Deuxième utilisateur — 409 attendu
+        // Deuxième utilisateur — doit passer en WAITLISTED (200), plus de 409
         persistUser("auth0|u2", "u2@example.com");
-        WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> attendanceService.attend("auth0|u2", event.id, AttendanceStatus.ATTENDING));
-        assertEquals(409, ex.getResponse().getStatus());
+        AttendanceDTO dto = attendanceService.attend("auth0|u2", event.id, AttendanceStatus.ATTENDING);
+
+        assertEquals(AttendanceStatus.WAITLISTED, dto.status());
     }
 
     @Test
@@ -317,6 +317,215 @@ class AttendanceServiceCoverageTest {
     // =========================================================
     // AttendanceDTO.from — couverture du factory method
     // =========================================================
+
+    // =========================================================
+    // SCRUM-126 — registrationDeadline
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void attend_afterRegistrationDeadline_throwsConflictRegistrationClosed() {
+        User organizer = persistUser("auth0|dl-org", "dl-org@example.com");
+        Event event = persistEvent("Deadline passed", organizer, EventStatus.PUBLISHED, null);
+        event.registrationDeadline = LocalDateTime.now().minusMinutes(5);
+        entityManager.flush();
+
+        persistUser("auth0|dl-user", "dl-user@example.com");
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> attendanceService.attend("auth0|dl-user", event.id, AttendanceStatus.ATTENDING));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void attend_beforeRegistrationDeadline_succeeds() {
+        User organizer = persistUser("auth0|dl-org2", "dl-org2@example.com");
+        Event event = persistEvent("Deadline future", organizer, EventStatus.PUBLISHED, null);
+        event.registrationDeadline = LocalDateTime.now().plusDays(2);
+        entityManager.flush();
+
+        persistUser("auth0|dl-user2", "dl-user2@example.com");
+        AttendanceDTO dto = attendanceService.attend("auth0|dl-user2", event.id, AttendanceStatus.ATTENDING);
+
+        assertEquals(AttendanceStatus.ATTENDING, dto.status());
+    }
+
+    @Test
+    @TestTransaction
+    void attend_withWaitlistedStatusInRequest_throwsBadRequest() {
+        User organizer = persistUser("auth0|br-org", "br-org@example.com");
+        Event event = persistEvent("BadReq Event", organizer, EventStatus.PUBLISHED, null);
+        persistUser("auth0|br-user", "br-user@example.com");
+
+        assertThrows(BadRequestException.class,
+                () -> attendanceService.attend("auth0|br-user", event.id, AttendanceStatus.WAITLISTED));
+    }
+
+    // =========================================================
+    // SCRUM-129 — WAITLISTED + promotion FIFO
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void attend_capacityExactlyReached_nextUserGoesToWaitlist() {
+        User organizer = persistUser("auth0|wl-org", "wl-org@example.com");
+        Event event = persistEvent("Waitlist Event", organizer, EventStatus.PUBLISHED, 2);
+
+        User u1 = persistUser("auth0|wl-u1", "wl-u1@example.com");
+        User u2 = persistUser("auth0|wl-u2", "wl-u2@example.com");
+        persistUser("auth0|wl-u3", "wl-u3@example.com");
+
+        attendanceService.attend("auth0|wl-u1", event.id, AttendanceStatus.ATTENDING);
+        attendanceService.attend("auth0|wl-u2", event.id, AttendanceStatus.ATTENDING);
+        AttendanceDTO third = attendanceService.attend("auth0|wl-u3", event.id, AttendanceStatus.ATTENDING);
+
+        assertEquals(AttendanceStatus.WAITLISTED, third.status());
+        assertEquals(2, Attendance.count("eventId = ?1 and status = ?2", event.id, AttendanceStatus.ATTENDING));
+        assertEquals(1, Attendance.count("eventId = ?1 and status = ?2", event.id, AttendanceStatus.WAITLISTED));
+        // silence unused warnings
+        assertNotNull(u1);
+        assertNotNull(u2);
+    }
+
+    @Test
+    @TestTransaction
+    void removeAttendance_promotesFirstWaitlisted_fifo() {
+        User organizer = persistUser("auth0|fifo-org", "fifo-org@example.com");
+        Event event = persistEvent("FIFO Event", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|fifo-u1", "fifo-u1@example.com");
+        User u2 = persistUser("auth0|fifo-u2", "fifo-u2@example.com");
+        User u3 = persistUser("auth0|fifo-u3", "fifo-u3@example.com");
+
+        // u1 ATTENDING
+        attendanceService.attend("auth0|fifo-u1", event.id, AttendanceStatus.ATTENDING);
+        // u2 WAITLISTED (créé en premier)
+        Attendance waitU2 = persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+        // Assurer un createdAt plus ancien pour u2
+        waitU2.createdAt = LocalDateTime.now().minusMinutes(10);
+        entityManager.flush();
+        // u3 WAITLISTED (créé en second)
+        Attendance waitU3 = persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
+        waitU3.createdAt = LocalDateTime.now().minusMinutes(5);
+        entityManager.flush();
+
+        // u1 se désinscrit → u2 doit être promu (plus ancien createdAt)
+        attendanceService.removeAttendance("auth0|fifo-u1", event.id);
+        entityManager.flush();
+
+        Attendance u2After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u2.id, event.id).firstResult();
+        Attendance u3After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u3.id, event.id).firstResult();
+
+        assertEquals(AttendanceStatus.ATTENDING, u2After.status);
+        assertEquals(AttendanceStatus.WAITLISTED, u3After.status);
+        // silence unused warning
+        assertNotNull(u1);
+    }
+
+    @Test
+    @TestTransaction
+    void removeAttendance_removeWaitlisted_doesNotPromoteAnyone() {
+        User organizer = persistUser("auth0|rmw-org", "rmw-org@example.com");
+        Event event = persistEvent("Remove waitlisted", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|rmw-u1", "rmw-u1@example.com");
+        User u2 = persistUser("auth0|rmw-u2", "rmw-u2@example.com");
+        User u3 = persistUser("auth0|rmw-u3", "rmw-u3@example.com");
+
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+        persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
+
+        // u2 se désinscrit alors qu'il était seulement WAITLISTED → pas de promotion
+        attendanceService.removeAttendance("auth0|rmw-u2", event.id);
+        entityManager.flush();
+
+        Attendance u1After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u1.id, event.id).firstResult();
+        Attendance u3After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u3.id, event.id).firstResult();
+
+        assertEquals(AttendanceStatus.ATTENDING, u1After.status);
+        assertEquals(AttendanceStatus.WAITLISTED, u3After.status);
+    }
+
+    @Test
+    @TestTransaction
+    void removeAttendance_onCancelledEvent_doesNotPromote() {
+        User organizer = persistUser("auth0|cx-org", "cx-org@example.com");
+        Event event = persistEvent("Cancelled Event", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|cx-u1", "cx-u1@example.com");
+        User u2 = persistUser("auth0|cx-u2", "cx-u2@example.com");
+
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+
+        // Annule l'event puis u1 se désinscrit
+        event.status = EventStatus.CANCELLED;
+        entityManager.flush();
+        attendanceService.removeAttendance("auth0|cx-u1", event.id);
+        entityManager.flush();
+
+        Attendance u2After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u2.id, event.id).firstResult();
+        assertEquals(AttendanceStatus.WAITLISTED, u2After.status);
+    }
+
+    @Test
+    @TestTransaction
+    void getById_reflectsAvailableSpotsAndWaitlistedCount() {
+        User organizer = persistUser("auth0|spots-org", "spots-org@example.com");
+        Event event = persistEvent("Spots Event", organizer, EventStatus.PUBLISHED, 2);
+
+        User u1 = persistUser("auth0|spots-u1", "spots-u1@example.com");
+        User u2 = persistUser("auth0|spots-u2", "spots-u2@example.com");
+        User u3 = persistUser("auth0|spots-u3", "spots-u3@example.com");
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id);
+
+        assertEquals(2, dto.attendingCount());
+        assertEquals(0L, dto.availableSpots());
+        assertEquals(1, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_withoutCapacity_returnsNullAvailableSpots() {
+        User organizer = persistUser("auth0|noc-org", "noc-org@example.com");
+        Event event = persistEvent("No Capacity Event", organizer, EventStatus.PUBLISHED, null);
+
+        EventDTO dto = eventService.getById(event.id);
+
+        assertNull(dto.availableSpots());
+        assertEquals(0, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void attend_alreadyWaitlisted_isIdempotent() {
+        User organizer = persistUser("auth0|id-org", "id-org@example.com");
+        Event event = persistEvent("Idem Event", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|id-u1", "id-u1@example.com");
+        User u2 = persistUser("auth0|id-u2", "id-u2@example.com");
+
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+
+        AttendanceDTO second = attendanceService.attend("auth0|id-u2", event.id, AttendanceStatus.ATTENDING);
+
+        assertEquals(AttendanceStatus.WAITLISTED, second.status());
+        assertEquals(1, Attendance.count("eventId = ?1 and status = ?2", event.id, AttendanceStatus.WAITLISTED));
+        assertEquals(1, Attendance.count("eventId = ?1 and status = ?2", event.id, AttendanceStatus.ATTENDING));
+    }
 
     @Test
     void attendanceDTO_from_mapsAllFields() {

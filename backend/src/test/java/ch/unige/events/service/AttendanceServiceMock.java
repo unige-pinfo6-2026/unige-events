@@ -33,6 +33,8 @@ public class AttendanceServiceMock extends AttendanceService {
     public static volatile boolean forceNotFoundOnRemove = false;
     public static volatile boolean forceForbiddenOnGetAttendees = false;
     public static volatile boolean forceDraftConflict = false;
+    public static volatile boolean forceRegistrationClosed = false;
+    public static volatile boolean returnWaitlisted = false;
 
     public void reset() {
         eventsById.clear();
@@ -43,6 +45,8 @@ public class AttendanceServiceMock extends AttendanceService {
         forceNotFoundOnRemove = false;
         forceForbiddenOnGetAttendees = false;
         forceDraftConflict = false;
+        forceRegistrationClosed = false;
+        returnWaitlisted = false;
     }
 
     public Event seedEvent(String title) {
@@ -59,6 +63,16 @@ public class AttendanceServiceMock extends AttendanceService {
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
         if (forceNotFoundOnAttend) throw new NotFoundException();
         if (forceDraftConflict) throw new BadRequestException("Cannot attend a non-published event");
+        if (status != AttendanceStatus.ATTENDING) {
+            throw new BadRequestException("Only ATTENDING is accepted as a request status");
+        }
+        if (forceRegistrationClosed) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.CONFLICT)
+                            .entity(Map.of("error", "registration_closed", "message", "La deadline d'inscription est dépassée."))
+                            .type(MediaType.APPLICATION_JSON_TYPE)
+                            .build());
+        }
         if (forceCapacityConflict) {
             throw new WebApplicationException(
                     Response.status(Response.Status.CONFLICT)
@@ -67,8 +81,9 @@ public class AttendanceServiceMock extends AttendanceService {
                             .build());
         }
         if (!eventsById.containsKey(eventId)) throw new NotFoundException();
-        attendances.put(eventId, status);
-        Attendance a = buildAttendance(eventId, status);
+        AttendanceStatus effective = returnWaitlisted ? AttendanceStatus.WAITLISTED : status;
+        attendances.put(eventId, effective);
+        Attendance a = buildAttendance(eventId, effective);
         return AttendanceDTO.from(a);
     }
 

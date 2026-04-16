@@ -104,6 +104,7 @@ const makeCalendarEvent = (id: number, title: string): CalendarEvent => ({
     location: 'Salle 1',
     startDate: '2026-04-10T09:00:00',
     endDate: '2026-04-10T11:00:00',
+    allDay: false,
     category: 'CONFERENCE',
     faculty: null,
     status: 'PUBLISHED',

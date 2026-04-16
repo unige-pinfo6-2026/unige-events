@@ -26,6 +26,7 @@ const sampleEvent: Event = {
   location: 'Uni Dufour',
   startDate: '2026-04-10T14:00:00',
   endDate: '2026-04-10T17:00:00',
+  allDay: false,
   category: 'CONFERENCE',
   status: 'PUBLISHED',
   creatorId: 'user-1',

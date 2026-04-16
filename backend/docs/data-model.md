@@ -47,11 +47,17 @@ Table : `events`
 | `status` | `status` | `EventStatus` | `status` | `@NotNull`, `@Enumerated(STRING)`, default `DRAFT` |
 | `capacity` | `capacity` | `Integer` | `capacity` | nullable |
 | `allDay` | `allDay` | `boolean` | `all_day` | `@Column(nullable=false)`, default `false` — SCRUM-117 |
+| `websiteUrl` | `websiteUrl` | `String` | `website_url` | nullable, `@URL` (Hibernate Validator), `@Column(length=500)` — SCRUM-126 |
+| `contactEmail` | `contactEmail` | `String` | `contact_email` | nullable, `@Email` (jakarta), `@Column(length=255)` — SCRUM-126 |
+| `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
+| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, tag `length=64`, max 20 — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
 Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty)
+
+Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
 
 ---
 
@@ -88,9 +94,9 @@ Table : `attendances`
 
 Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
 
-Upsert : un utilisateur n'a qu'une seule inscription par événement — le statut est mis à jour si l'inscription existe.
+Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upsert** : si l'utilisateur est déjà inscrit (`ATTENDING` ou `WAITLISTED`), l'inscription existante est renvoyée telle quelle, sans modification. La promotion `WAITLISTED → ATTENDING` n'est jamais déclenchée par un appel client — uniquement par la libération d'un slot dans `removeAttendance()`, sous verrou pessimiste.
 
-Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`.
+Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
 
 ---
 
@@ -152,12 +158,17 @@ Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}
 
 ```
 id, title, description, location, startDate, endDate, category, faculty, bannerUrl,
-creatorId (UUID — extrait de creator.id), status, capacity, attendingCount, createdAt, updatedAt
+creatorId (UUID — extrait de creator.id), status, capacity, allDay,
+attendingCount, availableSpots, waitlistedCount,
+websiteUrl, contactEmail, registrationDeadline, tags,
+createdAt, updatedAt
 ```
 
-Factory : `EventDTO.from(Event event, long attendingCount)`
+Factory : `EventDTO.from(Event event, long attendingCount, Long availableSpots, long waitlistedCount)`
 
-`attendingCount` correspond au nombre d'inscriptions dont le statut est `ATTENDING` pour cet événement (chargé via `Attendance.countGroupedByStatus` en batch pour les listes, ou `Attendance.count` pour les événements unitaires).
+- `attendingCount` et `waitlistedCount` sont chargés via `Attendance.countGroupedByStatus` (bulk) dans `getAll()` et via `Attendance.count` (unitaire) dans `getById()` et les autres mutations.
+- `availableSpots` est calculé dans `EventService.computeAvailableSpots(capacity, attendingCount)` : `null` si `capacity` est `null`, sinon `max(0, capacity - attendingCount)`. Jamais négatif, même si `capacity` a été réduit sous le nombre d'ATTENDING déjà inscrits.
+- `tags` est exposé sous forme de liste immuable (`List.copyOf`) — jamais `null` (vide si aucun tag).
 
 ### CreateEventRequest
 Body de création (`POST /events`). Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
@@ -209,7 +220,7 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
-| `AttendanceStatus` | `ATTENDING` | Sprint 4 | ✅ Implémenté |
+| `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).

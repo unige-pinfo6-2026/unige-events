@@ -2,13 +2,17 @@ package ch.unige.events.dto.event;
 
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.Faculty;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.URL;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Champs communs à CreateEventRequest et UpdateEventRequest.
@@ -47,4 +51,17 @@ public abstract class EventRequestBase {
     public Integer capacity;
 
     public Boolean allDay;
+
+    @URL
+    @Size(max = 500)
+    public String websiteUrl;
+
+    @Email
+    @Size(max = 255)
+    public String contactEmail;
+
+    public LocalDateTime registrationDeadline;
+
+    @Size(max = 20)
+    public List<@NotBlank @Size(max = 64) String> tags = new ArrayList<>();
 }

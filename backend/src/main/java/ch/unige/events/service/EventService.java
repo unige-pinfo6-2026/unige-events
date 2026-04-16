@@ -24,7 +24,9 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -78,9 +80,15 @@ public class EventService {
         List<Long> ids = events.stream().map(e -> e.id).toList();
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
                 ids, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.WAITLISTED, entityManager);
 
         return events.stream()
-                .map(e -> EventDTO.from(e, attendingCounts.getOrDefault(e.id, 0L)))
+                .map(e -> {
+                    long att = attendingCounts.getOrDefault(e.id, 0L);
+                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
+                })
                 .toList();
     }
 
@@ -100,20 +108,25 @@ public class EventService {
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.allDay = Boolean.TRUE.equals(request.allDay);
+        event.websiteUrl = request.websiteUrl;
+        event.contactEmail = request.contactEmail;
+        event.registrationDeadline = request.registrationDeadline;
+        event.tags = normalizeTags(request.tags);
         event.creator = creator;
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        return EventDTO.from(event, 0L);
+        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L);
     }
 
     @Transactional
     public EventDTO getById(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        return EventDTO.from(event, countAttending(id));
+        long att = countAttending(id);
+        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
     }
 
     @Transactional
@@ -139,11 +152,16 @@ public class EventService {
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
         event.allDay = Boolean.TRUE.equals(request.allDay);
+        event.websiteUrl = request.websiteUrl;
+        event.contactEmail = request.contactEmail;
+        event.registrationDeadline = request.registrationDeadline;
+        event.tags = normalizeTags(request.tags);
         if (request.status != null) {
             event.status = request.status;
         }
 
-        return EventDTO.from(event, countAttending(id));
+        long att = countAttending(id);
+        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
     }
 
     @Transactional
@@ -176,7 +194,8 @@ public class EventService {
         }
 
         event.status = EventStatus.CANCELLED;
-        return EventDTO.from(event, countAttending(id));
+        long attCancel = countAttending(id);
+        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id));
     }
 
     @Transactional
@@ -193,7 +212,8 @@ public class EventService {
         }
 
         event.status = EventStatus.DRAFT;
-        return EventDTO.from(event, countAttending(id));
+        long attRestore = countAttending(id);
+        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), countWaitlisted(id));
     }
 
     private static WebApplicationException conflict(String message) {
@@ -227,7 +247,8 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        return EventDTO.from(event, countAttending(id));
+        long attPublish = countAttending(id);
+        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id));
     }
 
     private static List<String> collectPublishValidationErrors(Event event) {
@@ -261,11 +282,38 @@ public class EventService {
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
-        return EventDTO.from(event, countAttending(id));
+        long attUpload = countAttending(id);
+        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id));
     }
 
     private static long countAttending(Long eventId) {
         return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
+    }
+
+    private static long countWaitlisted(Long eventId) {
+        return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.WAITLISTED);
+    }
+
+    static Long computeAvailableSpots(Integer capacity, long attendingCount) {
+        if (capacity == null) {
+            return null;
+        }
+        return Math.max(0L, capacity.longValue() - attendingCount);
+    }
+
+    static List<String> normalizeTags(List<String> input) {
+        if (input == null || input.isEmpty()) {
+            return new ArrayList<>();
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String raw : input) {
+            if (raw == null) continue;
+            String normalized = raw.trim().toLowerCase(Locale.ROOT);
+            if (!normalized.isEmpty()) {
+                seen.add(normalized);
+            }
+        }
+        return new ArrayList<>(seen);
     }
 
     private static boolean isCreator(Event event, String auth0Id) {
