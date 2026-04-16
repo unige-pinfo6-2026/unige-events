@@ -92,14 +92,39 @@ describe('EventForm', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 
-  it('toggles the allDay checkbox and forwards the change', () => {
+  it('calls onSaveDraft when the draft button is clicked', () => {
+    const onSaveDraft = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+        onSaveDraft={onSaveDraft}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+    expect(onSaveDraft).toHaveBeenCalled()
+  })
+
+  it('clears the date field when date input is cleared', () => {
     const onFieldChange = vi.fn()
 
     render(
       <EventForm
         mode="create"
-        submitLabel='Créer'
-        values={baseValues}
+        submitLabel="Créer"
+        values={{ ...baseValues, startDate: '2099-04-10T10:00' }}
         errors={{}}
         submitting={false}
         imagePreview={null}
@@ -135,6 +160,8 @@ describe('EventForm', () => {
         onCancel={vi.fn()}
       />,
     )
+
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '' } })
 
     expect((screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement).checked).toBe(true)
     expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-0')

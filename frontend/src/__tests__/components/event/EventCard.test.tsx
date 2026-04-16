@@ -117,4 +117,21 @@ describe('EventCard', () => {
       cleanup()
     }
   })
+
+  it('renders banner image when bannerUrl is set', () => {
+    renderCard({ ...mockEvent, bannerUrl: 'https://example.com/banner.jpg' })
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
+    expect(banner).toBeTruthy()
+  })
+
+  it('renders gradient fallback when bannerUrl is absent', () => {
+    renderCard({ ...mockEvent, bannerUrl: undefined })
+    const banner = document.querySelector<HTMLElement>('[style*="linear-gradient"]')
+    expect(banner).toBeTruthy()
+  })
+
+  it('renders description when present', () => {
+    renderCard({ ...mockEvent, description: 'Une conférence passionnante.' })
+    expect(screen.getByText('Une conférence passionnante.')).toBeTruthy()
+  })
 })

@@ -9,6 +9,10 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
+}))
+
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
@@ -22,10 +26,12 @@ vi.mock('@/services/userService', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById, getCalendarToken } from '@/services/userService'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 const mockUser = {
   id: '123',
@@ -183,5 +189,30 @@ describe('ProfilePage', () => {
     })
     renderProfilePage('me')
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+  })
+
+  it('renders banner image when bannerUrl is set', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' },
+    })
+    renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
+    expect(banner).toBeTruthy()
+    expect(banner!.src).toContain('banner.jpg')
+  })
+
+  it('renders gradient fallback when bannerUrl is null', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: null } })
+    renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(document.querySelector('[style*="banner"]')).toBeNull()
+  })
+
+  it('uses light skeleton color when theme is light', () => {
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true })
+    renderProfilePage('me')
+    expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
 })

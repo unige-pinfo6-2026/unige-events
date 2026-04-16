@@ -328,6 +328,17 @@ Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer 
 
 ## Services
 
+### userService.ts
+
+- `getMe()` : `GET /api/users/me` — profil complet de l'utilisateur connecté.
+- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur.
+- `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
+- `uploadPhoto(file)` : `POST /api/users/me/image` — upload de la photo de profil (multipart).
+- `uploadBanner(file)` : `POST /api/users/me/banner` — upload de la bannière de profil (multipart).
+- `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
+- `getCalendarToken()` : `GET /api/users/me/calendar-token`.
+- `regenerateCalendarToken()` : `POST /api/users/me/calendar-token/regenerate`.
+
 ### attendanceApi.ts
 
 - `attend(eventId, status)` : `POST /api/events/{id}/attend` avec body `{ status }` — upsert.

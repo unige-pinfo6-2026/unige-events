@@ -236,6 +236,27 @@ describe('useSearch', () => {
     expect(result.current.suggestions).toEqual([])
   })
 
+  it('clears suggestions when fetchSuggestions rejects with a non-abort error', async () => {
+    mockFetchSuggestions.mockResolvedValue(['A', 'B'])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => { result.current.setQuery('conf') })
+
+    await act(async () => { await vi.runAllTimersAsync() })
+
+    expect(result.current.suggestions).toHaveLength(2)
+
+    // Now make fetchSuggestions reject with a generic error
+    mockFetchSuggestions.mockRejectedValue(new Error('network'))
+
+    act(() => { result.current.setQuery('confer') })
+
+    await act(async () => { await vi.runAllTimersAsync() })
+
+    expect(result.current.suggestions).toEqual([])
+  })
+
   it('limits suggestions to 5 items', async () => {
     mockFetchSuggestions.mockResolvedValue(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
 

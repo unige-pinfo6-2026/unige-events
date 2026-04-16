@@ -35,6 +35,7 @@ public class User extends PanacheEntityBase {
     public List<String> interests;
 
     public String avatarUrl;
+    public String bannerUrl;
 
     @Column(nullable = false)
     public boolean profilePublic = false;

@@ -3,13 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
+import UserBanner from '@/components/user/UserBanner'
 import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Lock, Mail, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
-import { BlobsCta } from '@/components/utils/Blobs'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 
 function ProfileFixture() {
@@ -129,7 +129,6 @@ export default function ProfilePage() {
     return (
       <div>
         <div className="relative h-52 overflow-hidden bg-linear-to-br from-foreground/5 via-foreground/3 to-foreground/5">
-          <BlobsCta />
           <div className="absolute inset-0 bg-linear-to-t from-background/60 to-transparent" />
         </div>
         <div className="max-w-5xl mx-auto px-6 lg:px-8 -mt-10 flex justify-center pb-20">
@@ -152,10 +151,9 @@ export default function ProfilePage() {
   return (
     <div>
       {/* Banner */}
-      <div className="relative h-52 overflow-hidden bg-linear-to-br from-accent/20 via-pink-600/15 to-purple-600/20">
-        <BlobsCta />
+      <UserBanner user={profile} className="h-52">
         <div className="absolute inset-0 bg-linear-to-t from-background/50 to-transparent" />
-      </div>
+      </UserBanner>
 
       <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
 
@@ -163,8 +161,7 @@ export default function ProfilePage() {
         <div className="relative z-10 -mt-14 flex flex-wrap items-end justify-between gap-4 mb-8">
           <div className="flex items-end gap-5">
             <div className="relative shrink-0">
-              <div className="absolute inset-0 rounded-full bg-linear-to-br from-accent to-pink-600 blur-xl opacity-40 scale-110 pointer-events-none" />
-              <UserAvatar user={profile} size={"profile"} className="relative ring-4 ring-background shadow-2xl" />
+              <UserAvatar user={profile} className="size-28 relative ring-4 ring-background shadow-2xl" />
             </div>
             <div className="pb-2">
               <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
