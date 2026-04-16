@@ -701,20 +701,25 @@ describe('useEventForm', () => {
     })
 
     it('clears sessionStorage after a successful create submission', async () => {
-      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Sera publié' }))
-      mockCreateEvent.mockResolvedValue({ ...baseEvent, status: 'PUBLISHED' })
-      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
-      act(() => {
-        result.current.setFieldValue('title', 'Forum')
-        result.current.setFieldValue('location', 'Uni Dufour')
-        result.current.setFieldValue('startDate', '2099-04-10T10:00')
-        result.current.setFieldValue('endDate', '2099-04-10T12:00')
-        result.current.setFieldValue('category', 'SOCIAL')
-      })
-      await act(async () => {
-        await result.current.handleSubmit(submitEvent())
-      })
-      expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+      vi.useFakeTimers()
+      try {
+        sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Sera publié' }))
+        mockCreateEvent.mockResolvedValue({ ...baseEvent, status: 'PUBLISHED' })
+        const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+        act(() => {
+          result.current.setFieldValue('title', 'Forum')
+          result.current.setFieldValue('location', 'Uni Dufour')
+          result.current.setFieldValue('startDate', '2099-04-10T10:00')
+          result.current.setFieldValue('endDate', '2099-04-10T12:00')
+          result.current.setFieldValue('category', 'SOCIAL')
+        })
+        await act(async () => {
+          await result.current.handleSubmit(submitEvent())
+        })
+        expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('does not read from sessionStorage in edit mode', () => {
