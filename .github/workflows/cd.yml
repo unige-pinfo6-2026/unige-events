@@ -15,7 +15,7 @@ jobs:
   deploy:
     name: Deploy to Production
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: self-hosted
+    runs-on: deployments
     environment: production
 
     steps:

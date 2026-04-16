@@ -41,6 +41,7 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -575,6 +576,76 @@ class UserServiceCoverageTest {
 
         assertThrows(NotFoundException.class,
             () -> userService.uploadImage("auth0|unknown", upload));
+    }
+
+    // --- uploadBanner ---
+
+    @Test
+    @TestTransaction
+    void uploadBanner_updatesBannerUrl(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|banner", "banner@example.com", false);
+
+        Path fakeFile = tempDir.resolve("banner.jpg");
+        Files.write(fakeFile, "fake-jpeg".getBytes());
+        FileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", fakeFile);
+
+        User result = userService.uploadBanner("auth0|banner", upload);
+
+        assertNotNull(result.bannerUrl);
+        assertTrue(result.bannerUrl.startsWith("http"));
+        assertTrue(result.bannerUrl.endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadBanner_invalidMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|bannermime", "bannermime@example.com", false);
+
+        Path fakeFile = tempDir.resolve("script.sh");
+        Files.write(fakeFile, "#!/bin/bash".getBytes());
+        FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
+
+        assertThrows(jakarta.ws.rs.BadRequestException.class,
+            () -> userService.uploadBanner("auth0|bannermime", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadBanner_unknownUser_throwsNotFound(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+
+        Path fakeFile = tempDir.resolve("b.jpg");
+        Files.write(fakeFile, new byte[0]);
+        FileUpload upload = new StubFileUpload("b.jpg", "image/jpeg", fakeFile);
+
+        assertThrows(NotFoundException.class,
+            () -> userService.uploadBanner("auth0|unknown", upload));
+    }
+
+    // --- deleteBanner ---
+
+    @Test
+    @TestTransaction
+    void deleteBanner_setsBannerUrlToNull() {
+        deleteAllUsers();
+        User user = persistUser("auth0|delbanner", "delbanner@example.com", false);
+        user.bannerUrl = "https://cdn.example.com/banner.jpg";
+        entityManager.flush();
+
+        User result = userService.deleteBanner("auth0|delbanner");
+
+        assertNull(result.bannerUrl);
+    }
+
+    @Test
+    @TestTransaction
+    void deleteBanner_unknownUser_throwsNotFound() {
+        deleteAllUsers();
+
+        assertThrows(NotFoundException.class,
+            () -> userService.deleteBanner("auth0|unknown"));
     }
 
     static class StubFileUpload implements FileUpload {

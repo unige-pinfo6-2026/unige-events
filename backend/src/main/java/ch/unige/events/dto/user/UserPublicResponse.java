@@ -12,7 +12,8 @@ public record UserPublicResponse(
     String studyLevel,
     String bio,
     List<String> interests,
-    String avatarUrl
+    String avatarUrl,
+    String bannerUrl
 ) {
     public static UserPublicResponse from(User user) {
         return new UserPublicResponse(
@@ -22,7 +23,8 @@ public record UserPublicResponse(
                 user.studyLevel,
                 user.bio,
                 user.interests,
-                user.avatarUrl
+                user.avatarUrl,
+                user.bannerUrl
         );
     }
 }

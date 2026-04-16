@@ -16,6 +16,7 @@ const baseValues: EventFormValues = {
   faculty: null,
   capacity: '120',
   status: 'DRAFT',
+  allDay: false,
 }
 
 afterEach(() => {
@@ -89,6 +90,82 @@ describe('EventForm', () => {
     expect(onFieldChange).toHaveBeenCalledWith('capacity', '200')
     expect(onImageChange).toHaveBeenCalled()
     expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('calls onSaveDraft when the draft button is clicked', () => {
+    const onSaveDraft = vi.fn().mockResolvedValue(undefined)
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+        onSaveDraft={onSaveDraft}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+    expect(onSaveDraft).toHaveBeenCalled()
+  })
+
+  it('clears the date field when date input is cleared', () => {
+    const onFieldChange = vi.fn()
+
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={{ ...baseValues, startDate: '2099-04-10T10:00' }}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={onFieldChange}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    const toggle = screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-100')
+
+    fireEvent.click(toggle)
+    expect(onFieldChange).toHaveBeenCalledWith('allDay', true)
+  })
+
+  it('hides the time selectors when allDay is true', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel='Créer'
+        values={{ ...baseValues, allDay: true }}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText(/Début/i, { selector: 'input' }), { target: { value: '' } })
+
+    expect((screen.getByRole('switch', { name: /Toute la journée/i }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-0')
+    expect(screen.getByTestId('endDate-time-selectors').className).toContain('opacity-0')
   })
 
   it('combines date and time parts into datetime values', () => {

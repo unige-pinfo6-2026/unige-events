@@ -76,6 +76,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
 | capacity        | number        | non    |
+| allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
 | interestedCount | number        | non    |
 | createdAt       | string        | oui    |
@@ -84,7 +85,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`.
 
 ### UpdateEventRequest
 
@@ -109,6 +110,7 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | bio           | string     | non    |
 | interests     | string[]   | non    |
 | avatarUrl     | string     | non    |
+| bannerUrl     | string \| null | non |
 | profilePublic | boolean    | oui    |
 | createdAt     | string     | oui    |
 

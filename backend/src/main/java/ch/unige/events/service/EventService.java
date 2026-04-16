@@ -99,6 +99,7 @@ public class EventService {
         event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
+        event.allDay = Boolean.TRUE.equals(request.allDay);
         event.creator = creator;
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
@@ -124,6 +125,10 @@ public class EventService {
             throw new ForbiddenException("Only the event creator can update this event");
         }
 
+        if (event.status == EventStatus.CANCELLED) {
+            throw conflict("Cancelled events cannot be modified. Restore the event first.");
+        }
+
         event.title = request.title;
         event.description = request.description;
         event.location = request.location;
@@ -133,6 +138,7 @@ public class EventService {
         event.faculty = request.faculty;
         event.bannerUrl = request.bannerUrl;
         event.capacity = request.capacity;
+        event.allDay = Boolean.TRUE.equals(request.allDay);
         if (request.status != null) {
             event.status = request.status;
         }
@@ -146,10 +152,55 @@ public class EventService {
                 .orElseThrow(NotFoundException::new);
 
         if (!isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator can delete this event");
+        }
+
+        if (event.status != EventStatus.CANCELLED) {
+            throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
+        }
+
+        event.delete();
+    }
+
+    @Transactional
+    public EventDTO cancel(Long id, String auth0Id) {
+        Event event = Event.<Event>findByIdOptional(id)
+                .orElseThrow(NotFoundException::new);
+
+        if (!isCreator(event, auth0Id)) {
             throw new ForbiddenException("Only the event creator can cancel this event");
         }
 
+        if (event.status == EventStatus.CANCELLED) {
+            throw conflict("Event is already cancelled");
+        }
+
         event.status = EventStatus.CANCELLED;
+        return EventDTO.from(event, countAttending(id));
+    }
+
+    @Transactional
+    public EventDTO restore(Long id, String auth0Id) {
+        Event event = Event.<Event>findByIdOptional(id)
+                .orElseThrow(NotFoundException::new);
+
+        if (!isCreator(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator can restore this event");
+        }
+
+        if (event.status != EventStatus.CANCELLED) {
+            throw conflict("Only cancelled events can be restored to draft");
+        }
+
+        event.status = EventStatus.DRAFT;
+        return EventDTO.from(event, countAttending(id));
+    }
+
+    private static WebApplicationException conflict(String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.CONFLICT)
+                        .entity(Map.of("error", "conflict", "message", message))
+                        .build());
     }
 
     @Transactional
@@ -164,14 +215,41 @@ public class EventService {
             String message = event.status == EventStatus.PUBLISHED
                     ? "Event is already published"
                     : "Event cannot be published: current status is " + event.status;
+            throw conflict(message);
+        }
+
+        List<String> errors = collectPublishValidationErrors(event);
+        if (!errors.isEmpty()) {
             throw new WebApplicationException(
-                    Response.status(Response.Status.CONFLICT)
-                            .entity(Map.of("error", "conflict", "message", message))
+                    Response.status(422)
+                            .entity(Map.of("error", "validation_failed", "errors", errors))
                             .build());
         }
 
         event.status = EventStatus.PUBLISHED;
         return EventDTO.from(event, countAttending(id));
+    }
+
+    private static List<String> collectPublishValidationErrors(Event event) {
+        List<String> errors = new ArrayList<>();
+        if (event.title == null || event.title.isBlank()) {
+            errors.add("Le titre est obligatoire");
+        }
+        if (event.location == null || event.location.isBlank()) {
+            errors.add("Le lieu est obligatoire");
+        }
+        if (event.category == null) {
+            errors.add("La catégorie est obligatoire");
+        }
+        if (event.startDate == null || !event.startDate.isAfter(LocalDateTime.now())) {
+            errors.add("La date de l'événement doit être dans le futur");
+        }
+        if (event.endDate == null) {
+            errors.add("La date de fin est obligatoire");
+        } else if (event.startDate != null && !event.endDate.isAfter(event.startDate)) {
+            errors.add("La date de fin doit être après la date de début");
+        }
+        return errors;
     }
 
     @Transactional

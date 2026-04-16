@@ -221,6 +221,7 @@ describe('useEventForm', () => {
       faculty: null,
       capacity: undefined,
       status: 'PUBLISHED',
+      allDay: false,
     })
     expect(onSuccess).toHaveBeenCalledWith(baseEvent)
   })
@@ -450,6 +451,84 @@ describe('useEventForm', () => {
     })
     await act(async () => { await result.current.handleSubmit(submitEvent()) })
     expect(onError).toHaveBeenCalledWith('La création a échoué pour des raisons externes.')
+  })
+
+  it('forces start to T00:00 and end to T23:59 when allDay is true', async () => {
+    mockCreateEvent.mockResolvedValue(baseEvent)
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T14:30')
+      result.current.setFieldValue('endDate', '2099-04-10T16:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('allDay', true)
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    const call = mockCreateEvent.mock.calls[0][0]
+    expect(call.allDay).toBe(true)
+    expect(call.startDate).toBe(new Date('2099-04-10T00:00').toISOString())
+    expect(call.endDate).toBe(new Date('2099-04-10T23:59').toISOString())
+  })
+
+  it('passes allDay false through and keeps the original times', async () => {
+    mockCreateEvent.mockResolvedValue(baseEvent)
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T14:30')
+      result.current.setFieldValue('endDate', '2099-04-10T16:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('allDay', false)
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    const call = mockCreateEvent.mock.calls[0][0]
+    expect(call.allDay).toBe(false)
+    expect(call.startDate).toBe(new Date('2099-04-10T14:30').toISOString())
+  })
+
+  it('skips end-after-start time check when allDay normalizes the bounds', async () => {
+    mockCreateEvent.mockResolvedValue(baseEvent)
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('startDate', '2099-04-10T20:00')
+      result.current.setFieldValue('endDate', '2099-04-10T08:00')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('allDay', true)
+    })
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(result.current.errors.endDate).toBeUndefined()
+    expect(mockCreateEvent).toHaveBeenCalled()
+  })
+
+  it('loads allDay from the initial event when editing', async () => {
+    const allDayEvent = { ...baseEvent, allDay: true }
+    const { result, rerender } = renderHook(
+      ({ initialEvent }) => useEventForm({ mode: 'edit', initialEvent }),
+      { initialProps: { initialEvent: null as typeof baseEvent | null } },
+    )
+
+    rerender({ initialEvent: allDayEvent })
+
+    await waitFor(() => expect(result.current.values.allDay).toBe(true))
   })
 
   it('saves with DRAFT status when triggerDraftSave is called regardless of the current status field', async () => {

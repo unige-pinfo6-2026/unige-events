@@ -5,6 +5,7 @@ import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
 import type { Faculty } from '@/types/faculty'
 import FavoriteButton from './FavoriteButton'
+import EventBanner from './EventBanner'
 
 export default function EventCard({
   event,
@@ -25,14 +26,7 @@ export default function EventCard({
         <div className="absolute top-0 left-0 right-0 h-0.5 z-10" style={{ background: category.color }} />
 
         {/* Banner */}
-        <div
-          className="relative h-52 overflow-hidden"
-          style={{
-            background: event.bannerUrl
-              ? `url(${event.bannerUrl}) center/cover`
-              : `linear-gradient(135deg, ${category.color}55, ${category.color}cc)`,
-          }}
-        >
+        <EventBanner event={event} className="h-52">
           <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-black/10" />
 
           <span
@@ -55,14 +49,14 @@ export default function EventCard({
             </h3>
             <FacultyBadge id={event.faculty as Faculty} />
           </div>
-        </div>
+        </EventBanner>
 
         {/* Content */}
         <div className="p-5 flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <Calendar className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-              <span className="font-medium">{formatEventDateTimeCompact(event.startDate)}</span>
+              <span className="font-medium">{formatEventDateTimeCompact(event.startDate, event.allDay)}</span>
             </div>
             <div className="flex items-center gap-2.5 text-sm text-foreground/55">
               <MapPin className="w-4 h-4 shrink-0" style={{ color: category.color }} />

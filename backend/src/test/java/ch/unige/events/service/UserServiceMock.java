@@ -32,6 +32,7 @@ public class UserServiceMock extends UserService {
     public static volatile boolean forceForbiddenOnUpdate = false;
     public static volatile boolean forceConflictOnUpdate = false;
     public static volatile boolean forceBadMimeOnUpload = false;
+    public static volatile boolean forceBadMimeOnBannerUpload = false;
 
     public void reset() {
         usersByAuth0Id.clear();
@@ -39,6 +40,7 @@ public class UserServiceMock extends UserService {
         forceForbiddenOnUpdate = false;
         forceConflictOnUpdate = false;
         forceBadMimeOnUpload = false;
+        forceBadMimeOnBannerUpload = false;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -133,6 +135,29 @@ public class UserServiceMock extends UserService {
             throw new NotFoundException();
         }
         user.avatarUrl = "/api/uploads/test-photo.jpg";
+        return user;
+    }
+
+    @Override
+    public User uploadBanner(String auth0Id, FileUpload fileUpload) {
+        if (forceBadMimeOnBannerUpload) {
+            throw new BadRequestException("File must be an image");
+        }
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        user.bannerUrl = "/api/uploads/test-banner.jpg";
+        return user;
+    }
+
+    @Override
+    public User deleteBanner(String auth0Id) {
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        user.bannerUrl = null;
         return user;
     }
 

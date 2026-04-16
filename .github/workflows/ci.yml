@@ -23,7 +23,7 @@ jobs:
   # Build & Tests Backend
   build-backend:
     name: Build Backend
-    runs-on: self-hosted
+    runs-on: builds
 
     defaults:
       run:
@@ -62,7 +62,7 @@ jobs:
   # Build & Tests Frontend
   build-frontend:
     name: Build Frontend
-    runs-on: self-hosted
+    runs-on: builds
 
     defaults:
       run:

@@ -93,6 +93,16 @@ describe('EventCard', () => {
     expect(screen.getByText('Toutes facultés')).toBeTruthy()
   })
 
+  it('shows time when allDay is false', () => {
+    renderCard({ ...mockEvent, allDay: false })
+    expect(screen.getByText(/\d{2}:\d{2}/)).toBeTruthy()
+  })
+
+  it('hides time when allDay is true', () => {
+    renderCard({ ...mockEvent, allDay: true })
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull()
+  })
+
   it('renders the correct faculty label for each Faculty value', () => {
     const labels: Partial<Record<Faculty, string>> = {
       'LETTERS': 'Lettres',
@@ -106,5 +116,22 @@ describe('EventCard', () => {
       unmount()
       cleanup()
     }
+  })
+
+  it('renders banner image when bannerUrl is set', () => {
+    renderCard({ ...mockEvent, bannerUrl: 'https://example.com/banner.jpg' })
+    const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
+    expect(banner).toBeTruthy()
+  })
+
+  it('renders gradient fallback when bannerUrl is absent', () => {
+    renderCard({ ...mockEvent, bannerUrl: undefined })
+    const banner = document.querySelector<HTMLElement>('[style*="linear-gradient"]')
+    expect(banner).toBeTruthy()
+  })
+
+  it('renders description when present', () => {
+    renderCard({ ...mockEvent, description: 'Une conférence passionnante.' })
+    expect(screen.getByText('Une conférence passionnante.')).toBeTruthy()
   })
 })

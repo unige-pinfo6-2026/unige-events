@@ -274,16 +274,141 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void delete_asCreator_setsStatusCancelled() {
+    void delete_cancelledEvent_asCreator_removesEntity() {
         deleteAll();
         User user = persistUser("auth0|deleter", "deleter@example.com");
-        Event event = persistEvent("Cancel Me", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        Event event = persistEvent("Delete Me", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+        Long id = event.id;
 
-        eventService.delete(event.id, "auth0|deleter");
+        eventService.delete(id, "auth0|deleter");
 
         entityManager.flush();
-        entityManager.refresh(event);
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertNull(Event.findById(id));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_nonCancelledEvent_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|delNonCan", "delNonCan@example.com");
+        Event event = persistEvent("Draft Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.delete(event.id, "auth0|delNonCan"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    // --- cancel ---
+
+    @Test
+    @TestTransaction
+    void cancel_draftEvent_setsStatusCancelled() {
+        deleteAll();
+        User user = persistUser("auth0|canc1", "canc1@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        EventDTO result = eventService.cancel(event.id, "auth0|canc1");
+
+        assertEquals(EventStatus.CANCELLED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_publishedEvent_setsStatusCancelled() {
+        deleteAll();
+        User user = persistUser("auth0|canc2", "canc2@example.com");
+        Event event = persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        EventDTO result = eventService.cancel(event.id, "auth0|canc2");
+
+        assertEquals(EventStatus.CANCELLED, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_alreadyCancelled_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|canc3", "canc3@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.cancel(event.id, "auth0|canc3"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_unknownEvent_throwsNotFound() {
+        deleteAll();
+        assertThrows(NotFoundException.class, () -> eventService.cancel(999999L, "auth0|x"));
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_notCreator_throwsForbidden() {
+        deleteAll();
+        User user = persistUser("auth0|cancOwn", "cancOwn@example.com");
+        Event event = persistEvent("Owner", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        assertThrows(ForbiddenException.class, () -> eventService.cancel(event.id, "auth0|intruder"));
+    }
+
+    // --- restore ---
+
+    @Test
+    @TestTransaction
+    void restore_cancelledEvent_setsStatusDraft() {
+        deleteAll();
+        User user = persistUser("auth0|rest1", "rest1@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        EventDTO result = eventService.restore(event.id, "auth0|rest1");
+
+        assertEquals(EventStatus.DRAFT, result.status());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_nonCancelled_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|rest2", "rest2@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.restore(event.id, "auth0|rest2"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_unknownEvent_throwsNotFound() {
+        deleteAll();
+        assertThrows(NotFoundException.class, () -> eventService.restore(999999L, "auth0|x"));
+    }
+
+    @Test
+    @TestTransaction
+    void restore_notCreator_throwsForbidden() {
+        deleteAll();
+        User user = persistUser("auth0|restOwn", "restOwn@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        assertThrows(ForbiddenException.class, () -> eventService.restore(event.id, "auth0|intruder"));
+    }
+
+    // --- update rejects cancelled ---
+
+    @Test
+    @TestTransaction
+    void update_cancelledEvent_throwsConflict() {
+        deleteAll();
+        User user = persistUser("auth0|updCan", "updCan@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        UpdateEventRequest req = validUpdateRequest("New", EventCategory.ACADEMIC, null);
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.update(event.id, "auth0|updCan", req));
+        assertEquals(409, ex.getResponse().getStatus());
     }
 
     @Test
@@ -391,6 +516,83 @@ class EventServiceCoverageTest {
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> eventService.publish(event.id, "auth0|pub3", false));
         assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_pastStartDate_throws422WithErrors() {
+        deleteAll();
+        User user = persistUser("auth0|past", "past@example.com");
+        Event event = persistEvent("Past", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.startDate = LocalDateTime.now().minusDays(1);
+        event.endDate = LocalDateTime.now().minusDays(1).plusHours(2);
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|past", false));
+        assertEquals(422, ex.getResponse().getStatus());
+        Object entity = ex.getResponse().getEntity();
+        assertTrue(entity.toString().contains("date"));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_missingRequiredFields_throws422WithAllErrors() {
+        deleteAll();
+        User user = persistUser("auth0|miss", "miss@example.com");
+        Event event = persistEvent("X", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.title = "  ";
+        event.location = "";
+        event.category = null;
+        event.endDate = null;
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|miss", false));
+        assertEquals(422, ex.getResponse().getStatus());
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> body = (java.util.Map<String, Object>) ex.getResponse().getEntity();
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) body.get("errors");
+        assertTrue(errors.stream().anyMatch(e -> e.contains("titre")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("lieu")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("catégorie")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("fin")));
+    }
+
+    @Test
+    @TestTransaction
+    void publish_fullLifecycle_publishedCancelledRestoredPublishedAgain() {
+        deleteAll();
+        User user = persistUser("auth0|cycle", "cycle@example.com");
+        Event event = persistEvent("Cycle", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        eventService.cancel(event.id, "auth0|cycle");
+        entityManager.flush();
+        entityManager.refresh(event);
+        assertEquals(EventStatus.CANCELLED, event.status);
+
+        eventService.restore(event.id, "auth0|cycle");
+        entityManager.flush();
+        entityManager.refresh(event);
+        assertEquals(EventStatus.DRAFT, event.status);
+
+        EventDTO republished = eventService.publish(event.id, "auth0|cycle", false);
+        assertEquals(EventStatus.PUBLISHED, republished.status());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_endDateBeforeStartDate_throws422() {
+        deleteAll();
+        User user = persistUser("auth0|end", "end@example.com");
+        Event event = persistEvent("E", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.endDate = event.startDate.minusHours(1);
+        entityManager.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.publish(event.id, "auth0|end", false));
+        assertEquals(422, ex.getResponse().getStatus());
     }
 
     // --- uploadImage ---
@@ -615,6 +817,124 @@ class EventServiceCoverageTest {
         EventDTO result = eventService.update(event.id, "auth0|facClr", req);
 
         assertNull(result.faculty());
+    }
+
+    // --- allDay (SCRUM-117) ---
+
+    @Test
+    @TestTransaction
+    void create_withAllDayTrue_persistsTrue() {
+        deleteAll();
+        persistUser("auth0|allDayT", "allDayT@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = true;
+        EventDTO result = eventService.create("auth0|allDayT", req);
+
+        assertTrue(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withAllDayFalse_persistsFalse() {
+        deleteAll();
+        persistUser("auth0|allDayF", "allDayF@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = false;
+        EventDTO result = eventService.create("auth0|allDayF", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withAllDayNull_defaultsToFalse() {
+        deleteAll();
+        persistUser("auth0|allDayN", "allDayN@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = null;
+        EventDTO result = eventService.create("auth0|allDayN", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayTrue_setsTrue() {
+        deleteAll();
+        User user = persistUser("auth0|updADT", "updADT@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = true;
+        EventDTO result = eventService.update(event.id, "auth0|updADT", req);
+
+        assertTrue(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayFalse_setsFalse() {
+        deleteAll();
+        User user = persistUser("auth0|updADF", "updADF@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.allDay = true;
+        entityManager.flush();
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = false;
+        EventDTO result = eventService.update(event.id, "auth0|updADF", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withAllDayNull_defaultsToFalse() {
+        deleteAll();
+        User user = persistUser("auth0|updADN", "updADN@example.com");
+        Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        event.allDay = true;
+        entityManager.flush();
+
+        UpdateEventRequest req = validUpdateRequest("Event", EventCategory.ACADEMIC, null);
+        req.allDay = null;
+        EventDTO result = eventService.update(event.id, "auth0|updADN", req);
+
+        assertFalse(result.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_thenGetById_preservesAllDay() {
+        deleteAll();
+        persistUser("auth0|adPersist", "adPersist@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.allDay = true;
+        EventDTO created = eventService.create("auth0|adPersist", req);
+        entityManager.flush();
+        entityManager.clear();
+
+        EventDTO fetched = eventService.getById(created.id());
+        assertTrue(fetched.allDay());
+    }
+
+    @Test
+    @TestTransaction
+    void create_withoutAllDay_persistedDefaultsToFalse() {
+        deleteAll();
+        persistUser("auth0|adDefault", "adDefault@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        EventDTO created = eventService.create("auth0|adDefault", req);
+        entityManager.flush();
+        entityManager.clear();
+
+        EventDTO fetched = eventService.getById(created.id());
+        assertFalse(fetched.allDay());
     }
 
     // --- helpers ---

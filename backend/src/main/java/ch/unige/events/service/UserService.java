@@ -131,6 +131,22 @@ public class UserService {
         return user;
     }
 
+    @Transactional
+    public User uploadBanner(String auth0Id, FileUpload fileUpload) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners");
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User deleteBanner(String auth0Id) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.bannerUrl = null;
+        flushEntityManager();
+        return user;
+    }
+
     private void flushEntityManager() {
         entityManager.get().flush();
     }

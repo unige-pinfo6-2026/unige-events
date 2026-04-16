@@ -21,11 +21,32 @@ describe('dateTime utils', () => {
     expect(toLocalDateTimeInputValue('2026-04-10T18:45:30Z')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
   })
 
+  it('returns empty string for an invalid date', () => {
+    expect(toLocalDateTimeInputValue('not-a-date')).toBe('')
+  })
+
   it('formats long and compact event dates', () => {
     const full = formatEventDateTime('2026-04-10T18:45:00Z')
     const compact = formatEventDateTimeCompact('2026-04-10T18:45:00Z')
 
     expect(full.length).toBeGreaterThan(0)
     expect(compact.length).toBeGreaterThan(0)
+  })
+
+  it('omits time when allDay is true (long)', () => {
+    const withTime = formatEventDateTime('2026-04-10T14:00:00Z', false)
+    const allDay = formatEventDateTime('2026-04-10T14:00:00Z', true)
+
+    expect(withTime).toMatch(/\d{2}:\d{2}/)
+    expect(allDay).not.toMatch(/\d{2}:\d{2}/)
+    expect(allDay).toMatch(/avril/)
+  })
+
+  it('omits time when allDay is true (compact)', () => {
+    const withTime = formatEventDateTimeCompact('2026-04-10T14:00:00Z', false)
+    const allDay = formatEventDateTimeCompact('2026-04-10T14:00:00Z', true)
+
+    expect(withTime).toMatch(/\d{2}:\d{2}/)
+    expect(allDay).not.toMatch(/\d{2}:\d{2}/)
   })
 })

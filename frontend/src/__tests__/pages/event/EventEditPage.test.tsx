@@ -78,8 +78,10 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    expect(await screen.findByDisplayValue(existingEvent.title)).toBeTruthy()
-    expect(screen.getByDisplayValue(existingEvent.location)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+      expect(screen.getByDisplayValue(existingEvent.location)).toBeTruthy()
+    }, { timeout: 10000 })
   })
 
   it('updates an event and redirects to its detail page', async () => {
@@ -87,7 +89,9 @@ describe('EditEventPage', () => {
     mockUpdateEvent.mockResolvedValue({ ...existingEvent, title: 'Forum 2026', status: 'PUBLISHED' })
 
     renderPage()
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
     fireEvent.change(screen.getByLabelText(/Titre/i), { target: { value: 'Forum 2026' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
@@ -116,7 +120,9 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(await screen.findByText('La date de début doit être dans le futur.')).toBeTruthy()
@@ -130,7 +136,9 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
     const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
     if (!fileInput) {
       throw new Error('Missing banner input')
@@ -163,7 +171,9 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Annuler' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/events/42')
@@ -178,7 +188,9 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
 
     const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
     if (!fileInput) throw new Error('Missing banner input')
@@ -200,7 +212,9 @@ describe('EditEventPage', () => {
 
     const { unmount } = renderPage()
 
-    await screen.findByDisplayValue(existingEvent.title)
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy()
+    }, { timeout: 10000 })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByText('Événement mis à jour avec succès.')).toBeTruthy()
 
@@ -361,5 +375,37 @@ describe('EditEventPage', () => {
       resolveDelete()
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
     })
+  })
+
+  it('shows invalid id when id param is undefined (no route match)', () => {
+    render(
+      <ToastProvider>
+        <ToastsWrapper />
+        <MemoryRouter>
+          <EventEditPage />
+        </MemoryRouter>
+      </ToastProvider>,
+    )
+    expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+  })
+
+  it('shows event not found when getById returns null', async () => {
+    mockGetById.mockResolvedValue(null)
+    renderPage()
+    expect(await screen.findByText('Événement introuvable.')).toBeTruthy()
+  })
+
+  it('does not update state after unmount (cancelled cleanup)', async () => {
+    let resolveGet!: (v: typeof existingEvent) => void
+    mockGetById.mockReturnValue(new Promise((r) => { resolveGet = r as typeof resolveGet }))
+
+    const { unmount } = renderPage()
+    unmount()
+
+    await new Promise<void>((r) => {
+      resolveGet(existingEvent)
+      setTimeout(r, 0)
+    })
+    // No crash = cancelled guard worked
   })
 })

@@ -18,6 +18,7 @@ public record UserProfileResponse(
     String bio,
     List<String> interests,
     String avatarUrl,
+    String bannerUrl,
     boolean profilePublic,
     @Schema(readOnly = true) LocalDateTime createdAt
 ) {
@@ -32,6 +33,7 @@ public record UserProfileResponse(
                 user.bio,
                 user.interests,
                 user.avatarUrl,
+                user.bannerUrl,
                 user.profilePublic,
                 user.createdAt
         );

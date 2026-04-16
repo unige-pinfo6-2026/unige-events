@@ -8,6 +8,7 @@ vi.mock('@/services/api', () => ({
     delete: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
   },
 }))
 
@@ -18,6 +19,7 @@ const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
 const mockApiPost = vi.mocked(api.post)
 const mockApiPut = vi.mocked(api.put)
+const mockApiPatch = vi.mocked(api.patch)
 
 const sampleEvent = {
   id: 42,
@@ -39,6 +41,7 @@ beforeEach(() => {
   mockApiDelete.mockReset()
   mockApiPost.mockReset()
   mockApiPut.mockReset()
+  mockApiPatch.mockReset()
 })
 
 afterEach(() => {
