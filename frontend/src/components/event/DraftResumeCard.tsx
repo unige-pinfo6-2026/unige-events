@@ -24,7 +24,7 @@ const titleVariants: Record<TitleVariant, string> = {
 }
 
 const CARD_CLASS =
-  'group relative shrink-0 snap-start w-72 h-[72px] overflow-hidden rounded-xl border border-border bg-background/60 backdrop-blur-xl flex text-left transition-all duration-200 hover:border-foreground/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+  'group relative shrink-0 snap-start w-72 h-[72px] overflow-hidden rounded-xl border border-border bg-background/60 backdrop-blur-xl flex text-left transition-all duration-200 hover:border-foreground/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer'
 
 function formatShortDate(dateTime: string): string {
   if (!dateTime) return ''
