@@ -172,6 +172,7 @@ export default function EventForm({
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'hour', e.target.value)}
               error={error}
               className="w-auto min-w-[4.5rem]"
+              tabIndex={values.allDay ? -1 : undefined}
             >
               <option value="">HH</option>
               {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
@@ -186,6 +187,7 @@ export default function EventForm({
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'minute', e.target.value)}
               error={error}
               className="w-auto min-w-[4.5rem]"
+              tabIndex={values.allDay ? -1 : undefined}
             >
               <option value="">MM</option>
               {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}

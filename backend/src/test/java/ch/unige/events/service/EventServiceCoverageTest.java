@@ -130,6 +130,151 @@ class EventServiceCoverageTest {
         assertEquals(1, page1.size());
     }
 
+    // --- getMyEvents (SCRUM-133) ---
+
+    @Test
+    @TestTransaction
+    void getMyEvents_returnsAllStatuses() {
+        deleteAll();
+        User user = persistUser("auth0|me-all", "me-all@example.com");
+        persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-all", null, 0, 20);
+
+        assertEquals(3, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_filtersOnStatus() {
+        deleteAll();
+        User user = persistUser("auth0|me-filter", "me-filter@example.com");
+        persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+        persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        List<EventDTO> drafts = eventService.getMyEvents("auth0|me-filter", EventStatus.DRAFT, 0, 20);
+
+        assertEquals(1, drafts.size());
+        assertEquals("Draft", drafts.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_ordersByCreatedAtDesc() {
+        deleteAll();
+        User user = persistUser("auth0|me-order", "me-order@example.com");
+        LocalDateTime base = LocalDateTime.now().minusDays(3);
+        persistEventWithCreatedAt("Oldest", EventStatus.DRAFT, user, base);
+        persistEventWithCreatedAt("Middle", EventStatus.DRAFT, user, base.plusHours(1));
+        persistEventWithCreatedAt("Newest", EventStatus.DRAFT, user, base.plusHours(2));
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-order", null, 0, 20);
+
+        assertEquals(3, result.size());
+        assertEquals("Newest", result.get(0).title());
+        assertEquals("Middle", result.get(1).title());
+        assertEquals("Oldest", result.get(2).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_emptyForUnrelatedUser() {
+        deleteAll();
+        User alice = persistUser("auth0|me-alice", "alice@example.com");
+        persistUser("auth0|me-bob", "bob@example.com");
+        persistEvent("Alice event", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
+
+        List<EventDTO> bobEvents = eventService.getMyEvents("auth0|me-bob", null, 0, 20);
+
+        assertEquals(0, bobEvents.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_userNotFound_throwsNotFound() {
+        deleteAll();
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getMyEvents("auth0|me-unknown", null, 0, 20));
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_populatesAvailableSpotsAndWaitlistedCount() {
+        deleteAll();
+        User creator = persistUser("auth0|me-cap", "cap@example.com");
+        User attender1 = persistUser("auth0|me-att1", "att1@example.com");
+        User attender2 = persistUser("auth0|me-att2", "att2@example.com");
+        User waiter = persistUser("auth0|me-wait", "wait@example.com");
+        Event event = persistEvent("Capacity event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        event.capacity = 2;
+        entityManager.flush();
+        persistAttendanceForEvent(event.id, attender1.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, attender2.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(event.id, waiter.id, AttendanceStatus.WAITLISTED);
+        entityManager.flush();
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-cap", null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(2L, result.get(0).attendingCount());
+        assertEquals(0L, result.get(0).availableSpots());
+        assertEquals(1L, result.get(0).waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_nullCapacityReturnsNullAvailableSpots() {
+        deleteAll();
+        User creator = persistUser("auth0|me-nocap", "nocap@example.com");
+        persistEvent("Uncapped", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-nocap", null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).availableSpots());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_pagination() {
+        deleteAll();
+        User user = persistUser("auth0|me-page", "page@example.com");
+        LocalDateTime base = LocalDateTime.now().minusDays(5);
+        for (int i = 0; i < 5; i++) {
+            persistEventWithCreatedAt("E" + i, EventStatus.DRAFT, user, base.plusMinutes(i));
+        }
+
+        List<EventDTO> page0 = eventService.getMyEvents("auth0|me-page", null, 0, 2);
+        List<EventDTO> page1 = eventService.getMyEvents("auth0|me-page", null, 1, 2);
+        List<EventDTO> page2 = eventService.getMyEvents("auth0|me-page", null, 2, 2);
+
+        assertEquals(2, page0.size());
+        assertEquals(2, page1.size());
+        assertEquals(1, page2.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_tieBreakerById() {
+        deleteAll();
+        User user = persistUser("auth0|me-tie", "tie@example.com");
+        LocalDateTime sameTs = LocalDateTime.now().minusHours(1);
+        Event first = persistEventWithCreatedAt("First", EventStatus.DRAFT, user, sameTs);
+        Event second = persistEventWithCreatedAt("Second", EventStatus.DRAFT, user, sameTs);
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-tie", null, 0, 20);
+
+        assertEquals(2, result.size());
+        // Tie-breaker is id DESC → second (higher id) comes first.
+        assertTrue(second.id > first.id);
+        assertEquals(second.id, result.get(0).id());
+        assertEquals(first.id, result.get(1).id());
+    }
+
     // --- create ---
 
     @Test
@@ -1148,6 +1293,16 @@ class EventServiceCoverageTest {
         entityManager.persist(event);
         entityManager.flush();
         return event;
+    }
+
+    private Event persistEventWithCreatedAt(String title, EventStatus status, User creator, LocalDateTime createdAt) {
+        Event event = persistEvent(title, EventCategory.ACADEMIC, status, creator);
+        entityManager.createQuery("UPDATE Event e SET e.createdAt = :ts WHERE e.id = :id")
+                .setParameter("ts", createdAt)
+                .setParameter("id", event.id)
+                .executeUpdate();
+        entityManager.clear();
+        return Event.<Event>findById(event.id);
     }
 
     private CreateEventRequest validCreateRequest() {

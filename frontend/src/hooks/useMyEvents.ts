@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
-import { cancelEvent, deleteEvent, getAll, publishEvent, restoreEvent } from '@/services/eventApi'
+import {
+  cancelEvent,
+  deleteEvent,
+  getMyEvents,
+  publishEvent,
+  restoreEvent,
+} from '@/services/eventApi'
 import type { Event, EventStatus } from '@/types/event'
 
 function extractValidationErrors(e: unknown): string[] {
@@ -28,30 +34,23 @@ interface UseMyEventsResult {
   permanentlyDelete: (id: number) => Promise<boolean>
 }
 
-export function useMyEvents(organizerId: string | null, status: EventStatus): UseMyEventsResult {
+export function useMyEvents(status: EventStatus): UseMyEventsResult {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetch = useCallback(async () => {
-    if (!organizerId) {
-      setEvents([])
-      setError(null)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     try {
-      const data = await getAll({ organizerId, status, size: 100 })
-      const sorted = [...data].sort((a, b) => b.startDate.localeCompare(a.startDate))
-      setEvents(sorted)
+      const data = await getMyEvents({ status, size: 100 })
+      setEvents(data)
     } catch {
       setError('Impossible de charger vos événements.')
     } finally {
       setLoading(false)
     }
-  }, [organizerId, status])
+  }, [status])
 
   useEffect(() => {
     fetch()

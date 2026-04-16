@@ -1,9 +1,13 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.entity.EventStatus;
 import ch.unige.events.service.AttendanceServiceMock;
 import ch.unige.events.service.CalendarServiceMock;
+import ch.unige.events.service.EventServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
 import ch.unige.events.service.UserServiceMock;
+
+import java.time.LocalDateTime;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.SecurityAttribute;
 import io.quarkus.test.security.TestSecurity;
@@ -26,12 +30,14 @@ class UserResourceTest {
     @Inject FavoriteServiceMock favoriteServiceMock;
     @Inject CalendarServiceMock calendarServiceMock;
     @Inject AttendanceServiceMock attendanceServiceMock;
+    @Inject EventServiceMock eventServiceMock;
 
     @BeforeEach
     void setUp() {
         userServiceMock.reset();
         favoriteServiceMock.reset();
         attendanceServiceMock.reset();
+        eventServiceMock.reset();
     }
 
     @Test
@@ -448,5 +454,153 @@ class UserResourceTest {
             .when().get("/users/me/attendances")
             .then()
             .statusCode(401);
+    }
+
+    // --- GET /users/me/events ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_empty_returnsEmptyArray() {
+        given()
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_threeStatuses_returnsAllThreeWithoutFilter() {
+        LocalDateTime base = LocalDateTime.now().minusHours(3);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Draft", EventStatus.DRAFT, base);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Published", EventStatus.PUBLISHED, base.plusMinutes(1));
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Cancelled", EventStatus.CANCELLED, base.plusMinutes(2));
+
+        given()
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(3));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_filterDraft_returnsOnlyDraft() {
+        LocalDateTime base = LocalDateTime.now().minusHours(1);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Draft", EventStatus.DRAFT, base);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Published", EventStatus.PUBLISHED, base.plusMinutes(1));
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Cancelled", EventStatus.CANCELLED, base.plusMinutes(2));
+
+        given()
+            .queryParam("status", "DRAFT")
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].status", equalTo("DRAFT"))
+            .body("[0].title", equalTo("Draft"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_ordersByCreatedAtDesc() {
+        LocalDateTime base = LocalDateTime.now().minusDays(1);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Oldest", EventStatus.DRAFT, base);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Middle", EventStatus.DRAFT, base.plusMinutes(5));
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Newest", EventStatus.DRAFT, base.plusMinutes(10));
+
+        given()
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(3))
+            .body("[0].title", equalTo("Newest"))
+            .body("[1].title", equalTo("Middle"))
+            .body("[2].title", equalTo("Oldest"));
+    }
+
+    /**
+     * Security-critical test: a different authenticated user MUST NOT see user Alice's events,
+     * even DRAFT events. This is the whole point of SCRUM-133: deriving identity from the JWT
+     * removes the ability to enumerate someone else's drafts via a query parameter.
+     */
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void getMyEvents_userBcannotSeeUserAEvents() {
+        LocalDateTime base = LocalDateTime.now().minusHours(2);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Alice draft", EventStatus.DRAFT, base);
+        eventServiceMock.seedEventWithStatus("auth0|alice", "Alice cancelled", EventStatus.CANCELLED, base);
+
+        given()
+            .queryParam("status", "DRAFT")
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    void getMyEvents_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_userNotFound_returns404() {
+        EventServiceMock.forceMyEventsNotFound = true;
+        try {
+            given()
+                .when().get("/users/me/events")
+                .then()
+                .statusCode(404);
+        } finally {
+            EventServiceMock.forceMyEventsNotFound = false;
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_sizeTooLarge_returns400() {
+        given()
+            .queryParam("size", 101)
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_sizeZero_returns400() {
+        given()
+            .queryParam("size", 0)
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_pageNegative_returns400() {
+        given()
+            .queryParam("page", -1)
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyEvents_invalidStatus_returnsError() {
+        // Quarkus rejects unparseable query enum with 404 (framework behavior, not a 400).
+        // We only assert that the request does not succeed (not 2xx).
+        given()
+            .queryParam("status", "NOT_A_STATUS")
+            .when().get("/users/me/events")
+            .then()
+            .statusCode(org.hamcrest.Matchers.not(org.hamcrest.Matchers.equalTo(200)));
     }
 }

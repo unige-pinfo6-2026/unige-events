@@ -100,7 +100,7 @@ describe('MyFavoritesPage', () => {
     mockGetFavorites.mockImplementation(() => new Promise(() => {})) // Never resolves
 
     renderWithProviders(<MyFavoritesPage />)
-    expect(document.querySelector('[data-boneyard="my-events"]')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 
   it('shows error message when fetch fails', async () => {

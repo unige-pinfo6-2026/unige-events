@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.event.UpdateEventRequest;
@@ -51,7 +52,21 @@ public class EventResource {
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
             @QueryParam("faculty") Faculty faculty,
             @QueryParam("facultyNone") Boolean facultyNone) {
-        return eventService.getAll(page, size, status, category, organizerId, endDateFrom, faculty, facultyNone);
+        EventStatus effectiveStatus = status;
+        if (organizerId != null) {
+            if (effectiveStatus == null) {
+                effectiveStatus = EventStatus.PUBLISHED;
+            } else if (effectiveStatus != EventStatus.PUBLISHED) {
+                throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ApiErrorResponse(
+                            "organizer_filter_requires_published",
+                            "Filtering by organizerId is only allowed for status=PUBLISHED. Use GET /users/me/events for your own events."))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
+            }
+        }
+        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone);
     }
 
     @POST

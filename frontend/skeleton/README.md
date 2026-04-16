@@ -37,13 +37,16 @@ frontend/
 
 | `name` | Fichier | Composant consommateur | Méthode |
 |---|---|---|---|
-| `event-cards` | `event-cards.bones.json` | `EventCards` | `genCards()` dans generate.mjs |
+| `event-cards` | `event-cards.bones.json` | `EventCards`, `MyFavoritesPage`, `MyParticipationsPage` | `genCards()` dans generate.mjs |
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | `genSearch()` dans generate.mjs |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `genCalendar()` dans generate.mjs |
 | `event-detail` | `event-detail.bones.json` | `EventDetailPage` | `genEventDetail()` dans generate.mjs |
 | `event-edit` | `event-edit.bones.json` | `EventEditPage` | `genEventEdit()` dans generate.mjs |
+| `my-publications` | `my-publications.bones.json` | `MyPublicationsPage` | `genPublications()` dans generate.mjs |
 | `profile` | `profile.bones.json` | `ProfilePage` | manuel |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
+| `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (variant inline) | manuel |
+| `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (variant card) | manuel |
 
 Mettre cette table à jour dans `AGENTS.md` à chaque ajout.
 

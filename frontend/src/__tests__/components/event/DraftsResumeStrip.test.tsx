@@ -51,10 +51,11 @@ function makeDraft(overrides: Partial<Event> = {}): Event {
     creatorId: 'uuid-test',
     status: 'DRAFT',
     attendingCount: 0,
+    allDay: false,
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-10T00:00:00.000Z',
     ...overrides,
-  }
+  } as Event
 }
 
 let mockBoundingRectWidth = 2000

@@ -77,19 +77,28 @@ public class EventService {
                 .page(page, size)
                 .list();
 
-        List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
+        return toEventDTOs(events);
+    }
 
-        return events.stream()
-                .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
-                })
-                .toList();
+    @Transactional
+    public List<EventDTO> getMyEvents(String auth0Id, EventStatus status, int page, int size) {
+        User user = User.findByAuth0Id(auth0Id)
+                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+
+        StringBuilder jpql = new StringBuilder("SELECT e FROM Event e WHERE e.creator.id = :creatorId");
+        Map<String, Object> params = new HashMap<>();
+        params.put("creatorId", user.id);
+        if (status != null) {
+            jpql.append(" AND e.status = :status");
+            params.put("status", status);
+        }
+        jpql.append(" ORDER BY e.createdAt DESC, e.id DESC");
+
+        List<Event> events = Event.<Event>find(jpql.toString(), params)
+                .page(page, size)
+                .list();
+
+        return toEventDTOs(events);
     }
 
     @Transactional
@@ -284,6 +293,21 @@ public class EventService {
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
         long attUpload = countAttending(id);
         return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id));
+    }
+
+    private List<EventDTO> toEventDTOs(List<Event> events) {
+        List<Long> ids = events.stream().map(e -> e.id).toList();
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
+                ids, AttendanceStatus.WAITLISTED, entityManager);
+        return events.stream()
+                .map(e -> {
+                    long att = attendingCounts.getOrDefault(e.id, 0L);
+                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
+                })
+                .toList();
     }
 
     private static long countAttending(Long eventId) {

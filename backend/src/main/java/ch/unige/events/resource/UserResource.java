@@ -7,9 +7,11 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.AttendanceService;
 import ch.unige.events.service.CalendarService;
+import ch.unige.events.service.EventService;
 import ch.unige.events.service.FavoriteService;
 import ch.unige.events.service.UserService;
 import io.quarkus.security.Authenticated;
@@ -50,6 +52,7 @@ public class UserResource {
     @Inject FavoriteService favoriteService;
     @Inject CalendarService calendarService;
     @Inject AttendanceService attendanceService;
+    @Inject EventService eventService;
 
     /**
      * GET /api/users/{id}
@@ -278,5 +281,15 @@ public class UserResource {
     @Authenticated
     public List<AttendanceDTO> getMyAttendances() {
         return attendanceService.getMyAttendances(identity.getPrincipal().getName());
+    }
+
+    @GET
+    @Path("/me/events")
+    @Authenticated
+    public List<EventDTO> getMyEvents(
+            @QueryParam("status") EventStatus status,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
+        return eventService.getMyEvents(identity.getPrincipal().getName(), status, page, size);
     }
 }

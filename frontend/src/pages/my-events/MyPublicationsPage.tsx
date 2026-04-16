@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Ban, Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Undo2, Users } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
 import { useMyEvents } from '@/hooks/useMyEvents'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -13,7 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
-import { EventGridFixture } from './shared'
+import { PublicationGridFixture } from './shared'
 
 // ─── Const maps ───────────────────────────────────────────────────────────────
 
@@ -267,12 +266,11 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function MyPublicationsPage() {
-  const { user } = useAuth()
   const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const status = paramToStatus(searchParams.get('status'))
 
-  const { events, loading, error, publish, cancel, restore, permanentlyDelete } = useMyEvents(user?.id ?? null, status)
+  const { events, loading, error, publish, cancel, restore, permanentlyDelete } = useMyEvents(status)
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
@@ -344,8 +342,8 @@ export default function MyPublicationsPage() {
       <StatusTabs active={status} onChange={setStatus} />
 
       {loading && (
-        <Skeleton name="my-events" loading animate="pulse" color={skeletonColor}>
-          <EventGridFixture />
+        <Skeleton name="my-publications" loading animate="pulse" color={skeletonColor}>
+          <PublicationGridFixture />
         </Skeleton>
       )}
       {!loading && error && <InfoMessage type="error" message={error} />}
