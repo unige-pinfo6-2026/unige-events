@@ -823,8 +823,109 @@ function genEventEdit() {
   writeBones('event-edit.bones.json', out)
 }
 
+// ============================================================
+// MY PUBLICATIONS — PublicationCard skeleton
+// Grid: grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5
+//
+// PublicationCard layout (from MyPublicationsPage.tsx):
+//   - Banner h-36 (144px) with category badge top-3 left-3
+//   - Body p-4 gap-2:
+//       Title (text-base font-bold) + status badge (right-aligned pill)
+//       Faculty badge (small pill)
+//       Date row: Calendar icon + text (text-xs)
+//       Participants row: Users icon + text (text-xs)
+//   - Actions footer p-3 border-t: 2-3 action buttons
+// ============================================================
+const PUB_CARD_H = 324
+const PUB_BANNER_H = 144
+const PUB_GAP = 20
+
+function buildPublicationCard(containerW, cardX_pct, cardW_pct, cardW_px, y0) {
+  const pctX = px => round(cardX_pct + px * 100 / containerW)
+  const pctW = px => round(px * 100 / containerW)
+  const b = []
+
+  // Card surface (container, lighter)
+  b.push([cardX_pct, y0, cardW_pct, PUB_CARD_H, 16, true])
+
+  // Banner (leaf, darker) — h-36 = 144px
+  b.push([cardX_pct, y0, cardW_pct, PUB_BANNER_H, 16])
+
+  // Category badge pill on banner (container, lighter) — top-3 left-3
+  b.push([pctX(12), y0 + 12, pctW(80), 22, 9999, true])
+
+  // ── Body (p-4 = 16px, gap-2 = 8px) ──
+  const bodyY = y0 + PUB_BANNER_H + 16
+
+  // Title (leaf) + status badge (container, lighter)
+  b.push([pctX(16), bodyY, pctW(Math.round(cardW_px * 0.55)), 20, 4])
+  b.push([pctX(cardW_px - 16 - 64), bodyY + 2, pctW(64), 18, 9999, true])
+
+  // Faculty badge (container, lighter)
+  b.push([pctX(16), bodyY + 28, pctW(80), 22, 9999, true])
+
+  // Date row: icon (leaf) + text (leaf)
+  b.push([pctX(16), bodyY + 58, pctW(14), 14, 4])
+  b.push([pctX(36), bodyY + 58, pctW(Math.round(cardW_px * 0.38)), 14, 4])
+
+  // Participants row: icon (leaf) + text (leaf)
+  b.push([pctX(16), bodyY + 80, pctW(14), 14, 4])
+  b.push([pctX(36), bodyY + 80, pctW(Math.round(cardW_px * 0.32)), 14, 4])
+
+  // ── Actions footer (border-t + p-3 = 12px) ──
+  const actionsY = y0 + PUB_CARD_H - 53
+
+  // Separator (leaf)
+  b.push([cardX_pct, actionsY, cardW_pct, 1, 0])
+
+  // Left button "Modifier" (container, lighter)
+  b.push([pctX(12), actionsY + 13, pctW(80), 28, 8, true])
+
+  // Right button "Annuler" (container, lighter)
+  b.push([pctX(cardW_px - 12 - 76), actionsY + 13, pctW(76), 28, 8, true])
+
+  return b
+}
+
+function genPublications() {
+  const out = { breakpoints: {} }
+  // grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5
+  // Container widths inside SectionWrapper (max-w-7xl px-4/6/8):
+  //   VP 375 → container ~343 (1 col)
+  //   VP 768 (md) → container ~720 (2 cols)
+  //   VP 1280 (xl) → container ~1216 (3 cols, capped by max-w-7xl)
+  const PUB_BPS = [
+    { containerW: 343, cols: 1 },
+    { containerW: 720, cols: 2 },
+    { containerW: 1216, cols: 3 },
+  ]
+  for (const { containerW, cols } of PUB_BPS) {
+    const layout = fixedColsLayout(containerW, cols, PUB_GAP, 6)
+    const { cardW_px, cards, rows } = layout
+    const cardW_pct = round(cardW_px * 100 / containerW)
+    const height = rows * PUB_CARD_H + (rows - 1) * PUB_GAP
+    const allBones = []
+    for (let r = 0; r < rows; r++) {
+      for (const card of cards) {
+        const x_pct = round(card.x_px * 100 / containerW)
+        const y = r * (PUB_CARD_H + PUB_GAP)
+        allBones.push(...buildPublicationCard(containerW, x_pct, cardW_pct, cardW_px, y))
+      }
+    }
+    out.breakpoints[String(containerW)] = {
+      name: 'my-publications',
+      viewportWidth: containerW,
+      width: containerW,
+      height,
+      bones: allBones,
+    }
+  }
+  writeBones('my-publications.bones.json', out)
+}
+
 genCards()
 genSearch()
 genCalendar()
 genEventDetail()
 genEventEdit()
+genPublications()

@@ -122,7 +122,7 @@ describe('MyPublicationsPage', () => {
     })
 
     renderWithProviders(<MyPublicationsPage />)
-    expect(document.querySelector('[data-boneyard="my-events"]')).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="my-publications"]')).toBeTruthy()
   })
 
   it('shows error message when fetch fails', () => {

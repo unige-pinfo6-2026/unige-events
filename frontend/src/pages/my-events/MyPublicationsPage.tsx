@@ -12,7 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
-import { EventGridFixture } from './shared'
+import { PublicationGridFixture } from './shared'
 
 // ─── Const maps ───────────────────────────────────────────────────────────────
 
@@ -342,8 +342,8 @@ export default function MyPublicationsPage() {
       <StatusTabs active={status} onChange={setStatus} />
 
       {loading && (
-        <Skeleton name="my-events" loading animate="pulse" color={skeletonColor}>
-          <EventGridFixture />
+        <Skeleton name="my-publications" loading animate="pulse" color={skeletonColor}>
+          <PublicationGridFixture />
         </Skeleton>
       )}
       {!loading && error && <InfoMessage type="error" message={error} />}

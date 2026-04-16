@@ -45,7 +45,7 @@ export default function MyFavoritesPage() {
       />
 
       {loading && (
-        <Skeleton name="my-events" loading animate="pulse" color={skeletonColor}>
+        <Skeleton name="event-cards" loading animate="pulse" color={skeletonColor}>
           <EventGridFixture />
         </Skeleton>
       )}
