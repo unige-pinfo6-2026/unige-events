@@ -244,18 +244,20 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 
 | Skeleton `name` | Fichier bones | Composant consommateur | Généré par |
 |---|---|---|---|
-| `event-cards` | `event-cards.bones.json` | `EventCards` | `generate.mjs` |
-| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | manuel |
+| `event-cards` | `event-cards.bones.json` | `EventCards`, `MyFavoritesPage`, `MyParticipationsPage` | `generate.mjs` |
+| `event-detail` | `event-detail.bones.json` | `EventDetailPage` | `generate.mjs` |
 | `event-edit` | `event-edit.bones.json` | `EventEditPage` | `generate.mjs` |
+| `my-publications` | `my-publications.bones.json` | `MyPublicationsPage` | `generate.mjs` |
 | `profile` | `profile.bones.json` | `ProfilePage` | manuel |
 | `search-results` | `search-results.bones.json` | `EventsSearchPage` | `generate.mjs` |
 | `event-calendar` | `event-calendar.bones.json` | `EventCalendar` | `generate.mjs` |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
-| `my-events` | `my-events.bones.json` | `MyFavoritesPage, MyParticipationsPage, MyPublicationsPage` | manuel |
+| `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
+| `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
-Pour les skeletons manuels (`event-detail`, `profile`, `navbar-user`) : éditer directement le JSON.
+Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : éditer directement le JSON.
 
 
 ## Hooks
