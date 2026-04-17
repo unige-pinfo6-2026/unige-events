@@ -4,7 +4,6 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 @Entity
@@ -29,9 +28,5 @@ public class EventView extends PanacheEntity {
     @PrePersist
     public void prePersist() {
         viewedAt = LocalDateTime.now();
-    }
-
-    public static Optional<EventView> findByEventAndUser(Long eventId, UUID userId) {
-        return find("eventId = ?1 and userId = ?2", eventId, userId).firstResultOptional();
     }
 }
