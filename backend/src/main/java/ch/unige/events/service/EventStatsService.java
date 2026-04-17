@@ -20,8 +20,7 @@ public class EventStatsService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        User caller = User.<User>find("auth0Id", auth0Id)
-                .firstResultOptional()
+        User caller = User.findByAuth0Id(auth0Id)
                 .orElseThrow(() -> new NotFoundException("User profile not found"));
 
         if (event.creator == null || !event.creator.id.equals(caller.id)) {
