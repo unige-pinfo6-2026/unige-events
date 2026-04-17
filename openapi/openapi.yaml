@@ -594,7 +594,7 @@ components:
 
     EventView:
       type: object
-      description: Vue unique d'un événement par un utilisateur (dédupliquée par userId)
+      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
       properties:
         id:
           type: integer
@@ -1908,8 +1908,14 @@ paths:
       responses:
         '204':
           description: Vue enregistrée (ou déjà existante — idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: Événement introuvable
+          description: Événement introuvable ou profil utilisateur non provisionné
           content:
             application/json:
               schema:
