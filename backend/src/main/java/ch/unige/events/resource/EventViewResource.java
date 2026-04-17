@@ -25,6 +25,7 @@ public class EventViewResource {
     @POST
     @Path("/{id}/view")
     @Authenticated
+    @Consumes(MediaType.WILDCARD)   // pas de body — surcharge le @Consumes(JSON) de la classe
     public Response recordView(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         eventViewService.recordView(auth0Id, id);
