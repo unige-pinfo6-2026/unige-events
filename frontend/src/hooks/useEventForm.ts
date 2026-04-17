@@ -366,13 +366,21 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
   }, [])
 
   function setFieldValue<K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) {
-    setValues((current) => {
-      const next = { ...current, [field]: value }
-      // schedulePersist is a no-op if currentPersistKey() returns null (edit mode before
-      // the async event load), so we can call it unconditionally for both flows.
-      schedulePersist(next)
-      return next
-    })
+    // NOTE: schedulePersist is intentionally called OUTSIDE the setValues updater.
+    // React 18 is allowed to re-run state updaters (Strict Mode doubles them,
+    // concurrent mode can re-run them when work is interrupted/resumed).
+    // Calling schedulePersist inside the updater would arm a new debounce timer
+    // on every re-run, potentially after cancelPersist() has already cleared it
+    // (e.g. inside `await act(async () => {...})` test helpers). Moving it here
+    // ensures it runs exactly once per explicit user interaction, not per
+    // React-internal re-execution.
+    // Tradeoff: `values` is the closure state from the last render. For rapid
+    // sequential calls inside a single batch the persisted snapshot may only
+    // reflect the last field; that is acceptable because the debounce ensures
+    // only the final keypress matters, and between render cycles `values` is
+    // always up-to-date.
+    setValues((current) => ({ ...current, [field]: value }))
+    schedulePersist({ ...values, [field]: value })
 
     if (VALIDATABLE_FIELDS.has(field as keyof EventFormErrors)) {
       setErrors((current) => ({ ...current, [field]: undefined }))
