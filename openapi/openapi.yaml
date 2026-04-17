@@ -594,7 +594,7 @@ components:
 
     EventView:
       type: object
-      description: Vue unique d'un événement par un utilisateur (dédupliquée par userId)
+      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
       properties:
         id:
           type: integer
