@@ -11,6 +11,10 @@ import java.util.Set;
 @ApplicationScoped
 public class EventViewServiceMock extends EventViewService {
 
+    public EventViewServiceMock() {
+        super(null); // EntityManager not used in mock
+    }
+
     private final Set<Long> viewedEvents = new HashSet<>();
 
     public static volatile boolean forceNotFound = false;
