@@ -35,7 +35,7 @@ export function useMyDrafts(organizerId: string | undefined): UseMyDraftsResult 
     setLoading(true)
     setError(null)
 
-    getMyDrafts(organizerId, DRAFTS_FETCH_SIZE)
+    getMyDrafts(DRAFTS_FETCH_SIZE)
       .then(result => {
         if (cancelled) return
         setDrafts(sortByUpdatedAtDesc(result))
