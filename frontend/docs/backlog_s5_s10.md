@@ -1,4 +1,4 @@
-# UNIGE Events — Backlog Sprints 5 à 10
+;# UNIGE Events — Backlog Sprints 5 à 10
 
 > Groupe 6 · PINFO UNIGE · Printemps 2026
 
