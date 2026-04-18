@@ -54,7 +54,7 @@ beforeEach(() => {
 
   HTMLCanvasElement.prototype.getContext = function () {
     return makeCtx() as unknown as CanvasRenderingContext2D
-  }
+  } as unknown as typeof HTMLCanvasElement.prototype.getContext
 
   HTMLCanvasElement.prototype.toBlob = function (callback: BlobCallback) {
     callback(new Blob(['img'], { type: 'image/jpeg' }))
@@ -106,7 +106,7 @@ describe('cropToBlob', () => {
 
   it('resolves with a Blob and clips canvas for a circular crop', async () => {
     const ctx = makeCtx()
-    HTMLCanvasElement.prototype.getContext = () => ctx as unknown as CanvasRenderingContext2D
+    HTMLCanvasElement.prototype.getContext = (() => ctx as unknown as CanvasRenderingContext2D) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
     const blob = await cropToBlob(makeImage(), makePixelCrop(), true)
     expect(blob).toBeInstanceOf(Blob)
