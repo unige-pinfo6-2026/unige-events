@@ -30,6 +30,21 @@ export default defineConfig(() => {
     },
     test: {
       environment: 'happy-dom',
+      environmentOptions: {
+        happyDOM: {
+          settings: {
+            // Prevent happy-dom from fetching external URLs
+            navigation: {
+              disableMainFrameNavigation: false,
+              disableChildFrameNavigation: true,
+              disableChildPageNavigation: false,
+              disableFallbackToSetURL: false,
+              crossOriginPolicy: 'anyOrigin',
+              beforeContentCallback: null,
+            },
+          },
+        },
+      },
       setupFiles: ['src/__tests__/setup.ts'],
       testTimeout: 10000,
       maxForks: Math.max(2, os.cpus().length - 1),

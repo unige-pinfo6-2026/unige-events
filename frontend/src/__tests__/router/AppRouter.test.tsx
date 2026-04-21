@@ -4,12 +4,23 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import AppRouter from '@/router/AppRouter'
-import { AuthProvider } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 
 vi.mock('@auth0/auth0-react', () => ({
   useAuth0: vi.fn(),
   Auth0Provider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}))
+
+vi.mock('@/contexts/AuthContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/contexts/AuthContext')>()
+  return {
+    ...actual,
+    AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  }
+})
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
 }))
 
 vi.mock('@/services/userService', () => ({
@@ -30,29 +41,27 @@ vi.mock('@/pages/profile/ProfileEditPage', () => ({ default: () => <div>ProfileE
 vi.mock('@/pages/event/favorites/FavoritesPage', () => ({ default: () => <div>FavoritesPage</div> }))
 vi.mock('@/pages/NotFoundPage', () => ({ default: () => <div>NotFoundPage</div> }))
 
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from '@/hooks/useAuth'
 
-const mockUseAuth0 = useAuth0 as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
-function authenticatedAuth0() {
+function authenticated() {
   return {
     isAuthenticated: true,
     isLoading: false,
     user: { sub: 'auth0|123', email: 'test@example.com', name: 'Test User' },
-    loginWithRedirect: vi.fn(),
+    login: vi.fn(),
     logout: vi.fn(),
-    getAccessTokenSilently: vi.fn().mockResolvedValue('test-token'),
   }
 }
 
-function unauthenticatedAuth0() {
+function unauthenticated() {
   return {
     isAuthenticated: false,
     isLoading: false,
     user: null,
-    loginWithRedirect: vi.fn(),
+    login: vi.fn(),
     logout: vi.fn(),
-    getAccessTokenSilently: vi.fn().mockResolvedValue(''),
   }
 }
 
@@ -65,102 +74,100 @@ afterEach(() => {
 function renderAt(path: string) {
   return render(
     <ToastProvider>
-      <AuthProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <AppRouter />
-        </MemoryRouter>
-      </AuthProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <AppRouter />
+      </MemoryRouter>
     </ToastProvider>,
   )
 }
 
 describe('AppRouter', () => {
   it('shows landing page at /', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/')
-    expect(await screen.findByText('LandingPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('LandingPage')).toBeTruthy()
   })
 
   it('shows login page at /login', async () => {
-    mockUseAuth0.mockReturnValue(unauthenticatedAuth0())
+    mockUseAuth.mockReturnValue(unauthenticated())
     renderAt('/login')
-    expect(await screen.findByText('LoginPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('LoginPage')).toBeTruthy()
   })
 
   it('shows callback page at /login/callback', async () => {
-    mockUseAuth0.mockReturnValue(unauthenticatedAuth0())
+    mockUseAuth.mockReturnValue(unauthenticated())
     renderAt('/login/callback')
-    expect(await screen.findByText('CallbackPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('CallbackPage')).toBeTruthy()
   })
 
   it('shows events page at /events', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/events')
-    expect(await screen.findByText('EventsPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('EventsPage')).toBeTruthy()
   })
 
   it('shows event detail page at /events/:id', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/events/42')
-    expect(await screen.findByText('EventDetailPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('EventDetailPage')).toBeTruthy()
   })
 
   it('shows calendar page at /calendar', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/calendar')
-    expect(await screen.findByText('CalendarPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('CalendarPage')).toBeTruthy()
   })
 
   it('shows 404 page for unknown routes', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/unknown')
-    expect(await screen.findByText('NotFoundPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('NotFoundPage')).toBeTruthy()
   })
 
   it('redirects /profile to /profile/me', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/profile')
-    expect(await screen.findByText('ProfilePage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('ProfilePage')).toBeTruthy()
   })
 
   it('shows profile page at /profile/:id', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/profile/auth0|123')
-    expect(await screen.findByText('ProfilePage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('ProfilePage')).toBeTruthy()
   })
 
   it('shows profile edit page at /profile/me/edit', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/profile/me/edit')
-    expect(await screen.findByText('ProfileEditPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('ProfileEditPage')).toBeTruthy()
   })
 
   it('shows event create page at /events/new', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/events/new')
-    expect(await screen.findByText('EventCreatePage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('EventCreatePage')).toBeTruthy()
   })
 
   it('shows event edit page at /events/:id/edit', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/events/42/edit')
-    expect(await screen.findByText('EventEditPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('EventEditPage')).toBeTruthy()
   })
 
   it('shows favorites page at /events/favorites', async () => {
-    mockUseAuth0.mockReturnValue(authenticatedAuth0())
+    mockUseAuth.mockReturnValue(authenticated())
     renderAt('/events/favorites')
-    expect(await screen.findByText('FavoritesPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('FavoritesPage')).toBeTruthy()
   })
 
   it('blocks protected routes when not authenticated', async () => {
-    mockUseAuth0.mockReturnValue(unauthenticatedAuth0())
+    mockUseAuth.mockReturnValue(unauthenticated())
     renderAt('/profile/me')
-    expect(await screen.findByText('LoginPage', {}, { timeout: 10000 })).toBeTruthy()
+    expect(await screen.findByText('LoginPage')).toBeTruthy()
   })
 
   it('shows loading spinner when auth is loading', async () => {
-    mockUseAuth0.mockReturnValue({ ...unauthenticatedAuth0(), isLoading: true })
+    mockUseAuth.mockReturnValue({ ...unauthenticated(), isLoading: true })
     renderAt('/profile/me')
     // PrivateRoute renders LoadingSpinner while isLoading
     expect(document.querySelector('svg') ?? document.body.firstChild).toBeTruthy()

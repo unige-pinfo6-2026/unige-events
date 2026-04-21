@@ -3,6 +3,25 @@
 // to real bones in tests and fixtures actually render under the overlay.
 import '../bones/registry'
 
+// Block all real HTTP requests in the test environment.
+// happy-dom's base URL is http://localhost:3000, so relative fetch calls from
+// component useEffect hooks would create real TCP connections and produce
+// ECONNREFUSED noise in test output. All API calls should be mocked at the
+// service layer via vi.mock(); this interceptor acts as a safety net.
+if (globalThis.document !== undefined) {
+  // happy-dom exposes window.happyDOM.settings for runtime configuration.
+  // Set a fetch interceptor so its internal HTTP client never opens a real TCP
+  // connection; components that call fetch() in useEffect (e.g. via a service
+  // not mocked by a particular test) get a silent 200 instead of ECONNREFUSED.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hdSettings = (globalThis as any).happyDOM?.settings
+  if (hdSettings?.fetch) {
+    hdSettings.fetch.interceptor = {
+      beforeAsyncRequest: async () => new Response(null, { status: 200 }),
+    }
+  }
+}
+
 if (globalThis.document !== undefined) {
   // boneyard-js/react calls matchMedia for dark-mode detection.
   globalThis.matchMedia = ((query: string) => ({
