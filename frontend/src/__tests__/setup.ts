@@ -1,4 +1,4 @@
-// Global test setup — mocks browser APIs absent from jsdom.
+// Global test setup — mocks browser APIs absent or incomplete in happy-dom.
 // Also registers boneyard bone definitions so <Skeleton name="..."> resolves
 // to real bones in tests and fixtures actually render under the overlay.
 import '../bones/registry'
@@ -16,7 +16,7 @@ if (globalThis.document !== undefined) {
     dispatchEvent: () => false,
   })) as typeof globalThis.matchMedia
 
-  // jsdom returns 0×0 for getBoundingClientRect, which makes boneyard-js skip
+  // happy-dom returns 0×0 for getBoundingClientRect, which makes boneyard-js skip
   // rendering its fixtures (width guard). Report a realistic container size so
   // <Skeleton> actually renders its children and fixture code is exercised.
   Element.prototype.getBoundingClientRect = function () {

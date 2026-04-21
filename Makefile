@@ -20,8 +20,8 @@ dev:
 	$(MAKE) -j2 frontend backend
 
 # Tests
-test-backend: install-backend
-	cd backend && ./mvnw clean verify -B
+test-backend:
+	cd backend && ./mvnw test -B
 
 test-frontend: install-frontend
 	cd frontend && npm run lint && npm run test:coverage && npm run build

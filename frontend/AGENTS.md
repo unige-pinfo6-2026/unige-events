@@ -12,6 +12,15 @@ npm run test     # tests unitaires (couverture V8)
 npm run preview  # preview du build prod en local
 ```
 
+## Environnement de test
+
+L'environnement de test est **happy-dom** (configuré globalement dans `vite.config.ts`).
+happy-dom est plus rapide que jsdom mais présente quelques différences de comportement :
+
+- `navigator.clipboard` est une propriété **getter-only** → utiliser `Object.defineProperty(navigator, 'clipboard', { value: ..., configurable: true })` pour la mocker, jamais `Object.assign`
+- `element.style.backgroundColor` conserve le format **hexadécimal** (`#0891b2`) sans normalisation en `rgb()` → les assertions sur les couleurs CSS doivent utiliser le format hex
+- `sessionStorage` / `localStorage` n'héritent **pas** de `Storage.prototype` → spy directement sur l'instance (`vi.spyOn(sessionStorage, 'setItem')`) et non sur le prototype
+
 ## Architecture MVC
 ```
 View       → src/pages/ et src/components/   (composants React)
