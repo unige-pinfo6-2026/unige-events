@@ -80,6 +80,23 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ---
 
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
+
+Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
+
+---
+
 ### Attendance
 
 Table : `attendances`
@@ -223,6 +240,17 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 | `avatarUrl` | `@Size(max=2048)` + `@Pattern` (http/https uniquement) |
 | `interests` | `List<String>`, nullable |
 | `profilePublic` | `Boolean`, nullable |
+
+### EventStatsDTO (record)
+Statistiques agrégées d'un événement — retourné par `GET /events/{id}/stats` (créateur uniquement).
+
+```
+attendingCount, interestedCount, viewCount
+```
+
+- `attendingCount` : nombre d'`Attendance` avec `status = ATTENDING`.
+- `interestedCount` : nombre de `Favorite` liés à l'événement.
+- `viewCount` : nombre de `EventView` liés à l'événement (1 par utilisateur).
 
 ### Réponses d'erreur
 
