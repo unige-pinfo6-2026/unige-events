@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import CalendarSubscribeButton, { COPY_CONFIRMATION_RESET_MS } from '@/components/calendar/CalendarSubscribeButton'
@@ -135,7 +134,7 @@ describe('CalendarSubscribeButton', () => {
 
   it('clicking Copier le lien calls clipboard.writeText with httpsUrl', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     render(<CalendarSubscribeButton />)
 
@@ -153,7 +152,7 @@ describe('CalendarSubscribeButton', () => {
   it('shows Lien copié ! confirmation after copy and resets after 2 seconds', async () => {
     vi.useFakeTimers()
     const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     render(<CalendarSubscribeButton />)
 

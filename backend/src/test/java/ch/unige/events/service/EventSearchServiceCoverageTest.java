@@ -34,7 +34,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_noFilters_returnsAll() {
-        deleteAll();
         User user = persistUser("auth0|s1", "s1@example.com");
         persistEvent("Conférence Java", "Talk Quarkus", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
@@ -49,7 +48,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withQ_matchesTitle() {
-        deleteAll();
         User user = persistUser("auth0|s2", "s2@example.com");
         persistEvent("Conférence Java", "Talk générique", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
@@ -63,7 +61,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withQ_matchesDescription() {
-        deleteAll();
         User user = persistUser("auth0|s3", "s3@example.com");
         persistEvent("Conférence Tech", "Talk sur Quarkus et Java", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi inter-facs", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
@@ -77,7 +74,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withQ_isCaseInsensitive() {
-        deleteAll();
         User user = persistUser("auth0|s4", "s4@example.com");
         persistEvent("Conférence JAVA", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
 
@@ -91,7 +87,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_blankQ_treatedAsNoFilter() {
-        deleteAll();
         User user = persistUser("auth0|s5", "s5@example.com");
         persistEvent("Event A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user);
         persistEvent("Event B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user);
@@ -106,7 +101,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withCategory_returnsFiltered() {
-        deleteAll();
         User user = persistUser("auth0|s6", "s6@example.com");
         persistEvent("Conférence Java", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
@@ -122,7 +116,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withDateFrom_excludesPastEvents() {
-        deleteAll();
         User user = persistUser("auth0|s7", "s7@example.com");
         persistEvent("Passé", null, EventCategory.ACADEMIC, LocalDateTime.now().minusDays(5), user);
         persistEvent("Futur", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(5), user);
@@ -138,7 +131,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withDateTo_excludesFutureEvents() {
-        deleteAll();
         User user = persistUser("auth0|s8", "s8@example.com");
         persistEvent("Passé", null, EventCategory.ACADEMIC, LocalDateTime.now().minusDays(5), user);
         persistEvent("Futur", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(5), user);
@@ -154,7 +146,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_allFilters_returnsOnlyMatch() {
-        deleteAll();
         User user = persistUser("auth0|s9", "s9@example.com");
         LocalDateTime target = LocalDateTime.now().plusDays(3);
         persistEvent("Conférence Java", "Talk Quarkus", EventCategory.CONFERENCE, target, user);
@@ -179,7 +170,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_draftEvent_isNotReturned() {
-        deleteAll();
         User user = persistUser("auth0|draft1", "draft1@example.com");
         persistEvent("Événement publié", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         Event draft = new Event();
@@ -204,7 +194,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_noResults_returnsEmptyList() {
-        deleteAll();
         User user = persistUser("auth0|s10", "s10@example.com");
         persistEvent("Conférence Java", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
 
@@ -218,7 +207,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withPagination_returnsPage() {
-        deleteAll();
         User user = persistUser("auth0|s11", "s11@example.com");
         for (int i = 1; i <= 5; i++) {
             persistEvent("Event " + i, null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(i), user);
@@ -238,7 +226,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withFacultyFilter_returnsMatchingEvents() {
-        deleteAll();
         User user = persistUser("auth0|sf1", "sf1@example.com");
         persistEvent("Labo Chimie", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Cours de Droit", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, Faculty.LAW);
@@ -252,7 +239,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withFacultyAndCategory_combined() {
-        deleteAll();
         User user = persistUser("auth0|sf2", "sf2@example.com");
         persistEvent("Conf Sciences", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Match Sciences", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user, Faculty.SCIENCES);
@@ -267,7 +253,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withNullFaculty_returnsAll() {
-        deleteAll();
         User user = persistUser("auth0|sf3", "sf3@example.com");
         persistEvent("Event A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Event B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
@@ -280,7 +265,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withFacultyNone_returnsNullFacultyEvents() {
-        deleteAll();
         User user = persistUser("auth0|sfNone", "sfNone@example.com");
         persistEvent("Sciences Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
@@ -295,7 +279,6 @@ class EventSearchServiceCoverageTest {
     @Test
     @TestTransaction
     void search_withFacultyNoneAndFaculty_facultyNoneWins() {
-        deleteAll();
         User user = persistUser("auth0|sfNonePrio", "sfNonePrio@example.com");
         persistEvent("Sciences Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
@@ -307,12 +290,6 @@ class EventSearchServiceCoverageTest {
     }
 
     // --- helpers ---
-
-    private void deleteAll() {
-        entityManager.createNativeQuery("delete from events").executeUpdate();
-        entityManager.createNativeQuery("delete from users").executeUpdate();
-        entityManager.clear();
-    }
 
     private User persistUser(String auth0Id, String email) {
         User user = new User();

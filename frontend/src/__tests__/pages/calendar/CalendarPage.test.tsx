@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -201,7 +200,7 @@ describe('CalendarPage', () => {
     })
     renderPage()
     const btn = screen.getByText('Conférence IA')
-    expect(btn.style.backgroundColor).toBe('rgb(8, 145, 178)') // CONFERENCE = #0891b2
+    expect(btn.style.backgroundColor).toBe('#0891b2') // CONFERENCE = #0891b2
   })
 
   it('shows event location as tooltip via tooltipAccessor', () => {

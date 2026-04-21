@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -339,7 +338,7 @@ describe('EventDetailPage', () => {
 
   it('copies the event URL and shows a success toast when sharing', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -354,7 +353,7 @@ describe('EventDetailPage', () => {
 
   it('shows a fallback error toast when clipboard writeText rejects', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -367,7 +366,7 @@ describe('EventDetailPage', () => {
   })
 
   it('shows a fallback error toast when clipboard API is unavailable', () => {
-    Object.assign(navigator, { clipboard: undefined })
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
