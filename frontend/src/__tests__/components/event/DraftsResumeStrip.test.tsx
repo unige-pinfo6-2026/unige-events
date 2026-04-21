@@ -265,7 +265,7 @@ describe('DraftsResumeStrip', () => {
     ])
     render(<DraftsResumeStrip />)
     openPanel()
-    expect(screen.getByText(/mai/i)).toBeTruthy()
+    expect(screen.getByText('1 mai')).toBeTruthy()
   })
 
   it('falls back to the category name when neither location nor a valid start date is present', () => {

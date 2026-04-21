@@ -59,11 +59,9 @@ export async function deleteEvent(id: number): Promise<void> {
 const MAX_DRAFTS_FETCH = 5
 
 export async function getMyDrafts(
-  organizerId: string,
   limit: number = MAX_DRAFTS_FETCH,
 ): Promise<Event[]> {
-  return getAll({
-    organizerId,
+  return getMyEvents({
     status: 'DRAFT',
     size: limit,
   })

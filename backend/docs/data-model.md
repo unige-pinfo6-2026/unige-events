@@ -117,6 +117,27 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 ---
 
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
+
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
+
+---
+
 ## Conventions de nommage
 
 ### camelCase obligatoire
