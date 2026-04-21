@@ -5,6 +5,9 @@ import type { Event, EventCategory } from '@/types/event'
 import type { SearchFilters, SearchParams } from '@/types/search'
 import type { Faculty } from '@/types/faculty'
 
+export const SEARCH_QUERY_DEBOUNCE_MS = 400
+export const SEARCH_SUGGESTIONS_DEBOUNCE_MS = 300
+
 const DEFAULT_FILTERS: SearchFilters = { includePast: false }
 
 export interface UseSearchResult {
@@ -83,7 +86,7 @@ export function useSearch(): UseSearchResult {
           if (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError')) return
           setSuggestions([])
         })
-    }, 300)
+    }, SEARCH_SUGGESTIONS_DEBOUNCE_MS)
     return () => {
       clearTimeout(timer)
       controller.abort()
@@ -149,7 +152,7 @@ export function useSearch(): UseSearchResult {
         return
       }
       performSearch(query, filtersRef.current)
-    }, 400)
+    }, SEARCH_QUERY_DEBOUNCE_MS)
     return () => clearTimeout(timer)
   }, [query, performSearch])
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
-import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
+import CalendarSubscribeButton, { COPY_CONFIRMATION_RESET_MS } from '@/components/calendar/CalendarSubscribeButton'
 import * as userService from '@/services/userService'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
 
@@ -172,7 +172,7 @@ describe('CalendarSubscribeButton', () => {
     expect(screen.getByText('Lien copié !')).toBeTruthy()
 
     await act(async () => {
-      vi.advanceTimersByTime(2000)
+      vi.advanceTimersByTime(COPY_CONFIRMATION_RESET_MS)
     })
 
     expect(screen.queryByText('Lien copié !')).toBeNull()

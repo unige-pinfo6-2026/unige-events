@@ -1,13 +1,13 @@
 package ch.unige.events.service;
 
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -29,13 +29,12 @@ public class EventViewService {
                 .orElseThrow(() -> new NotFoundException("User profile not found"))
                 .id;
 
-        entityManager.createNativeQuery(
-                "INSERT INTO event_views (event_id, user_id, viewed_at) " +
-                "VALUES (:eventId, :userId, :viewedAt) " +
-                "ON CONFLICT (event_id, user_id) DO NOTHING")
-                .setParameter("eventId", eventId)
-                .setParameter("userId", userId)
-                .setParameter("viewedAt", LocalDateTime.now())
-                .executeUpdate();
+        boolean alreadyViewed = EventView.count("eventId = ?1 AND userId = ?2", eventId, userId) > 0;
+        if (!alreadyViewed) {
+            EventView view = new EventView();
+            view.eventId = eventId;
+            view.userId = userId;
+            view.persist();
+        }
     }
 }

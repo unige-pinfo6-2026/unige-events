@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
-import { useSearch } from '@/hooks/useEventSearch'
+import { useSearch, SEARCH_QUERY_DEBOUNCE_MS, SEARCH_SUGGESTIONS_DEBOUNCE_MS } from '@/hooks/useEventSearch'
 
 function useSearchAndParams() {
   const search = useSearch()
@@ -80,7 +80,7 @@ describe('useSearch', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(399)
+      vi.advanceTimersByTime(SEARCH_QUERY_DEBOUNCE_MS - 1)
     })
 
     expect(mockSearchEvents).not.toHaveBeenCalled()
@@ -179,7 +179,7 @@ describe('useSearch', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(299)
+      vi.advanceTimersByTime(SEARCH_SUGGESTIONS_DEBOUNCE_MS - 1)
     })
 
     expect(mockFetchSuggestions).not.toHaveBeenCalled()
@@ -195,7 +195,7 @@ describe('useSearch', () => {
     })
 
     await act(async () => {
-      vi.advanceTimersByTime(300)
+      vi.advanceTimersByTime(SEARCH_SUGGESTIONS_DEBOUNCE_MS)
       await Promise.resolve()
     })
 
