@@ -17,7 +17,16 @@ Fonctionnalités livrées :
 - Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
 - **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
 - Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
-Dernière mise à jour : 2026-04-14
+## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
+
+Terminé le 2026-04-18.
+
+Fonctionnalités livrées :
+- `ImageCropper` (`src/components/utils/ImageCropper.tsx`) : composant modal générique de recadrage d'image. Utilise `ReactCrop` de `react-image-crop` avec `keepSelection`. Applique le crop via un `<canvas>` (`canvas.toBlob()`).
+- Props : `src`, `aspect`, `circular?` (crop rond pour avatar), `onCropComplete`, `onCancel`.
+- Bouton "Recadrer" désactivé tant qu'aucune zone n'est sélectionnée.
+- Dépendance `react-image-crop` ajoutée.
+- 6 tests unitaires couvrant le rendu, les callbacks et les variantes aspect/circular.
 
 ## Sprint 1 — Authentification & profils
 

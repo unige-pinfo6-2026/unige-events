@@ -212,6 +212,11 @@ mark {
 
 .rbc-agenda-event-cell {
   font-weight: 500;
+  cursor: pointer;
+}
+
+.rbc-agenda-content table tbody tr {
+  background-color: transparent !important;
 }
 
 .rbc-row-segment .rbc-event-content {

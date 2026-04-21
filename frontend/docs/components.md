@@ -112,6 +112,16 @@
 
 ## Composants réutilisables
 
+### ImageCropper
+
+- Composant modal générique de recadrage d'image : `src/components/utils/ImageCropper.tsx`.
+- Props : `src: string` (data URL), `aspect: number` (ex. `1` pour carré, `3` pour bannière 3:1), `circular?: boolean` (crop circulaire pour avatar), `onCropComplete: (blob: Blob) => void`, `onCancel: () => void`.
+- Utilise `ReactCrop` de **react-image-crop** avec `keepSelection` et `circularCrop` optionnel.
+- À la confirmation, applique le crop via un `<canvas>` (`canvas.toBlob()`) et appelle `onCropComplete` avec le `Blob` résultant.
+- Overlay sombre (`bg-black/70 backdrop-blur-sm`), boutons "Recadrer" (`ButtonPrimary`) / "Annuler" (`ButtonSecondary`).
+- Le bouton "Recadrer" est désactivé tant qu'aucune zone de crop n'est sélectionnée.
+- Utilisable pour avatar (aspect 1, circular), bannière profil et bannière événement (aspect 3).
+
 ### Buttons
 
 Composants centralisés dans `src/components/utils/Buttons.tsx`. API uniforme (`children`, `onClick`, `type`, `disabled`, `size`), variantes implémentées via une **const map typée** `buttonVariants` + classes de base partagées — pas de ternaires inline. Quatre variants exposés :
