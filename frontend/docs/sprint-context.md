@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-14
+Dernière mise à jour : 2026-04-22
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 
@@ -17,6 +17,32 @@ Fonctionnalités livrées :
 - Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
 - **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
 - Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
+## Sprint 6 — Indicateur capacité et liste d'attente (S6) — 2026-04-18
+
+Terminé le 2026-04-18.
+
+Fonctionnalités livrées :
+- **Types TypeScript mis à jour** : `AttendanceStatus` passe à `'ATTENDING' | 'WAITLISTED'` ; `Event` reçoit `availableSpots?: number | null` et `waitlistedCount?: number` (alignement sur openapi.yaml).
+- **`EventDetailPage` — indicateur visuel de capacité** : si `event.capacity != null && event.availableSpots != null`, affiche un badge coloré : rouge "Complet" (`availableSpots === 0`), orange "Presque complet" (`<= capacity * 0.1`), vert "X places disponibles". Si `waitlistedCount > 0`, affiche "X en liste d'attente". Remplace le `ComingSoonBlock` placeholder du sprint 5.
+- **`AttendanceButtons` — gestion liste d'attente** : nouvelle prop `availableSpots` transmise au hook. Quand l'événement est complet (`isFull`) et l'utilisateur n'est pas inscrit, le bouton affiche "Rejoindre la liste d'attente" (appelle le même `POST /events/{id}/attend`). Quand `currentStatus === 'WAITLISTED'`, affiche "En liste d'attente" (style warning). Suppression du tooltip disabled au profit d'un bouton toujours cliquable.
+- **`useAttendance` — support WAITLISTED** : nouvelle signature `initialAvailableSpots?: number | null` pour initialiser `isFull`. Toggle unifié : si `currentStatus !== null` (ATTENDING ou WAITLISTED) → `unattend()`; sinon → `attend()`. Après succès d'`attend()`, `currentStatus` est mis à jour depuis la réponse serveur ; si WAITLISTED, `attendingCount` n'est pas incrémenté.
+- **Tests** : 831 tests passing. `useAttendance.test.ts` enrichi (WAITLISTED unattend sans décrément, réponse serveur WAITLISTED, initialAvailableSpots). `AttendanceButtons.test.tsx` refondu pour le nouveau comportement (bouton "Rejoindre la liste d'attente", "En liste d'attente", plus de tooltip).
+
+## Sprint 6 — Dashboard statistiques organisateur (S6) — 2026-04-22
+
+Terminé le 2026-04-22.
+
+Fonctionnalités livrées :
+- **`EventStatsPage`** (`/events/:id/stats`, PrivateRoute) : page réservée à l'organisateur de l'événement. Vérifie `user.id === event.creatorId` avant de charger les stats.
+- **KPI cards** : 👁 Vues totales (`stats.views`), ✅ Participants (`stats.attendingCount`), ⭐ Check-ins (`stats.checkInCount`).
+- **`StatsChart`** : BarChart recharts (Inscrits / Check-ins / Places restantes si capacité définie). Thème adapté aux tokens CSS (`--color-background`, `--color-border`).
+- **Barre de remplissage** : `attendingCount / capacity * 100` avec couleur progressive (vert → orange → rouge).
+- **Section participants** : bouton collapsible "Voir les participants" → `GET /events/{id}/attendees` → fetch users en parallèle via `getUserById`, affichage avatar + nom.
+- **`statsApi.ts`** : `getEventStats()` et `getEventAttendees()`.
+- **`useEventStats`** : auto-refresh toutes les 60 s avec `setInterval`, nettoyage à l'unmount.
+- **Skeleton `event-stats`** : 2 breakpoints (300 px mobile / 600 px desktop), transition single-col → 3-col sur les KPI cards.
+- Dépendance `recharts` ajoutée.
+
 ## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
 
 Terminé le 2026-04-18.

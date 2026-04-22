@@ -17,6 +17,7 @@
 | /my-events/favorites | MyFavoritesPage | fait |
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
+| /events/:id/stats | EventStatsPage | fait (S6) |
 
 ### LandingPage
 
@@ -74,6 +75,17 @@
 - Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Tri par `startDate` décroissante.
 - Bouton flottant "Créer un événement" en bas-droite.
 - Skeleton `my-events`.
+
+### EventStatsPage
+
+- Route `/events/:id/stats`, protégée par PrivateRoute — réservé à l'organisateur de l'événement.
+- Charge l'événement via `useEvent(id)`, puis les stats via `useEventStats(id)` (auto-refresh toutes les 60 s).
+- Vérifie que `user.id === event.creatorId` avant de charger les stats (évite le 403).
+- KPI cards : 👁 Vues totales (`stats.views`), ✅ Participants (`stats.attendingCount`), ⭐ Check-ins (`stats.checkInCount`).
+- `StatsChart` : BarChart recharts (Inscrits / Check-ins / Places restantes).
+- Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
+- Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
+- Skeleton `event-stats` (2 breakpoints : 300 / 600 px).
 
 ### CreateEventPage
 
@@ -318,6 +330,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
 | `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
+| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
