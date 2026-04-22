@@ -29,7 +29,11 @@ export function useSearch(): UseSearchResult {
 
   const [query, setQueryState] = useState<string>(searchParams.get('q') ?? '')
   const [filters, setFiltersState] = useState<SearchFilters>(() => {
-    const initialTags = searchParams.getAll('tags').filter((t) => t.trim().length > 0)
+    const initialTags = Array.from(
+      new Set(
+        searchParams.getAll('tags').map((t) => t.trim()).filter((t) => t.length > 0),
+      ),
+    )
     return {
       category: (searchParams.get('category') as EventCategory) || undefined,
       faculty: (searchParams.get('faculty') as Faculty) || undefined,

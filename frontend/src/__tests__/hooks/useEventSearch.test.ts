@@ -790,4 +790,16 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
     expect(result.current.filters.tags).toBeUndefined()
   })
+
+  it('trims and deduplicates tags read from the URL', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(
+        MemoryRouter,
+        { initialEntries: ['/events/search?tags=%20quarkus%20&tags=quarkus&tags=sport'] },
+        children,
+      )
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toEqual(['quarkus', 'sport'])
+  })
 })
