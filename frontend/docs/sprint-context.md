@@ -1,6 +1,18 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-14
+Dernière mise à jour : 2026-04-22
+
+## Sprint 6 — Intégration ImageCropper sur avatar + bannières (SCRUM-123) — 2026-04-22
+
+Terminé.
+
+Fonctionnalités livrées :
+- Hook `useImageCropFlow` (`src/hooks/useImageCropFlow.ts`) : encapsule le flux sélection fichier → validation → FileReader → cropper → Blob → File. Préserve le nom original, reset l'input pour permettre la re-sélection du même fichier après cancel.
+- `ProfileEditPage` : intégration sur l'avatar (aspect 1:1, circular) et la bannière profil (aspect 3:1). Validation MIME + taille préservée avant ouverture du cropper.
+- `useEventForm` + `EventForm` : intégration sur la bannière événement (aspect 16:9). 4 nouvelles props sur `EventForm` (`cropSource`, `cropAspect`, `onCropConfirm`, `onCropCancel`). `EventCreatePage` et `EventEditPage` passent simplement les valeurs du hook à `EventForm`.
+- Aucun nouvel endpoint ni modification des services — la conversion Blob → File préserve la signature `(file: File)` de `uploadPhoto`, `uploadBanner`, `uploadEventImage`.
+- Aucun nouveau skeleton — la modale n'a pas d'état loading.
+- Tests : 10 nouveaux pour `useImageCropFlow`, tests `handleImageChange` adaptés + 1 nouveau (`cancelCrop`) pour `useEventForm`, ~5 adaptés + 2 nouveaux pour `ProfileEditPage`, 2 nouveaux pour `EventForm`. `ImageCropper.test.tsx` non touché.
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 

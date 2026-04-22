@@ -1,6 +1,6 @@
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import ProfileEditPage from '@/pages/profile/ProfileEditPage'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -18,11 +18,38 @@ vi.mock('@/services/userService', () => ({
   deleteBanner: vi.fn(),
 }))
 
+vi.mock('@/components/utils/ImageCropper', () => ({
+  default: ({ onCropComplete, onCancel, src, aspect, circular }: { onCropComplete: (b: Blob) => void; onCancel: () => void; src: string; aspect: number; circular: boolean }) => (
+    <div data-testid="image-cropper-mock" data-src={src} data-aspect={String(aspect)} data-circular={String(circular)}>
+      <button type="button" onClick={() => onCropComplete(new Blob(['cropped'], { type: 'image/png' }))}>
+        Mock Recadrer
+      </button>
+      <button type="button" onClick={onCancel}>
+        Mock Annuler
+      </button>
+    </div>
+  ),
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate }
 })
+
+let originalFileReader: typeof FileReader
+
+function mockFileReader(result: string) {
+  class MockReader {
+    public onload: (() => void) | null = null
+    public result: string | null = null
+    readAsDataURL() {
+      this.result = result
+      queueMicrotask(() => this.onload?.())
+    }
+  }
+  globalThis.FileReader = MockReader as unknown as typeof FileReader
+}
 
 import { useAuth } from '@/hooks/useAuth'
 import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
@@ -45,7 +72,12 @@ const mockUser = {
   createdAt: '2024-01-01',
 }
 
+beforeEach(() => {
+  originalFileReader = globalThis.FileReader
+})
+
 afterEach(() => {
+  globalThis.FileReader = originalFileReader
   cleanup()
   vi.resetAllMocks()
 })
@@ -157,18 +189,31 @@ describe('ProfileEditPage', () => {
     expect(await screen.findByText('La photo ne doit pas dépasser 2 Mo.')).toBeTruthy()
   })
 
-  it('accepts valid image file and shows preview', async () => {
+  it('opens cropper on valid photo file and shows preview after confirm', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockUseAuth.mockReturnValue({ user: mockUser })
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview-url')
     renderProfileEditPage()
     await screen.findByDisplayValue('Test User')
     const input = document.querySelector<HTMLInputElement>('#photo-input')!
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
-    fireEvent.change(input, { target: { files: [file] } })
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    const cropper = screen.getByTestId('image-cropper-mock')
+    expect(cropper).toBeTruthy()
+    expect(cropper.getAttribute('data-aspect')).toBe('1')
+    expect(cropper.getAttribute('data-circular')).toBe('true')
+
+    fireEvent.click(screen.getByText('Mock Recadrer'))
     expect(await screen.findByAltText('Test User')).toBeTruthy()
   })
 
-  it('calls uploadPhoto when photo file is selected on submit', async () => {
+  it('calls uploadPhoto with cropped file when photo is selected on submit', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
     mockUpdateProfile.mockResolvedValue({})
     mockGetMe.mockResolvedValue(mockUser)
@@ -178,10 +223,18 @@ describe('ProfileEditPage', () => {
     await screen.findByDisplayValue('Test User')
     const input = document.querySelector<HTMLInputElement>('#photo-input')!
     const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' })
-    fireEvent.change(input, { target: { files: [file] } })
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    fireEvent.click(screen.getByText('Mock Recadrer'))
     fireEvent.click(screen.getByText('Enregistrer'))
     await screen.findByText('Profil mis à jour avec succès.')
-    expect(mockUploadPhoto).toHaveBeenCalledWith(file)
+    const uploaded = mockUploadPhoto.mock.calls[0][0] as File
+    expect(uploaded).toBeInstanceOf(File)
+    expect(uploaded.name).toBe('photo.jpg')
   })
 
   it('shows bio length validation error when bio exceeds 500 chars', async () => {
@@ -284,21 +337,29 @@ describe('ProfileEditPage', () => {
     expect(await screen.findByText('La bannière ne doit pas dépasser 5 Mo.')).toBeTruthy()
   })
 
-  it('shows banner preview after selecting a valid banner file', async () => {
+  it('shows banner preview after confirming a valid banner file in the cropper', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockUseAuth.mockReturnValue({ user: mockUser })
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:banner-preview-url')
     renderProfileEditPage()
     await screen.findByDisplayValue('Test User')
     const input = document.querySelector<HTMLInputElement>('#banner-input')!
     const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
-    fireEvent.change(input, { target: { files: [file] } })
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    fireEvent.click(screen.getByText('Mock Recadrer'))
     await waitFor(() => {
       const banner = document.querySelector<HTMLImageElement>('img[src*="banner-preview-url"]')
       expect(banner).toBeTruthy()
     })
   })
 
-  it('calls uploadBanner on submit when banner file is selected', async () => {
+  it('calls uploadBanner on submit when banner file is cropped', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
     mockUpdateProfile.mockResolvedValue({})
     mockGetMe.mockResolvedValue(mockUser)
@@ -308,10 +369,57 @@ describe('ProfileEditPage', () => {
     await screen.findByDisplayValue('Test User')
     const input = document.querySelector<HTMLInputElement>('#banner-input')!
     const file = new File(['img'], 'banner.jpg', { type: 'image/jpeg' })
-    fireEvent.change(input, { target: { files: [file] } })
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    fireEvent.click(screen.getByText('Mock Recadrer'))
     fireEvent.click(screen.getByText('Enregistrer'))
     await screen.findByText('Profil mis à jour avec succès.')
-    expect(mockUploadBanner).toHaveBeenCalledWith(file)
+    const uploaded = mockUploadBanner.mock.calls[0][0] as File
+    expect(uploaded).toBeInstanceOf(File)
+    expect(uploaded.name).toBe('banner.jpg')
+  })
+
+  it('cancel cropper for photo does not push photoFile', async () => {
+    mockFileReader('data:image/png;base64,abc')
+    mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
+    mockUpdateProfile.mockResolvedValue({})
+    mockGetMe.mockResolvedValue(mockUser)
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#photo-input')!
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    fireEvent.click(screen.getByText('Mock Annuler'))
+    expect(screen.queryByTestId('image-cropper-mock')).toBeNull()
+    fireEvent.click(screen.getByText('Enregistrer'))
+    await screen.findByText('Profil mis à jour avec succès.')
+    expect(mockUploadPhoto).not.toHaveBeenCalled()
+  })
+
+  it('opens banner cropper with 3:1 aspect on banner file select', async () => {
+    mockFileReader('data:image/png;base64,abc')
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfileEditPage()
+    await screen.findByDisplayValue('Test User')
+    const input = document.querySelector<HTMLInputElement>('#banner-input')!
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [new File(['x'], 'b.png', { type: 'image/png' })] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    const cropper = screen.getByTestId('image-cropper-mock')
+    expect(cropper).toBeTruthy()
+    expect(cropper.getAttribute('data-aspect')).toBe('3')
+    expect(cropper.getAttribute('data-circular')).toBe('false')
   })
 
   it('calls deleteBanner on submit when banner is deleted', async () => {

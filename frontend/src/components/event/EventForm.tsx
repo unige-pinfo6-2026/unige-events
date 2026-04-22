@@ -8,6 +8,7 @@ import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from
 import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
+import ImageCropper from '@/components/utils/ImageCropper'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface EventFormProps {
@@ -19,8 +20,12 @@ interface EventFormProps {
   draftSaving?: boolean
   imagePreview: string | null
   selectedImageName: string | null
+  cropSource: string | null
+  cropAspect: number
   onFieldChange: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onCropConfirm: (blob: Blob) => void
+  onCropCancel: () => void
   onSubmit: (event: FormSubmitEvent) => Promise<void>
   onCancel?: () => void
   onSaveDraft?: () => Promise<void>
@@ -100,8 +105,12 @@ export default function EventForm({
   draftSaving = false,
   imagePreview,
   selectedImageName,
+  cropSource,
+  cropAspect,
   onFieldChange,
   onImageChange,
+  onCropConfirm,
+  onCropCancel,
   onSubmit,
   onCancel,
   onSaveDraft,
@@ -489,6 +498,16 @@ export default function EventForm({
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}
+
+      {cropSource && (
+        <ImageCropper
+          src={cropSource}
+          aspect={cropAspect}
+          circular={false}
+          onCropComplete={onCropConfirm}
+          onCancel={onCropCancel}
+        />
+      )}
     </form>
   )
 }
