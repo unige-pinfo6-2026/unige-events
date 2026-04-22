@@ -120,7 +120,7 @@
 - À la confirmation, applique le crop via un `<canvas>` (`canvas.toBlob()`) et appelle `onCropComplete` avec le `Blob` résultant.
 - Overlay sombre (`bg-black/70 backdrop-blur-sm`), boutons "Recadrer" (`ButtonPrimary`) / "Annuler" (`ButtonSecondary`).
 - Le bouton "Recadrer" est désactivé tant qu'aucune zone de crop n'est sélectionnée.
-- Utilisable pour avatar (aspect 1, circular), bannière profil et bannière événement (aspect 3).
+- Utilisable pour avatar (aspect 1, circular), bannière profil (aspect 3:1) et bannière événement (aspect 16:9).
 
 **Intégrations actives (SCRUM-123) :**
 - `ProfileEditPage` — avatar (aspect 1:1, circular) et bannière profil (aspect 3:1)

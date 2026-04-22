@@ -38,6 +38,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 let originalFileReader: typeof FileReader
+let originalCreateObjectURL: typeof URL.createObjectURL
 
 function mockFileReader(result: string) {
   class MockReader {
@@ -74,10 +75,12 @@ const mockUser = {
 
 beforeEach(() => {
   originalFileReader = globalThis.FileReader
+  originalCreateObjectURL = globalThis.URL.createObjectURL
 })
 
 afterEach(() => {
   globalThis.FileReader = originalFileReader
+  globalThis.URL.createObjectURL = originalCreateObjectURL
   cleanup()
   vi.resetAllMocks()
 })

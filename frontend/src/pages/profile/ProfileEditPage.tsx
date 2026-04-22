@@ -78,6 +78,7 @@ export default function ProfileEditPage() {
     validate: validatePhoto,
     onValidationError: (message) => setErrors((prev) => ({ ...prev, photo: message })),
   })
+  const { confirmCrop: confirmPhotoCrop } = photoCrop
 
   const bannerCrop = useImageCropFlow({
     aspect: PROFILE_BANNER_ASPECT,
@@ -85,23 +86,24 @@ export default function ProfileEditPage() {
     validate: validateBanner,
     onValidationError: (message) => setErrors((prev) => ({ ...prev, banner: message })),
   })
+  const { confirmCrop: confirmBannerCrop } = bannerCrop
 
   const handlePhotoCropComplete = useCallback((blob: Blob) => {
-    const file = photoCrop.confirmCrop(blob)
+    const file = confirmPhotoCrop(blob)
     if (!file) return
     setErrors((prev) => ({ ...prev, photo: undefined }))
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(blob))
-  }, [photoCrop])
+  }, [confirmPhotoCrop])
 
   const handleBannerCropComplete = useCallback((blob: Blob) => {
-    const file = bannerCrop.confirmCrop(blob)
+    const file = confirmBannerCrop(blob)
     if (!file) return
     setErrors((prev) => ({ ...prev, banner: undefined }))
     setBannerFile(file)
     setBannerPreview(URL.createObjectURL(blob))
     setBannerDeleted(false)
-  }, [bannerCrop])
+  }, [confirmBannerCrop])
 
   function handleBannerDelete() {
     setBannerFile(null)

@@ -50,6 +50,8 @@ function submitEvent() {
 }
 
 let originalFileReader: typeof FileReader
+let originalCreateObjectURL: typeof URL.createObjectURL
+let originalRevokeObjectURL: typeof URL.revokeObjectURL
 
 function mockFileReader(result: string) {
   class MockReader {
@@ -65,10 +67,14 @@ function mockFileReader(result: string) {
 
 beforeEach(() => {
   originalFileReader = globalThis.FileReader
+  originalCreateObjectURL = globalThis.URL.createObjectURL
+  originalRevokeObjectURL = globalThis.URL.revokeObjectURL
 })
 
 afterEach(() => {
   globalThis.FileReader = originalFileReader
+  globalThis.URL.createObjectURL = originalCreateObjectURL
+  globalThis.URL.revokeObjectURL = originalRevokeObjectURL
   vi.useRealTimers()
   vi.resetAllMocks()
   sessionStorage.clear()
