@@ -38,6 +38,7 @@ public class EventSearchService {
     @Transactional
     @SuppressWarnings("java:S107") // Filter-heavy search endpoint — flat params match the REST query signature 1:1.
     public List<EventDTO> search(String q, EventCategory category, Faculty faculty, Boolean facultyNone,
+                                  List<String> tags,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
         // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
@@ -64,6 +65,12 @@ public class EventSearchService {
         } else if (faculty != null) {
             conditions.add("e.faculty = :faculty");
             params.put("faculty", faculty);
+        }
+        // Tags (SCRUM-131) : sémantique OR — match si l'event porte au moins un des tags fournis.
+        List<String> normalizedTags = EventService.normalizeTags(tags);
+        if (!normalizedTags.isEmpty()) {
+            conditions.add("EXISTS (SELECT 1 FROM Event e2 JOIN e2.tags t WHERE e2.id = e.id AND LOWER(t) IN :tags)");
+            params.put("tags", normalizedTags);
         }
         if (dateFrom != null) {
             LocalDateTime dateFromUtc = dateFrom.atStartOfDay(ZURICH).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();

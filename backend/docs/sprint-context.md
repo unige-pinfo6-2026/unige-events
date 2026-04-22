@@ -108,6 +108,7 @@ Dernière mise à jour : 2026-04-15
 - [x] **SCRUM-126** — Champs `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags` sur `Event` ; vérification deadline dans `AttendanceService.attend()` (409 `registration_closed`).
 - [x] **SCRUM-129** — Renforcement capacité : `WAITLISTED` ajouté à `AttendanceStatus`, verrou pessimiste sur `Event` pour les mutations liées à la capacité, promotion FIFO (`createdAt ASC`) dans `removeAttendance()`, exposition de `availableSpots` (nullable) et `waitlistedCount` sur `EventDTO`. Plus de 409 pour capacité atteinte — placement automatique en WAITLISTED.
 - [x] **SCRUM-133** — Anticipé depuis S6 pour **motif de sécurité**. Nouvel endpoint `GET /users/me/events?status=&page=&size=` (identité dérivée du JWT, tri `createdAt DESC`, tous statuts par défaut) + durcissement de `GET /events?organizerId=…` qui force désormais `status=PUBLISHED` (rejet `400 organizer_filter_requires_published` si un autre statut est demandé). Ferme la faille qui permettait à n'importe quel utilisateur authentifié d'énumérer les brouillons d'un autre via `GET /events?organizerId=<uuid>&status=DRAFT`. Migre `useMyEvents` côté frontend sur le nouvel endpoint.
+- [x] **SCRUM-131** — Filtre `?tags=` (sémantique OR) sur `GET /api/events/search`. Clause JPQL `EXISTS` sur la collection `event_tags`, normalisation lowercase via `EventService.normalizeTags`. Multi-valeurs `?tags=a&tags=b`, blank/null filtrés silencieusement.
 
 ---
 

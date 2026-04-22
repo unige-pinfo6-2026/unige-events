@@ -743,4 +743,51 @@ describe('useSearch', () => {
       expect.any(AbortSignal),
     )
   })
+
+  // --- tags filter (SCRUM-132) ---
+
+  it('initializes tags from URL multi-param', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?tags=quarkus&tags=sport'] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toEqual(['quarkus', 'sport'])
+  })
+
+  it('omits tags from URL when filter is empty', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: ['quarkus'] })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(result.current.searchParams.getAll('tags')).toEqual(['quarkus'])
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: undefined })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(result.current.searchParams.getAll('tags')).toEqual([])
+  })
+
+  it('forwards tags to searchEvents', async () => {
+    mockSearchEvents.mockResolvedValue([])
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: ['quarkus', 'sport'] })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+
+    const lastCall = mockSearchEvents.mock.calls[mockSearchEvents.mock.calls.length - 1]
+    expect(lastCall[0]).toMatchObject({ tags: ['quarkus', 'sport'] })
+  })
+
+  it('treats blank tag values from URL as no filter', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?tags=&tags=  '] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toBeUndefined()
+  })
 })

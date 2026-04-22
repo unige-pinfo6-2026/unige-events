@@ -38,7 +38,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Conférence Java", "Talk Quarkus", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, null, 0, 20);
 
         assertEquals(2, result.size());
     }
@@ -52,7 +52,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Conférence Java", "Talk générique", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
 
-        List<EventDTO> result = eventSearchService.search("java", null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search("java", null, null, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Conférence Java", result.get(0).title());
@@ -65,7 +65,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Conférence Tech", "Talk sur Quarkus et Java", EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", "Tournoi inter-facs", EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
 
-        List<EventDTO> result = eventSearchService.search("quarkus", null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search("quarkus", null, null, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Conférence Tech", result.get(0).title());
@@ -77,7 +77,7 @@ class EventSearchServiceCoverageTest {
         User user = persistUser("auth0|s4", "s4@example.com");
         persistEvent("Conférence JAVA", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
 
-        List<EventDTO> result = eventSearchService.search("java", null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search("java", null, null, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
     }
@@ -91,7 +91,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Event A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user);
         persistEvent("Event B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user);
 
-        List<EventDTO> result = eventSearchService.search("   ", null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search("   ", null, null, null, null, null, null, 0, 20);
 
         assertEquals(2, result.size());
     }
@@ -105,7 +105,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Conférence Java", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
         persistEvent("Match de foot", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
 
-        List<EventDTO> result = eventSearchService.search(null, EventCategory.SPORTS, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, EventCategory.SPORTS, null, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals(EventCategory.SPORTS, result.get(0).category());
@@ -120,7 +120,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Passé", null, EventCategory.ACADEMIC, LocalDateTime.now().minusDays(5), user);
         persistEvent("Futur", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(5), user);
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, null, LocalDate.now(), null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, LocalDate.now(), null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Futur", result.get(0).title());
@@ -135,7 +135,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Passé", null, EventCategory.ACADEMIC, LocalDateTime.now().minusDays(5), user);
         persistEvent("Futur", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(5), user);
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, LocalDate.now(), 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, LocalDate.now(), 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Passé", result.get(0).title());
@@ -155,6 +155,7 @@ class EventSearchServiceCoverageTest {
         List<EventDTO> result = eventSearchService.search(
                 "java",
                 EventCategory.CONFERENCE,
+                null,
                 null,
                 null,
                 LocalDate.now(),
@@ -183,7 +184,7 @@ class EventSearchServiceCoverageTest {
         entityManager.persist(draft);
         entityManager.flush();
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Événement publié", result.get(0).title());
@@ -197,7 +198,7 @@ class EventSearchServiceCoverageTest {
         User user = persistUser("auth0|s10", "s10@example.com");
         persistEvent("Conférence Java", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
 
-        List<EventDTO> result = eventSearchService.search("xyzimpossible", null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search("xyzimpossible", null, null, null, null, null, null, 0, 20);
 
         assertTrue(result.isEmpty());
     }
@@ -212,9 +213,9 @@ class EventSearchServiceCoverageTest {
             persistEvent("Event " + i, null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(i), user);
         }
 
-        List<EventDTO> page0 = eventSearchService.search(null, null, null, null, null, null, 0, 2);
-        List<EventDTO> page1 = eventSearchService.search(null, null, null, null, null, null, 1, 2);
-        List<EventDTO> page2 = eventSearchService.search(null, null, null, null, null, null, 2, 2);
+        List<EventDTO> page0 = eventSearchService.search(null, null, null, null, null, null, null, 0, 2);
+        List<EventDTO> page1 = eventSearchService.search(null, null, null, null, null, null, null, 1, 2);
+        List<EventDTO> page2 = eventSearchService.search(null, null, null, null, null, null, null, 2, 2);
 
         assertEquals(2, page0.size());
         assertEquals(2, page1.size());
@@ -230,7 +231,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Labo Chimie", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Cours de Droit", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, Faculty.LAW);
 
-        List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals(Faculty.SCIENCES, result.get(0).faculty());
@@ -244,7 +245,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Match Sciences", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user, Faculty.SCIENCES);
         persistEvent("Conf Droit", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(3), user, Faculty.LAW);
 
-        List<EventDTO> result = eventSearchService.search(null, EventCategory.CONFERENCE, Faculty.SCIENCES, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, EventCategory.CONFERENCE, Faculty.SCIENCES, null, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertEquals("Conf Sciences", result.get(0).title());
@@ -257,7 +258,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Event A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("Event B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, null, null, null, null, 0, 20);
 
         assertEquals(2, result.size());
     }
@@ -269,7 +270,7 @@ class EventSearchServiceCoverageTest {
         persistEvent("Sciences Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
 
-        List<EventDTO> result = eventSearchService.search(null, null, null, true, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, null, true, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertNull(result.get(0).faculty());
@@ -283,10 +284,112 @@ class EventSearchServiceCoverageTest {
         persistEvent("Sciences Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user, null);
 
-        List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, true, null, null, 0, 20);
+        List<EventDTO> result = eventSearchService.search(null, null, Faculty.SCIENCES, true, null, null, null, 0, 20);
 
         assertEquals(1, result.size());
         assertNull(result.get(0).faculty());
+    }
+
+    // --- Filtre tags (SCRUM-131) ---
+
+    @Test
+    @TestTransaction
+    void search_withSingleTag_jpqlExistsMatches() {
+        User user = persistUser("auth0|st1", "st1@example.com");
+        Event e1 = persistEvent("Conf Java", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("quarkus", "java");
+        Event e2 = persistEvent("Foot", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("sport");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("quarkus"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Conf Java", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withMultipleTags_returnsUnion() {
+        User user = persistUser("auth0|st2", "st2@example.com");
+        Event e1 = persistEvent("Quarkus event", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("quarkus");
+        Event e2 = persistEvent("Sport event", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("sport");
+        Event e3 = persistEvent("Cinéma event", null, EventCategory.CULTURAL, LocalDateTime.now().plusDays(3), user);
+        e3.tags = List.of("cinema");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("quarkus", "sport"), null, null, 0, 20);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withTagsCaseInsensitive_matches() {
+        User user = persistUser("auth0|st3", "st3@example.com");
+        Event e = persistEvent("Quarkus event", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e.tags = List.of("quarkus");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("QUARKUS"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withUnknownTag_returnsEmpty() {
+        User user = persistUser("auth0|st4", "st4@example.com");
+        Event e = persistEvent("Quarkus event", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e.tags = List.of("quarkus");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("totallyimpossibletag"), null, null, 0, 20);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withBlankAndNullTags_areFilteredOut() {
+        User user = persistUser("auth0|st5", "st5@example.com");
+        Event e = persistEvent("Quarkus event", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e.tags = List.of("quarkus");
+        entityManager.flush();
+
+        List<String> tagsList = new java.util.ArrayList<>();
+        tagsList.add(null);
+        tagsList.add("");
+        tagsList.add("  ");
+        tagsList.add("quarkus");
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, tagsList, null, null, 0, 20);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withTagsAndCategory_combined() {
+        User user = persistUser("auth0|st6", "st6@example.com");
+        Event e1 = persistEvent("Conf Quarkus", null, EventCategory.CONFERENCE, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("quarkus");
+        Event e2 = persistEvent("Match Quarkus", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("quarkus");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, EventCategory.CONFERENCE, null, null, List.of("quarkus"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Conf Quarkus", result.get(0).title());
     }
 
     // --- helpers ---

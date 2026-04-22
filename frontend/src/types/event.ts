@@ -15,6 +15,7 @@ export type Event = {
   capacity?: number
   allDay: boolean
   attendingCount: number
+  tags?: string[]
   createdAt: string
   updatedAt?: string
 }

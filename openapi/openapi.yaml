@@ -1232,13 +1232,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: à implémenter — endpoint absent du backend et du frontend
   /events/search:
     get:
       summary: Recherche full-text d'événements
       description: |
         Recherche insensible à la casse (ILIKE) sur le titre et la description.
-        Filtres optionnels : category, faculty, plage de dates (startDate).
+        Filtres optionnels : category, faculty, plage de dates (startDate), tags.
       operationId: searchEvents
       tags: [events]
       security: []
@@ -1265,6 +1264,20 @@ paths:
             paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
           schema:
             type: boolean
+        - name: tags
+          in: query
+          description: |
+            Filtre les événements possédant au moins un des tags fournis (sémantique OR).
+            Comparaison case-insensitive — les tags sont stockés en lowercase côté serveur.
+            Multi-valeurs via répétition du paramètre : `?tags=foo&tags=bar`.
+            Les valeurs blanches/vides sont ignorées silencieusement.
+          schema:
+            type: array
+            items:
+              type: string
+              maxLength: 64
+          style: form
+          explode: true
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)

@@ -2,6 +2,7 @@ import type { ChangeEvent } from 'react'
 import type { SearchFilters } from '@/types/search'
 import { EVENT_CATEGORIES, type EventCategory } from '@/types/event'
 import { FACULTIES, type Faculty } from '@/types/faculty'
+import TagInput from '@/components/utils/TagInput'
 
 interface FilterSidebarProps {
   filters: SearchFilters
@@ -130,6 +131,21 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
             />
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-border/50" />
+
+      {/* Tags (SCRUM-132) */}
+      <div>
+        <SectionLabel>Mots-clés</SectionLabel>
+        <TagInput
+          value={filters.tags ?? []}
+          onChange={(tags) =>
+            setFilters({ ...filters, tags: tags.length > 0 ? tags : undefined })
+          }
+          placeholder="Ex. quarkus, sport…"
+          maxTags={10}
+        />
       </div>
 
       <div className="border-t border-border/50" />

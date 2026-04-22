@@ -320,4 +320,79 @@ class EventSearchResourceTest {
                 .body("", hasSize(1))
                 .body("[0].faculty", nullValue());
     }
+
+    // --- Filtre ?tags= (SCRUM-131) ---
+
+    @Test
+    void search_withSingleTag_returnsMatchingEvents() {
+        var e1 = eventSearchServiceMock.seedEvent("Conférence Java", null, EventCategory.CONFERENCE, null);
+        e1.tags = java.util.List.of("quarkus", "java");
+        var e2 = eventSearchServiceMock.seedEvent("Match de foot", null, EventCategory.SPORTS, null);
+        e2.tags = java.util.List.of("sport");
+
+        given()
+                .queryParam("tags", "quarkus")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Conférence Java"));
+    }
+
+    @Test
+    void search_withMultipleTags_returnsUnion() {
+        var e1 = eventSearchServiceMock.seedEvent("Event Quarkus", null, EventCategory.CONFERENCE, null);
+        e1.tags = java.util.List.of("quarkus");
+        var e2 = eventSearchServiceMock.seedEvent("Event Sport", null, EventCategory.SPORTS, null);
+        e2.tags = java.util.List.of("sport");
+        var e3 = eventSearchServiceMock.seedEvent("Event Cinéma", null, EventCategory.CULTURAL, null);
+        e3.tags = java.util.List.of("cinema");
+
+        given()
+                .queryParam("tags", "quarkus")
+                .queryParam("tags", "sport")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2));
+    }
+
+    @Test
+    void search_withTags_isCaseInsensitive() {
+        var e = eventSearchServiceMock.seedEvent("Event Quarkus", null, EventCategory.CONFERENCE, null);
+        e.tags = java.util.List.of("quarkus");
+
+        given()
+                .queryParam("tags", "QUARKUS")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1));
+    }
+
+    @Test
+    void search_withUnknownTag_returnsEmpty() {
+        var e = eventSearchServiceMock.seedEvent("Event Quarkus", null, EventCategory.CONFERENCE, null);
+        e.tags = java.util.List.of("quarkus");
+
+        given()
+                .queryParam("tags", "totallyimpossibletag")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(0));
+    }
+
+    @Test
+    void search_withBlankTag_isIgnored() {
+        eventSearchServiceMock.seedEvent("Event A", null, EventCategory.ACADEMIC, null);
+        eventSearchServiceMock.seedEvent("Event B", null, EventCategory.ACADEMIC, null);
+
+        given()
+                .queryParam("tags", "")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2));
+    }
 }

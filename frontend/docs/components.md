@@ -109,6 +109,7 @@
 - État vide : "Aucun résultat — essayez de modifier vos filtres ou votre recherche".
 - Gère les états loading (spinner), error et success.
 - Résultats affichés via `EventCard`.
+- Filtre par mots-clés : section `<TagInput>` dans la sidebar (SCRUM-132), multi-tags, persistés dans l'URL via `?tags=foo&tags=bar`.
 
 ## Composants réutilisables
 

@@ -79,6 +79,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
 | interestedCount | number        | non    |
+| tags            | string[]      | non    |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
 
@@ -131,6 +132,7 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 - category : EventCategory — filtre catégorie (valeur unique)
 - faculty : Faculty — filtre faculté (valeur unique de `Faculty` depuis `src/types/faculty.ts`)
 - facultyNone : boolean — si `true`, filtre sur les événements dont `faculty` est null (non rattachés à une faculté précise). Mutuellement exclusif avec `faculty` côté UI ; côté serveur, `facultyNone` a priorité si les deux sont fournis.
+- tags : string[] — filtre par mots-clés (au moins un tag commun). Sérialisé en `?tags=a&tags=b` sans crochets via `paramsSerializer: { indexes: null }` côté Axios.
 - dateFrom : string (format date) — startDate >= dateFrom
 - dateTo : string (format date) — startDate <= dateTo
 - page : number (défaut 0)
@@ -144,7 +146,7 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 
 Définie dans `src/types/search.ts`.
 Utilisée comme props par `FilterSidebar`.
-Champs : `category?`, `faculty?`, `facultyNone?` (boolean — chip « Toutes facultés »), `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
+Champs : `category?`, `faculty?`, `facultyNone?` (boolean — chip « Toutes facultés »), `tags?` (string[] — multi-tags OR), `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
 Mutex `faculty` / `facultyNone` : l'UI garantit qu'au plus un des deux est actif. `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
 
 ## Types présence — `src/types/attendance.ts`

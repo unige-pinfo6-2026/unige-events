@@ -1,6 +1,18 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-14
+Dernière mise à jour : 2026-04-22
+
+## Sprint 6 — Filtre par tags sur la recherche (SCRUM-131 + SCRUM-132) — 2026-04-22
+
+Terminé.
+
+Fonctionnalités livrées :
+- Backend : paramètre `?tags=` (multi-valeurs) sur `GET /api/events/search`. Sémantique OR via clause JPQL `EXISTS`. Normalisation lowercase via `EventService.normalizeTags` (réutilisée).
+- Frontend : section « Mots-clés » dans `EventSearchSidebar` avec `TagInput` existant (SCRUM-128). Synchro état ↔ URL via `URLSearchParams.append('tags', t)`. Tags inclus dans `SearchParams` envoyés à l'API.
+- Axios : `paramsSerializer: { indexes: null }` configuré dans `searchApi.ts` pour produire `?tags=a&tags=b` (sans crochets), format attendu par JAX-RS.
+- Type `Event` enrichi du champ `tags?: string[]` (la search response l'expose désormais).
+- Tests : 5 nouveaux tests REST + 6 DB-backed côté backend ; 4 sidebar + 4 hook + 1 service + mises à jour des tests existants côté frontend.
+- Aucun nouveau skeleton — la sidebar n'a pas d'état loading.
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 
