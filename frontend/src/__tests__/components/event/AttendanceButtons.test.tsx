@@ -62,77 +62,80 @@ describe('AttendanceButtons', () => {
       expect((button as HTMLButtonElement).disabled).toBe(false)
     })
 
-    it('tooltip div is always in the DOM and hidden via class', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-
-      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
-      expect(tooltip).not.toBeNull()
-      expect(tooltip?.className).toContain('hidden')
-    })
-
-    it('attending button has no aria-describedby on wrapper', () => {
+    it('button has no aria-disabled', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       const button = screen.getByRole('button', { name: /je participe/i })
-      const wrapper = button.parentElement
-      expect(wrapper?.hasAttribute('aria-describedby')).toBe(false)
+      expect(button.hasAttribute('aria-disabled')).toBe(false)
     })
   })
 
-  describe('when event is full and user is not attending', () => {
+  describe('when event is full and user is not registered', () => {
     beforeEach(() => {
       mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: null }))
       mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
     })
 
-    it('tooltip element is in the DOM', () => {
+    it('shows "Rejoindre la liste d\'attente" button', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
-      expect(tooltip).not.toBeNull()
+      expect(screen.getByRole('button', { name: /rejoindre la liste d'attente/i })).not.toBeNull()
     })
 
-    it('tooltip element contains the correct text', () => {
+    it('join waitlist button is enabled and clickable', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
-      expect(tooltip?.textContent?.trim()).toBe('Événement complet')
-    })
-
-    it('wrapper div has aria-describedby pointing to tooltip id', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-
-      const button = screen.getByRole('button', { name: /je participe/i })
-      const wrapper = button.parentElement
-      expect(wrapper?.getAttribute('aria-describedby')).toBe(`attending-full-tooltip-${defaultProps.eventId}`)
-    })
-
-    it('attending button is not truly disabled but has aria-disabled', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-
-      const button = screen.getByRole('button', { name: /je participe/i })
-      expect((button as HTMLButtonElement).disabled).toBe(false)
-      expect(button.getAttribute('aria-disabled')).toBe('true')
-    })
-
-    it('attending button is focusable when isFull is true', () => {
-      render(<AttendanceButtons {...defaultProps} />)
-
-      const button = screen.getByRole('button', { name: /je participe/i })
+      const button = screen.getByRole('button', { name: /rejoindre la liste d'attente/i })
       expect((button as HTMLButtonElement).disabled).toBe(false)
     })
 
-    it('tooltip uses opacity classes (not hidden) when full', () => {
+    it('clicking join waitlist calls toggle', () => {
+      const toggle = vi.fn()
+      mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: null, toggle }))
+
+      render(<AttendanceButtons {...defaultProps} />)
+      fireEvent.click(screen.getByRole('button', { name: /rejoindre la liste d'attente/i }))
+
+      expect(toggle).toHaveBeenCalledWith('ATTENDING')
+    })
+  })
+
+  describe('when user is waitlisted', () => {
+    beforeEach(() => {
+      mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: 'WAITLISTED' }))
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+    })
+
+    it('shows "En liste d\'attente" button', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      const tooltip = document.getElementById(`attending-full-tooltip-${defaultProps.eventId}`)
-      expect(tooltip?.className).not.toContain('hidden')
-      expect(tooltip?.className).toContain('opacity-0')
+      expect(screen.getByRole('button', { name: /en liste d'attente/i })).not.toBeNull()
+    })
+
+    it('clicking "En liste d\'attente" calls toggle to leave waitlist', () => {
+      const toggle = vi.fn()
+      mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: 'WAITLISTED', toggle }))
+
+      render(<AttendanceButtons {...defaultProps} />)
+      fireEvent.click(screen.getByRole('button', { name: /en liste d'attente/i }))
+
+      expect(toggle).toHaveBeenCalledWith('ATTENDING')
     })
   })
 
   describe('when event is full but user is already attending', () => {
-    it('attending button is not disabled (user can toggle off)', () => {
+    it('attending button shows "Je participe" active state', () => {
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
+      )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+
+      expect(screen.getByRole('button', { name: /je participe/i })).not.toBeNull()
+    })
+
+    it('attending button is enabled (user can toggle off)', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
@@ -142,19 +145,6 @@ describe('AttendanceButtons', () => {
 
       const button = screen.getByRole('button', { name: /je participe/i })
       expect((button as HTMLButtonElement).disabled).toBe(false)
-    })
-
-    it('attending button wrapper has no aria-describedby', () => {
-      mockUseAttendance.mockReturnValue(
-        makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
-      )
-      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
-
-      render(<AttendanceButtons {...defaultProps} />)
-
-      const button = screen.getByRole('button', { name: /je participe/i })
-      const wrapper = button.parentElement
-      expect(wrapper?.hasAttribute('aria-describedby')).toBe(false)
     })
   })
 
@@ -188,19 +178,6 @@ describe('AttendanceButtons', () => {
       render(<AttendanceButtons {...defaultProps} />)
 
       expect(screen.getByText('Une erreur est survenue.')).toBeTruthy()
-    })
-  })
-
-  describe('click when disabled', () => {
-    it('does not call toggle when attending button is clicked while disabled', () => {
-      const toggle = vi.fn()
-      mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: null, toggle }))
-      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
-
-      render(<AttendanceButtons {...defaultProps} />)
-      fireEvent.click(screen.getByRole('button', { name: /je participe/i }))
-
-      expect(toggle).not.toHaveBeenCalled()
     })
   })
 

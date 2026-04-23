@@ -21,6 +21,7 @@ export function useAttendance(
   eventId: number,
   initialAttendingCount: number,
   initialStatus: AttendanceStatus | null,
+  initialAvailableSpots?: number | null,
 ): UseAttendanceResult {
   const [state, setState] = useState<AttendanceState>({
     currentStatus: initialStatus,
@@ -29,7 +30,7 @@ export function useAttendance(
   // Start as true — buttons stay disabled until the real status is fetched.
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isFull, setIsFull] = useState(false)
+  const [isFull, setIsFull] = useState(initialAvailableSpots === 0)
 
   // Fetch the current user's attendance status on mount so state survives
   // navigation and page refresh. Uses GET /users/me/attendances filtered
@@ -60,10 +61,15 @@ export function useAttendance(
 
       const prev = state
 
-      if (state.currentStatus === status) {
+      if (state.currentStatus !== null) {
+        // Already registered (ATTENDING or WAITLISTED) → unregister
         const optimistic: AttendanceState = {
           currentStatus: null,
-          attendingCount: Math.max(0, state.attendingCount - 1),
+          // WAITLISTED users are not in attendingCount, so only decrement for ATTENDING
+          attendingCount:
+            state.currentStatus === 'ATTENDING'
+              ? Math.max(0, state.attendingCount - 1)
+              : state.attendingCount,
         }
         setState(optimistic)
         setLoading(true)
@@ -77,14 +83,11 @@ export function useAttendance(
             setLoading(false)
           })
       } else {
-        let nextAttending = state.attendingCount
-
-        if (state.currentStatus === 'ATTENDING') nextAttending = Math.max(0, nextAttending - 1)
-        nextAttending += 1
+        const prevCount = state.attendingCount
 
         const optimistic: AttendanceState = {
-          currentStatus: status,
-          attendingCount: nextAttending,
+          currentStatus: 'ATTENDING',
+          attendingCount: prevCount + 1,
         }
         setState(optimistic)
         setLoading(true)
@@ -92,7 +95,15 @@ export function useAttendance(
         setIsFull(false)
 
         attend(eventId, status)
-          .then(() => setLoading(false))
+          .then((attendance) => {
+            // Server may assign WAITLISTED if event filled up between load and submit
+            setState({
+              currentStatus: attendance.status,
+              attendingCount:
+                attendance.status === 'WAITLISTED' ? prevCount : prevCount + 1,
+            })
+            setLoading(false)
+          })
           .catch((err: unknown) => {
             setState(prev)
             if (axios.isAxiosError(err) && err.response?.status === 409) {
