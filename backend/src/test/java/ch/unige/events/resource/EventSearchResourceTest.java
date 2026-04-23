@@ -395,4 +395,83 @@ class EventSearchResourceTest {
                 .statusCode(200)
                 .body("", hasSize(2));
     }
+
+    @Test
+    void search_withTagPrefix_matchesLongerTag() {
+        var e = eventSearchServiceMock.seedEvent("Match foot", null, EventCategory.SPORTS, null);
+        e.tags = java.util.List.of("football");
+
+        given()
+                .queryParam("tags", "foot")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Match foot"));
+    }
+
+    @Test
+    void search_withTagSubstring_matchesInMiddle() {
+        var e = eventSearchServiceMock.seedEvent("Event", null, EventCategory.CULTURAL, null);
+        e.tags = java.util.List.of("barefoot-running");
+
+        given()
+                .queryParam("tags", "foot")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1));
+    }
+
+    @Test
+    void search_withPercentInQuery_isTreatedAsLiteral() {
+        // `%` saisi par l'utilisateur doit être traité littéralement, pas comme wildcard SQL.
+        var e1 = eventSearchServiceMock.seedEvent("Match", null, EventCategory.SPORTS, null);
+        e1.tags = java.util.List.of("football");
+        var e2 = eventSearchServiceMock.seedEvent("Sale", null, EventCategory.CULTURAL, null);
+        e2.tags = java.util.List.of("50%off");
+
+        given()
+                .queryParam("tags", "%")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("Sale"));
+    }
+
+    @Test
+    void search_withUnderscoreInQuery_isTreatedAsLiteral() {
+        // `_` saisi par l'utilisateur doit être traité littéralement, pas comme wildcard SQL.
+        var e1 = eventSearchServiceMock.seedEvent("A", null, EventCategory.ACADEMIC, null);
+        e1.tags = java.util.List.of("football");
+        var e2 = eventSearchServiceMock.seedEvent("B", null, EventCategory.ACADEMIC, null);
+        e2.tags = java.util.List.of("hello_world");
+
+        given()
+                .queryParam("tags", "_")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(1))
+                .body("[0].title", is("B"));
+    }
+
+    @Test
+    void search_withMultipleTagsSubstring_returnsUnion() {
+        var e1 = eventSearchServiceMock.seedEvent("A", null, EventCategory.ACADEMIC, null);
+        e1.tags = java.util.List.of("football");
+        var e2 = eventSearchServiceMock.seedEvent("B", null, EventCategory.ACADEMIC, null);
+        e2.tags = java.util.List.of("artwork");
+        var e3 = eventSearchServiceMock.seedEvent("C", null, EventCategory.ACADEMIC, null);
+        e3.tags = java.util.List.of("cinema");
+
+        given()
+                .queryParam("tags", "foot")
+                .queryParam("tags", "art")
+                .when().get("/events/search")
+                .then()
+                .statusCode(200)
+                .body("", hasSize(2));
+    }
 }

@@ -179,22 +179,39 @@ Remplacer la signature (ligne 40) par :
 **Insérer** ce bloc **juste après** le filtre `facultyNone` / `faculty` (après la ligne 67 `params.put("faculty", faculty);`) et **avant** le filtre `dateFrom` (ligne 68) :
 
 ```java
-        // Tags (SCRUM-131) : sémantique OR — match si l'event porte au moins un des tags fournis.
-        // Normalisation lowercase + trim + dédup côté service, alignée sur EventService.normalizeTags
-        // appliqué à la persistance — garantit que la comparaison est case-insensitive sans accent-folding.
+        // Tags (SCRUM-131) : substring match case-insensitive, sémantique OR entre les valeurs.
+        // Ex. ?tags=foot matche un event dont un tag est "football". `%` et `_` saisis sont traités
+        // littéralement via ESCAPE '|' + escapeLikePattern.
         List<String> normalizedTags = EventService.normalizeTags(tags);
         if (!normalizedTags.isEmpty()) {
-            conditions.add("EXISTS (SELECT 1 FROM Event e2 JOIN e2.tags t WHERE e2.id = e.id AND LOWER(t) IN :tags)");
-            params.put("tags", normalizedTags);
+            List<String> tagClauses = new ArrayList<>();
+            for (int i = 0; i < normalizedTags.size(); i++) {
+                String paramName = "tag" + i;
+                tagClauses.add("LOWER(t) LIKE :" + paramName + " ESCAPE '|'");
+                params.put(paramName, "%" + escapeLikePattern(normalizedTags.get(i)) + "%");
+            }
+            conditions.add("EXISTS (SELECT 1 FROM Event e2 JOIN e2.tags t WHERE e2.id = e.id AND ("
+                    + String.join(" OR ", tagClauses) + "))");
         }
 ```
 
+Et en méthode privée statique (ordre important : échapper d'abord le char d'échappement `|`) :
+
+```java
+private static String escapeLikePattern(String s) {
+    return s.replace("|", "||").replace("%", "|%").replace("_", "|_");
+}
+```
+
 **Points à respecter :**
+- **Substring match** via `LIKE '%...%'` : `?tags=foot` matche `football`, `barefoot-running`, etc. Sur-ensemble strict de l'égalité exacte (tous les anciens tests passent sans modification).
 - **Réutilisation explicite** de `EventService.normalizeTags(tags)` — une seule source de vérité pour la règle de normalisation. Garantit que `["Quarkus", " sport ", "Quarkus", null]` devienne `["quarkus", "sport"]`. Filtre aussi le cas blank/null.
 - **JPQL EXISTS avec sous-requête corrélée** sur `e2.id = e.id` — Hibernate génère un EXISTS SQL natif, pas un `IN (SELECT ...)`. Pas de produit cartésien, pas de duplication de lignes même si un event a 5 tags qui matchent.
 - **`LOWER(t)`** dans la sous-requête — défense en profondeur : même si la persistance était contournée par un import direct DB, la comparaison reste case-insensitive.
+- **Escape des wildcards user-input** : `%` et `_` saisis par l'utilisateur sont échappés via `ESCAPE '|'`. Le char `|` est choisi plutôt que `\` pour éviter les conflits avec l'échappement JDBC/Hibernate.
+- **Binding individuel** (`:tag0`, `:tag1`, …) — jamais de concaténation de valeur utilisateur dans la chaîne JPQL. Toute la sécurité repose sur `params.put(paramName, ...)`.
 - **Pas d'accent-folding** : `concert` ne matchera pas `concèrt`. Comportement assumé et documenté dans la doc OpenAPI / api-contract (les utilisateurs saisissent les tags qu'ils ont mis sur leurs events).
-- **Performance** : `Event.tags` est en `@ElementCollection(fetch = EAGER)` — la condition EXISTS reste correcte et indexable. Hibernate ne génère pas de N+1 ici car le filtre WHERE s'exécute avant le chargement EAGER. Sur un dataset typique (1000 events × 3 tags moyens) la performance reste sous-milliseconde.
+- **Performance** : `Event.tags` est en `@ElementCollection(fetch = EAGER)` — la condition EXISTS reste correcte. `LIKE '%x%'` n'est pas indexable (pas de préfixe fixe) mais sur un dataset typique (1000 events × 3 tags moyens) la performance reste sous-milliseconde. Si le volume explose, migration vers Postgres `pg_trgm` ou full-text à envisager — hors scope actuel.
 
 ### 2.4 — Vérification post-modification
 
@@ -244,11 +261,13 @@ Remplacer la méthode `search` (lignes 61–88) par :
                 .filter(e -> {
                     if (normalizedTags.isEmpty()) return true;
                     if (e.tags == null || e.tags.isEmpty()) return false;
-                    // OR semantics : at least one of the requested tags must match.
+                    // Substring match (OR semantics) : au moins un tag de l'event doit contenir
+                    // au moins une des valeurs fournies. String.contains() est littéral → '%' et '_'
+                    // saisis sont naturellement traités comme du texte (aligné avec ESCAPE '|' côté DB).
                     return e.tags.stream()
                             .filter(java.util.Objects::nonNull)
                             .map(t -> t.toLowerCase(java.util.Locale.ROOT))
-                            .anyMatch(normalizedTags::contains);
+                            .anyMatch(eventTag -> normalizedTags.stream().anyMatch(eventTag::contains));
                 })
                 .filter(e -> dateFrom == null || !e.startDate.isBefore(dateFrom.atStartOfDay()))
                 .filter(e -> dateTo == null || !e.startDate.isAfter(dateTo.atTime(23, 59, 59)))
@@ -988,12 +1007,14 @@ Aucun nouveau composant, hook, page, route, skeleton ou service. Les conventions
 |---|---|---|
 | `?tags=` (vide) | Filtre ignoré silencieusement, retourne tous les events | `EventSearchService.normalizeTags` filtre les blank ; côté front `getAll().filter(t => t.trim().length > 0)` |
 | Tag avec espaces autour (`"  quarkus  "`) | Trim et lowercase appliqués | `TagInput` trim à l'ajout + `normalizeTags` côté backend |
+| Substring partiel (`?tags=foot` vs tag `"football"`) | Matche — le filtre est un substring match case-insensitive | `LOWER(t) LIKE :tagN ESCAPE '|'` côté JPQL + `String.contains` côté mock |
 | Tag accentué (`"concèrt"`) | **Pas** d'accent-folding — `concert` ne matchera pas `concèrt`. Documenté dans api-contract et sprint-context | `LOWER(t)` JPQL ne strip pas les accents |
 | Tag dupliqué dans la liste | Dédupliqué silencieusement | `TagInput` dédup à l'ajout + `normalizeTags` LinkedHashSet |
+| Wildcard SQL saisi (`%`, `_`) | Traité **littéralement** — `?tags=%` ne matche pas tout, `?tags=_` ne matche pas les tags d'une seule lettre | `escapeLikePattern` échappe `|`, `%`, `_` + `ESCAPE '|'` dans le JPQL |
 | 0 résultat | État `empty` existant rendu par `EventsSearchPage` (`Aucun résultat…`) | Inchangé |
 | Beaucoup de tags (> 10) | Bloqué côté UI par `maxTags={10}` ; côté API, validation `maxItems: 20` documentée mais non enforced (soft limit) | `TagInput` + OpenAPI doc |
-| Performance EXISTS sur EAGER | Acceptable — 1 sous-requête corrélée par requête principale, pas de N+1 | JPQL `EXISTS` |
-| Tags avec caractères spéciaux SQL (`'`, `;`, `--`) | Pas d'injection : Hibernate utilise des paramètres préparés via `:tags` | Bind parameter Hibernate |
+| Performance EXISTS sur EAGER | Acceptable — 1 sous-requête corrélée par requête principale, pas de N+1. `LIKE '%x%'` non indexable mais OK sur volumétrie actuelle. | JPQL `EXISTS` + `LIKE` |
+| Tags avec caractères spéciaux SQL (`'`, `;`, `--`) | Pas d'injection : Hibernate utilise des paramètres préparés via `:tagN` | Bind parameter Hibernate |
 
 ---
 

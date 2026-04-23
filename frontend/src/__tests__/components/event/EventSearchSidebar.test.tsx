@@ -235,7 +235,7 @@ describe('FilterSidebar', () => {
   it('calls setFilters when a tag is added via Enter', () => {
     const setFilters = vi.fn()
     renderSidebar(defaultFilters, setFilters)
-    const input = screen.getByPlaceholderText('Ex. quarkus, sport…') as HTMLInputElement
+    const input = screen.getByPlaceholderText('Ex. football, art…') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'quarkus' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ tags: ['quarkus'] }))

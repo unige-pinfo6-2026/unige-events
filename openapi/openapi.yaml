@@ -1267,8 +1267,11 @@ paths:
         - name: tags
           in: query
           description: |
-            Filtre les événements possédant au moins un des tags fournis (sémantique OR).
-            Comparaison case-insensitive — les tags sont stockés en lowercase côté serveur.
+            Filtre les événements dont au moins un tag **contient** (substring match, case-insensitive)
+            au moins une des valeurs fournies. Sémantique OR entre les valeurs (ex. `?tags=foot` matche
+            un event dont un tag est `football` ou `barefoot-running`).
+            Les caractères `%` et `_` saisis par l'utilisateur sont traités littéralement (échappés
+            côté serveur pour ne pas être interprétés comme wildcards SQL).
             Multi-valeurs via répétition du paramètre : `?tags=foo&tags=bar`.
             Les valeurs blanches/vides sont ignorées silencieusement.
           schema:

@@ -91,10 +91,14 @@ public class EventSearchServiceMock extends EventSearchService {
                 .filter(e -> {
                     if (normalizedTags.isEmpty()) return true;
                     if (e.tags == null || e.tags.isEmpty()) return false;
+                    // Substring match : un event remonte si au moins un de ses tags contient
+                    // au moins une des valeurs fournies. String.contains() est littéral, donc
+                    // '%' / '_' saisis sont naturellement traités comme du texte — aligné avec
+                    // le backend JPQL qui utilise ESCAPE '|' + escapeLikePattern.
                     return e.tags.stream()
                             .filter(java.util.Objects::nonNull)
                             .map(t -> t.toLowerCase(java.util.Locale.ROOT))
-                            .anyMatch(normalizedTags::contains);
+                            .anyMatch(eventTag -> normalizedTags.stream().anyMatch(eventTag::contains));
                 })
                 .filter(e -> dateFrom == null || !e.startDate.isBefore(dateFrom.atStartOfDay()))
                 .filter(e -> dateTo == null || !e.startDate.isAfter(dateTo.atTime(23, 59, 59)))

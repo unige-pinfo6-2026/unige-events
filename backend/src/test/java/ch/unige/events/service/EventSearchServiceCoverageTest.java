@@ -392,6 +392,87 @@ class EventSearchServiceCoverageTest {
         assertEquals("Conf Quarkus", result.get(0).title());
     }
 
+    @Test
+    @TestTransaction
+    void search_withTagPrefix_matchesLongerTag() {
+        User user = persistUser("auth0|st7", "st7@example.com");
+        Event e = persistEvent("Match foot", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(1), user);
+        e.tags = List.of("football");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("foot"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Match foot", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withTagSubstring_matchesInMiddle() {
+        User user = persistUser("auth0|st8", "st8@example.com");
+        Event e = persistEvent("Event", null, EventCategory.CULTURAL, LocalDateTime.now().plusDays(1), user);
+        e.tags = List.of("barefoot-running");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("foot"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withPercentInQuery_isTreatedAsLiteral() {
+        User user = persistUser("auth0|st9", "st9@example.com");
+        Event e1 = persistEvent("Match", null, EventCategory.SPORTS, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("football");
+        Event e2 = persistEvent("Sale", null, EventCategory.CULTURAL, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("50%off");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("%"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Sale", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withUnderscoreInQuery_isTreatedAsLiteral() {
+        User user = persistUser("auth0|st10", "st10@example.com");
+        Event e1 = persistEvent("A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("football");
+        Event e2 = persistEvent("B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("hello_world");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("_"), null, null, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("B", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void search_withMultipleTagsSubstring_returnsUnion() {
+        User user = persistUser("auth0|st11", "st11@example.com");
+        Event e1 = persistEvent("A", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(1), user);
+        e1.tags = List.of("football");
+        Event e2 = persistEvent("B", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(2), user);
+        e2.tags = List.of("artwork");
+        Event e3 = persistEvent("C", null, EventCategory.ACADEMIC, LocalDateTime.now().plusDays(3), user);
+        e3.tags = List.of("cinema");
+        entityManager.flush();
+
+        List<EventDTO> result = eventSearchService.search(
+                null, null, null, null, List.of("foot", "art"), null, null, 0, 20);
+
+        assertEquals(2, result.size());
+    }
+
     // --- helpers ---
 
     private User persistUser(String auth0Id, String email) {

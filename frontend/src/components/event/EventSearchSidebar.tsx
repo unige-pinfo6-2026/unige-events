@@ -143,7 +143,7 @@ export default function EventSearchSidebar({ filters, setFilters, resetFilters }
           onChange={(tags) =>
             setFilters({ ...filters, tags: tags.length > 0 ? tags : undefined })
           }
-          placeholder="Ex. quarkus, sport…"
+          placeholder="Ex. football, art…"
           maxTags={10}
         />
       </div>
