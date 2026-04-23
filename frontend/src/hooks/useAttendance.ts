@@ -61,28 +61,7 @@ export function useAttendance(
 
       const prev = state
 
-      if (state.currentStatus !== null) {
-        // Already registered (ATTENDING or WAITLISTED) → unregister
-        const optimistic: AttendanceState = {
-          currentStatus: null,
-          // WAITLISTED users are not counted in attendingCount
-          attendingCount:
-            state.currentStatus === 'ATTENDING'
-              ? Math.max(0, state.attendingCount - 1)
-              : state.attendingCount,
-        }
-        setState(optimistic)
-        setLoading(true)
-        setError(null)
-
-        unattend(eventId)
-          .then(() => setLoading(false))
-          .catch(() => {
-            setState(prev)
-            setError('Une erreur est survenue.')
-            setLoading(false)
-          })
-      } else {
+      if (state.currentStatus === null) {
         const prevCount = state.attendingCount
 
         const optimistic: AttendanceState = {
@@ -111,6 +90,27 @@ export function useAttendance(
             } else {
               setError('Une erreur est survenue.')
             }
+            setLoading(false)
+          })
+      } else {
+        // Already registered (ATTENDING or WAITLISTED) → unregister
+        const optimistic: AttendanceState = {
+          currentStatus: null,
+          // WAITLISTED users are not counted in attendingCount
+          attendingCount:
+            state.currentStatus === 'ATTENDING'
+              ? Math.max(0, state.attendingCount - 1)
+              : state.attendingCount,
+        }
+        setState(optimistic)
+        setLoading(true)
+        setError(null)
+
+        unattend(eventId)
+          .then(() => setLoading(false))
+          .catch(() => {
+            setState(prev)
+            setError('Une erreur est survenue.')
             setLoading(false)
           })
       }
