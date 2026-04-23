@@ -17,6 +17,17 @@ Fonctionnalités livrées :
 - Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
 - **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
 - Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
+## Sprint 6 — Indicateur capacité et liste d'attente (S6) — 2026-04-23
+
+Terminé le 2026-04-23.
+
+Fonctionnalités livrées :
+- **Types TypeScript mis à jour** : `AttendanceStatus` passe à `'ATTENDING' | 'WAITLISTED'` ; `Event` reçoit `availableSpots?: number | null` et `waitlistedCount?: number` (alignement sur openapi.yaml).
+- **`EventDetailPage` — indicateur visuel de capacité** : si `event.capacity != null && event.availableSpots != null`, affiche un badge coloré : rouge "Complet" (`availableSpots === 0`), orange "Presque complet" (`<= capacity * 0.1`), vert "X places disponibles". Si `waitlistedCount > 0`, affiche "X en liste d'attente". Remplace le `ComingSoonBlock` placeholder.
+- **`AttendanceButtons` — gestion liste d'attente** : nouvelle prop `availableSpots` transmise au hook. Quand l'événement est complet (`isFull`) et l'utilisateur n'est pas inscrit, le bouton affiche "Rejoindre la liste d'attente". Quand `currentStatus === 'WAITLISTED'`, affiche "En liste d'attente" (style warning). Suppression du tooltip disabled au profit d'un bouton toujours cliquable.
+- **`useAttendance` — support WAITLISTED** : nouvelle signature `initialAvailableSpots?: number | null` pour initialiser `isFull`. Toggle unifié : si `currentStatus !== null` (ATTENDING ou WAITLISTED) → `unattend()`; sinon → `attend()`. Après succès d'`attend()`, `currentStatus` est mis à jour depuis la réponse serveur ; si WAITLISTED, `attendingCount` n'est pas incrémenté.
+- **Tests** : 831 tests passing. `useAttendance.test.ts` enrichi (WAITLISTED unattend sans décrément, réponse serveur WAITLISTED, initialAvailableSpots). `AttendanceButtons.test.tsx` refondu pour le nouveau comportement.
+
 ## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
 
 Terminé le 2026-04-18.

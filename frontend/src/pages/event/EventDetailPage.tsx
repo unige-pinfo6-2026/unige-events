@@ -126,6 +126,42 @@ const capacityBadgeVariants = {
   available: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
 } as const
 
+type CapacityVariant = keyof typeof capacityBadgeVariants
+
+function getCapacityBadge(availableSpots: number, capacity: number): { variant: CapacityVariant; label: string } {
+  if (availableSpots === 0) return { variant: 'full', label: 'Complet' }
+  if (availableSpots <= capacity * 0.1) return { variant: 'low', label: 'Presque complet' }
+  return { variant: 'available', label: `${availableSpots} places disponibles` }
+}
+
+interface CapacityIndicatorProps {
+  capacity: number
+  availableSpots: number
+  waitlistedCount?: number
+}
+
+function CapacityIndicator({ capacity, availableSpots, waitlistedCount }: Readonly<CapacityIndicatorProps>) {
+  const { variant, label } = getCapacityBadge(availableSpots, capacity)
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs text-foreground/40">
+        <Users className="w-4 h-4 shrink-0" />
+        <span>Places disponibles</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${capacityBadgeVariants[variant]}`}>
+          {label}
+        </span>
+        {waitlistedCount != null && waitlistedCount > 0 && (
+          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-foreground/5 border-border/30 text-foreground/40">
+            {waitlistedCount} en liste d'attente
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface ConfirmDialogProps {
   title: string
   message: React.ReactNode
@@ -408,18 +444,17 @@ export default function EventDetailPage() {
               </Link>
             )}
 
-            {/* Shell places disponibles — S5 (SCRUM-130) */}
-            <div className="border-t border-border" />
-            <ComingSoonBlock icon={Users} label="Places disponibles" sprint="S5">
-              <div className="flex flex-wrap gap-2 mt-1">
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${capacityBadgeVariants.available}`}>
-                  8 places disponibles
-                </span>
-                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-foreground/5 border-border/30 text-foreground/20">
-                  2 en liste d'attente
-                </span>
-              </div>
-            </ComingSoonBlock>
+            {/* Capacity indicator — S6 */}
+            {event.capacity != null && event.availableSpots != null && (
+              <>
+                <div className="border-t border-border" />
+                <CapacityIndicator
+                  capacity={event.capacity}
+                  availableSpots={event.availableSpots}
+                  waitlistedCount={event.waitlistedCount}
+                />
+              </>
+            )}
 
           </div>
 
@@ -446,6 +481,7 @@ export default function EventDetailPage() {
               eventId={event.id}
               initialAttendingCount={event.attendingCount}
               initialStatus={null}
+              availableSpots={event.availableSpots ?? null}
             />
 
             <div className="border-t border-border" />

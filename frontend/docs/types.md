@@ -76,9 +76,10 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
 | capacity        | number        | non    |
+| availableSpots  | number \| null | non   |
+| waitlistedCount | number        | non    |
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
-| interestedCount | number        | non    |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
 
@@ -151,7 +152,9 @@ Mutex `faculty` / `facultyNone` : l'UI garantit qu'au plus un des deux est actif
 
 ### AttendanceStatus
 
-`'INTERESTED' | 'ATTENDING'`
+`'ATTENDING' | 'WAITLISTED'`
+
+Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est complet (`availableSpots === 0`). Le frontend envoie toujours `ATTENDING` dans le body — c'est le backend qui détermine le statut final retourné.
 
 ### Attendance
 

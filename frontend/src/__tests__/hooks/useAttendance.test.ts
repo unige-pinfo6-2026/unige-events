@@ -25,18 +25,21 @@ const sampleAttendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
 }
 
+const waitlistedAttendance = { ...sampleAttendance, status: 'WAITLISTED' as const }
+
 afterEach(() => vi.resetAllMocks())
 
 // Helper: render the hook and wait for initialization to complete
 async function renderInitialized(
   eventId = 42,
   initialAttending = 5,
-  initialStatus: 'ATTENDING' | null = null,
-  mountStatus: 'ATTENDING' | null = null,
+  initialStatus: 'ATTENDING' | 'WAITLISTED' | null = null,
+  mountStatus: 'ATTENDING' | 'WAITLISTED' | null = null,
+  initialAvailableSpots?: number | null,
 ) {
   mockGetMyAttendance.mockResolvedValue(mountStatus)
   const hook = renderHook(() =>
-    useAttendance(eventId, initialAttending, initialStatus),
+    useAttendance(eventId, initialAttending, initialStatus, initialAvailableSpots),
   )
   await waitFor(() => expect(hook.result.current.loading).toBe(false))
   return hook
@@ -77,7 +80,6 @@ describe('useAttendance — mount initialization', () => {
     mockGetMyAttendance.mockReturnValue(new Promise((r) => { resolve = r }))
     const { result, unmount } = renderHook(() => useAttendance(42, 5, null))
     unmount()
-    // Resolving after unmount should not throw or update state
     await act(async () => { resolve('ATTENDING') })
     expect(result.current.currentStatus).toBeNull()
   })
@@ -87,6 +89,24 @@ describe('useAttendance — mount initialization', () => {
     const { result } = renderHook(() => useAttendance(42, 5, null))
     act(() => result.current.toggle('ATTENDING'))
     expect(mockAttend).not.toHaveBeenCalled()
+  })
+
+  it('starts with isFull=true when initialAvailableSpots is 0', () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() => useAttendance(42, 5, null, 0))
+    expect(result.current.isFull).toBe(true)
+  })
+
+  it('starts with isFull=false when initialAvailableSpots is > 0', () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() => useAttendance(42, 5, null, 3))
+    expect(result.current.isFull).toBe(false)
+  })
+
+  it('starts with isFull=false when initialAvailableSpots is not provided', () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() => useAttendance(42, 5, null))
+    expect(result.current.isFull).toBe(false)
   })
 })
 
@@ -103,6 +123,23 @@ describe('useAttendance — toggle ON (set status)', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(mockAttend).toHaveBeenCalledWith(42, 'ATTENDING')
+  })
+
+  it('sets WAITLISTED when server returns WAITLISTED and keeps attendingCount unchanged', async () => {
+    mockAttend.mockResolvedValue(waitlistedAttendance)
+    const { result } = await renderInitialized(42, 5, null, null)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    // Optimistic: ATTENDING + count incremented
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(6)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Final: WAITLISTED, attendingCount rolled back
+    expect(result.current.currentStatus).toBe('WAITLISTED')
+    expect(result.current.attendingCount).toBe(5)
   })
 })
 
@@ -131,6 +168,19 @@ describe('useAttendance — toggle OFF (unset status)', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false))
   })
+
+  it('unregisters from waitlist without decrementing attendingCount', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED')
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.attendingCount).toBe(5) // unchanged — WAITLISTED not in attendingCount
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockUnattend).toHaveBeenCalledWith(42)
+  })
 })
 
 describe('useAttendance — optimistic rollback on error', () => {
@@ -154,6 +204,18 @@ describe('useAttendance — optimistic rollback on error', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(5)
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+
+  it('rolls back state when unattend fails for WAITLISTED user', async () => {
+    mockUnattend.mockRejectedValue(new Error('Network error'))
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED')
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.currentStatus).toBe('WAITLISTED')
     expect(result.current.attendingCount).toBe(5)
     expect(result.current.error).toBe('Une erreur est survenue.')
   })
@@ -200,7 +262,6 @@ describe('useAttendance — guards', () => {
     act(() => result.current.toggle('ATTENDING'))
     expect(result.current.loading).toBe(true)
 
-    // A second toggle while loading should be a no-op
     act(() => result.current.toggle('ATTENDING'))
     expect(result.current.currentStatus).toBe('ATTENDING')
 

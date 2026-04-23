@@ -1,4 +1,4 @@
-export type AttendanceStatus = 'ATTENDING'
+export type AttendanceStatus = 'ATTENDING' | 'WAITLISTED'
 
 export interface Attendance {
   id: number
