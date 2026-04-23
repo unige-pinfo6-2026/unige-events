@@ -326,41 +326,65 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Shells champs additionnels — S5 */}
-          <div className="flex flex-col gap-3">
+          {/* Champs additionnels (SCRUM-117) */}
+          {(event.websiteUrl || event.contactEmail || event.registrationDeadline || (event.tags && event.tags.length > 0)) && (
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border flex flex-col gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30">
+                Informations complémentaires
+              </h2>
 
-            <ComingSoonBlock icon={Globe} label="Site web de l'événement" sprint="S5">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-foreground/30 shrink-0" />
-                <span className="text-xs text-foreground/20 truncate">https://unige.ch/evenement…</span>
+              <div className="flex flex-col gap-3">
+                {event.websiteUrl && (
+                  <InfoRow icon={Globe} color={category.color}>
+                    <a
+                      href={event.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground hover:underline break-all"
+                    >
+                      {event.websiteUrl}
+                    </a>
+                  </InfoRow>
+                )}
+
+                {event.contactEmail && (
+                  <InfoRow icon={Mail} color={category.color}>
+                    <a
+                      href={`mailto:${event.contactEmail}`}
+                      className="text-foreground hover:underline break-all"
+                    >
+                      {event.contactEmail}
+                    </a>
+                  </InfoRow>
+                )}
+
+                {event.registrationDeadline && (
+                  <InfoRow icon={CalendarClock} color={category.color}>
+                    <span>
+                      <span className="text-foreground/40">Inscriptions jusqu'au </span>
+                      <span className="text-foreground">{formatEventDateTime(event.registrationDeadline)}</span>
+                    </span>
+                  </InfoRow>
+                )}
+
+                {event.tags && event.tags.length > 0 && (
+                  <InfoRow icon={Tag} color={category.color}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {event.tags.map((tag) => (
+                        <Link
+                          key={tag}
+                          to={`/events/search?q=${encodeURIComponent(tag)}`}
+                          className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors no-underline"
+                        >
+                          {tag}
+                        </Link>
+                      ))}
+                    </div>
+                  </InfoRow>
+                )}
               </div>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={Mail} label="Email de contact" sprint="S5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-foreground/30 shrink-0" />
-                <span className="text-xs text-foreground/20">contact@unige.ch</span>
-              </div>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={CalendarClock} label="Date limite d'inscription" sprint="S5">
-              <span className="text-xs text-foreground/20">jj/mm/aaaa à HH:MM</span>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={Tag} label="Mots-clés" sprint="S5">
-              <div className="flex flex-wrap gap-1.5">
-                {(['conférence', 'réseau', 'emploi'] as const).map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/20"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </ComingSoonBlock>
-
-          </div>
+            </div>
+          )}
 
         </div>
 

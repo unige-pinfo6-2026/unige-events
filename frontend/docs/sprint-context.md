@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-22
+Dernière mise à jour : 2026-04-23
 
 ## Sprint 6 — Filtre par tags sur la recherche (SCRUM-131 + SCRUM-132) — 2026-04-22
 - Hook `useImageCropFlow` (`src/hooks/useImageCropFlow.ts`) : encapsule le flux sélection fichier → validation → FileReader → cropper → Blob → File. Préserve le nom original, reset l'input pour permettre la re-sélection du même fichier après cancel.
@@ -21,6 +21,8 @@ Fonctionnalités livrées :
 - Type `Event` enrichi du champ `tags?: string[]` (la search response l'expose désormais).
 - Tests : 5 nouveaux tests REST + 6 DB-backed côté backend ; 4 sidebar + 4 hook + 1 service + mises à jour des tests existants côté frontend.
 - Aucun nouveau skeleton — la sidebar n'a pas d'état loading.
+
+Terminé.
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 
@@ -47,6 +49,21 @@ Fonctionnalités livrées :
 - Bouton "Recadrer" désactivé tant qu'aucune zone n'est sélectionnée.
 - Dépendance `react-image-crop` ajoutée.
 - 6 tests unitaires couvrant le rendu, les callbacks et les variantes aspect/circular.
+
+## Sprint 6 — Champs additionnels événement (SCRUM-117 / US-28) — 2026-04-23
+
+Terminé le 2026-04-23.
+
+Fonctionnalités livrées :
+- 4 nouveaux champs optionnels exposés dans `EventForm` (`src/components/event/EventForm.tsx`) et `EventDetailPage` (`src/pages/event/EventDetailPage.tsx`) :
+  - `websiteUrl` — Input `type="url"`, max 500, validation `new URL()` + protocole http(s).
+  - `contactEmail` — Input `type="email"`, max 255, validation regex simple (backend `@Email` autoritatif).
+  - `registrationDeadline` — date + sélecteurs d'heure réutilisant le pattern `startDate`/`endDate`, ignore `allDay`. Validation frontend uniquement : deadline strictement antérieure à `startDate`.
+  - `tags` — composant `TagInput` existant, max 20 tags × 64 caractères chacun.
+- Types `Event`, `CreateEventRequest`, `UpdateEventRequest` étendus (`src/types/event.ts`). Nouvelles constantes exportées : `EVENT_WEBSITE_URL_MAX_LENGTH = 500`, `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255`, `EVENT_TAG_MAX_LENGTH = 64`, `EVENT_TAGS_MAX_ITEMS = 20`.
+- `useEventForm` (`src/hooks/useEventForm.ts`) : validation client des 4 champs + mapping payload normalisant chaîne vide → `null` et tableau vide → `null` (sémantique PUT complète).
+- `EventDetailPage` : bloc conditionnel *Informations complémentaires* (affiché uniquement si au moins un des 4 champs est renseigné) — lien externe `target="_blank" rel="noopener noreferrer"`, `mailto:`, deadline formatée via `formatEventDateTime`, chips `tags` cliquables vers `/events/search?q=<tag>` (le backend n'a pas encore de paramètre de filtre tag dédié, fallback sur le full-text `q`).
+- Tests : ~29 tests unitaires ajoutés répartis sur `useEventForm.test.tsx`, `EventForm.test.tsx` et `EventDetailPage.test.tsx`. Couverture locale ≥ 94 % lignes sur les trois fichiers modifiés. Suite globale : 859 tests verts (exécution avec `TZ=UTC` requise — conformément aux tests de payload ISO existants).
 
 ## Sprint 1 — Authentification & profils
 

@@ -79,14 +79,25 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
 | interestedCount | number        | non    |
-| tags            | string[]      | non    |
+| websiteUrl              | string \| null | non |
+| contactEmail            | string \| null | non |
+| registrationDeadline    | string ISO 8601 \| null | non |
+| tags                    | string[]       | non |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
+
+**Constantes de validation frontend** (`src/types/event.ts`) :
+- `EVENT_WEBSITE_URL_MAX_LENGTH = 500` — longueur max de `websiteUrl`
+- `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
+- `EVENT_TAG_MAX_LENGTH = 64` — longueur max d'un tag individuel
+- `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
 
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`.
+
+`websiteUrl`, `contactEmail`, `registrationDeadline` acceptent `null` pour effacer la valeur ; `tags` accepte `null` ou `string[]`. Le frontend envoie `null` plutôt qu'une chaîne vide lorsque l'utilisateur laisse le champ vide.
 
 ### UpdateEventRequest
 

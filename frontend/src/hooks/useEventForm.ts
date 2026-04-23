@@ -3,6 +3,10 @@ import type { ChangeEvent, FormEvent } from 'react'
 import axios from 'axios'
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
   type CreateEventRequest,
   type Event,
   type EventCategory,
@@ -24,6 +28,10 @@ export interface EventFormValues {
   capacity: string
   status: EventStatus
   allDay: boolean
+  websiteUrl: string
+  contactEmail: string
+  registrationDeadline: string
+  tags: string[]
 }
 
 export interface EventFormErrors {
@@ -35,6 +43,10 @@ export interface EventFormErrors {
   category?: string
   capacity?: string
   image?: string
+  websiteUrl?: string
+  contactEmail?: string
+  registrationDeadline?: string
+  tags?: string
 }
 
 interface UseEventFormOptions {
@@ -93,6 +105,10 @@ const DEFAULT_VALUES: EventFormValues = {
   capacity: '',
   status: 'PUBLISHED',
   allDay: false,
+  websiteUrl: '',
+  contactEmail: '',
+  registrationDeadline: '',
+  tags: [],
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -103,6 +119,10 @@ const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
   'endDate',
   'category',
   'capacity',
+  'websiteUrl',
+  'contactEmail',
+  'registrationDeadline',
+  'tags',
 ])
 
 const FIELD_LABELS: Record<string, string> = {
@@ -115,6 +135,10 @@ const FIELD_LABELS: Record<string, string> = {
   capacity: 'La capacité',
   status: 'Le statut',
   bannerUrl: 'La bannière',
+  websiteUrl: 'Le site web',
+  contactEmail: "L'email de contact",
+  registrationDeadline: "La date limite d'inscription",
+  tags: 'Les mots-clés',
 }
 
 export const EVENT_TITLE_MAX_LENGTH = 120
@@ -154,8 +178,24 @@ function toFormValues(event?: Event | null): EventFormValues {
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
     allDay: event.allDay ?? false,
+    websiteUrl: event.websiteUrl ?? '',
+    contactEmail: event.contactEmail ?? '',
+    registrationDeadline: event.registrationDeadline ? toLocalDateTimeInputValue(event.registrationDeadline) : '',
+    tags: event.tags ?? [],
   }
 }
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+// Basic RFC 5322-adjacent check sufficient for inline UX feedback; backend @Email is authoritative.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -489,6 +529,42 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     }
 
+    const websiteUrl = values.websiteUrl.trim()
+    if (websiteUrl) {
+      if (websiteUrl.length > EVENT_WEBSITE_URL_MAX_LENGTH) {
+        nextErrors.websiteUrl = `L'URL ne doit pas dépasser ${EVENT_WEBSITE_URL_MAX_LENGTH} caractères.`
+      } else if (!isValidHttpUrl(websiteUrl)) {
+        nextErrors.websiteUrl = "L'URL du site web est invalide."
+      }
+    }
+
+    const contactEmail = values.contactEmail.trim()
+    if (contactEmail) {
+      if (contactEmail.length > EVENT_CONTACT_EMAIL_MAX_LENGTH) {
+        nextErrors.contactEmail = `L'email ne doit pas dépasser ${EVENT_CONTACT_EMAIL_MAX_LENGTH} caractères.`
+      } else if (!EMAIL_PATTERN.test(contactEmail)) {
+        nextErrors.contactEmail = "L'email de contact est invalide."
+      }
+    }
+
+    if (values.registrationDeadline) {
+      const deadline = new Date(values.registrationDeadline)
+      if (Number.isNaN(deadline.getTime())) {
+        nextErrors.registrationDeadline = "La date limite d'inscription est invalide."
+      } else if (values.startDate && !nextErrors.startDate) {
+        const startDate = new Date(applyAllDayBounds(values.startDate, values.allDay, 'start'))
+        if (!Number.isNaN(startDate.getTime()) && deadline >= startDate) {
+          nextErrors.registrationDeadline = "La date limite d'inscription doit être antérieure à la date de début."
+        }
+      }
+    }
+
+    if (values.tags.length > EVENT_TAGS_MAX_ITEMS) {
+      nextErrors.tags = `Vous ne pouvez pas ajouter plus de ${EVENT_TAGS_MAX_ITEMS} mots-clés.`
+    } else if (values.tags.some((tag) => tag.length > EVENT_TAG_MAX_LENGTH)) {
+      nextErrors.tags = `Chaque mot-clé doit faire au plus ${EVENT_TAG_MAX_LENGTH} caractères.`
+    }
+
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -513,6 +589,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
 
     // Step 1: create / update the event
     try {
+      const trimmedWebsiteUrl = values.websiteUrl.trim()
+      const trimmedContactEmail = values.contactEmail.trim()
       const payload: CreateEventRequest = {
         title: values.title.trim(),
         description: values.description.trim() || undefined,
@@ -524,6 +602,10 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: effectiveStatus,
         allDay: values.allDay,
+        websiteUrl: trimmedWebsiteUrl || null,
+        contactEmail: trimmedContactEmail || null,
+        registrationDeadline: values.registrationDeadline ? toApiDateTime(values.registrationDeadline) : null,
+        tags: values.tags.length > 0 ? values.tags : null,
       }
 
       if (mode === 'create') {

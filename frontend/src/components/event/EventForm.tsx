@@ -5,10 +5,17 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
-import { ImagePlus, MapPin, Globe, Mail, CalendarClock, Tag, Repeat, Paperclip, Users, Search } from 'lucide-react'
+import { ImagePlus, MapPin, Globe, Mail, Repeat, Paperclip, Users, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
 import ImageCropper from '@/components/utils/ImageCropper'
+import TagInput from '@/components/utils/TagInput'
+import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
+} from '@/types/event'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface EventFormProps {
@@ -123,7 +130,21 @@ export default function EventForm({
   const endDateTime = splitDateTime(values.endDate)
   const busy = submitting || draftSaving || deleting
 
-  function setDatePart(field: 'startDate' | 'endDate', datePart: string, currentHourPart: string, currentMinutePart: string) {
+  type DateTimeField = 'startDate' | 'endDate' | 'registrationDeadline'
+
+  const dateTimeHourLabels: Record<DateTimeField, string> = {
+    startDate: 'Heure de début',
+    endDate: 'Heure de fin',
+    registrationDeadline: "Heure de la date limite d'inscription",
+  }
+
+  const dateTimeMinuteLabels: Record<DateTimeField, string> = {
+    startDate: 'Minute de début',
+    endDate: 'Minute de fin',
+    registrationDeadline: "Minute de la date limite d'inscription",
+  }
+
+  function setDatePart(field: DateTimeField, datePart: string, currentHourPart: string, currentMinutePart: string) {
     if (!datePart) {
       onFieldChange(field, '')
       return
@@ -134,7 +155,7 @@ export default function EventForm({
   }
 
   function setTimePart(
-    field: 'startDate' | 'endDate',
+    field: DateTimeField,
     datePart: string,
     hourPart: string,
     minutePart: string,
@@ -147,18 +168,23 @@ export default function EventForm({
     onFieldChange(field, joinDateTime(datePart, nextHourPart, nextMinutePart))
   }
 
+  // allDay only applies to the event start/end. For auxiliary datetime fields
+  // (e.g. registrationDeadline) we always show the time selectors regardless.
   function renderDateTimeField(
-    field: 'startDate' | 'endDate',
+    field: DateTimeField,
     label: string,
     inputId: string,
     dt: DateTimeParts,
     error: string | undefined,
+    options: { required?: boolean; followsAllDay?: boolean } = {},
   ) {
-    const timeSelectorClass = values.allDay
+    const { required = false, followsAllDay = false } = options
+    const hidden = followsAllDay && values.allDay
+    const timeSelectorClass = hidden
       ? 'max-w-0 opacity-0 pointer-events-none overflow-hidden'
       : 'max-w-56 opacity-100'
     return (
-      <FormField label={label} htmlFor={inputId} required error={error}>
+      <FormField label={label} htmlFor={inputId} required={required} error={error}>
         <div className="grid grid-cols-[1fr_auto] gap-3 max-sm:grid-cols-1 items-center">
           <Input
             id={inputId}
@@ -170,10 +196,10 @@ export default function EventForm({
           <div
             className={`flex items-center gap-1.5 transition-all duration-200 ease-out ${timeSelectorClass}`}
             data-testid={`${field}-time-selectors`}
-            aria-hidden={values.allDay}
+            aria-hidden={hidden}
           >
             <label className="sr-only" htmlFor={`${inputId}-hour`}>
-              {field === 'startDate' ? 'Heure de début' : 'Heure de fin'}
+              {dateTimeHourLabels[field]}
             </label>
             <Select
               id={`${inputId}-hour`}
@@ -181,14 +207,14 @@ export default function EventForm({
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'hour', e.target.value)}
               error={error}
               className="w-auto min-w-[4.5rem]"
-              tabIndex={values.allDay ? -1 : undefined}
+              tabIndex={hidden ? -1 : undefined}
             >
               <option value="">HH</option>
               {HOUR_OPTIONS.map((h) => <option key={h} value={h}>{h}</option>)}
             </Select>
             <span className="text-foreground/40 font-bold select-none">:</span>
             <label className="sr-only" htmlFor={`${inputId}-minute`}>
-              {field === 'startDate' ? 'Minute de début' : 'Minute de fin'}
+              {dateTimeMinuteLabels[field]}
             </label>
             <Select
               id={`${inputId}-minute`}
@@ -196,7 +222,7 @@ export default function EventForm({
               onChange={(e) => setTimePart(field, dt.datePart, dt.hourPart, dt.minutePart, 'minute', e.target.value)}
               error={error}
               className="w-auto min-w-[4.5rem]"
-              tabIndex={values.allDay ? -1 : undefined}
+              tabIndex={hidden ? -1 : undefined}
             >
               <option value="">MM</option>
               {MINUTE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -313,8 +339,8 @@ export default function EventForm({
         </div>
 
         <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-          {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate)}
-          {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate)}
+          {renderDateTimeField('startDate', 'Début', 'event-startDate', startDateTime, errors.startDate, { required: true, followsAllDay: true })}
+          {renderDateTimeField('endDate', 'Fin', 'event-endDate', endDateTime, errors.endDate, { required: true, followsAllDay: true })}
         </div>
       </section>
 
@@ -393,49 +419,65 @@ export default function EventForm({
       </div>
 
 
-      {/* Bande 4 — Shells champs additionnels (SCRUM-127/128/147/162) */}
-      <div className="flex flex-col gap-3">
+      {/* Bande 4 — Champs additionnels */}
+      <div className="flex flex-col gap-4">
 
         {/* Ligne 1 : websiteUrl + contactEmail en grille 2 colonnes */}
-        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <ComingSoonBlock icon={Globe} label="Site web de l'événement" sprint="S6">
-            <div className="flex items-center gap-2 mt-0.5">
-              <Globe className="w-4 h-4 text-foreground/30 shrink-0" />
-              <div className="flex-1 rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20 bg-transparent">https://unige.ch/…</div>
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+          <FormField label="Site web de l'événement" htmlFor="event-websiteUrl" error={errors.websiteUrl}>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
+              <Input
+                id="event-websiteUrl"
+                type="url"
+                value={values.websiteUrl}
+                onChange={(e) => onFieldChange('websiteUrl', e.target.value)}
+                error={errors.websiteUrl}
+                placeholder="https://unige.ch/…"
+                maxLength={EVENT_WEBSITE_URL_MAX_LENGTH}
+                className="pl-10"
+              />
             </div>
-          </ComingSoonBlock>
+          </FormField>
 
-          <ComingSoonBlock icon={Mail} label="Email de contact" sprint="S6">
-            <div className="flex items-center gap-2 mt-0.5">
-              <Mail className="w-4 h-4 text-foreground/30 shrink-0" />
-              <div className="flex-1 rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20 bg-transparent">contact@unige.ch</div>
+          <FormField label="Email de contact" htmlFor="event-contactEmail" error={errors.contactEmail}>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
+              <Input
+                id="event-contactEmail"
+                type="email"
+                value={values.contactEmail}
+                onChange={(e) => onFieldChange('contactEmail', e.target.value)}
+                error={errors.contactEmail}
+                placeholder="contact@unige.ch"
+                maxLength={EVENT_CONTACT_EMAIL_MAX_LENGTH}
+                className="pl-10"
+              />
             </div>
-          </ComingSoonBlock>
+          </FormField>
         </div>
 
-        {/* Ligne 2 : deadline inscription (pleine largeur) */}
-        <ComingSoonBlock icon={CalendarClock} label="Date limite d'inscription" sprint="S6">
-          <div className="grid grid-cols-[1fr_auto] gap-2 mt-0.5 max-sm:grid-cols-1">
-            <div className="rounded-xl border border-border/30 px-3 py-2 text-xs text-foreground/20">jj/mm/aaaa</div>
-            <div className="flex items-center gap-1">
-              <div className="rounded-xl border border-border/30 px-2 py-2 text-xs text-foreground/20 w-14">HH</div>
-              <span className="text-foreground/20 font-bold">:</span>
-              <div className="rounded-xl border border-border/30 px-2 py-2 text-xs text-foreground/20 w-14">MM</div>
-            </div>
-          </div>
-        </ComingSoonBlock>
+        {/* Ligne 2 : deadline inscription */}
+        {renderDateTimeField(
+          'registrationDeadline',
+          "Date limite d'inscription",
+          'event-registrationDeadline',
+          splitDateTime(values.registrationDeadline),
+          errors.registrationDeadline,
+        )}
 
-        {/* Ligne 3 : tags / mots-clés (pleine largeur) */}
-        <ComingSoonBlock icon={Tag} label="Mots-clés" sprint="S5">
-          <div className="flex flex-wrap gap-1.5 mt-0.5 min-h-8 rounded-xl border border-dashed border-border/30 bg-transparent px-3 py-2">
-            {(['conférence', 'réseau', 'emploi'] as const).map((tag) => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/20">
-                {tag} <span className="text-foreground/15">×</span>
-              </span>
-            ))}
-            <span className="text-xs text-foreground/15 ml-1">Ajoutez des mots-clés…</span>
+        {/* Ligne 3 : tags / mots-clés */}
+        <FormField label="Mots-clés" htmlFor="event-tags" error={errors.tags}>
+          <TagInput
+            value={values.tags}
+            onChange={(tags) => onFieldChange('tags', tags)}
+            placeholder="Ajoutez des mots-clés…"
+            maxTags={EVENT_TAGS_MAX_ITEMS}
+          />
+          <div className="text-right text-xs text-foreground/40 mt-1">
+            {values.tags.length} / {EVENT_TAGS_MAX_ITEMS} · max {EVENT_TAG_MAX_LENGTH} car. par mot-clé
           </div>
-        </ComingSoonBlock>
+        </FormField>
 
         <div className="border-t border-border/20" />
 

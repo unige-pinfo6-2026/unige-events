@@ -15,10 +15,18 @@ export type Event = {
   capacity?: number
   allDay: boolean
   attendingCount: number
+  websiteUrl?: string | null
+  contactEmail?: string | null
+  registrationDeadline?: string | null
   tags?: string[]
   createdAt: string
   updatedAt?: string
 }
+
+export const EVENT_WEBSITE_URL_MAX_LENGTH = 500
+export const EVENT_CONTACT_EMAIL_MAX_LENGTH = 255
+export const EVENT_TAG_MAX_LENGTH = 64
+export const EVENT_TAGS_MAX_ITEMS = 20
 
 export const EVENT_CATEGORIES = {
   ACADEMIC: { name: 'Académique', color: '#2563eb' },
@@ -51,6 +59,10 @@ export interface CreateEventRequest {
   capacity?: number
   status?: EventStatus
   allDay?: boolean
+  websiteUrl?: string | null
+  contactEmail?: string | null
+  registrationDeadline?: string | null
+  tags?: string[] | null
 }
 
 export interface UpdateEventRequest {
@@ -65,4 +77,8 @@ export interface UpdateEventRequest {
   capacity?: number
   status?: EventStatus
   allDay?: boolean
+  websiteUrl?: string | null
+  contactEmail?: string | null
+  registrationDeadline?: string | null
+  tags?: string[] | null
 }

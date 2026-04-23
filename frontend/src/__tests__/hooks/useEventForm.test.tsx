@@ -12,6 +12,12 @@ import {
   IMAGE_MAX_SIZE_MB,
   useEventForm,
 } from '@/hooks/useEventForm'
+import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
+} from '@/types/event'
 
 vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
@@ -276,6 +282,10 @@ describe('useEventForm', () => {
       capacity: undefined,
       status: 'PUBLISHED',
       allDay: false,
+      websiteUrl: null,
+      contactEmail: null,
+      registrationDeadline: null,
+      tags: null,
     })
     expect(onSuccess).toHaveBeenCalledWith(baseEvent)
   })
@@ -878,6 +888,302 @@ describe('useEventForm', () => {
       expect(result.current.values.title).toBe(baseEvent.title)
       expect(result.current.values.title).not.toBe('Other event')
       void otherEvent
+    })
+  })
+
+  describe('SCRUM-117 — extra optional fields (websiteUrl, contactEmail, registrationDeadline, tags)', () => {
+    function fillMandatory(setFieldValue: ReturnType<typeof useEventForm>['setFieldValue']) {
+      setFieldValue('title', 'Forum')
+      setFieldValue('location', 'Uni Dufour')
+      setFieldValue('startDate', '2099-04-10T10:00')
+      setFieldValue('endDate', '2099-04-10T12:00')
+      setFieldValue('category', 'SOCIAL')
+    }
+
+    it('defaults the four extra fields to empty values', () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.websiteUrl).toBe('')
+      expect(result.current.values.contactEmail).toBe('')
+      expect(result.current.values.registrationDeadline).toBe('')
+      expect(result.current.values.tags).toEqual([])
+    })
+
+    it('hydrates the four extra fields from an existing event in edit mode', async () => {
+      const eventWithExtras = {
+        ...baseEvent,
+        websiteUrl: 'https://unige.ch/event',
+        contactEmail: 'contact@unige.ch',
+        registrationDeadline: '2099-04-09T18:00:00.000Z',
+        tags: ['forum', 'associations'],
+      }
+      const { result, rerender } = renderHook(
+        ({ initialEvent }) => useEventForm({ mode: 'edit', initialEvent }),
+        { initialProps: { initialEvent: null as typeof eventWithExtras | null } },
+      )
+
+      rerender({ initialEvent: eventWithExtras })
+
+      await waitFor(() => expect(result.current.values.websiteUrl).toBe('https://unige.ch/event'))
+      expect(result.current.values.contactEmail).toBe('contact@unige.ch')
+      expect(result.current.values.registrationDeadline).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+      expect(result.current.values.tags).toEqual(['forum', 'associations'])
+    })
+
+    it('rejects a websiteUrl that is not http(s)', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', 'ftp://unige.ch/download')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.websiteUrl).toBe("L'URL du site web est invalide.")
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a websiteUrl that cannot be parsed as a URL', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', 'not a url')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.websiteUrl).toBe("L'URL du site web est invalide.")
+    })
+
+    it('rejects a websiteUrl exceeding the max length', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      const longUrl = 'https://unige.ch/' + 'a'.repeat(EVENT_WEBSITE_URL_MAX_LENGTH)
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', longUrl)
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.websiteUrl).toBe(
+        `L'URL ne doit pas dépasser ${EVENT_WEBSITE_URL_MAX_LENGTH} caractères.`,
+      )
+    })
+
+    it('accepts a valid https websiteUrl and forwards it in the payload', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', '  https://unige.ch/event  ')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.websiteUrl).toBeUndefined()
+      expect(mockCreateEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ websiteUrl: 'https://unige.ch/event' }),
+      )
+    })
+
+    it('rejects an invalid contactEmail', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('contactEmail', 'not-an-email')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.contactEmail).toBe("L'email de contact est invalide.")
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a contactEmail exceeding the max length', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      const longEmail = 'a'.repeat(EVENT_CONTACT_EMAIL_MAX_LENGTH) + '@unige.ch'
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('contactEmail', longEmail)
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.contactEmail).toBe(
+        `L'email ne doit pas dépasser ${EVENT_CONTACT_EMAIL_MAX_LENGTH} caractères.`,
+      )
+    })
+
+    it('accepts a valid contactEmail and forwards it in the payload', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('contactEmail', '  contact@unige.ch  ')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.contactEmail).toBeUndefined()
+      expect(mockCreateEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ contactEmail: 'contact@unige.ch' }),
+      )
+    })
+
+    it('rejects a registrationDeadline that is not before startDate', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('registrationDeadline', '2099-04-10T11:00')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.registrationDeadline).toBe(
+        "La date limite d'inscription doit être antérieure à la date de début.",
+      )
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a registrationDeadline equal to startDate', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('registrationDeadline', '2099-04-10T10:00')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.registrationDeadline).toBe(
+        "La date limite d'inscription doit être antérieure à la date de début.",
+      )
+    })
+
+    it('rejects an invalid registrationDeadline value', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('registrationDeadline', 'invalid-date')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.registrationDeadline).toBe(
+        "La date limite d'inscription est invalide.",
+      )
+    })
+
+    it('accepts a registrationDeadline strictly before startDate and forwards an ISO value', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('registrationDeadline', '2099-04-09T18:00')
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.registrationDeadline).toBeUndefined()
+      const call = mockCreateEvent.mock.calls[0][0]
+      expect(call.registrationDeadline).toBe(new Date('2099-04-09T18:00').toISOString())
+    })
+
+    it('rejects tag count over the max', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      const tooMany = Array.from({ length: EVENT_TAGS_MAX_ITEMS + 1 }, (_, i) => `tag${i}`)
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('tags', tooMany)
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.tags).toBe(
+        `Vous ne pouvez pas ajouter plus de ${EVENT_TAGS_MAX_ITEMS} mots-clés.`,
+      )
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects a tag longer than EVENT_TAG_MAX_LENGTH', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('tags', ['ok', 'x'.repeat(EVENT_TAG_MAX_LENGTH + 1)])
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.tags).toBe(
+        `Chaque mot-clé doit faire au plus ${EVENT_TAG_MAX_LENGTH} caractères.`,
+      )
+    })
+
+    it('sends tags as an array when non-empty and null when empty', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('tags', ['forum', 'carrière'])
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(mockCreateEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ tags: ['forum', 'carrière'] }),
+      )
+    })
+
+    it('sends all four extra fields together when populated', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', 'https://unige.ch/event')
+        result.current.setFieldValue('contactEmail', 'contact@unige.ch')
+        result.current.setFieldValue('registrationDeadline', '2099-04-09T18:00')
+        result.current.setFieldValue('tags', ['forum'])
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(mockCreateEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          websiteUrl: 'https://unige.ch/event',
+          contactEmail: 'contact@unige.ch',
+          registrationDeadline: new Date('2099-04-09T18:00').toISOString(),
+          tags: ['forum'],
+        }),
+      )
+    })
+
+    it('clears errors for extra fields when setFieldValue is called', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillMandatory(result.current.setFieldValue)
+        result.current.setFieldValue('websiteUrl', 'not-a-url')
+      })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.websiteUrl).toBeDefined()
+
+      act(() => {
+        result.current.setFieldValue('websiteUrl', 'https://unige.ch')
+      })
+      expect(result.current.errors.websiteUrl).toBeUndefined()
     })
   })
 })
