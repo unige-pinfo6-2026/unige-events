@@ -90,4 +90,32 @@ describe('useEventStats', () => {
     expect(result.current.stats).toBeNull()
     expect(result.current.loading).toBe(false)
   })
+
+  it('ignores resolved data after unmount', async () => {
+    let resolveFetch: (v: typeof mockStats) => void
+    mockGetEventStats.mockImplementation(
+      () => new Promise(r => { resolveFetch = r }),
+    )
+
+    const { unmount } = renderHook(() => useEventStats(1))
+    unmount()
+
+    // Resolving after unmount hits the active=false branches — no state update, no throw
+    await act(async () => { resolveFetch(mockStats) })
+    expect(mockGetEventStats).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores fetch error after unmount', async () => {
+    let rejectFetch: (e: Error) => void
+    mockGetEventStats.mockImplementation(
+      () => new Promise((_, reject) => { rejectFetch = reject }),
+    )
+
+    const { unmount } = renderHook(() => useEventStats(1))
+    unmount()
+
+    // Rejecting after unmount hits the active=false catch/finally branches — no throw
+    await act(async () => { rejectFetch(new Error('gone')) })
+    expect(mockGetEventStats).toHaveBeenCalledTimes(1)
+  })
 })

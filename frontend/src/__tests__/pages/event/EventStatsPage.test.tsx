@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 vi.mock('@/hooks', () => ({
@@ -37,10 +37,14 @@ vi.mock('recharts', () => ({
 
 import { useAuth, useEvent } from '@/hooks'
 import { useEventStats } from '@/hooks/useEventStats'
+import { getEventAttendees } from '@/services/statsApi'
+import { getUserById } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseEventStats = useEventStats as ReturnType<typeof vi.fn>
+const mockGetEventAttendees = getEventAttendees as ReturnType<typeof vi.fn>
+const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 
 const mockUser = { id: 'user-1', email: 'org@test.com', profilePublic: true, admin: false, createdAt: '' }
 
@@ -120,6 +124,17 @@ describe('EventStatsPage', () => {
     )
   })
 
+  it('shows "événement introuvable" when event is null without error', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() =>
+      expect(screen.getByText(/introuvable/i)).toBeTruthy()
+    )
+  })
+
   it('shows error when stats fail to load', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -128,6 +143,17 @@ describe('EventStatsPage', () => {
     renderPage()
     await waitFor(() =>
       expect(screen.getByText(/impossible de charger les statistiques/i)).toBeTruthy()
+    )
+  })
+
+  it('shows "statistiques indisponibles" when stats is null without error', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() =>
+      expect(screen.getByText(/statistiques indisponibles/i)).toBeTruthy()
     )
   })
 
@@ -175,5 +201,141 @@ describe('EventStatsPage', () => {
     await waitFor(() =>
       expect(screen.getByText(/voir les participants/i)).toBeTruthy()
     )
+  })
+
+  it('loads and shows attendees when toggle is clicked', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([
+      { id: 1, userId: 'u-1', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+    ])
+    mockGetUserById.mockResolvedValue({
+      id: 'u-1', email: 'alice@test.com', displayName: 'Alice Martin',
+      profilePublic: true, admin: false, createdAt: '',
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() => expect(screen.getByText('Alice Martin')).toBeTruthy())
+  })
+
+  it('falls back to email when attendee user has no displayName', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([
+      { id: 2, userId: 'u-2', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+    ])
+    mockGetUserById.mockResolvedValue({
+      id: 'u-2', email: 'bob@test.com',
+      profilePublic: true, admin: false, createdAt: '',
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() => expect(screen.getByText('bob@test.com')).toBeTruthy())
+  })
+
+  it('falls back to userId when user fetch fails', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([
+      { id: 3, userId: 'u-unknown', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+    ])
+    mockGetUserById.mockRejectedValue(new Error('Not found'))
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() => expect(screen.getByText('u-unknown')).toBeTruthy())
+  })
+
+  it('shows loading state while fetching attendees', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+
+    let resolveAttendees: (v: unknown[]) => void
+    mockGetEventAttendees.mockImplementation(
+      () => new Promise(r => { resolveAttendees = r }),
+    )
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    expect(screen.getByText(/chargement/i)).toBeTruthy()
+
+    await waitFor(() => { resolveAttendees([]) })
+  })
+
+  it('shows error when attendees fetch fails', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockRejectedValue(new Error('Forbidden'))
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() =>
+      expect(screen.getByText(/impossible de charger les participants/i)).toBeTruthy()
+    )
+  })
+
+  it('shows empty state when no attendees', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([])
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() =>
+      expect(screen.getByText(/aucun participant/i)).toBeTruthy()
+    )
+  })
+
+  it('collapses attendees section when toggle is clicked again', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([])
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() => expect(mockGetEventAttendees).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    expect(screen.queryByText(/aucun participant/i)).toBeNull()
+  })
+
+  it('does not re-fetch attendees on second open', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+    mockGetEventAttendees.mockResolvedValue([])
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+
+    fireEvent.click(screen.getByText(/voir les participants/i))
+    await waitFor(() => expect(mockGetEventAttendees).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByText(/voir les participants/i)) // close
+    fireEvent.click(screen.getByText(/voir les participants/i)) // reopen
+    expect(mockGetEventAttendees).toHaveBeenCalledTimes(1) // no second fetch
   })
 })
