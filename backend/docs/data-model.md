@@ -80,6 +80,23 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ---
 
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
+
+Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
+
+---
+
 ### Attendance
 
 Table : `attendances`
@@ -97,6 +114,27 @@ Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
 Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upsert** : si l'utilisateur est déjà inscrit (`ATTENDING` ou `WAITLISTED`), l'inscription existante est renvoyée telle quelle, sans modification. La promotion `WAITLISTED → ATTENDING` n'est jamais déclenchée par un appel client — uniquement par la libération d'un slot dans `removeAttendance()`, sous verrou pessimiste.
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
+
+---
+
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
+
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
@@ -202,6 +240,17 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 | `avatarUrl` | `@Size(max=2048)` + `@Pattern` (http/https uniquement) |
 | `interests` | `List<String>`, nullable |
 | `profilePublic` | `Boolean`, nullable |
+
+### EventStatsDTO (record)
+Statistiques agrégées d'un événement — retourné par `GET /events/{id}/stats` (créateur uniquement).
+
+```
+attendingCount, interestedCount, viewCount
+```
+
+- `attendingCount` : nombre d'`Attendance` avec `status = ATTENDING`.
+- `interestedCount` : nombre de `Favorite` liés à l'événement.
+- `viewCount` : nombre de `EventView` liés à l'événement (1 par utilisateur).
 
 ### Réponses d'erreur
 

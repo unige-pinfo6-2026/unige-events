@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { deleteBanner, getCalendarToken, getMe, getUserById, regenerateCalendarToken, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'

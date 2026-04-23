@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
+import os from 'node:os'
 
 // https://vite.dev/config/
 export default defineConfig(() => {
@@ -28,9 +29,25 @@ export default defineConfig(() => {
       }
     },
     test: {
+      environment: 'happy-dom',
+      environmentOptions: {
+        happyDOM: {
+          settings: {
+            // Prevent happy-dom from fetching external URLs
+            navigation: {
+              disableMainFrameNavigation: false,
+              disableChildFrameNavigation: true,
+              disableChildPageNavigation: false,
+              disableFallbackToSetURL: false,
+              crossOriginPolicy: 'anyOrigin',
+              beforeContentCallback: null,
+            },
+          },
+        },
+      },
       setupFiles: ['src/__tests__/setup.ts'],
-      testTimeout: 30000,
-      maxForks: 2,
+      testTimeout: 10000,
+      maxForks: Math.max(2, os.cpus().length - 1),
       coverage: {
         provider: 'v8',
         reporter: ['text', 'lcov'],

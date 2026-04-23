@@ -103,7 +103,7 @@ Dernière mise à jour : 2026-04-15
 
 **Objectif :** Statistiques organisateur + liste des participants + enrichissement Event.
 
-- [ ] `GET /events/{id}/stats` (vues, attendingCount — créateur/admin uniquement)
+- [x] `GET /events/{id}/stats` (vues, attendingCount, interestedCount — créateur uniquement) ✅
 - [ ] Incrémentation du compteur de vues à chaque `GET /events/{id}` (déduplication userId+eventId)
 - [x] **SCRUM-126** — Champs `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags` sur `Event` ; vérification deadline dans `AttendanceService.attend()` (409 `registration_closed`).
 - [x] **SCRUM-129** — Renforcement capacité : `WAITLISTED` ajouté à `AttendanceStatus`, verrou pessimiste sur `Event` pour les mutations liées à la capacité, promotion FIFO (`createdAt ASC`) dans `removeAttendance()`, exposition de `availableSpots` (nullable) et `waitlistedCount` sur `EventDTO`. Plus de 409 pour capacité atteinte — placement automatique en WAITLISTED.

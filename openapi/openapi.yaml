@@ -489,14 +489,41 @@ components:
 
     EventStats:
       type: object
-      # TODO: Sprint 5 — à implémenter côté backend
+      description: Statistiques agrégées d'un événement (créateur uniquement)
       properties:
-        views:
-          type: integer
         attendingCount:
           type: integer
-        checkInCount:
+          format: int64
+          description: Nombre de participants inscrits (statut ATTENDING)
+        interestedCount:
           type: integer
+          format: int64
+          description: Nombre d'utilisateurs ayant mis l'événement en favoris
+        viewCount:
+          type: integer
+          format: int64
+          description: Nombre de vues uniques (1 par utilisateur)
+      required:
+        - attendingCount
+        - interestedCount
+        - viewCount
+
+    EventView:
+      type: object
+      description: Vue unique d'un événement par un utilisateur
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        viewedAt:
+          type: string
+          format: date-time
 
     PagedEvents:
       type: object
@@ -591,6 +618,23 @@ components:
       example:
         shareUrl: "https://10.25.10.136.nip.io/events/42"
         shortCode: "aB3xZ9mQ"
+
+    EventView:
+      type: object
+      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        viewedAt:
+          type: string
+          format: date-time
 
     CalendarTokenResponse:
       type: object
@@ -1871,10 +1915,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /events/{id}/view:
+    post:
+      summary: Enregistrer une vue unique d'un événement
+      description: |
+        Appelé depuis le frontend à l'ouverture de la page détail.
+        Idempotent — une seule vue enregistrée par utilisateur par événement.
+      operationId: recordEventView
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Vue enregistrée (ou déjà existante — idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable ou profil utilisateur non provisionné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   # TODO: Sprint 5
   /events/{id}/stats:
     get:
-      summary: Statistiques organisateur (vues, inscriptions) — créateur ou admin uniquement
+      summary: Statistiques de l'événement — créateur uniquement
+      description: |
+        Retourne les compteurs agrégés de l'événement (participants, favoris, vues uniques).
+        Accessible uniquement par le créateur de l'événement (token JWT requis).
       operationId: getEventStats
       tags: [events]
       security:
@@ -1893,8 +1973,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventStats'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur ni admin
+          description: Pas le créateur de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement ou profil utilisateur introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/view:
+    post:
+      summary: Enregistrer une vue unique d'un événement
+      description: |
+        Appelé depuis le frontend à l'ouverture de la page détail.
+        Idempotent — une seule vue enregistrée par utilisateur par événement.
+      operationId: recordEventView
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Vue enregistrée (ou déjà existante — idempotent)
+        '404':
+          description: Événement introuvable
           content:
             application/json:
               schema:

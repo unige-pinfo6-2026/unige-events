@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -247,7 +246,7 @@ describe('CreateEventPage', () => {
     mockCreateEvent.mockResolvedValue(createdEvent)
     mockUploadEventImage.mockRejectedValue(new Error('upload failed'))
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview-url')
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    const setItemSpy = vi.spyOn(sessionStorage, 'setItem')
 
     renderPage()
 

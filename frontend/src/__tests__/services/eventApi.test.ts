@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -130,13 +129,13 @@ describe('eventApi', () => {
     expect(mockApiDelete).toHaveBeenCalledWith('/events/42')
   })
 
-  it('getMyDrafts sends organizerId, status=DRAFT and size=5 by default', async () => {
+  it('getMyDrafts calls /users/me/events with status=DRAFT and size=5 by default', async () => {
     mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
 
-    const response = await getMyDrafts('uuid-123')
+    const response = await getMyDrafts()
 
-    expect(mockApiGet).toHaveBeenCalledWith('/events', {
-      params: { organizerId: 'uuid-123', status: 'DRAFT', size: 5 },
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', {
+      params: { status: 'DRAFT', size: 5 },
     })
     expect(response).toEqual([sampleEvent])
   })
@@ -144,10 +143,10 @@ describe('eventApi', () => {
   it('getMyDrafts honors a custom limit', async () => {
     mockApiGet.mockResolvedValue({ data: [] } as unknown as Awaited<ReturnType<typeof api.get>>)
 
-    await getMyDrafts('uuid-123', 3)
+    await getMyDrafts(3)
 
-    expect(mockApiGet).toHaveBeenCalledWith('/events', {
-      params: { organizerId: 'uuid-123', status: 'DRAFT', size: 3 },
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', {
+      params: { status: 'DRAFT', size: 3 },
     })
   })
 

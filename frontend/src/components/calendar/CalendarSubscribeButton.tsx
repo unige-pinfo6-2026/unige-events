@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+
+export const COPY_CONFIRMATION_RESET_MS = 2000
 import { Calendar, Check, Copy, Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { getCalendarToken, regenerateCalendarToken } from '@/services/userService'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
@@ -34,7 +36,7 @@ export default function CalendarSubscribeButton() {
     if (!token) return
     navigator.clipboard.writeText(token.httpsUrl).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), COPY_CONFIRMATION_RESET_MS)
     })
   }
 
