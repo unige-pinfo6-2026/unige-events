@@ -164,6 +164,18 @@ function ConfirmDialog({ title, message, confirmLabel, pending, onConfirm, onClo
   )
 }
 
+// Whitelist pour le lien externe `websiteUrl` — le backend stocke l'URL avec @URL, qui
+// accepte d'autres schémas (p. ex. `javascript:`). On ne rend un <a href> que si l'URL
+// parse en http(s) ; sinon on affiche la chaîne brute pour éviter tout XSS/open-redirect.
+function safeExternalHref(value: string): string | null {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -334,18 +346,25 @@ export default function EventDetailPage() {
               </h2>
 
               <div className="flex flex-col gap-3">
-                {event.websiteUrl && (
-                  <InfoRow icon={Globe} color={category.color}>
-                    <a
-                      href={event.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-foreground hover:underline break-all"
-                    >
-                      {event.websiteUrl}
-                    </a>
-                  </InfoRow>
-                )}
+                {event.websiteUrl && (() => {
+                  const safeHref = safeExternalHref(event.websiteUrl)
+                  return (
+                    <InfoRow icon={Globe} color={category.color}>
+                      {safeHref ? (
+                        <a
+                          href={safeHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-foreground hover:underline break-all"
+                        >
+                          {event.websiteUrl}
+                        </a>
+                      ) : (
+                        <span className="text-foreground/70 break-all">{event.websiteUrl}</span>
+                      )}
+                    </InfoRow>
+                  )
+                })()}
 
                 {event.contactEmail && (
                   <InfoRow icon={Mail} color={category.color}>

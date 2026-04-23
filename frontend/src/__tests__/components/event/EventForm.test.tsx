@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import EventForm from '@/components/event/EventForm'
 import type { EventFormValues } from '@/hooks/useEventForm'
+import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
+} from '@/types/event'
 import { useState } from 'react'
 
 const baseValues: EventFormValues = {
@@ -312,16 +318,17 @@ describe('EventForm', () => {
 
       const websiteInput = screen.getByLabelText(/Site web/i) as HTMLInputElement
       expect(websiteInput.type).toBe('url')
-      expect(websiteInput.maxLength).toBe(500)
+      expect(websiteInput.maxLength).toBe(EVENT_WEBSITE_URL_MAX_LENGTH)
 
       const emailInput = screen.getByLabelText(/Email de contact/i) as HTMLInputElement
       expect(emailInput.type).toBe('email')
-      expect(emailInput.maxLength).toBe(255)
+      expect(emailInput.maxLength).toBe(EVENT_CONTACT_EMAIL_MAX_LENGTH)
 
       expect(screen.getByLabelText(/Date limite d'inscription/i, { selector: 'input' })).toBeTruthy()
       expect(screen.getByTestId('registrationDeadline-time-selectors')).toBeTruthy()
 
-      expect(screen.getByText(/0 \/ 20/)).toBeTruthy()
+      expect(screen.getByText(new RegExp(`0 / ${EVENT_TAGS_MAX_ITEMS}`))).toBeTruthy()
+      expect(screen.getByText(new RegExp(`max ${EVENT_TAG_MAX_LENGTH} car`))).toBeTruthy()
       expect(screen.getByPlaceholderText(/Ajoutez des mots-clés/i)).toBeTruthy()
     })
 

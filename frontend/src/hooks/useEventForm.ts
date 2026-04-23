@@ -195,7 +195,29 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 // Basic RFC 5322-adjacent check sufficient for inline UX feedback; backend @Email is authoritative.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Implemented with single-pass string scans (indexOf / charCodeAt) rather than a regex so that
+// adversarial inputs cannot trigger super-linear backtracking. Equivalent semantics to the prior
+// /^[^\s@]+@[^\s@]+\.[^\s@]+$/ pattern: exactly one '@', a '.' in the domain not at its edges,
+// and no whitespace anywhere.
+function isValidEmail(email: string): boolean {
+  const atIndex = email.indexOf('@')
+  if (atIndex <= 0) return false
+  if (atIndex !== email.lastIndexOf('@')) return false
+  const domain = email.slice(atIndex + 1)
+  if (domain.length === 0) return false
+  const dotIndex = domain.indexOf('.')
+  if (dotIndex <= 0 || dotIndex === domain.length - 1) return false
+  for (let i = 0; i < email.length; i++) {
+    const code = email.charCodeAt(i)
+    if (
+      code === 0x20 || (code >= 0x09 && code <= 0x0d) || code === 0xa0 ||
+      code === 0x1680 || (code >= 0x2000 && code <= 0x200a) ||
+      code === 0x2028 || code === 0x2029 || code === 0x202f || code === 0x205f ||
+      code === 0x3000 || code === 0xfeff
+    ) return false
+  }
+  return true
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -542,7 +564,7 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     if (contactEmail) {
       if (contactEmail.length > EVENT_CONTACT_EMAIL_MAX_LENGTH) {
         nextErrors.contactEmail = `L'email ne doit pas dépasser ${EVENT_CONTACT_EMAIL_MAX_LENGTH} caractères.`
-      } else if (!EMAIL_PATTERN.test(contactEmail)) {
+      } else if (!isValidEmail(contactEmail)) {
         nextErrors.contactEmail = "L'email de contact est invalide."
       }
     }

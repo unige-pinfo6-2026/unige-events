@@ -469,6 +469,7 @@ export default function EventForm({
         {/* Ligne 3 : tags / mots-clés */}
         <FormField label="Mots-clés" htmlFor="event-tags" error={errors.tags}>
           <TagInput
+            inputId="event-tags"
             value={values.tags}
             onChange={(tags) => onFieldChange('tags', tags)}
             placeholder="Ajoutez des mots-clés…"

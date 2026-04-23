@@ -404,6 +404,30 @@ describe('EventDetailPage', () => {
       expect(link.getAttribute('rel')).toBe('noopener noreferrer')
     })
 
+    it('does not render an anchor when websiteUrl uses a non-http(s) scheme (XSS guard)', () => {
+      const unsafe = { ...mockEvent, websiteUrl: 'javascript:alert(1)' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: unsafe, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('javascript:alert(1)')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: 'javascript:alert(1)' })).toBeNull()
+    })
+
+    it('does not render an anchor when websiteUrl is malformed', () => {
+      const malformed = { ...mockEvent, websiteUrl: 'not a url' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: malformed, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('not a url')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: 'not a url' })).toBeNull()
+    })
+
     it('renders contactEmail as a mailto link', () => {
       const withEmail = { ...mockEvent, contactEmail: 'contact@unige.ch' }
       mockUseAuth.mockReturnValue({ user: mockUser })
