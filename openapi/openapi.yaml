@@ -1303,21 +1303,9 @@ paths:
   /events/{id}:
     get:
       summary: Détail d'un événement
-      description: |
-        Retourne le détail d'un événement.
-
-        **Règle d'autorisation** : seuls les événements `PUBLISHED` sont accessibles
-        anonymement. Les événements `DRAFT` ou `CANCELLED` ne sont visibles que par
-        leur créateur ou un administrateur (rôle `ADMIN`). Dans tout autre cas —
-        appelant anonyme, appelant authentifié non-créateur non-admin, ou appelant
-        authentifié dont le profil n'est pas provisionné — le serveur renvoie
-        `404 not_found`, envelope identique à celle pour un ID inexistant (évite un
-        oracle d'existence — cf. pentest 2026-04-17 findings 4.12 + 4.15).
       operationId: getEventById
       tags: [events]
-      security:
-        - {}
-        - BearerAuth: []
+      security: []
       parameters:
         - name: id
           in: path
@@ -1333,10 +1321,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '404':
-          description: |
-            Événement introuvable, OU événement en statut `DRAFT` / `CANCELLED`
-            demandé par un appelant qui n'en est ni le créateur ni un admin.
-            Le corps est identique dans les deux cas (pas d'oracle d'existence).
+          description: Événement introuvable
           content:
             application/json:
               schema:

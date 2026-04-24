@@ -126,16 +126,9 @@ public class EventServiceMock extends EventService {
     }
 
     @Override
-    public EventDTO getById(Long id, String auth0Id, boolean isAdmin) {
+    public EventDTO getById(Long id) {
         Event event = eventsById.get(id);
         if (event == null) {
-            throw new NotFoundException();
-        }
-        // Même règle qu'en prod — hotfix pentest 4.12.
-        boolean isCreator = event.creator != null
-                && event.creator.auth0Id != null
-                && event.creator.auth0Id.equals(auth0Id);
-        if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreator) {
             throw new NotFoundException();
         }
         return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);

@@ -261,21 +261,21 @@ class AttendanceServiceCoverageTest {
         persistUser("auth0|cnt-user", "cnt-user@example.com");
 
         // Avant toute inscription — compteur à 0
-        EventDTO before = eventService.getById(event.id, null, false);
+        EventDTO before = eventService.getById(event.id);
         assertEquals(0, before.attendingCount());
 
         // Inscription ATTENDING
         attendanceService.attend("auth0|cnt-user", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO afterAttend = eventService.getById(event.id, null, false);
+        EventDTO afterAttend = eventService.getById(event.id);
         assertEquals(1, afterAttend.attendingCount());
 
         // Désinscription
         attendanceService.removeAttendance("auth0|cnt-user", event.id);
         entityManager.flush();
 
-        EventDTO afterUnattend = eventService.getById(event.id, null, false);
+        EventDTO afterUnattend = eventService.getById(event.id);
         assertEquals(0, afterUnattend.attendingCount());
     }
 
@@ -293,7 +293,7 @@ class AttendanceServiceCoverageTest {
         attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id, null, false);
+        EventDTO dto = eventService.getById(event.id);
         assertEquals(3, dto.attendingCount());
     }
 
@@ -489,7 +489,7 @@ class AttendanceServiceCoverageTest {
         persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id, null, false);
+        EventDTO dto = eventService.getById(event.id);
 
         assertEquals(2, dto.attendingCount());
         assertEquals(0L, dto.availableSpots());
@@ -502,7 +502,7 @@ class AttendanceServiceCoverageTest {
         User organizer = persistUser("auth0|noc-org", "noc-org@example.com");
         Event event = persistEvent("No Capacity Event", organizer, EventStatus.PUBLISHED, null);
 
-        EventDTO dto = eventService.getById(event.id, null, false);
+        EventDTO dto = eventService.getById(event.id);
 
         assertNull(dto.availableSpots());
         assertEquals(0, dto.waitlistedCount());

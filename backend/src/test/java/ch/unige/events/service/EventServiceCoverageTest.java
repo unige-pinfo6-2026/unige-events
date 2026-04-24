@@ -325,7 +325,7 @@ class EventServiceCoverageTest {
         User user = persistUser("auth0|get", "get@example.com");
         Event event = persistEvent("Find Me", EventCategory.CULTURAL, EventStatus.DRAFT, user);
 
-        EventDTO result = eventService.getById(event.id, "auth0|get", false);
+        EventDTO result = eventService.getById(event.id);
 
         assertEquals(event.id, result.id());
         assertEquals("Find Me", result.title());
@@ -335,108 +335,7 @@ class EventServiceCoverageTest {
     @TestTransaction
     void getById_unknownEvent_throwsNotFound() {
 
-        assertThrows(NotFoundException.class, () -> eventService.getById(999999L, null, false));
-    }
-
-    // --- ISSUE-92 (pentest 4.12 + 4.15) — getById visibility rule ---
-
-    @Test
-    @TestTransaction
-    void getById_publishedEvent_anon_returns200() {
-        User user = persistUser("auth0|pub-anon", "pub-anon@example.com");
-        Event event = persistEvent("Public", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
-
-        EventDTO result = eventService.getById(event.id, null, false);
-
-        assertEquals(event.id, result.id());
-        assertEquals("Public", result.title());
-    }
-
-    @Test
-    @TestTransaction
-    void getById_draftEvent_anon_throwsNotFound() {
-        User user = persistUser("auth0|draft-anon", "draft-anon@example.com");
-        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
-
-        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, null, false));
-    }
-
-    @Test
-    @TestTransaction
-    void getById_cancelledEvent_anon_throwsNotFound() {
-        User user = persistUser("auth0|cancel-anon", "cancel-anon@example.com");
-        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
-
-        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, null, false));
-    }
-
-    @Test
-    @TestTransaction
-    void getById_draftEvent_otherUser_throwsNotFound() {
-        User alice = persistUser("auth0|hide-alice", "hide-alice@example.com");
-        persistUser("auth0|hide-bob", "hide-bob@example.com");
-        Event event = persistEvent("Alice's draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
-
-        assertThrows(NotFoundException.class,
-                () -> eventService.getById(event.id, "auth0|hide-bob", false));
-    }
-
-    @Test
-    @TestTransaction
-    void getById_draftEvent_creator_returns200() {
-        User alice = persistUser("auth0|own-draft", "own-draft@example.com");
-        Event event = persistEvent("My draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
-
-        EventDTO result = eventService.getById(event.id, "auth0|own-draft", false);
-
-        assertEquals(event.id, result.id());
-        assertEquals("My draft", result.title());
-    }
-
-    @Test
-    @TestTransaction
-    void getById_cancelledEvent_creator_returns200() {
-        User alice = persistUser("auth0|own-cancel", "own-cancel@example.com");
-        Event event = persistEvent("My cancel", EventCategory.ACADEMIC, EventStatus.CANCELLED, alice);
-
-        EventDTO result = eventService.getById(event.id, "auth0|own-cancel", false);
-
-        assertEquals(event.id, result.id());
-    }
-
-    @Test
-    @TestTransaction
-    void getById_draftEvent_admin_returns200() {
-        User alice = persistUser("auth0|draft-for-admin", "draft-for-admin@example.com");
-        Event event = persistEvent("Inspect me", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
-
-        EventDTO result = eventService.getById(event.id, "auth0|admin", true);
-
-        assertEquals(event.id, result.id());
-    }
-
-    @Test
-    @TestTransaction
-    void getById_cancelledEvent_admin_returns200() {
-        User alice = persistUser("auth0|cancel-for-admin", "cancel-for-admin@example.com");
-        Event event = persistEvent("Inspect cancel", EventCategory.ACADEMIC, EventStatus.CANCELLED, alice);
-
-        EventDTO result = eventService.getById(event.id, "auth0|admin", true);
-
-        assertEquals(event.id, result.id());
-    }
-
-    @Test
-    @TestTransaction
-    void getById_draftEvent_authenticatedButNoProfile_throwsNotFound() {
-        // auth0Id provided but no matching User row in DB.
-        // A user Auth0-valid-but-not-provisioned cannot be a creator (FK on event.creator_id),
-        // so the check falls through to 404 on any non-PUBLISHED event.
-        User alice = persistUser("auth0|ghost-alice", "ghost-alice@example.com");
-        Event event = persistEvent("Alice's draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
-
-        assertThrows(NotFoundException.class,
-                () -> eventService.getById(event.id, "auth0|ghost-not-provisioned", false));
+        assertThrows(NotFoundException.class, () -> eventService.getById(999999L));
     }
 
     // --- update ---
@@ -1093,7 +992,7 @@ class EventServiceCoverageTest {
         entityManager.flush();
         entityManager.clear();
 
-        EventDTO fetched = eventService.getById(created.id(), "auth0|adPersist", false);
+        EventDTO fetched = eventService.getById(created.id());
         assertTrue(fetched.allDay());
     }
 
@@ -1107,7 +1006,7 @@ class EventServiceCoverageTest {
         entityManager.flush();
         entityManager.clear();
 
-        EventDTO fetched = eventService.getById(created.id(), "auth0|adDefault", false);
+        EventDTO fetched = eventService.getById(created.id());
         assertFalse(fetched.allDay());
     }
 
@@ -1187,7 +1086,7 @@ class EventServiceCoverageTest {
         persistAttendanceForEvent(event.id, w2.id, AttendanceStatus.WAITLISTED);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id, null, false);
+        EventDTO dto = eventService.getById(event.id);
 
         assertEquals(3L, dto.attendingCount());
         assertEquals(2L, dto.availableSpots());
@@ -1210,7 +1109,7 @@ class EventServiceCoverageTest {
         persistAttendanceForEvent(event.id, a3.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id, null, false);
+        EventDTO dto = eventService.getById(event.id);
 
         assertEquals(3L, dto.attendingCount());
         assertEquals(0L, dto.availableSpots());
