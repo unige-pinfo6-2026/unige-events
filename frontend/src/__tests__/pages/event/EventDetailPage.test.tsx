@@ -378,4 +378,72 @@ describe('EventDetailPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Partager/ }))
     expect(mockShowToast).toHaveBeenCalledWith('error', expect.stringContaining('Copiez ce lien'), 6000)
   })
+
+  describe('CapacityIndicator', () => {
+    it('shows green badge when spots are available', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: 10 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('10 places disponibles')).toBeTruthy()
+    })
+
+    it('shows orange badge when ≤10% spots remain', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: 1 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('Presque complet')).toBeTruthy()
+    })
+
+    it('shows red badge when event is full', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: 0 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('Complet')).toBeTruthy()
+    })
+
+    it('shows waitlist count when waitlistedCount > 0', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: 0, waitlistedCount: 4 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('4 en liste d\'attente')).toBeTruthy()
+    })
+
+    it('does not show waitlist pill when waitlistedCount is 0', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: 5, waitlistedCount: 0 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByText(/en liste d'attente/)).toBeNull()
+    })
+
+    it('does not render capacity indicator when availableSpots is null', () => {
+      const event = { ...mockEvent, capacity: 20, availableSpots: null }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByText('Places disponibles')).toBeNull()
+    })
+  })
 })
