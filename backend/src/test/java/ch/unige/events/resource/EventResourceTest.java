@@ -231,24 +231,35 @@ class EventResourceTest {
                 .when().get("/events/9999")
                 .then()
                 .statusCode(404)
-                .body("error", equalTo("not_found"))
-                .body("message", equalTo("HTTP 404 Not Found"));
+                .body("error", equalTo("not_found"));
     }
 
     // --- ISSUE-92 (pentest 4.12 + 4.15) — hide DRAFT / CANCELLED events ---
 
     @Test
     void getById_draftEvent_anon_returns404() {
-        // DRAFT (default) seeded by alice; anonymous caller must not be able to read it.
-        // Envelope must be identical to an unknown-id 404 to close the existence oracle.
+        // Anti-oracle: the 404 response for a hidden DRAFT must be strictly identical
+        // to the 404 response for an unknown id — same status, same body. Rather than
+        // hard-coding the message string (which is a JAX-RS implementation detail and
+        // could shift with a RESTEasy / Quarkus upgrade), we extract the unknown-id
+        // response at runtime and assert equality. What matters is the invariant
+        // (hidden == unknown), not the underlying default message.
         var event = eventServiceMock.seedEvent("auth0|alice", "Brouillon secret");
+
+        var unknownResponse = given()
+                .when().get("/events/9999")
+                .then()
+                .statusCode(404)
+                .extract().response();
+        String unknownError = unknownResponse.path("error");
+        String unknownMessage = unknownResponse.path("message");
 
         given()
                 .when().get("/events/" + event.id)
                 .then()
                 .statusCode(404)
-                .body("error", equalTo("not_found"))
-                .body("message", equalTo("HTTP 404 Not Found"));
+                .body("error", equalTo(unknownError))
+                .body("message", equalTo(unknownMessage));
     }
 
     @Test

@@ -69,13 +69,11 @@ L'alternative « passer les IDs d'events en UUID opaques » (mentionnée en 4.15
 
 ### 3. Enveloppe d'erreur 404 : envelope standard, réutilisée
 
-**Décision.** `throw new NotFoundException()` — sans message custom. Le mapper existant ([`NotFoundExceptionMapper.java`](backend/src/main/java/ch/unige/events/exception/mapper/NotFoundExceptionMapper.java)) produit :
+**Décision.** `throw new NotFoundException()` — sans message custom. Le mapper existant ([`NotFoundExceptionMapper.java`](backend/src/main/java/ch/unige/events/exception/mapper/NotFoundExceptionMapper.java)) réutilise l'envelope 404 standard : `error` vaut toujours `"not_found"`, et `message` est celui porté par l'exception (le mapper a un fallback `"Profile not found"` quand `exception.getMessage()` est nul ou vide, mais `new NotFoundException()` sans argument reçoit un message non nul par défaut — positionné par JAX-RS, typiquement `"HTTP 404 Not Found"` — donc ce fallback ne se déclenche pas ici).
 
-```json
-{ "error": "not_found", "message": "Profile not found" }
-```
+**Exigence observable.** Pour un appelant non autorisé à voir un event non publié, la réponse doit être **indiscernable** d'un 404 sur un ID inconnu : même status 404, même structure d'envelope, **et même valeur de `message`**. C'est l'invariant à tester (cf. les tests `getById_*_returns404` qui extraient la réponse unknown à l'exécution et assertent l'égalité, plutôt que de comparer à un littéral qui dépendrait du détail d'implémentation JAX-RS).
 
-**Justification.** L'envelope est identique pour « l'event n'existe pas » et « l'event existe mais vous ne pouvez pas le voir » — c'est précisément ce qu'on veut pour fermer l'oracle d'existence. Introduire un nouveau code d'erreur (`not_visible`, `private_draft`, …) créerait l'oracle qu'on cherche à éviter. Le message générique « Profile not found » est sous-optimal pour un event, mais le changer globalement impacterait toutes les 404 existantes — **hors scope**. Ne pas customiser le message via `new NotFoundException("message")` : cela injecterait un texte spécifique au chemin authentifié qui divergerait du texte d'un 404 « vrai ».
+**Justification.** L'envelope doit être identique pour « l'event n'existe pas » et « l'event existe mais vous ne pouvez pas le voir » — c'est précisément ce qu'on veut pour fermer l'oracle d'existence. Introduire un nouveau code d'erreur (`not_visible`, `private_draft`, …) créerait l'oracle qu'on cherche à éviter. Ne pas customiser le message via `new NotFoundException("message")` : cela injecterait un texte spécifique au chemin authentifié qui divergerait du texte d'un 404 « vrai ».
 
 ### 4. Statuts couverts : DRAFT + CANCELLED
 
@@ -447,16 +445,28 @@ void getById_draftEvent_creator_returns200() {
 }
 ```
 
-### 5.4 — Vérification envelope identique
+### 5.4 — Vérification envelope identique (anti-oracle)
 
-L'un des tests (par exemple `getById_draftEvent_anon_returns404`) doit vérifier que le body est **strictement identique** à celui de `getById_unknownEvent_returns404` (même `error`, même `message`) — c'est la garantie anti-oracle :
+Un test doit prouver que le body renvoyé pour un event caché est **strictement identique** à celui d'un ID inexistant. Ne **pas** asserter un littéral sur `message` : la valeur dépend du détail d'implémentation JAX-RS (message par défaut de `NotFoundException`) et peut dériver au fil des upgrades de RESTEasy / Quarkus. Tester l'invariant en extrayant la réponse unknown à l'exécution et en comparant par égalité :
 
 ```java
-.body("error", equalTo("not_found"))
-.body("message", equalTo("Profile not found"))  // même message qu'un 404 standard
+var unknownResponse = given()
+        .when().get("/events/9999")
+        .then()
+        .statusCode(404)
+        .extract().response();
+String unknownError = unknownResponse.path("error");
+String unknownMessage = unknownResponse.path("message");
+
+given()
+        .when().get("/events/" + event.id)
+        .then()
+        .statusCode(404)
+        .body("error", equalTo(unknownError))
+        .body("message", equalTo(unknownMessage));
 ```
 
-Si le message diverge, c'est un bug de mapper — réinvestiguer avant de tagger la PR.
+Ce pattern teste le **contrat** (hidden == unknown) et pas l'implémentation (la chaîne exacte du message). Les autres tests 404 (`_cancelledEvent_anon_returns404`, `_draftEvent_otherUser_returns404`, `_cancelledEvent_otherUser_returns404`) peuvent se contenter de `statusCode(404)` + `body("error", equalTo("not_found"))` — un seul test anti-oracle suffit à prouver l'invariant.
 
 ---
 
@@ -825,7 +835,7 @@ Remplace `ISSUE-92` par le numéro réel de l'issue GitHub associée au finding 
 6. **`backend/src/test/java/ch/unige/events/resource/EventResourceTest.java`** :
    - Renommer `getById_existingEvent_returns200` (ligne 215) en `getById_publishedEvent_anon_returns200` et remplacer `seedEvent(...)` par `seedEventWithStatus(..., EventStatus.PUBLISHED, LocalDateTime.now())` pour rester dans le cas non-régression.
    - Conserver `getById_unknownEvent_returns404` tel quel (ligne 228).
-   - Ajouter les 8 nouveaux tests : `_draftEvent_anon_returns404`, `_cancelledEvent_anon_returns404`, `_draftEvent_otherUser_returns404`, `_cancelledEvent_otherUser_returns404`, `_draftEvent_creator_returns200`, `_cancelledEvent_creator_returns200`, `_draftEvent_admin_returns200`, `_cancelledEvent_admin_returns200`. Annotations : `@TestSecurity(user = "auth0|alice")` / `"auth0|bob"` / `"auth0|admin", roles = {"ADMIN"}`. Vérifier pour au moins un des tests 404 que `body("message", equalTo("Profile not found"))` — même message qu'un 404 standard, garantit l'absence d'oracle.
+   - Ajouter les 8 nouveaux tests : `_draftEvent_anon_returns404`, `_cancelledEvent_anon_returns404`, `_draftEvent_otherUser_returns404`, `_cancelledEvent_otherUser_returns404`, `_draftEvent_creator_returns200`, `_cancelledEvent_creator_returns200`, `_draftEvent_admin_returns200`, `_cancelledEvent_admin_returns200`. Annotations : `@TestSecurity(user = "auth0|alice")` / `"auth0|bob"` / `"auth0|admin", roles = {"ADMIN"}`. Pour l'anti-oracle (au moins sur `_draftEvent_anon_returns404`), **extraire la réponse unknown-id à l'exécution** (`given().get("/events/9999").then().statusCode(404).extract().response()`) puis asserter `body("error", equalTo(unknownError))` + `body("message", equalTo(unknownMessage))` — teste l'invariant (hidden == unknown) sans coupler au détail d'implémentation JAX-RS.
 
 7. **`backend/src/test/java/ch/unige/events/service/EventServiceCoverageTest.java`** — ajouter ~8 nouveaux tests intégration dans la section `// --- getById ---` (après ligne 339). Utiliser `persistUser` + `persistEvent` pour seed. Viser 100 % de couverture sur les 3 lignes nouvelles du Service (`status != PUBLISHED`, `!isAdmin`, `!isCreator`).
 
@@ -866,7 +876,7 @@ Remplace `ISSUE-92` par le numéro réel de l'issue GitHub associée au finding 
   - `getById_draftEvent_anon_returns404` (anon voit draft → 404)
   - `getById_draftEvent_otherUser_returns404` (user B voit draft de user A → 404)
 - [ ] Test de non-régression vert : `getById_publishedEvent_anon_returns200` (anon voit published → 200, comportement public préservé).
-- [ ] Au moins un test 404 assert `body("message", equalTo("Profile not found"))` pour prouver l'absence d'oracle d'existence.
+- [ ] Au moins un test 404 extrait la réponse unknown-id à l'exécution et asserte l'égalité stricte du body (`error` et `message`) avec la réponse hidden-draft — pour prouver l'absence d'oracle d'existence sans coupler l'assertion à un littéral dépendant de JAX-RS.
 - [ ] `git diff --stat frontend/` vide (pas de changement frontend).
 - [ ] SonarCloud Quality Gate vert sur la PR.
 - [ ] `openapi.yaml` modifié EN PREMIER et cohérent avec le code.
