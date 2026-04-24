@@ -119,6 +119,20 @@ Dernière mise à jour : 2026-04-15
 - [ ] Entité `Report` (reporterId, eventId, reason, status PENDING|REVIEWED|DISMISSED)
 - [ ] `POST /events/{id}/report`
 - [ ] `GET /admin/reports`, `PUT /admin/reports/{id}`, `PUT /admin/events/{id}/feature`
+- [x] **ISSUE-93** — Hotfix sécurité post-pentest (2026-04-24) sur `GET /users/{id}`.
+  Correction des findings **4.1** (user-existence oracle via `403` vs `404`) et **4.1b**
+  (harvest anonyme des profils opt-in, GDPR-relevant) du rapport de pentest du 2026-04-17.
+  - `UserService.getPublicProfile(UUID id, String auth0Id)` — signature étendue. Si
+    `profilePublic=false` et que l'appelant n'est pas le propriétaire (self-case sur
+    `auth0Id`), throw `NotFoundException` (→ `404 not_found`, envelope identique à un
+    UUID inexistant). Ferme l'oracle exploité via `creatorId` leaké par `GET /events`.
+  - `UserResource.getProfile` reste `@PermitAll` mais lit `identity.isAnonymous()` pour
+    choisir entre `UserPublicResponse.from(user)` (full, authentifié) et
+    `UserPublicResponse.fromAnonymous(user)` (réduit : `id` + `displayName` + `avatarUrl`).
+  - Nouvelle factory `UserPublicResponse.fromAnonymous(User)` — ne projette que 3 champs
+    sur 8. Les 5 autres sont `null` et conformes au schéma (tous `nullable: true`).
+  - 5 call-sites internes migrés (1 prod + 3 coverage tests + 1 mock override).
+  - Pas de changement DB. Pas d'impact frontend — `ProfilePage.tsx` dégrade gracieusement.
 
 ---
 

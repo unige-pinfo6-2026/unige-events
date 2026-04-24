@@ -26,6 +26,20 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 
 Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
 
+#### Règle de visibilité du profil (hotfix pentest 2026-04-17)
+
+Le champ `profilePublic` contrôle deux dimensions simultanément sur `GET /api/users/{id}` :
+
+| `profilePublic` | Appelant | Réponse |
+|---|---|---|
+| `true` | anon | `200` — payload **réduit** (`id`, `displayName`, `avatarUrl` ; autres `null`) |
+| `true` | authentifié | `200` — payload **complet** |
+| `false` | anon ou autre user | `404 not_found` (envelope identique à un UUID inexistant) |
+| `false` | propriétaire (`auth0Id` matche) | `200` — payload complet (self-case) |
+
+La règle d'autorisation vit dans `UserService.getPublicProfile(UUID, String auth0Id)` ;
+le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.fromAnonymous`.
+
 ---
 
 ### Event
