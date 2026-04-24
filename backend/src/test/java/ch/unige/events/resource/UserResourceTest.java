@@ -22,6 +22,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 @QuarkusTest
 class UserResourceTest {
@@ -40,37 +41,124 @@ class UserResourceTest {
         eventServiceMock.reset();
     }
 
+    // --- GET /users/{id} — ISSUE-93 (pentest 4.1 + 4.1b) ---
+
     @Test
-    void getProfilePublicSuccess() {
+    void getProfile_publicProfile_anon_returns200_strippedPayload() {
         var user = userServiceMock.seedUser("auth0|public-profile", "public@example.com");
         user.profilePublic = true;
+        user.displayName = "Alice";
+        user.faculty = "Sciences";
+        user.studyLevel = "Master";
+        user.bio = "Étudiant";
+        user.interests = java.util.List.of("tech");
+        user.avatarUrl = "https://cdn/avatar.png";
+        user.bannerUrl = "https://cdn/banner.png";
 
         given()
             .when().get("/users/" + user.id)
             .then()
             .statusCode(200)
             .contentType(ContentType.JSON)
-            .body("id", equalTo(user.id.toString()));
+            .body("id", equalTo(user.id.toString()))
+            .body("displayName", equalTo("Alice"))
+            .body("avatarUrl", equalTo("https://cdn/avatar.png"))
+            // Sensitive fields stripped for anonymous callers (hotfix pentest 4.1b).
+            .body("faculty", nullValue())
+            .body("studyLevel", nullValue())
+            .body("bio", nullValue())
+            .body("interests", nullValue())
+            .body("bannerUrl", nullValue());
     }
 
     @Test
-    void getProfilePrivateForbidden() {
+    void getProfile_privateProfile_anon_returns404_sameEnvelopeAsUnknown() {
+        // Anti-oracle: the 404 response for a hidden private profile must be strictly
+        // identical to the 404 response for an unknown UUID. Extract the unknown-id
+        // response at runtime and assert equality rather than hard-coding the JAX-RS
+        // default message (which is an implementation detail and could shift with a
+        // RESTEasy / Quarkus upgrade). The invariant under test is "hidden == unknown".
         var user = userServiceMock.seedUser("auth0|private-profile", "private@example.com");
+        user.profilePublic = false;
+
+        var unknownResponse = given()
+            .when().get("/users/" + UUID.randomUUID())
+            .then()
+            .statusCode(404)
+            .extract().response();
+        String unknownError = unknownResponse.path("error");
+        String unknownMessage = unknownResponse.path("message");
 
         given()
             .when().get("/users/" + user.id)
             .then()
-            .statusCode(403)
-            .body("error", equalTo("forbidden"));
+            .statusCode(404)
+            .body("error", equalTo(unknownError))
+            .body("message", equalTo(unknownMessage));
     }
 
     @Test
-    void getProfileNotFound() {
+    void getProfile_unknownUuid_anon_returns404() {
         given()
             .when().get("/users/" + UUID.randomUUID())
             .then()
             .statusCode(404)
             .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob", attributes = {
+        @SecurityAttribute(key = "email", value = "bob@example.com")
+    })
+    void getProfile_privateProfile_otherUser_returns404() {
+        var user = userServiceMock.seedUser("auth0|alice-private", "alice@example.com");
+        user.profilePublic = false;
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice-self", attributes = {
+        @SecurityAttribute(key = "email", value = "alice-self@example.com")
+    })
+    void getProfile_privateProfile_owner_returns200_fullPayload() {
+        var user = userServiceMock.seedUser("auth0|alice-self", "alice-self@example.com");
+        user.profilePublic = false;
+        user.faculty = "Sciences";
+        user.bio = "Secret bio";
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("faculty", equalTo("Sciences"))
+            .body("bio", equalTo("Secret bio"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob", attributes = {
+        @SecurityAttribute(key = "email", value = "bob@example.com")
+    })
+    void getProfile_publicProfile_authenticated_returns200_fullPayload() {
+        // Non-regression: any authenticated caller receives the FULL payload on a
+        // public profile — stripping applies only to anonymous callers.
+        var user = userServiceMock.seedUser("auth0|alice-pub", "alice-pub@example.com");
+        user.profilePublic = true;
+        user.faculty = "Sciences";
+        user.bio = "Public bio";
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("faculty", equalTo("Sciences"))
+            .body("bio", equalTo("Public bio"));
     }
 
     @Test
