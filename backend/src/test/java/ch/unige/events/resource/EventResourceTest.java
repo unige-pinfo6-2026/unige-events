@@ -212,8 +212,9 @@ class EventResourceTest {
     // --- GET /events/{id} ---
 
     @Test
-    void getById_existingEvent_returns200() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "Mon Événement");
+    void getById_publishedEvent_anon_returns200() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Mon Événement", EventStatus.PUBLISHED, LocalDateTime.now());
 
         given()
                 .when().get("/events/" + event.id)
@@ -230,7 +231,116 @@ class EventResourceTest {
                 .when().get("/events/9999")
                 .then()
                 .statusCode(404)
+                .body("error", equalTo("not_found"))
+                .body("message", equalTo("HTTP 404 Not Found"));
+    }
+
+    // --- ISSUE-92 (pentest 4.12 + 4.15) — hide DRAFT / CANCELLED events ---
+
+    @Test
+    void getById_draftEvent_anon_returns404() {
+        // DRAFT (default) seeded by alice; anonymous caller must not be able to read it.
+        // Envelope must be identical to an unknown-id 404 to close the existence oracle.
+        var event = eventServiceMock.seedEvent("auth0|alice", "Brouillon secret");
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"))
+                .body("message", equalTo("HTTP 404 Not Found"));
+    }
+
+    @Test
+    void getById_cancelledEvent_anon_returns404() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Annulé", EventStatus.CANCELLED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
                 .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void getById_draftEvent_otherUser_returns404() {
+        // Bob authenticated, DRAFT owned by alice — must not leak.
+        var event = eventServiceMock.seedEvent("auth0|alice", "Brouillon d'Alice");
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void getById_cancelledEvent_otherUser_returns404() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Annulé d'Alice", EventStatus.CANCELLED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getById_draftEvent_creator_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Mon brouillon");
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("id", equalTo(event.id.intValue()))
+                .body("status", is("DRAFT"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getById_cancelledEvent_creator_returns200() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Mon annulé", EventStatus.CANCELLED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("id", equalTo(event.id.intValue()))
+                .body("status", is("CANCELLED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
+    void getById_draftEvent_admin_returns200() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Brouillon inspecté");
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("id", equalTo(event.id.intValue()))
+                .body("status", is("DRAFT"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
+    void getById_cancelledEvent_admin_returns200() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Annulé inspecté", EventStatus.CANCELLED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(200)
+                .body("id", equalTo(event.id.intValue()))
+                .body("status", is("CANCELLED"));
     }
 
     // --- PUT /events/{id} ---
@@ -928,7 +1038,8 @@ class EventResourceTest {
 
     @Test
     void getById_withoutCapacity_returnsNullAvailableSpots() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "Sans capacité");
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Sans capacité", EventStatus.PUBLISHED, LocalDateTime.now());
         event.capacity = null;
 
         given()
@@ -941,7 +1052,8 @@ class EventResourceTest {
 
     @Test
     void getById_withCapacity_returnsAvailableSpots() {
-        var event = eventServiceMock.seedEvent("auth0|alice", "Avec capacité");
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Avec capacité", EventStatus.PUBLISHED, LocalDateTime.now());
         event.capacity = 10;
 
         given()
