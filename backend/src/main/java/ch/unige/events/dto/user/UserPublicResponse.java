@@ -37,12 +37,12 @@ public record UserPublicResponse(
         return new UserPublicResponse(
                 user.id,
                 user.displayName,
-                null,
-                null,
-                null,
-                null,
+                null, // faculty
+                null, // studyLevel
+                null, // bio
+                null, // interests
                 user.avatarUrl,
-                null
+                null  // bannerUrl
         );
     }
 }

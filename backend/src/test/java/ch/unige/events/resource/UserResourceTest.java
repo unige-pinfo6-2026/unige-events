@@ -75,26 +75,27 @@ class UserResourceTest {
     void getProfile_privateProfile_anon_returns404_sameEnvelopeAsUnknown() {
         // Anti-oracle: the 404 response for a hidden private profile must be strictly
         // identical to the 404 response for an unknown UUID. Extract the unknown-id
-        // response at runtime and assert equality rather than hard-coding the JAX-RS
-        // default message (which is an implementation detail and could shift with a
-        // RESTEasy / Quarkus upgrade). The invariant under test is "hidden == unknown".
+        // response at runtime and compare the FULL raw body, not just `error`/`message` —
+        // if ApiErrorResponse ever gains a field (path, timestamp, requestId...), a
+        // field-wise assertion would let the two responses diverge silently while still
+        // passing. Full-body equality closes that latent coupling.
+        //
+        // This also avoids hard-coding the JAX-RS default message (implementation detail
+        // that could shift with a RESTEasy / Quarkus upgrade — see ISSUE-92 commit 5273d13).
         var user = userServiceMock.seedUser("auth0|private-profile", "private@example.com");
         user.profilePublic = false;
 
-        var unknownResponse = given()
+        String unknownBody = given()
             .when().get("/users/" + UUID.randomUUID())
             .then()
             .statusCode(404)
-            .extract().response();
-        String unknownError = unknownResponse.path("error");
-        String unknownMessage = unknownResponse.path("message");
+            .extract().body().asString();
 
         given()
             .when().get("/users/" + user.id)
             .then()
             .statusCode(404)
-            .body("error", equalTo(unknownError))
-            .body("message", equalTo(unknownMessage));
+            .body(equalTo(unknownBody));
     }
 
     @Test
