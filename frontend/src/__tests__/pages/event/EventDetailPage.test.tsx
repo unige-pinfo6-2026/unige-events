@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventDetailPage from '@/pages/event/EventDetailPage'
@@ -16,6 +16,9 @@ vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
 }))
+vi.mock('@/hooks/useAttendees', () => ({
+  useAttendees: vi.fn(),
+}))
 const mockShowToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
@@ -23,12 +26,14 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
+import { useAttendees } from '@/hooks/useAttendees'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
+const mockUseAttendees = useAttendees as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
@@ -68,6 +73,19 @@ afterEach(() => {
   cleanup()
   vi.resetAllMocks()
   sessionStorage.removeItem(BANNER_UPLOAD_ERROR_KEY)
+})
+
+const defaultAttendeesState = {
+  attendees: [],
+  isLoading: false,
+  error: null,
+  hasMore: false,
+  loadMore: vi.fn(),
+  isForbidden: false,
+}
+
+beforeEach(() => {
+  mockUseAttendees.mockReturnValue(defaultAttendeesState)
 })
 
 function renderPage(eventId = '1') {
@@ -444,6 +462,51 @@ describe('EventDetailPage', () => {
       renderPage()
 
       expect(screen.queryByText('Places disponibles')).toBeNull()
+    })
+  })
+
+  describe('AttendeesList integration', () => {
+    it('renders the Participants heading for any event', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other' } })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 4 },
+        loading: false,
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByRole('heading', { name: 'Participants' })).toBeTruthy()
+    })
+
+    it('does not call useAttendees for a non-organizer', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other' } })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 4 },
+        loading: false,
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockUseAttendees).not.toHaveBeenCalled()
+    })
+
+    it('calls useAttendees with the event id for the organizer', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 0 },
+        loading: false,
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockUseAttendees).toHaveBeenCalledWith(1)
+      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
     })
   })
 })

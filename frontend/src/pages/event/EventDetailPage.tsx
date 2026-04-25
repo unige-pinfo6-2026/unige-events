@@ -13,6 +13,7 @@ import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
+import AttendeesList from '@/components/attendees/AttendeesList'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -484,23 +485,6 @@ export default function EventDetailPage() {
               availableSpots={event.availableSpots ?? null}
             />
 
-            <div className="border-t border-border" />
-
-            {/* Shell liste des participants — S6 */}
-            <ComingSoonBlock icon={Users} label="Liste des participants" sprint="S6">
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full bg-foreground/10 border-2 border-background"
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-foreground/20">12 participants · 4 intéressés</span>
-              </div>
-            </ComingSoonBlock>
-
           </div>
 
           {/* IcsExportButton */}
@@ -574,6 +558,12 @@ export default function EventDetailPage() {
         </div>
 
       </div>
+
+      <AttendeesList
+        eventId={event.id}
+        isOrganizer={isOrganizer}
+        attendingCount={event.attendingCount}
+      />
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 

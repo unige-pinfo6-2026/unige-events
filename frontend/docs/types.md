@@ -119,6 +119,21 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 
 Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
 
+### UserPublicResponse
+
+Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+
+| Champ       | Type                      | Requis |
+|-------------|---------------------------|--------|
+| id          | string                    | oui    |
+| displayName | string \| null            | non    |
+| faculty     | string \| null            | non    |
+| studyLevel  | string \| null            | non    |
+| bio         | string \| null            | non    |
+| interests   | string[]                  | non    |
+| avatarUrl   | string \| null            | non    |
+| bannerUrl   | string \| null            | non    |
+
 ---
 
 ---

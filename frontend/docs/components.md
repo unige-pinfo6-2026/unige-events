@@ -247,6 +247,28 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Affiche un compteur live : "X personnes participent · Y intéressées".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
+### AttendeesList
+
+- Section "Participants" affichée en bas de `EventDetailPage`.
+- Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
+- **Vue non-organisateur** : résumé visuel — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Aucun appel API.
+- **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
+- Liste des participants rendue en grille de `AttendeeCard`. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- États gérés : skeleton de chargement initial, message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
+- Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
+
+### AttendeeCard
+
+- Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
+- Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
+- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
+- Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
+- Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
+
+### WaitlistBadge
+
+- Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
+
 ### CalendarSubscribeButton
 
 - Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
@@ -380,6 +402,15 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 - Tri local par `updatedAt` DESC (fallback `createdAt`).
 - Erreur réseau → `error` rempli + `console.warn`, `drafts = []`, pas de retry.
 
+### useAttendees
+
+- Charge la liste paginée des participants d'un événement pour la vue organisateur.
+- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch.
+- Pour chaque `Attendance` retournée, fetch `getPublicUser(userId)` en parallèle via `Promise.allSettled` — un 403/404 sur un profil n'invalide pas le batch, le profil est mappé à `null`.
+- Retourne : `attendees: AttendeeWithProfile[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `isForbidden`.
+- Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
+- Réponse 403 sur `/attendees` → `isForbidden = true`, pas de retry.
+
 ### useAttendance
 
 - Gère l'état d'inscription d'un utilisateur à un événement.
@@ -400,6 +431,11 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
 - `getCalendarToken()` : `GET /api/users/me/calendar-token`.
 - `regenerateCalendarToken()` : `POST /api/users/me/calendar-token/regenerate`.
+
+### attendeesApi.ts
+
+- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — réservé au créateur (403 sinon).
+- `getPublicUser(userId)` : `GET /api/users/{id}` — retourne `null` sur 403 (profil privé) et 404 (introuvable). Toute autre erreur est rethrown.
 
 ### attendanceApi.ts
 
