@@ -35,12 +35,15 @@ const sectionVariants = {
 
 const headingClass = 'text-xs font-bold uppercase tracking-widest text-foreground/30 mb-3'
 
+function buildSummaryLabel(attendingCount: number): string {
+  if (attendingCount === 0) return 'Aucun participant pour le moment.'
+  const verb = attendingCount === 1 ? 'personne participe' : 'personnes participent'
+  return `${attendingCount} ${verb}`
+}
+
 function NonOrganizerSummary({ attendingCount }: Readonly<{ attendingCount: number }>) {
   const placeholders = Math.min(5, Math.max(1, attendingCount))
-  const label =
-    attendingCount === 0
-      ? 'Aucun participant pour le moment.'
-      : `${attendingCount} ${attendingCount === 1 ? 'personne participe' : 'personnes participent'}`
+  const label = buildSummaryLabel(attendingCount)
   return (
     <div className="flex items-center gap-3">
       <div className="flex -space-x-2 shrink-0" aria-hidden="true">
@@ -75,7 +78,7 @@ interface OrganizerViewProps {
 }
 
 function OrganizerView({ eventId, attendingCount }: Readonly<OrganizerViewProps>) {
-  const { attendees, isLoading, error, hasMore, loadMore, isForbidden } =
+  const { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden } =
     useAttendees(eventId)
   const [activeTab, setActiveTab] = useState<AttendanceStatus>('ATTENDING')
 
@@ -106,7 +109,7 @@ function OrganizerView({ eventId, attendingCount }: Readonly<OrganizerViewProps>
         </p>
         <button
           type="button"
-          onClick={() => loadMore()}
+          onClick={refetch}
           className="px-3 py-1.5 rounded-xl border border-border text-sm text-foreground hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
         >
           Réessayer

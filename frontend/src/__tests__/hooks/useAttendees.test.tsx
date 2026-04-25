@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import type { Attendance } from '@/types/attendance'
 
 vi.mock('@/services/attendeesApi', () => ({
   getEventAttendees: vi.fn(),
@@ -200,5 +201,89 @@ describe('useAttendees', () => {
     act(() => { result.current.loadMore() })
 
     expect(mockGetEventAttendees).not.toHaveBeenCalled()
+  })
+
+  it('refetch resets state and re-fetches page 0 after an error', async () => {
+    mockGetEventAttendees
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce([a1])
+    mockGetPublicUser.mockResolvedValue(profile1)
+    mockIsAxiosError.mockReturnValue(false)
+
+    const { result } = renderHook(() => useAttendees(42))
+
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    expect(result.current.attendees).toEqual([])
+
+    act(() => { result.current.refetch() })
+
+    await waitFor(() => expect(result.current.attendees.length).toBe(1))
+    expect(result.current.error).toBeNull()
+    expect(result.current.attendees[0].attendance.id).toBe(1)
+  })
+
+  it('discards a stale response when eventId changes mid-flight', async () => {
+    let resolveFirst: ((rows: Attendance[]) => void) | undefined
+    mockGetEventAttendees
+      .mockImplementationOnce(() => new Promise<Attendance[]>((resolve) => { resolveFirst = resolve }))
+      .mockResolvedValueOnce([{ ...a1, id: 99, eventId: 7, userId: 'user-7' }])
+    mockGetPublicUser.mockResolvedValue(null)
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number }) => useAttendees(id),
+      { initialProps: { id: 42 } },
+    )
+
+    rerender({ id: 7 })
+
+    // Resolve the stale request after the rerender — its result must be ignored.
+    act(() => { resolveFirst?.([a1, a2]) })
+
+    await waitFor(() => expect(result.current.attendees.length).toBe(1))
+    expect(result.current.attendees[0].attendance.id).toBe(99)
+  })
+
+  it('does not call setState after unmount when the request resolves later', async () => {
+    let resolveFn: ((rows: Attendance[]) => void) | undefined
+    mockGetEventAttendees.mockImplementationOnce(
+      () => new Promise<Attendance[]>((resolve) => { resolveFn = resolve }),
+    )
+    mockGetPublicUser.mockResolvedValue(null)
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = renderHook(() => useAttendees(42))
+
+    unmount()
+    act(() => { resolveFn?.([a1, a2]) })
+    await new Promise((r) => setTimeout(r, 20))
+
+    // No "state update on unmounted" warnings raised by React.
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('eventId change releases the loadingRef so the new initial fetch runs', async () => {
+    let resolveFirst: ((rows: Attendance[]) => void) | undefined
+    mockGetEventAttendees
+      .mockImplementationOnce(() => new Promise<Attendance[]>((resolve) => { resolveFirst = resolve }))
+      .mockResolvedValueOnce([{ ...a1, id: 50, eventId: 100 }])
+    mockGetPublicUser.mockResolvedValue(null)
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: number }) => useAttendees(id),
+      { initialProps: { id: 42 } },
+    )
+
+    // Switch to a new event while the first fetch is still pending.
+    rerender({ id: 100 })
+
+    // The hook must have called the API twice: once for 42, once for 100.
+    expect(mockGetEventAttendees).toHaveBeenCalledTimes(2)
+    expect(mockGetEventAttendees).toHaveBeenLastCalledWith(100, { page: 0, size: 20 })
+
+    // Now resolve the stale first request — should not surface in state.
+    act(() => { resolveFirst?.([a1]) })
+    await waitFor(() => expect(result.current.attendees.length).toBe(1))
+    expect(result.current.attendees[0].attendance.id).toBe(50)
   })
 })

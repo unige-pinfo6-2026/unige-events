@@ -169,14 +169,16 @@ describe('AttendeesList', () => {
       expect(container.querySelector('[aria-busy="true"]')).toBeTruthy()
     })
 
-    it('renders error state with retry button', () => {
+    it('renders error state with retry button that calls refetch (not loadMore)', () => {
       const loadMore = vi.fn()
+      const refetch = vi.fn()
       mockUseAttendees.mockReturnValue({
         attendees: [],
         isLoading: false,
         error: new Error('boom'),
         hasMore: true,
         loadMore,
+        refetch,
         isForbidden: false,
       })
 
@@ -184,7 +186,8 @@ describe('AttendeesList', () => {
 
       expect(screen.getByText(/Impossible de charger la liste/)).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: /Réessayer/ }))
-      expect(loadMore).toHaveBeenCalled()
+      expect(refetch).toHaveBeenCalledTimes(1)
+      expect(loadMore).not.toHaveBeenCalled()
     })
 
     it('shows "Charger plus" only when hasMore is true and calls loadMore on click', () => {

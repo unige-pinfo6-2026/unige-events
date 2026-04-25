@@ -17,6 +17,22 @@ interface UseAttendanceResult {
   toggle: (status: 'ATTENDING') => void
 }
 
+const REGISTRATION_CLOSED_MESSAGE = 'Les inscriptions sont closes pour cet événement.'
+const GENERIC_ERROR_MESSAGE = 'Une erreur est survenue.'
+
+interface ApiErrorBody {
+  error?: string
+  message?: string
+}
+
+function extractErrorMessage(err: unknown): string {
+  if (!axios.isAxiosError(err)) return GENERIC_ERROR_MESSAGE
+  const body = err.response?.data as ApiErrorBody | undefined
+  if (body?.error === 'registration_closed') return REGISTRATION_CLOSED_MESSAGE
+  if (typeof body?.message === 'string' && body.message.trim() !== '') return body.message
+  return GENERIC_ERROR_MESSAGE
+}
+
 export function useAttendance(
   eventId: number,
   initialAttendingCount: number,
@@ -59,7 +75,10 @@ export function useAttendance(
     (status: 'ATTENDING') => {
       if (loading) return
 
-      const prev = state
+      // Snapshot every piece of state we touch optimistically so we can roll
+      // back atomically on error.
+      const prevState = state
+      const prevIsFull = isFull
 
       if (state.currentStatus === null) {
         const prevCount = state.attendingCount
@@ -71,29 +90,29 @@ export function useAttendance(
         setState(optimistic)
         setLoading(true)
         setError(null)
-        setIsFull(false)
+        // isFull is intentionally NOT cleared optimistically — the server is
+        // the source of truth for capacity. We update it only after the
+        // response, based on the assigned status.
 
         attend(eventId, status)
           .then((attendance) => {
-            // Server may assign WAITLISTED if event filled up between load and submit
+            // Server may assign WAITLISTED if event filled up between load and submit.
             setState({
               currentStatus: attendance.status,
               attendingCount:
                 attendance.status === 'WAITLISTED' ? prevCount : prevCount + 1,
             })
+            setIsFull(attendance.status === 'WAITLISTED')
             setLoading(false)
           })
           .catch((err: unknown) => {
-            setState(prev)
-            if (axios.isAxiosError(err) && err.response?.status === 409) {
-              setIsFull(true)
-            } else {
-              setError('Une erreur est survenue.')
-            }
+            setState(prevState)
+            setIsFull(prevIsFull)
+            setError(extractErrorMessage(err))
             setLoading(false)
           })
       } else {
-        // Already registered (ATTENDING or WAITLISTED) → unregister
+        // Already registered (ATTENDING or WAITLISTED) → unregister.
         const optimistic: AttendanceState = {
           currentStatus: null,
           // WAITLISTED users are not counted in attendingCount
@@ -107,15 +126,22 @@ export function useAttendance(
         setError(null)
 
         unattend(eventId)
-          .then(() => setLoading(false))
-          .catch(() => {
-            setState(prev)
-            setError('Une erreur est survenue.')
+          .then(() => {
+            // Leave isFull unchanged: a successful unattend does not guarantee
+            // a free slot — the server may auto-promote the next waitlisted
+            // user, or others may already be queued. A future improvement
+            // could refetch the event to recompute availableSpots.
+            setLoading(false)
+          })
+          .catch((err: unknown) => {
+            setState(prevState)
+            setIsFull(prevIsFull)
+            setError(extractErrorMessage(err))
             setLoading(false)
           })
       }
     },
-    [eventId, loading, state],
+    [eventId, isFull, loading, state],
   )
 
   return {

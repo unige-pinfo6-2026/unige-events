@@ -89,7 +89,43 @@ describe('useAttendance', () => {
     expect(result.current.error).toBe('Une erreur est survenue.')
   })
 
-  it('sets isFull when attend fails with 409 conflict', async () => {
+  it('surfaces the registration_closed-specific message and does not set isFull', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const err = { response: { status: 409, data: { error: 'registration_closed', message: 'X' } } }
+    mockAttend.mockRejectedValue(err)
+    mockIsAxiosError.mockReturnValue(true)
+
+    const { result } = renderHook(() => useAttendance(1, 10, null))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.error).toBe('Les inscriptions sont closes pour cet événement.')
+    expect(result.current.isFull).toBe(false)
+  })
+
+  it('surfaces the server-provided message for unknown 409 errors and does not set isFull', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    const err = { response: { status: 409, data: { error: 'something_else', message: 'Conflit serveur' } } }
+    mockAttend.mockRejectedValue(err)
+    mockIsAxiosError.mockReturnValue(true)
+
+    const { result } = renderHook(() => useAttendance(1, 10, null))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.error).toBe('Conflit serveur')
+    expect(result.current.isFull).toBe(false)
+  })
+
+  it('falls back to the generic error message when 409 has no body', async () => {
     mockGetMyAttendance.mockResolvedValue(null)
     const err = { response: { status: 409 } }
     mockAttend.mockRejectedValue(err)
@@ -103,8 +139,75 @@ describe('useAttendance', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false))
 
+    expect(result.current.error).toBe('Une erreur est survenue.')
+    expect(result.current.isFull).toBe(false)
+  })
+
+  it('sets isFull=true after a successful attend that returns WAITLISTED', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue({
+      id: 1,
+      userId: 'u',
+      eventId: 1,
+      status: 'WAITLISTED',
+      createdAt: '2026-04-08T10:00:00.000Z',
+    })
+
+    const { result } = renderHook(() => useAttendance(1, 10, null))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.currentStatus).toBe('WAITLISTED')
+    expect(result.current.attendingCount).toBe(10)
     expect(result.current.isFull).toBe(true)
-    expect(result.current.error).toBeNull()
+  })
+
+  it('sets isFull=false after a successful attend that returns ATTENDING', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue({
+      id: 1,
+      userId: 'u',
+      eventId: 1,
+      status: 'ATTENDING',
+      createdAt: '2026-04-08T10:00:00.000Z',
+    })
+
+    const { result } = renderHook(() => useAttendance(1, 10, null, 0))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.isFull).toBe(true)
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.attendingCount).toBe(11)
+    expect(result.current.isFull).toBe(false)
+  })
+
+  it('rolls back isFull to its previous value when attend fails', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockRejectedValue(new Error('boom'))
+    mockIsAxiosError.mockReturnValue(false)
+
+    // Start with availableSpots=0 → isFull starts true
+    const { result } = renderHook(() => useAttendance(1, 10, null, 0))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.isFull).toBe(true)
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Rollback: isFull should still be true after the failure.
+    expect(result.current.isFull).toBe(true)
+    expect(result.current.currentStatus).toBeNull()
   })
 
   it('optimistically cancels attendance and confirms on success', async () => {
@@ -140,6 +243,44 @@ describe('useAttendance', () => {
     expect(result.current.currentStatus).toBe('ATTENDING')
     expect(result.current.attendingCount).toBe(10)
     expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+
+  it('does not auto-flip isFull from true to false on a successful unattend', async () => {
+    mockGetMyAttendance.mockResolvedValue('WAITLISTED')
+    mockUnattend.mockResolvedValue(undefined)
+
+    // availableSpots=0 on load → isFull starts true
+    const { result } = renderHook(() => useAttendance(1, 10, null, 0))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.isFull).toBe(true)
+    expect(result.current.currentStatus).toBe('WAITLISTED')
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Server didn't tell us a slot opened up — keep isFull as it was.
+    expect(result.current.isFull).toBe(true)
+    expect(result.current.currentStatus).toBeNull()
+  })
+
+  it('rolls back isFull when unattend fails', async () => {
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    mockUnattend.mockRejectedValue(new Error('network'))
+    mockIsAxiosError.mockReturnValue(false)
+
+    const { result } = renderHook(() => useAttendance(1, 10, null, 0))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.isFull).toBe(true)
+
+    act(() => { result.current.toggle('ATTENDING') })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.isFull).toBe(true)
+    expect(result.current.currentStatus).toBe('ATTENDING')
   })
 
   it('does nothing when toggle is called while loading', () => {

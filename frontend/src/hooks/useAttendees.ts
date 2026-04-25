@@ -20,6 +20,7 @@ export interface UseAttendeesResult {
   error: Error | null
   hasMore: boolean
   loadMore: () => void
+  refetch: () => void
   isForbidden: boolean
 }
 
@@ -49,17 +50,26 @@ export function useAttendees(
   const [isForbidden, setIsForbidden] = useState(false)
   const [page, setPage] = useState(0)
 
+  // Concurrency control:
+  //  - loadingRef: prevents overlapping loadMore() clicks within the same fetch generation.
+  //  - requestIdRef: monotonically increases on every reset/unmount; in-flight responses
+  //    whose captured id != current id are discarded (handles eventId change + unmount).
   const loadingRef = useRef(false)
+  const requestIdRef = useRef(0)
 
   const fetchPage = useCallback(
     async (pageToFetch: number) => {
       if (loadingRef.current) return
       loadingRef.current = true
+      const myRequestId = requestIdRef.current
+      const isCurrent = () => requestIdRef.current === myRequestId
       setIsLoading(true)
       setError(null)
       try {
         const rows = await getEventAttendees(eventId, { page: pageToFetch, size: pageSize })
+        if (!isCurrent()) return
         const enriched = await fetchProfilesFor(rows)
+        if (!isCurrent()) return
         setAttendees((prev) => {
           if (pageToFetch === 0) return enriched
           const seen = new Set(prev.map((a) => a.attendance.id))
@@ -71,6 +81,7 @@ export function useAttendees(
         })
         setHasMore(rows.length === pageSize)
       } catch (err) {
+        if (!isCurrent()) return
         if (axios.isAxiosError(err) && err.response?.status === 403) {
           setIsForbidden(true)
           setAttendees([])
@@ -79,21 +90,45 @@ export function useAttendees(
           setError(err instanceof Error ? err : new Error('Erreur inconnue'))
         }
       } finally {
-        setIsLoading(false)
+        if (isCurrent()) setIsLoading(false)
         loadingRef.current = false
       }
     },
     [eventId, pageSize],
   )
 
-  useEffect(() => {
-    if (!enabled) return
+  // Resets internal state and fetches page 0. Bumps requestIdRef so any in-flight
+  // response from a previous generation is discarded.
+  const reset = useCallback(() => {
+    requestIdRef.current += 1
+    loadingRef.current = false
     setAttendees([])
     setPage(0)
     setHasMore(true)
     setIsForbidden(false)
+    setError(null)
+  }, [])
+
+  const refetch = useCallback(() => {
+    reset()
     void fetchPage(0)
-  }, [enabled, eventId, fetchPage])
+  }, [reset, fetchPage])
+
+  useEffect(() => {
+    if (!enabled) {
+      // On disable: invalidate any in-flight request without triggering a new fetch.
+      requestIdRef.current += 1
+      loadingRef.current = false
+      return
+    }
+    reset()
+    void fetchPage(0)
+    return () => {
+      // Discard in-flight responses on unmount or eventId/enabled change.
+      requestIdRef.current += 1
+      loadingRef.current = false
+    }
+  }, [enabled, eventId, fetchPage, reset])
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || !hasMore || isForbidden) return
@@ -102,5 +137,5 @@ export function useAttendees(
     void fetchPage(next)
   }, [fetchPage, hasMore, isForbidden, page])
 
-  return { attendees, isLoading, error, hasMore, loadMore, isForbidden }
+  return { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden }
 }

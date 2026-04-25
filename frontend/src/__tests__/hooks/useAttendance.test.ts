@@ -221,8 +221,11 @@ describe('useAttendance — optimistic rollback on error', () => {
   })
 })
 
-describe('useAttendance — 409 → isFull flag', () => {
-  it('sets isFull on 409 and rolls back state', async () => {
+describe('useAttendance — error mapping', () => {
+  // The 409 → isFull mapping was removed: capacity-reached is now a 200
+  // with status=WAITLISTED. 409 is reserved for registration_closed and
+  // other server errors, none of which should mutate isFull.
+  it('rolls back state and surfaces a generic message on bare 409 (no body)', async () => {
     const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
     Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
     mockAttend.mockRejectedValue(axiosError)
@@ -232,8 +235,8 @@ describe('useAttendance — 409 → isFull flag', () => {
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(result.current.isFull).toBe(true)
-    expect(result.current.error).toBeNull()
+    expect(result.current.isFull).toBe(false)
+    expect(result.current.error).toBe('Une erreur est survenue.')
     expect(result.current.currentStatus).toBeNull()
     expect(result.current.attendingCount).toBe(5)
   })
@@ -270,7 +273,8 @@ describe('useAttendance — guards', () => {
     expect(mockAttend).toHaveBeenCalledTimes(1)
   })
 
-  it('clears isFull when toggling again after a 409', async () => {
+  it('preserves isFull across a 409 then a successful ATTENDING retry', async () => {
+    // 409 must NOT touch isFull; the success retry derives it from the response status.
     const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
     Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
     mockAttend.mockRejectedValueOnce(axiosError).mockResolvedValue(sampleAttendance)
@@ -279,7 +283,7 @@ describe('useAttendance — guards', () => {
 
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.isFull).toBe(true)
+    expect(result.current.isFull).toBe(false)
 
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
