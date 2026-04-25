@@ -286,3 +286,13 @@ Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm
 - Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
 - Hibernate crée et met à jour les tables automatiquement au démarrage
 - Aucun fichier SQL de migration n'est utilisé ni requis
+
+### Réconciliation des contraintes CHECK — `SchemaFixup`
+
+Le mode `update` de Hibernate **n'altère jamais** les contraintes CHECK générées pour les colonnes mappées en `@Enumerated(STRING)`. Quand une nouvelle valeur est ajoutée à un enum (ex. `WAITLISTED` sur `AttendanceStatus`), les bases de données provisionnées avant ce changement conservent l'ancienne contrainte et rejettent les INSERT avec la nouvelle valeur.
+
+`ch.unige.events.config.SchemaFixup` est un bean `@ApplicationScoped` qui s'exécute sur `StartupEvent` et :
+- supprime les contraintes obsolètes (`events_*_check`, `attendances_status_check`) — `DROP CONSTRAINT IF EXISTS`, idempotent ;
+- recrée `attendances_status_check` avec les valeurs courantes de l'enum (`ATTENDING`, `WAITLISTED`).
+
+Le DDL est statique (jamais concaténé avec des entrées utilisateur). Toute future addition à un enum doit s'accompagner d'une mise à jour de `SchemaFixup`. À retirer si le projet adopte un outil de migration (Flyway / Liquibase).
