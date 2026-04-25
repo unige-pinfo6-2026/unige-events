@@ -78,6 +78,20 @@ describe('AttendeesList', () => {
 
       expect(screen.getByText('Aucun participant pour le moment.')).toBeTruthy()
     })
+
+    it('renders avatars and counter as a single inline row (compact)', () => {
+      renderList({ eventId: 42, isOrganizer: false, attendingCount: 3 })
+
+      const counter = screen.getByText('3 personnes participent')
+      const row = counter.parentElement
+      expect(row).not.toBeNull()
+      // Same container holds both the avatar group and the counter span
+      const avatars = row?.querySelector('[aria-hidden="true"]')
+      expect(avatars).toBeTruthy()
+      expect(row?.contains(counter)).toBe(true)
+      expect(row?.contains(avatars as Node)).toBe(true)
+      expect(mockUseAttendees).not.toHaveBeenCalled()
+    })
   })
 
   describe('organizer view', () => {

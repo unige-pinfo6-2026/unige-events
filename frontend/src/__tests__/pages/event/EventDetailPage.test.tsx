@@ -508,5 +508,29 @@ describe('EventDetailPage', () => {
       expect(mockUseAttendees).toHaveBeenCalledWith(1)
       expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
     })
+
+    it('renders Participants section in the same column as "À propos", after it', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 2 },
+        loading: false,
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const aboutHeading = screen.getByRole('heading', { name: 'À propos' })
+      const participantsHeading = screen.getByRole('heading', { name: 'Participants' })
+
+      // Participants comes AFTER "À propos" in document order
+      const position = aboutHeading.compareDocumentPosition(participantsHeading)
+      expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+      // Both live under the same left-column container (same parent flex column)
+      const aboutCard = aboutHeading.closest('div.bg-linear-to-br')
+      const participantsSection = participantsHeading.closest('section')
+      expect(aboutCard?.parentElement).toBe(participantsSection?.parentElement)
+    })
   })
 })

@@ -249,12 +249,12 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 ### AttendeesList
 
-- Section "Participants" affichée en bas de `EventDetailPage`.
+- Section "Participants" insérée dans la **colonne principale** de `EventDetailPage`, immédiatement sous le bloc "À propos". Mêmes primitives de card que les autres blocs de la colonne (glassmorphism, heading `text-xs font-bold uppercase tracking-widest text-foreground/30`).
 - Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
-- **Vue non-organisateur** : résumé visuel — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Aucun appel API.
+- **Vue non-organisateur (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Padding vertical réduit (`px-6 py-4`). Aucun appel API. La compacité est dérivée automatiquement de `!isOrganizer` (const map `sectionVariants`).
 - **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
-- Liste des participants rendue en grille de `AttendeeCard`. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
-- États gérés : skeleton de chargement initial, message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
+- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`) — la colonne de contenu est étroite, un layout vertical scanne mieux qu'une grille 2 colonnes. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- États gérés : skeleton de chargement initial (4 placeholders empilés), message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
 - Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
 
 ### AttendeeCard

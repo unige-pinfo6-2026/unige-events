@@ -363,6 +363,12 @@ export default function EventDetailPage() {
             </div>
           )}
 
+          <AttendeesList
+            eventId={event.id}
+            isOrganizer={isOrganizer}
+            attendingCount={event.attendingCount}
+          />
+
           {/* Shells champs additionnels — S5 */}
           <div className="flex flex-col gap-3">
 
@@ -558,12 +564,6 @@ export default function EventDetailPage() {
         </div>
 
       </div>
-
-      <AttendeesList
-        eventId={event.id}
-        isOrganizer={isOrganizer}
-        attendingCount={event.attendingCount}
-      />
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
 

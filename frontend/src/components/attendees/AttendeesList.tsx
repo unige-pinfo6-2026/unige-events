@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Users } from 'lucide-react'
 import { useAttendees, type AttendeeWithProfile } from '@/hooks/useAttendees'
 import type { AttendanceStatus } from '@/types/attendance'
 import AttendeeCard from './AttendeeCard'
@@ -28,6 +27,14 @@ const emptyMessages: Record<AttendanceStatus, string> = {
   WAITLISTED: 'Personne en liste d\'attente.',
 }
 
+// Compact = non-organizer summary (single inline row). Organizer = full list.
+const sectionVariants = {
+  compact: 'bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-6 py-4 border border-border',
+  full:    'bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border',
+} as const
+
+const headingClass = 'text-xs font-bold uppercase tracking-widest text-foreground/30 mb-3'
+
 function NonOrganizerSummary({ attendingCount }: Readonly<{ attendingCount: number }>) {
   const placeholders = Math.min(5, Math.max(1, attendingCount))
   const label =
@@ -36,22 +43,22 @@ function NonOrganizerSummary({ attendingCount }: Readonly<{ attendingCount: numb
       : `${attendingCount} ${attendingCount === 1 ? 'personne participe' : 'personnes participent'}`
   return (
     <div className="flex items-center gap-3">
-      <div className="flex -space-x-2" aria-hidden="true">
+      <div className="flex -space-x-2 shrink-0" aria-hidden="true">
         {Array.from({ length: placeholders }, (_, i) => (
           <div
             key={i}
-            className="w-8 h-8 rounded-full bg-foreground/10 border-2 border-background"
+            className="w-7 h-7 rounded-full bg-foreground/10 border-2 border-background"
           />
         ))}
       </div>
-      <span className="text-sm text-foreground/60">{label}</span>
+      <span className="text-sm text-foreground/60 truncate">{label}</span>
     </div>
   )
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" aria-busy="true">
+    <div className="flex flex-col gap-3" aria-busy="true">
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
@@ -135,7 +142,7 @@ function OrganizerView({ eventId, attendingCount }: Readonly<OrganizerViewProps>
       {filtered.length === 0 ? (
         <p className="text-sm text-foreground/50">{emptyMessages[activeTab]}</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="tabpanel">
+        <div className="flex flex-col gap-3" role="tabpanel">
           {filtered.map(({ attendance, profile }) => (
             <AttendeeCard key={attendance.id} attendance={attendance} profile={profile} />
           ))}
@@ -161,12 +168,13 @@ export default function AttendeesList({
   isOrganizer,
   attendingCount,
 }: Readonly<AttendeesListProps>) {
+  // Compactness derived from isOrganizer: a non-organizer only sees a counter,
+  // so the section uses tighter vertical padding to feel like an info row
+  // alongside the other narrow-column blocks.
+  const variant = isOrganizer ? 'full' : 'compact'
   return (
-    <section className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border flex flex-col gap-4">
-      <div className="flex items-center gap-2 text-foreground">
-        <Users className="w-5 h-5 shrink-0" />
-        <h2 className="text-base font-bold">Participants</h2>
-      </div>
+    <section className={sectionVariants[variant]}>
+      <h2 className={headingClass}>Participants</h2>
       {isOrganizer ? (
         <OrganizerView eventId={eventId} attendingCount={attendingCount} />
       ) : (
