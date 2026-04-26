@@ -121,7 +121,13 @@
 - À la confirmation, applique le crop via un `<canvas>` (`canvas.toBlob()`) et appelle `onCropComplete` avec le `Blob` résultant.
 - Overlay sombre (`bg-black/70 backdrop-blur-sm`), boutons "Recadrer" (`ButtonPrimary`) / "Annuler" (`ButtonSecondary`).
 - Le bouton "Recadrer" est désactivé tant qu'aucune zone de crop n'est sélectionnée.
-- Utilisable pour avatar (aspect 1, circular), bannière profil et bannière événement (aspect 3).
+- Utilisable pour avatar (aspect 1, circular), bannière profil (aspect 3:1) et bannière événement (aspect 16:9).
+
+**Intégrations actives (SCRUM-123) :**
+- `ProfileEditPage` — avatar (aspect 1:1, circular) et bannière profil (aspect 3:1)
+- `EventForm` (consommé par `EventCreatePage` et `EventEditPage`) — bannière événement (aspect 16:9)
+
+Le flux d'intégration (sélection fichier → validation → FileReader → modale crop → confirm → File final) est centralisé dans le hook réutilisable `useImageCropFlow` (`@/hooks/useImageCropFlow`).
 
 ### Buttons
 
@@ -326,6 +332,15 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 
 ## Hooks
+
+### useImageCropFlow
+
+Hook utilitaire qui encapsule le flux complet « sélection fichier → validation → FileReader → ouverture du cropper → conversion Blob → File ». Utilisé par `ProfileEditPage` (×2 : avatar + bannière) et `useEventForm` (×1 : bannière événement).
+
+Options : `aspect`, `circular?`, `validate?`, `onValidationError?`.
+Résultat : `cropSource`, `handleFileSelect`, `aspect`, `circular`, `confirmCrop`, `cancelCrop`.
+
+Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur — sans cela, re-sélectionner le même fichier ne redéclenche pas l'event `change` (comportement HTML standard). Préserve le nom original du fichier lors de la conversion Blob → File.
 
 ### useEvents
 

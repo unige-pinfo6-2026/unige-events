@@ -18,6 +18,13 @@ const baseValues: EventFormValues = {
   allDay: false,
 }
 
+const cropDefaults = {
+  cropSource: null as string | null,
+  cropAspect: 16 / 9,
+  onCropConfirm: vi.fn(),
+  onCropCancel: vi.fn(),
+}
+
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
@@ -36,6 +43,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -73,6 +84,10 @@ describe('EventForm', () => {
         selectedImageName='banner.png'
         onFieldChange={onFieldChange}
         onImageChange={onImageChange}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={onCancel}
       />,
@@ -105,6 +120,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
         onSaveDraft={onSaveDraft}
@@ -130,6 +149,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={onFieldChange}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -155,6 +178,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -189,6 +216,10 @@ describe('EventForm', () => {
             setValues((current) => ({ ...current, [field]: value }))
           }}
           onImageChange={vi.fn()}
+          cropSource={null}
+          cropAspect={16 / 9}
+          onCropConfirm={vi.fn()}
+          onCropCancel={vi.fn()}
           onSubmit={vi.fn(async () => undefined)}
           onCancel={vi.fn()}
         />
@@ -206,5 +237,53 @@ describe('EventForm', () => {
       '2099-04-10T20:00',
       '2099-04-10T20:45',
     ])
+  })
+
+  it('does not render ImageCropper when cropSource is null', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        cropSource={cropDefaults.cropSource}
+        cropAspect={cropDefaults.cropAspect}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('dialog', { name: /Recadrer/i })).toBeNull()
+  })
+
+  it('renders ImageCropper when cropSource is set', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        cropSource="data:image/png;base64,abc"
+        cropAspect={cropDefaults.cropAspect}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('dialog', { name: /Recadrer/i })).toBeTruthy()
   })
 })

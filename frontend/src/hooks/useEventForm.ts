@@ -11,6 +11,7 @@ import {
 } from '@/types/event'
 import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
+import { useImageCropFlow } from '@/hooks/useImageCropFlow'
 
 export interface EventFormValues {
   title: string
@@ -51,8 +52,12 @@ interface UseEventFormResult {
   draftSaving: boolean
   imagePreview: string | null
   selectedImageName: string | null
+  cropSource: string | null
+  cropAspect: number
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  confirmCrop: (blob: Blob) => void
+  cancelCrop: () => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
   triggerDraftSave: () => Promise<void>
   triggerPublish: () => Promise<void>
@@ -116,6 +121,7 @@ export const EVENT_TITLE_MAX_LENGTH = 120
 export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
 export const IMAGE_MAX_SIZE_MB = 5
 export const IMAGE_MAX_SIZE_BYTES = IMAGE_MAX_SIZE_MB * 1024 * 1024
+export const EVENT_BANNER_ASPECT = 16 / 9
 
 function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
@@ -387,33 +393,43 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     }
   }
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setErrors((current) => ({ ...current, image: 'Le fichier doit être une image.' }))
-      return
-    }
-
+  function validateImage(file: File): string | null {
+    if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
     if (file.size > IMAGE_MAX_SIZE_BYTES) {
-      setErrors((current) => ({ ...current, image: `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).` }))
-      return
+      return `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`
     }
+    return null
+  }
+
+  const imageCrop = useImageCropFlow({
+    aspect: EVENT_BANNER_ASPECT,
+    circular: false,
+    validate: validateImage,
+    onValidationError: (message) => setErrors((current) => ({ ...current, image: message })),
+  })
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    imageCrop.handleFileSelect(event)
+  }
+
+  function confirmCrop(blob: Blob) {
+    const file = imageCrop.confirmCrop(blob)
+    if (!file) return
 
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current)
     }
-
-    const previewUrl = URL.createObjectURL(file)
+    const previewUrl = URL.createObjectURL(blob)
     objectUrlRef.current = previewUrl
 
     setImageFile(file)
     setSelectedImageName(file.name)
     setImagePreview(previewUrl)
     setErrors((current) => ({ ...current, image: undefined }))
+  }
+
+  function cancelCrop() {
+    imageCrop.cancelCrop()
   }
 
   function validate(): boolean {
@@ -582,8 +598,12 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     draftSaving,
     imagePreview,
     selectedImageName,
+    cropSource: imageCrop.cropSource,
+    cropAspect: imageCrop.aspect,
     setFieldValue,
     handleImageChange,
+    confirmCrop,
+    cancelCrop,
     handleSubmit,
     triggerDraftSave,
     triggerPublish,
