@@ -75,10 +75,15 @@ public class UserService {
         }
     }
 
-    public User getPublicProfile(UUID id) {
+    public User getPublicProfile(UUID id, String auth0Id) {
         User user = (User) User.findByIdOptional(id).orElseThrow(NotFoundException::new);
-        if (!user.profilePublic) {
-            throw new ForbiddenException("This profile is private");
+
+        // Hotfix pentest 4.1: hide private profiles with 404 (not 403) to close the
+        // existence oracle — identical envelope as "user does not exist". The owner
+        // (self-case) can always read their own profile regardless of profilePublic.
+        boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
+        if (!user.profilePublic && !isOwner) {
+            throw new NotFoundException();
         }
 
         return user;

@@ -93,7 +93,13 @@ components:
 
     UserPublicResponse:
       type: object
-      description: Profil public d'un utilisateur (si profilePublic = true)
+      description: |
+        Profil public d'un utilisateur.
+
+        **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
+        appelant sans JWT, seuls `id`, `displayName` et `avatarUrl` sont renseignés ;
+        `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont systématiquement
+        `null`. Les appelants authentifiés reçoivent tous les champs renseignés en base.
       properties:
         id:
           type: string
@@ -114,6 +120,7 @@ components:
           type: array
           items:
             type: string
+          nullable: true
         avatarUrl:
           type: string
           format: uri
@@ -859,10 +866,22 @@ paths:
   /users/{id}:
     get:
       summary: Profil public d'un utilisateur
-      description: Retourne le profil public si profilePublic = true. Retourne 403 si privé.
+      description: |
+        Retourne le profil public d'un utilisateur.
+
+        **Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.1 + 4.1b) :
+        - Profil avec `profilePublic=true` : accessible en lecture. Un appelant **anonyme**
+          reçoit un payload **réduit** (seuls `id`, `displayName`, `avatarUrl` sont renseignés ;
+          les autres champs sont `null`). Un appelant **authentifié** reçoit le payload complet.
+        - Profil avec `profilePublic=false` : visible uniquement par son propriétaire
+          (`auth0Id` du JWT matche `user.auth0Id`). Tout autre appelant — anonyme, user
+          différent — reçoit `404 not_found`, envelope identique à celle d'un UUID inexistant
+          (ferme l'oracle d'existence exploité via `creatorId` leaké par `GET /events`).
       operationId: getPublicProfile
       tags: [users]
-      security: []   # @PermitAll — pas de token requis
+      security:
+        - {}
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -872,19 +891,18 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Profil public de l'utilisateur
+          description: |
+            Profil public de l'utilisateur. Payload complet pour les appelants authentifiés ;
+            payload réduit (`id`, `displayName`, `avatarUrl` uniquement, autres champs `null`)
+            pour les appelants anonymes.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
-        '403':
-          description: Profil privé (profilePublic = false)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: Utilisateur introuvable
+          description: |
+            Utilisateur introuvable, OU profil privé demandé par un appelant qui n'en est pas
+            le propriétaire. Le corps est identique dans les deux cas (pas d'oracle d'existence).
           content:
             application/json:
               schema:

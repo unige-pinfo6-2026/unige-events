@@ -56,14 +56,24 @@ public class UserResource {
 
     /**
      * GET /api/users/{id}
-     * Public si profilePublic=true, sinon 403
+     * Profil public d'un utilisateur.
+     * - profilePublic=true + anon  → 200 payload réduit (id, displayName, avatarUrl)
+     * - profilePublic=true + auth  → 200 payload complet
+     * - profilePublic=false + self → 200 payload complet
+     * - sinon                      → 404 (envelope identique à UUID inexistant, anti-oracle)
+     * Hotfix pentest 2026-04-17 findings 4.1 + 4.1b.
      */
     @GET
     @Path("/{id}")
     @PermitAll
     public Response getProfile(@PathParam("id") UUID id) {
-        User user = userService.getPublicProfile(id);
-        return Response.ok(UserPublicResponse.from(user)).build();
+        boolean anonymous = identity.isAnonymous();
+        String auth0Id = anonymous ? null : identity.getPrincipal().getName();
+        User user = userService.getPublicProfile(id, auth0Id);
+        UserPublicResponse body = anonymous
+                ? UserPublicResponse.fromAnonymous(user)
+                : UserPublicResponse.from(user);
+        return Response.ok(body).build();
     }
 
     @GET
