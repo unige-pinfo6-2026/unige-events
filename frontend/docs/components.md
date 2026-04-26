@@ -278,6 +278,21 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Gère les états loading, error et regenerating.
 - Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
 
+### MyPublicationsPreview
+
+- Composant `src/components/profile/MyPublicationsPreview.tsx` rendu uniquement pour `isOwnProfile` dans `ProfilePage`, en colonne gauche sous la card "À propos".
+- Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` ; chaque clic rappelle `useMyEvents(status)` avec le nouveau statut (mêmes refetchs que `MyPublicationsPage`, pas de partage de state). Le compte `(N)` est affiché sur l'onglet actif uniquement — le hook ne fetch qu'un statut à la fois et on évite des requêtes parallèles juste pour les libellés des onglets inactifs.
+- Affiche jusqu'à 3 événements via `PreviewRow` (l'API renvoie déjà `createdAt DESC`).
+- Loading : 3 lignes skeleton inline (Tailwind `animate-pulse`). Erreur : message + bouton `Réessayer` qui appelle `refresh()` du hook.
+- Empty state spécifique par statut. Le tab `Publiés` vide affiche en plus un CTA `Créer un événement` → `/events/new` ; les autres tabs vides n'affichent que le message.
+- Lien `Voir toutes mes publications` → `/my-events/publications?status=<param>` où `<param>` provient de `EVENT_STATUS_PARAMS` (cf. `src/utils/eventStatusStyles.ts`), pour préserver l'onglet courant à la navigation.
+
+### PreviewRow
+
+- Composant `src/components/profile/PreviewRow.tsx` consommé par `MyPublicationsPreview`.
+- Props : `{ event: Event }`. Lecture seule, pas d'actions.
+- Rendu : `<Link>` vers `/events/{id}` enveloppant une vignette 48px (bannière ou gradient catégorie en fallback), titre `line-clamp-1`, ligne meta date + `attendingCount`, badge statut (libellé via `EVENT_STATUSES[status].name`, classes via `EVENT_STATUS_VARIANTS`).
+
 ### IcsExportButton
 
 - Affiche un bloc "Ajouter au calendrier" sur la page détail événement.

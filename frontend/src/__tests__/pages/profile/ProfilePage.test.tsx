@@ -24,6 +24,19 @@ vi.mock('@/services/userService', () => ({
   regenerateCalendarToken: vi.fn(),
 }))
 
+vi.mock('@/hooks/useMyEvents', () => ({
+  useMyEvents: vi.fn(() => ({
+    events: [],
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+    publish: vi.fn(),
+    cancel: vi.fn(),
+    restore: vi.fn(),
+    permanentlyDelete: vi.fn(),
+  })),
+}))
+
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById, getCalendarToken } from '@/services/userService'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -214,5 +227,26 @@ describe('ProfilePage', () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: true })
     renderProfilePage('me')
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
+  })
+
+  it('renders the Mes publications preview on /profile/me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    renderProfilePage('me')
+    expect(await screen.findByRole('heading', { level: 2, name: 'Mes publications' })).toBeTruthy()
+  })
+
+  it('does not render the Mes publications preview on another user profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockResolvedValue({
+      id: '456',
+      auth0Id: 'auth0|456',
+      email: 'other@example.com',
+      displayName: 'Other User',
+      profilePublic: true,
+      createdAt: '2024-01-01',
+    })
+    renderProfilePage('auth0|456')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
   })
 })

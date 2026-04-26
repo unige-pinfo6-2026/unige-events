@@ -1,6 +1,16 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-14
+Dernière mise à jour : 2026-04-26
+
+## Sprint 6 — Aperçu "Mes publications" sur ProfilePage (SCRUM-134 / US-23, scope réduit) — 2026-04-26
+
+Livré.
+
+Fonctionnalités livrées :
+- **`MyPublicationsPreview`** (`src/components/profile/MyPublicationsPreview.tsx`) inséré en colonne gauche de `ProfilePage`, sous la card "À propos", uniquement pour `isOwnProfile`. Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` qui rappellent `useMyEvents(status)` (refetch par statut, pas de partage de state avec `MyPublicationsPage`). Affiche jusqu'à 3 événements récents via `PreviewRow`. Compte `(N)` uniquement sur l'onglet actif (le hook ne fetch qu'un statut à la fois — pas de requêtes parallèles juste pour les libellés inactifs). État vide spécifique par statut + CTA `Créer un événement` uniquement sur `Publiés` vide. Lien `Voir toutes mes publications` qui préserve l'onglet via `?status=…`.
+- **`PreviewRow`** (`src/components/profile/PreviewRow.tsx`) : ligne compacte tappable (vignette + titre + date + participants + badge statut), lien `<Link>` vers `/events/{id}`.
+- **Refactor : extraction de `EVENT_STATUS_VARIANTS` et `EVENT_STATUS_PARAMS`** dans `src/utils/eventStatusStyles.ts`. `MyPublicationsPage` consomme désormais le const map partagé pour ses badges (seul changement autorisé). Aucune modification de `useMyEvents`.
+- **Hors scope (différé)** : onglet `Archives` sur `MyPublicationsPage` (CANCELLED ∪ PUBLISHED past-end) et action `Recréer cet événement`. Bloqués par dépendances backend (endpoint `POST /events/{id}/duplicate` non implémenté côté frontend) et par l'absence de capacité de pré-remplissage sur `EventCreatePage`. À documenter dans le worklog SCRUM-134 pour arbitrage produit.
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 
