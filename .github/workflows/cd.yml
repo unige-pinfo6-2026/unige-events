@@ -78,15 +78,15 @@ jobs:
               "S3_BUCKET": "${{ vars.S3_BUCKET }}"
             }
 
-      - name: Create DuckDNS secret
+      - name: Create Cloudflare Tunnel secret
         uses: azure/k8s-create-secret@v5
         with:
-          namespace: cert-manager
+          namespace: ${{ env.NAMESPACE }}
           secret-type: generic
-          secret-name: dns-secret
+          secret-name: cloudflare-tunnel-secret
           string-data: |
             {
-              "DUCKDNS_TOKEN": "${{ secrets.DUCKDNS_TOKEN }}"
+              "TUNNEL_TOKEN": "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
             }
 
       - name: Apply manifests
