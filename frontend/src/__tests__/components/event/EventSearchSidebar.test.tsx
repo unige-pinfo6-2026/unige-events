@@ -220,4 +220,31 @@ describe('FilterSidebar', () => {
     const input = screen.getByLabelText('De') as HTMLInputElement
     expect(input.value).toBe('2026-05-01')
   })
+
+  it('renders the Mots-clés section label', () => {
+    renderSidebar()
+    expect(screen.getByText('Mots-clés')).toBeTruthy()
+  })
+
+  it('renders existing tags as chips', () => {
+    renderSidebar({ includePast: false, tags: ['quarkus', 'sport'] })
+    expect(screen.getByText('quarkus')).toBeTruthy()
+    expect(screen.getByText('sport')).toBeTruthy()
+  })
+
+  it('calls setFilters when a tag is added via Enter', () => {
+    const setFilters = vi.fn()
+    renderSidebar(defaultFilters, setFilters)
+    const input = screen.getByPlaceholderText('Ex. football, art…') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'quarkus' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ tags: ['quarkus'] }))
+  })
+
+  it('calls setFilters with undefined when last tag is removed', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, tags: ['quarkus'] }, setFilters)
+    fireEvent.click(screen.getByLabelText('Remove tag quarkus'))
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ tags: undefined }))
+  })
 })
