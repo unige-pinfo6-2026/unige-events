@@ -86,7 +86,7 @@ jobs:
           secret-name: cloudflare-tunnel-secret
           string-data: |
             {
-              "TUNNEL_TOKEN": "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
+              "CLOUDFLARE_TUNNEL_TOKEN": "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
             }
 
       - name: Apply manifests
