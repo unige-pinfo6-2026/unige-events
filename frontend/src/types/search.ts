@@ -9,6 +9,7 @@ export interface SearchFilters {
   category?: EventCategory
   faculty?: Faculty
   facultyNone?: boolean
+  tags?: string[]
   dateFrom?: string
   dateTo?: string
   includePast: boolean
@@ -19,6 +20,7 @@ export interface SearchParams {
   category?: EventCategory
   faculty?: Faculty
   facultyNone?: boolean
+  tags?: string[]
   dateFrom?: string
   dateTo?: string
   page?: number

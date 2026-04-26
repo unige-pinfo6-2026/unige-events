@@ -28,13 +28,21 @@ export function useSearch(): UseSearchResult {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [query, setQueryState] = useState<string>(searchParams.get('q') ?? '')
-  const [filters, setFiltersState] = useState<SearchFilters>({
-    category: (searchParams.get('category') as EventCategory) || undefined,
-    faculty: (searchParams.get('faculty') as Faculty) || undefined,
-    facultyNone: searchParams.get('facultyNone') === 'true' ? true : undefined,
-    dateFrom: searchParams.get('dateFrom') || undefined,
-    dateTo: searchParams.get('dateTo') || undefined,
-    includePast: searchParams.get('includePast') === 'true',
+  const [filters, setFiltersState] = useState<SearchFilters>(() => {
+    const initialTags = Array.from(
+      new Set(
+        searchParams.getAll('tags').map((t) => t.trim()).filter((t) => t.length > 0),
+      ),
+    )
+    return {
+      category: (searchParams.get('category') as EventCategory) || undefined,
+      faculty: (searchParams.get('faculty') as Faculty) || undefined,
+      facultyNone: searchParams.get('facultyNone') === 'true' ? true : undefined,
+      tags: initialTags.length > 0 ? initialTags : undefined,
+      dateFrom: searchParams.get('dateFrom') || undefined,
+      dateTo: searchParams.get('dateTo') || undefined,
+      includePast: searchParams.get('includePast') === 'true',
+    }
   })
   const [results, setResults] = useState<Event[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -55,19 +63,22 @@ export function useSearch(): UseSearchResult {
 
   // Sync state → URL (replace so browser history stays clean)
   useEffect(() => {
-    const params: Record<string, string> = {}
+    const next = new URLSearchParams()
     const trimmedQuery = query.trim()
-    if (trimmedQuery) params.q = trimmedQuery
-    if (filters.category) params.category = filters.category
+    if (trimmedQuery) next.set('q', trimmedQuery)
+    if (filters.category) next.set('category', filters.category)
     if (filters.facultyNone) {
-      params.facultyNone = 'true'
+      next.set('facultyNone', 'true')
     } else if (filters.faculty) {
-      params.faculty = filters.faculty
+      next.set('faculty', filters.faculty)
     }
-    if (filters.dateFrom) params.dateFrom = filters.dateFrom
-    if (filters.dateTo) params.dateTo = filters.dateTo
-    if (filters.includePast) params.includePast = 'true'
-    setSearchParams(params, { replace: true })
+    if (filters.tags && filters.tags.length > 0) {
+      filters.tags.forEach((t) => next.append('tags', t))
+    }
+    if (filters.dateFrom) next.set('dateFrom', filters.dateFrom)
+    if (filters.dateTo) next.set('dateTo', filters.dateTo)
+    if (filters.includePast) next.set('includePast', 'true')
+    setSearchParams(next, { replace: true })
   }, [query, filters, setSearchParams])
 
   // 300ms debounce: query → suggestions (aborts stale in-flight suggestion requests)
@@ -110,6 +121,7 @@ export function useSearch(): UseSearchResult {
       category: f.category,
       faculty: f.facultyNone ? undefined : f.faculty,
       facultyNone: f.facultyNone || undefined,
+      tags: f.tags && f.tags.length > 0 ? f.tags : undefined,
       dateFrom: effectiveDateFrom,
       dateTo: f.dateTo,
     }

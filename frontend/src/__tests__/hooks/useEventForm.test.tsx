@@ -1,6 +1,6 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FormEvent } from 'react'
 import {
   DRAFT_FORM_KEY,
@@ -49,7 +49,32 @@ function submitEvent() {
   } as unknown as FormEvent<HTMLFormElement>
 }
 
+let originalFileReader: typeof FileReader
+let originalCreateObjectURL: typeof URL.createObjectURL
+let originalRevokeObjectURL: typeof URL.revokeObjectURL
+
+function mockFileReader(result: string) {
+  class MockReader {
+    public onload: (() => void) | null = null
+    public result: string | null = null
+    readAsDataURL() {
+      this.result = result
+      queueMicrotask(() => this.onload?.())
+    }
+  }
+  globalThis.FileReader = MockReader as unknown as typeof FileReader
+}
+
+beforeEach(() => {
+  originalFileReader = globalThis.FileReader
+  originalCreateObjectURL = globalThis.URL.createObjectURL
+  originalRevokeObjectURL = globalThis.URL.revokeObjectURL
+})
+
 afterEach(() => {
+  globalThis.FileReader = originalFileReader
+  globalThis.URL.createObjectURL = originalCreateObjectURL
+  globalThis.URL.revokeObjectURL = originalRevokeObjectURL
   vi.useRealTimers()
   vi.resetAllMocks()
   sessionStorage.clear()
@@ -135,7 +160,8 @@ describe('useEventForm', () => {
     expect(mockCreateEvent).not.toHaveBeenCalled()
   })
 
-  it('handles image validation, preview replacement, and cleanup', () => {
+  it('stores the cropped image after confirmCrop and rejects invalid files', async () => {
+    mockFileReader('data:image/png;base64,abc')
     const createObjectURL = vi.fn()
       .mockReturnValueOnce('blob:first')
       .mockReturnValueOnce('blob:second')
@@ -149,32 +175,40 @@ describe('useEventForm', () => {
     act(() => {
       result.current.handleImageChange({ target: { files: [new File(['x'], 'doc.txt', { type: 'text/plain' })] } } as never)
     })
-
     expect(result.current.errors.image).toBe('Le fichier doit être une image.')
+    expect(result.current.cropSource).toBeNull()
 
     act(() => {
       result.current.handleImageChange({ target: { files: [] } } as never)
     })
-
     expect(createObjectURL).not.toHaveBeenCalled()
 
-    act(() => {
+    await act(async () => {
       result.current.handleImageChange({ target: { files: [new File(['a'], 'banner-a.png', { type: 'image/png' })] } } as never)
+      await new Promise((r) => queueMicrotask(r as () => void))
     })
+    expect(result.current.cropSource).toBe('data:image/png;base64,abc')
+    expect(result.current.imagePreview).toBeNull()
 
+    act(() => {
+      result.current.confirmCrop(new Blob(['cropped'], { type: 'image/png' }))
+    })
     expect(result.current.imagePreview).toBe('blob:first')
     expect(result.current.selectedImageName).toBe('banner-a.png')
+    expect(result.current.cropSource).toBeNull()
     expect(result.current.errors.image).toBeUndefined()
 
-    act(() => {
+    await act(async () => {
       result.current.handleImageChange({ target: { files: [new File(['b'], 'banner-b.png', { type: 'image/png' })] } } as never)
+      await new Promise((r) => queueMicrotask(r as () => void))
     })
-
+    act(() => {
+      result.current.confirmCrop(new Blob(['cropped2'], { type: 'image/png' }))
+    })
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:first')
     expect(result.current.imagePreview).toBe('blob:second')
 
     unmount()
-
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:second')
   })
 
@@ -190,6 +224,25 @@ describe('useEventForm', () => {
       `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`,
     )
     expect(result.current.imagePreview).toBeNull()
+    expect(result.current.cropSource).toBeNull()
+  })
+
+  it('cancelCrop closes the cropper without touching imageFile/imagePreview', async () => {
+    mockFileReader('data:image/png;base64,abc')
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+    await act(async () => {
+      result.current.handleImageChange({ target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } } as never)
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+    expect(result.current.cropSource).not.toBeNull()
+
+    act(() => {
+      result.current.cancelCrop()
+    })
+    expect(result.current.cropSource).toBeNull()
+    expect(result.current.imagePreview).toBeNull()
+    expect(result.current.selectedImageName).toBeNull()
   })
 
   it('submits creation payload with trimmed and optional fields normalized', async () => {
@@ -583,6 +636,7 @@ describe('useEventForm', () => {
   })
 
   it('resets to incoming event values and uses the uploaded event response', async () => {
+    mockFileReader('data:image/png;base64,abc')
     const uploadedEvent = { ...baseEvent, bannerUrl: 'https://example.com/banner.png', status: 'PUBLISHED' as const }
     mockUpdateEvent.mockResolvedValue(baseEvent)
     mockUploadEventImage.mockResolvedValue(uploadedEvent)
@@ -603,7 +657,15 @@ describe('useEventForm', () => {
 
     act(() => {
       result.current.setFieldValue('title', 'Forum 2026')
+    })
+
+    await act(async () => {
       result.current.handleImageChange({ target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } } as never)
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    act(() => {
+      result.current.confirmCrop(new Blob(['cropped'], { type: 'image/png' }))
     })
 
     await act(async () => {
