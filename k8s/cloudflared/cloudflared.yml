@@ -8,11 +8,18 @@ spec:
   selector:
     matchLabels:
       app: cloudflared
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:
         app: cloudflared
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
@@ -26,3 +33,26 @@ spec:
                 secretKeyRef:
                   name: cloudflare-tunnel-secret
                   key: CLOUDFLARE_TUNNEL_TOKEN
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+              host: 127.0.0.1
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+              host: 127.0.0.1
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
