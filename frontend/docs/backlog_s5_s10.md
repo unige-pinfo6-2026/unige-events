@@ -476,8 +476,8 @@ Créer le dashboard de statistiques pour l'organisateur d'un événement :
 ---
 
 ## Sprint 7 — 28 avr.–2 mai 2026
-**Thème :** Admin/modération + co-organisateurs + jobs planifiés  
-**Total estimé :** 33 SP
+**Thème :** Admin/modération + co-organisateurs + jobs planifiés + UX polish  
+**Total estimé :** 39 SP
 
 ### 🚀 [SCRUM-45] [S7] Je veux modérer les événements et mettre en avant certains contenus (US-15, T4, T5)
 **Type :** Feature · **Story Points :** — SP
@@ -732,6 +732,124 @@ Implémenter le job d'expiration automatique des événements passés :
 
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
+
+### 🔧 [SCRUM-164] [BACK][S7] SchemaFixup — recréer les contraintes CHECK orphelines sur events (faculty, category, status)
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S7 | **Assigné** : Elie | **SP** : 2 | **Épic** : — | **Story** : —
+
+\[BACK\] Sprint 7 — Dette technique / intégrité DB
+
+**Contexte :**
+Le fichier `SchemaFixup.java` (commit `ed65826`, avril 2026) contient trois `DROP CONSTRAINT IF EXISTS` orphelins — `events_faculty_check`, `events_category_check`, `events_status_check` — ajoutés à l'origine pour nettoyer des contraintes CHECK après un renommage d'enum. Mais aucune contrainte de remplacement n'a jamais été ajoutée. Résultat : la base PostgreSQL n'enforce plus aucune validation sur les colonnes `events.faculty`, `events.category` et `events.status`.
+
+**Risque :**
+Sans contrainte CHECK, des valeurs invalides peuvent être insérées directement en base. Quand Hibernate relit ces lignes via `@Enumerated(EnumType.STRING)`, il lève un `IllegalArgumentException` → 500 sur des endpoints qui fonctionnaient. Problème inverse de celui fixé pour `attendances_status_check` (contrainte trop restrictive bloquant `WAITLISTED`).
+
+**Référence :** Flaggé en review sur la PR liée à SCRUM-101 (US-07 / feature/s5-attendees-list).
+
+**Solution recommandée (option A) :**
+
+1. **`SchemaFixup.java`** : après chaque `DROP CONSTRAINT IF EXISTS`, ajouter un `ADD CONSTRAINT` avec les valeurs d'enum actuelles :
+    * `events_faculty_check` : `faculty IS NULL OR faculty IN ('SCIENCES','LETTRES','DROIT','MEDECINE','SES','PSYCHOLOGIE','THEOLOGIE','FTI','GSI')`
+    * `events_category_check` : `category IN ('ACADEMIC','SPORTS','CULTURAL','SOCIAL','CONFERENCE','OTHER')`
+    * `events_status_check` : `status IN ('DRAFT','PUBLISHED','CANCELLED')`
+2. Pattern identique à la solution `attendances_status_check` déjà en place : idempotent (`DROP IF EXISTS` + `ADD`).
+3. **Test `@QuarkusTest`** : vérifier qu'un `INSERT` direct avec une valeur invalide sur `faculty`, `category` ou `status` échoue (violation de contrainte).
+4. **Documentation** : mettre à jour `docs/data-model.md` section « Réconciliation des contraintes CHECK » pour refléter l'état final.
+
+**Critères d'acceptation :**
+- Les trois contraintes sont recréées avec les valeurs d'enum actuelles, idempotent
+- Test d'intégration : insertion de valeur invalide → échec
+- `docs/data-model.md` mis à jour
+
+Fichiers touchés : `SchemaFixup.java`, `docs/data-model.md`
+Branche suggérée : `feature/s7-schema-fixup-checks`
+Dépendances : aucune
+
+### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FRONT\] Sprint 7 — Redirect post-login
+
+**Problème actuel :**
+Quand un utilisateur non authentifié accède à une route protégée (ex. `/profile/me`, `/events/new`, `/my-events/favorites`), `PrivateRoute` le redirige vers `/login`. Mais après authentification Auth0, l'utilisateur est renvoyé vers `/profile/me` (valeur **hardcodée** dans `AuthContext.login()` via `appState.returnTo`). La page d'origine souhaitée est perdue.
+
+**Comportement cible :**
+Après login, l'utilisateur doit être redirigé vers la page qu'il tentait d'atteindre avant d'être intercepté par `PrivateRoute`.
+
+**Infrastructure existante déjà compatible :**
+- `Auth0ProviderWithNavigate.onRedirectCallback(appState)` lit déjà `appState?.returnTo` et navigue dessus (fallback `/`). Le mécanisme Auth0 est prêt.
+- Il manque **uniquement** la propagation de l'URL d'origine depuis `PrivateRoute` jusqu'à `loginWithRedirect`.
+
+**Implémentation :**
+
+1. **`PrivateRoute.tsx`** : remplacer `<Navigate to="/login" />` par `<Navigate to="/login" state={{ returnTo: location.pathname + location.search }} />`. Importer `useLocation` depuis `react-router-dom`.
+2. **`LoginPage.tsx`** : lire `location.state?.returnTo` via `useLocation()`. Passer cette valeur à `login(returnTo)`.
+3. **`AuthContext.tsx`** : modifier `login` pour accepter un paramètre optionnel `returnTo?: string` (défaut `'/'`). Appeler `loginWithRedirect({ appState: { returnTo: returnTo ?? '/' } })` au lieu du `/profile/me` hardcodé.
+4. **Cas limites :**
+    * Si `returnTo` est absent ou vide → fallback vers `/` (landing page, plus `/profile/me`).
+    * Si `returnTo` contient `/login` ou `/login/callback` → ignorer et utiliser `/` (éviter les boucles).
+    * Les query params et fragments doivent être préservés dans le `returnTo` (ex. `/events/search?q=sport`).
+5. **Tests :**
+    * `PrivateRoute.test.tsx` : vérifier que `Navigate` reçoit `state.returnTo` contenant le pathname courant quand l'utilisateur n'est pas authentifié.
+    * `LoginPage.test.tsx` : vérifier que `login()` est appelé avec le `returnTo` issu de `location.state` quand il est présent ; avec `/` quand il est absent.
+    * `AuthContext.test.tsx` (ou tests existants) : vérifier que `loginWithRedirect` reçoit `appState.returnTo` dynamique au lieu du hardcodé.
+
+Fichiers touchés : `src/components/PrivateRoute.tsx`, `src/pages/login/LoginPage.tsx`, `src/contexts/AuthContext.tsx`
+Branche suggérée : `feature/s7-login-redirect-returnto`
+Dépendances : aucune
+
+### 🔧 [SCRUM-166] [FRONT][S7] Pages légales /legal/privacy et /legal/terms
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FRONT\] Sprint 7 — Pages légales
+
+**Problème actuel :**
+Le `Footer` affiche deux liens — « Politique de confidentialité » (`/privacy`) et « Conditions générales » (`/terms`) — mais aucune route ni page n'existe pour ces chemins. Cliquer dessus tombe sur le catch-all `NotFoundPage` (404).
+
+**Comportement cible :**
+Créer deux pages statiques accessibles publiquement, visuellement cohérentes avec le reste de l'application, et corriger les liens du footer.
+
+**Implémentation :**
+
+1. **Création des pages :**
+    * `src/pages/legal/PrivacyPage.tsx` — route `/legal/privacy`
+    * `src/pages/legal/TermsPage.tsx` — route `/legal/terms`
+2. **Layout et style :**
+    * Utiliser `SectionWrapper` (padding `md`, size `md` soit `max-w-3xl`) pour centrer le contenu comme une page de lecture.
+    * Utiliser `SectionHeader` (heading `md`, align `center`) avec le titre de la page.
+    * Ajouter un composant `Blobs` (ex. `BlobsSubtle`) en background pour la cohérence visuelle.
+    * Le contenu textuel est structuré en sections `<h2>` + paragraphes `<p>` avec les classes Tailwind existantes : `text-foreground/70` pour le corps, `text-foreground font-semibold` pour les sous-titres, `space-y-4` pour l'espacement.
+    * Les deux pages suivent exactement le même layout — seul le contenu textuel diffère.
+3. **Contenu :**
+    * **Privacy** : sections typiques — collecte de données (Auth0, email, profil), utilisation (personnalisation, fonctionnement de la plateforme), partage (aucun partage avec des tiers), cookies (Auth0 session uniquement), droits utilisateur (accès, modification, suppression via le profil), contact.
+    * **Terms** : sections typiques — objet de la plateforme (UNIGE Events, plateforme universitaire), inscription (via Auth0, compte UNIGE), contenu utilisateur (événements créés, responsabilité de l'organisateur), modération (signalement, suppression automatique), propriété intellectuelle, limitation de responsabilité (projet académique PINFO), contact.
+    * Contexte UNIGE : mentionner que c'est un projet académique du cours PINFO (Université de Genève), pas un service commercial. Cela simplifie les clauses légales.
+    * Langue : **français** (cohérent avec toute l'UI).
+4. **Mise à jour du Footer :**
+    * `Footer.tsx` : changer les `href` de `/privacy` vers `/legal/privacy` et de `/terms` vers `/legal/terms`.
+    * Remplacer les `<a>` (`TextLink`) par des `<Link>` de `react-router-dom` pour une navigation SPA sans rechargement.
+5. **Mise à jour du routeur :**
+    * `AppRouter.tsx` : ajouter deux routes publiques (hors `PrivateRoute`) :
+        * `<Route path="/legal/privacy" element={<PrivacyPage />} />`
+        * `<Route path="/legal/terms" element={<TermsPage />} />`
+6. **Tests :**
+    * `PrivacyPage.test.tsx` : vérifier le rendu du titre « Politique de confidentialité » et la présence des sections clés (collecte, utilisation, droits).
+    * `TermsPage.test.tsx` : vérifier le rendu du titre « Conditions générales » et la présence des sections clés (objet, inscription, modération).
+    * `Footer.test.tsx` (si existant, sinon ajouter) : vérifier que les liens pointent vers `/legal/privacy` et `/legal/terms`.
+7. **Documentation :**
+    * `docs/architecture.md` : ajouter les deux routes dans la table de routage (publiques).
+    * `docs/components.md` : ajouter les deux pages dans la section Pages.
+
+Fichiers créés : `src/pages/legal/PrivacyPage.tsx`, `src/pages/legal/TermsPage.tsx`
+Fichiers touchés : `src/components/Footer.tsx`, `src/router/AppRouter.tsx`, `docs/architecture.md`, `docs/components.md`
+Branche suggérée : `feature/s7-legal-pages`
+Dépendances : aucune
 
 ---
 
