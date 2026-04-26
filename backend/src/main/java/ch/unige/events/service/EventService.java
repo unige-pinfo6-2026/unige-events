@@ -131,9 +131,17 @@ public class EventService {
     }
 
     @Transactional
-    public EventDTO getById(Long id) {
+    public EventDTO getById(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
+
+        // Hotfix pentest 4.12 : hide DRAFT / CANCELLED events from non-owners / non-admins.
+        // 404 (not 403) is intentional — same envelope as "does not exist" to close the
+        // existence oracle highlighted in finding 4.12 (ID enumeration).
+        if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreator(event, auth0Id)) {
+            throw new NotFoundException();
+        }
+
         long att = countAttending(id);
         return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
     }

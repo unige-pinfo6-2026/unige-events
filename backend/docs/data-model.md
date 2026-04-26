@@ -59,6 +59,20 @@ Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
 
 Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
 
+#### Règle de visibilité par statut (hotfix pentest 2026-04-17)
+
+Le statut `Event.status` détermine qui peut lire l'événement via `GET /api/events/{id}` :
+
+| Statut | Visibilité |
+|---|---|
+| `PUBLISHED` | Public (anon + authentifié) |
+| `DRAFT` | Créateur (`event.creator.auth0Id`) ou rôle `ADMIN` uniquement |
+| `CANCELLED` | Créateur ou rôle `ADMIN` uniquement |
+
+Un appelant non autorisé reçoit `404 not_found` — même envelope qu'un ID inexistant, pour fermer l'oracle d'existence (cf. findings 4.12 + 4.15 du rapport de pentest). La règle est appliquée dans `EventService.getById(Long, String, boolean)`, avec extraction de l'identité anonyme-safe côté Resource (`identity.isAnonymous()` + `identity.hasRole("ADMIN")`).
+
+Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les statuts non publics correctement — voir SCRUM-133 pour le contexte.
+
 ---
 
 ### Favorite

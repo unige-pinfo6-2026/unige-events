@@ -1,6 +1,29 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-04-15
+Dernière mise à jour : 2026-04-24
+
+---
+
+## Sprint 6 — Hotfix sécurité post-pentest (ISSUE-92) — 2026-04-24
+
+Correction du finding **4.12** (Medium) du rapport de pentest du 2026-04-17 :
+`GET /api/events/{id}` renvoyait `200` avec le payload complet d'un event `DRAFT`
+ou `CANCELLED` à n'importe quel appelant, y compris anonyme. Combiné au finding
+**4.15** (IDs séquentiels), n'importe qui pouvait énumérer tous les brouillons et
+events annulés de la plateforme avec `for id in 1..1000; do curl .../events/$id; done`.
+
+Fix :
+- `EventService.getById(Long, String, boolean)` — signature étendue avec l'`auth0Id`
+  de l'appelant et un flag `isAdmin`. Si `event.status != PUBLISHED` et que
+  l'appelant n'est ni le créateur ni un admin → `NotFoundException` (→ `404 not_found`).
+- `EventResource.getById` reste `@PermitAll` (PUBLISHED doit rester anon-accessible)
+  mais lit `identity.isAnonymous()` + `identity.hasRole("ADMIN")` pour transmettre
+  au Service.
+- Envelope d'erreur identique à une 404 classique (pas de code d'erreur custom) —
+  ferme l'oracle d'existence.
+- 12 call-sites internes migrés (tests DB-backed + mock unitaire).
+
+**Pas de changement DB.** Pas d'impact frontend (`useEvent` consomme déjà le 404).
 
 ---
 
