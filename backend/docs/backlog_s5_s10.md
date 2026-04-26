@@ -525,26 +525,55 @@ En tant qu'administrateur, je veux disposer d'un tableau de bord de modération 
 
 *Pas de description renseignée.*
 
-### 🔧 [SCRUM-102] [FRONT][S7] Section événements mis en avant sur la page d'accueil (carrousel Hero)
+### 🔧 [SCRUM-102] [FRONT][S7] Section « À la une » sur la page d'accueil (remplacement Événements à venir)
 **Type :** Tâche · **Story Points :** 3 SP
 
-**\[FRONT\] Sprint 6 – Tâche manquante (US-T5)**
+**Sprint** : S7 | **Assigné** : — | **SP** : 3 | **Épic** : SCRUM-16 | **Story** : SCRUM-73 (US-T5)
 
-Afficher les événements mis en avant sur la page d'accueil dans une section Hero/Carrousel :
+\[FRONT\] Sprint 7 — Section « À la une »
 
-* `FeaturedEventsSection.tsx` : section visuelle en haut de `HomePage.tsx`, avant la liste générale
-* Appel `GET /api/events/featured` → liste des événements featured (max 5-10)
-* Affichage en carrousel horizontal (auto-scroll ou navigation manuelle) ou en section "Hero" avec grande carte principale
-* Chaque carte featured : bannière plein-cadre, titre en overlay, date, catégorie, badge "✨ À la une"
-* Responsive : carrousel horizontal sur desktop, liste empilée sur mobile
-* Animation CSS douce (transition entre cartes)
-* Si aucun featured → section masquée (pas d'espace vide)
-* `useFeaturedEvents.ts` : hook de chargement
+**Problème actuel :**
+La section « Événements à venir » de la `LandingPage` affiche les événements publiés récents via `useEvents()` (filtre `status=PUBLISHED` + `endDateFrom=now`, tri chronologique). Il n'y a aucune logique de pertinence — les événements sont simplement listés par date.
 
-**US couverte :** US-T5 — Je veux pouvoir mettre en avant certains événements stratégiques sur la page d'accueil
+**Comportement cible :**
+Remplacer la section « Événements à venir » par une section **« À la une »** qui affiche les **6 événements les plus pertinents**, sélectionnés par un double mécanisme :
 
-**Fichiers touchés :** `FeaturedEventsSection.tsx`, `FeaturedEventCard.tsx`, `useFeaturedEvents.ts`, `HomePage.tsx` (ajout section en haut)
-**Branche suggérée :** `feature/s6-featured-homepage`
+1. **Admin override** : un événement flaggé `featured = true` par un admin (via SCRUM-95) apparaît en priorité, trié par `featuredAt DESC`.
+2. **Popularité automatique** : les slots restants (si < 6 featured) sont remplis par les événements PUBLISHED à venir triés par score de popularité = `attendingCount + favoriteCount` décroissant.
+
+Ce mécanisme garantit que la section fonctionne **dès le départ sans intervention admin** (popularité pure), tout en permettant à un admin de booster un événement stratégique quand nécessaire.
+
+**Implémentation :**
+
+1. **Backend nécessaire (SCRUM-95)** : `GET /api/events/featured` doit être adapté pour retourner :
+    * D'abord les events avec `featured = true`, triés par `featuredAt DESC`
+    * Puis les events PUBLISHED à venir triés par `attendingCount + favoriteCount` DESC pour compléter jusqu'à 6
+    * Paramètre `?limit=6` (défaut 6, max 12)
+    * → **Coordonner avec l'assigné de SCRUM-95 pour intégrer la logique de popularité dans l'endpoint**
+2. **`LandingPage.tsx`** : remplacer le composant `EventCards` (section « Événements à venir ») par un nouveau composant `FeaturedEventsSection`.
+    * Même grille `EventCard` existante (pas de nouveau composant carte) — on réutilise les cards actuelles.
+    * Titre de section : « À la une » (via `SectionHeader`).
+    * Affiche exactement **6 événements** max (2 rangées × 3 colonnes desktop, responsive comme la grille actuelle).
+    * **Pas de bouton « Charger plus »** — c'est une sélection curatée, pas une liste paginée.
+    * Si aucun événement disponible → section masquée (pas d'espace vide).
+    * Badge optionnel « ✨ À la une » en overlay sur les events qui ont `featured = true` (distinguer les choix admin des events populaires).
+3. **`useFeaturedEvents.ts`** : nouveau hook qui appelle `GET /api/events/featured?limit=6`.
+    * Retourne `{ events, loading, error }`.
+    * Pas de pagination, pas de `loadMore`.
+4. **Suppression du code obsolète** :
+    * Le composant `EventCards` (qui orchestrait `useEvents` + bouton « Charger plus ») n'est plus utilisé dans la `LandingPage`. Vérifier s'il est consommé ailleurs avant de le supprimer.
+    * Le hook `useEvents` reste — il est potentiellement utilisé par d'autres pages.
+5. **Skeleton** : réutiliser le skeleton `event-cards` existant (même grille, 6 cards au lieu de 12 — ajuster le nombre de bones si nécessaire).
+6. **Tests :**
+    * `FeaturedEventsSection.test.tsx` : rendu avec 6 events, rendu vide (section masquée), présence du badge « À la une » sur les events featured.
+    * `LandingPage.test.tsx` : vérifier que la section affiche « À la une » et non « Événements à venir ».
+7. **Documentation :**
+    * `docs/components.md` : mettre à jour la section LandingPage + ajouter `FeaturedEventsSection`.
+
+Fichiers créés : `src/components/event/FeaturedEventsSection.tsx`, `src/hooks/useFeaturedEvents.ts`
+Fichiers touchés : `src/pages/LandingPage.tsx`, `docs/components.md`
+Branche suggérée : `feature/s7-featured-homepage`
+Dépendances : SCRUM-95 (backend featured events — endpoint doit inclure la logique popularité)
 
 ### 🔧 [SCRUM-103] [BACK][S7] Job nettoyage auto des événements répétitivement signalés (@Scheduled)
 **Type :** Tâche · **Story Points :** 3 SP
@@ -641,27 +670,52 @@ Implémenter le rôle admin et le système de signalement/modération :
 **Fichiers touchés :** `Report.java`, `ReportReason.java`, `ReportStatus.java`, `ReportService.java`, `ReportResource.java`, `AdminReportResource.java`, `ReportDTO.java`
 **Branche suggérée :** `feature/s6-report-moderation`
 
-### 🔧 [SCRUM-95] [BACK][S7] Featured events : champ + endpoints admin feature/unfeature + GET /api/events/featured
+### 🔧 [SCRUM-95] [BACK][S7] Featured events : champ + endpoints admin + GET /api/events/featured (admin override + popularité)
 **Type :** Tâche · **Story Points :** 3 SP
 
-**\[BACK\] Sprint 6 – Tâche 2/2**
+**Sprint** : S7 | **Assigné** : Antoine | **SP** : 3 | **Épic** : SCRUM-16 | **Story** : SCRUM-73 (US-T5)
 
-Implémenter la mise en avant (featured) des événements par l'admin :
+\[BACK\] Sprint 7 — Featured events avec logique de popularité
 
-* Ajout du champ `featured` (boolean, default false) + `featuredAt` (timestamp) sur l'entité `Event`
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
-* Endpoints :
+**Contexte :**
+La page d'accueil va remplacer la section « Événements à venir » (tri chronologique) par une section « À la une » (SCRUM-102) affichant les 6 événements les plus pertinents. L'endpoint `GET /api/events/featured` doit supporter un **double mécanisme** de sélection :
 
-    * `PATCH /api/admin/events/{id}/feature` → passer `featured=true`, enregistrer `featuredAt` (ADMIN uniquement)
-    * `PATCH /api/admin/events/{id}/unfeature` → passer `featured=false` (ADMIN uniquement)
-    * `GET /api/events/featured` → liste publique des événements mis en avant, triés par `featuredAt` DESC, limités à 10
-    
-* Modification de `GET /api/events` : ajout paramètre optionnel `?featured=true` pour filtrer
-* `FeaturedService` + logique dans `AdminEventResource` (fichier dédié, distinct de `AdminReportResource` de SCRUM-94)
-* Tests `@QuarkusTest` : mise en avant, suppression mise en avant, accès public liste featured, 403 si non-admin
+1. **Admin override** : les events flaggés `featured = true` par un admin apparaissent en priorité.
+2. **Popularité automatique** : les slots restants sont remplis par les events PUBLISHED à venir triés par score = `attendingCount + favoriteCount` décroissant.
 
-**Fichiers touchés :** `Event.java` (champs featured/featuredAt), `FeaturedService.java`, `AdminEventResource.java`
-**Branche suggérée :** `feature/s6-featured-events`
+Ce mécanisme garantit que la section fonctionne **dès le départ sans admin actif** (popularité pure), tout en permettant à un admin de booster un event stratégique.
+
+**Implémentation :**
+
+1. **Entité `Event`** : ajouter :
+    * `featured` (boolean, default `false`)
+    * `featuredAt` (LocalDateTime, nullable)
+    * Hibernate mode `update` applique les changements automatiquement.
+2. **Endpoints admin** (dans `AdminEventResource`, fichier dédié distinct de `AdminReportResource` de SCRUM-94) :
+    * `PATCH /api/admin/events/{id}/feature` → `featured = true`, `featuredAt = now()`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
+    * `PATCH /api/admin/events/{id}/unfeature` → `featured = false`, `featuredAt = null`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
+3. **Endpoint public `GET /api/events/featured`** (`@PermitAll`) :
+    * Paramètre `?limit=` (défaut 6, max 12).
+    * **Logique de sélection (requête en deux phases)** :
+        * Phase 1 : sélectionner les events avec `featured = true AND status = PUBLISHED AND endDate >= now()`, triés par `featuredAt DESC`, limités à `limit`.
+        * Phase 2 : si phase 1 retourne < `limit` résultats, compléter avec les events `featured = false AND status = PUBLISHED AND endDate >= now()`, triés par `(attendingCount + favoriteCount) DESC`, en excluant les IDs déjà retournés en phase 1, limités à `limit - phase1.size()`.
+    * Le score de popularité est calculé via des sous-requêtes COUNT (même pattern que `attendingCount` / `waitlistedCount` dans `EventService.getAll()`).
+    * Retourne `List<EventDTO>` (les events featured admin ont `featured: true` dans le DTO — le frontend distingue visuellement les deux types).
+4. **Filtre sur `GET /api/events`** : ajout du paramètre optionnel `?featured=true` pour filtrer (utilisé par le dashboard admin SCRUM-97).
+5. **`FeaturedService`** (`@ApplicationScoped`) :
+    * `getFeatured(int limit)` : logique deux phases décrite ci-dessus.
+    * `feature(Long eventId)` / `unfeature(Long eventId)` : `@Transactional`.
+6. **`EventDTO`** : vérifier que `featured` (boolean) est bien mappé dans `EventDTO.from()`.
+7. **OpenAPI** : documenter `featured` / `featuredAt` dans le schéma `Event`, les deux endpoints admin, et le paramètre `limit` de `GET /api/events/featured`.
+8. **Tests `@QuarkusTest`** :
+    * Feature un event → 200, `featured = true`. Unfeature → 200, `featured = false`. 403 si non-admin.
+    * `GET /api/events/featured` sans aucun featured → retourne les 6 events les plus populaires.
+    * `GET /api/events/featured` avec 2 featured + events populaires → 2 featured en tête + 4 populaires derrière.
+    * `GET /api/events/featured?limit=3` → max 3 résultats.
+
+Fichiers créés/touchés : `Event.java` (champs featured/featuredAt), `FeaturedService.java`, `AdminEventResource.java`, `EventDTO.java`, `EventService.java`, `openapi.yaml`
+Branche suggérée : `feature/s7-featured-events`
+Dépendances : aucune (SCRUM-102 front dépend de cette tâche)
 
 ### 🔧 [SCRUM-96] [FRONT][S7] Modale de signalement d'événement (ReportModal)
 **Type :** Tâche · **Story Points :** 3 SP
@@ -1081,8 +1135,8 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 ---
 
 ## Sprint 9 — 12–16 mai 2026
-**Thème :** Follow/Comment front + Attachments + Profil public  
-**Total estimé :** 36 SP
+**Thème :** Follow/Comment front + Attachments + Profil public + Feed timeline  
+**Total estimé :** 44 SP
 
 ### 🚀 [SCRUM-160] [S9] Je veux consulter les profils publics, suivre des utilisateurs et interagir via commentaires et fichiers joints (US-20, 21, 22, 28, 31, 32)
 **Type :** Feature · **Story Points :** — SP
@@ -1103,6 +1157,120 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 **Type :** User Story · **Story Points :** — SP
 
 *Pas de description renseignée.*
+
+### 🔧 [SCRUM-167] [FRONT][S9] Page Feed — fil chronologique d'événements (timeline verticale + EventFeedCard)
+**Type :** Tâche · **Story Points :** 5 SP
+
+**Sprint** : S9 | **Assigné** : — | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : —
+
+\[FRONT\] Sprint 9 — Page Feed timeline
+
+**Concept :**
+Nouvelle page `/feed` accessible depuis la navbar, présentant tous les événements à venir sous forme de **fil chronologique vertical** (style réseau social / timeline). Les événements sont groupés par **date calendrier** (`startDate`), du plus proche au plus lointain, avec une timeline visuelle à gauche et des cartes événement larges à droite.
+
+**Layout de la timeline :**
+```
+┌──────────────────────────────────────────────┐
+│  [Toggle: Tous | Mes abonnements]             │
+├──────────────────────────────────────────────┤
+│                                              │
+│  ● ── Aujourd'hui, 28 avril 2026 ────────── │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   │  Bannière | Titre, lieu, heure  │     │
+│  │   │  Catégorie, faculté, capacity   │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  ● ── Mercredi 30 avril 2026 ────────────── │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  ● ── Vendredi 2 mai 2026 ──────────────── │
+│  │   ...                                     │
+│  ▼   (infinite scroll)                       │
+└──────────────────────────────────────────────┘
+```
+
+**Implémentation :**
+
+1. **Page `FeedPage.tsx`** — route `/feed`, publique (les events sont publics) :
+    * En-tête avec titre « Fil d'événements » et toggle segmenté « Tous » / « Mes abonnements ».
+    * Le toggle « Mes abonnements » est **désactivé visuellement** (grisé + tooltip « Bientôt disponible ») tant que le filtre backend `followedOnly` n'est pas implémenté (SCRUM-168). Il est activable dès que l'endpoint le supporte.
+    * Layout : timeline verticale à gauche + contenu à droite.
+2. **Composant `Timeline.tsx`** — structure visuelle du fil :
+    * **Trait vertical** : `div` fin (2-3px) coloré `bg-border` (ou `bg-accent/20`), positionné à gauche via CSS (`absolute` ou `border-left` sur le container).
+    * **Marqueur de date** : un point (`●`, `w-3 h-3 rounded-full bg-accent`) positionné sur le trait, suivi d'un label de date formaté en français (`Intl.DateTimeFormat('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })`). Cas spéciaux : « Aujourd'hui », « Demain » pour les deux premières dates si applicables.
+    * **Segment entre marqueurs** : le trait continue entre les groupes de cartes.
+    * Responsive : sur mobile (`< md`), le trait passe en bordure gauche fine et les cartes prennent toute la largeur.
+3. **Composant `EventFeedCard.tsx`** — carte événement large pour le fil :
+    * Layout horizontal sur desktop : bannière à gauche (aspect 16:9, `w-48 h-28` ou similaire) + infos à droite.
+    * Infos : titre (tronqué `line-clamp-2`), lieu (`MapPin`), heure de début (`Clock`), catégorie + faculté (badges existants).
+    * Actions inline : `FavoriteButton` (étoile), indicateur capacité (« X places restantes » ou « Complet »).
+    * Glassmorphism cohérent avec `EventCard` existant (`bg-background/60 backdrop-blur-xl border-border`).
+    * Clic sur la carte → `/events/:id`.
+    * Responsive : sur mobile, layout vertical (bannière en haut, infos en dessous).
+4. **Hook `useFeed.ts`** — chargement paginé :
+    * Appelle `GET /api/events?status=PUBLISHED&endDateFrom=<now>&page=X&size=20` trié par `startDate ASC`.
+    * Le frontend **groupe les résultats par date** (`startDate` tronqué au jour) côté client.
+    * Infinite scroll via `IntersectionObserver` sur un sentinel en bas de page.
+    * Gère la fusion des pages : si la dernière carte de la page N et la première de la page N+1 tombent le même jour, elles apparaissent dans le même groupe.
+    * Retourne `{ groups: Array<{ date: string, events: Event[] }>, loading, error, hasMore, loadMore }`.
+    * Futur : paramètre `followedOnly?: boolean` transmis à l'API quand SCRUM-168 est implémenté.
+5. **Dates sans événements** : les dates intermédiaires sans événements sont **sautées**. Le fil passe directement au prochain jour qui a des événements.
+6. **Route + Navbar** :
+    * `AppRouter.tsx` : ajouter `<Route path="/feed" element={<FeedPage />} />` (publique).
+    * `Navbar.tsx` : ajouter un lien « Fil » (icône `Rss` ou `LayoutList` de lucide-react) dans la navigation principale.
+7. **Skeleton** : créer un skeleton `feed` (bones manuels) reproduisant 2-3 marqueurs de date + 3-4 cartes large.
+8. **État vide** : si aucun événement à venir → message centré « Aucun événement à venir pour le moment » avec illustration.
+9. **Tests** : `FeedPage.test.tsx`, `EventFeedCard.test.tsx`, `Timeline.test.tsx`, `useFeed.test.ts` (groupement par date, fusion inter-pages, loadMore).
+10. **Documentation** : `docs/architecture.md` (route `/feed`), `docs/components.md` (`FeedPage`, `Timeline`, `EventFeedCard`, `useFeed`).
+
+Fichiers créés : `src/pages/FeedPage.tsx`, `src/components/feed/Timeline.tsx`, `src/components/feed/EventFeedCard.tsx`, `src/hooks/useFeed.ts`
+Fichiers touchés : `src/router/AppRouter.tsx`, `src/components/Navbar.tsx`, `docs/architecture.md`, `docs/components.md`
+Branche suggérée : `feature/s9-feed-timeline`
+Dépendances : aucune pour la v1. Le toggle « Mes abonnements » dépend de SCRUM-138 (Follow, S8) + SCRUM-168 (filtre backend)
+
+### 🔧 [SCRUM-168] [BACK][S9] Filtre followedOnly sur GET /api/events (feed abonnements)
+**Type :** Tâche · **Story Points :** 3 SP
+
+**Sprint** : S9 | **Assigné** : — | **SP** : 3 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
+
+\[BACK\] Sprint 9 — Filtre followedOnly pour le feed
+
+**Contexte :**
+La page Feed (SCRUM-167) affiche les événements à venir en fil chronologique. Un toggle « Tous » / « Mes abonnements » permet de ne voir que les événements créés par les utilisateurs que l'on suit. Ce filtre nécessite un paramètre backend.
+
+**Prérequis :** L'entité `Follow` et les endpoints follow/unfollow doivent être implémentés (SCRUM-138, Sprint 8).
+
+**Implémentation :**
+
+1. **`GET /api/events`** : ajouter le paramètre optionnel `?followedOnly=true` (`@QueryParam`).
+    * Si `followedOnly=true` et l'utilisateur est authentifié :
+        * Récupérer la liste des `followedId` via `Follow.find("followerId = ?1 AND status = ?2", userId, FollowStatus.ACCEPTED)` → extraire les UUIDs.
+        * Ajouter une condition JPQL `e.creator.id IN :followedIds` au filtre existant.
+        * Si l'utilisateur ne suit personne → retourner une liste vide (pas d'erreur).
+    * Si `followedOnly=true` et l'utilisateur n'est **pas** authentifié → 401.
+    * Si `followedOnly` absent ou `false` → comportement inchangé (tous les events).
+2. **`EventService.getAll()`** : ajouter le paramètre `followedIds: List<UUID>` (nullable). Si non-null et non-vide, ajouter la condition JPQL. Si non-null et vide, court-circuiter avec un résultat vide.
+3. **`EventResource.getAll()`** : lire `followedOnly` depuis `@QueryParam`. Si `true`, récupérer l'utilisateur authentifié via `SecurityIdentity`, puis charger les IDs suivis via `FollowService` ou `Follow.findAcceptedFollowedIds(UUID followerId)`.
+4. **OpenAPI** : ajouter le paramètre `followedOnly` (boolean, optional, default false) sur `GET /api/events`. Documenter le comportement 401 si non authentifié.
+5. **Tests `@QuarkusTest`** :
+    * `followedOnly=true` authentifié, suit 2 users avec events → retourne uniquement ces events.
+    * `followedOnly=true` authentifié, ne suit personne → retourne `[]`.
+    * `followedOnly=true` non authentifié → 401.
+    * `followedOnly` absent → comportement inchangé.
+    * Combinaison avec les autres filtres (`status`, `category`, `endDateFrom`, etc.).
+
+Fichiers touchés : `EventResource.java`, `EventService.java`, `openapi.yaml`
+Branche suggérée : `feature/s9-events-followed-only`
+Dépendances : SCRUM-138 (entité Follow, Sprint 8)
 
 ### 🔧 [SCRUM-140] [BACK][S9] Notifications Follow (NEW_FOLLOWER, FOLLOW_REQUEST, FOLLOW_ACCEPTED)
 **Type :** Tâche · **Story Points :** 3 SP
