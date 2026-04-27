@@ -28,7 +28,7 @@ jobs:
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
       - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v5
+        uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
@@ -37,7 +37,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create DB secret
-        uses: azure/k8s-create-secret@v5
+        uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-type: generic
@@ -50,7 +50,7 @@ jobs:
             }
       
       - name: Create MinIO secret
-        uses: azure/k8s-create-secret@v5
+        uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-type: generic
@@ -62,7 +62,7 @@ jobs:
             }
 
       - name: Create API secret
-        uses: azure/k8s-create-secret@v5
+        uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-type: generic
@@ -79,7 +79,7 @@ jobs:
             }
 
       - name: Create Cloudflare Tunnel secret
-        uses: azure/k8s-create-secret@v5
+        uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-type: generic
