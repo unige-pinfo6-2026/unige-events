@@ -6,10 +6,16 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "reports", indexes = {
-        @Index(name = "idx_report_event", columnList = "event_id"),
-        @Index(name = "idx_report_status", columnList = "status")
-})
+@Table(
+        name = "reports",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_report_reporter_event", columnNames = {"reporter_id", "event_id"})
+        },
+        indexes = {
+                @Index(name = "idx_report_event", columnList = "event_id"),
+                @Index(name = "idx_report_status", columnList = "status")
+        }
+)
 public class Report extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

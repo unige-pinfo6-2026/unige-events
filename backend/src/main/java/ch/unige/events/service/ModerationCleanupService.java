@@ -37,10 +37,9 @@ public class ModerationCleanupService {
     @Transactional
     public void runCleanup() {
         Map<Event, Long> pendingCounts = fetchPendingReportCounts();
-        List<Event> toHide = selectAboveThreshold(pendingCounts, threshold);
+        List<Event> toHide = atOrAboveThreshold(pendingCounts, threshold);
         toHide.forEach(this::hide);
-        List<Long> ids = toHide.stream().map(e -> e.id).toList();
-        log.infof("ModerationCleanup: %d event(s) auto-hidden. IDs: %s", toHide.size(), ids);
+        log.infof("ModerationCleanup: %d event(s) auto-hidden (threshold=%d).", toHide.size(), threshold);
     }
 
     Map<Event, Long> fetchPendingReportCounts() {
@@ -51,7 +50,7 @@ public class ModerationCleanupService {
         return rows.stream().collect(Collectors.toMap(row -> (Event) row[0], row -> (Long) row[1]));
     }
 
-    static List<Event> selectAboveThreshold(Map<Event, Long> pendingCounts, int threshold) {
+    static List<Event> atOrAboveThreshold(Map<Event, Long> pendingCounts, int threshold) {
         List<Event> result = new ArrayList<>();
         for (Map.Entry<Event, Long> entry : pendingCounts.entrySet()) {
             if (entry.getValue() >= threshold) {

@@ -16,19 +16,19 @@ import static org.mockito.Mockito.*;
 
 class ModerationCleanupServiceTest {
 
-    // ── selectAboveThreshold ────────────────────────────────────────────────
+    // ── atOrAboveThreshold ─────────────────────────────────────────────────
 
     @Test
     void caseA_twoReports_belowThreshold_notHidden() {
         Event event = new Event();
-        List<Event> result = ModerationCleanupService.selectAboveThreshold(Map.of(event, 2L), 3);
+        List<Event> result = ModerationCleanupService.atOrAboveThreshold(Map.of(event, 2L), 3);
         assertTrue(result.isEmpty());
     }
 
     @Test
     void caseB_threeReports_atThreshold_hidden() {
         Event event = new Event();
-        List<Event> result = ModerationCleanupService.selectAboveThreshold(Map.of(event, 3L), 3);
+        List<Event> result = ModerationCleanupService.atOrAboveThreshold(Map.of(event, 3L), 3);
         assertEquals(1, result.size());
         assertSame(event, result.get(0));
     }
@@ -36,24 +36,24 @@ class ModerationCleanupServiceTest {
     @Test
     void caseC_fiveReports_aboveThreshold_hidden() {
         Event event = new Event();
-        List<Event> result = ModerationCleanupService.selectAboveThreshold(Map.of(event, 5L), 3);
+        List<Event> result = ModerationCleanupService.atOrAboveThreshold(Map.of(event, 5L), 3);
         assertEquals(1, result.size());
         assertSame(event, result.get(0));
     }
 
     @Test
-    void selectAboveThreshold_emptyMap_returnsEmpty() {
-        assertTrue(ModerationCleanupService.selectAboveThreshold(Map.of(), 3).isEmpty());
+    void atOrAboveThreshold_emptyMap_returnsEmpty() {
+        assertTrue(ModerationCleanupService.atOrAboveThreshold(Map.of(), 3).isEmpty());
     }
 
     @Test
-    void selectAboveThreshold_multipleEvents_filtersCorrectly() {
+    void atOrAboveThreshold_multipleEvents_filtersCorrectly() {
         Event below = new Event();
         Event at = new Event();
         Event above = new Event();
         Map<Event, Long> counts = Map.of(below, 1L, at, 3L, above, 7L);
 
-        List<Event> result = ModerationCleanupService.selectAboveThreshold(counts, 3);
+        List<Event> result = ModerationCleanupService.atOrAboveThreshold(counts, 3);
 
         assertEquals(2, result.size());
         assertTrue(result.contains(at));
@@ -116,7 +116,7 @@ class ModerationCleanupServiceTest {
     }
 
     @Test
-    void runCleanup_noEvents_logsZero() {
+    void runCleanup_noEvents_callsFetchPendingReportCounts() {
         ModerationCleanupService spy = spy(new ModerationCleanupService());
         spy.threshold = 3;
 
@@ -172,8 +172,7 @@ class ModerationCleanupServiceTest {
     @Test
     void job_run_delegatesToService() {
         ModerationCleanupService mockService = mock(ModerationCleanupService.class);
-        ModerationCleanupJob job = new ModerationCleanupJob();
-        job.moderationCleanupService = mockService;
+        ModerationCleanupJob job = new ModerationCleanupJob(mockService);
 
         job.run();
 

@@ -8,10 +8,14 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class ModerationCleanupJob {
 
-    @Inject
-    public ModerationCleanupService moderationCleanupService;
+    private final ModerationCleanupService moderationCleanupService;
 
-    @Scheduled(cron = "0 0 3 * * ?")
+    @Inject
+    public ModerationCleanupJob(ModerationCleanupService moderationCleanupService) {
+        this.moderationCleanupService = moderationCleanupService;
+    }
+
+    @Scheduled(cron = "0 0 3 * * ?", timeZone = "Europe/Zurich")
     public void run() {
         moderationCleanupService.runCleanup();
     }
