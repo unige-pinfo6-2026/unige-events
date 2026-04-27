@@ -384,37 +384,6 @@ export default function EventForm({
           />
         </FormField>
 
-        {/* Zone CTA — publish / draft save / delete are mutually exclusive: while any
-            one is in flight, all other action buttons are disabled to prevent concurrent
-            mutations on the same event (e.g. clicking "Supprimer" during a save-draft). */}
-        <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
-          {onDelete && (
-            <ButtonDestructive
-              onClick={() => { void onDelete() }}
-              disabled={busy}
-              size="md"
-            >
-              {deleting ? 'Suppression...' : deleteLabel}
-            </ButtonDestructive>
-          )}
-          {onCancel && (
-            <ButtonSecondary onClick={onCancel} disabled={busy} size="md">
-              Annuler
-            </ButtonSecondary>
-          )}
-          {onSaveDraft && (
-            <ButtonNeutral
-              onClick={() => { void onSaveDraft() }}
-              disabled={busy}
-              size="md"
-            >
-              {draftSaving ? 'Enregistrement...' : saveDraftLabel}
-            </ButtonNeutral>
-          )}
-          <ButtonPrimary type="submit" disabled={busy} size="md">
-            {submitting ? 'Enregistrement...' : submitLabel}
-          </ButtonPrimary>
-        </div>
 
       </div>
 
@@ -541,6 +510,38 @@ export default function EventForm({
 
       {/* Erreur image (si présente) */}
       {errors.image && <p className="text-xs text-error -mt-4">{errors.image}</p>}
+
+      {/* Zone CTA — publish / draft save / delete are mutually exclusive: while any
+          one is in flight, all other action buttons are disabled to prevent concurrent
+          mutations on the same event (e.g. clicking "Supprimer" during a save-draft). */}
+      <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+        {onDelete && (
+          <ButtonDestructive
+            onClick={() => { void onDelete() }}
+            disabled={busy}
+            size="md"
+          >
+            {deleting ? 'Suppression...' : deleteLabel}
+          </ButtonDestructive>
+        )}
+        {onCancel && (
+          <ButtonSecondary onClick={onCancel} disabled={busy} size="md">
+            Annuler
+          </ButtonSecondary>
+        )}
+        {onSaveDraft && (
+          <ButtonNeutral
+            onClick={() => { void onSaveDraft() }}
+            disabled={busy}
+            size="md"
+          >
+            {draftSaving ? 'Enregistrement...' : saveDraftLabel}
+          </ButtonNeutral>
+        )}
+        <ButtonPrimary type="submit" disabled={busy} size="md">
+          {submitting ? 'Enregistrement...' : submitLabel}
+        </ButtonPrimary>
+      </div>
 
       {cropSource && (
         <ImageCropper
