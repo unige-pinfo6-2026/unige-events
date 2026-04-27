@@ -1,5 +1,6 @@
 package ch.unige.events.service;
 
+import ch.unige.events.config.AppConfig;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.scheduler.ModerationCleanupJob;
@@ -15,6 +16,20 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ModerationCleanupServiceTest {
+
+    // ── init ───────────────────────────────────────────────────────────────
+
+    @Test
+    void init_setsThresholdFromConfig() {
+        AppConfig mockConfig = mock(AppConfig.class);
+        when(mockConfig.moderationAutoHideThreshold()).thenReturn(5);
+
+        ModerationCleanupService service = new ModerationCleanupService();
+        service.appConfig = mockConfig;
+        service.init();
+
+        assertEquals(5, service.threshold);
+    }
 
     // ── atOrAboveThreshold ─────────────────────────────────────────────────
 
