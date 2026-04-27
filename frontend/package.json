@@ -17,7 +17,7 @@
     "@radix-ui/react-collapsible": "^1.1.12",
     "@tailwindcss/vite": "^4.2.2",
     "axios": "^1.15.2",
-    "boneyard-js": "^1.7.7",
+    "boneyard-js": "^1.8.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.0",
