@@ -181,6 +181,30 @@ Secrets K8s : `ghcr-secret` (accès GHCR), `db-secret` (credentials PostgreSQL).
 
 ---
 
+## Tâches planifiées (Scheduled Jobs)
+
+Le backend exécute des jobs de fond via `quarkus-scheduler`.
+
+| Classe | Cron | Rôle |
+|---|---|---|
+| `ModerationCleanupJob` | `0 0 3 * * ?` (03h00 chaque nuit) | Masque automatiquement les événements dépassant le seuil de signalements en attente |
+
+### ModerationCleanupJob / ModerationCleanupService
+
+Déclenchement quotidien à 03h00. Délègue toute la logique à `ModerationCleanupService.runCleanup()` :
+
+1. Requête JPA : récupère les paires `(Event, nbSignalementsEnAttente)` pour tous les rapports `PENDING`.
+2. Filtre Java : retient les événements dont le compte ≥ `app.moderation.auto-hide-threshold` (défaut : 3).
+3. Mutation : passe le `status` de chaque événement sélectionné à `CANCELLED`.
+4. Log INFO : `ModerationCleanup: {n} event(s) auto-hidden. IDs: [...]`
+
+**Configuration :**
+```properties
+app.moderation.auto-hide-threshold=3
+```
+
+---
+
 ## CI/CD (GitHub Actions)
 
 **CI (`ci.yml`) :** Sur chaque PR → main
