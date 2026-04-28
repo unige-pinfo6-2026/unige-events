@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import { getMe } from '../services/userService'
 import { setToken } from '../services/tokenStore'
@@ -11,7 +12,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  login: () => void
+  login: (returnTo?: string) => void
   logout: () => void
   updateUser: (updated: User) => void
 }
@@ -20,6 +21,8 @@ export interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
+  const location = useLocation()
+
   const {
     isAuthenticated,
     isLoading: auth0IsLoading,
@@ -35,9 +38,12 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const login = useCallback(() => {
-    loginWithRedirect({ appState: { returnTo: '/profile/me' } })
-  }, [loginWithRedirect])
+  const login = useCallback((returnTo?: string) => {
+    const candidate = returnTo ?? location.pathname + location.search
+    const safeReturnTo = candidate.startsWith('/login') ? '/' : candidate
+    
+    loginWithRedirect({ appState: { returnTo: safeReturnTo } })
+  }, [loginWithRedirect, location])
 
   const logout = useCallback(() => {
     auth0Logout({ logoutParams: { returnTo: globalThis.location.origin } })
