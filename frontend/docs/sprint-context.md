@@ -1,6 +1,20 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-23
+Dernière mise à jour : 2026-04-28
+
+## Sprint 7 — Redirect post-login vers la page d'origine (SCRUM-S7) — 2026-04-28
+
+Terminé.
+
+Fonctionnalités livrées :
+- `PrivateRoute` passe l'URL tentée (`pathname + search + hash`) dans `state.returnTo` lors de la redirection vers `/login`.
+- `LoginPage` lit `location.state?.returnTo` et le transmet à `login(returnTo)`.
+- `AuthContext.login(returnTo?)` : utilise `returnTo` si fourni, sinon fallback sur `location.pathname + search + hash` courant (couvre les boutons Navbar sans argument). Garde-fou double : URL externe (`http://`, `https://`, `//`) → fallback `/` ; path `/login*` → fallback `/` (anti-boucle).
+- `AuthProvider.onRedirectCallback` : même validation avant de passer à `navigate()`.
+- `LoginCallbackPage` : suppression du `<Navigate to="/" />` déclenché sur `isAuthenticated` qui écrasait la navigation impérative de `onRedirectCallback`.
+- `Navbar` : `onClick={login}` → `onClick={() => login()}` pour éviter que React passe le `SyntheticEvent` comme `returnTo`.
+- Imports `../services/*` → `@/services/*` dans `AuthContext.tsx`.
+- Tests : `PrivateRoute.test.tsx` (state.returnTo), `LoginPage.test.tsx` (avec/sans returnTo), `AuthContext.test.tsx` (returnTo explicite, fallback location courante, anti-boucle /login, anti open-redirect http:// et //), `LoginCallbackPage.test.tsx` (pas de navigation vers / sur isAuthenticated).
 
 ## Sprint 6 — Filtre par tags sur la recherche (SCRUM-131 + SCRUM-132) — 2026-04-22
 - Hook `useImageCropFlow` (`src/hooks/useImageCropFlow.ts`) : encapsule le flux sélection fichier → validation → FileReader → cropper → Blob → File. Préserve le nom original, reset l'input pour permettre la re-sélection du même fichier après cancel.

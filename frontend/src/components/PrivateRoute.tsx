@@ -11,6 +11,6 @@ export default function PrivateRoute() {
   return isAuthenticated ? (
     <Outlet />
   ) : (
-    <Navigate to="/login" state={{ returnTo: location.pathname + location.search }} />
+    <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} />
   )
 }

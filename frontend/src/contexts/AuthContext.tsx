@@ -2,8 +2,8 @@ import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
-import { getMe } from '../services/userService'
-import { setToken } from '../services/tokenStore'
+import { getMe } from '@/services/userService'
+import { setToken } from '@/services/tokenStore'
 import type { User } from '@/types/user'
 import { useToast } from '@/hooks/useToast'
 
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [error, setError] = useState<string | null>(null)
 
   const login = useCallback((returnTo?: string) => {
-    const candidate = returnTo ?? location.pathname + location.search
+    const candidate = returnTo ?? location.pathname + location.search + location.hash
     const isRelative = candidate.startsWith('/') && !candidate.startsWith('//')
     const safeReturnTo = isRelative && !candidate.startsWith('/login') ? candidate : '/'
     loginWithRedirect({ appState: { returnTo: safeReturnTo } })
