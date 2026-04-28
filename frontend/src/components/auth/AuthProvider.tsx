@@ -7,7 +7,9 @@ export default function AuthProvider({ children }: Readonly<{ children: ReactNod
   const navigate = useNavigate()
 
   function onRedirectCallback(appState?: AppState) {
-    navigate(appState?.returnTo ?? '/', { replace: true })
+    const returnTo = appState?.returnTo
+    const isRelative = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//')
+    navigate(isRelative ? returnTo : '/', { replace: true })
   }
 
   return (

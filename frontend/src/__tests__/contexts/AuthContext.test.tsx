@@ -93,6 +93,40 @@ describe('AuthContext', () => {
     expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/calendar' } })
   })
 
+  it('falls back to / when returnTo is an external URL to prevent open redirect', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider('https://evil.com/steal')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/' } })
+  })
+
+  it('falls back to / when returnTo is a protocol-relative URL', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider('//evil.com/steal')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/' } })
+  })
+
   it('falls back to / when returnTo is a /login path to prevent redirect loops', () => {
     const loginWithRedirect = vi.fn()
     mockUseAuth0.mockReturnValue({

@@ -40,8 +40,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   const login = useCallback((returnTo?: string) => {
     const candidate = returnTo ?? location.pathname + location.search
-    const safeReturnTo = candidate.startsWith('/login') ? '/' : candidate
-    
+    const isRelative = candidate.startsWith('/') && !candidate.startsWith('//')
+    const safeReturnTo = isRelative && !candidate.startsWith('/login') ? candidate : '/'
     loginWithRedirect({ appState: { returnTo: safeReturnTo } })
   }, [loginWithRedirect, location])
 
