@@ -1,9 +1,16 @@
 <!--
 Merci de remplir cette description de PR.
 Les sections marquées (optionnel) peuvent être supprimées si elles ne s'appliquent pas.
+
 Le titre de la PR doit suivre la convention : <type>(<scope>): <description>
   - types : feat, fix, docs, style, refactor, test, chore, ci, perf
-  - exemple : feat(backend): add /users/me/events endpoint
+  - scope :
+      * pour feat / refactor / perf → l'identifiant du ticket Jira (ex. scrum-133)
+      * pour les autres types       → scope libre ou omis (ex. ci, backend, frontend)
+  - exemples :
+      feat(scrum-133): add /users/me/events endpoint
+      fix(frontend): preserve returnTo on protected routes
+      chore(ci): add PR template and PR title check workflow
 -->
 
 ## Résumé
