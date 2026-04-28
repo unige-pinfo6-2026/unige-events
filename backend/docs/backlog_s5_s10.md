@@ -477,7 +477,7 @@ Créer le dashboard de statistiques pour l'organisateur d'un événement :
 
 ## Sprint 7 — 28 avr.–2 mai 2026
 **Thème :** Admin/modération + co-organisateurs + jobs planifiés + UX polish  
-**Total estimé :** 39 SP
+**Total estimé :** 47 SP
 
 ### 🚀 [SCRUM-45] [S7] Je veux modérer les événements et mettre en avant certains contenus (US-15, T4, T5)
 **Type :** Feature · **Story Points :** — SP
@@ -904,6 +904,128 @@ Fichiers créés : `src/pages/legal/PrivacyPage.tsx`, `src/pages/legal/TermsPage
 Fichiers touchés : `src/components/Footer.tsx`, `src/router/AppRouter.tsx`, `docs/architecture.md`, `docs/components.md`
 Branche suggérée : `feature/s7-legal-pages`
 Dépendances : aucune
+
+### 🔧 [SCRUM-XXX] [FULLSTACK][S7] Identifier les profils utilisateur par `username` plutôt que par UUID
+**Type :** Tâche · **Story Points :** 8 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 8 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FULLSTACK\] Sprint 7 — URL de profil user-friendly
+
+**Problème actuel :**
+L'URL d'un profil utilisateur est aujourd'hui `/profile/<uuid>`, par exemple `/profile/19f3ab78-0fbf-4cfb-896e-5c0346fabed5`. Cette URL est illisible, impossible à mémoriser ou à partager oralement, et expose un identifiant interne (UUID) au public alors qu'il devrait rester un détail d'implémentation.
+
+Côté backend, l'entité `User` (`backend/src/main/java/ch/unige/events/entity/User.java`) ne possède aucun champ `username`. Côté frontend, le type `User` (`frontend/src/types/user.ts:14`) déclare déjà `username?: string` mais il n'est jamais peuplé par l'API ni utilisé. La route React Router `/profile/:id` accepte uniquement un UUID, et `ProfilePage.tsx:80` détecte le profil propre via `id === currentUser.auth0Id` (incohérence pré-existante : le route param est censé être l'UUID DB, pas l'auth0Id — à clarifier dans le cadre du refactor).
+
+**Comportement cible :**
+Chaque utilisateur dispose d'un identifiant public `username` unique, permettant l'accès au profil via `/profile/<username>` (ex. `/profile/jean.dupont`). L'utilisateur peut le définir lui-même depuis la page d'édition de profil ; à défaut, un username est généré automatiquement et garanti unique. L'UUID reste la clé primaire DB et l'identifiant interne ; le username est un identifiant public-facing avec une contrainte d'unicité indépendante.
+
+**Implémentation :**
+
+### Backend
+
+1. **Entité `User` :**
+    * Ajouter `@Column(nullable = false, unique = true) public String username` dans `User.java`.
+    * Ajouter `findByUsername(String username)` aux finders statiques (équivalent `findByEmail`).
+    * Validation Bean Validation : `@NotBlank`, `@Pattern(regexp = "^[a-z0-9._-]{3,30}$")`. Le pattern interdit les majuscules, espaces, caractères Unicode étendus.
+
+2. **Migration + back-fill :**
+    * Vu qu'Hibernate est en mode `update`, il faut un `SchemaFixup.java` (cf. SCRUM-164 pour le pattern) qui :
+        1. Ajoute la colonne `username` en `nullable = true`.
+        2. Back-fill via génération auto pour tous les `users` existants (voir stratégie ci-dessous).
+        3. Bascule la colonne en `NOT NULL UNIQUE`.
+    * Stratégie de génération automatique : slug du `displayName` (lowercase, ASCII fold sur les accents, espaces → `.`, retrait des chars hors `[a-z0-9._-]`) ; si `displayName` est null/vide, fallback sur `firstName + "." + lastName` ; si tout est vide, fallback `user`.
+    * Anti-collision : **suffixe numérique incrémental** (`jean.dupont`, `jean.dupont2`, `jean.dupont3`…). Préféré au suffixe random car prévisible, lisible, et stable (un re-back-fill ne change pas les usernames existants). Implémentation : boucle `WHILE EXISTS(SELECT 1 FROM users WHERE username = ?)` avec compteur, dans une transaction sérialisable pour éviter les races.
+    * Blocklist : interdire les usernames réservés (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`) à l'auto-gen comme à l'update manuel.
+
+3. **Endpoints :**
+    * **`PATCH /api/users/me/username`** (nouveau) — body `{ "username": "..." }`. Valide le pattern, vérifie l'unicité, retourne `409 USERNAME_TAKEN` si conflit, `400 USERNAME_INVALID` si pattern KO, `400 USERNAME_RESERVED` si blocklist. Réponse `200` avec le `UserDTO` mis à jour.
+    * **`GET /api/users/by-username/{username}`** (nouveau) — lookup case-insensitive (lowercase normalisé). Retourne `UserDTO` ou `404`. Respecte la même règle de visibilité que `GET /api/users/{id}` (champ `profilePublic`).
+    * **`HEAD /api/users/by-username/{username}/exists`** (optionnel) — endpoint léger pour le check d'unicité côté frontend (debounce sur l'edit). `200 OK` si pris, `404` si libre. **`[À ARBITRER]`** — alternative : réutiliser le GET ; plus REST mais plus coûteux.
+
+4. **OpenAPI :**
+    * `openapi/openapi.yaml` mis à jour **en premier** (règle projet) : ajout du champ `username` dans le schéma `User`, nouveaux endpoints, codes d'erreur documentés.
+
+### Frontend
+
+5. **Types et services (`src/types/user.ts`, `src/services/userService.ts`) :**
+    * Le champ `username` existe déjà dans `User` mais devient **non-optionnel** (`username: string`) une fois le back-fill appliqué.
+    * Ajouter `getUserByUsername(username: string): Promise<User | null>` qui appelle `GET /api/users/by-username/{username}`.
+    * Ajouter `updateUsername(username: string): Promise<User>` qui appelle `PATCH /api/users/me/username`.
+    * Ajouter `checkUsernameAvailable(username: string): Promise<boolean>` (HEAD endpoint si retenu, sinon dérivé de `getUserByUsername`).
+    * `getUserById` reste pour le redirect transitoire UUID → username.
+
+6. **Routing (`src/router/AppRouter.tsx`) :**
+    * Route `/profile/:username` en remplacement de `/profile/:id`.
+    * `/profile/me` reste un alias résolu côté composant.
+    * **Redirect transitoire UUID → username** : ajouter dans `ProfilePage` une détection regex UUID v4 sur le param ; si UUID détecté, lookup via `getUserById(uuid)`, puis `<Navigate to="/profile/${user.username}" replace />`. Cela préserve les vieux liens externes/en cache. **`[À ARBITRER]`** — durée de vie de ce redirect : permanent ou à supprimer dans 1-2 sprints ?
+
+7. **`ProfilePage.tsx` :**
+    * `useParams<{ username: string }>()` au lieu de `{ id: string }`.
+    * Logique `isOwnProfile` : `username === 'me' || username === currentUser?.username`.
+    * Lookup via `getUserByUsername(username)` (sauf cas `me` ou redirect UUID).
+
+8. **`ProfileEditPage.tsx` :**
+    * Ajouter un `FormField` "Nom d'utilisateur" en haut du formulaire (champ visible dès le chargement, valeur initiale = `user.username`).
+    * Validation côté client en miroir du backend : pattern `[a-z0-9._-]`, 3-30 chars.
+    * Vérification d'unicité **debounced** (300-500ms) via `checkUsernameAvailable` — feedback inline : ✅ disponible / ❌ déjà pris / ⏳ vérification…
+    * Le username est mis à jour via `updateUsername` séparément du `updateProfile` global, pour pouvoir afficher proprement les erreurs `USERNAME_TAKEN` / `USERNAME_INVALID` sans bloquer le reste du formulaire. Si non modifié, ne pas re-soumettre.
+
+9. **Mise à jour de tous les liens internes vers profil :**
+    * `src/components/user/UserIdentity.tsx:42` : `/profile/${user?.username}` au lieu de `/profile/${user?.id}`.
+    * `src/pages/event/EventDetailPage.tsx:441` : `/profile/${organizer.username}` au lieu de `/profile/${organizer.id}`.
+    * `src/components/Navbar.tsx:42` : `/profile/me` reste inchangé (alias).
+    * Vérifier que les `EventDTO` côté backend incluent bien `username` dans `creator` pour pouvoir construire les liens sans round-trip.
+
+10. **Documentation :**
+    * `frontend/docs/components.md` : MAJ section services + section pages (route `/profile/:username`).
+    * `frontend/docs/types.md` : `username` passe de optional à required.
+    * `frontend/docs/architecture.md` : MAJ table de routage.
+    * `backend/docs/data-model.md` : ajouter `username` dans la section `User`, documenter le pattern et la stratégie de génération.
+    * `backend/docs/api-contract.md` : nouveaux endpoints documentés.
+    * `frontend/docs/sprint-context.md` + `backend/docs/sprint-context.md` : tâche listée en fin de S7.
+
+**Cas limites :**
+* **Username pris au moment du PATCH** (race entre check d'unicité debounced et submit) → backend retourne `409 USERNAME_TAKEN`, frontend affiche l'erreur sans naviguer.
+* **Username modifié pendant qu'un onglet ouvert affichait l'ancien lien** → `GET /by-username/{ancien}` retourne `404`, ProfilePage affiche "Profil introuvable". Acceptable (impossible de rediriger sans historique).
+* **Migration sur user existant avec `displayName`, `firstName` et `lastName` tous vides** (Auth0 sans onboarding terminé) → fallback `user` avec suffixe numérique (`user`, `user2`…).
+* **Username avec accents lors du back-fill** (`displayName = "François Müller"`) → ASCII fold → `francois.muller`. Tester explicitement.
+* **Username = mot réservé** (`me`, `admin`, etc.) : interdire via blocklist côté backend (autoriserait sinon une collision avec le route alias `/profile/me`).
+* **Changement de username post-déploiement** : faut-il garder l'historique pour un redirect 301 sur l'ancien ? **`[À ARBITRER]`** — préférence : non au S7, à ajouter ultérieurement si besoin.
+
+**Tests :**
+
+* **Backend (UserResourceTest, UserServiceCoverageTest) :**
+    * `PATCH /users/me/username` happy path, `409` si pris, `400` si pattern invalide, `400` si dans la blocklist, `401` si non authentifié.
+    * `GET /users/by-username/{username}` happy path, `404` si inexistant, case-insensitive (`Jean.Dupont` trouve `jean.dupont`), respect du `profilePublic`.
+    * Génération auto : slug correct depuis `displayName`, fallback firstName/lastName, fallback `user`, ASCII fold sur accents, suffixe numérique correct sur collision (test avec 5 users `Jean Dupont` consécutifs).
+    * Migration : test d'intégration qui pré-crée des users sans username, lance le back-fill, vérifie que tous ont un username unique non-null.
+    * Blocklist : `me`, `admin`, etc. rejetés en update.
+
+* **Frontend :**
+    * `userService.test.ts` : couverture des 3 nouvelles fonctions (URL, params, retour).
+    * `ProfilePage.test.tsx` : lookup par username, redirect UUID → username, gestion `404`, alias `me`.
+    * `ProfileEditPage.test.tsx` : champ username pré-rempli, validation pattern, debounce du check d'unicité, gestion `409`, gestion succès.
+    * `EventDetailPage.test.tsx` / `UserIdentity.test.tsx` : lien organizer/user pointe vers `/profile/<username>`.
+    * `AppRouter.test.tsx` : route `/profile/:username` et redirect UUID transitoire.
+
+**Fichiers touchés :**
+
+Backend : `src/main/java/ch/unige/events/entity/User.java`, `service/UserService.java`, `service/SchemaFixup.java`, `resource/UserResource.java`, `dto/UserDTO.java`, tests associés, `openapi/openapi.yaml`, `backend/docs/data-model.md`, `backend/docs/api-contract.md`, `backend/docs/sprint-context.md`.
+
+Frontend : `src/types/user.ts`, `src/services/userService.ts`, `src/router/AppRouter.tsx`, `src/pages/profile/ProfilePage.tsx`, `src/pages/profile/ProfileEditPage.tsx`, `src/components/user/UserIdentity.tsx`, `src/pages/event/EventDetailPage.tsx`, tests associés, `frontend/docs/components.md`, `frontend/docs/types.md`, `frontend/docs/architecture.md`, `frontend/docs/sprint-context.md`.
+
+Branche suggérée : `feature/s7-profile-username-url`
+Dépendances : aucune. Compatible avec les tickets S7 en cours (SCRUM-118 co-organisateurs touche `User` mais sur des champs différents — résolution de conflit triviale).
+
+**Points à arbitrer (recommandations PO) :**
+* Préfixe `@` dans l'URL (`/profile/@jean.dupont` vs `/profile/jean.dupont`) — recommandation : **sans `@`**, plus simple.
+* Endpoint dédié `PATCH /users/me/username` vs extension de `PUT /users/me` — recommandation : **endpoint dédié** (granularité d'erreur, appel indépendant pour le live-check).
+* `HEAD /by-username/{username}/exists` vs réutilisation du GET — recommandation : **endpoint dédié léger**, mais OK de réutiliser le GET si on veut minimiser la surface API.
+* Durée de vie du redirect transitoire UUID → username — recommandation : **permanent** (peu de coût, robuste aux liens en cache).
+* Case-sensitivity du username — recommandation : **stockage lowercase, lookup case-insensitive**.
+* Historique des anciens usernames pour redirects après changement — recommandation : **non au S7**.
+* Blocklist exacte des usernames réservés — recommandation : `me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings` au minimum.
 
 ---
 
