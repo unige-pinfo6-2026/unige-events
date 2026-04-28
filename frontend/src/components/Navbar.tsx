@@ -163,7 +163,7 @@ function DesktopNav() {
             <LogoutButton onClick={logout} variant="dropdown" />
           </Dropdown>
         )
-        : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+        : <ButtonPrimary size="sm" onClick={() => login()}>Se connecter</ButtonPrimary>
       )}
     </div>
   )
@@ -256,7 +256,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
               <LogoutButton onClick={() => { onClose(); logout() }} variant="sidebar" />
             </>
           ) : (
-            <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+            <ButtonPrimary size="sm" onClick={() => login()}>Se connecter</ButtonPrimary>
           )}
         </div>
       </div>
