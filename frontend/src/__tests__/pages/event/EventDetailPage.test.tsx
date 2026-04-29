@@ -19,6 +19,9 @@ vi.mock('@/hooks/useFavorite', () => ({
 vi.mock('@/hooks/useAttendees', () => ({
   useAttendees: vi.fn(),
 }))
+vi.mock('@/hooks/useAttendance', () => ({
+  useAttendance: vi.fn(),
+}))
 const mockShowToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
@@ -27,6 +30,7 @@ vi.mock('@/hooks/useToast', () => ({
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
 import { useAttendees } from '@/hooks/useAttendees'
+import { useAttendance } from '@/hooks/useAttendance'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
@@ -34,6 +38,7 @@ import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseAttendees = useAttendees as ReturnType<typeof vi.fn>
+const mockUseAttendance = useAttendance as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
@@ -81,11 +86,22 @@ const defaultAttendeesState = {
   error: null,
   hasMore: false,
   loadMore: vi.fn(),
+  refetch: vi.fn(),
   isForbidden: false,
+}
+
+const defaultAttendanceState = {
+  currentStatus: null,
+  attendingCount: 5,
+  loading: false,
+  error: null,
+  isFull: false,
+  toggle: vi.fn(),
 }
 
 beforeEach(() => {
   mockUseAttendees.mockReturnValue(defaultAttendeesState)
+  mockUseAttendance.mockReturnValue(defaultAttendanceState)
 })
 
 function renderPage(eventId = '1') {
@@ -480,7 +496,7 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('heading', { name: 'Participants' })).toBeTruthy()
     })
 
-    it('does not call useAttendees for a non-organizer', () => {
+    it('calls useAttendees with enabled=false for a non-organizer', () => {
       mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other' } })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 4 },
@@ -491,10 +507,10 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      expect(mockUseAttendees).not.toHaveBeenCalled()
+      expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: false })
     })
 
-    it('calls useAttendees with the event id for the organizer', () => {
+    it('calls useAttendees with enabled=true for the organizer', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
@@ -505,7 +521,73 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      expect(mockUseAttendees).toHaveBeenCalledWith(1)
+      expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: true })
+      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
+    })
+
+    it('onAfterSuccess refetches event AND attendees for the organizer', () => {
+      const refetchEvent = vi.fn()
+      const refetchAttendees = vi.fn()
+      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 0 },
+        loading: false,
+        error: null,
+        refetch: refetchEvent,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      // Capture the onAfterSuccess option passed into useAttendance and invoke it.
+      const lastCall = mockUseAttendance.mock.calls.at(-1)
+      expect(lastCall).toBeTruthy()
+      const options = lastCall?.[4] as { onAfterSuccess?: () => void }
+      options.onAfterSuccess?.()
+
+      expect(refetchEvent).toHaveBeenCalledTimes(1)
+      expect(refetchAttendees).toHaveBeenCalledTimes(1)
+    })
+
+    it('onAfterSuccess refetches event but NOT attendees for non-organizer', () => {
+      const refetchEvent = vi.fn()
+      const refetchAttendees = vi.fn()
+      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 0 },
+        loading: false,
+        error: null,
+        refetch: refetchEvent,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const lastCall = mockUseAttendance.mock.calls.at(-1)
+      const options = lastCall?.[4] as { onAfterSuccess?: () => void }
+      options.onAfterSuccess?.()
+
+      expect(refetchEvent).toHaveBeenCalledTimes(1)
+      expect(refetchAttendees).not.toHaveBeenCalled()
+    })
+
+    it('passes the lifted attendees hook to AttendeesList for the organizer', () => {
+      const refetch = vi.fn()
+      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch })
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 0 },
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      // Tabs render → confirms OrganizerView received the lifted hook.
       expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
     })
 

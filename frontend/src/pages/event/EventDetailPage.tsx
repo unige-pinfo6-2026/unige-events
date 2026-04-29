@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
+import { useAttendees } from '@/hooks/useAttendees'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
@@ -210,7 +211,14 @@ export default function EventDetailPage() {
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
-  const { event, loading, error } = useEvent(eventId)
+  const { event, loading, error, refetch: refetchEvent } = useEvent(eventId)
+  const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
+  const refetchAttendees = attendeesHook.refetch
+  const handleAttendanceSuccess = useCallback(() => {
+    refetchEvent()
+    if (isOrganizer) refetchAttendees()
+  }, [refetchEvent, refetchAttendees, isOrganizer])
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
@@ -261,7 +269,6 @@ export default function EventDetailPage() {
   if (error) return <InfoMessage type='error' message={error} />
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
-  const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
 
   function handleShare() {
@@ -364,9 +371,9 @@ export default function EventDetailPage() {
           )}
 
           <AttendeesList
-            eventId={event.id}
             isOrganizer={isOrganizer}
             attendingCount={event.attendingCount}
+            attendeesHook={attendeesHook}
           />
 
           {/* Shells champs additionnels — S5 */}
@@ -489,6 +496,7 @@ export default function EventDetailPage() {
               initialAttendingCount={event.attendingCount}
               initialStatus={null}
               availableSpots={event.availableSpots ?? null}
+              onAfterSuccess={handleAttendanceSuccess}
             />
 
           </div>

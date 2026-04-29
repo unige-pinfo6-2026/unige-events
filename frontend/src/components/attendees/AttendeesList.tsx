@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useAttendees, type AttendeeWithProfile } from '@/hooks/useAttendees'
+import { type AttendeeWithProfile, type UseAttendeesResult } from '@/hooks/useAttendees'
 import type { AttendanceStatus } from '@/types/attendance'
 import AttendeeCard from './AttendeeCard'
 
 interface AttendeesListProps {
-  eventId: number
   isOrganizer: boolean
   attendingCount: number
+  attendeesHook: UseAttendeesResult
 }
 
 const tabBase =
@@ -73,13 +73,12 @@ function LoadingSkeleton() {
 }
 
 interface OrganizerViewProps {
-  eventId: number
   attendingCount: number
+  attendeesHook: UseAttendeesResult
 }
 
-function OrganizerView({ eventId, attendingCount }: Readonly<OrganizerViewProps>) {
-  const { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden } =
-    useAttendees(eventId)
+function OrganizerView({ attendingCount, attendeesHook }: Readonly<OrganizerViewProps>) {
+  const { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden } = attendeesHook
   const [activeTab, setActiveTab] = useState<AttendanceStatus>('ATTENDING')
 
   const counts = useMemo(() => {
@@ -167,9 +166,9 @@ function OrganizerView({ eventId, attendingCount }: Readonly<OrganizerViewProps>
 }
 
 export default function AttendeesList({
-  eventId,
   isOrganizer,
   attendingCount,
+  attendeesHook,
 }: Readonly<AttendeesListProps>) {
   // Compactness derived from isOrganizer: a non-organizer only sees a counter,
   // so the section uses tighter vertical padding to feel like an info row
@@ -179,7 +178,7 @@ export default function AttendeesList({
     <section className={sectionVariants[variant]}>
       <h2 className={headingClass}>Participants</h2>
       {isOrganizer ? (
-        <OrganizerView eventId={eventId} attendingCount={attendingCount} />
+        <OrganizerView attendingCount={attendingCount} attendeesHook={attendeesHook} />
       ) : (
         <NonOrganizerSummary attendingCount={attendingCount} />
       )}

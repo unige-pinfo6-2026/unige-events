@@ -9,6 +9,7 @@ interface AttendanceButtonsProps {
   initialAttendingCount: number
   initialStatus: AttendanceStatus | null
   availableSpots?: number | null
+  onAfterSuccess?: () => void
 }
 
 const buttonBase =
@@ -24,10 +25,10 @@ const buttonVariants = {
 type ButtonVariantKey = keyof typeof buttonVariants
 
 const buttonLabels: Record<ButtonVariantKey, string> = {
-  activeAttending:   'Je participe',
+  activeAttending:   'Annuler ma participation',
   inactiveAttending: 'Je participe',
   waitlistJoin:      "Rejoindre la liste d'attente",
-  activeWaitlisted:  "En liste d'attente",
+  activeWaitlisted:  "Quitter la liste d'attente",
 }
 
 function getButtonVariant(
@@ -45,9 +46,10 @@ export default function AttendanceButtons({
   initialAttendingCount,
   initialStatus,
   availableSpots,
+  onAfterSuccess,
 }: Readonly<AttendanceButtonsProps>) {
   const { currentStatus, attendingCount, loading, error, isFull, toggle } =
-    useAttendance(eventId, initialAttendingCount, initialStatus, availableSpots)
+    useAttendance(eventId, initialAttendingCount, initialStatus, availableSpots, { onAfterSuccess })
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
 
@@ -60,6 +62,7 @@ export default function AttendanceButtons({
   }
 
   const variant = getButtonVariant(currentStatus, isFull)
+  const label = buttonLabels[variant]
 
   return (
     <div className="flex flex-col gap-3">
@@ -67,13 +70,14 @@ export default function AttendanceButtons({
         type="button"
         onClick={handleToggle}
         disabled={loading}
+        aria-label={label}
         className={buttonVariants[variant]}
       >
         <Users
           className="w-5 h-5"
           fill={currentStatus === 'ATTENDING' ? 'currentColor' : 'none'}
         />
-        {buttonLabels[variant]}
+        {label}
       </button>
 
       {/* Live counter */}

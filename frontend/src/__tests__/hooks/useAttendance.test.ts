@@ -256,6 +256,174 @@ describe('useAttendance — error mapping', () => {
   })
 })
 
+describe('useAttendance — onAfterSuccess callback', () => {
+  it('calls onAfterSuccess once after a successful attend (ATTENDING)', async () => {
+    mockAttend.mockResolvedValue(sampleAttendance)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onAfterSuccess once after a successful attend (WAITLISTED)', async () => {
+    mockAttend.mockResolvedValue(waitlistedAttendance)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onAfterSuccess once after a successful unattend', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT call onAfterSuccess when attend fails', async () => {
+    mockAttend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+  })
+
+  it('does NOT call onAfterSuccess when unattend fails', async () => {
+    mockUnattend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('useAttendance — leave waitlist', () => {
+  it('WAITLISTED user toggles → calls unattend, not attend', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED', 0)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockUnattend).toHaveBeenCalledWith(42)
+    expect(mockAttend).not.toHaveBeenCalled()
+  })
+})
+
+describe('useAttendance — batched optimistic state (no flicker)', () => {
+  it('ATTENDING user unattending a full event optimistically clears isFull and currentStatus together', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'ATTENDING', 0)
+    expect(result.current.isFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    // Both fields update in one render — no orange "waitlist" intermediate state.
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.isFull).toBe(false)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('WAITLISTED user leaving waitlist keeps isFull (no slot is freed)', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED', 0)
+    expect(result.current.isFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.isFull).toBe(true)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+})
+
+describe('useAttendance — debounce', () => {
+  it('keeps loading=true for ~500ms after a fast-resolving API success', async () => {
+    vi.useFakeTimers()
+    try {
+      mockGetMyAttendance.mockResolvedValue(null)
+      mockAttend.mockResolvedValue(sampleAttendance)
+      const { result } = renderHook(() => useAttendance(42, 5, null))
+
+      // Drain the initial mount fetch.
+      await vi.waitFor(() => expect(result.current.loading).toBe(false))
+
+      act(() => result.current.toggle('ATTENDING'))
+      expect(result.current.loading).toBe(true)
+
+      // Allow the API microtask to settle.
+      await act(async () => { await Promise.resolve() })
+
+      // API has resolved but debounce window keeps loading true.
+      expect(result.current.loading).toBe(true)
+
+      // Advance past the 500ms debounce window.
+      await act(async () => { vi.advanceTimersByTime(500) })
+
+      expect(result.current.loading).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears the debounce timer on unmount (no setState after unmount)', async () => {
+    vi.useFakeTimers()
+    try {
+      mockGetMyAttendance.mockResolvedValue(null)
+      mockAttend.mockResolvedValue(sampleAttendance)
+      const { result, unmount } = renderHook(() => useAttendance(42, 5, null))
+      await vi.waitFor(() => expect(result.current.loading).toBe(false))
+
+      act(() => result.current.toggle('ATTENDING'))
+      unmount()
+
+      // Should not throw / log warnings. Timers are cleared.
+      await act(async () => { vi.advanceTimersByTime(1000) })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('useAttendance — guards', () => {
   it('ignores toggle call while loading is true (post-init toggle in flight)', async () => {
     let resolve: (v: unknown) => void = () => {}

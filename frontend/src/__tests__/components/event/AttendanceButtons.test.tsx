@@ -106,25 +106,25 @@ describe('AttendanceButtons', () => {
       mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
     })
 
-    it("shows \"En liste d'attente\" button", () => {
+    it("shows \"Quitter la liste d'attente\" button", () => {
       render(<AttendanceButtons {...defaultProps} />)
 
-      expect(screen.getByRole('button', { name: /en liste d'attente/i })).not.toBeNull()
+      expect(screen.getByRole('button', { name: /quitter la liste d'attente/i })).not.toBeNull()
     })
 
-    it("clicking \"En liste d'attente\" calls toggle to leave waitlist", () => {
+    it("clicking \"Quitter la liste d'attente\" calls toggle to leave waitlist", () => {
       const toggle = vi.fn()
       mockUseAttendance.mockReturnValue(makeHookResult({ isFull: true, currentStatus: 'WAITLISTED', toggle }))
 
       render(<AttendanceButtons {...defaultProps} />)
-      fireEvent.click(screen.getByRole('button', { name: /en liste d'attente/i }))
+      fireEvent.click(screen.getByRole('button', { name: /quitter la liste d'attente/i }))
 
       expect(toggle).toHaveBeenCalledWith('ATTENDING')
     })
   })
 
   describe('when event is full but user is already attending', () => {
-    it('attending button shows "Je participe" active state', () => {
+    it('attending button shows "Annuler ma participation" active state', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
@@ -132,7 +132,7 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      expect(screen.getByRole('button', { name: /je participe/i })).not.toBeNull()
+      expect(screen.getByRole('button', { name: /annuler ma participation/i })).not.toBeNull()
     })
 
     it('attending button is enabled (user can toggle off)', () => {
@@ -143,8 +143,42 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      const button = screen.getByRole('button', { name: /je participe/i })
+      const button = screen.getByRole('button', { name: /annuler ma participation/i })
       expect((button as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('clicking the active attending button calls toggle to unattend', () => {
+      const toggle = vi.fn()
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({ isFull: false, currentStatus: 'ATTENDING', toggle }),
+      )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+      fireEvent.click(screen.getByRole('button', { name: /annuler ma participation/i }))
+
+      expect(toggle).toHaveBeenCalledWith('ATTENDING')
+    })
+  })
+
+  describe('disabled / debounce', () => {
+    it('button is disabled while loading is true', () => {
+      mockUseAttendance.mockReturnValue(makeHookResult({ loading: true }))
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+      const button = screen.getByRole('button', { name: /je participe/i })
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('forwards onAfterSuccess into useAttendance options', () => {
+      const onAfterSuccess = vi.fn()
+      mockUseAttendance.mockReturnValue(makeHookResult())
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} onAfterSuccess={onAfterSuccess} />)
+
+      expect(mockUseAttendance).toHaveBeenCalledWith(42, 5, null, undefined, { onAfterSuccess })
     })
   })
 
