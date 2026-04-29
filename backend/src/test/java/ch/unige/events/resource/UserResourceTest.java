@@ -1,8 +1,13 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
+import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.CoOrganizerStatus;
+import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.service.AttendanceServiceMock;
 import ch.unige.events.service.CalendarServiceMock;
+import ch.unige.events.service.EventCoOrganizerServiceMock;
 import ch.unige.events.service.EventServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
 import ch.unige.events.service.UserServiceMock;
@@ -32,6 +37,7 @@ class UserResourceTest {
     @Inject CalendarServiceMock calendarServiceMock;
     @Inject AttendanceServiceMock attendanceServiceMock;
     @Inject EventServiceMock eventServiceMock;
+    @Inject EventCoOrganizerServiceMock coOrganizerServiceMock;
 
     @BeforeEach
     void setUp() {
@@ -39,6 +45,7 @@ class UserResourceTest {
         favoriteServiceMock.reset();
         attendanceServiceMock.reset();
         eventServiceMock.reset();
+        coOrganizerServiceMock.reset();
     }
 
     // --- GET /users/{id} — ISSUE-93 (pentest 4.1 + 4.1b) ---
@@ -691,5 +698,85 @@ class UserResourceTest {
             .when().get("/users/me/events")
             .then()
             .statusCode(org.hamcrest.Matchers.not(org.hamcrest.Matchers.equalTo(200)));
+    }
+
+    // =========================================================
+    // SCRUM-136 — GET /users/me/co-organizer-invitations
+    // =========================================================
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_default_returnsPending() {
+        coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                1L, sampleEventDTO("Event 1"), CoOrganizerStatus.PENDING, java.time.LocalDateTime.now()));
+
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].status", equalTo("PENDING"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_filterAccepted_returnsAccepted() {
+        coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                1L, sampleEventDTO("Accepted event"), CoOrganizerStatus.ACCEPTED, java.time.LocalDateTime.now()));
+
+        given()
+            .queryParam("status", "ACCEPTED")
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].status", equalTo("ACCEPTED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_pagination() {
+        for (int i = 0; i < 3; i++) {
+            coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                    (long) i, sampleEventDTO("Event " + i), CoOrganizerStatus.PENDING,
+                    java.time.LocalDateTime.now()));
+        }
+        given()
+            .queryParam("size", "2")
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200);
+        // Le mock renvoie tout le fixture (pagination déléguée à la couche DB) ;
+        // on valide ici que la query passe les contraintes @Min/@Max sans 400.
+    }
+
+    @Test
+    void getMyCoOrganizerInvitations_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_userNotProvisioned_returns404() {
+        EventCoOrganizerServiceMock.forceNotFoundOnGetMyInvitations = true;
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(404);
+    }
+
+    private EventDTO sampleEventDTO(String title) {
+        return new EventDTO(
+                42L, title, null, "Uni Mail",
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(2),
+                EventCategory.ACADEMIC, null, null,
+                UUID.randomUUID(), EventStatus.PUBLISHED, null, false,
+                0L, null, 0L,
+                null, null, null, java.util.List.of(),
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now()
+        );
     }
 }
