@@ -28,8 +28,14 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/calendar/{calendarToken}.ics` | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
 | `POST` | `/events/{id}/attend` | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si capacité pleine | 200, 400, 401, 404, 409 |
 | `DELETE` | `/events/{id}/attend` | `@Authenticated` | Se désinscrire | 204, 401, 404 |
-| `GET` | `/events/{id}/attendees` | `@Authenticated` | Liste paginée des inscriptions (créateur uniquement) | 200, 401, 403, 404 |
+| `GET` | `/events/{id}/attendees` | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
 | `GET` | `/users/me/attendances` | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
+| `POST` | `/events/{id}/co-organizers` | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
+| `GET` | `/events/{id}/co-organizers` | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/co-organizers/{userId}` | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
+| `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 404 |
+| `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 404 |
+| `GET` | `/users/me/co-organizer-invitations` | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
 
 ---
 
@@ -131,6 +137,108 @@ Crée un nouvel événement.
 **Réponses :**
 - `201 Created` — `EventDTO` créé avec son `id`
 - `400 Bad Request` — validation échouée — `ValidationErrorResponse`
+
+---
+
+### Co-organisateurs (SCRUM-136)
+
+Six endpoints exposent le cycle d'invitation à co-organiser un événement. Toutes les opérations
+sont sous `@Authenticated`. Le créateur ou un admin peut inviter / retirer ; l'invité peut
+accepter / décliner ; tout authentifié peut lister les co-organisateurs d'un event.
+
+#### `POST /events/{id}/co-organizers`
+
+Crée une invitation `PENDING`. Réservé au créateur de l'événement ou à un admin.
+
+**Body :** `InviteCoOrganizerRequest` — `{ "userId": "<uuid>" }` (utilisateur cible déjà provisionné).
+
+**Réponses :**
+- `201 Created` — `CoOrganizerDTO` (status PENDING)
+- `400 Bad Request` — `error=cannot_invite_self` (créateur tente de s'inviter)
+- `401 Unauthorized` — token absent
+- `403 Forbidden` — appelant non créateur et non admin
+- `404 Not Found` — événement OU utilisateur cible introuvable
+- `409 Conflict` — `error=already_invited` (couple `(eventId, userId)` existe déjà, PENDING ou ACCEPTED)
+
+#### `GET /events/{id}/co-organizers`
+
+Liste les co-organisateurs d'un événement (PENDING + ACCEPTED), tri `invitedAt ASC`. Les rows
+DECLINED sont supprimées physiquement (cf. `PATCH /me/decline` ci-dessous).
+
+**Réponses :**
+- `200 OK` — `List<CoOrganizerDTO>` (tableau vide si aucun ; jamais 404 si l'event existe)
+- `401 Unauthorized`
+- `404 Not Found` — événement introuvable
+
+#### `DELETE /events/{id}/co-organizers/{userId}`
+
+Retire un co-organisateur (peu importe son statut). Idempotent : si la row n'existe pas,
+retourne 204 sans erreur.
+
+**Réponses :**
+- `204 No Content`
+- `401 Unauthorized`
+- `403 Forbidden` — appelant non créateur et non admin
+- `404 Not Found` — événement introuvable (404 pour distinguer un mauvais path d'un user déjà retiré)
+
+#### `PATCH /events/{id}/co-organizers/me/accept`
+
+L'invité accepte sa propre invitation. Bascule `PENDING → ACCEPTED`. Idempotent : si déjà
+ACCEPTED, retourne 200 sans modification. Self-only — un admin ne peut pas accepter pour autrui.
+
+À partir de l'acceptation, le co-organisateur peut éditer / publier / annuler / restaurer /
+charger une bannière / consulter les inscrits / les stats de l'événement (cascade
+`isCreatorOrAcceptedCoOrganizer` dans `EventService`, `AttendanceService.getAttendees`,
+`EventStatsService.getStats`).
+
+**Réponses :**
+- `200 OK` — `CoOrganizerDTO` (status ACCEPTED)
+- `401 Unauthorized`
+- `404 Not Found` — aucune invitation pour l'utilisateur courant sur cet événement
+
+#### `PATCH /events/{id}/co-organizers/me/decline`
+
+L'invité décline. **Supprime physiquement la row** (cf. décision spec : DECLINE = DELETE row,
+permet une ré-invitation ultérieure sans 409). Self-only.
+
+**Réponses :**
+- `204 No Content`
+- `401 Unauthorized`
+- `404 Not Found` — aucune invitation
+
+#### `GET /users/me/co-organizer-invitations`
+
+Liste les invitations adressées à l'utilisateur courant. Par défaut `status=PENDING`. Chaque
+entrée enrichit l'`Event` complet (titre, dates, banner) pour éviter les N+1 réseau côté frontend.
+
+**Query params :**
+- `status` (optionnel) — `PENDING | ACCEPTED | DECLINED`. Default `PENDING`. `DECLINED` ne
+  renvoie jamais rien (les rows DECLINED sont supprimées physiquement).
+- `page` (default `0`, min `0`)
+- `size` (default `20`, min `1`, max `100`)
+
+**Réponses :**
+- `200 OK` — `List<CoOrganizerInvitationDTO>`
+- `401 Unauthorized`
+- `404 Not Found` — profil utilisateur non provisionné (appeler `GET /users/me` d'abord)
+
+#### Cascade « créateur ou co-organisateur ACCEPTED »
+
+Le helper `EventService.isCreatorOrAcceptedCoOrganizerPublic(Event, String auth0Id)` (et son
+équivalent privé) étend la garde d'autorisation à un co-organisateur ACCEPTED pour les
+opérations suivantes :
+
+| Endpoint impacté | Cascade appliquée ? |
+|---|---|
+| `PUT /events/{id}` | ✅ |
+| `PATCH /events/{id}/cancel` | ✅ |
+| `PATCH /events/{id}/restore` | ✅ |
+| `PATCH /events/{id}/publish` | ✅ (avec ADMIN aussi) |
+| `POST /events/{id}/image` | ✅ (avec ADMIN aussi) |
+| `GET /events/{id}` (DRAFT/CANCELLED) | ✅ |
+| `GET /events/{id}/attendees` | ✅ |
+| `GET /events/{id}/stats` | ✅ |
+| `DELETE /events/{id}` (hard-delete) | ❌ — strict-creator (action irréversible) |
 
 ---
 

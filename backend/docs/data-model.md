@@ -166,6 +166,61 @@ Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
+### EventCoOrganizer
+
+Table : `event_co_organizers` (créée ex nihilo par Hibernate en SCRUM-136).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | — | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `status` | `status` | `CoOrganizerStatus` | `status` | not null, `@Enumerated(STRING)` |
+| `invitedAt` | `invitedAt` | `LocalDateTime` | `invited_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_co_organizers_event_user` sur `(event_id, user_id)`.
+Index : `idx_event_co_organizers_event` (`event_id`), `idx_event_co_organizers_user` (`user_id`).
+
+Suppression physique autorisée (pas de soft-delete) — symétrique à `Favorite`. Le retrait par
+le créateur (`DELETE /events/{id}/co-organizers/{userId}`) et le decline par l'invité
+(`PATCH /events/{id}/co-organizers/me/decline`) suppriment la row directement.
+
+#### Sémantique du `DECLINE`
+
+`PATCH /events/{id}/co-organizers/me/decline` **supprime physiquement** la row au lieu de la marquer
+`DECLINED`. La valeur `DECLINED` reste définie dans l'enum `CoOrganizerStatus` mais n'apparaît jamais
+en base. Cette décision permet au créateur de ré-inviter la même personne après un refus, sans 409
+(la contrainte unique étant strictement basée sur la présence d'une row, pas sur son statut).
+
+#### Helpers statiques
+
+- `EventCoOrganizer.isAcceptedFor(Long eventId, UUID userId)` — réponse boolean en
+  une seule requête `count`. Utilisé par `EventService.isCreatorOrAcceptedCoOrganizer`.
+- `EventCoOrganizer.findByEventAndUser(Long, UUID)` — résolution unitaire pour accept/decline/remove.
+- `EventCoOrganizer.findByEvent(Long eventId)` — listing par event, tri `invitedAt ASC`.
+- `EventCoOrganizer.findByUser(UUID userId, CoOrganizerStatus status, int page, int size)` — listing
+  par user filtré sur un statut, paginé, tri `invitedAt DESC`.
+
+#### Permissions « créateur ou co-organisateur ACCEPTED » (cascade SCRUM-136)
+
+Le helper privé `EventService.isCreatorOrAcceptedCoOrganizer(Event, String)` (et son wrapper public
+`isCreatorOrAcceptedCoOrganizerPublic` réutilisé par les services voisins) unifie la garde
+d'autorisation pour les opérations de gestion d'événement déléguables :
+
+- `EventService.update`, `cancel`, `restore`, `publish`, `uploadImage`, `getById`
+  (visibilité DRAFT/CANCELLED).
+- `AttendanceService.getAttendees`, `EventStatsService.getStats`.
+
+`EventService.delete` (suppression physique d'un event CANCELLED) reste **strict-creator** —
+non délégable aux co-organisateurs (action irréversible, hors scope du « partage de gestion »
+de US-29). Cette divergence par rapport au libellé du ticket est documentée dans la PR
+SCRUM-136.
+
+L'invitation par le créateur OU un admin ; l'accept/decline est self-only (l'identité provient
+du JWT — pas de spoofing).
+
+---
+
 ## Conventions de nommage
 
 ### camelCase obligatoire
@@ -298,6 +353,7 @@ attendingCount, interestedCount, viewCount
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
+| `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
@@ -363,3 +419,10 @@ Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm
 - Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
 - Hibernate crée et met à jour les tables automatiquement au démarrage
 - Aucun fichier SQL de migration n'est utilisé ni requis
+
+> **À surveiller pour `event_co_organizers_status_check` (SCRUM-136).** Hibernate pose la
+> contrainte `event_co_organizers_status_check` à la création initiale de la table en S7
+> (création ex nihilo — aucune réconciliation rétroactive nécessaire dans la PR SCRUM-136).
+> Toute future modification du `CoOrganizerStatus` (ajout d'une valeur, rename) **devra**
+> être accompagnée d'un bloc de réconciliation explicite (cf. SCRUM-164) pour aligner
+> les bases existantes — Hibernate `update` ne reconcilie jamais les CHECK rétroactivement.
