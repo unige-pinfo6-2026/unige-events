@@ -54,12 +54,18 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
-          if [[ "$PR_TITLE" =~ ^([a-z]+)\(([^)]+)\):[[:space:]] ]]; then
+          # Regex stockée dans une variable single-quotée pour la soustraire au
+          # parsing de [[ ... ]] : la classe POSIX [[:space:]] termine par "]]"
+          # et bash confondait cette séquence avec la fermeture du conditionnel,
+          # produisant "syntax error in conditional expression: unexpected token `)'".
+          title_re='^([a-z]+)\(([^)]+)\):[[:space:]]'
+          scope_re='^scrum-[0-9]+$'
+          if [[ "$PR_TITLE" =~ $title_re ]]; then
             type="${BASH_REMATCH[1]}"
             scope="${BASH_REMATCH[2]}"
             case "$type" in
               feat|refactor|perf)
-                if [[ ! "$scope" =~ ^scrum-[0-9]+$ ]]; then
+                if [[ ! "$scope" =~ $scope_re ]]; then
                   {
                     echo "::error::Pour le type '$type', le scope doit être l'identifiant du ticket Jira au format 'scrum-XXX' (en minuscules)."
                     echo "::error::Titre reçu : \"$PR_TITLE\""
