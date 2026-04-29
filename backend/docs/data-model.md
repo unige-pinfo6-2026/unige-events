@@ -391,6 +391,18 @@ s'exécute sur `StartupEvent` et :
   | `events_status_check` | `status IN ('DRAFT','PUBLISHED','CANCELLED')` |
   | `attendances_status_check` | `status IN ('ATTENDING','WAITLISTED')` |
 
+> **Limite connue.** Les CHECKs ne portent que sur la **validité de la valeur**, pas sur
+> sa nullité. PostgreSQL évalue `NULL IN (...)` à `UNKNOWN`, ce qui passe une contrainte
+> CHECK. Pour `events.category` / `events.status`, le contrat non-null est tenu côté
+> application (`@NotNull` sur les DTOs + défaut entité + `EventService.publish()` qui
+> rejette les états invalides en 422). Pour `attendances.status`, c'est la colonne JPA
+> elle-même qui porte `@Column(nullable=false)`. Lever le contrat « non-null » au niveau
+> DB pour `events.category` / `events.status` exige d'ajouter `@Column(nullable=false)`
+> sur l'entité — explicitement hors scope de SCRUM-164 (qui ne touche aucune entité
+> métier) et susceptible de casser les tests qui exercent la validation applicative
+> sur des états transitoirement invalides. À traiter en issue séparée si l'équipe
+> souhaite cette garantie supplémentaire.
+
 Le DDL est **statique** (jamais concaténé avec des entrées utilisateur) — ni
 SQL injection ni surprise via réflexion. **Toute future addition à un enum
 doit s'accompagner d'une mise à jour des constantes `RECREATE_*` dans

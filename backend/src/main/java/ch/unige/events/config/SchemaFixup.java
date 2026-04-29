@@ -58,6 +58,14 @@ public class SchemaFixup {
                     + "'SCIENCES','MEDICINE','LETTERS','SOCIAL_SCIENCES',"
                     + "'GSEM','LAW','THEOLOGY','PSYCHOLOGY','FTI'))";
 
+    // Note: events.category and events.status are not annotated @Column(nullable=false)
+    // on the entity. The CHECKs below validate VALUE membership only — PostgreSQL's
+    // NULL IN (...) evaluates to UNKNOWN and silently passes a CHECK, so NULL slips
+    // through these constraints. Non-null is enforced at the application boundary via
+    // @NotNull on the DTOs + EventService.collectPublishValidationErrors. Lifting it
+    // to DB level would require @Column(nullable=false) on the entity (out of scope:
+    // SCRUM-164 touches no entity), and would conflict with existing tests that
+    // exercise the application's validation path on transiently invalid states.
     static final String RECREATE_EVENTS_CATEGORY_CHECK =
             "ALTER TABLE events ADD CONSTRAINT events_category_check "
                     + "CHECK (category IN ("
@@ -89,22 +97,35 @@ public class SchemaFixup {
      * Drops obsolete CHECK constraints and recreates the canonical
      * {@code events_*_check} and {@code attendances_status_check} constraints
      * with the current enum values. Idempotent: safe to call multiple times.
+     *
+     * <p>Each (drop, add) pair is executed inside its own try/catch so that a
+     * single ADD failure (e.g. a pre-existing row that violates the new check)
+     * does not leave the database without checks on the other columns. The
+     * surrounding try-with-resources only handles connection-level failures.
      */
     public void reconcile() {
+        int recreated = 0;
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
-            for (String ddl : DROP_OBSOLETE_CONSTRAINTS) {
-                stmt.execute(ddl);
+            for (int i = 0; i < DROP_OBSOLETE_CONSTRAINTS.length; i++) {
+                try {
+                    stmt.execute(DROP_OBSOLETE_CONSTRAINTS[i]);
+                    stmt.execute(RECREATE_CONSTRAINTS[i]);
+                    recreated++;
+                } catch (SQLException e) {
+                    // Non-fatal: typically caused by pre-existing rows that violate
+                    // the new check. The dropped constraint is not re-added on this
+                    // boot — surfaced via WARN so the operator can inspect/fix data.
+                    LOG.warnf(e, "Skipped CHECK constraint reconciliation #%d: %s",
+                            i, e.getMessage());
+                }
             }
-            for (String ddl : RECREATE_CONSTRAINTS) {
-                stmt.execute(ddl);
-            }
-            LOG.info("Schema check constraints reconciled "
-                    + "(events.faculty/category/status, attendances.status).");
+            LOG.infof("Schema check constraints reconciled (%d/%d): "
+                    + "events.faculty/category/status, attendances.status.",
+                    recreated, RECREATE_CONSTRAINTS.length);
         } catch (SQLException e) {
-            // Non-fatal: log and continue. Tables may not yet exist on a brand-new DB
-            // when this hook runs in some Quarkus startup orderings, or pre-existing
-            // invalid rows may block ADD CONSTRAINT — both cases are observable via WARN.
+            // Connection-level failure: tables may not yet exist on a brand-new DB
+            // when this hook runs in some Quarkus startup orderings.
             LOG.warnf(e, "Schema reconciliation skipped: %s", e.getMessage());
         }
     }
