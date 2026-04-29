@@ -44,7 +44,12 @@ public class EventCoOrganizer extends PanacheEntity {
 
     @PrePersist
     public void prePersist() {
-        invitedAt = LocalDateTime.now();
+        // Null-guard : permet aux fixtures de tests de poser un timestamp déterministe
+        // avant persist() sans être écrasé. Comportement par défaut inchangé en prod
+        // (le code applicatif ne pose jamais invitedAt manuellement).
+        if (invitedAt == null) {
+            invitedAt = LocalDateTime.now();
+        }
     }
 
     public static boolean isAcceptedFor(Long eventId, UUID userId) {

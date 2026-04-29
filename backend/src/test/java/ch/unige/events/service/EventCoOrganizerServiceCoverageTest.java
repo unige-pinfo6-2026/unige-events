@@ -436,10 +436,11 @@ class EventCoOrganizerServiceCoverageTest {
         e.eventId = eventId;
         e.userId = userId;
         e.status = status;
-        entityManager.persist(e);
-        entityManager.flush();
+        // Pose le timestamp déterministe AVANT persist : le @PrePersist null-guard
+        // (cf. EventCoOrganizer.prePersist) ne l'écrasera pas, et la colonne
+        // @Column(updatable=false) est respectée puisque c'est l'INSERT initial.
         e.invitedAt = invitedAt;
-        entityManager.merge(e);
+        entityManager.persist(e);
         entityManager.flush();
     }
 }

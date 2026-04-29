@@ -32,7 +32,7 @@ public class EventCoOrganizerService {
     @Transactional
     public CoOrganizerDTO invite(Long eventId, String inviterAuth0Id, UUID targetUserId, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
         User inviter = User.findByAuth0Id(inviterAuth0Id)
                 .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
@@ -94,7 +94,7 @@ public class EventCoOrganizerService {
     @Transactional
     public void remove(Long eventId, String requesterAuth0Id, UUID targetUserId, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
         if (!isAdmin && !isCreator(event, requesterAuth0Id)) {
             throw new ForbiddenException("Only the event creator (or an admin) can remove co-organizers");
@@ -108,7 +108,7 @@ public class EventCoOrganizerService {
     public List<CoOrganizerDTO> getCoOrganizers(Long eventId) {
         // Vérifie l'existence de l'event — 404 si absent (cohérent avec l'OpenAPI).
         Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
 
         List<EventCoOrganizer> rows = EventCoOrganizer.findByEvent(eventId);
         if (rows.isEmpty()) {
