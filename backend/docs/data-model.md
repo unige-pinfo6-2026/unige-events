@@ -26,6 +26,20 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 
 Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
 
+#### Règle de visibilité du profil (hotfix pentest 2026-04-17)
+
+Le champ `profilePublic` contrôle deux dimensions simultanément sur `GET /api/users/{id}` :
+
+| `profilePublic` | Appelant | Réponse |
+|---|---|---|
+| `true` | anon | `200` — payload **réduit** (`id`, `displayName`, `avatarUrl` ; autres `null`) |
+| `true` | authentifié | `200` — payload **complet** |
+| `false` | anon ou autre user | `404 not_found` (envelope identique à un UUID inexistant) |
+| `false` | propriétaire (`auth0Id` matche) | `200` — payload complet (self-case) |
+
+La règle d'autorisation vit dans `UserService.getPublicProfile(UUID, String auth0Id)` ;
+le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.fromAnonymous`.
+
 ---
 
 ### Event
@@ -59,6 +73,20 @@ Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date)
 
 Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
 
+#### Règle de visibilité par statut (hotfix pentest 2026-04-17)
+
+Le statut `Event.status` détermine qui peut lire l'événement via `GET /api/events/{id}` :
+
+| Statut | Visibilité |
+|---|---|
+| `PUBLISHED` | Public (anon + authentifié) |
+| `DRAFT` | Créateur (`event.creator.auth0Id`) ou rôle `ADMIN` uniquement |
+| `CANCELLED` | Créateur ou rôle `ADMIN` uniquement |
+
+Un appelant non autorisé reçoit `404 not_found` — même envelope qu'un ID inexistant, pour fermer l'oracle d'existence (cf. findings 4.12 + 4.15 du rapport de pentest). La règle est appliquée dans `EventService.getById(Long, String, boolean)`, avec extraction de l'identité anonyme-safe côté Resource (`identity.isAnonymous()` + `identity.hasRole("ADMIN")`).
+
+Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les statuts non publics correctement — voir SCRUM-133 pour le contexte.
+
 ---
 
 ### Favorite
@@ -80,6 +108,23 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ---
 
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
+
+Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
+
+---
+
 ### Attendance
 
 Table : `attendances`
@@ -97,6 +142,27 @@ Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
 Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upsert** : si l'utilisateur est déjà inscrit (`ATTENDING` ou `WAITLISTED`), l'inscription existante est renvoyée telle quelle, sans modification. La promotion `WAITLISTED → ATTENDING` n'est jamais déclenchée par un appel client — uniquement par la libération d'un slot dans `removeAttendance()`, sous verrou pessimiste.
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
+
+---
+
+### EventView
+
+Table : `event_views`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | `eventId` | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
+
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
@@ -202,6 +268,17 @@ Body de `PUT /users/me`. Tous les champs sont optionnels (nullable).
 | `avatarUrl` | `@Size(max=2048)` + `@Pattern` (http/https uniquement) |
 | `interests` | `List<String>`, nullable |
 | `profilePublic` | `Boolean`, nullable |
+
+### EventStatsDTO (record)
+Statistiques agrégées d'un événement — retourné par `GET /events/{id}/stats` (créateur uniquement).
+
+```
+attendingCount, interestedCount, viewCount
+```
+
+- `attendingCount` : nombre d'`Attendance` avec `status = ATTENDING`.
+- `interestedCount` : nombre de `Favorite` liés à l'événement.
+- `viewCount` : nombre de `EventView` liés à l'événement (1 par utilisateur).
 
 ### Réponses d'erreur
 

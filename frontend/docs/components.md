@@ -34,6 +34,11 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+- **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
+  - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute.
+  - `contactEmail` → ancre `mailto:` avec icône `Mail`.
+  - `registrationDeadline` → libellé "Inscriptions jusqu'au" + valeur formatée via `formatEventDateTime` avec icône `CalendarClock`.
+  - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags.
 
 ### FavoritesPage
 
@@ -109,6 +114,7 @@
 - État vide : "Aucun résultat — essayez de modifier vos filtres ou votre recherche".
 - Gère les états loading (spinner), error et success.
 - Résultats affichés via `EventCard`.
+- Filtre par mots-clés : section `<TagInput>` dans la sidebar (SCRUM-132), multi-tags, persistés dans l'URL via `?tags=foo&tags=bar`.
 
 ## Composants réutilisables
 
@@ -120,7 +126,13 @@
 - À la confirmation, applique le crop via un `<canvas>` (`canvas.toBlob()`) et appelle `onCropComplete` avec le `Blob` résultant.
 - Overlay sombre (`bg-black/70 backdrop-blur-sm`), boutons "Recadrer" (`ButtonPrimary`) / "Annuler" (`ButtonSecondary`).
 - Le bouton "Recadrer" est désactivé tant qu'aucune zone de crop n'est sélectionnée.
-- Utilisable pour avatar (aspect 1, circular), bannière profil et bannière événement (aspect 3).
+- Utilisable pour avatar (aspect 1, circular), bannière profil (aspect 3:1) et bannière événement (aspect 16:9).
+
+**Intégrations actives (SCRUM-123) :**
+- `ProfileEditPage` — avatar (aspect 1:1, circular) et bannière profil (aspect 3:1)
+- `EventForm` (consommé par `EventCreatePage` et `EventEditPage`) — bannière événement (aspect 16:9)
+
+Le flux d'intégration (sélection fichier → validation → FileReader → modale crop → confirm → File final) est centralisé dans le hook réutilisable `useImageCropFlow` (`@/hooks/useImageCropFlow`).
 
 ### Buttons
 
@@ -205,7 +217,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
   - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
   - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
   - Bande 3 : CategorySelect | Faculté concernée | Capacité (spinners masqués) | **zone CTA horizontale** qui se colle à droite via `ml-auto` et rassemble les vrais boutons d'action (voir ci-dessous).
-  - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
+  - Bande 4 (SCRUM-117) : champs additionnels réels — ligne 1 grille 2 colonnes `websiteUrl` (Input `type="url"`, icône `Globe`, max 500 car.) + `contactEmail` (Input `type="email"`, icône `Mail`, max 255 car.) ; ligne 2 `registrationDeadline` (date + heure + minute via `renderDateTimeField`, le sélecteur horaire reste visible même quand `allDay` est actif car il ne suit pas le toggle de l'événement) ; ligne 3 `TagInput` mots-clés (max 20 tags × 64 car.) avec compteur. Les shells non-interactifs restants (récurrence S8 create-only, pièces jointes S9) sont toujours présents sous un séparateur.
   - Bande 5 : shell co-organisateurs (edit only, S8).
 - **Zone CTA (Bande 3)** : rangée `flex flex-wrap items-center gap-3 ml-auto` qui prend sa largeur naturelle et se colle contre le bord droit du formulaire — l'espace à gauche est occupé par CategorySelect, Faculté et Capacité. Chaque action est un vrai bouton (plus de micro-links texte) :
   - `ButtonDestructive` "Supprimer le brouillon" — rendu uniquement si `onDelete` fourni (mode draft).
@@ -363,6 +375,15 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 ## Hooks
 
+### useImageCropFlow
+
+Hook utilitaire qui encapsule le flux complet « sélection fichier → validation → FileReader → ouverture du cropper → conversion Blob → File ». Utilisé par `ProfileEditPage` (×2 : avatar + bannière) et `useEventForm` (×1 : bannière événement).
+
+Options : `aspect`, `circular?`, `validate?`, `onValidationError?`.
+Résultat : `cropSource`, `handleFileSelect`, `aspect`, `circular`, `confirmCrop`, `cancelCrop`.
+
+Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur — sans cela, re-sélectionner le même fichier ne redéclenche pas l'event `change` (comportement HTML standard). Préserve le nom original du fichier lors de la conversion Blob → File.
+
 ### useEvents
 
 - Charge les événements publiés par pages de 12.
@@ -384,6 +405,12 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 - Centralise l'état du formulaire, la validation, l'aperçu local de bannière et la soumission.
 - Valide les champs requis, l'ordre des dates, la capacité positive et la date de début dans le futur.
+- **Validation des 4 champs optionnels (SCRUM-117)** :
+  - `websiteUrl` : trimmé ; vide = OK ; sinon doit être parsable par `new URL()` avec protocole `http:` ou `https:` ; longueur ≤ `EVENT_WEBSITE_URL_MAX_LENGTH` (500).
+  - `contactEmail` : trimmé ; vide = OK ; sinon regex `^[^\s@]+@[^\s@]+\.[^\s@]+$` ; longueur ≤ `EVENT_CONTACT_EMAIL_MAX_LENGTH` (255). Le backend reste autoritatif via `@Email`.
+  - `registrationDeadline` : optionnelle ; si fournie, doit être une date valide et **strictement antérieure à `startDate`** (comparaison front uniquement — le backend ne valide pas cette règle croisée, explicitement).
+  - `tags` : tableau ; ≤ `EVENT_TAGS_MAX_ITEMS` (20) tags, chacun ≤ `EVENT_TAG_MAX_LENGTH` (64) caractères.
+- Le payload envoyé normalise les chaînes trimmées vides en `null` pour `websiteUrl`/`contactEmail`/`registrationDeadline`, et un tableau vide en `null` pour `tags` — cohérent avec le contrat PUT à sémantique de remplacement complet.
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.

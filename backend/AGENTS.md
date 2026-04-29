@@ -102,6 +102,14 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 - 1 PR par tâche, review obligatoire avant merge sur main
 - Qualité : SonarCloud seuil 80% couverture (JaCoCo)
 
+### Conventions de PR
+- **Titre** : format `<type>(<scope>): <description>`, validé par le workflow CI `.github/workflows/pr-title-check.yml` (la check doit passer avant merge).
+  - Types autorisés : `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`.
+  - Pour `feat` / `refactor` / `perf` le scope est **obligatoirement** l'identifiant Jira en minuscules (`scrum-XXX`), ex. `feat(scrum-133): add /users/me/events endpoint`.
+  - Pour les autres types le scope est libre ou omis, ex. `fix(backend): handle null author`, `chore(ci): add workflow`, `docs: update data model`.
+  - Astuce : commiter avec un message conforme dès le premier commit de la branche → GitHub pré-remplit le titre de PR avec.
+- **Description** : le template `.github/pull_request_template.md` est pré-rempli automatiquement par GitHub à l'ouverture d'une nouvelle PR. Sections obligatoires : Résumé, Changements, Tests, Test plan, Documentation. Sections optionnelles balisées par un commentaire HTML, à supprimer si non pertinentes : Why / Motivation, Dépendances / ordre de merge, Décisions techniques tranchées, Notes pour le reviewer.
+
 # Requis analyse Sonar :
 - Minimum 80% de coverage sur le nouveau code
 - Maximum 3% de duplication sur le nouveau code

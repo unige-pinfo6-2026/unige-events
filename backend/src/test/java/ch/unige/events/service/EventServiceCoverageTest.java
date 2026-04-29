@@ -48,7 +48,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_noFilters_returnsAll() {
-        deleteAll();
         User user = persistUser("auth0|a", "a@example.com");
         persistEvent("Event 1", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Event 2", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
@@ -61,7 +60,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withStatusFilter_returnsFiltered() {
-        deleteAll();
         User user = persistUser("auth0|b", "b@example.com");
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
@@ -75,7 +73,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withCategoryFilter_returnsFiltered() {
-        deleteAll();
         User user = persistUser("auth0|c", "c@example.com");
         persistEvent("Academic", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Sports", EventCategory.SPORTS, EventStatus.DRAFT, user);
@@ -89,7 +86,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withOrganizerIdFilter_returnsFiltered() {
-        deleteAll();
         User alice = persistUser("auth0|alice", "alice@example.com");
         User bob = persistUser("auth0|bob", "bob@example.com");
         persistEvent("Alice's event", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
@@ -104,7 +100,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withEndDateFromFilter_excludesEndedEvents() {
-        deleteAll();
         User user = persistUser("auth0|edf", "edf@example.com");
         persistEvent("Active Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
         persistEvent("Also Active", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
@@ -117,7 +112,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withPagination_returnsPage() {
-        deleteAll();
         User user = persistUser("auth0|page", "page@example.com");
         persistEvent("E1", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("E2", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
@@ -135,7 +129,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_returnsAllStatuses() {
-        deleteAll();
         User user = persistUser("auth0|me-all", "me-all@example.com");
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
@@ -149,7 +142,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_filtersOnStatus() {
-        deleteAll();
         User user = persistUser("auth0|me-filter", "me-filter@example.com");
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
@@ -164,7 +156,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_ordersByCreatedAtDesc() {
-        deleteAll();
         User user = persistUser("auth0|me-order", "me-order@example.com");
         LocalDateTime base = LocalDateTime.now().minusDays(3);
         persistEventWithCreatedAt("Oldest", EventStatus.DRAFT, user, base);
@@ -182,7 +173,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_emptyForUnrelatedUser() {
-        deleteAll();
         User alice = persistUser("auth0|me-alice", "alice@example.com");
         persistUser("auth0|me-bob", "bob@example.com");
         persistEvent("Alice event", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
@@ -195,7 +185,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_userNotFound_throwsNotFound() {
-        deleteAll();
 
         assertThrows(NotFoundException.class,
                 () -> eventService.getMyEvents("auth0|me-unknown", null, 0, 20));
@@ -204,7 +193,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_populatesAvailableSpotsAndWaitlistedCount() {
-        deleteAll();
         User creator = persistUser("auth0|me-cap", "cap@example.com");
         User attender1 = persistUser("auth0|me-att1", "att1@example.com");
         User attender2 = persistUser("auth0|me-att2", "att2@example.com");
@@ -228,7 +216,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_nullCapacityReturnsNullAvailableSpots() {
-        deleteAll();
         User creator = persistUser("auth0|me-nocap", "nocap@example.com");
         persistEvent("Uncapped", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
 
@@ -241,7 +228,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_pagination() {
-        deleteAll();
         User user = persistUser("auth0|me-page", "page@example.com");
         LocalDateTime base = LocalDateTime.now().minusDays(5);
         for (int i = 0; i < 5; i++) {
@@ -260,7 +246,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getMyEvents_tieBreakerById() {
-        deleteAll();
         User user = persistUser("auth0|me-tie", "tie@example.com");
         LocalDateTime sameTs = LocalDateTime.now().minusHours(1);
         Event first = persistEventWithCreatedAt("First", EventStatus.DRAFT, user, sameTs);
@@ -280,7 +265,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withExistingUser_linksCreator() {
-        deleteAll();
         persistUser("auth0|creator", "creator@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -293,7 +277,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withUnknownUser_throwsNotFoundException() {
-        deleteAll();
 
         CreateEventRequest req = validCreateRequest();
         assertThrows(NotFoundException.class, () -> eventService.create("auth0|unknown", req));
@@ -302,7 +285,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withPublishedStatus_persistsPublished() {
-        deleteAll();
         persistUser("auth0|pub", "pub@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -315,7 +297,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withoutStatus_defaultsToDraft() {
-        deleteAll();
         persistUser("auth0|draft", "draft@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -328,7 +309,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withCancelledStatus_throwsBadRequest() {
-        deleteAll();
         persistUser("auth0|cancelled", "cancelled@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -342,11 +322,10 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getById_existingEvent_returnsDTO() {
-        deleteAll();
         User user = persistUser("auth0|get", "get@example.com");
         Event event = persistEvent("Find Me", EventCategory.CULTURAL, EventStatus.DRAFT, user);
 
-        EventDTO result = eventService.getById(event.id);
+        EventDTO result = eventService.getById(event.id, "auth0|get", false);
 
         assertEquals(event.id, result.id());
         assertEquals("Find Me", result.title());
@@ -355,9 +334,109 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getById_unknownEvent_throwsNotFound() {
-        deleteAll();
 
-        assertThrows(NotFoundException.class, () -> eventService.getById(999999L));
+        assertThrows(NotFoundException.class, () -> eventService.getById(999999L, null, false));
+    }
+
+    // --- ISSUE-92 (pentest 4.12 + 4.15) — getById visibility rule ---
+
+    @Test
+    @TestTransaction
+    void getById_publishedEvent_anon_returns200() {
+        User user = persistUser("auth0|pub-anon", "pub-anon@example.com");
+        Event event = persistEvent("Public", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        EventDTO result = eventService.getById(event.id, null, false);
+
+        assertEquals(event.id, result.id());
+        assertEquals("Public", result.title());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftEvent_anon_throwsNotFound() {
+        User user = persistUser("auth0|draft-anon", "draft-anon@example.com");
+        Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
+
+        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_cancelledEvent_anon_throwsNotFound() {
+        User user = persistUser("auth0|cancel-anon", "cancel-anon@example.com");
+        Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
+
+        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftEvent_otherUser_throwsNotFound() {
+        User alice = persistUser("auth0|hide-alice", "hide-alice@example.com");
+        persistUser("auth0|hide-bob", "hide-bob@example.com");
+        Event event = persistEvent("Alice's draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getById(event.id, "auth0|hide-bob", false));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftEvent_creator_returns200() {
+        User alice = persistUser("auth0|own-draft", "own-draft@example.com");
+        Event event = persistEvent("My draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
+
+        EventDTO result = eventService.getById(event.id, "auth0|own-draft", false);
+
+        assertEquals(event.id, result.id());
+        assertEquals("My draft", result.title());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_cancelledEvent_creator_returns200() {
+        User alice = persistUser("auth0|own-cancel", "own-cancel@example.com");
+        Event event = persistEvent("My cancel", EventCategory.ACADEMIC, EventStatus.CANCELLED, alice);
+
+        EventDTO result = eventService.getById(event.id, "auth0|own-cancel", false);
+
+        assertEquals(event.id, result.id());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftEvent_admin_returns200() {
+        User alice = persistUser("auth0|draft-for-admin", "draft-for-admin@example.com");
+        Event event = persistEvent("Inspect me", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
+
+        EventDTO result = eventService.getById(event.id, "auth0|admin", true);
+
+        assertEquals(event.id, result.id());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_cancelledEvent_admin_returns200() {
+        User alice = persistUser("auth0|cancel-for-admin", "cancel-for-admin@example.com");
+        Event event = persistEvent("Inspect cancel", EventCategory.ACADEMIC, EventStatus.CANCELLED, alice);
+
+        EventDTO result = eventService.getById(event.id, "auth0|admin", true);
+
+        assertEquals(event.id, result.id());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftEvent_authenticatedButNoProfile_throwsNotFound() {
+        // auth0Id provided but no matching User row in DB.
+        // A user Auth0-valid-but-not-provisioned cannot be a creator (FK on event.creator_id),
+        // so the check falls through to 404 on any non-PUBLISHED event.
+        User alice = persistUser("auth0|ghost-alice", "ghost-alice@example.com");
+        Event event = persistEvent("Alice's draft", EventCategory.ACADEMIC, EventStatus.DRAFT, alice);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getById(event.id, "auth0|ghost-not-provisioned", false));
     }
 
     // --- update ---
@@ -365,7 +444,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_asCreator_updatesEvent() {
-        deleteAll();
         User user = persistUser("auth0|updater", "updater@example.com");
         Event event = persistEvent("Old Title", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -379,7 +457,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withStatusChange_updatesStatus() {
-        deleteAll();
         User user = persistUser("auth0|status", "status@example.com");
         Event event = persistEvent("Title", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -392,7 +469,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_unknownEvent_throwsNotFound() {
-        deleteAll();
 
         UpdateEventRequest req = validUpdateRequest("X", EventCategory.ACADEMIC, null);
         assertThrows(NotFoundException.class, () -> eventService.update(999999L, "auth0|x", req));
@@ -401,7 +477,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_nullCreator_throwsForbidden() {
-        deleteAll();
         Event event = persistEvent("No Creator", EventCategory.ACADEMIC, EventStatus.DRAFT, null);
 
         UpdateEventRequest req = validUpdateRequest("X", EventCategory.ACADEMIC, null);
@@ -411,7 +486,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_differentUser_throwsForbidden() {
-        deleteAll();
         User user = persistUser("auth0|owner", "owner@example.com");
         Event event = persistEvent("Owner's Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -424,7 +498,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void delete_cancelledEvent_asCreator_removesEntity() {
-        deleteAll();
         User user = persistUser("auth0|deleter", "deleter@example.com");
         Event event = persistEvent("Delete Me", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
         Long id = event.id;
@@ -438,7 +511,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void delete_nonCancelledEvent_throwsConflict() {
-        deleteAll();
         User user = persistUser("auth0|delNonCan", "delNonCan@example.com");
         Event event = persistEvent("Draft Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -452,7 +524,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void cancel_draftEvent_setsStatusCancelled() {
-        deleteAll();
         User user = persistUser("auth0|canc1", "canc1@example.com");
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -464,7 +535,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void cancel_publishedEvent_setsStatusCancelled() {
-        deleteAll();
         User user = persistUser("auth0|canc2", "canc2@example.com");
         Event event = persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
 
@@ -476,7 +546,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void cancel_alreadyCancelled_throwsConflict() {
-        deleteAll();
         User user = persistUser("auth0|canc3", "canc3@example.com");
         Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
 
@@ -488,14 +557,12 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void cancel_unknownEvent_throwsNotFound() {
-        deleteAll();
         assertThrows(NotFoundException.class, () -> eventService.cancel(999999L, "auth0|x"));
     }
 
     @Test
     @TestTransaction
     void cancel_notCreator_throwsForbidden() {
-        deleteAll();
         User user = persistUser("auth0|cancOwn", "cancOwn@example.com");
         Event event = persistEvent("Owner", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -507,7 +574,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void restore_cancelledEvent_setsStatusDraft() {
-        deleteAll();
         User user = persistUser("auth0|rest1", "rest1@example.com");
         Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
 
@@ -519,7 +585,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void restore_nonCancelled_throwsConflict() {
-        deleteAll();
         User user = persistUser("auth0|rest2", "rest2@example.com");
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -531,14 +596,12 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void restore_unknownEvent_throwsNotFound() {
-        deleteAll();
         assertThrows(NotFoundException.class, () -> eventService.restore(999999L, "auth0|x"));
     }
 
     @Test
     @TestTransaction
     void restore_notCreator_throwsForbidden() {
-        deleteAll();
         User user = persistUser("auth0|restOwn", "restOwn@example.com");
         Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
 
@@ -550,7 +613,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_cancelledEvent_throwsConflict() {
-        deleteAll();
         User user = persistUser("auth0|updCan", "updCan@example.com");
         Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
 
@@ -563,7 +625,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void delete_unknownEvent_throwsNotFound() {
-        deleteAll();
 
         assertThrows(NotFoundException.class, () -> eventService.delete(999999L, "auth0|x"));
     }
@@ -571,7 +632,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void delete_nullCreator_throwsForbidden() {
-        deleteAll();
         Event event = persistEvent("No Creator", EventCategory.ACADEMIC, EventStatus.DRAFT, null);
 
         assertThrows(ForbiddenException.class, () -> eventService.delete(event.id, "auth0|x"));
@@ -580,7 +640,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void delete_differentUser_throwsForbidden() {
-        deleteAll();
         User user = persistUser("auth0|owner2", "owner2@example.com");
         Event event = persistEvent("Owner's Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -592,7 +651,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_asCreator_setsStatusPublished() {
-        deleteAll();
         User user = persistUser("auth0|pub", "pub@example.com");
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -607,7 +665,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_asAdmin_onAnyEvent_setsStatusPublished() {
-        deleteAll();
         User user = persistUser("auth0|owner", "owner@example.com");
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -619,7 +676,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_unknownEvent_throwsNotFound() {
-        deleteAll();
 
         assertThrows(NotFoundException.class, () -> eventService.publish(999999L, "auth0|x", false));
     }
@@ -627,7 +683,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_notCreatorNotAdmin_throwsForbidden() {
-        deleteAll();
         User user = persistUser("auth0|owner", "owner2@example.com");
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -637,7 +692,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_nullCreator_throwsForbidden() {
-        deleteAll();
         Event event = persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, null);
 
         assertThrows(ForbiddenException.class, () -> eventService.publish(event.id, "auth0|x", false));
@@ -646,7 +700,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_alreadyPublished_throws409() {
-        deleteAll();
         User user = persistUser("auth0|pub2", "pub2@example.com");
         Event event = persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
 
@@ -658,7 +711,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_cancelledEvent_throws409() {
-        deleteAll();
         User user = persistUser("auth0|pub3", "pub3@example.com");
         Event event = persistEvent("Cancelled", EventCategory.ACADEMIC, EventStatus.CANCELLED, user);
 
@@ -670,7 +722,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_pastStartDate_throws422WithErrors() {
-        deleteAll();
         User user = persistUser("auth0|past", "past@example.com");
         Event event = persistEvent("Past", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         event.startDate = LocalDateTime.now().minusDays(1);
@@ -687,7 +738,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_missingRequiredFields_throws422WithAllErrors() {
-        deleteAll();
         User user = persistUser("auth0|miss", "miss@example.com");
         Event event = persistEvent("X", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         event.title = "  ";
@@ -712,7 +762,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_fullLifecycle_publishedCancelledRestoredPublishedAgain() {
-        deleteAll();
         User user = persistUser("auth0|cycle", "cycle@example.com");
         Event event = persistEvent("Cycle", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
 
@@ -733,7 +782,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void publish_endDateBeforeStartDate_throws422() {
-        deleteAll();
         User user = persistUser("auth0|end", "end@example.com");
         Event event = persistEvent("E", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         event.endDate = event.startDate.minusHours(1);
@@ -749,7 +797,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_asCreator_updatesbannerUrl(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|img", "img@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -767,7 +814,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_asAdmin_updatesbannerUrl(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|owner3", "owner3@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -783,7 +829,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_unknownEvent_throwsNotFound(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         Path fakeFile = tempDir.resolve("f.jpg");
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
@@ -795,7 +840,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_notCreatorNotAdmin_throwsForbidden(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|owner4", "owner4@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -810,7 +854,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_invalidMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|mime", "mime@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -825,7 +868,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_nullMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|nullmime", "nullmime@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -840,7 +882,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|noext", "noext@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -856,7 +897,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
-        deleteAll();
         User user = persistUser("auth0|nullname", "nullname@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -874,7 +914,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withFacultyFilter_returnsMatchingEvents() {
-        deleteAll();
         User user = persistUser("auth0|fac1", "fac1@example.com");
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
         persistEvent("Law Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.LAW);
@@ -888,7 +927,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withFacultyNull_returnsAll() {
-        deleteAll();
         User user = persistUser("auth0|fac2", "fac2@example.com");
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
         persistEvent("No Faculty", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
@@ -901,7 +939,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withFaculty_persistsFaculty() {
-        deleteAll();
         persistUser("auth0|facCreate", "facCreate@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -914,7 +951,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withFaculty_updatesFaculty() {
-        deleteAll();
         User user = persistUser("auth0|facUpd", "facUpd@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
 
@@ -928,7 +964,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withFacultyNone_returnsNullFacultyEvents() {
-        deleteAll();
         User user = persistUser("auth0|facNone", "facNone@example.com");
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
@@ -943,7 +978,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_withFacultyNoneAndFaculty_facultyNoneWins() {
-        deleteAll();
         User user = persistUser("auth0|facNonePrio", "facNonePrio@example.com");
         persistEvent("Sciences Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, Faculty.SCIENCES);
         persistEvent("No Faculty Event", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user, null);
@@ -957,7 +991,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withNullFaculty_clearsFaculty() {
-        deleteAll();
         User user = persistUser("auth0|facClr", "facClr@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user, Faculty.SCIENCES);
 
@@ -973,7 +1006,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withAllDayTrue_persistsTrue() {
-        deleteAll();
         persistUser("auth0|allDayT", "allDayT@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -986,7 +1018,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withAllDayFalse_persistsFalse() {
-        deleteAll();
         persistUser("auth0|allDayF", "allDayF@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -999,7 +1030,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withAllDayNull_defaultsToFalse() {
-        deleteAll();
         persistUser("auth0|allDayN", "allDayN@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -1012,7 +1042,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withAllDayTrue_setsTrue() {
-        deleteAll();
         User user = persistUser("auth0|updADT", "updADT@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
@@ -1026,7 +1055,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withAllDayFalse_setsFalse() {
-        deleteAll();
         User user = persistUser("auth0|updADF", "updADF@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         event.allDay = true;
@@ -1042,7 +1070,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withAllDayNull_defaultsToFalse() {
-        deleteAll();
         User user = persistUser("auth0|updADN", "updADN@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
         event.allDay = true;
@@ -1058,7 +1085,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_thenGetById_preservesAllDay() {
-        deleteAll();
         persistUser("auth0|adPersist", "adPersist@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -1067,14 +1093,13 @@ class EventServiceCoverageTest {
         entityManager.flush();
         entityManager.clear();
 
-        EventDTO fetched = eventService.getById(created.id());
+        EventDTO fetched = eventService.getById(created.id(), "auth0|adPersist", false);
         assertTrue(fetched.allDay());
     }
 
     @Test
     @TestTransaction
     void create_withoutAllDay_persistedDefaultsToFalse() {
-        deleteAll();
         persistUser("auth0|adDefault", "adDefault@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -1082,7 +1107,7 @@ class EventServiceCoverageTest {
         entityManager.flush();
         entityManager.clear();
 
-        EventDTO fetched = eventService.getById(created.id());
+        EventDTO fetched = eventService.getById(created.id(), "auth0|adDefault", false);
         assertFalse(fetched.allDay());
     }
 
@@ -1093,7 +1118,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withNewFieldsAndTags_persistsNormalized() {
-        deleteAll();
         persistUser("auth0|tags1", "tags1@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -1114,7 +1138,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void create_withNullTags_persistsEmpty() {
-        deleteAll();
         persistUser("auth0|tagsnull", "tagsnull@example.com");
 
         CreateEventRequest req = validCreateRequest();
@@ -1129,7 +1152,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void update_withTagsCleared_persistsEmpty() {
-        deleteAll();
         User user = persistUser("auth0|tagsclr", "tagsclr@example.com");
         Event event = persistEvent("Tagged", EventCategory.CULTURAL, EventStatus.DRAFT, user);
         event.tags = new java.util.ArrayList<>(java.util.Arrays.asList("old1", "old2"));
@@ -1146,7 +1168,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getById_withCapacityAndAttending_computesAvailableSpots() {
-        deleteAll();
         User user = persistUser("auth0|spots", "spots@example.com");
         Event event = persistEvent("Spots", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
         event.capacity = 5;
@@ -1166,7 +1187,7 @@ class EventServiceCoverageTest {
         persistAttendanceForEvent(event.id, w2.id, AttendanceStatus.WAITLISTED);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertEquals(3L, dto.attendingCount());
         assertEquals(2L, dto.availableSpots());
@@ -1176,7 +1197,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getById_capacityReducedBelowAttending_clampsAvailableSpotsToZero() {
-        deleteAll();
         User user = persistUser("auth0|clamp", "clamp@example.com");
         Event event = persistEvent("Clamp", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
         event.capacity = 2;
@@ -1190,7 +1210,7 @@ class EventServiceCoverageTest {
         persistAttendanceForEvent(event.id, a3.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertEquals(3L, dto.attendingCount());
         assertEquals(0L, dto.availableSpots());
@@ -1199,7 +1219,6 @@ class EventServiceCoverageTest {
     @Test
     @TestTransaction
     void getAll_returnsWaitlistedCountsInBulk() {
-        deleteAll();
         User user = persistUser("auth0|bulk", "bulk@example.com");
         Event e1 = persistEvent("Bulk1", EventCategory.CONFERENCE, EventStatus.PUBLISHED, user);
         e1.capacity = 1;
@@ -1258,12 +1277,6 @@ class EventServiceCoverageTest {
     }
 
     // --- helpers ---
-
-    private void deleteAll() {
-        entityManager.createNativeQuery("delete from events").executeUpdate();
-        entityManager.createNativeQuery("delete from users").executeUpdate();
-        entityManager.clear();
-    }
 
     private User persistUser(String auth0Id, String email) {
         User user = new User();

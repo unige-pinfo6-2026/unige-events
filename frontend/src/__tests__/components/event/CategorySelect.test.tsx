@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -59,7 +58,7 @@ describe('CategorySelect', () => {
   it('shows a color dot when a category is selected', () => {
     render(<CategorySelect value={'CONFERENCE' as EventCategory} onChange={vi.fn()} />)
     const dot = document.querySelector('[aria-hidden="true"]') as HTMLElement
-    expect(dot.style.backgroundColor).toBe('rgb(8, 145, 178)')
+    expect(dot.style.backgroundColor).toBe('#0891b2')
   })
 
   it('shows a transparent dot when no category is selected', () => {

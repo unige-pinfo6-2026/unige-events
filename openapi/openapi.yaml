@@ -93,7 +93,13 @@ components:
 
     UserPublicResponse:
       type: object
-      description: Profil public d'un utilisateur (si profilePublic = true)
+      description: |
+        Profil public d'un utilisateur.
+
+        **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
+        appelant sans JWT, seuls `id`, `displayName` et `avatarUrl` sont renseignés ;
+        `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont systématiquement
+        `null`. Les appelants authentifiés reçoivent tous les champs renseignés en base.
       properties:
         id:
           type: string
@@ -114,6 +120,7 @@ components:
           type: array
           items:
             type: string
+          nullable: true
         avatarUrl:
           type: string
           format: uri
@@ -489,14 +496,41 @@ components:
 
     EventStats:
       type: object
-      # TODO: Sprint 5 — à implémenter côté backend
+      description: Statistiques agrégées d'un événement (créateur uniquement)
       properties:
-        views:
-          type: integer
         attendingCount:
           type: integer
-        checkInCount:
+          format: int64
+          description: Nombre de participants inscrits (statut ATTENDING)
+        interestedCount:
           type: integer
+          format: int64
+          description: Nombre d'utilisateurs ayant mis l'événement en favoris
+        viewCount:
+          type: integer
+          format: int64
+          description: Nombre de vues uniques (1 par utilisateur)
+      required:
+        - attendingCount
+        - interestedCount
+        - viewCount
+
+    EventView:
+      type: object
+      description: Vue unique d'un événement par un utilisateur
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        viewedAt:
+          type: string
+          format: date-time
 
     PagedEvents:
       type: object
@@ -591,6 +625,23 @@ components:
       example:
         shareUrl: "https://10.25.10.136.nip.io/events/42"
         shortCode: "aB3xZ9mQ"
+
+    EventView:
+      type: object
+      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        userId:
+          type: string
+          format: uuid
+        viewedAt:
+          type: string
+          format: date-time
 
     CalendarTokenResponse:
       type: object
@@ -815,10 +866,22 @@ paths:
   /users/{id}:
     get:
       summary: Profil public d'un utilisateur
-      description: Retourne le profil public si profilePublic = true. Retourne 403 si privé.
+      description: |
+        Retourne le profil public d'un utilisateur.
+
+        **Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.1 + 4.1b) :
+        - Profil avec `profilePublic=true` : accessible en lecture. Un appelant **anonyme**
+          reçoit un payload **réduit** (seuls `id`, `displayName`, `avatarUrl` sont renseignés ;
+          les autres champs sont `null`). Un appelant **authentifié** reçoit le payload complet.
+        - Profil avec `profilePublic=false` : visible uniquement par son propriétaire
+          (`auth0Id` du JWT matche `user.auth0Id`). Tout autre appelant — anonyme, user
+          différent — reçoit `404 not_found`, envelope identique à celle d'un UUID inexistant
+          (ferme l'oracle d'existence exploité via `creatorId` leaké par `GET /events`).
       operationId: getPublicProfile
       tags: [users]
-      security: []   # @PermitAll — pas de token requis
+      security:
+        - {}
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -828,19 +891,18 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Profil public de l'utilisateur
+          description: |
+            Profil public de l'utilisateur. Payload complet pour les appelants authentifiés ;
+            payload réduit (`id`, `displayName`, `avatarUrl` uniquement, autres champs `null`)
+            pour les appelants anonymes.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
-        '403':
-          description: Profil privé (profilePublic = false)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: Utilisateur introuvable
+          description: |
+            Utilisateur introuvable, OU profil privé demandé par un appelant qui n'en est pas
+            le propriétaire. Le corps est identique dans les deux cas (pas d'oracle d'existence).
           content:
             application/json:
               schema:
@@ -1188,13 +1250,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: à implémenter — endpoint absent du backend et du frontend
   /events/search:
     get:
       summary: Recherche full-text d'événements
       description: |
         Recherche insensible à la casse (ILIKE) sur le titre et la description.
-        Filtres optionnels : category, faculty, plage de dates (startDate).
+        Filtres optionnels : category, faculty, plage de dates (startDate), tags.
       operationId: searchEvents
       tags: [events]
       security: []
@@ -1221,6 +1282,23 @@ paths:
             paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
           schema:
             type: boolean
+        - name: tags
+          in: query
+          description: |
+            Filtre les événements dont au moins un tag **contient** (substring match, case-insensitive)
+            au moins une des valeurs fournies. Sémantique OR entre les valeurs (ex. `?tags=foot` matche
+            un event dont un tag est `football` ou `barefoot-running`).
+            Les caractères `%` et `_` saisis par l'utilisateur sont traités littéralement (échappés
+            côté serveur pour ne pas être interprétés comme wildcards SQL).
+            Multi-valeurs via répétition du paramètre : `?tags=foo&tags=bar`.
+            Les valeurs blanches/vides sont ignorées silencieusement.
+          schema:
+            type: array
+            items:
+              type: string
+              maxLength: 64
+          style: form
+          explode: true
         - name: dateFrom
           in: query
           description: Filtre les événements dont startDate >= dateFrom (début de journée, 00:00:00)
@@ -1259,9 +1337,21 @@ paths:
   /events/{id}:
     get:
       summary: Détail d'un événement
+      description: |
+        Retourne le détail d'un événement.
+
+        **Règle d'autorisation** : seuls les événements `PUBLISHED` sont accessibles
+        anonymement. Les événements `DRAFT` ou `CANCELLED` ne sont visibles que par
+        leur créateur ou un administrateur (rôle `ADMIN`). Dans tout autre cas —
+        appelant anonyme, appelant authentifié non-créateur non-admin, ou appelant
+        authentifié dont le profil n'est pas provisionné — le serveur renvoie
+        `404 not_found`, envelope identique à celle pour un ID inexistant (évite un
+        oracle d'existence — cf. pentest 2026-04-17 findings 4.12 + 4.15).
       operationId: getEventById
       tags: [events]
-      security: []
+      security:
+        - {}
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -1277,7 +1367,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '404':
-          description: Événement introuvable
+          description: |
+            Événement introuvable, OU événement en statut `DRAFT` / `CANCELLED`
+            demandé par un appelant qui n'en est ni le créateur ni un admin.
+            Le corps est identique dans les deux cas (pas d'oracle d'existence).
           content:
             application/json:
               schema:
@@ -1871,10 +1964,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /events/{id}/view:
+    post:
+      summary: Enregistrer une vue unique d'un événement
+      description: |
+        Appelé depuis le frontend à l'ouverture de la page détail.
+        Idempotent — une seule vue enregistrée par utilisateur par événement.
+      operationId: recordEventView
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Vue enregistrée (ou déjà existante — idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable ou profil utilisateur non provisionné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   # TODO: Sprint 5
   /events/{id}/stats:
     get:
-      summary: Statistiques organisateur (vues, inscriptions) — créateur ou admin uniquement
+      summary: Statistiques de l'événement — créateur uniquement
+      description: |
+        Retourne les compteurs agrégés de l'événement (participants, favoris, vues uniques).
+        Accessible uniquement par le créateur de l'événement (token JWT requis).
       operationId: getEventStats
       tags: [events]
       security:
@@ -1893,8 +2022,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventStats'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur ni admin
+          description: Pas le créateur de l'événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement ou profil utilisateur introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/view:
+    post:
+      summary: Enregistrer une vue unique d'un événement
+      description: |
+        Appelé depuis le frontend à l'ouverture de la page détail.
+        Idempotent — une seule vue enregistrée par utilisateur par événement.
+      operationId: recordEventView
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Vue enregistrée (ou déjà existante — idempotent)
+        '404':
+          description: Événement introuvable
           content:
             application/json:
               schema:

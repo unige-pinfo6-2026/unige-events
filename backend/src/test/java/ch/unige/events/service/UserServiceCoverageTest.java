@@ -160,17 +160,17 @@ class UserServiceCoverageTest {
         deleteAllUsers();
 
         assertThrows(NotFoundException.class,
-            () -> userService.getPublicProfile(UUID.randomUUID()));
+            () -> userService.getPublicProfile(UUID.randomUUID(), null));
     }
 
     @Test
     @TestTransaction
-    void getPublicProfileThrowsForbiddenWhenPrivate() {
+    void getPublicProfileThrowsNotFoundWhenPrivateAndAnon() {
         deleteAllUsers();
         User user = persistUser("auth0|private", "private@example.com", false);
 
-        assertThrows(ForbiddenException.class,
-            () -> userService.getPublicProfile(user.id));
+        assertThrows(NotFoundException.class,
+            () -> userService.getPublicProfile(user.id, null));
     }
 
     @Test
@@ -179,7 +179,65 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         User user = persistUser("auth0|public", "public@example.com", true);
 
-        User result = userService.getPublicProfile(user.id);
+        User result = userService.getPublicProfile(user.id, null);
+
+        assertEquals(user.id, result.id);
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfileReturnsUserWhenPrivateAndOwner() {
+        // Self-case: the owner can always read their own private profile.
+        deleteAllUsers();
+        User user = persistUser("auth0|self", "self@example.com", false);
+
+        User result = userService.getPublicProfile(user.id, "auth0|self");
+
+        assertEquals(user.id, result.id);
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfileThrowsNotFoundWhenPrivateAndOtherUser() {
+        deleteAllUsers();
+        User alice = persistUser("auth0|alice-priv", "alice-priv@example.com", false);
+        persistUser("auth0|bob-priv", "bob-priv@example.com", true);
+
+        assertThrows(NotFoundException.class,
+            () -> userService.getPublicProfile(alice.id, "auth0|bob-priv"));
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfileThrowsNotFoundWhenPrivateAndCallerNotProvisioned() {
+        // Edge case: caller presents an auth0Id not yet backed by a User row.
+        // They can't own any profile, so privacy rule applies unchanged.
+        deleteAllUsers();
+        User alice = persistUser("auth0|alice-ghost", "alice-ghost@example.com", false);
+
+        assertThrows(NotFoundException.class,
+            () -> userService.getPublicProfile(alice.id, "auth0|ghost-not-in-db"));
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfileReturnsUserWhenPublicAndAnon() {
+        deleteAllUsers();
+        User user = persistUser("auth0|public-anon", "public-anon@example.com", true);
+
+        User result = userService.getPublicProfile(user.id, null);
+
+        assertEquals(user.id, result.id);
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfileReturnsUserWhenPublicAndAuth() {
+        deleteAllUsers();
+        User user = persistUser("auth0|alice-pub", "alice-pub@example.com", true);
+        persistUser("auth0|bob-pub", "bob-pub@example.com", true);
+
+        User result = userService.getPublicProfile(user.id, "auth0|bob-pub");
 
         assertEquals(user.id, result.id);
     }

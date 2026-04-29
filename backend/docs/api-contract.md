@@ -11,12 +11,13 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 
 | Méthode | Path | Auth | Description | Codes HTTP |
 |---|---|---|---|---|
-| `GET` | `/users/{id}` | `@PermitAll` | Profil public d'un utilisateur | 200, 403, 404 |
+| `GET` | `/users/{id}` | `@PermitAll` | Profil public d'un utilisateur — **payload réduit pour anon**, 404 si privé ou non autorisé (pas d'oracle d'existence) | 200, 404 |
 | `GET` | `/users/me` | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
 | `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events` | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
 | `POST` | `/events` | `@Authenticated` | Créer un événement | 201 |
-| `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, dateFrom, dateTo, page, size) | 200 |
+| `GET` | `/events/{id}` | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |
+| `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, tags [substring match case-insensitive], dateFrom, dateTo, page, size) | 200 |
 | `POST` | `/events/{id}/favorite` | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
 | `DELETE` | `/events/{id}/favorite` | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
 | `GET` | `/users/me/favorites` | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
@@ -36,14 +37,37 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 
 ### `GET /users/{id}`
 
-Retourne le profil public d'un utilisateur si `profilePublic = true`.
+Retourne le profil public d'un utilisateur.
+
+**Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.1 + 4.1b) :
+- `profilePublic=true` : accessible en lecture. **Anon** → payload **réduit** (`id`,
+  `displayName`, `avatarUrl` ; autres champs `null`). **Authentifié** → payload **complet**.
+- `profilePublic=false` : visible uniquement par son propriétaire (`auth0Id` du JWT
+  matche `user.auth0Id`). Sinon → `404 not_found`, envelope identique à celle d'un UUID
+  inexistant (ferme l'oracle d'existence exploité via `creatorId` leaké par `GET /events`).
 
 **Paramètre :** `id` — UUID de l'utilisateur.
 
 **Réponses :**
-- `200 OK` — `UserPublicResponse` (id, displayName, faculty, studyLevel, bio, interests, avatarUrl)
-- `403 Forbidden` — profil privé (`profilePublic = false`)
-- `404 Not Found` — utilisateur introuvable
+- `200 OK` — `UserPublicResponse` (payload complet ou réduit selon l'authentification)
+- `404 Not Found` — utilisateur introuvable, OU profil privé demandé par un appelant non autorisé
+
+---
+
+### `GET /events/{id}`
+
+Détail d'un événement.
+
+**Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.12 + 4.15) :
+- Un événement `PUBLISHED` est accessible **anonymement** (pas de JWT requis).
+- Un événement `DRAFT` ou `CANCELLED` n'est visible que par son créateur (JWT dont `sub` matche `event.creator.auth0Id`) ou par un admin (rôle `ADMIN`).
+- Sinon : `404 not_found` — envelope identique à celle d'un ID inexistant, pour ne pas créer d'oracle d'existence (pas de distinction « n'existe pas » / « existe mais caché »).
+
+**Paramètre :** `id` — ID numérique de l'événement (`Long` séquentiel).
+
+**Réponses :**
+- `200 OK` — `EventDTO` complet (mêmes champs que `GET /events`)
+- `404 Not Found` — événement introuvable, OU événement non-PUBLISHED demandé par un appelant non autorisé
 
 ---
 

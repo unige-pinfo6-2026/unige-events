@@ -38,6 +38,7 @@ public class EventSearchService {
     @Transactional
     @SuppressWarnings("java:S107") // Filter-heavy search endpoint — flat params match the REST query signature 1:1.
     public List<EventDTO> search(String q, EventCategory category, Faculty faculty, Boolean facultyNone,
+                                  List<String> tags,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
         // ILIKE simulé via LOWER() — compatible JPQL + PostgreSQL
@@ -64,6 +65,20 @@ public class EventSearchService {
         } else if (faculty != null) {
             conditions.add("e.faculty = :faculty");
             params.put("faculty", faculty);
+        }
+        // Tags (SCRUM-131) : substring match case-insensitive, sémantique OR entre les valeurs.
+        // Ex. ?tags=foot matche un event dont un tag est "football". `%` et `_` saisis sont traités
+        // littéralement via ESCAPE '|' + escapeLikePattern.
+        List<String> normalizedTags = EventService.normalizeTags(tags);
+        if (!normalizedTags.isEmpty()) {
+            List<String> tagClauses = new ArrayList<>();
+            for (int i = 0; i < normalizedTags.size(); i++) {
+                String paramName = "tag" + i;
+                tagClauses.add("LOWER(t) LIKE :" + paramName + " ESCAPE '|'");
+                params.put(paramName, "%" + escapeLikePattern(normalizedTags.get(i)) + "%");
+            }
+            conditions.add("EXISTS (SELECT 1 FROM Event e2 JOIN e2.tags t WHERE e2.id = e.id AND ("
+                    + String.join(" OR ", tagClauses) + "))");
         }
         if (dateFrom != null) {
             LocalDateTime dateFromUtc = dateFrom.atStartOfDay(ZURICH).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
@@ -96,5 +111,11 @@ public class EventSearchService {
                     return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait);
                 })
                 .toList();
+    }
+
+    // Ordre important : échapper d'abord le char d'échappement '|' lui-même,
+    // sinon "|%" deviendrait "||%" puis "||||%" etc.
+    private static String escapeLikePattern(String s) {
+        return s.replace("|", "||").replace("%", "|%").replace("_", "|_");
     }
 }

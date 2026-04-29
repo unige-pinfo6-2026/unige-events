@@ -1,0 +1,82 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint-pr-title:
+    name: Lint PR title
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate PR title format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            test
+            chore
+            ci
+            perf
+          requireScope: false
+          subjectPattern: "^[a-z].+"
+          subjectPatternError: |
+            Le titre de la PR ne respecte pas la convention attendue.
+
+            Format requis : <type>(<scope>): <description>
+              - <type> obligatoire parmi : feat, fix, docs, style, refactor, test, chore, ci, perf
+              - <scope> optionnel, entre parenthèses, en lowercase
+                - pour feat / refactor / perf : doit être l'identifiant Jira (ex. scrum-133)
+                - pour les autres types : scope libre (ex. backend, frontend, ci)
+              - description obligatoire, commençant par une minuscule
+
+            Exemples valides :
+              - feat(scrum-133): add /users/me/events endpoint
+              - refactor(scrum-201): extract event mapping into dedicated service
+              - fix(frontend): preserve returnTo on protected routes
+              - chore(ci): add PR title check workflow
+              - docs: update sprint context for S7
+
+            Titre reçu : "{subject}"
+
+      - name: Validate scope is a Jira ticket for ticket-driven types
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          # Regex stockée dans une variable single-quotée pour la soustraire au
+          # parsing de [[ ... ]] : la classe POSIX [[:space:]] termine par "]]"
+          # et bash confondait cette séquence avec la fermeture du conditionnel,
+          # produisant "syntax error in conditional expression: unexpected token `)'".
+          title_re='^([a-z]+)\(([^)]+)\):[[:space:]]'
+          scope_re='^scrum-[0-9]+$'
+          if [[ "$PR_TITLE" =~ $title_re ]]; then
+            type="${BASH_REMATCH[1]}"
+            scope="${BASH_REMATCH[2]}"
+            case "$type" in
+              feat|refactor|perf)
+                if [[ ! "$scope" =~ $scope_re ]]; then
+                  {
+                    echo "::error::Pour le type '$type', le scope doit être l'identifiant du ticket Jira au format 'scrum-XXX' (en minuscules)."
+                    echo "::error::Titre reçu : \"$PR_TITLE\""
+                    echo "::error::Scope reçu : \"$scope\""
+                    echo "::error::Exemples valides :"
+                    echo "::error::  - feat(scrum-133): add /users/me/events endpoint"
+                    echo "::error::  - refactor(scrum-201): extract event mapping into dedicated service"
+                    echo "::error::Si la PR ne correspond pas à un ticket Jira, utilise plutôt un type non-feature ('chore', 'ci', 'docs', 'fix', 'style', 'test') avec un scope libre — ou omets le scope."
+                  } >&2
+                  exit 1
+                fi
+                ;;
+            esac
+          fi

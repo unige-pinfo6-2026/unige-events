@@ -1,8 +1,6 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import LoginCallbackPage from '@/pages/login/callback/LoginCallbackPage'
 
 vi.mock('@auth0/auth0-react', () => ({
@@ -32,14 +30,10 @@ describe('CallbackPage', () => {
     expect(screen.getByText(/Auth failed/)).toBeTruthy()
   })
 
-  it('redirects to / when already authenticated', () => {
+  it('shows nothing after auth resolves while waiting for onRedirectCallback', () => {
     mockUseAuth0.mockReturnValue({ isAuthenticated: true, isLoading: false, error: undefined })
-    render(
-      <MemoryRouter initialEntries={['/login/callback']}>
-        <LoginCallbackPage />
-      </MemoryRouter>,
-    )
-    // Navigate renders nothing itself; just verify no crash and no spinner/error
+    render(<LoginCallbackPage />)
     expect(screen.queryByText('Connexion en cours...')).toBeNull()
+    expect(screen.queryByText(/Erreur/)).toBeNull()
   })
 })

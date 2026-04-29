@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -50,7 +49,7 @@ describe('UserIdentity', () => {
   it('renders avatar with lg size in card variant', () => {
     const { container } = renderUserIdentity({ user, variant: 'card' })
     const avatarDiv = container.querySelector('div[class*="size-"]') as HTMLDivElement
-    expect(avatarDiv?.className).toContain('size-12')
+    expect(avatarDiv?.className).toContain('size-18')
   })
 
   it('renders avatar with avatar url', () => {

@@ -1,9 +1,14 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import EventForm from '@/components/event/EventForm'
 import type { EventFormValues } from '@/hooks/useEventForm'
+import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
+} from '@/types/event'
 import { useState } from 'react'
 
 const baseValues: EventFormValues = {
@@ -17,6 +22,17 @@ const baseValues: EventFormValues = {
   capacity: '120',
   status: 'DRAFT',
   allDay: false,
+  websiteUrl: '',
+  contactEmail: '',
+  registrationDeadline: '',
+  tags: [],
+}
+
+const cropDefaults = {
+  cropSource: null as string | null,
+  cropAspect: 16 / 9,
+  onCropConfirm: vi.fn(),
+  onCropCancel: vi.fn(),
 }
 
 afterEach(() => {
@@ -37,6 +53,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -74,6 +94,10 @@ describe('EventForm', () => {
         selectedImageName='banner.png'
         onFieldChange={onFieldChange}
         onImageChange={onImageChange}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={onCancel}
       />,
@@ -106,6 +130,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
         onSaveDraft={onSaveDraft}
@@ -131,6 +159,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={onFieldChange}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -156,6 +188,10 @@ describe('EventForm', () => {
         selectedImageName={null}
         onFieldChange={vi.fn()}
         onImageChange={vi.fn()}
+        cropSource={null}
+        cropAspect={16 / 9}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
         onSubmit={vi.fn(async () => undefined)}
         onCancel={vi.fn()}
       />,
@@ -190,6 +226,10 @@ describe('EventForm', () => {
             setValues((current) => ({ ...current, [field]: value }))
           }}
           onImageChange={vi.fn()}
+          cropSource={null}
+          cropAspect={16 / 9}
+          onCropConfirm={vi.fn()}
+          onCropCancel={vi.fn()}
           onSubmit={vi.fn(async () => undefined)}
           onCancel={vi.fn()}
         />
@@ -207,5 +247,243 @@ describe('EventForm', () => {
       '2099-04-10T20:00',
       '2099-04-10T20:45',
     ])
+  })
+
+  it('does not render ImageCropper when cropSource is null', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        cropSource={cropDefaults.cropSource}
+        cropAspect={cropDefaults.cropAspect}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('dialog', { name: /Recadrer/i })).toBeNull()
+  })
+
+  it('renders ImageCropper when cropSource is set', () => {
+    render(
+      <EventForm
+        mode="create"
+        submitLabel="Créer"
+        values={baseValues}
+        errors={{}}
+        submitting={false}
+        imagePreview={null}
+        selectedImageName={null}
+        onFieldChange={vi.fn()}
+        onImageChange={vi.fn()}
+        cropSource="data:image/png;base64,abc"
+        cropAspect={cropDefaults.cropAspect}
+        onCropConfirm={vi.fn()}
+        onCropCancel={vi.fn()}
+        onSubmit={vi.fn(async () => undefined)}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('dialog', { name: /Recadrer/i })).toBeTruthy()
+  })
+
+  describe('SCRUM-117 — extra optional fields', () => {
+    it('renders websiteUrl, contactEmail, registrationDeadline and tags inputs', () => {
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={baseValues}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      const websiteInput = screen.getByLabelText(/Site web/i) as HTMLInputElement
+      expect(websiteInput.type).toBe('url')
+      expect(websiteInput.maxLength).toBe(EVENT_WEBSITE_URL_MAX_LENGTH)
+
+      const emailInput = screen.getByLabelText(/Email de contact/i) as HTMLInputElement
+      expect(emailInput.type).toBe('email')
+      expect(emailInput.maxLength).toBe(EVENT_CONTACT_EMAIL_MAX_LENGTH)
+
+      expect(screen.getByLabelText(/Date limite d'inscription/i, { selector: 'input' })).toBeTruthy()
+      expect(screen.getByTestId('registrationDeadline-time-selectors')).toBeTruthy()
+
+      expect(screen.getByText(new RegExp(`0 / ${EVENT_TAGS_MAX_ITEMS}`))).toBeTruthy()
+      expect(screen.getByText(new RegExp(`max ${EVENT_TAG_MAX_LENGTH} car`))).toBeTruthy()
+      expect(screen.getByPlaceholderText(/Ajoutez des mots-clés/i)).toBeTruthy()
+    })
+
+    it('forwards onFieldChange for websiteUrl, contactEmail, and registrationDeadline', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={baseValues}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      fireEvent.change(screen.getByLabelText(/Site web/i), { target: { value: 'https://unige.ch' } })
+      fireEvent.change(screen.getByLabelText(/Email de contact/i), { target: { value: 'contact@unige.ch' } })
+      fireEvent.change(screen.getByLabelText(/Date limite d'inscription/i, { selector: 'input' }), {
+        target: { value: '2099-04-09' },
+      })
+
+      expect(onFieldChange).toHaveBeenCalledWith('websiteUrl', 'https://unige.ch')
+      expect(onFieldChange).toHaveBeenCalledWith('contactEmail', 'contact@unige.ch')
+      expect(onFieldChange).toHaveBeenCalledWith('registrationDeadline', '2099-04-09T00:00')
+    })
+
+    it('displays validation error messages for the four extra fields', () => {
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={baseValues}
+          errors={{
+            websiteUrl: "L'URL du site web est invalide.",
+            contactEmail: "L'email de contact est invalide.",
+            registrationDeadline: "La date limite d'inscription doit être antérieure à la date de début.",
+            tags: 'Vous ne pouvez pas ajouter plus de 20 mots-clés.',
+          }}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByText("L'URL du site web est invalide.")).toBeTruthy()
+      expect(screen.getByText("L'email de contact est invalide.")).toBeTruthy()
+      expect(screen.getByText("La date limite d'inscription doit être antérieure à la date de début.")).toBeTruthy()
+      expect(screen.getByText('Vous ne pouvez pas ajouter plus de 20 mots-clés.')).toBeTruthy()
+    })
+
+    it('adds a tag through TagInput and forwards it via onFieldChange', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={baseValues}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      const tagInput = screen.getByPlaceholderText(/Ajoutez des mots-clés/i) as HTMLInputElement
+      fireEvent.change(tagInput, { target: { value: 'forum' } })
+      fireEvent.keyDown(tagInput, { key: 'Enter' })
+
+      expect(onFieldChange).toHaveBeenCalledWith('tags', ['forum'])
+    })
+
+    it('removes a tag via the TagInput chip button', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={{ ...baseValues, tags: ['forum', 'carrière'] }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Remove tag forum/i }))
+
+      expect(onFieldChange).toHaveBeenCalledWith('tags', ['carrière'])
+    })
+
+    it('keeps time selectors for registrationDeadline visible even when allDay is true', () => {
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={{ ...baseValues, allDay: true }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByTestId('startDate-time-selectors').className).toContain('opacity-0')
+      expect(screen.getByTestId('registrationDeadline-time-selectors').className).toContain('opacity-100')
+    })
+
+    it('splits an existing registrationDeadline value into date + time selectors', () => {
+      render(
+        <EventForm
+          mode="create"
+          submitLabel='Créer'
+          values={{ ...baseValues, registrationDeadline: '2099-04-09T18:30' }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+
+      expect((screen.getByLabelText(/Date limite d'inscription/i, { selector: 'input' }) as HTMLInputElement).value).toBe('2099-04-09')
+      expect((screen.getByLabelText(/Heure de la date limite/i) as HTMLSelectElement).value).toBe('18')
+      expect((screen.getByLabelText(/Minute de la date limite/i) as HTMLSelectElement).value).toBe('30')
+    })
   })
 })

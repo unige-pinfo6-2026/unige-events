@@ -1,6 +1,29 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-04-15
+Dernière mise à jour : 2026-04-24
+
+---
+
+## Sprint 6 — Hotfix sécurité post-pentest (ISSUE-92) — 2026-04-24
+
+Correction du finding **4.12** (Medium) du rapport de pentest du 2026-04-17 :
+`GET /api/events/{id}` renvoyait `200` avec le payload complet d'un event `DRAFT`
+ou `CANCELLED` à n'importe quel appelant, y compris anonyme. Combiné au finding
+**4.15** (IDs séquentiels), n'importe qui pouvait énumérer tous les brouillons et
+events annulés de la plateforme avec `for id in 1..1000; do curl .../events/$id; done`.
+
+Fix :
+- `EventService.getById(Long, String, boolean)` — signature étendue avec l'`auth0Id`
+  de l'appelant et un flag `isAdmin`. Si `event.status != PUBLISHED` et que
+  l'appelant n'est ni le créateur ni un admin → `NotFoundException` (→ `404 not_found`).
+- `EventResource.getById` reste `@PermitAll` (PUBLISHED doit rester anon-accessible)
+  mais lit `identity.isAnonymous()` + `identity.hasRole("ADMIN")` pour transmettre
+  au Service.
+- Envelope d'erreur identique à une 404 classique (pas de code d'erreur custom) —
+  ferme l'oracle d'existence.
+- 12 call-sites internes migrés (tests DB-backed + mock unitaire).
+
+**Pas de changement DB.** Pas d'impact frontend (`useEvent` consomme déjà le 404).
 
 ---
 
@@ -103,11 +126,13 @@ Dernière mise à jour : 2026-04-15
 
 **Objectif :** Statistiques organisateur + liste des participants + enrichissement Event.
 
-- [ ] `GET /events/{id}/stats` (vues, attendingCount — créateur/admin uniquement)
+- [x] `GET /events/{id}/stats` (vues, attendingCount, interestedCount — créateur uniquement) ✅
 - [ ] Incrémentation du compteur de vues à chaque `GET /events/{id}` (déduplication userId+eventId)
 - [x] **SCRUM-126** — Champs `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags` sur `Event` ; vérification deadline dans `AttendanceService.attend()` (409 `registration_closed`).
 - [x] **SCRUM-129** — Renforcement capacité : `WAITLISTED` ajouté à `AttendanceStatus`, verrou pessimiste sur `Event` pour les mutations liées à la capacité, promotion FIFO (`createdAt ASC`) dans `removeAttendance()`, exposition de `availableSpots` (nullable) et `waitlistedCount` sur `EventDTO`. Plus de 409 pour capacité atteinte — placement automatique en WAITLISTED.
 - [x] **SCRUM-133** — Anticipé depuis S6 pour **motif de sécurité**. Nouvel endpoint `GET /users/me/events?status=&page=&size=` (identité dérivée du JWT, tri `createdAt DESC`, tous statuts par défaut) + durcissement de `GET /events?organizerId=…` qui force désormais `status=PUBLISHED` (rejet `400 organizer_filter_requires_published` si un autre statut est demandé). Ferme la faille qui permettait à n'importe quel utilisateur authentifié d'énumérer les brouillons d'un autre via `GET /events?organizerId=<uuid>&status=DRAFT`. Migre `useMyEvents` côté frontend sur le nouvel endpoint.
+- [x] **SCRUM-131** — Filtre `?tags=` (sémantique OR) sur `GET /api/events/search`. Clause JPQL `EXISTS` sur la collection `event_tags`, normalisation lowercase via `EventService.normalizeTags`. Multi-valeurs `?tags=a&tags=b`, blank/null filtrés silencieusement.
+  - Amélioration : match substring case-insensitive (ex. `?tags=foot` matche `football` ou `barefoot-running`) via `LOWER(t) LIKE :tagN ESCAPE '|'` construit dynamiquement ; les wildcards SQL `%` et `_` saisis par l'utilisateur sont échappés pour être traités littéralement.
 
 ---
 
@@ -119,6 +144,20 @@ Dernière mise à jour : 2026-04-15
 - [ ] Entité `Report` (reporterId, eventId, reason, status PENDING|REVIEWED|DISMISSED)
 - [ ] `POST /events/{id}/report`
 - [ ] `GET /admin/reports`, `PUT /admin/reports/{id}`, `PUT /admin/events/{id}/feature`
+- [x] **ISSUE-93** — Hotfix sécurité post-pentest (2026-04-24) sur `GET /users/{id}`.
+  Correction des findings **4.1** (user-existence oracle via `403` vs `404`) et **4.1b**
+  (harvest anonyme des profils opt-in, GDPR-relevant) du rapport de pentest du 2026-04-17.
+  - `UserService.getPublicProfile(UUID id, String auth0Id)` — signature étendue. Si
+    `profilePublic=false` et que l'appelant n'est pas le propriétaire (self-case sur
+    `auth0Id`), throw `NotFoundException` (→ `404 not_found`, envelope identique à un
+    UUID inexistant). Ferme l'oracle exploité via `creatorId` leaké par `GET /events`.
+  - `UserResource.getProfile` reste `@PermitAll` mais lit `identity.isAnonymous()` pour
+    choisir entre `UserPublicResponse.from(user)` (full, authentifié) et
+    `UserPublicResponse.fromAnonymous(user)` (réduit : `id` + `displayName` + `avatarUrl`).
+  - Nouvelle factory `UserPublicResponse.fromAnonymous(User)` — ne projette que 3 champs
+    sur 8. Les 5 autres sont `null` et conformes au schéma (tous `nullable: true`).
+  - 5 call-sites internes migrés (1 prod + 3 coverage tests + 1 mock override).
+  - Pas de changement DB. Pas d'impact frontend — `ProfilePage.tsx` dégrade gracieusement.
 
 ---
 

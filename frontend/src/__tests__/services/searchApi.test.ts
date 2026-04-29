@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -40,7 +39,7 @@ describe('searchEvents', () => {
     const params: SearchParams = { q: 'IA', category: 'CONFERENCE' }
     const result = await searchEvents(params)
 
-    expect(mockGet).toHaveBeenCalledWith('/events/search', { params })
+    expect(mockGet).toHaveBeenCalledWith('/events/search', expect.objectContaining({ params }))
     expect(result).toEqual(mockEvents)
   })
 
@@ -71,7 +70,7 @@ describe('searchEvents', () => {
     }
     await searchEvents(params)
 
-    expect(mockGet).toHaveBeenCalledWith('/events/search', { params })
+    expect(mockGet).toHaveBeenCalledWith('/events/search', expect.objectContaining({ params }))
   })
 
   it('forwards abort signal to Axios when provided', async () => {
@@ -80,10 +79,22 @@ describe('searchEvents', () => {
     const controller = new AbortController()
     await searchEvents({}, controller.signal)
 
-    expect(mockGet).toHaveBeenCalledWith('/events/search', {
+    expect(mockGet).toHaveBeenCalledWith('/events/search', expect.objectContaining({
       params: {},
       signal: controller.signal,
-    })
+    }))
+  })
+
+  it('passes tags array through SearchParams', async () => {
+    mockGet.mockResolvedValue({ data: [] })
+
+    const params: SearchParams = { tags: ['quarkus', 'sport'] }
+    await searchEvents(params)
+
+    expect(mockGet).toHaveBeenCalledWith('/events/search', expect.objectContaining({
+      params: { tags: ['quarkus', 'sport'] },
+      paramsSerializer: expect.objectContaining({ indexes: null }),
+    }))
   })
 
   it('does not include signal in Axios config when not provided', async () => {

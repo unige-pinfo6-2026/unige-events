@@ -1,11 +1,10 @@
-// @vitest-environment jsdom
 
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 import { MemoryRouter, useSearchParams } from 'react-router-dom'
-import { useSearch } from '@/hooks/useEventSearch'
+import { useSearch, SEARCH_QUERY_DEBOUNCE_MS, SEARCH_SUGGESTIONS_DEBOUNCE_MS } from '@/hooks/useEventSearch'
 
 function useSearchAndParams() {
   const search = useSearch()
@@ -80,7 +79,7 @@ describe('useSearch', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(399)
+      vi.advanceTimersByTime(SEARCH_QUERY_DEBOUNCE_MS - 1)
     })
 
     expect(mockSearchEvents).not.toHaveBeenCalled()
@@ -179,7 +178,7 @@ describe('useSearch', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(299)
+      vi.advanceTimersByTime(SEARCH_SUGGESTIONS_DEBOUNCE_MS - 1)
     })
 
     expect(mockFetchSuggestions).not.toHaveBeenCalled()
@@ -195,7 +194,7 @@ describe('useSearch', () => {
     })
 
     await act(async () => {
-      vi.advanceTimersByTime(300)
+      vi.advanceTimersByTime(SEARCH_SUGGESTIONS_DEBOUNCE_MS)
       await Promise.resolve()
     })
 
@@ -743,5 +742,64 @@ describe('useSearch', () => {
       expect.objectContaining({ facultyNone: true, faculty: undefined }),
       expect.any(AbortSignal),
     )
+  })
+
+  // --- tags filter (SCRUM-132) ---
+
+  it('initializes tags from URL multi-param', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?tags=quarkus&tags=sport'] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toEqual(['quarkus', 'sport'])
+  })
+
+  it('omits tags from URL when filter is empty', async () => {
+    const { result } = renderHook(() => useSearchAndParams(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: ['quarkus'] })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(result.current.searchParams.getAll('tags')).toEqual(['quarkus'])
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: undefined })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(result.current.searchParams.getAll('tags')).toEqual([])
+  })
+
+  it('forwards tags to searchEvents', async () => {
+    mockSearchEvents.mockResolvedValue([])
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => {
+      result.current.setFilters({ ...result.current.filters, tags: ['quarkus', 'sport'] })
+    })
+    await act(async () => { await vi.runAllTimersAsync() })
+
+    const lastCall = mockSearchEvents.mock.calls[mockSearchEvents.mock.calls.length - 1]
+    expect(lastCall[0]).toMatchObject({ tags: ['quarkus', 'sport'] })
+  })
+
+  it('treats blank tag values from URL as no filter', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(MemoryRouter, { initialEntries: ['/events/search?tags=&tags=  '] }, children)
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toBeUndefined()
+  })
+
+  it('trims and deduplicates tags read from the URL', () => {
+    function Wrapper({ children }: { children: ReactNode }) {
+      return createElement(
+        MemoryRouter,
+        { initialEntries: ['/events/search?tags=%20quarkus%20&tags=quarkus&tags=sport'] },
+        children,
+      )
+    }
+    const { result } = renderHook(() => useSearch(), { wrapper: Wrapper })
+    expect(result.current.filters.tags).toEqual(['quarkus', 'sport'])
   })
 })

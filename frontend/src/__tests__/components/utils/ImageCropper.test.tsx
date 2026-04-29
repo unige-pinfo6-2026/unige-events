@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
@@ -75,9 +74,16 @@ const makePixelCrop = (overrides?: Partial<PixelCrop>): PixelCrop => ({
   unit: 'px', x: 0, y: 0, width: 100, height: 100, ...overrides,
 })
 
-const makeImage = (): HTMLImageElement => {
+const makeImage = (
+  natural: { width: number; height: number } = { width: 100, height: 100 },
+  displayed: { width: number; height: number } = { width: 100, height: 100 },
+): HTMLImageElement => {
   const img = document.createElement('img')
   img.src = DATA_URL
+  Object.defineProperty(img, 'naturalWidth', { value: natural.width, configurable: true })
+  Object.defineProperty(img, 'naturalHeight', { value: natural.height, configurable: true })
+  Object.defineProperty(img, 'width', { value: displayed.width, configurable: true })
+  Object.defineProperty(img, 'height', { value: displayed.height, configurable: true })
   return img
 }
 
@@ -119,6 +125,23 @@ describe('cropToBlob', () => {
     HTMLCanvasElement.prototype.toBlob = (callback: BlobCallback) => callback(null)
     await expect(cropToBlob(makeImage(), makePixelCrop(), false)).rejects.toThrow(
       'canvas.toBlob returned null',
+    )
+  })
+
+  it('scales display-pixel crop coordinates to the natural image size', async () => {
+    const ctx = makeCtx()
+    HTMLCanvasElement.prototype.getContext = (() => ctx as unknown as CanvasRenderingContext2D) as unknown as typeof HTMLCanvasElement.prototype.getContext
+
+    // Image displayed at 600×800 but original is 3000×4000 → scale ×5.
+    const image = makeImage({ width: 3000, height: 4000 }, { width: 600, height: 800 })
+    const pixelCrop = makePixelCrop({ x: 100, y: 200, width: 80, height: 80 })
+
+    await cropToBlob(image, pixelCrop, false)
+
+    expect((ctx as FakeCtx).drawImage).toHaveBeenCalledWith(
+      image,
+      500, 1000, 400, 400,
+      0, 0, 400, 400,
     )
   })
 })

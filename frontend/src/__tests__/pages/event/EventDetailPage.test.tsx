@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -373,7 +372,7 @@ describe('EventDetailPage', () => {
 
   it('copies the event URL and shows a success toast when sharing', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -388,7 +387,7 @@ describe('EventDetailPage', () => {
 
   it('shows a fallback error toast when clipboard writeText rejects', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
-    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -401,7 +400,7 @@ describe('EventDetailPage', () => {
   })
 
   it('shows a fallback error toast when clipboard API is unavailable', () => {
-    Object.assign(navigator, { clipboard: undefined })
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
@@ -613,6 +612,127 @@ describe('EventDetailPage', () => {
       const aboutCard = aboutHeading.closest('div.bg-linear-to-br')
       const participantsSection = participantsHeading.closest('section')
       expect(aboutCard?.parentElement).toBe(participantsSection?.parentElement)
+    })
+  })
+
+  describe('SCRUM-117 — extra optional fields display', () => {
+    it('does not render the extra-info card when none of the four fields are present', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByText('Informations complémentaires')).toBeNull()
+    })
+
+    it('renders websiteUrl as an external link opening in a new tab', () => {
+      const withWebsite = { ...mockEvent, websiteUrl: 'https://unige.ch/event' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: withWebsite, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('Informations complémentaires')).toBeTruthy()
+      const link = screen.getByRole('link', { name: 'https://unige.ch/event' }) as HTMLAnchorElement
+      expect(link.getAttribute('href')).toBe('https://unige.ch/event')
+      expect(link.getAttribute('target')).toBe('_blank')
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    })
+
+    it('does not render an anchor when websiteUrl uses a non-http(s) scheme (XSS guard)', () => {
+      const unsafe = { ...mockEvent, websiteUrl: 'javascript:alert(1)' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: unsafe, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('javascript:alert(1)')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: 'javascript:alert(1)' })).toBeNull()
+    })
+
+    it('does not render an anchor when websiteUrl is malformed', () => {
+      const malformed = { ...mockEvent, websiteUrl: 'not a url' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: malformed, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('not a url')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: 'not a url' })).toBeNull()
+    })
+
+    it('renders contactEmail as a mailto link', () => {
+      const withEmail = { ...mockEvent, contactEmail: 'contact@unige.ch' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: withEmail, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const link = screen.getByRole('link', { name: 'contact@unige.ch' }) as HTMLAnchorElement
+      expect(link.getAttribute('href')).toBe('mailto:contact@unige.ch')
+    })
+
+    it('renders a formatted registrationDeadline when present', () => {
+      const withDeadline = { ...mockEvent, registrationDeadline: '2026-04-09T18:00:00.000Z' }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: withDeadline, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText(/Inscriptions jusqu'au/)).toBeTruthy()
+    })
+
+    it('renders tags as clickable chips linking to /events/search?q=<tag>', () => {
+      const withTags = { ...mockEvent, tags: ['forum', 'carrière emploi'] }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: withTags, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const forumLink = screen.getByRole('link', { name: 'forum' }) as HTMLAnchorElement
+      expect(forumLink.getAttribute('href')).toBe('/events/search?q=forum')
+
+      const encodedLink = screen.getByRole('link', { name: 'carrière emploi' }) as HTMLAnchorElement
+      expect(encodedLink.getAttribute('href')).toBe('/events/search?q=carri%C3%A8re%20emploi')
+    })
+
+    it('does not render the tags row when tags is an empty array', () => {
+      const withEmptyTags = { ...mockEvent, websiteUrl: 'https://unige.ch', tags: [] }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: withEmptyTags, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('Informations complémentaires')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: 'forum' })).toBeNull()
+    })
+
+    it('renders all four fields together when populated', () => {
+      const allFields = {
+        ...mockEvent,
+        websiteUrl: 'https://unige.ch/event',
+        contactEmail: 'contact@unige.ch',
+        registrationDeadline: '2026-04-09T18:00:00.000Z',
+        tags: ['forum'],
+      }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: allFields, loading: false, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByRole('link', { name: 'https://unige.ch/event' })).toBeTruthy()
+      expect(screen.getByRole('link', { name: 'contact@unige.ch' })).toBeTruthy()
+      expect(screen.getByText(/Inscriptions jusqu'au/)).toBeTruthy()
+      expect(screen.getByRole('link', { name: 'forum' })).toBeTruthy()
     })
   })
 })
