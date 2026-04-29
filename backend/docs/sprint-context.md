@@ -165,6 +165,14 @@ Fix :
 
 **Objectif :** Notifications, duplication, expiration automatique, polish UI.
 
+- [x] **SCRUM-164** — `SchemaFixup` : restauration des contraintes CHECK orphelines
+  sur `events.faculty`, `events.category`, `events.status`. Refactor de la classe
+  en `reconcile()` public + DDL statique + logger + test `@QuarkusTest` couvrant
+  idempotence, présence de la contrainte (lecture `pg_get_constraintdef`) et
+  rejet d'une valeur invalide via INSERT natif. La PR inclut également la
+  contrainte `attendances_status_check` (`ATTENDING`, `WAITLISTED`) déjà ajoutée
+  côté `feature/s5-attendees-list` (cf83098), pour rendre la PR autonome ; à
+  rebase trivial selon l'ordre de merge des deux branches.
 - [ ] Entité `Notification` (userId, eventId, type, message, read)
 - [ ] `GET /notifications`, `PUT /notifications/{id}/read`
 - [ ] `POST /events/{id}/duplicate` (réservé au créateur)

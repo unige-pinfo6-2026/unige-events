@@ -363,3 +363,43 @@ Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm
 - Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
 - Hibernate crée et met à jour les tables automatiquement au démarrage
 - Aucun fichier SQL de migration n'est utilisé ni requis
+
+### Réconciliation des contraintes CHECK — `SchemaFixup`
+
+Le mode `update` de Hibernate **n'altère jamais** les contraintes CHECK générées
+pour les colonnes mappées en `@Enumerated(STRING)`. Quand une nouvelle valeur
+est ajoutée à un enum — ou qu'une valeur existante est renommée — les bases
+provisionnées avant le changement conservent l'ancienne contrainte et :
+
+- soit rejettent les INSERT avec la nouvelle valeur (cas `WAITLISTED` sur
+  `attendances_status_check`) ;
+- soit acceptent silencieusement n'importe quoi si la contrainte a été droppée
+  sans remplaçant (cas `events_faculty_check`, `events_category_check`,
+  `events_status_check` après le rename anglophone du `Faculty` enum).
+
+`ch.unige.events.config.SchemaFixup` est un bean `@ApplicationScoped` qui
+s'exécute sur `StartupEvent` et :
+
+- supprime les contraintes obsolètes avec `DROP CONSTRAINT IF EXISTS` —
+  idempotent ;
+- recrée les contraintes canoniques avec les valeurs d'enum **actuelles** :
+
+  | Contrainte | Définition (extrait) |
+  |---|---|
+  | `events_faculty_check` | `faculty IS NULL OR faculty IN ('SCIENCES','MEDICINE','LETTERS','SOCIAL_SCIENCES','GSEM','LAW','THEOLOGY','PSYCHOLOGY','FTI')` |
+  | `events_category_check` | `category IN ('ACADEMIC','SPORTS','CULTURAL','SOCIAL','CONFERENCE','OTHER')` |
+  | `events_status_check` | `status IN ('DRAFT','PUBLISHED','CANCELLED')` |
+  | `attendances_status_check` | `status IN ('ATTENDING','WAITLISTED')` |
+
+Le DDL est **statique** (jamais concaténé avec des entrées utilisateur) — ni
+SQL injection ni surprise via réflexion. **Toute future addition à un enum
+doit s'accompagner d'une mise à jour des constantes `RECREATE_*` dans
+`SchemaFixup`** ; le test `SchemaFixupTest` failera sinon.
+
+L'erreur `SQLException` est journalisée en `WARN` et n'arrête pas le démarrage
+— sur une base fraîche où la table n'existe pas encore au moment de l'observer
+`StartupEvent`, l'`ALTER TABLE` est non-fatal.
+
+À retirer si le projet adopte un outil de migration (Flyway / Liquibase).
+
+> Voir [`specs_archives/specs_claude/specs_scrum-164.md`](../../specs_archives/specs_claude/specs_scrum-164.md).
