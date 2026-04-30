@@ -166,6 +166,25 @@ Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
+### Report
+
+Table : `reports`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `reporter` | — | `User` | `reporter_id` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
+| `status` | `status` | `ReportStatus` | `status` | `@Enumerated(STRING)`, not null, défaut `PENDING` |
+| `reason` | `reason` | `String` | `reason` | nullable, `@Column(columnDefinition="TEXT")` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Index DB : `idx_report_event` (event_id), `idx_report_status` (status).
+
+Utilisée par `ModerationCleanupService` pour calculer le nombre de signalements `PENDING` par événement (job quotidien 03h00).
+
+---
+
 ## Conventions de nommage
 
 ### camelCase obligatoire
@@ -298,7 +317,7 @@ attendingCount, interestedCount, viewCount
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
-| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
+| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
