@@ -109,13 +109,17 @@ class EventExpirationServiceTest {
     @TestTransaction
     void expireEvents_multiplePastPublished_allExpired() {
         User user = persistUser("auth0|exp5", "exp5@test.com");
-        persistEventWithEndDate("Past 1", EventStatus.PUBLISHED,
+        Event past1 = persistEventWithEndDate("Past 1", EventStatus.PUBLISHED,
                 LocalDateTime.now().minusHours(1), user);
-        persistEventWithEndDate("Past 2", EventStatus.PUBLISHED,
+        Event past2 = persistEventWithEndDate("Past 2", EventStatus.PUBLISHED,
                 LocalDateTime.now().minusMinutes(30), user);
 
         int count = expirationService.expireEvents();
 
         assertEquals(2, count);
+        em.refresh(past1);
+        em.refresh(past2);
+        assertEquals(EventStatus.EXPIRED, past1.status);
+        assertEquals(EventStatus.EXPIRED, past2.status);
     }
 }

@@ -17,7 +17,7 @@ public class EventExpirationService {
     @Transactional
     public int expireEvents() {
         return entityManager.createQuery(
-                "UPDATE Event e SET e.status = :expired " +
+                "UPDATE Event e SET e.status = :expired, e.updatedAt = :now " +
                 "WHERE e.status = :published AND e.endDate < :now")
                 .setParameter("expired", EventStatus.EXPIRED)
                 .setParameter("published", EventStatus.PUBLISHED)
