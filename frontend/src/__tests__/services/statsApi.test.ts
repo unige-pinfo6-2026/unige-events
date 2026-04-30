@@ -16,7 +16,7 @@ afterEach(() => vi.resetAllMocks())
 
 describe('getEventStats', () => {
   it('calls GET /events/:id/stats and returns data', async () => {
-    const stats = { views: 100, attendingCount: 20, checkInCount: 5 }
+    const stats = { viewCount: 100, attendingCount: 20, interestedCount: 5 }
     mockGet.mockResolvedValue({ data: stats })
 
     const result = await getEventStats(42)

@@ -20,22 +20,22 @@ afterEach(cleanup)
 
 describe('StatsChart', () => {
   it('renders the chart', () => {
-    render(<StatsChart attending={10} checkIns={5} />)
+    render(<StatsChart attending={10} interested={5} />)
     expect(screen.getByTestId('bar-chart')).toBeTruthy()
   })
 
   it('shows 2 bars when no capacity is provided', () => {
-    render(<StatsChart attending={10} checkIns={5} />)
+    render(<StatsChart attending={10} interested={5} />)
     expect(screen.getByTestId('bar-chart').getAttribute('data-entries')).toBe('2')
   })
 
   it('shows 3 bars when capacity is provided', () => {
-    render(<StatsChart attending={10} checkIns={5} capacity={50} />)
+    render(<StatsChart attending={10} interested={5} capacity={50} />)
     expect(screen.getByTestId('bar-chart').getAttribute('data-entries')).toBe('3')
   })
 
   it('clamps remaining places to 0 when attending exceeds capacity', () => {
-    render(<StatsChart attending={60} checkIns={5} capacity={50} />)
+    render(<StatsChart attending={60} interested={5} capacity={50} />)
     const cells = screen.getAllByTestId('cell')
     // 3rd cell is "Places restantes" — value clamped to 0 but still rendered
     expect(cells).toHaveLength(3)

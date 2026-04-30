@@ -272,9 +272,9 @@ export default function EventStatsPage() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
-          <KpiCard icon={Eye}           label="Vues totales"  value={stats.views}          color="blue"   />
+          <KpiCard icon={Eye}           label="Vues totales"  value={stats.viewCount}       color="blue"   />
           <KpiCard icon={CheckCircle2}  label="Participants"  value={stats.attendingCount}  color="green"  />
-          <KpiCard icon={Star}          label="Check-ins"     value={stats.checkInCount}    color="purple" />
+          <KpiCard icon={Star}          label="Intéressés"    value={stats.interestedCount} color="purple" />
         </div>
 
         {/* Chart */}
@@ -284,7 +284,7 @@ export default function EventStatsPage() {
           </h3>
           <StatsChart
             attending={stats.attendingCount}
-            checkIns={stats.checkInCount}
+            interested={stats.interestedCount}
             capacity={event.capacity}
           />
         </div>

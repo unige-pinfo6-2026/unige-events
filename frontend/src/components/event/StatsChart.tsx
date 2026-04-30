@@ -2,22 +2,22 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 
 interface StatsChartProps {
   attending: number
-  checkIns: number
+  interested: number
   capacity?: number
 }
 
 const BAR_COLORS = {
-  attending: '#22c55e',
-  checkIns:  '#3b82f6',
-  remaining: '#6b7280',
+  attending:  '#22c55e',
+  interested: '#3b82f6',
+  remaining:  '#6b7280',
 } as const
 
-export default function StatsChart({ attending, checkIns, capacity }: Readonly<StatsChartProps>) {
+export default function StatsChart({ attending, interested, capacity }: Readonly<StatsChartProps>) {
   const remaining = capacity != null ? Math.max(0, capacity - attending) : null
 
   const data = [
-    { name: 'Inscrits',    value: attending, color: BAR_COLORS.attending },
-    { name: 'Check-ins',   value: checkIns,  color: BAR_COLORS.checkIns  },
+    { name: 'Inscrits',    value: attending,  color: BAR_COLORS.attending  },
+    { name: 'Intéressés',  value: interested, color: BAR_COLORS.interested },
     ...(remaining !== null
       ? [{ name: 'Places restantes', value: remaining, color: BAR_COLORS.remaining }]
       : []),

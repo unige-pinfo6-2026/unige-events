@@ -2,9 +2,9 @@ import api from './api'
 import type { Attendance } from '@/types/attendance'
 
 export interface EventStats {
-  views: number
+  viewCount: number
   attendingCount: number
-  checkInCount: number
+  interestedCount: number
 }
 
 export async function getEventStats(eventId: number): Promise<EventStats> {

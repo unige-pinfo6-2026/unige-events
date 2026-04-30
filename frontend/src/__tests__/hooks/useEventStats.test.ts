@@ -11,7 +11,7 @@ vi.mock('@/services/statsApi', () => ({
 import { getEventStats } from '@/services/statsApi'
 const mockGetEventStats = getEventStats as ReturnType<typeof vi.fn>
 
-const mockStats = { views: 100, attendingCount: 20, checkInCount: 5 }
+const mockStats = { viewCount: 100, attendingCount: 20, interestedCount: 5 }
 
 afterEach(() => {
   vi.resetAllMocks()

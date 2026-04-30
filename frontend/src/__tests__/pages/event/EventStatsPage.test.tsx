@@ -63,7 +63,7 @@ const mockEvent = {
   capacity: 50,
 }
 
-const mockStats = { views: 142, attendingCount: 38, checkInCount: 21 }
+const mockStats = { viewCount: 142, attendingCount: 38, interestedCount: 21 }
 
 function renderPage(eventId = '42') {
   return render(
