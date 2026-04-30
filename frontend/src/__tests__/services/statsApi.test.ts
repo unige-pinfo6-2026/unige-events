@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { getEventStats, getEventAttendees } from '@/services/statsApi'
+import { getEventStats, getEventAttendees, recordEventView } from '@/services/statsApi'
 
 vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
+    post: vi.fn(),
   },
 }))
 
 import api from '@/services/api'
 const mockGet = api.get as ReturnType<typeof vi.fn>
+const mockPost = api.post as ReturnType<typeof vi.fn>
 
 afterEach(() => vi.resetAllMocks())
 
@@ -28,6 +30,19 @@ describe('getEventStats', () => {
   it('propagates errors from the API', async () => {
     mockGet.mockRejectedValue(new Error('Network error'))
     await expect(getEventStats(1)).rejects.toThrow('Network error')
+  })
+})
+
+describe('recordEventView', () => {
+  it('calls POST /events/:id/view', async () => {
+    mockPost.mockResolvedValue({})
+    await recordEventView(42)
+    expect(mockPost).toHaveBeenCalledWith('/events/42/view')
+  })
+
+  it('propagates errors from the API', async () => {
+    mockPost.mockRejectedValue(new Error('Unauthorized'))
+    await expect(recordEventView(1)).rejects.toThrow('Unauthorized')
   })
 })
 

@@ -12,6 +12,10 @@ export async function getEventStats(eventId: number): Promise<EventStats> {
   return response.data
 }
 
+export async function recordEventView(eventId: number): Promise<void> {
+  await api.post(`/events/${eventId}/view`)
+}
+
 export async function getEventAttendees(eventId: number): Promise<Attendance[]> {
   const response = await api.get<Attendance[]>(`/events/${eventId}/attendees`)
   return response.data

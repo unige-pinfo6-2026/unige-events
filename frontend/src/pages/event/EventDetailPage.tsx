@@ -4,6 +4,7 @@ import { useAuth, useEvent, useFavorite } from '@/hooks'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
+import { recordEventView } from '@/services/statsApi'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
@@ -229,6 +230,11 @@ export default function EventDetailPage() {
       return () => clearTimeout(t)
     }
   }, [])
+
+  useEffect(() => {
+    if (!eventId || !user) return
+    recordEventView(eventId).catch(() => {})
+  }, [eventId, user])
 
   useEffect(() => {
     if (!event) { setOrganizer(null); return }
