@@ -13,6 +13,8 @@ export type Event = {
   creatorId: string
   status: EventStatus
   capacity?: number
+  availableSpots?: number | null
+  waitlistedCount?: number
   allDay: boolean
   attendingCount: number
   websiteUrl?: string | null

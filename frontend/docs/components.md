@@ -259,6 +259,28 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Affiche un compteur live : "X personnes participent · Y intéressées".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
+### AttendeesList
+
+- Section "Participants" insérée dans la **colonne principale** de `EventDetailPage`, immédiatement sous le bloc "À propos". Mêmes primitives de card que les autres blocs de la colonne (glassmorphism, heading `text-xs font-bold uppercase tracking-widest text-foreground/30`).
+- Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
+- **Vue non-organisateur (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Padding vertical réduit (`px-6 py-4`). Aucun appel API. La compacité est dérivée automatiquement de `!isOrganizer` (const map `sectionVariants`).
+- **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
+- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`) — la colonne de contenu est étroite, un layout vertical scanne mieux qu'une grille 2 colonnes. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- États gérés : skeleton de chargement initial (4 placeholders empilés), message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
+- Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
+
+### AttendeeCard
+
+- Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
+- Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
+- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
+- Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
+- Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
+
+### WaitlistBadge
+
+- Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
+
 ### CalendarSubscribeButton
 
 - Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
@@ -267,6 +289,21 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Bouton "Révoquer et régénérer le lien" : appelle `regenerateCalendarToken()`, met à jour les trois URLs, affiche un message de confirmation.
 - Gère les états loading, error et regenerating.
 - Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
+
+### MyPublicationsPreview
+
+- Composant `src/components/profile/MyPublicationsPreview.tsx` rendu uniquement pour `isOwnProfile` dans `ProfilePage`, en colonne gauche sous la card "À propos".
+- Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` ; chaque clic rappelle `useMyEvents(status)` avec le nouveau statut (mêmes refetchs que `MyPublicationsPage`, pas de partage de state). Le compte `(N)` est affiché sur l'onglet actif uniquement — le hook ne fetch qu'un statut à la fois et on évite des requêtes parallèles juste pour les libellés des onglets inactifs.
+- Affiche jusqu'à 3 événements via `PreviewRow` (l'API renvoie déjà `createdAt DESC`).
+- Loading : 3 lignes skeleton inline (Tailwind `animate-pulse`). Erreur : message + bouton `Réessayer` qui appelle `refresh()` du hook.
+- Empty state spécifique par statut. Le tab `Publiés` vide affiche en plus un CTA `Créer un événement` → `/events/new` ; les autres tabs vides n'affichent que le message.
+- Lien `Voir toutes mes publications` → `/my-events/publications?status=<param>` où `<param>` provient de `EVENT_STATUS_PARAMS` (cf. `src/utils/eventStatusStyles.ts`), pour préserver l'onglet courant à la navigation.
+
+### PreviewRow
+
+- Composant `src/components/profile/PreviewRow.tsx` consommé par `MyPublicationsPreview`.
+- Props : `{ event: Event }`. Lecture seule, pas d'actions.
+- Rendu : `<Link>` vers `/events/{id}` enveloppant une vignette 48px (bannière ou gradient catégorie en fallback), titre `line-clamp-1`, ligne meta date + `attendingCount`, badge statut (libellé via `EVENT_STATUSES[status].name`, classes via `EVENT_STATUS_VARIANTS`).
 
 ### IcsExportButton
 
@@ -407,6 +444,15 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Tri local par `updatedAt` DESC (fallback `createdAt`).
 - Erreur réseau → `error` rempli + `console.warn`, `drafts = []`, pas de retry.
 
+### useAttendees
+
+- Charge la liste paginée des participants d'un événement pour la vue organisateur.
+- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch.
+- Pour chaque `Attendance` retournée, fetch `getPublicUser(userId)` en parallèle via `Promise.allSettled` — un 403/404 sur un profil n'invalide pas le batch, le profil est mappé à `null`.
+- Retourne : `attendees: AttendeeWithProfile[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `isForbidden`.
+- Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
+- Réponse 403 sur `/attendees` → `isForbidden = true`, pas de retry.
+
 ### useAttendance
 
 - Gère l'état d'inscription d'un utilisateur à un événement.
@@ -427,6 +473,11 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
 - `getCalendarToken()` : `GET /api/users/me/calendar-token`.
 - `regenerateCalendarToken()` : `POST /api/users/me/calendar-token/regenerate`.
+
+### attendeesApi.ts
+
+- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — réservé au créateur (403 sinon).
+- `getPublicUser(userId)` : `GET /api/users/{id}` — retourne `null` sur 403 (profil privé) et 404 (introuvable). Toute autre erreur est rethrown.
 
 ### attendanceApi.ts
 

@@ -787,39 +787,12 @@ Implémenter le job d'expiration automatique des événements passés :
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
 
-### 🔧 [SCRUM-164] [BACK][S7] SchemaFixup — recréer les contraintes CHECK orphelines sur events (faculty, category, status)
-**Type :** Tâche · **Story Points :** 2 SP
+### 🔧 [SCRUM-164] [BACK][S7] Recréer les contraintes CHECK orphelines sur events (faculty, category, status) — ✅ RÉSOLU
+**Type :** Tâche · **Story Points :** 2 SP · **Statut : Résolu**
 
 **Sprint** : S7 | **Assigné** : Elie | **SP** : 2 | **Épic** : — | **Story** : —
 
-\[BACK\] Sprint 7 — Dette technique / intégrité DB
-
-**Contexte :**
-Le fichier `SchemaFixup.java` (commit `ed65826`, avril 2026) contient trois `DROP CONSTRAINT IF EXISTS` orphelins — `events_faculty_check`, `events_category_check`, `events_status_check` — ajoutés à l'origine pour nettoyer des contraintes CHECK après un renommage d'enum. Mais aucune contrainte de remplacement n'a jamais été ajoutée. Résultat : la base PostgreSQL n'enforce plus aucune validation sur les colonnes `events.faculty`, `events.category` et `events.status`.
-
-**Risque :**
-Sans contrainte CHECK, des valeurs invalides peuvent être insérées directement en base. Quand Hibernate relit ces lignes via `@Enumerated(EnumType.STRING)`, il lève un `IllegalArgumentException` → 500 sur des endpoints qui fonctionnaient. Problème inverse de celui fixé pour `attendances_status_check` (contrainte trop restrictive bloquant `WAITLISTED`).
-
-**Référence :** Flaggé en review sur la PR liée à SCRUM-101 (US-07 / feature/s5-attendees-list).
-
-**Solution recommandée (option A) :**
-
-1. **`SchemaFixup.java`** : après chaque `DROP CONSTRAINT IF EXISTS`, ajouter un `ADD CONSTRAINT` avec les valeurs d'enum actuelles :
-    * `events_faculty_check` : `faculty IS NULL OR faculty IN ('SCIENCES','LETTRES','DROIT','MEDECINE','SES','PSYCHOLOGIE','THEOLOGIE','FTI','GSI')`
-    * `events_category_check` : `category IN ('ACADEMIC','SPORTS','CULTURAL','SOCIAL','CONFERENCE','OTHER')`
-    * `events_status_check` : `status IN ('DRAFT','PUBLISHED','CANCELLED')`
-2. Pattern identique à la solution `attendances_status_check` déjà en place : idempotent (`DROP IF EXISTS` + `ADD`).
-3. **Test `@QuarkusTest`** : vérifier qu'un `INSERT` direct avec une valeur invalide sur `faculty`, `category` ou `status` échoue (violation de contrainte).
-4. **Documentation** : mettre à jour `docs/data-model.md` section « Réconciliation des contraintes CHECK » pour refléter l'état final.
-
-**Critères d'acceptation :**
-- Les trois contraintes sont recréées avec les valeurs d'enum actuelles, idempotent
-- Test d'intégration : insertion de valeur invalide → échec
-- `docs/data-model.md` mis à jour
-
-Fichiers touchés : `SchemaFixup.java`, `docs/data-model.md`
-Branche suggérée : `feature/s7-schema-fixup-checks`
-Dépendances : aucune
+Résolu en remplaçant le bean `SchemaFixup` par une migration Flyway `V1__reconcile_check_constraints.sql` qui drop+recrée les quatre contraintes (`events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check`) avec les valeurs courantes des enums Java. Hibernate est passé en `validate` (dev/prod). Voir `backend/docs/data-model.md` section « Gestion du schéma — Flyway ».
 
 ### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
 **Type :** Tâche · **Story Points :** 2 SP
@@ -930,7 +903,7 @@ Chaque utilisateur dispose d'un identifiant public `username` unique, permettant
     * Validation Bean Validation : `@NotBlank`, `@Pattern(regexp = "^[a-z0-9._-]{3,30}$")`. Le pattern interdit les majuscules, espaces, caractères Unicode étendus.
 
 2. **Migration + back-fill :**
-    * Vu qu'Hibernate est en mode `update`, il faut un `SchemaFixup.java` (cf. SCRUM-164 pour le pattern) qui :
+    * Hibernate étant en `validate`, écrire une migration Flyway `V<N>__add_user_username.sql` dans `backend/src/main/resources/db/migration/` qui :
         1. Ajoute la colonne `username` en `nullable = true`.
         2. Back-fill via génération auto pour tous les `users` existants (voir stratégie ci-dessous).
         3. Bascule la colonne en `NOT NULL UNIQUE`.
@@ -1011,7 +984,7 @@ Chaque utilisateur dispose d'un identifiant public `username` unique, permettant
 
 **Fichiers touchés :**
 
-Backend : `src/main/java/ch/unige/events/entity/User.java`, `service/UserService.java`, `service/SchemaFixup.java`, `resource/UserResource.java`, `dto/UserDTO.java`, tests associés, `openapi/openapi.yaml`, `backend/docs/data-model.md`, `backend/docs/api-contract.md`, `backend/docs/sprint-context.md`.
+Backend : `src/main/java/ch/unige/events/entity/User.java`, `service/UserService.java`, `resource/UserResource.java`, `dto/UserDTO.java`, nouvelle migration sous `src/main/resources/db/migration/`, tests associés, `openapi/openapi.yaml`, `backend/docs/data-model.md`, `backend/docs/api-contract.md`, `backend/docs/sprint-context.md`.
 
 Frontend : `src/types/user.ts`, `src/services/userService.ts`, `src/router/AppRouter.tsx`, `src/pages/profile/ProfilePage.tsx`, `src/pages/profile/ProfileEditPage.tsx`, `src/components/user/UserIdentity.tsx`, `src/pages/event/EventDetailPage.tsx`, tests associés, `frontend/docs/components.md`, `frontend/docs/types.md`, `frontend/docs/architecture.md`, `frontend/docs/sprint-context.md`.
 

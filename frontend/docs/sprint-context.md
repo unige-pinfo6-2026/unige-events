@@ -16,6 +16,16 @@ Fonctionnalités livrées :
 - Imports `../services/*` → `@/services/*` dans `AuthContext.tsx`.
 - Tests : `PrivateRoute.test.tsx` (state.returnTo), `LoginPage.test.tsx` (avec/sans returnTo), `AuthContext.test.tsx` (returnTo explicite, fallback location courante, anti-boucle /login, anti open-redirect http:// et //), `LoginCallbackPage.test.tsx` (pas de navigation vers / sur isAuthenticated).
 
+## Sprint 6 — Aperçu "Mes publications" sur ProfilePage (SCRUM-134 / US-23, scope réduit) — 2026-04-26
+
+Livré.
+
+Fonctionnalités livrées :
+- **`MyPublicationsPreview`** (`src/components/profile/MyPublicationsPreview.tsx`) inséré en colonne gauche de `ProfilePage`, sous la card "À propos", uniquement pour `isOwnProfile`. Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` qui rappellent `useMyEvents(status)` (refetch par statut, pas de partage de state avec `MyPublicationsPage`). Affiche jusqu'à 3 événements récents via `PreviewRow`. Compte `(N)` uniquement sur l'onglet actif (le hook ne fetch qu'un statut à la fois — pas de requêtes parallèles juste pour les libellés inactifs). État vide spécifique par statut + CTA `Créer un événement` uniquement sur `Publiés` vide. Lien `Voir toutes mes publications` qui préserve l'onglet via `?status=…`.
+- **`PreviewRow`** (`src/components/profile/PreviewRow.tsx`) : ligne compacte tappable (vignette + titre + date + participants + badge statut), lien `<Link>` vers `/events/{id}`.
+- **Refactor : extraction de `EVENT_STATUS_VARIANTS` et `EVENT_STATUS_PARAMS`** dans `src/utils/eventStatusStyles.ts`. `MyPublicationsPage` consomme désormais le const map partagé pour ses badges (seul changement autorisé). Aucune modification de `useMyEvents`.
+- **Hors scope (différé)** : onglet `Archives` sur `MyPublicationsPage` (CANCELLED ∪ PUBLISHED past-end) et action `Recréer cet événement`. Bloqués par dépendances backend (endpoint `POST /events/{id}/duplicate` non implémenté côté frontend) et par l'absence de capacité de pré-remplissage sur `EventCreatePage`. À documenter dans le worklog SCRUM-134 pour arbitrage produit.
+
 ## Sprint 6 — Filtre par tags sur la recherche (SCRUM-131 + SCRUM-132) — 2026-04-22
 - Hook `useImageCropFlow` (`src/hooks/useImageCropFlow.ts`) : encapsule le flux sélection fichier → validation → FileReader → cropper → Blob → File. Préserve le nom original, reset l'input pour permettre la re-sélection du même fichier après cancel.
 - `ProfileEditPage` : intégration sur l'avatar (aspect 1:1, circular) et la bannière profil (aspect 3:1). Validation MIME + taille préservée avant ouverture du cropper.
@@ -53,6 +63,17 @@ Fonctionnalités livrées :
 - Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
 - **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
 - Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
+## Sprint 6 — Indicateur capacité et liste d'attente (S6) — 2026-04-23
+
+Terminé le 2026-04-23.
+
+Fonctionnalités livrées :
+- **Types TypeScript mis à jour** : `AttendanceStatus` passe à `'ATTENDING' | 'WAITLISTED'` ; `Event` reçoit `availableSpots?: number | null` et `waitlistedCount?: number` (alignement sur openapi.yaml).
+- **`EventDetailPage` — indicateur visuel de capacité** : si `event.capacity != null && event.availableSpots != null`, affiche un badge coloré : rouge "Complet" (`availableSpots === 0`), orange "Presque complet" (`<= capacity * 0.1`), vert "X places disponibles". Si `waitlistedCount > 0`, affiche "X en liste d'attente". Remplace le `ComingSoonBlock` placeholder.
+- **`AttendanceButtons` — gestion liste d'attente** : nouvelle prop `availableSpots` transmise au hook. Quand l'événement est complet (`isFull`) et l'utilisateur n'est pas inscrit, le bouton affiche "Rejoindre la liste d'attente". Quand `currentStatus === 'WAITLISTED'`, affiche "En liste d'attente" (style warning). Suppression du tooltip disabled au profit d'un bouton toujours cliquable.
+- **`useAttendance` — support WAITLISTED** : nouvelle signature `initialAvailableSpots?: number | null` pour initialiser `isFull`. Toggle unifié : si `currentStatus !== null` (ATTENDING ou WAITLISTED) → `unattend()`; sinon → `attend()`. Après succès d'`attend()`, `currentStatus` est mis à jour depuis la réponse serveur ; si WAITLISTED, `attendingCount` n'est pas incrémenté.
+- **Tests** : 831 tests passing. `useAttendance.test.ts` enrichi (WAITLISTED unattend sans décrément, réponse serveur WAITLISTED, initialAvailableSpots). `AttendanceButtons.test.tsx` refondu pour le nouveau comportement.
+
 ## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
 
 Terminé le 2026-04-18.

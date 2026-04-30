@@ -42,13 +42,19 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Entités : étendent `PanacheEntity` — pas de repository séparé
 - Services : `@ApplicationScoped` + `@Transactional` sur toutes les mutations
 - Resources : JAX-RS, préfixe `/api` (configuré dans `application.properties`)
-- **Hibernate est actuellement en mode `update`** — les modifications d'entités sont répercutées en DB automatiquement en dev. Les entités JPA sont la source de vérité pour le schéma.
+- **Hibernate est en mode `validate`** en dev/prod : Flyway pilote le schéma, Hibernate vérifie seulement que les entités correspondent. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; le V1 Flyway s'y applique en no-op.
 - Soft-delete : champ `active` (boolean) sur Event, **jamais de DELETE physique**
 - Attendance : contrainte unique `(userId, eventId)` — un seul statut par user/event
 - Auth : `quarkus-oidc` mode `service` en prod, `quarkus.oidc.enabled=false` en `%test`
 
-### Schéma de base de données
-Le schéma est géré par Hibernate en mode `update`. Ne pas utiliser Flyway ni créer de fichiers SQL de migration. Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité pour le schéma.
+### Schéma de base de données — Flyway
+
+Les changements de schéma passent par des migrations Flyway dans `backend/src/main/resources/db/migration/`.
+
+- Nommage : `V<N>__<snake_case_description>.sql` — description courte, 2-4 mots max, snake_case. Exemples corrects : `V3__create_attendances.sql`, `V7__add_event_archived.sql`. Exemples à éviter : `V3__create_attendances_table_with_status_and_constraints.sql`, `V7__reconcile_check_constraints_with_current_enum_values.sql`.
+- Une migration committée est **immutable** : tout nouveau changement va dans un nouveau fichier `V<N+1>__…`.
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0` — les bases existantes (gérées historiquement par Hibernate `update`) adoptent Flyway à partir de V1 sans dump rétroactif. Pas de `quarkus.flyway.clean-*` (destructif).
+- Si une base locale dérive (artefacts Hibernate `update` qui ne matchent plus le schéma post-migration), la solution est de la dropper et laisser Quarkus rebuilder.
 
 ### Enums
 `EventCategory`, `AttendanceStatus`, `ReportStatus` — définis dans les entités, sérialisés en String dans le JSON.
@@ -71,7 +77,7 @@ Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dan
 ## Ce qu'il ne faut jamais faire
 - Utiliser du snake_case dans les noms de champs ou les réponses JSON
 - Préfixer les booléens avec `is` dans les entités JPA
-- Créer des fichiers SQL de migration Flyway
+- Modifier une migration Flyway déjà committée — créer un nouveau `V<N+1>__…` à la place
 - Mettre de la logique métier dans une Resource
 - Retourner `null` ou un body vide là où le frontend attend un objet
 - Créer un endpoint sans l'avoir d'abord spécifié dans `openapi.yaml`
