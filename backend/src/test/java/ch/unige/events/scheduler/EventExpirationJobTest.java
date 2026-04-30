@@ -18,8 +18,6 @@ class EventExpirationJobTest {
 
     @Test
     void runExpiration_delegatesToService() {
-        Mockito.when(expirationService.expireEvents()).thenReturn(3);
-
         job.runExpiration();
 
         Mockito.verify(expirationService, Mockito.times(1)).expireEvents();
