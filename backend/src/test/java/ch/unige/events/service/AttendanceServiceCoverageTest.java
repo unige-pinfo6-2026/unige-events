@@ -477,6 +477,28 @@ class AttendanceServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void removeAttendance_onExpiredEvent_doesNotPromote() {
+        User organizer = persistUser("auth0|ex-org", "ex-org@example.com");
+        Event event = persistEvent("Expired Event", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|ex-u1", "ex-u1@example.com");
+        User u2 = persistUser("auth0|ex-u2", "ex-u2@example.com");
+
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+
+        event.status = EventStatus.EXPIRED;
+        entityManager.flush();
+        attendanceService.removeAttendance("auth0|ex-u1", event.id);
+        entityManager.flush();
+
+        Attendance u2After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u2.id, event.id).firstResult();
+        assertEquals(AttendanceStatus.WAITLISTED, u2After.status);
+    }
+
+    @Test
+    @TestTransaction
     void getById_reflectsAvailableSpotsAndWaitlistedCount() {
         User organizer = persistUser("auth0|spots-org", "spots-org@example.com");
         Event event = persistEvent("Spots Event", organizer, EventStatus.PUBLISHED, 2);

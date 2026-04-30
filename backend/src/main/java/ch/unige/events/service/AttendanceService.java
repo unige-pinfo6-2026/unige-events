@@ -117,7 +117,8 @@ public class AttendanceService {
         if (removed != AttendanceStatus.ATTENDING
                 || event == null
                 || event.capacity == null
-                || event.status == EventStatus.CANCELLED) {
+                || event.status == EventStatus.CANCELLED
+                || event.status == EventStatus.EXPIRED) {
             return;
         }
 
