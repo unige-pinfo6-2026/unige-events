@@ -51,7 +51,7 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 
 Les changements de schéma passent par des migrations Flyway dans `backend/src/main/resources/db/migration/`.
 
-- Nommage : `V<N>__<snake_case_description>.sql` (ex. `V2__add_event_archived_flag.sql`).
+- Nommage : `V<N>__<snake_case_description>.sql` — description courte, 2-4 mots max, snake_case. Exemples corrects : `V3__create_attendances.sql`, `V7__add_event_archived.sql`. Exemples à éviter : `V3__create_attendances_table_with_status_and_constraints.sql`, `V7__reconcile_check_constraints_with_current_enum_values.sql`.
 - Une migration committée est **immutable** : tout nouveau changement va dans un nouveau fichier `V<N+1>__…`.
 - Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0` — les bases existantes (gérées historiquement par Hibernate `update`) adoptent Flyway à partir de V1 sans dump rétroactif. Pas de `quarkus.flyway.clean-*` (destructif).
 - Si une base locale dérive (artefacts Hibernate `update` qui ne matchent plus le schéma post-migration), la solution est de la dropper et laisser Quarkus rebuilder.
