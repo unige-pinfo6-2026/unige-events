@@ -14,7 +14,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
-| `faculty` | `faculty` | `String` | `faculty` | nullable |
+| `faculty` | `faculty` | `String` | `faculty` | nullable (champ libre côté `User`) |
 | `studyLevel` | `studyLevel` | `String` | `study_level` | nullable |
 | `bio` | `bio` | `String` | `bio` | `@Column(columnDefinition="TEXT")` |
 | `interests` | `interests` | `List<String>` | `user_interests` | `@ElementCollection(fetch=EAGER)` |
@@ -159,8 +159,6 @@ Table : `event_views`
 Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
 
 L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
-
-Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
 
 Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
@@ -356,20 +354,15 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 ---
 
-## Gestion du schéma
+## Gestion du schéma — Flyway
 
-Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).
+Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
-- Hibernate crée et met à jour les tables automatiquement au démarrage
-- Aucun fichier SQL de migration n'est utilisé ni requis
+- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
 
-### Réconciliation des contraintes CHECK — `SchemaFixup`
+### V1 — Réconciliation des contraintes CHECK
 
-Le mode `update` de Hibernate **n'altère jamais** les contraintes CHECK générées pour les colonnes mappées en `@Enumerated(STRING)`. Quand une nouvelle valeur est ajoutée à un enum (ex. `WAITLISTED` sur `AttendanceStatus`), les bases de données provisionnées avant ce changement conservent l'ancienne contrainte et rejettent les INSERT avec la nouvelle valeur.
-
-`ch.unige.events.config.SchemaFixup` est un bean `@ApplicationScoped` qui s'exécute sur `StartupEvent` et :
-- supprime les contraintes obsolètes (`events_*_check`, `attendances_status_check`) — `DROP CONSTRAINT IF EXISTS`, idempotent ;
-- recrée `attendances_status_check` avec les valeurs courantes de l'enum (`ATTENDING`, `WAITLISTED`).
-
-Le DDL est statique (jamais concaténé avec des entrées utilisateur). Toute future addition à un enum doit s'accompagner d'une mise à jour de `SchemaFixup`. À retirer si le projet adopte un outil de migration (Flyway / Liquibase).
+`V1__reconcile_check_constraints.sql` est la première migration : elle drop+recrée `events_faculty_check`, `events_category_check`, `events_status_check` et `attendances_status_check` avec les valeurs courantes des enums Java. Elle remplace l'ancien bean `SchemaFixup` qui faisait le même travail au démarrage.
