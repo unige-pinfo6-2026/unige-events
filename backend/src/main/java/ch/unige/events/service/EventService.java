@@ -54,6 +54,9 @@ public class EventService {
         if (status != null) {
             conditions.add("e.status = :status");
             params.put("status", status);
+        } else {
+            conditions.add("e.status <> :notExpired");
+            params.put("notExpired", EventStatus.EXPIRED);
         }
         if (category != null) {
             conditions.add("e.category = :category");

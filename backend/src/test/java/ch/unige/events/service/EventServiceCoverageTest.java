@@ -59,6 +59,19 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void getAll_noFilters_excludesExpiredEvents() {
+        User user = persistUser("auth0|exp-excl", "exp-excl@example.com");
+        persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Expired", EventCategory.ACADEMIC, EventStatus.EXPIRED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Published", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
     void getAll_withStatusFilter_returnsFiltered() {
         User user = persistUser("auth0|b", "b@example.com");
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
