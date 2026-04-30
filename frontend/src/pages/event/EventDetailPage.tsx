@@ -140,12 +140,16 @@ interface CapacityIndicatorProps {
   capacity: number
   availableSpots: number
   waitlistedCount?: number
+  isRefetching?: boolean
 }
 
-function CapacityIndicator({ capacity, availableSpots, waitlistedCount }: Readonly<CapacityIndicatorProps>) {
+function CapacityIndicator({ capacity, availableSpots, waitlistedCount, isRefetching }: Readonly<CapacityIndicatorProps>) {
   const { variant, label } = getCapacityBadge(availableSpots, capacity)
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={`flex flex-col gap-2 transition-opacity ${isRefetching ? 'opacity-70' : ''}`}
+      aria-busy={isRefetching || undefined}
+    >
       <div className="flex items-center gap-2 text-xs text-foreground/40">
         <Users className="w-4 h-4 shrink-0" />
         <span>Places disponibles</span>
@@ -223,13 +227,15 @@ export default function EventDetailPage() {
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
-  const { event, loading, error, refetch: refetchEvent } = useEvent(eventId)
+  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
   const isOrganizer = user !== null && event !== null && user.id === event.creatorId
   const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
-  const handleAttendanceSuccess = useCallback(() => {
-    refetchEvent()
-    if (isOrganizer) refetchAttendees()
+  const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
+    await Promise.all([
+      refetchEvent(),
+      isOrganizer ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
+    ])
   }, [refetchEvent, refetchAttendees, isOrganizer])
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
@@ -262,7 +268,10 @@ export default function EventDetailPage() {
 
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
-  if (loading) return (
+  // Only the very first fetch shows the full-page skeleton. Subsequent
+  // refetches (after an attendance action, etc.) keep the page visible and
+  // surface progress via subtle child hints (see `isRefetching` below).
+  if (isInitialLoad && event === null) return (
     <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
       <SectionHeader
         title={<>Détails de <mark>l'événement</mark></>}
@@ -278,7 +287,7 @@ export default function EventDetailPage() {
     </SectionWrapper>
   )
 
-  if (error) return <InfoMessage type='error' message={error} />
+  if (error && event === null) return <InfoMessage type='error' message={error} />
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
   const category = EVENT_CATEGORIES[event.category]
@@ -509,6 +518,7 @@ export default function EventDetailPage() {
                   capacity={event.capacity}
                   availableSpots={event.availableSpots}
                   waitlistedCount={event.waitlistedCount}
+                  isRefetching={isRefetching}
                 />
               </>
             )}

@@ -375,51 +375,137 @@ describe('useAttendance — batched optimistic state (no flicker)', () => {
   })
 })
 
-describe('useAttendance — debounce', () => {
-  it('keeps loading=true for ~500ms after a fast-resolving API success', async () => {
-    vi.useFakeTimers()
-    try {
-      mockGetMyAttendance.mockResolvedValue(null)
-      mockAttend.mockResolvedValue(sampleAttendance)
-      const { result } = renderHook(() => useAttendance(42, 5, null))
+describe('useAttendance — mutating + onAfterSuccess gating', () => {
+  it('keeps mutating=true until onAfterSuccess resolves', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue(sampleAttendance)
 
-      // Drain the initial mount fetch.
-      await vi.waitFor(() => expect(result.current.loading).toBe(false))
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
 
-      act(() => result.current.toggle('ATTENDING'))
-      expect(result.current.loading).toBe(true)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
 
-      // Allow the API microtask to settle.
-      await act(async () => { await Promise.resolve() })
+    act(() => result.current.toggle('ATTENDING'))
+    expect(result.current.mutating).toBe(true)
+    expect(result.current.loading).toBe(true)
 
-      // API has resolved but debounce window keeps loading true.
-      expect(result.current.loading).toBe(true)
+    // Drain the API microtask so the body of attend() resolves.
+    await act(async () => { await Promise.resolve() })
 
-      // Advance past the 500ms debounce window.
-      await act(async () => { vi.advanceTimersByTime(500) })
+    // API resolved but onAfterSuccess is still pending — mutating stays true.
+    expect(result.current.mutating).toBe(true)
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
 
-      expect(result.current.loading).toBe(false)
-    } finally {
-      vi.useRealTimers()
-    }
+    // Now resolve the parent refetch — mutating clears.
+    await act(async () => { resolveAfterSuccess() })
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+    expect(result.current.loading).toBe(false)
   })
 
-  it('clears the debounce timer on unmount (no setState after unmount)', async () => {
-    vi.useFakeTimers()
-    try {
-      mockGetMyAttendance.mockResolvedValue(null)
-      mockAttend.mockResolvedValue(sampleAttendance)
-      const { result, unmount } = renderHook(() => useAttendance(42, 5, null))
-      await vi.waitFor(() => expect(result.current.loading).toBe(false))
+  it('clears mutating immediately on error (no onAfterSuccess await)', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
 
-      act(() => result.current.toggle('ATTENDING'))
-      unmount()
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
 
-      // Should not throw / log warnings. Timers are cleared.
-      await act(async () => { vi.advanceTimersByTime(1000) })
-    } finally {
-      vi.useRealTimers()
-    }
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+
+  it('does not setState after unmount during a pending onAfterSuccess', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue(sampleAttendance)
+
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
+
+    const { result, unmount } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    unmount()
+
+    // Should not throw / log warnings.
+    await act(async () => { resolveAfterSuccess() })
+  })
+})
+
+describe('useAttendance — frozen label snapshot', () => {
+  it('displayStatus / displayIsFull stay at click-time values during the mutation', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+
+    type AnyAttendance = typeof sampleAttendance | typeof waitlistedAttendance
+    let resolveAttend: (a: AnyAttendance) => void = () => {}
+    mockAttend.mockReturnValue(new Promise<AnyAttendance>((r) => { resolveAttend = r }))
+
+    // onAfterSuccess held pending so we can observe the post-API / pre-settle window.
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
+
+    // Full event → at click time, display* = (null, true) → label "Rejoindre la liste d'attente".
+    const { result } = renderHook(() => useAttendance(42, 5, null, 0, { onAfterSuccess }))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    // Optimistic ui.currentStatus flips to ATTENDING, but display* stays frozen.
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+
+    // Server returns WAITLISTED. ui flips again — display* still frozen because
+    // mutating remains true while onAfterSuccess is pending.
+    await act(async () => { resolveAttend(waitlistedAttendance) })
+    expect(result.current.currentStatus).toBe('WAITLISTED')
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+    expect(result.current.mutating).toBe(true)
+
+    // Resolve the parent refetch — mutating clears, display* now matches live state.
+    await act(async () => { resolveAfterSuccess() })
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+    expect(result.current.displayStatus).toBe('WAITLISTED')
+    expect(result.current.displayIsFull).toBe(true)
+  })
+
+  it('label snapshot is restored on rollback after error', async () => {
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    mockAttend.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useAttendance(42, 5, null, 0))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.displayStatus).toBe('ATTENDING')
+
+    // We're ATTENDING, so toggle calls unattend (which we did not mock to
+    // reject); use the inverse — re-mock unattend to reject.
+    mockUnattend.mockRejectedValue(new Error('boom'))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+
+    // Rolled back. Display* equal live state and live state is restored.
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.displayStatus).toBe('ATTENDING')
   })
 })
 

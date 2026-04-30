@@ -29,15 +29,23 @@ afterEach(() => {
 })
 
 function makeHookResult(overrides: Partial<ReturnType<typeof useAttendance>> = {}): ReturnType<typeof useAttendance> {
-  return {
-    currentStatus: null,
+  const base = {
+    currentStatus: null as ReturnType<typeof useAttendance>['currentStatus'],
     attendingCount: 5,
     loading: false,
+    mutating: false,
     error: null,
     isFull: false,
+    displayStatus: null as ReturnType<typeof useAttendance>['displayStatus'],
+    displayIsFull: false,
     toggle: vi.fn(),
-    ...overrides,
   }
+  const merged = { ...base, ...overrides }
+  // Mirror display* to current* unless caller overrode them explicitly — keeps
+  // existing tests legible (they only set currentStatus / isFull).
+  if (!('displayStatus' in overrides)) merged.displayStatus = merged.currentStatus
+  if (!('displayIsFull' in overrides)) merged.displayIsFull = merged.isFull
+  return merged
 }
 
 const defaultProps = {
@@ -160,7 +168,7 @@ describe('AttendanceButtons', () => {
     })
   })
 
-  describe('disabled / debounce', () => {
+  describe('disabled / mutation affordance', () => {
     it('button is disabled while loading is true', () => {
       mockUseAttendance.mockReturnValue(makeHookResult({ loading: true }))
       mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
@@ -178,6 +186,92 @@ describe('AttendanceButtons', () => {
       render(<AttendanceButtons {...defaultProps} onAfterSuccess={onAfterSuccess} />)
 
       expect(mockUseAttendance).toHaveBeenCalledWith(42, 5, null, undefined, { onAfterSuccess })
+    })
+
+    it('shows aria-busy="true", a spinner and wait cursor while mutating', () => {
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({ mutating: true, loading: true }),
+      )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+
+      const button = screen.getByRole('button')
+      expect(button.getAttribute('aria-busy')).toBe('true')
+      expect((button as HTMLButtonElement).style.cursor).toBe('wait')
+      expect(button.querySelector('.animate-spin')).toBeTruthy()
+    })
+
+    it('hides aria-busy and the spinner when not mutating', () => {
+      mockUseAttendance.mockReturnValue(makeHookResult())
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+
+      const button = screen.getByRole('button')
+      expect(button.getAttribute('aria-busy')).toBeNull()
+      expect(button.querySelector('.animate-spin')).toBeNull()
+    })
+  })
+
+  describe('frozen label during mutation', () => {
+    it('displays the snapshotted label while mutating, ignoring underlying status changes', () => {
+      // Full event, user not registered → label should be the waitlist-join one.
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({
+          mutating: true,
+          loading: true,
+          currentStatus: 'ATTENDING', // optimistic — would normally show "Annuler ma participation"
+          isFull: true,
+          displayStatus: null,        // snapshot at click time → "Rejoindre la liste d'attente"
+          displayIsFull: true,
+        }),
+      )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      render(<AttendanceButtons {...defaultProps} />)
+
+      // The label rendered must come from display*, NOT current*.
+      expect(screen.getByRole('button', { name: /rejoindre la liste d'attente/i })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /annuler ma participation/i })).toBeNull()
+    })
+
+    it('settles on the new label only after mutating clears (label changes at most once)', () => {
+      // First render: mutating=true, frozen on "Je participe".
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({
+          mutating: true,
+          loading: true,
+          currentStatus: 'ATTENDING',
+          isFull: false,
+          displayStatus: null,
+          displayIsFull: false,
+        }),
+      )
+      mockUseAuth.mockReturnValue({ isAuthenticated: true } as ReturnType<typeof useAuth>)
+
+      const { rerender } = render(<AttendanceButtons {...defaultProps} />)
+      const labels: string[] = []
+      labels.push(screen.getByRole('button').textContent ?? '')
+
+      // Second render: mutation cleared, display* now match live state.
+      mockUseAttendance.mockReturnValue(
+        makeHookResult({
+          mutating: false,
+          loading: false,
+          currentStatus: 'ATTENDING',
+          isFull: false,
+          displayStatus: 'ATTENDING',
+          displayIsFull: false,
+        }),
+      )
+      rerender(<AttendanceButtons {...defaultProps} />)
+      labels.push(screen.getByRole('button').textContent ?? '')
+
+      // Exactly one label transition: "Je participe" → "Annuler ma participation".
+      // No third intermediate value.
+      expect(labels[0]).toContain('Je participe')
+      expect(labels[1]).toContain('Annuler ma participation')
     })
   })
 

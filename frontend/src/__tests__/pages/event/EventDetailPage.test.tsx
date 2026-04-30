@@ -116,7 +116,7 @@ function renderPage(eventId = '1') {
 describe('EventDetailPage', () => {
   it('shows a skeleton while loading', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: null, loading: true, error: null })
+    mockUseEvent.mockReturnValue({ event: null, loading: true, isInitialLoad: true, isRefetching: false, refetch: vi.fn(), error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -124,9 +124,46 @@ describe('EventDetailPage', () => {
     expect(document.querySelector('[data-boneyard="event-detail"]')).toBeTruthy()
   })
 
+  it('does NOT show the full-page skeleton during a refetch (event already loaded)', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({
+      event: mockEvent,
+      loading: true,
+      isInitialLoad: false,
+      isRefetching: true,
+      refetch: vi.fn(),
+      error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(document.querySelector('[data-boneyard="event-detail"]')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
+  })
+
+  it('CapacityIndicator surfaces aria-busy while isRefetching', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, capacity: 10, availableSpots: 5 },
+      loading: true,
+      isInitialLoad: false,
+      isRefetching: true,
+      refetch: vi.fn(),
+      error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    const badge = screen.getByText('5 places disponibles')
+    const container = badge.closest('[aria-busy="true"]')
+    expect(container).toBeTruthy()
+  })
+
   it('shows a localized invalid id message', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: null, loading: true, error: null })
+    mockUseEvent.mockReturnValue({ event: null, loading: true, isInitialLoad: true, isRefetching: false, refetch: vi.fn(), error: null })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage('abc')
@@ -136,7 +173,7 @@ describe('EventDetailPage', () => {
 
   it('shows a localized load error', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: null, loading: false, error: 'Impossible de charger cet événement.' })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: 'Impossible de charger cet événement.' })
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -146,7 +183,7 @@ describe('EventDetailPage', () => {
 
   it('shows event not found when there is no event and no error', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: null, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -156,7 +193,7 @@ describe('EventDetailPage', () => {
 
   it('renders event details and organizer information', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(mockUser)
 
     renderPage()
@@ -171,7 +208,7 @@ describe('EventDetailPage', () => {
 
   it('shows organizer-only actions with the final edit route on PUBLISHED', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -187,7 +224,7 @@ describe('EventDetailPage', () => {
 
   it('hides organizer actions for another user', () => {
     mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -199,7 +236,7 @@ describe('EventDetailPage', () => {
 
   it('CANCELLED event shows Remettre en brouillon (Undo2) and Supprimer (Trash2) and hides Modifier/Annuler', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -215,7 +252,7 @@ describe('EventDetailPage', () => {
 
   it('opens and closes the delete confirmation modal on CANCELLED events', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -229,7 +266,7 @@ describe('EventDetailPage', () => {
 
   it('"Annuler l\'événement" opens confirmation modal and does not call API without confirm', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -242,7 +279,7 @@ describe('EventDetailPage', () => {
 
   it('"Annuler l\'événement" cancel button on confirmation closes modal without calling API', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -255,7 +292,7 @@ describe('EventDetailPage', () => {
 
   it('"Annuler l\'événement" confirm calls cancelEvent and navigates to my-events cancelled tab', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockCancelEvent.mockResolvedValue({})
 
@@ -269,7 +306,7 @@ describe('EventDetailPage', () => {
 
   it('"Annuler l\'événement" shows error toast on API failure', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockCancelEvent.mockRejectedValue(new Error('fail'))
 
@@ -282,7 +319,7 @@ describe('EventDetailPage', () => {
 
   it('"Remettre en brouillon" calls restoreEvent and navigates to drafts', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockRestoreEvent.mockResolvedValue({})
 
@@ -295,7 +332,7 @@ describe('EventDetailPage', () => {
 
   it('"Remettre en brouillon" shows error toast on failure', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockRestoreEvent.mockRejectedValue(new Error('fail'))
 
@@ -309,7 +346,7 @@ describe('EventDetailPage', () => {
     sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, "L'événement a été créé mais la bannière n'a pas pu être uploadée.")
 
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -320,7 +357,7 @@ describe('EventDetailPage', () => {
 
   it('calls deleteEvent and navigates to my-events cancelled on confirm', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockDeleteEvent.mockResolvedValue(undefined)
 
@@ -335,7 +372,7 @@ describe('EventDetailPage', () => {
 
   it('hides confirm modal and re-enables button when deleteEvent fails', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
     mockDeleteEvent.mockRejectedValue(new Error('network error'))
 
@@ -350,7 +387,7 @@ describe('EventDetailPage', () => {
 
   it('sets organizer to null when getUserById rejects', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockRejectedValue(new Error('not found'))
 
     renderPage()
@@ -362,7 +399,7 @@ describe('EventDetailPage', () => {
   it('renders event with no capacity (InfoRow without color branch)', () => {
     const eventNoCapacity = { ...mockEvent, capacity: undefined }
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: eventNoCapacity, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: eventNoCapacity, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -375,7 +412,7 @@ describe('EventDetailPage', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -390,7 +427,7 @@ describe('EventDetailPage', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -403,7 +440,7 @@ describe('EventDetailPage', () => {
     Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
 
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
     mockGetUserById.mockResolvedValue(null)
 
     renderPage()
@@ -416,7 +453,7 @@ describe('EventDetailPage', () => {
     it('shows green badge when spots are available', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: 10 }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -427,7 +464,7 @@ describe('EventDetailPage', () => {
     it('shows orange badge when ≤10% spots remain', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: 1 }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -438,7 +475,7 @@ describe('EventDetailPage', () => {
     it('shows red badge when event is full', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: 0 }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -449,7 +486,7 @@ describe('EventDetailPage', () => {
     it('shows waitlist count when waitlistedCount > 0', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: 0, waitlistedCount: 4 }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -460,7 +497,7 @@ describe('EventDetailPage', () => {
     it('does not show waitlist pill when waitlistedCount is 0', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: 5, waitlistedCount: 0 }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -471,7 +508,7 @@ describe('EventDetailPage', () => {
     it('does not render capacity indicator when availableSpots is null', () => {
       const event = { ...mockEvent, capacity: 20, availableSpots: null }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -486,6 +523,9 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 4 },
         loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
         error: null,
       })
       mockGetUserById.mockResolvedValue(null)
@@ -500,6 +540,9 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 4 },
         loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
         error: null,
       })
       mockGetUserById.mockResolvedValue(null)
@@ -514,6 +557,9 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
         error: null,
       })
       mockGetUserById.mockResolvedValue(null)
@@ -532,8 +578,10 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
-        error: null,
+        isInitialLoad: false,
+        isRefetching: false,
         refetch: refetchEvent,
+        error: null,
       })
       mockGetUserById.mockResolvedValue(null)
 
@@ -557,8 +605,10 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
-        error: null,
+        isInitialLoad: false,
+        isRefetching: false,
         refetch: refetchEvent,
+        error: null,
       })
       mockGetUserById.mockResolvedValue(null)
 
@@ -579,8 +629,10 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
-        error: null,
+        isInitialLoad: false,
+        isRefetching: false,
         refetch: vi.fn(),
+        error: null,
       })
       mockGetUserById.mockResolvedValue(null)
 
@@ -595,6 +647,9 @@ describe('EventDetailPage', () => {
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 2 },
         loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
         error: null,
       })
       mockGetUserById.mockResolvedValue(null)
@@ -618,7 +673,7 @@ describe('EventDetailPage', () => {
   describe('SCRUM-117 — extra optional fields display', () => {
     it('does not render the extra-info card when none of the four fields are present', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -629,7 +684,7 @@ describe('EventDetailPage', () => {
     it('renders websiteUrl as an external link opening in a new tab', () => {
       const withWebsite = { ...mockEvent, websiteUrl: 'https://unige.ch/event' }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: withWebsite, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: withWebsite, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -644,7 +699,7 @@ describe('EventDetailPage', () => {
     it('does not render an anchor when websiteUrl uses a non-http(s) scheme (XSS guard)', () => {
       const unsafe = { ...mockEvent, websiteUrl: 'javascript:alert(1)' }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: unsafe, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: unsafe, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -656,7 +711,7 @@ describe('EventDetailPage', () => {
     it('does not render an anchor when websiteUrl is malformed', () => {
       const malformed = { ...mockEvent, websiteUrl: 'not a url' }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: malformed, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: malformed, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -668,7 +723,7 @@ describe('EventDetailPage', () => {
     it('renders contactEmail as a mailto link', () => {
       const withEmail = { ...mockEvent, contactEmail: 'contact@unige.ch' }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: withEmail, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: withEmail, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -680,7 +735,7 @@ describe('EventDetailPage', () => {
     it('renders a formatted registrationDeadline when present', () => {
       const withDeadline = { ...mockEvent, registrationDeadline: '2026-04-09T18:00:00.000Z' }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: withDeadline, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: withDeadline, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -691,7 +746,7 @@ describe('EventDetailPage', () => {
     it('renders tags as clickable chips linking to /events/search?q=<tag>', () => {
       const withTags = { ...mockEvent, tags: ['forum', 'carrière emploi'] }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: withTags, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: withTags, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -706,7 +761,7 @@ describe('EventDetailPage', () => {
     it('does not render the tags row when tags is an empty array', () => {
       const withEmptyTags = { ...mockEvent, websiteUrl: 'https://unige.ch', tags: [] }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: withEmptyTags, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: withEmptyTags, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
@@ -724,7 +779,7 @@ describe('EventDetailPage', () => {
         tags: ['forum'],
       }
       mockUseAuth.mockReturnValue({ user: mockUser })
-      mockUseEvent.mockReturnValue({ event: allFields, loading: false, error: null })
+      mockUseEvent.mockReturnValue({ event: allFields, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()

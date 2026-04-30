@@ -9,20 +9,36 @@ interface UiState {
   isFull: boolean
 }
 
+interface LabelSnapshot {
+  status: AttendanceStatus | null
+  isFull: boolean
+}
+
 export interface UseAttendanceOptions {
-  onAfterSuccess?: () => void
+  /**
+   * Invoked after a successful attend/unattend API response. The hook awaits
+   * the returned promise before clearing `mutating`, so callers can chain
+   * refetches that should complete before the action button "settles".
+   */
+  onAfterSuccess?: () => void | Promise<void>
 }
 
 interface UseAttendanceResult {
   currentStatus: AttendanceStatus | null
   attendingCount: number
+  /** True while either the initial mount fetch or a user-triggered mutation is in flight. */
   loading: boolean
+  /** True only while a user-triggered attend/unattend mutation is in flight (incl. parent refetch). */
+  mutating: boolean
   error: string | null
   isFull: boolean
+  /** Frozen at click time during a mutation; equals `currentStatus` otherwise. */
+  displayStatus: AttendanceStatus | null
+  /** Frozen at click time during a mutation; equals `isFull` otherwise. */
+  displayIsFull: boolean
   toggle: (status: 'ATTENDING') => void
 }
 
-const DEBOUNCE_MS = 500
 const REGISTRATION_CLOSED_MESSAGE = 'Les inscriptions sont closes pour cet événement.'
 const GENERIC_ERROR_MESSAGE = 'Une erreur est survenue.'
 
@@ -48,24 +64,23 @@ export function useAttendance(
 ): UseAttendanceResult {
   const { onAfterSuccess } = options
 
-  // Single state object for all visual fields → React batches updates so the
-  // button label, count and badge variant always render in a consistent state
-  // (no orange "waitlist" flash when isFull and currentStatus disagree for
-  // one frame).
+  // Single state object — React batches every visual field together so there
+  // is no intermediate render where (currentStatus, isFull) disagree.
   const [ui, setUi] = useState<UiState>({
     currentStatus: initialStatus,
     attendingCount: initialAttendingCount,
     isFull: initialAvailableSpots === 0,
   })
-  const [loading, setLoading] = useState(true)
+  // Initial mount fetch in flight.
+  const [initializing, setInitializing] = useState(true)
+  // True from click → API resolved → onAfterSuccess resolved (or error rolled back).
+  const [mutating, setMutating] = useState(false)
+  // Snapshot of the (status, isFull) pair at click time so the button label
+  // can stay frozen for the full duration of the mutation, even though the
+  // underlying ui values move optimistically and from the server response.
+  const [labelSnapshot, setLabelSnapshot] = useState<LabelSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Loading is the OR of (API in flight) and (debounce window still open) so
-  // the button stays disabled for at least DEBOUNCE_MS after a click even if
-  // the API resolves faster — prevents accidental double-fires.
-  const apiInFlightRef = useRef(true) // initial fetch starts in-flight
-  const debouncePendingRef = useRef(false)
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
   // Latest onAfterSuccess held in a ref so callers can pass inline arrows
@@ -75,21 +90,10 @@ export function useAttendance(
     onAfterSuccessRef.current = onAfterSuccess
   }, [onAfterSuccess])
 
-  const recomputeLoading = useCallback(() => {
-    if (!mountedRef.current) return
-    setLoading(apiInFlightRef.current || debouncePendingRef.current)
-  }, [])
-
-  // Cleanup debounce on eventId change / unmount.
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (debounceTimerRef.current !== null) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
-      debouncePendingRef.current = false
     }
   }, [eventId])
 
@@ -98,8 +102,7 @@ export function useAttendance(
   // client-side; there is no per-event GET endpoint in the current API.
   useEffect(() => {
     let active = true
-    apiInFlightRef.current = true
-    setLoading(true)
+    setInitializing(true)
     getMyAttendance(eventId)
       .then((status) => {
         if (!active) return
@@ -112,42 +115,28 @@ export function useAttendance(
       })
       .finally(() => {
         if (!active) return
-        apiInFlightRef.current = false
-        recomputeLoading()
+        setInitializing(false)
       })
     return () => {
       active = false
     }
-  }, [eventId, recomputeLoading])
+  }, [eventId])
 
-  const startDebounce = useCallback(() => {
-    debouncePendingRef.current = true
-    if (debounceTimerRef.current !== null) {
-      clearTimeout(debounceTimerRef.current)
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      debouncePendingRef.current = false
-      debounceTimerRef.current = null
-      recomputeLoading()
-    }, DEBOUNCE_MS)
-  }, [recomputeLoading])
+  const loading = initializing || mutating
 
   const toggle = useCallback(
     (status: 'ATTENDING') => {
       if (loading) return
 
       const prev = ui
+      const snapshot: LabelSnapshot = { status: ui.currentStatus, isFull: ui.isFull }
       const goingToAttend = ui.currentStatus === null
 
-      // Compute optimistic state in a single object — the setUi call below
-      // batches every visual field together so there is no intermediate
-      // render where (currentStatus, isFull) disagree.
       let optimistic: UiState
       if (goingToAttend) {
         optimistic = {
           currentStatus: 'ATTENDING',
           attendingCount: ui.attendingCount + 1,
-          // Server is source of truth for capacity; do not predict isFull on attend.
           isFull: ui.isFull,
         }
       } else {
@@ -157,35 +146,32 @@ export function useAttendance(
             ui.currentStatus === 'ATTENDING'
               ? Math.max(0, ui.attendingCount - 1)
               : ui.attendingCount,
-          // Optimistically clear isFull when an ATTENDING user leaves: we just
-          // freed a slot. The post-success refetch reconciles if the server
-          // auto-promotes a waitlisted user. Without this, the button briefly
-          // flashes the orange "Rejoindre la liste d'attente" style during the
-          // transition.
           isFull: ui.currentStatus === 'ATTENDING' ? false : ui.isFull,
         }
       }
 
+      // Enter mutation: freeze the label, apply optimistic ui, clear error.
+      setLabelSnapshot(snapshot)
+      setMutating(true)
       setUi(optimistic)
       setError(null)
-      apiInFlightRef.current = true
-      setLoading(true)
-      startDebounce()
 
-      const settle = () => {
-        if (!mountedRef.current) return
-        apiInFlightRef.current = false
-        recomputeLoading()
-      }
       const onError = (err: unknown) => {
         if (!mountedRef.current) return
         setUi(prev)
         setError(extractErrorMessage(err))
       }
 
-      if (goingToAttend) {
-        attend(eventId, status)
-          .then((attendance) => {
+      const finalize = () => {
+        if (!mountedRef.current) return
+        setMutating(false)
+        setLabelSnapshot(null)
+      }
+
+      const runMutation = async () => {
+        try {
+          if (goingToAttend) {
+            const attendance = await attend(eventId, status)
             if (!mountedRef.current) return
             setUi({
               currentStatus: attendance.status,
@@ -195,31 +181,40 @@ export function useAttendance(
                   : prev.attendingCount + 1,
               isFull: attendance.status === 'WAITLISTED',
             })
-            onAfterSuccessRef.current?.()
-          })
-          .catch(onError)
-          .finally(settle)
-      } else {
-        unattend(eventId)
-          .then(() => {
+          } else {
+            await unattend(eventId)
             if (!mountedRef.current) return
             // Optimistic state stands; refetch reconciles availableSpots /
             // waitlistedCount in case the server auto-promoted someone.
-            onAfterSuccessRef.current?.()
-          })
-          .catch(onError)
-          .finally(settle)
+          }
+          // Wait for the parent refetch chain so the button label only un-freezes
+          // once the surrounding components have caught up to the new state.
+          try {
+            await onAfterSuccessRef.current?.()
+          } catch {
+            // A refetch failure should not roll back the successful mutation.
+          }
+        } catch (err) {
+          onError(err)
+        } finally {
+          finalize()
+        }
       }
+
+      void runMutation()
     },
-    [eventId, loading, ui, startDebounce, recomputeLoading],
+    [eventId, loading, ui],
   )
 
   return {
     currentStatus: ui.currentStatus,
     attendingCount: ui.attendingCount,
     loading,
+    mutating,
     error,
     isFull: ui.isFull,
+    displayStatus: labelSnapshot ? labelSnapshot.status : ui.currentStatus,
+    displayIsFull: labelSnapshot ? labelSnapshot.isFull : ui.isFull,
     toggle,
   }
 }

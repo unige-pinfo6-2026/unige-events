@@ -63,16 +63,60 @@ describe('useEvent', () => {
     const { result } = renderHook(() => useEvent(1))
     await waitFor(() => expect(result.current.event?.title).toBe('Test Event'))
 
-    act(() => result.current.refetch())
+    await act(async () => { await result.current.refetch() })
 
-    await waitFor(() => expect(result.current.event?.title).toBe('Updated'))
+    expect(result.current.event?.title).toBe('Updated')
     expect(mockGetById).toHaveBeenCalledTimes(2)
   })
 
-  it('refetch() is a no-op when id is null', () => {
+  it('refetch() is a no-op when id is null', async () => {
     const { result } = renderHook(() => useEvent(null))
-    act(() => result.current.refetch())
+    await act(async () => { await result.current.refetch() })
     expect(mockGetById).not.toHaveBeenCalled()
+  })
+
+  it('refetch() flips isRefetching but not isInitialLoad after the first load', async () => {
+    let resolveSecond: (v: typeof mockEvent) => void = () => {}
+    mockGetById
+      .mockResolvedValueOnce(mockEvent)
+      .mockReturnValueOnce(new Promise<typeof mockEvent>((r) => { resolveSecond = r }))
+
+    const { result } = renderHook(() => useEvent(1))
+    await waitFor(() => expect(result.current.isInitialLoad).toBe(false))
+    expect(result.current.event).toEqual(mockEvent)
+
+    act(() => { void result.current.refetch() })
+
+    expect(result.current.isRefetching).toBe(true)
+    expect(result.current.isInitialLoad).toBe(false)
+    expect(result.current.event).toEqual(mockEvent)
+
+    await act(async () => { resolveSecond({ ...mockEvent, title: 'Refreshed' }) })
+    await waitFor(() => expect(result.current.isRefetching).toBe(false))
+    expect(result.current.event?.title).toBe('Refreshed')
+  })
+
+  it('isInitialLoad is true on first fetch and flips to false after first response', async () => {
+    let resolve: (v: typeof mockEvent) => void = () => {}
+    mockGetById.mockReturnValueOnce(new Promise<typeof mockEvent>((r) => { resolve = r }))
+    const { result } = renderHook(() => useEvent(1))
+
+    expect(result.current.isInitialLoad).toBe(true)
+    expect(result.current.isRefetching).toBe(false)
+
+    await act(async () => { resolve(mockEvent) })
+    await waitFor(() => expect(result.current.isInitialLoad).toBe(false))
+    expect(result.current.event).toEqual(mockEvent)
+  })
+
+  it('loading alias = isInitialLoad || isRefetching', async () => {
+    mockGetById.mockResolvedValueOnce(mockEvent).mockResolvedValueOnce(mockEvent)
+    const { result } = renderHook(() => useEvent(1))
+    expect(result.current.loading).toBe(true)
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.refetch() })
+    expect(result.current.loading).toBe(false)
   })
 
   it('discards stale responses when id changes mid-flight', async () => {
@@ -111,9 +155,9 @@ describe('useEvent', () => {
     const { result } = renderHook(() => useEvent(1))
     await waitFor(() => expect(result.current.error).toBe('Impossible de charger cet événement.'))
 
-    act(() => result.current.refetch())
+    await act(async () => { await result.current.refetch() })
 
-    await waitFor(() => expect(result.current.event).toEqual(mockEvent))
+    expect(result.current.event).toEqual(mockEvent)
     expect(result.current.error).toBeNull()
   })
 })
