@@ -230,7 +230,7 @@ export default function EventStatsPage() {
       <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
         <SectionHeader
           title={<>Statistiques de <mark>l'événement</mark></>}
-          subtitle="Suivi en temps réel · rafraîchissement toutes les 60 s"
+          subtitle="Suivi en temps réel"
           align="left"
         />
         <Skeleton name="event-stats" loading animate="pulse" color={skeletonColor}>
@@ -264,7 +264,7 @@ export default function EventStatsPage() {
 
       <SectionHeader
         title={<>Statistiques de <mark>l'événement</mark></>}
-        subtitle={`« ${event.title} » · rafraîchissement toutes les 60 s`}
+        subtitle={`« ${event.title} »`}
         align="left"
       />
 
