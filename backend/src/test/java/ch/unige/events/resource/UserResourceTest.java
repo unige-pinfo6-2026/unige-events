@@ -774,7 +774,7 @@ class UserResourceTest {
                 java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(2),
                 EventCategory.ACADEMIC, null, null,
                 UUID.randomUUID(), EventStatus.PUBLISHED, null, false,
-                0L, null, 0L,
+                false, 0L, null, 0L,
                 null, null, null, java.util.List.of(),
                 java.time.LocalDateTime.now(), java.time.LocalDateTime.now()
         );
