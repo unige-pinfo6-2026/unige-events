@@ -27,7 +27,15 @@ components:
 
     User:
       type: object
-      description: Profil complet de l'utilisateur authentifié (UserProfileResponse backend)
+      description: |
+        Profil complet de l'utilisateur authentifié (UserProfileResponse backend).
+
+        **Note SCRUM-94 (rôle ADMIN).** Le champ `admin` n'est PAS exposé sur ce profil.
+        Le rôle ADMIN est porté exclusivement par la claim Auth0
+        (`https://quarkus-security.com/roles`) et consommé côté backend via
+        `@RolesAllowed("ADMIN")`. Le frontend qui souhaite afficher un badge « Admin »
+        doit lire la claim depuis le token Auth0
+        (`auth.user['https://quarkus-security.com/roles']`), pas depuis ce payload profil.
       properties:
         id:
           type: string
@@ -69,9 +77,6 @@ components:
           nullable: true
         profilePublic:
           type: boolean
-        admin:
-          type: boolean
-          # TODO: Sprint 6 — champ non encore implémenté dans l'entité User backend
         createdAt:
           type: string
           format: date-time
@@ -470,29 +475,82 @@ components:
 
     Report:
       type: object
-      # TODO: Sprint 6 — à implémenter côté backend
+      description: |
+        Représentation d'un signalement, retournée par `POST /api/events/{id}/report`,
+        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. `reporterId` et
+        `reviewedBy` sont des UUID nus (privacy + minimalisme — le frontend admin
+        drill-down via `GET /users/{id}` si besoin).
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
         reporterId:
           type: string
-        eventId:
-          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID de l'utilisateur ayant signalé. Nullable si le compte a été supprimé
+            (préservation de la trace).
         reason:
+          $ref: '#/components/schemas/ReportReason'
+        description:
           type: string
+          nullable: true
+          maxLength: 2000
+          description: Texte libre saisi par l'utilisateur en complément du motif catégoriel.
         status:
           $ref: '#/components/schemas/ReportStatus'
+        moderationNote:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: Note de modération laissée par l'admin au moment du PATCH.
         createdAt:
           type: string
           format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Posé par `PATCH /admin/reports/{id}`. Null tant que le signalement est PENDING.
+        reviewedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID de l'admin qui a tranché. Null tant que PENDING.
+      required: [id, eventId, reason, status, createdAt]
 
-    ReportRequest:
+    CreateReportRequest:
       type: object
-      # TODO: Sprint 6
+      description: |
+        Body de `POST /api/events/{id}/report`. La catégorie de motif (`reason`) est
+        obligatoire ; le texte libre (`description`) est optionnel et limité à 2000 chars.
       required: [reason]
       properties:
         reason:
+          $ref: '#/components/schemas/ReportReason'
+        description:
           type: string
+          maxLength: 2000
+          nullable: true
+
+    HandleReportRequest:
+      type: object
+      description: |
+        Body de `PATCH /api/admin/reports/{id}`. `status` doit être `REVIEWED` ou
+        `DISMISSED` — `PENDING` n'est pas un statut cible valide. `moderationNote` est
+        optionnel (texte libre, limité à 2000 chars).
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        moderationNote:
+          type: string
+          maxLength: 2000
+          nullable: true
 
     EventStats:
       type: object
@@ -648,6 +706,13 @@ components:
     ReportStatus:
       type: string
       enum: [PENDING, REVIEWED, DISMISSED]
+
+    ReportReason:
+      type: string
+      description: |
+        Catégorie de signalement choisie par l'utilisateur dans la modale frontend
+        (SCRUM-96). Persistée dans `reports.reason` avec une CHECK constraint côté DB.
+      enum: [SPAM, INAPPROPRIATE, FAKE, OTHER]
 
     ApiErrorResponse:
       type: object
@@ -2434,12 +2499,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 6
   /events/{id}/report:
     post:
       summary: Signaler un événement
+      description: |
+        Crée un signalement sur un événement PUBLISHED. Réservé aux utilisateurs
+        authentifiés non-créateurs et non-co-organisateurs ACCEPTED de l'événement.
+
+        Codes d'erreur :
+        - `400 cannot_report_draft` : l'événement est en statut DRAFT (non public).
+        - `400 cannot_report_cancelled` : l'événement est en statut CANCELLED.
+        - `404 not_found` : événement introuvable, ou profil utilisateur non provisionné.
+        - `409 already_reported` : l'utilisateur a déjà signalé cet événement (unique
+          constraint sur `(reporter_id, event_id)`).
+        - `422 cannot_report_own_event` : tentative de signalement de son propre event
+          (créateur ou co-organisateur ACCEPTED, cf. cascade SCRUM-136).
       operationId: reportEvent
-      tags: [events]
+      tags: [events, reports]
       security:
         - BearerAuth: []
       parameters:
@@ -2450,15 +2526,46 @@ paths:
             type: integer
             format: int64
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReportRequest'
+              $ref: '#/components/schemas/CreateReportRequest'
       responses:
-        '200':
-          description: Signalement enregistré
+        '201':
+          description: Signalement créé (status PENDING)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400':
+          description: Body invalide, ou `cannot_report_draft`, ou `cannot_report_cancelled`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable, ou profil utilisateur non provisionné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '409':
-          description: Déjà signalé par cet utilisateur
+          description: Cet utilisateur a déjà signalé cet événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            `cannot_report_own_event` — l'utilisateur est créateur ou co-organisateur
+            ACCEPTED de l'événement.
           content:
             application/json:
               schema:
@@ -2487,58 +2594,124 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
 
-  # TODO: Sprint 6
   /admin/reports:
     get:
-      summary: Liste des signalements — admin uniquement
-      operationId: getReports
-      tags: [admin]
+      summary: Liste paginée des signalements (admin uniquement)
+      description: |
+        Retourne la liste des signalements, triée par `createdAt DESC` (tie-breaker
+        `id DESC`). Filtre par `status` (défaut `PENDING`). Pagination identique à
+        `/users/me/favorites`. Réservé au rôle ADMIN
+        (`@RolesAllowed("ADMIN")` Quarkus Security).
+      operationId: listReports
+      tags: [admin, reports]
       security:
         - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReportStatus'
+          description: Filtre sur le statut. Défaut `PENDING`.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
-          description: Liste des signalements
+          description: Liste paginée des signalements (tableau vide si aucun)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Report'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Accès refusé (non admin)
+          description: Appelant authentifié mais sans rôle ADMIN
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/reports/{id}:
-    put:
-      summary: Traiter un signalement (dismiss ou supprimer l'événement)
+    patch:
+      summary: Traiter un signalement (admin uniquement)
+      description: |
+        Transitionne un signalement de `PENDING` vers `REVIEWED` ou `DISMISSED`. Pose
+        `reviewedAt = now()` et `reviewedBy = caller.id`. Optionnellement persiste une
+        `moderationNote`. Aucune action implicite n'est déclenchée sur l'événement
+        signalé (cf. décision 13 de `specs_scrum-94.md` — la suppression d'un event
+        reste une action manuelle séparée via `PATCH /events/{id}/cancel`).
+
+        Codes d'erreur :
+        - `400 invalid_status` : `status` du body n'est ni REVIEWED ni DISMISSED.
+        - `404 not_found` : signalement introuvable, ou profil admin non provisionné.
+        - `409 invalid_transition` : le signalement n'est plus en statut PENDING (déjà
+          traité).
       operationId: handleReport
-      tags: [admin]
+      tags: [admin, reports]
       security:
         - BearerAuth: []
-      # TODO: Sprint 6
       parameters:
         - name: id
           in: path
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                action:
-                  type: string
-                  enum: [DISMISS, REMOVE_EVENT]
+              $ref: '#/components/schemas/HandleReportRequest'
       responses:
         '200':
           description: Signalement traité
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400':
+          description: Body invalide (ex. `status=PENDING` ou statut inconnu)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Non autorisé
+          description: Appelant authentifié mais sans rôle ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Signalement introuvable, ou profil admin non provisionné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Le signalement n'est plus en statut PENDING (déjà traité)
           content:
             application/json:
               schema:

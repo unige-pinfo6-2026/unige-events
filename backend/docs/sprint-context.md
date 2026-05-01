@@ -187,6 +187,26 @@ Fix :
       (Flyway désormais source du schéma), `POST /co-organizers` sur body absent → 400
       via `@NotNull`, et `PATCH /me/accept|decline` sans row → 422
       `no_pending_invitation` au lieu de 404.
+- [x] **SCRUM-94** — Modération : enrichissement de l'entité `Report` (livrée par
+      SCRUM-103) avec l'enum `ReportReason` (SPAM/INAPPROPRIATE/FAKE/OTHER), `description`
+      (renommée depuis l'ancienne colonne `reason` libre), `moderationNote`, `reviewedAt`,
+      `reviewedBy`. Migration `V9__add_report_reason_and_review_fields.sql` (Hibernate en
+      `validate` : Flyway obligatoire — la mention « mode update » du libellé Jira est
+      obsolète depuis SCRUM-164). 3 endpoints : `POST /api/events/{id}/report`
+      (`@Authenticated`), `GET /api/admin/reports` (paginé, défaut `status=PENDING`,
+      tri `createdAt DESC`), `PATCH /api/admin/reports/{id}` (`@RolesAllowed("ADMIN")`,
+      transitions `PENDING → REVIEWED|DISMISSED` + audit `reviewedAt`/`reviewedBy`).
+      **Pas de champ `admin: boolean` sur `User`** — rôle géré exclusivement via la claim
+      Auth0 (`identity.hasRole("ADMIN")` + `@RolesAllowed`). Le TODO `admin` du schéma
+      `User` dans openapi.yaml a été retiré, et la section dédiée d'AGENTS.md a été
+      remplacée par une note sur la gestion via claim. La cascade SCRUM-136
+      (`isCreatorOrAcceptedCoOrganizerPublic`) interdit le self-report d'un event où
+      l'on est créateur ou co-organisateur ACCEPTED (422 `cannot_report_own_event`) ;
+      un co-organisateur PENDING peut signaler (sentinel cascade). `ModerationCleanupService`
+      (SCRUM-103) reste insensible — il ne lit que `r.event` et `r.status`. Hors scope :
+      auto-cancel d'event au passage en REVIEWED, bulk-handle, notifications. Frontend
+      SCRUM-96 (modale) et SCRUM-97 (dashboard admin) dépendants — attention au rename
+      de schéma OpenAPI `ReportRequest → CreateReportRequest`.
 
 ---
 
