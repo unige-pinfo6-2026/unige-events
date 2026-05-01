@@ -61,17 +61,14 @@ const logoutVariants = {
   sidebar:  { item: 'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-error hover:bg-error/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-5' },
 } as const
 
-function UserDropdownBanner({ item }: Readonly<{ item: NavItem }>) {
+function UserDropdownExpandable({ item }: Readonly<{ item: NavItem }>) {
   const Icon = item.icon
   const subLinks = item.subLinks ?? []
 
   return (
-    <Collapsible.Root
-      defaultOpen
-      className="mx-2 my-1 rounded-2xl border border-border/40 bg-foreground/[0.02] overflow-hidden"
-    >
+    <Collapsible.Root defaultOpen>
       <Collapsible.Trigger
-        className="group flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors cursor-pointer bg-transparent border-0"
+        className={`group ${dropdownItemClass} w-full justify-between cursor-pointer bg-transparent border-0 text-left`}
       >
         <span className="flex items-center gap-3">
           <Icon className="size-4 shrink-0" />
@@ -83,13 +80,13 @@ function UserDropdownBanner({ item }: Readonly<{ item: NavItem }>) {
         />
       </Collapsible.Trigger>
       <Collapsible.Content
-        className="overflow-hidden border-t border-border/40 motion-safe:data-[state=open]:animate-collapsible-open motion-safe:data-[state=closed]:animate-collapsible-close"
+        className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-open motion-safe:data-[state=closed]:animate-collapsible-close"
       >
         {subLinks.map(({ to, icon: SubIcon, label }) => (
           <Link
             key={to}
             to={to}
-            className="flex items-center gap-3 pl-9 pr-3 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+            className="flex items-center gap-3 pl-10 pr-4 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
           >
             <SubIcon className="size-4 shrink-0" />
             {label}
@@ -103,7 +100,7 @@ function UserDropdownBanner({ item }: Readonly<{ item: NavItem }>) {
 function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
   const Icon = item.icon
   if (item.subLinks) {
-    return <UserDropdownBanner item={item} />
+    return <UserDropdownExpandable item={item} />
   }
   return (
     <Link to={item.to} className={dropdownItemClass}>
