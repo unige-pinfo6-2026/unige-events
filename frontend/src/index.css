@@ -19,11 +19,15 @@
   --color-error: rgb(220, 38, 38);
   --color-warning: rgb(245, 158, 11);
 
+  --color-link: rgb(2, 132, 199);
+
   --animate-marquee: marquee 20s linear infinite;
   --animate-toast-in: toast-in 0.4s ease-out forwards;
   --animate-toast-out: toast-out 0.4s ease-in forwards;
   --animate-drafts-panel-open: drafts-panel-open 0.25s ease-out;
   --animate-drafts-panel-close: drafts-panel-close 0.2s ease-in;
+  --animate-collapsible-open: collapsible-open 0.2s ease-out;
+  --animate-collapsible-close: collapsible-close 0.2s ease-in;
 }
 
 [data-theme="dark"] {
@@ -32,6 +36,7 @@
 
   --color-overlay: rgba(255, 255, 255, 0.5);
   --color-border: rgba(255, 255, 255, 0.2);
+  --color-link: rgb(56, 189, 248);
 }
 
 html {
@@ -76,6 +81,16 @@ mark {
 @keyframes drafts-panel-close {
   from { height: var(--radix-collapsible-content-height); opacity: 1; }
   to { height: 0; opacity: 0; }
+}
+
+@keyframes collapsible-open {
+  from { height: 0; }
+  to { height: var(--radix-collapsible-content-height); }
+}
+
+@keyframes collapsible-close {
+  from { height: var(--radix-collapsible-content-height); }
+  to { height: 0; }
 }
 
 /* ── react-big-calendar theme overrides ─────────────────────────────── */
