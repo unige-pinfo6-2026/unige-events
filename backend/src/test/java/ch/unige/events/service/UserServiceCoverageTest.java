@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.InvalidFileTypeException;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -651,7 +652,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, svgContent());
         FileUpload upload = new StubFileUpload("xss.svg", "image/svg+xml", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|svg", upload));
     }
 
@@ -666,7 +667,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, svgContent());
         FileUpload upload = new StubFileUpload("xss.png", "image/png", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|svg-png", upload));
     }
 
@@ -680,7 +681,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08});
         FileUpload upload = new StubFileUpload("bad.png", "image/png", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|bin-png", upload));
     }
 
@@ -694,7 +695,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|mime", upload));
     }
 
@@ -708,7 +709,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|nullmime", upload));
     }
 
@@ -754,7 +755,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, svgContent());
         FileUpload upload = new StubFileUpload("xss.svg", "image/svg+xml", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadBanner("auth0|banner-svg", upload));
     }
 
@@ -768,7 +769,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, svgContent());
         FileUpload upload = new StubFileUpload("xss.png", "image/png", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadBanner("auth0|banner-svg-png", upload));
     }
 
@@ -782,7 +783,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(jakarta.ws.rs.BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadBanner("auth0|bannermime", upload));
     }
 

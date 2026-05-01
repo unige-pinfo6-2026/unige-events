@@ -10,6 +10,7 @@ import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.InvalidFileTypeException;
 
 import java.util.UUID;
 import io.quarkus.test.TestTransaction;
@@ -864,7 +865,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
                 () -> eventService.uploadImage(event.id, "auth0|mime", upload, false));
     }
 
@@ -878,7 +879,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
                 () -> eventService.uploadImage(event.id, "auth0|nullmime", upload, false));
     }
 
