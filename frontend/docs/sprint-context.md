@@ -1,6 +1,17 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-28
+Dernière mise à jour : 2026-05-01
+
+## Sprint 7 — Polish UX S7 — 2026-05-01
+
+Terminé. PR `chore` sans ticket Jira (`chore(frontend): polish navbar, skeletons, sticky FAB, link styling and draft redirect`) regroupant 6 frottements UX repérés au fil du sprint :
+
+1. **Navbar dropdown profil** : l'item `Mes événements` (3 sous-liens favoris/participations/publications) est désormais rendu via le composant local `UserDropdownBanner` à base de `Collapsible.Root` Radix, stylé en banner-card et **ouvert par défaut**. Plus de "menu dans menu". Sidebar mobile (`MobileNavItem`) inchangée.
+2. **Skeleton `drafts-resume-strip`** étendu de 1 à 3 breakpoints (320 / 720 / 1216) — fix le scaling des icônes/texte sur tablet et desktop. JSON manuel, pas de migration `generate.mjs`.
+3. **Bouton FAB `Créer un événement`** sur `MyPublicationsPage` : `position: fixed bottom-6 right-6` → `position: sticky bottom-6 self-end`. Ne recouvre plus le footer en bas de page.
+4. **Skeletons `event-edit` et `event-detail`** régénérés via `generate.mjs` pour matcher les layouts actuels — incl. la section groupée Date & heure, le champ Faculté, les champs additionnels SCRUM-117 (websiteUrl/contactEmail/registrationDeadline/tags) et la carte "Informations complémentaires" sur la page détail.
+5. **Liens `websiteUrl` et `contactEmail`** sur `EventDetailPage` rendus en bleu via la nouvelle CSS variable `--color-link` (sky-600 light / sky-400 dark) + classe `text-link`. Chips tags et lien organisateur sidebar volontairement laissés inchangés (cohérence visuelle).
+6. **Redirect automatique** `/events/:id` → `/events/:id/edit` sur DRAFT pour le créateur (admin exclu — il doit pouvoir modérer ; co-organisateur ACCEPTED suit en follow-up SCRUM-137 frontend). 4 tests automatisés ajoutés à `EventDetailPage.test.tsx`.
 
 ## Sprint 7 — Redirect post-login vers la page d'origine (SCRUM-S7) — 2026-04-28
 
