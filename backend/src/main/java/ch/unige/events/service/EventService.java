@@ -39,7 +39,7 @@ public class EventService {
 
     @Transactional
     @SuppressWarnings("java:S107") // Filter-heavy list endpoint — flat params match the REST query signature 1:1.
-    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone) {
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone, Boolean featured) {
         StringBuilder jpql = new StringBuilder("SELECT e FROM Event e");
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
@@ -66,6 +66,9 @@ public class EventService {
         if (endDateFrom != null) {
             conditions.add("e.endDate >= :endDateFrom");
             params.put("endDateFrom", endDateFrom);
+        }
+        if (Boolean.TRUE.equals(featured)) {
+            conditions.add("e.featured = true");
         }
 
         if (!conditions.isEmpty()) {
