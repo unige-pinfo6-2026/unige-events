@@ -1,8 +1,12 @@
 import { useState } from "react"
-import type { User } from "@/types/user"
+
+interface UserAvatarUser {
+  displayName?: string | null
+  avatarUrl?: string | null
+}
 
 interface UserAvatarProps {
-  user: User | null
+  user: UserAvatarUser | null
   className?: string
 }
 

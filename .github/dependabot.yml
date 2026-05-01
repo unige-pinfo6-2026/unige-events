@@ -10,6 +10,8 @@ updates:
       time: "08:00"
       timezone: Europe/Zurich
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(backend)"
     labels:
       - "dependencies"
       - "backend"
@@ -28,6 +30,9 @@ updates:
       time: "08:00"
       timezone: Europe/Zurich
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(frontend)"
+      prefix-development: "deps(frontend)"
     labels:
       - "dependencies"
       - "frontend"
@@ -55,6 +60,8 @@ updates:
       time: "08:00"
       timezone: Europe/Zurich
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(devops)"
 
   # Images Docker
   - package-ecosystem: docker
@@ -65,3 +72,5 @@ updates:
       time: "08:00"
       timezone: Europe/Zurich
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(frontend)"

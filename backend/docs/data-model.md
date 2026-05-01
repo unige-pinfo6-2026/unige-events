@@ -14,7 +14,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
-| `faculty` | `faculty` | `String` | `faculty` | nullable |
+| `faculty` | `faculty` | `String` | `faculty` | nullable (champ libre côté `User`) |
 | `studyLevel` | `studyLevel` | `String` | `study_level` | nullable |
 | `bio` | `bio` | `String` | `bio` | `@Column(columnDefinition="TEXT")` |
 | `interests` | `interests` | `List<String>` | `user_interests` | `@ElementCollection(fetch=EAGER)` |
@@ -160,15 +160,13 @@ Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une
 
 L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
 
-Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
-
 Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
 ### EventCoOrganizer
 
-Table : `event_co_organizers` (créée ex nihilo par Hibernate en SCRUM-136).
+Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -191,6 +189,10 @@ le créateur (`DELETE /events/{id}/co-organizers/{userId}`) et le decline par l'
 `DECLINED`. La valeur `DECLINED` reste définie dans l'enum `CoOrganizerStatus` mais n'apparaît jamais
 en base. Cette décision permet au créateur de ré-inviter la même personne après un refus, sans 409
 (la contrainte unique étant strictement basée sur la présence d'une row, pas sur son statut).
+
+`PATCH /events/{id}/co-organizers/me/accept` et `PATCH /events/{id}/co-organizers/me/decline`
+retournent `422 Unprocessable Entity` avec `error=no_pending_invitation` lorsqu'aucune row
+n'existe pour l'utilisateur courant sur cet événement (cf. fix de review SCRUM-136).
 
 #### Helpers statiques
 
@@ -218,6 +220,25 @@ SCRUM-136.
 
 L'invitation par le créateur OU un admin ; l'accept/decline est self-only (l'identité provient
 du JWT — pas de spoofing).
+
+---
+
+### Report
+
+Table : `reports`
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `reporter` | — | `User` | `reporter_id` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
+| `status` | `status` | `ReportStatus` | `status` | `@Enumerated(STRING)`, not null, défaut `PENDING` |
+| `reason` | `reason` | `String` | `reason` | nullable, `@Column(columnDefinition="TEXT")` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Index DB : `idx_report_event` (event_id), `idx_report_status` (status).
+
+Utilisée par `ModerationCleanupService` pour calculer le nombre de signalements `PENDING` par événement (job quotidien 03h00).
 
 ---
 
@@ -354,7 +375,7 @@ attendingCount, interestedCount, viewCount
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
-| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
+| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
@@ -412,17 +433,22 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 ---
 
-## Gestion du schéma
+## Gestion du schéma — Flyway
 
-Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).
+Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
-- Hibernate crée et met à jour les tables automatiquement au démarrage
-- Aucun fichier SQL de migration n'est utilisé ni requis
+- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
 
-> **À surveiller pour `event_co_organizers_status_check` (SCRUM-136).** Hibernate pose la
-> contrainte `event_co_organizers_status_check` à la création initiale de la table en S7
-> (création ex nihilo — aucune réconciliation rétroactive nécessaire dans la PR SCRUM-136).
-> Toute future modification du `CoOrganizerStatus` (ajout d'une valeur, rename) **devra**
-> être accompagnée d'un bloc de réconciliation explicite (cf. SCRUM-164) pour aligner
-> les bases existantes — Hibernate `update` ne reconcilie jamais les CHECK rétroactivement.
+### V1 — Réconciliation des contraintes CHECK
+
+`V1__reconcile_check_constraints.sql` est la première migration : elle drop+recrée `events_faculty_check`, `events_category_check`, `events_status_check` et `attendances_status_check` avec les valeurs courantes des enums Java. Elle remplace l'ancien bean `SchemaFixup` qui faisait le même travail au démarrage.
+
+> **À surveiller pour `event_co_organizers_status_check` (SCRUM-136).** La table
+> `event_co_organizers` est créée par la migration `V8__create_event_co_organizers.sql`,
+> qui pose la CHECK initiale sur `CoOrganizerStatus`. Toute future modification de l'enum
+> (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
+> drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
+> muter une migration committée.
