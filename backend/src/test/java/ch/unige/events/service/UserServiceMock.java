@@ -74,13 +74,15 @@ public class UserServiceMock extends UserService {
     }
 
     @Override
-    public User getPublicProfile(UUID id) {
+    public User getPublicProfile(UUID id, String auth0Id) {
         User user = usersById.get(id);
         if (user == null) {
             throw new NotFoundException();
         }
-        if (!user.profilePublic) {
-            throw new ForbiddenException("This profile is private");
+        // Same rule as prod — hotfix pentest 4.1 (404 anti-oracle, self-case bypass).
+        boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
+        if (!user.profilePublic && !isOwner) {
+            throw new NotFoundException();
         }
         return user;
     }

@@ -5,9 +5,10 @@ interface TagInputProps {
   onChange: (tags: string[]) => void
   placeholder?: string
   maxTags?: number
+  inputId?: string
 }
 
-export default function TagInput({ value, onChange, placeholder = 'Add a tag...', maxTags }: Readonly<TagInputProps>) {
+export default function TagInput({ value, onChange, placeholder = 'Add a tag...', maxTags, inputId }: Readonly<TagInputProps>) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   function addTag(raw: string) {
@@ -65,6 +66,7 @@ export default function TagInput({ value, onChange, placeholder = 'Add a tag...'
       {!atMax && (
         <input
           ref={inputRef}
+          id={inputId}
           type="text"
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}

@@ -1,6 +1,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, AuthContext } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { useContext } from 'react'
@@ -27,26 +28,28 @@ const mockUser = {
   admin: false,
 }
 
-function TestConsumer() {
+function TestConsumer({ loginReturnTo }: { loginReturnTo?: string } = {}) {
   const ctx = useContext(AuthContext)
   return (
     <div>
       <span data-testid="user">{ctx?.user?.displayName ?? 'null'}</span>
       <span data-testid="loading">{String(ctx?.isLoading)}</span>
-      <button onClick={() => ctx?.login()}>login</button>
+      <button onClick={() => ctx?.login(loginReturnTo)}>login</button>
       <button onClick={() => ctx?.logout()}>logout</button>
       <button onClick={() => ctx?.updateUser({ ...mockUser, displayName: 'Updated' })}>update</button>
     </div>
   )
 }
 
-function renderProvider() {
+function renderProvider(loginReturnTo?: string, initialPath = '/') {
   return render(
-    <ToastProvider>
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>
-    </ToastProvider>,
+    <MemoryRouter initialEntries={[initialPath]}>
+      <ToastProvider>
+        <AuthProvider>
+          <TestConsumer loginReturnTo={loginReturnTo} />
+        </AuthProvider>
+      </ToastProvider>
+    </MemoryRouter>,
   )
 }
 
@@ -56,7 +59,7 @@ afterEach(() => {
 })
 
 describe('AuthContext', () => {
-  it('calls loginWithRedirect when login is invoked', () => {
+  it('calls loginWithRedirect with returnTo when login is invoked with a path', () => {
     const loginWithRedirect = vi.fn()
     mockUseAuth0.mockReturnValue({
       isAuthenticated: false,
@@ -66,11 +69,79 @@ describe('AuthContext', () => {
       logout: vi.fn(),
       getAccessTokenSilently: vi.fn(),
     })
-    renderProvider()
+    renderProvider('/events/new')
     act(() => {
       screen.getByText('login').click()
     })
-    expect(loginWithRedirect).toHaveBeenCalledOnce()
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/events/new' } })
+  })
+
+  it('falls back to current location when login is invoked without returnTo', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider(undefined, '/calendar')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/calendar' } })
+  })
+
+  it('falls back to / when returnTo is an external URL to prevent open redirect', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider('https://evil.com/steal')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/' } })
+  })
+
+  it('falls back to / when returnTo is a protocol-relative URL', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider('//evil.com/steal')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/' } })
+  })
+
+  it('falls back to / when returnTo is a /login path to prevent redirect loops', () => {
+    const loginWithRedirect = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      loginWithRedirect,
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn(),
+    })
+    renderProvider('/login/callback')
+    act(() => {
+      screen.getByText('login').click()
+    })
+    expect(loginWithRedirect).toHaveBeenCalledWith({ appState: { returnTo: '/' } })
   })
 
   it('calls setToken(null) and auth0Logout when logout is invoked', () => {

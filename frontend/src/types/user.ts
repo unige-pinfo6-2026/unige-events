@@ -1,3 +1,14 @@
+export interface UserPublicResponse {
+  id: string
+  displayName?: string | null
+  faculty?: string | null
+  studyLevel?: string | null
+  bio?: string | null
+  interests?: string[]
+  avatarUrl?: string | null
+  bannerUrl?: string | null
+}
+
 export type User = {
   id: string
   auth0Id: string

@@ -1,6 +1,52 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-14
+Dernière mise à jour : 2026-04-28
+
+## Sprint 7 — Redirect post-login vers la page d'origine (SCRUM-S7) — 2026-04-28
+
+Terminé.
+
+Fonctionnalités livrées :
+- `PrivateRoute` passe l'URL tentée (`pathname + search + hash`) dans `state.returnTo` lors de la redirection vers `/login`.
+- `LoginPage` lit `location.state?.returnTo` et le transmet à `login(returnTo)`.
+- `AuthContext.login(returnTo?)` : utilise `returnTo` si fourni, sinon fallback sur `location.pathname + search + hash` courant (couvre les boutons Navbar sans argument). Garde-fou double : URL externe (`http://`, `https://`, `//`) → fallback `/` ; path `/login*` → fallback `/` (anti-boucle).
+- `AuthProvider.onRedirectCallback` : même validation avant de passer à `navigate()`.
+- `LoginCallbackPage` : suppression du `<Navigate to="/" />` déclenché sur `isAuthenticated` qui écrasait la navigation impérative de `onRedirectCallback`.
+- `Navbar` : `onClick={login}` → `onClick={() => login()}` pour éviter que React passe le `SyntheticEvent` comme `returnTo`.
+- Imports `../services/*` → `@/services/*` dans `AuthContext.tsx`.
+- Tests : `PrivateRoute.test.tsx` (state.returnTo), `LoginPage.test.tsx` (avec/sans returnTo), `AuthContext.test.tsx` (returnTo explicite, fallback location courante, anti-boucle /login, anti open-redirect http:// et //), `LoginCallbackPage.test.tsx` (pas de navigation vers / sur isAuthenticated).
+
+## Sprint 6 — Aperçu "Mes publications" sur ProfilePage (SCRUM-134 / US-23, scope réduit) — 2026-04-26
+
+Livré.
+
+Fonctionnalités livrées :
+- **`MyPublicationsPreview`** (`src/components/profile/MyPublicationsPreview.tsx`) inséré en colonne gauche de `ProfilePage`, sous la card "À propos", uniquement pour `isOwnProfile`. Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` qui rappellent `useMyEvents(status)` (refetch par statut, pas de partage de state avec `MyPublicationsPage`). Affiche jusqu'à 3 événements récents via `PreviewRow`. Compte `(N)` uniquement sur l'onglet actif (le hook ne fetch qu'un statut à la fois — pas de requêtes parallèles juste pour les libellés inactifs). État vide spécifique par statut + CTA `Créer un événement` uniquement sur `Publiés` vide. Lien `Voir toutes mes publications` qui préserve l'onglet via `?status=…`.
+- **`PreviewRow`** (`src/components/profile/PreviewRow.tsx`) : ligne compacte tappable (vignette + titre + date + participants + badge statut), lien `<Link>` vers `/events/{id}`.
+- **Refactor : extraction de `EVENT_STATUS_VARIANTS` et `EVENT_STATUS_PARAMS`** dans `src/utils/eventStatusStyles.ts`. `MyPublicationsPage` consomme désormais le const map partagé pour ses badges (seul changement autorisé). Aucune modification de `useMyEvents`.
+- **Hors scope (différé)** : onglet `Archives` sur `MyPublicationsPage` (CANCELLED ∪ PUBLISHED past-end) et action `Recréer cet événement`. Bloqués par dépendances backend (endpoint `POST /events/{id}/duplicate` non implémenté côté frontend) et par l'absence de capacité de pré-remplissage sur `EventCreatePage`. À documenter dans le worklog SCRUM-134 pour arbitrage produit.
+
+## Sprint 6 — Filtre par tags sur la recherche (SCRUM-131 + SCRUM-132) — 2026-04-22
+- Hook `useImageCropFlow` (`src/hooks/useImageCropFlow.ts`) : encapsule le flux sélection fichier → validation → FileReader → cropper → Blob → File. Préserve le nom original, reset l'input pour permettre la re-sélection du même fichier après cancel.
+- `ProfileEditPage` : intégration sur l'avatar (aspect 1:1, circular) et la bannière profil (aspect 3:1). Validation MIME + taille préservée avant ouverture du cropper.
+- `useEventForm` + `EventForm` : intégration sur la bannière événement (aspect 16:9). 4 nouvelles props sur `EventForm` (`cropSource`, `cropAspect`, `onCropConfirm`, `onCropCancel`). `EventCreatePage` et `EventEditPage` passent simplement les valeurs du hook à `EventForm`.
+- Aucun nouvel endpoint ni modification des services — la conversion Blob → File préserve la signature `(file: File)` de `uploadPhoto`, `uploadBanner`, `uploadEventImage`.
+- Aucun nouveau skeleton — la modale n'a pas d'état loading.
+- Tests : 10 nouveaux pour `useImageCropFlow`, tests `handleImageChange` adaptés + 1 nouveau (`cancelCrop`) pour `useEventForm`, ~5 adaptés + 2 nouveaux pour `ProfileEditPage`, 2 nouveaux pour `EventForm`. `ImageCropper.test.tsx` non touché.
+
+Terminé.
+
+## Sprint 6 — Intégration ImageCropper sur avatar + bannières (SCRUM-123) — 2026-04-22
+
+Fonctionnalités livrées :
+- Backend : paramètre `?tags=` (multi-valeurs) sur `GET /api/events/search`. Sémantique OR via clause JPQL `EXISTS`. Normalisation lowercase via `EventService.normalizeTags` (réutilisée).
+- Frontend : section « Mots-clés » dans `EventSearchSidebar` avec `TagInput` existant (SCRUM-128). Synchro état ↔ URL via `URLSearchParams.append('tags', t)`. Tags inclus dans `SearchParams` envoyés à l'API.
+- Axios : `paramsSerializer: { indexes: null }` configuré dans `searchApi.ts` pour produire `?tags=a&tags=b` (sans crochets), format attendu par JAX-RS.
+- Type `Event` enrichi du champ `tags?: string[]` (la search response l'expose désormais).
+- Tests : 5 nouveaux tests REST + 6 DB-backed côté backend ; 4 sidebar + 4 hook + 1 service + mises à jour des tests existants côté frontend.
+- Aucun nouveau skeleton — la sidebar n'a pas d'état loading.
+
+Terminé.
 
 ## Sprint 5 — Mes Événements (SCRUM-93) — 2026-04-14
 
@@ -17,6 +63,17 @@ Fonctionnalités livrées :
 - Skeleton `my-events.bones.json` partagé entre les trois pages (même grid 4 cards).
 - **Navbar** : dropdown utilisateur avec sous-menu inline *nested* sous "Mes événements" (pattern `group-hover/nested` + `grid grid-rows-[0fr→1fr]` pour une expansion fluide en flow, pas en flyout). Sur mobile (sidebar), réutilise `MobileNavItem` qui gère déjà les `subLinks` via un bouton click-to-expand.
 - Routes `/my-events`, `/my-events/favorites`, `/my-events/participations`, `/my-events/publications` enregistrées sous `PrivateRoute`.
+## Sprint 6 — Indicateur capacité et liste d'attente (S6) — 2026-04-23
+
+Terminé le 2026-04-23.
+
+Fonctionnalités livrées :
+- **Types TypeScript mis à jour** : `AttendanceStatus` passe à `'ATTENDING' | 'WAITLISTED'` ; `Event` reçoit `availableSpots?: number | null` et `waitlistedCount?: number` (alignement sur openapi.yaml).
+- **`EventDetailPage` — indicateur visuel de capacité** : si `event.capacity != null && event.availableSpots != null`, affiche un badge coloré : rouge "Complet" (`availableSpots === 0`), orange "Presque complet" (`<= capacity * 0.1`), vert "X places disponibles". Si `waitlistedCount > 0`, affiche "X en liste d'attente". Remplace le `ComingSoonBlock` placeholder.
+- **`AttendanceButtons` — gestion liste d'attente** : nouvelle prop `availableSpots` transmise au hook. Quand l'événement est complet (`isFull`) et l'utilisateur n'est pas inscrit, le bouton affiche "Rejoindre la liste d'attente". Quand `currentStatus === 'WAITLISTED'`, affiche "En liste d'attente" (style warning). Suppression du tooltip disabled au profit d'un bouton toujours cliquable.
+- **`useAttendance` — support WAITLISTED** : nouvelle signature `initialAvailableSpots?: number | null` pour initialiser `isFull`. Toggle unifié : si `currentStatus !== null` (ATTENDING ou WAITLISTED) → `unattend()`; sinon → `attend()`. Après succès d'`attend()`, `currentStatus` est mis à jour depuis la réponse serveur ; si WAITLISTED, `attendingCount` n'est pas incrémenté.
+- **Tests** : 831 tests passing. `useAttendance.test.ts` enrichi (WAITLISTED unattend sans décrément, réponse serveur WAITLISTED, initialAvailableSpots). `AttendanceButtons.test.tsx` refondu pour le nouveau comportement.
+
 ## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
 
 Terminé le 2026-04-18.
@@ -27,6 +84,21 @@ Fonctionnalités livrées :
 - Bouton "Recadrer" désactivé tant qu'aucune zone n'est sélectionnée.
 - Dépendance `react-image-crop` ajoutée.
 - 6 tests unitaires couvrant le rendu, les callbacks et les variantes aspect/circular.
+
+## Sprint 6 — Champs additionnels événement (SCRUM-117 / US-28) — 2026-04-23
+
+Terminé le 2026-04-23.
+
+Fonctionnalités livrées :
+- 4 nouveaux champs optionnels exposés dans `EventForm` (`src/components/event/EventForm.tsx`) et `EventDetailPage` (`src/pages/event/EventDetailPage.tsx`) :
+  - `websiteUrl` — Input `type="url"`, max 500, validation `new URL()` + protocole http(s).
+  - `contactEmail` — Input `type="email"`, max 255, validation regex simple (backend `@Email` autoritatif).
+  - `registrationDeadline` — date + sélecteurs d'heure réutilisant le pattern `startDate`/`endDate`, ignore `allDay`. Validation frontend uniquement : deadline strictement antérieure à `startDate`.
+  - `tags` — composant `TagInput` existant, max 20 tags × 64 caractères chacun.
+- Types `Event`, `CreateEventRequest`, `UpdateEventRequest` étendus (`src/types/event.ts`). Nouvelles constantes exportées : `EVENT_WEBSITE_URL_MAX_LENGTH = 500`, `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255`, `EVENT_TAG_MAX_LENGTH = 64`, `EVENT_TAGS_MAX_ITEMS = 20`.
+- `useEventForm` (`src/hooks/useEventForm.ts`) : validation client des 4 champs + mapping payload normalisant chaîne vide → `null` et tableau vide → `null` (sémantique PUT complète).
+- `EventDetailPage` : bloc conditionnel *Informations complémentaires* (affiché uniquement si au moins un des 4 champs est renseigné) — lien externe `target="_blank" rel="noopener noreferrer"`, `mailto:`, deadline formatée via `formatEventDateTime`, chips `tags` cliquables vers `/events/search?q=<tag>` (le backend n'a pas encore de paramètre de filtre tag dédié, fallback sur le full-text `q`).
+- Tests : ~29 tests unitaires ajoutés répartis sur `useEventForm.test.tsx`, `EventForm.test.tsx` et `EventDetailPage.test.tsx`. Couverture locale ≥ 94 % lignes sur les trois fichiers modifiés. Suite globale : 859 tests verts (exécution avec `TZ=UTC` requise — conformément aux tests de payload ISO existants).
 
 ## Sprint 1 — Authentification & profils
 

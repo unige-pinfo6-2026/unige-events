@@ -135,6 +135,46 @@ class EventStatsServiceCoverageTest {
     }
 
     // -------------------------------------------------------------------------
+    // SCRUM-136 — Cascade getStats autorise un co-organisateur ACCEPTED
+    // -------------------------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    void getStats_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|stats-cas-c", "stats-cas-c@example.com");
+        User coOrg = persistUser("auth0|stats-cas-co", "stats-cas-co@example.com");
+        Event event = persistEvent("Cascade Stats", creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+        entityManager.flush();
+
+        EventStatsDTO dto = eventStatsService.getStats(coOrg.auth0Id, event.id);
+
+        assertEquals(0L, dto.attendingCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getStats_byPendingCoOrganizer_throwsForbidden() {
+        User creator = persistUser("auth0|stats-pen-c", "stats-pen-c@example.com");
+        User coOrg = persistUser("auth0|stats-pen-co", "stats-pen-co@example.com");
+        Event event = persistEvent("Stats Pending", creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.PENDING);
+        entityManager.flush();
+
+        assertThrows(ForbiddenException.class,
+                () -> eventStatsService.getStats(coOrg.auth0Id, event.id));
+    }
+
+    private void persistCoOrg(Long eventId, UUID userId, ch.unige.events.entity.CoOrganizerStatus status) {
+        ch.unige.events.entity.EventCoOrganizer e = new ch.unige.events.entity.EventCoOrganizer();
+        e.eventId = eventId;
+        e.userId = userId;
+        e.status = status;
+        entityManager.persist(e);
+        entityManager.flush();
+    }
+
+    // -------------------------------------------------------------------------
     // EventView.prePersist() — couverture entité
     // -------------------------------------------------------------------------
 

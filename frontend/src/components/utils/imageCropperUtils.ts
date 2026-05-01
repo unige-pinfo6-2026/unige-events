@@ -13,28 +13,28 @@ export async function cropToBlob(
   pixelCrop: PixelCrop,
   circular: boolean,
 ): Promise<Blob> {
+  // react-image-crop renvoie les coordonnées dans les pixels *affichés* de l'image,
+  // mais drawImage interprète le rectangle source dans les pixels *naturels*.
+  // Sans ce ratio, on extrait un fragment minuscule coincé dans le coin haut-gauche.
+  const scaleX = image.naturalWidth / image.width
+  const scaleY = image.naturalHeight / image.height
+  const sx = pixelCrop.x * scaleX
+  const sy = pixelCrop.y * scaleY
+  const sw = pixelCrop.width * scaleX
+  const sh = pixelCrop.height * scaleY
+
   const canvas = document.createElement('canvas')
-  canvas.width = pixelCrop.width
-  canvas.height = pixelCrop.height
+  canvas.width = sw
+  canvas.height = sh
   const ctx = canvas.getContext('2d')!
 
   if (circular) {
     ctx.beginPath()
-    ctx.arc(pixelCrop.width / 2, pixelCrop.height / 2, Math.min(pixelCrop.width, pixelCrop.height) / 2, 0, Math.PI * 2)
+    ctx.arc(sw / 2, sh / 2, Math.min(sw, sh) / 2, 0, Math.PI * 2)
     ctx.clip()
   }
 
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height,
-  )
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh)
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

@@ -189,8 +189,12 @@ export default function EventEditPage() {
         draftSaving={form.draftSaving}
         imagePreview={form.imagePreview}
         selectedImageName={form.selectedImageName}
+        cropSource={form.cropSource}
+        cropAspect={form.cropAspect}
         onFieldChange={form.setFieldValue}
         onImageChange={form.handleImageChange}
+        onCropConfirm={form.confirmCrop}
+        onCropCancel={form.cancelCrop}
         onSubmit={draftMode ? handleDraftEditSubmit : form.handleSubmit}
         onCancel={draftMode ? undefined : () => {
           form.clearPersistedDraft()

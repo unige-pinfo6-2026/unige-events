@@ -3,6 +3,10 @@ import type { ChangeEvent, FormEvent } from 'react'
 import axios from 'axios'
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 import {
+  EVENT_CONTACT_EMAIL_MAX_LENGTH,
+  EVENT_TAG_MAX_LENGTH,
+  EVENT_TAGS_MAX_ITEMS,
+  EVENT_WEBSITE_URL_MAX_LENGTH,
   type CreateEventRequest,
   type Event,
   type EventCategory,
@@ -11,6 +15,7 @@ import {
 } from '@/types/event'
 import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
+import { useImageCropFlow } from '@/hooks/useImageCropFlow'
 
 export interface EventFormValues {
   title: string
@@ -23,6 +28,10 @@ export interface EventFormValues {
   capacity: string
   status: EventStatus
   allDay: boolean
+  websiteUrl: string
+  contactEmail: string
+  registrationDeadline: string
+  tags: string[]
 }
 
 export interface EventFormErrors {
@@ -34,6 +43,10 @@ export interface EventFormErrors {
   category?: string
   capacity?: string
   image?: string
+  websiteUrl?: string
+  contactEmail?: string
+  registrationDeadline?: string
+  tags?: string
 }
 
 interface UseEventFormOptions {
@@ -51,8 +64,12 @@ interface UseEventFormResult {
   draftSaving: boolean
   imagePreview: string | null
   selectedImageName: string | null
+  cropSource: string | null
+  cropAspect: number
   setFieldValue: <K extends keyof EventFormValues>(field: K, value: EventFormValues[K]) => void
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  confirmCrop: (blob: Blob) => void
+  cancelCrop: () => void
   handleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>
   triggerDraftSave: () => Promise<void>
   triggerPublish: () => Promise<void>
@@ -88,6 +105,10 @@ const DEFAULT_VALUES: EventFormValues = {
   capacity: '',
   status: 'PUBLISHED',
   allDay: false,
+  websiteUrl: '',
+  contactEmail: '',
+  registrationDeadline: '',
+  tags: [],
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -98,6 +119,10 @@ const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
   'endDate',
   'category',
   'capacity',
+  'websiteUrl',
+  'contactEmail',
+  'registrationDeadline',
+  'tags',
 ])
 
 const FIELD_LABELS: Record<string, string> = {
@@ -110,12 +135,17 @@ const FIELD_LABELS: Record<string, string> = {
   capacity: 'La capacité',
   status: 'Le statut',
   bannerUrl: 'La bannière',
+  websiteUrl: 'Le site web',
+  contactEmail: "L'email de contact",
+  registrationDeadline: "La date limite d'inscription",
+  tags: 'Les mots-clés',
 }
 
 export const EVENT_TITLE_MAX_LENGTH = 120
 export const EVENT_DESCRIPTION_MAX_LENGTH = 2000
 export const IMAGE_MAX_SIZE_MB = 5
 export const IMAGE_MAX_SIZE_BYTES = IMAGE_MAX_SIZE_MB * 1024 * 1024
+export const EVENT_BANNER_ASPECT = 16 / 9
 
 function toApiDateTime(dateTime: string): string {
   return new Date(dateTime).toISOString()
@@ -148,7 +178,45 @@ function toFormValues(event?: Event | null): EventFormValues {
     capacity: event.capacity?.toString() ?? '',
     status: event.status,
     allDay: event.allDay ?? false,
+    websiteUrl: event.websiteUrl ?? '',
+    contactEmail: event.contactEmail ?? '',
+    registrationDeadline: event.registrationDeadline ? toLocalDateTimeInputValue(event.registrationDeadline) : '',
+    tags: event.tags ?? [],
   }
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+// Basic RFC 5322-adjacent check sufficient for inline UX feedback; backend @Email is authoritative.
+// Implemented with single-pass string scans (indexOf / charCodeAt) rather than a regex so that
+// adversarial inputs cannot trigger super-linear backtracking. Equivalent semantics to the prior
+// /^[^\s@]+@[^\s@]+\.[^\s@]+$/ pattern: exactly one '@', a '.' in the domain not at its edges,
+// and no whitespace anywhere.
+function isValidEmail(email: string): boolean {
+  const atIndex = email.indexOf('@')
+  if (atIndex <= 0) return false
+  if (atIndex !== email.lastIndexOf('@')) return false
+  const domain = email.slice(atIndex + 1)
+  if (domain.length === 0) return false
+  const dotIndex = domain.indexOf('.')
+  if (dotIndex <= 0 || dotIndex === domain.length - 1) return false
+  for (let i = 0; i < email.length; i++) {
+    const code = email.charCodeAt(i)
+    if (
+      code === 0x20 || (code >= 0x09 && code <= 0x0d) || code === 0xa0 ||
+      code === 0x1680 || (code >= 0x2000 && code <= 0x200a) ||
+      code === 0x2028 || code === 0x2029 || code === 0x202f || code === 0x205f ||
+      code === 0x3000 || code === 0xfeff
+    ) return false
+  }
+  return true
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -387,33 +455,43 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     }
   }
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-
-    if (!file.type.startsWith('image/')) {
-      setErrors((current) => ({ ...current, image: 'Le fichier doit être une image.' }))
-      return
-    }
-
+  function validateImage(file: File): string | null {
+    if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
     if (file.size > IMAGE_MAX_SIZE_BYTES) {
-      setErrors((current) => ({ ...current, image: `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).` }))
-      return
+      return `Le fichier dépasse la taille maximale autorisée (${IMAGE_MAX_SIZE_MB} Mo).`
     }
+    return null
+  }
+
+  const imageCrop = useImageCropFlow({
+    aspect: EVENT_BANNER_ASPECT,
+    circular: false,
+    validate: validateImage,
+    onValidationError: (message) => setErrors((current) => ({ ...current, image: message })),
+  })
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    imageCrop.handleFileSelect(event)
+  }
+
+  function confirmCrop(blob: Blob) {
+    const file = imageCrop.confirmCrop(blob)
+    if (!file) return
 
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current)
     }
-
-    const previewUrl = URL.createObjectURL(file)
+    const previewUrl = URL.createObjectURL(blob)
     objectUrlRef.current = previewUrl
 
     setImageFile(file)
     setSelectedImageName(file.name)
     setImagePreview(previewUrl)
     setErrors((current) => ({ ...current, image: undefined }))
+  }
+
+  function cancelCrop() {
+    imageCrop.cancelCrop()
   }
 
   function validate(): boolean {
@@ -473,6 +551,42 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
       }
     }
 
+    const websiteUrl = values.websiteUrl.trim()
+    if (websiteUrl) {
+      if (websiteUrl.length > EVENT_WEBSITE_URL_MAX_LENGTH) {
+        nextErrors.websiteUrl = `L'URL ne doit pas dépasser ${EVENT_WEBSITE_URL_MAX_LENGTH} caractères.`
+      } else if (!isValidHttpUrl(websiteUrl)) {
+        nextErrors.websiteUrl = "L'URL du site web est invalide."
+      }
+    }
+
+    const contactEmail = values.contactEmail.trim()
+    if (contactEmail) {
+      if (contactEmail.length > EVENT_CONTACT_EMAIL_MAX_LENGTH) {
+        nextErrors.contactEmail = `L'email ne doit pas dépasser ${EVENT_CONTACT_EMAIL_MAX_LENGTH} caractères.`
+      } else if (!isValidEmail(contactEmail)) {
+        nextErrors.contactEmail = "L'email de contact est invalide."
+      }
+    }
+
+    if (values.registrationDeadline) {
+      const deadline = new Date(values.registrationDeadline)
+      if (Number.isNaN(deadline.getTime())) {
+        nextErrors.registrationDeadline = "La date limite d'inscription est invalide."
+      } else if (values.startDate && !nextErrors.startDate) {
+        const startDate = new Date(applyAllDayBounds(values.startDate, values.allDay, 'start'))
+        if (!Number.isNaN(startDate.getTime()) && deadline >= startDate) {
+          nextErrors.registrationDeadline = "La date limite d'inscription doit être antérieure à la date de début."
+        }
+      }
+    }
+
+    if (values.tags.length > EVENT_TAGS_MAX_ITEMS) {
+      nextErrors.tags = `Vous ne pouvez pas ajouter plus de ${EVENT_TAGS_MAX_ITEMS} mots-clés.`
+    } else if (values.tags.some((tag) => tag.length > EVENT_TAG_MAX_LENGTH)) {
+      nextErrors.tags = `Chaque mot-clé doit faire au plus ${EVENT_TAG_MAX_LENGTH} caractères.`
+    }
+
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -497,6 +611,8 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
 
     // Step 1: create / update the event
     try {
+      const trimmedWebsiteUrl = values.websiteUrl.trim()
+      const trimmedContactEmail = values.contactEmail.trim()
       const payload: CreateEventRequest = {
         title: values.title.trim(),
         description: values.description.trim() || undefined,
@@ -508,6 +624,10 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
         capacity: values.capacity.trim() ? Number(values.capacity) : undefined,
         status: effectiveStatus,
         allDay: values.allDay,
+        websiteUrl: trimmedWebsiteUrl || null,
+        contactEmail: trimmedContactEmail || null,
+        registrationDeadline: values.registrationDeadline ? toApiDateTime(values.registrationDeadline) : null,
+        tags: values.tags.length > 0 ? values.tags : null,
       }
 
       if (mode === 'create') {
@@ -582,8 +702,12 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     draftSaving,
     imagePreview,
     selectedImageName,
+    cropSource: imageCrop.cropSource,
+    cropAspect: imageCrop.aspect,
     setFieldValue,
     handleImageChange,
+    confirmCrop,
+    cancelCrop,
     handleSubmit,
     triggerDraftSave,
     triggerPublish,

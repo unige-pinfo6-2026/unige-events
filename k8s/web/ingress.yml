@@ -4,16 +4,10 @@ metadata:
   name: web
   namespace: unige-events
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "5m"
 spec:
-  tls:
-    - hosts:
-        - pinfo6.duckdns.org
-      secretName: unige-events-tls
   rules:
-    - host: pinfo6.duckdns.org
+    - host: pinfo6.p-info.net
       http:
         paths:
           - path: /api
@@ -37,18 +31,13 @@ metadata:
   name: s3
   namespace: unige-events
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
-  tls:
-    - hosts:
-        - pinfo6.duckdns.org
-      secretName: unige-events-tls
   rules:
-    - host: pinfo6.duckdns.org
+    - host: pinfo6.p-info.net
       http:
         paths:
           - path: /s3(/|$)(.*)

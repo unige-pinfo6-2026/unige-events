@@ -76,16 +76,30 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | creatorId   | string        | oui    |
 | status      | EventStatus   | oui    |
 | capacity        | number        | non    |
+| availableSpots  | number \| null | non   |
+| waitlistedCount | number        | non    |
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
 | interestedCount | number        | non    |
+| websiteUrl              | string \| null | non |
+| contactEmail            | string \| null | non |
+| registrationDeadline    | string ISO 8601 \| null | non |
+| tags                    | string[]       | non |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
+
+**Constantes de validation frontend** (`src/types/event.ts`) :
+- `EVENT_WEBSITE_URL_MAX_LENGTH = 500` — longueur max de `websiteUrl`
+- `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
+- `EVENT_TAG_MAX_LENGTH = 64` — longueur max d'un tag individuel
+- `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
 
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`.
+
+`websiteUrl`, `contactEmail`, `registrationDeadline` acceptent `null` pour effacer la valeur ; `tags` accepte `null` ou `string[]`. Le frontend envoie `null` plutôt qu'une chaîne vide lorsque l'utilisateur laisse le champ vide.
 
 ### UpdateEventRequest
 
@@ -118,6 +132,21 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 
 Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
 
+### UserPublicResponse
+
+Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+
+| Champ       | Type                      | Requis |
+|-------------|---------------------------|--------|
+| id          | string                    | oui    |
+| displayName | string \| null            | non    |
+| faculty     | string \| null            | non    |
+| studyLevel  | string \| null            | non    |
+| bio         | string \| null            | non    |
+| interests   | string[]                  | non    |
+| avatarUrl   | string \| null            | non    |
+| bannerUrl   | string \| null            | non    |
+
 ---
 
 ---
@@ -131,6 +160,7 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 - category : EventCategory — filtre catégorie (valeur unique)
 - faculty : Faculty — filtre faculté (valeur unique de `Faculty` depuis `src/types/faculty.ts`)
 - facultyNone : boolean — si `true`, filtre sur les événements dont `faculty` est null (non rattachés à une faculté précise). Mutuellement exclusif avec `faculty` côté UI ; côté serveur, `facultyNone` a priorité si les deux sont fournis.
+- tags : string[] — filtre par mots-clés (au moins un tag commun). Sérialisé en `?tags=a&tags=b` sans crochets via `paramsSerializer: { indexes: null }` côté Axios.
 - dateFrom : string (format date) — startDate >= dateFrom
 - dateTo : string (format date) — startDate <= dateTo
 - page : number (défaut 0)
@@ -144,14 +174,16 @@ Paramètres envoyés à `GET /api/events/search`. Tous optionnels.
 
 Définie dans `src/types/search.ts`.
 Utilisée comme props par `FilterSidebar`.
-Champs : `category?`, `faculty?`, `facultyNone?` (boolean — chip « Toutes facultés »), `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
+Champs : `category?`, `faculty?`, `facultyNone?` (boolean — chip « Toutes facultés »), `tags?` (string[] — multi-tags OR), `dateFrom?`, `dateTo?`, `includePast` (boolean, défaut `false`).
 Mutex `faculty` / `facultyNone` : l'UI garantit qu'au plus un des deux est actif. `includePast: false` → l'API reçoit `dateFrom = aujourd'hui` (les événements passés sont masqués par défaut).
 
 ## Types présence — `src/types/attendance.ts`
 
 ### AttendanceStatus
 
-`'INTERESTED' | 'ATTENDING'`
+`'ATTENDING' | 'WAITLISTED'`
+
+Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est complet (`availableSpots === 0`). Le frontend envoie toujours `ATTENDING` dans le body — c'est le backend qui détermine le statut final retourné.
 
 ### Attendance
 
