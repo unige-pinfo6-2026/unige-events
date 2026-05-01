@@ -224,13 +224,18 @@ class ReportServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void listByStatus_orderingByCreatedAtDesc() {
+    void listByStatus_orderingByCreatedAtDesc() throws InterruptedException {
+        // Report.prePersist() écrase createdAt = now() inconditionnellement (pas de
+        // null-guard, comportement hérité de SCRUM-103 hors scope SCRUM-94). On
+        // s'appuie donc sur l'ordre d'insertion naturel + un petit sleep pour garantir
+        // des timestamps strictement distincts entre les deux rows.
         User creator = persistUser("auth0|lo-creator", "lo-creator@example.com");
         User reporter = persistUser("auth0|lo-reporter", "lo-reporter@example.com");
         Event eventA = persistEvent("lo-a", creator, EventStatus.PUBLISHED);
         Event eventB = persistEvent("lo-b", creator, EventStatus.PUBLISHED);
-        persistReportAt(eventA, reporter, ReportStatus.PENDING, LocalDateTime.now().minusDays(2));
-        persistReportAt(eventB, reporter, ReportStatus.PENDING, LocalDateTime.now().minusDays(1));
+        persistReport(eventA, reporter, ReportStatus.PENDING);
+        Thread.sleep(10);
+        persistReport(eventB, reporter, ReportStatus.PENDING);
 
         List<ReportDTO> result = reportService.listByStatus(ReportStatus.PENDING, 0, 20);
 
@@ -420,17 +425,6 @@ class ReportServiceCoverageTest {
         entityManager.persist(r);
         entityManager.flush();
         return r;
-    }
-
-    private void persistReportAt(Event event, User reporter, ReportStatus status, LocalDateTime createdAt) {
-        Report r = new Report();
-        r.event = event;
-        r.reporter = reporter;
-        r.reason = ReportReason.OTHER;
-        r.status = status;
-        r.createdAt = createdAt;
-        entityManager.persist(r);
-        entityManager.flush();
     }
 
     private void persistCoOrganizer(Long eventId, java.util.UUID userId, CoOrganizerStatus status) {

@@ -2634,6 +2634,14 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Report'
+        '400':
+          description: |
+            Query params invalides — `page < 0` ou `size` hors de l'intervalle [1, 100]
+            (Bean Validation `@Min(0)` / `@Positive` / `@Max(100)`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
