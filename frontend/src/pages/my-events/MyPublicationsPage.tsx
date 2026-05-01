@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Ban, Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Undo2, Users } from 'lucide-react'
 import { useMyEvents } from '@/hooks/useMyEvents'
@@ -277,6 +277,36 @@ export default function MyPublicationsPage() {
   const [restoringId, setRestoringId] = useState<number | null>(null)
   const [publishErrors, setPublishErrors] = useState<string[] | null>(null)
 
+  // FAB scroll behaviour: stay fixed bottom-right while scrolling, but glide up
+  // out of the footer's way once the footer enters the viewport so the button
+  // never overlaps the global page footer.
+  const fabRef = useRef<HTMLAnchorElement | null>(null)
+  useEffect(() => {
+    const footer = document.querySelector('footer')
+    const fab = fabRef.current
+    if (!footer || !fab) return
+
+    let frame = 0
+    const update = () => {
+      const footerTop = footer.getBoundingClientRect().top
+      const vh = window.innerHeight
+      const overlap = Math.max(0, vh - footerTop)
+      fab.style.bottom = `${overlap + 24}px`
+    }
+    const schedule = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [])
+
   const setStatus = useCallback((next: EventStatus) => {
     const sp = new URLSearchParams(searchParams)
     sp.set('status', STATUS_TABS[next].param)
@@ -373,9 +403,10 @@ export default function MyPublicationsPage() {
       )}
 
       <Link
+        ref={fabRef}
         to="/events/new"
         aria-label="Créer un événement"
-        className="sticky bottom-6 self-end z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-linear-to-r from-accent to-pink-600 text-white font-semibold shadow-xl shadow-accent/30 no-underline hover:from-accent/90 hover:to-pink-600/90 transition-colors"
+        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-linear-to-r from-accent to-pink-600 text-white font-semibold shadow-xl shadow-accent/30 no-underline hover:from-accent/90 hover:to-pink-600/90 transition-colors"
       >
         <Plus className="size-5" />
         Créer un événement
