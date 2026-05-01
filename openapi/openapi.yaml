@@ -252,7 +252,7 @@ components:
           type: array
           items:
             type: string
-            maxLength: 16
+            maxLength: 64
           maxItems: 20
           default: []
           description: |
