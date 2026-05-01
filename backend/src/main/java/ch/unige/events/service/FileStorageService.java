@@ -1,11 +1,12 @@
 package ch.unige.events.service;
 
 import ch.unige.events.config.AppConfig;
+import ch.unige.events.exception.InvalidFileTypeException;
+import ch.unige.events.util.ImageMagicBytes;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.InternalServerErrorException;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -16,20 +17,11 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-import ch.unige.events.util.ImageMagicBytes;
-
-import java.util.Map;
+import java.io.IOException;
 import java.util.UUID;
 
 @ApplicationScoped
 public class FileStorageService {
-
-    private static final Map<String, String> ALLOWED_TYPES = Map.of(
-            "image/jpeg", ".jpg",
-            "image/png",  ".png",
-            "image/webp", ".webp",
-            "image/gif",  ".gif"
-    );
 
     private static final String INVALID_FILE_MESSAGE =
             "File must be a JPEG, PNG, WebP or GIF image";
@@ -70,15 +62,19 @@ public class FileStorageService {
 
     public String saveImage(FileUpload fileUpload, String folder) {
         String contentType = fileUpload.contentType();
-        if (contentType == null || !ALLOWED_TYPES.containsKey(contentType)) {
-            throw new BadRequestException(INVALID_FILE_MESSAGE);
+        if (contentType == null || !ImageMagicBytes.MIME_TO_EXTENSION.containsKey(contentType)) {
+            throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
         }
 
-        if (!ImageMagicBytes.matches(fileUpload.uploadedFile(), contentType)) {
-            throw new BadRequestException(INVALID_FILE_MESSAGE);
+        try {
+            if (!ImageMagicBytes.matches(fileUpload.uploadedFile(), contentType)) {
+                throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
+            }
+        } catch (IOException e) {
+            throw new InternalServerErrorException("Failed to read uploaded file");
         }
 
-        String extension = ALLOWED_TYPES.get(contentType);
+        String extension = ImageMagicBytes.MIME_TO_EXTENSION.get(contentType);
         String key = folder + "/" + UUID.randomUUID() + extension;
 
         try {

@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImageMagicBytesTest {
@@ -115,8 +116,9 @@ class ImageMagicBytesTest {
     }
 
     @Test
-    void nonExistentFile_ioException_returnsFalse() {
-        assertFalse(ImageMagicBytes.matches(Path.of("/nonexistent/missing.jpg"), "image/jpeg"));
+    void nonExistentFile_ioException_throwsIOException() {
+        assertThrows(IOException.class,
+                () -> ImageMagicBytes.matches(Path.of("/nonexistent/missing.jpg"), "image/jpeg"));
     }
 
     @Test

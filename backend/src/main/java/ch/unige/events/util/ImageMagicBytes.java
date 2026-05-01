@@ -4,12 +4,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 public final class ImageMagicBytes {
 
+    public static final Map<String, String> MIME_TO_EXTENSION = Map.of(
+            "image/jpeg", ".jpg",
+            "image/png",  ".png",
+            "image/webp", ".webp",
+            "image/gif",  ".gif"
+    );
+
     private ImageMagicBytes() {}
 
-    public static boolean matches(Path file, String mimeType) {
+    public static boolean matches(Path file, String mimeType) throws IOException {
         try (InputStream in = Files.newInputStream(file)) {
             byte[] h = in.readNBytes(12);
             return switch (mimeType) {
@@ -30,8 +38,6 @@ public final class ImageMagicBytes {
                         && (h[4] == '7' || h[4] == '9') && h[5] == 'a';
                 default -> false;
             };
-        } catch (IOException e) {
-            return false;
         }
     }
 }
