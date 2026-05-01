@@ -15,7 +15,8 @@ import java.util.Optional;
 @Table(name = "events", indexes = {
         @Index(name = "idx_event_creator", columnList = "creator_id"),
         @Index(name = "idx_event_start_date", columnList = "start_date"),
-        @Index(name = "idx_event_faculty", columnList = "faculty")
+        @Index(name = "idx_event_faculty", columnList = "faculty"),
+        @Index(name = "idx_event_featured_status_end", columnList = "featured, status, end_date")
 })
 public class Event extends PanacheEntity {
 

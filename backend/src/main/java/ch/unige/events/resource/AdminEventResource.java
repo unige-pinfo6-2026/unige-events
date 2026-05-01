@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.Response;
 @Path("/admin/events")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@RolesAllowed("ADMIN")
 public class AdminEventResource {
 
     @Inject

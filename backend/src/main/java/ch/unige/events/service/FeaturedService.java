@@ -69,7 +69,7 @@ public class FeaturedService {
                         .limit(remaining)
                         .toList();
 
-                result.addAll(toEventDTOs(phase2, attending, favorites));
+                result.addAll(toEventDTOs(phase2, attending));
             }
         }
 
@@ -80,8 +80,10 @@ public class FeaturedService {
     public EventDTO feature(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
-        event.featured = true;
-        event.featuredAt = LocalDateTime.now();
+        if (!event.featured) {
+            event.featured = true;
+            event.featuredAt = LocalDateTime.now();
+        }
         return toSingleEventDTO(event);
     }
 
@@ -117,9 +119,7 @@ public class FeaturedService {
         }).toList();
     }
 
-    private List<EventDTO> toEventDTOs(List<Event> events,
-                                        Map<Long, Long> attendingCounts,
-                                        Map<Long, Long> favoriteCounts) {
+    private List<EventDTO> toEventDTOs(List<Event> events, Map<Long, Long> attendingCounts) {
         if (events.isEmpty()) return List.of();
         List<Long> ids = events.stream().map(e -> e.id).toList();
         Map<Long, Long> waitlisted = Attendance.countGroupedByStatus(

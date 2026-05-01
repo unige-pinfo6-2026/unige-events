@@ -267,6 +267,27 @@ class FeaturedServiceCoverageTest {
         assertEquals("Published", result.get(0).title());
     }
 
+    // --- testFeatureIdempotent ---
+
+    @Test
+    @TestTransaction
+    void testFeatureIdempotentDoesNotResetFeaturedAt() {
+        User user = persistUser("auth0|idem", "idem@test.com");
+        Event event = persistPublishedEvent("Idempotent", user);
+        LocalDateTime originalFeaturedAt = LocalDateTime.now().minusDays(1);
+        event.featured = true;
+        event.featuredAt = originalFeaturedAt;
+        entityManager.flush();
+
+        // Calling feature() again on an already-featured event must not change featuredAt
+        featuredService.feature(event.id);
+        entityManager.flush();
+        entityManager.refresh(event);
+
+        assertTrue(event.featured);
+        assertEquals(originalFeaturedAt, event.featuredAt);
+    }
+
     // --- helpers ---
 
     private User persistUser(String auth0Id, String email) {

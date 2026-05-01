@@ -51,6 +51,7 @@ public class FeaturedServiceMock extends FeaturedService {
     public List<EventDTO> getFeatured(int limit) {
         return store.values().stream()
                 .filter(e -> e.featured)
+                .limit(limit)
                 .map(e -> EventDTO.from(e, 0L, null, 0L))
                 .toList();
     }

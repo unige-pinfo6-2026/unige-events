@@ -952,6 +952,16 @@ class EventResourceTest {
                 .body("waitlistedCount", equalTo(0));
     }
 
+    @Test
+    void getAll_withFeaturedFilter_returnsOk() {
+        given()
+                .queryParam("featured", "true")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", instanceOf(java.util.List.class));
+    }
+
     // --- GET /events/featured ---
 
     @Test

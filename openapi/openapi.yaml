@@ -204,6 +204,12 @@ components:
           type: boolean
           default: false
           description: Whether this event has been manually boosted by an admin via PATCH /admin/events/{id}/feature.
+        featuredAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: Timestamp when the event was last featured by an admin. Null if not featured. Used internally to sort phase-1 results (featuredAt DESC) in GET /events/featured — not exposed as a sort key in the API.
         attendingCount:
           type: integer
           format: int64
@@ -1668,7 +1674,7 @@ paths:
       summary: Événements mis en avant et populaires
       description: |
         Retourne jusqu'à `limit` événements via une logique deux phases.
-        Phase 1 : événements avec `featured=true`, statut PUBLISHED et `endDate >= now()`, triés par `featuredAt DESC`.
+        Phase 1 : événements avec `featured=true`, statut PUBLISHED et `endDate >= now()`, triés par `featuredAt DESC` (critère interne — `featuredAt` est exposé dans le schéma Event en lecture seule).
         Phase 2 : complète les slots restants avec les événements non-featured PUBLISHED à venir,
         triés par score de popularité (`attendingCount + favoriteCount`) DESC. Les IDs de la phase 1
         sont exclus de la phase 2.
