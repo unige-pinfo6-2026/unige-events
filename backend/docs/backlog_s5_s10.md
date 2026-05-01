@@ -787,12 +787,13 @@ Implémenter le job d'expiration automatique des événements passés :
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
 
-### 🔧 [SCRUM-164] [BACK][S7] Recréer les contraintes CHECK orphelines sur events (faculty, category, status) — ✅ RÉSOLU
-**Type :** Tâche · **Story Points :** 2 SP · **Statut : Résolu**
+### 📜 Note historique — Adoption de Flyway et passage de Hibernate en `validate`
 
-**Sprint** : S7 | **Assigné** : Elie | **SP** : 2 | **Épic** : — | **Story** : —
+> Pas de ticket JIRA associé (le ticket initialement créé pour ce travail a été supprimé après coup ; la décision finale d'adoption de Flyway a été prise en parallèle, sans renumérotation). Conservé ici pour la traçabilité.
 
-Résolu en remplaçant le bean `SchemaFixup` par une migration Flyway `V1__reconcile_check_constraints.sql` qui drop+recrée les quatre contraintes (`events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check`) avec les valeurs courantes des enums Java. Hibernate est passé en `validate` (dev/prod). Voir `backend/docs/data-model.md` section « Gestion du schéma — Flyway ».
+Le bean `SchemaFixup` (qui drop+recréait à la main les contraintes `events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check` au démarrage Quarkus) a été remplacé par une migration Flyway `V1__reconcile_check_constraints.sql` qui pose les mêmes contraintes avec les valeurs courantes des enums Java.
+
+Hibernate est désormais en `validate` (dev/prod) ; Flyway est l'unique source du schéma. Voir [`backend/docs/data-model.md`](backend/docs/data-model.md) section « Gestion du schéma — Flyway » et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway » pour les conventions à respecter dans toute nouvelle migration.
 
 ### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
 **Type :** Tâche · **Story Points :** 2 SP

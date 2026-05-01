@@ -787,39 +787,13 @@ Implémenter le job d'expiration automatique des événements passés :
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
 
-### 🔧 [SCRUM-164] [BACK][S7] SchemaFixup — recréer les contraintes CHECK orphelines sur events (faculty, category, status)
-**Type :** Tâche · **Story Points :** 2 SP
+### 📜 Note historique — Adoption de Flyway et passage de Hibernate en `validate`
 
-**Sprint** : S7 | **Assigné** : Elie | **SP** : 2 | **Épic** : — | **Story** : —
+> Pas de ticket JIRA associé (le ticket initialement créé pour ce travail a été supprimé après coup ; la décision finale d'adoption de Flyway a été prise en parallèle, sans renumérotation). Conservé ici pour la traçabilité.
 
-\[BACK\] Sprint 7 — Dette technique / intégrité DB
+Le bean `SchemaFixup` (qui drop+recréait à la main les contraintes `events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check` au démarrage Quarkus) a été remplacé par une migration Flyway `V1__reconcile_check_constraints.sql` qui pose les mêmes contraintes avec les valeurs courantes des enums Java.
 
-**Contexte :**
-Le fichier `SchemaFixup.java` (commit `ed65826`, avril 2026) contient trois `DROP CONSTRAINT IF EXISTS` orphelins — `events_faculty_check`, `events_category_check`, `events_status_check` — ajoutés à l'origine pour nettoyer des contraintes CHECK après un renommage d'enum. Mais aucune contrainte de remplacement n'a jamais été ajoutée. Résultat : la base PostgreSQL n'enforce plus aucune validation sur les colonnes `events.faculty`, `events.category` et `events.status`.
-
-**Risque :**
-Sans contrainte CHECK, des valeurs invalides peuvent être insérées directement en base. Quand Hibernate relit ces lignes via `@Enumerated(EnumType.STRING)`, il lève un `IllegalArgumentException` → 500 sur des endpoints qui fonctionnaient. Problème inverse de celui fixé pour `attendances_status_check` (contrainte trop restrictive bloquant `WAITLISTED`).
-
-**Référence :** Flaggé en review sur la PR liée à SCRUM-101 (US-07 / feature/s5-attendees-list).
-
-**Solution recommandée (option A) :**
-
-1. **`SchemaFixup.java`** : après chaque `DROP CONSTRAINT IF EXISTS`, ajouter un `ADD CONSTRAINT` avec les valeurs d'enum actuelles :
-    * `events_faculty_check` : `faculty IS NULL OR faculty IN ('SCIENCES','LETTRES','DROIT','MEDECINE','SES','PSYCHOLOGIE','THEOLOGIE','FTI','GSI')`
-    * `events_category_check` : `category IN ('ACADEMIC','SPORTS','CULTURAL','SOCIAL','CONFERENCE','OTHER')`
-    * `events_status_check` : `status IN ('DRAFT','PUBLISHED','CANCELLED')`
-2. Pattern identique à la solution `attendances_status_check` déjà en place : idempotent (`DROP IF EXISTS` + `ADD`).
-3. **Test `@QuarkusTest`** : vérifier qu'un `INSERT` direct avec une valeur invalide sur `faculty`, `category` ou `status` échoue (violation de contrainte).
-4. **Documentation** : mettre à jour `docs/data-model.md` section « Réconciliation des contraintes CHECK » pour refléter l'état final.
-
-**Critères d'acceptation :**
-- Les trois contraintes sont recréées avec les valeurs d'enum actuelles, idempotent
-- Test d'intégration : insertion de valeur invalide → échec
-- `docs/data-model.md` mis à jour
-
-Fichiers touchés : `SchemaFixup.java`, `docs/data-model.md`
-Branche suggérée : `feature/s7-schema-fixup-checks`
-Dépendances : aucune
+Hibernate est désormais en `validate` (dev/prod) ; Flyway est l'unique source du schéma. Voir [`backend/docs/data-model.md`](backend/docs/data-model.md) section « Gestion du schéma — Flyway » et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway » pour les conventions à respecter dans toute nouvelle migration.
 
 ### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
 **Type :** Tâche · **Story Points :** 2 SP
