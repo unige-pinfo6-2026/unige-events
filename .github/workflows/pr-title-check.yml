@@ -28,6 +28,7 @@ jobs:
             chore
             ci
             perf
+            deps
           requireScope: false
           subjectPattern: "^[a-z].+"
           subjectPatternError: |
