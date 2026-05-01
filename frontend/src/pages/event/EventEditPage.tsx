@@ -26,34 +26,47 @@ function EventFormFixture() {
           <div className="h-[192px] rounded-xl" />
         </div>
       </div>
-      {/* Band 2: Lieu | Début | Fin */}
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 max-sm:grid-cols-1">
-        <div className="h-[72px]" />
-        <div className="h-[72px]" />
-        <div className="h-[72px]" />
+      {/* Band 2a: Lieu */}
+      <div className="h-[72px]" />
+      {/* Band 2b: Date & heure (grouped section) */}
+      <div className="rounded-2xl border border-border/50 bg-foreground/[0.015] px-4 py-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-32" />
+          <div className="h-5.5 w-24" />
+        </div>
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+          <div className="h-[72px]" />
+          <div className="h-[72px]" />
+        </div>
       </div>
-      {/* Band 3: Catégorie | Capacité | CTA */}
+      {/* Band 3: Catégorie | Faculté | Capacité */}
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
         <div className="w-48 h-[72px]" />
+        <div className="w-56 h-[72px]" />
         <div className="w-24 h-[72px]" />
-        <div className="ml-auto max-sm:ml-0 max-sm:w-full w-[140px] h-[68px]" />
       </div>
-      {/* Band 4: ComingSoon shells */}
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <div className="h-[92px] rounded-2xl" />
-          <div className="h-[92px] rounded-2xl" />
+      {/* Band 4: Champs additionnels */}
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+          <div className="h-[72px] rounded-xl" />
+          <div className="h-[72px] rounded-xl" />
         </div>
-        <div className="h-[92px] rounded-2xl" />
-        <div className="h-[88px] rounded-2xl" />
+        <div className="h-[72px]" />
+        <div className="h-[88px] rounded-xl" />
         <div className="border-t border-border/20" />
-        <div className="h-[124px] rounded-2xl" />
+        <div className="h-[92px] rounded-2xl" />
       </div>
       {/* Band 5: Co-organisateurs (edit only) */}
       <div className="flex flex-col gap-3 border-t border-border/30 pt-6">
         <div className="h-5" />
         <div className="h-10 max-w-sm rounded-xl" />
         <div className="h-8" />
+      </div>
+      {/* CTA bar */}
+      <div className="flex flex-wrap items-center gap-3 ml-auto max-sm:ml-0 max-sm:w-full">
+        <div className="w-24 h-11 rounded-xl" />
+        <div className="w-24 h-11 rounded-xl" />
+        <div className="w-32 h-11 rounded-xl" />
       </div>
     </div>
   )

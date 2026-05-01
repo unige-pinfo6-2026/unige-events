@@ -35,12 +35,13 @@ function EventDetailFixture() {
           <div className="h-20 rounded-2xl" />
           <div className="h-20 rounded-2xl" />
         </div>
+        {/* Card "Informations complémentaires" SCRUM-117 */}
+        <div className="h-44 rounded-3xl" />
       </div>
       {/* Sidebar column (order-1 on mobile) */}
       <div className="flex flex-col gap-4 max-lg:order-1">
         <div className="h-72 rounded-3xl" />
         <div className="h-44 rounded-3xl" />
-        <div className="h-[236px] rounded-3xl" />
         <div className="h-[104px] rounded-2xl" />
       </div>
     </div>
