@@ -267,6 +267,14 @@ export default function EventDetailPage() {
     return () => { active = false }
   }, [event])
 
+  useEffect(() => {
+    if (!event || !user) return
+    if (event.status !== 'DRAFT') return
+    if (user.admin) return
+    if (user.id !== event.creatorId) return
+    navigate(`/events/${event.id}/edit`, { replace: true })
+  }, [event, user, navigate])
+
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
   // Only the very first fetch shows the full-page skeleton. Subsequent
