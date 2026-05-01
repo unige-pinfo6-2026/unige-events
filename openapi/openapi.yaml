@@ -2227,31 +2227,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  /admin/events/{id}/feature:
-    put:
-      summary: Mettre en avant un événement — admin uniquement
-      operationId: featureEvent
-      tags: [admin]
-      security:
-        - BearerAuth: []
-      # TODO: Sprint 6
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Événement mis en avant
-        '403':
-          description: Non autorisé
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-
-  # TODO: Sprint 7
+  # TODO: Sprint 7 (notifications)
   /notifications:
     get:
       summary: Notifications de l'utilisateur connecté
