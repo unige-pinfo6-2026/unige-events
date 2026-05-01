@@ -7,6 +7,7 @@ import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -38,7 +39,7 @@ public class EventCoOrganizerResource {
     @POST
     @Path("/{id}/co-organizers")
     @Authenticated
-    public Response invite(@PathParam("id") Long eventId, @Valid InviteCoOrganizerRequest request) {
+    public Response invite(@PathParam("id") Long eventId, @Valid @NotNull InviteCoOrganizerRequest request) {
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");
         CoOrganizerDTO created = service.invite(eventId, auth0Id, request.userId(), isAdmin);

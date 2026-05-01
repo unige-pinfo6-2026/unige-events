@@ -157,11 +157,14 @@ class EventCoOrganizerServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void accept_noInvitation_throws404() {
+    void accept_noInvitation_throws422() {
         User invited = persistUser("auth0|noinv-invited", "noinv-invited@example.com");
 
-        assertThrows(NotFoundException.class,
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.accept(99999L, invited.auth0Id));
+        assertEquals(422, ex.getResponse().getStatus());
+        assertEquals("no_pending_invitation",
+                ((ch.unige.events.dto.ApiErrorResponse) ex.getResponse().getEntity()).error());
     }
 
     // -------------------------------------------------------------------------
@@ -199,11 +202,14 @@ class EventCoOrganizerServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void decline_noInvitation_throws404() {
+    void decline_noInvitation_throws422() {
         User invited = persistUser("auth0|decnf-invited", "decnf-invited@example.com");
 
-        assertThrows(NotFoundException.class,
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.decline(99999L, invited.auth0Id));
+        assertEquals(422, ex.getResponse().getStatus());
+        assertEquals("no_pending_invitation",
+                ((ch.unige.events.dto.ApiErrorResponse) ex.getResponse().getEntity()).error());
     }
 
     // -------------------------------------------------------------------------

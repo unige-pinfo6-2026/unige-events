@@ -33,8 +33,8 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `POST` | `/events/{id}/co-organizers` | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
 | `GET` | `/events/{id}/co-organizers` | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
 | `DELETE` | `/events/{id}/co-organizers/{userId}` | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
-| `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 404 |
-| `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 404 |
+| `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
+| `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
 | `GET` | `/users/me/co-organizer-invitations` | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
 
 ---
@@ -154,7 +154,7 @@ Crée une invitation `PENDING`. Réservé au créateur de l'événement ou à un
 
 **Réponses :**
 - `201 Created` — `CoOrganizerDTO` (status PENDING)
-- `400 Bad Request` — `error=cannot_invite_self` (créateur tente de s'inviter)
+- `400 Bad Request` — body absent ou body sans `userId` → `ValidationErrorResponse` ; `error=cannot_invite_self` si le créateur tente de s'inviter
 - `401 Unauthorized` — token absent
 - `403 Forbidden` — appelant non créateur et non admin
 - `404 Not Found` — événement OU utilisateur cible introuvable
@@ -194,7 +194,7 @@ charger une bannière / consulter les inscrits / les stats de l'événement (cas
 **Réponses :**
 - `200 OK` — `CoOrganizerDTO` (status ACCEPTED)
 - `401 Unauthorized`
-- `404 Not Found` — aucune invitation pour l'utilisateur courant sur cet événement
+- `422 Unprocessable Entity` — `error=no_pending_invitation` : aucune invitation pour l'utilisateur courant sur cet événement
 
 #### `PATCH /events/{id}/co-organizers/me/decline`
 
@@ -204,7 +204,7 @@ permet une ré-invitation ultérieure sans 409). Self-only.
 **Réponses :**
 - `204 No Content`
 - `401 Unauthorized`
-- `404 Not Found` — aucune invitation
+- `422 Unprocessable Entity` — `error=no_pending_invitation` : aucune invitation
 
 #### `GET /users/me/co-organizer-invitations`
 

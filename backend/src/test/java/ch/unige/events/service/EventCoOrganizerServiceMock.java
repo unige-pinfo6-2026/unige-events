@@ -21,8 +21,8 @@ public class EventCoOrganizerServiceMock extends EventCoOrganizerService {
     public static volatile boolean forceForbiddenOnInvite = false;
     public static volatile boolean forceConflictOnInvite = false;
     public static volatile boolean forceCannotInviteSelf = false;
-    public static volatile boolean forceNotFoundOnAccept = false;
-    public static volatile boolean forceNotFoundOnDecline = false;
+    public static volatile boolean forceNoPendingOnAccept = false;
+    public static volatile boolean forceNoPendingOnDecline = false;
     public static volatile boolean forceForbiddenOnRemove = false;
     public static volatile boolean forceNotFoundOnList = false;
     public static volatile boolean forceNotFoundOnGetMyInvitations = false;
@@ -35,8 +35,8 @@ public class EventCoOrganizerServiceMock extends EventCoOrganizerService {
         forceForbiddenOnInvite = false;
         forceConflictOnInvite = false;
         forceCannotInviteSelf = false;
-        forceNotFoundOnAccept = false;
-        forceNotFoundOnDecline = false;
+        forceNoPendingOnAccept = false;
+        forceNoPendingOnDecline = false;
         forceForbiddenOnRemove = false;
         forceNotFoundOnList = false;
         forceNotFoundOnGetMyInvitations = false;
@@ -58,14 +58,16 @@ public class EventCoOrganizerServiceMock extends EventCoOrganizerService {
 
     @Override
     public CoOrganizerDTO accept(Long eventId, String userAuth0Id) {
-        if (forceNotFoundOnAccept) throw new NotFoundException();
+        if (forceNoPendingOnAccept) throw unprocessable("no_pending_invitation",
+                "No pending co-organizer invitation found for this event.");
         return new CoOrganizerDTO(1L, UUID.randomUUID(), "Mocked", null,
                 CoOrganizerStatus.ACCEPTED, LocalDateTime.now());
     }
 
     @Override
     public void decline(Long eventId, String userAuth0Id) {
-        if (forceNotFoundOnDecline) throw new NotFoundException();
+        if (forceNoPendingOnDecline) throw unprocessable("no_pending_invitation",
+                "No pending co-organizer invitation found for this event.");
     }
 
     @Override

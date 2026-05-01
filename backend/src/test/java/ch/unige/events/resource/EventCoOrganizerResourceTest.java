@@ -120,10 +120,21 @@ class EventCoOrganizerResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|alice")
-    void invite_missingUserId_returns400() {
+    void invite_emptyJsonBody_returns400() {
         given()
                 .contentType(ContentType.JSON)
                 .body("{}")
+                .when().post("/events/{id}/co-organizers", 1L)
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void invite_nullBody_returns400() {
+        given()
+                .contentType(ContentType.JSON)
+                .body("")
                 .when().post("/events/{id}/co-organizers", 1L)
                 .then()
                 .statusCode(400);
@@ -158,12 +169,13 @@ class EventCoOrganizerResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|carol")
-    void accept_noInvitation_returns404() {
-        EventCoOrganizerServiceMock.forceNotFoundOnAccept = true;
+    void accept_noInvitation_returns422() {
+        EventCoOrganizerServiceMock.forceNoPendingOnAccept = true;
         given()
                 .when().patch("/events/{id}/co-organizers/me/accept", 1L)
                 .then()
-                .statusCode(404);
+                .statusCode(422)
+                .body("error", equalTo("no_pending_invitation"));
     }
 
     @Test
@@ -189,12 +201,13 @@ class EventCoOrganizerResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|bob")
-    void decline_noInvitation_returns404() {
-        EventCoOrganizerServiceMock.forceNotFoundOnDecline = true;
+    void decline_noInvitation_returns422() {
+        EventCoOrganizerServiceMock.forceNoPendingOnDecline = true;
         given()
                 .when().patch("/events/{id}/co-organizers/me/decline", 1L)
                 .then()
-                .statusCode(404);
+                .statusCode(422)
+                .body("error", equalTo("no_pending_invitation"));
     }
 
     // =========================================================

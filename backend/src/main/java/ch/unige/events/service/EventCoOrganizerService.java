@@ -72,7 +72,8 @@ public class EventCoOrganizerService {
                 .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
 
         EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, user.id)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> unprocessable("no_pending_invitation",
+                        "No pending co-organizer invitation found for this event."));
 
         if (invitation.status != CoOrganizerStatus.ACCEPTED) {
             invitation.status = CoOrganizerStatus.ACCEPTED;
@@ -86,7 +87,8 @@ public class EventCoOrganizerService {
                 .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
 
         EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, user.id)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> unprocessable("no_pending_invitation",
+                        "No pending co-organizer invitation found for this event."));
 
         invitation.delete();
     }
@@ -164,6 +166,14 @@ public class EventCoOrganizerService {
     protected static WebApplicationException conflict(String error, String message) {
         return new WebApplicationException(
                 Response.status(Response.Status.CONFLICT)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
+    }
+
+    protected static WebApplicationException unprocessable(String error, String message) {
+        return new WebApplicationException(
+                Response.status(422)
                         .entity(new ApiErrorResponse(error, message))
                         .type(MediaType.APPLICATION_JSON_TYPE)
                         .build());

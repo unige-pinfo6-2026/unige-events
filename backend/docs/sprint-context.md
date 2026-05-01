@@ -183,6 +183,10 @@ Fix :
       DECLINE supprime physiquement la row pour autoriser la ré-invitation sans 409.
       Hors scope : notifications email, transfert d'ownership, invitation par email,
       bulk invite. Frontend SCRUM-137 dépendant.
+      *Fix de review post-merge main :* migration `V8__create_event_co_organizers.sql`
+      (Flyway désormais source du schéma), `POST /co-organizers` sur body absent → 400
+      via `@NotNull`, et `PATCH /me/accept|decline` sans row → 422
+      `no_pending_invitation` au lieu de 404.
 
 ---
 

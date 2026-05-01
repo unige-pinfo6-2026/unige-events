@@ -1974,7 +1974,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/CoOrganizer'
         '400':
-          description: Body invalide ou `cannot_invite_self`
+          description: |
+            Body absent ou body sans `userId` → `ValidationErrorResponse` (validation
+            Hibernate Validator). `error=cannot_invite_self` si le créateur tente de
+            s'inviter lui-même.
           content:
             application/json:
               schema:
@@ -2126,10 +2129,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-        '404':
+        '422':
           description: |
-            Aucune invitation pour l'utilisateur courant sur cet événement (envelope identique
-            à un événement inexistant — pas d'oracle).
+            `error=no_pending_invitation` — aucune invitation pour l'utilisateur courant
+            sur cet événement.
           content:
             application/json:
               schema:
@@ -2162,8 +2165,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
-        '404':
-          description: Aucune invitation pour l'utilisateur courant sur cet événement
+        '422':
+          description: |
+            `error=no_pending_invitation` — aucune invitation pour l'utilisateur courant
+            sur cet événement.
           content:
             application/json:
               schema:
