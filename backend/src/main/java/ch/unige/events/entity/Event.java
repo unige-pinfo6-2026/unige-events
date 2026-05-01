@@ -54,6 +54,12 @@ public class Event extends PanacheEntity {
     @ColumnDefault("false")
     public boolean allDay = false;
 
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    public boolean featured = false;
+
+    public LocalDateTime featuredAt;
+
     @URL
     @Column(length = 500)
     public String websiteUrl;
