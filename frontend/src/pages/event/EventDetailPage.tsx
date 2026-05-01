@@ -415,7 +415,7 @@ export default function EventDetailPage() {
                           href={safeHref}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-foreground hover:underline break-all"
+                          className="text-link hover:underline break-all"
                         >
                           {event.websiteUrl}
                         </a>
@@ -430,7 +430,7 @@ export default function EventDetailPage() {
                   <InfoRow icon={Mail} color={category.color}>
                     <a
                       href={`mailto:${event.contactEmail}`}
-                      className="text-foreground hover:underline break-all"
+                      className="text-link hover:underline break-all"
                     >
                       {event.contactEmail}
                     </a>
