@@ -274,7 +274,7 @@ class FeaturedServiceCoverageTest {
     void testFeatureIdempotentDoesNotResetFeaturedAt() {
         User user = persistUser("auth0|idem", "idem@test.com");
         Event event = persistPublishedEvent("Idempotent", user);
-        LocalDateTime originalFeaturedAt = LocalDateTime.now().minusDays(1);
+        LocalDateTime originalFeaturedAt = LocalDateTime.now().minusDays(1).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         event.featured = true;
         event.featuredAt = originalFeaturedAt;
         entityManager.flush();
