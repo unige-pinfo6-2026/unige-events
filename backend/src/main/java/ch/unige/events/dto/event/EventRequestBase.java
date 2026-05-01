@@ -63,5 +63,5 @@ public abstract class EventRequestBase {
     public LocalDateTime registrationDeadline;
 
     @Size(max = 20)
-    public List<@NotBlank @Size(max = 64) String> tags = new ArrayList<>();
+    public List<@NotBlank @Size(max = 16) String> tags = new ArrayList<>();
 }

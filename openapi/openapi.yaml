@@ -252,7 +252,7 @@ components:
           type: array
           items:
             type: string
-            maxLength: 64
+            maxLength: 16
           maxItems: 20
           default: []
           description: |
@@ -333,7 +333,7 @@ components:
           type: array
           items:
             type: string
-            maxLength: 64
+            maxLength: 16
           maxItems: 20
           nullable: true
           description: |
@@ -406,7 +406,7 @@ components:
           type: array
           items:
             type: string
-            maxLength: 64
+            maxLength: 16
           maxItems: 20
           nullable: true
           description: |

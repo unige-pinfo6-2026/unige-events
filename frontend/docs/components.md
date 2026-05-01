@@ -217,7 +217,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
   - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
   - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
   - Bande 3 : CategorySelect | Faculté concernée | Capacité (spinners masqués) | **zone CTA horizontale** qui se colle à droite via `ml-auto` et rassemble les vrais boutons d'action (voir ci-dessous).
-  - Bande 4 (SCRUM-117) : champs additionnels réels — ligne 1 grille 2 colonnes `websiteUrl` (Input `type="url"`, icône `Globe`, max 500 car.) + `contactEmail` (Input `type="email"`, icône `Mail`, max 255 car.) ; ligne 2 `registrationDeadline` (date + heure + minute via `renderDateTimeField`, le sélecteur horaire reste visible même quand `allDay` est actif car il ne suit pas le toggle de l'événement) ; ligne 3 `TagInput` mots-clés (max 20 tags × 64 car.) avec compteur. Les shells non-interactifs restants (récurrence S8 create-only, pièces jointes S9) sont toujours présents sous un séparateur.
+  - Bande 4 (SCRUM-117) : champs additionnels réels — ligne 1 grille 2 colonnes `websiteUrl` (Input `type="url"`, icône `Globe`, max 500 car.) + `contactEmail` (Input `type="email"`, icône `Mail`, max 255 car.) ; ligne 2 `registrationDeadline` (date + heure + minute via `renderDateTimeField`, le sélecteur horaire reste visible même quand `allDay` est actif car il ne suit pas le toggle de l'événement) ; ligne 3 `TagInput` mots-clés (max 20 tags × 16 car.) avec compteur. Les shells non-interactifs restants (récurrence S8 create-only, pièces jointes S9) sont toujours présents sous un séparateur.
   - Bande 5 : shell co-organisateurs (edit only, S8).
 - **Zone CTA (Bande 3)** : rangée `flex flex-wrap items-center gap-3 ml-auto` qui prend sa largeur naturelle et se colle contre le bord droit du formulaire — l'espace à gauche est occupé par CategorySelect, Faculté et Capacité. Chaque action est un vrai bouton (plus de micro-links texte) :
   - `ButtonDestructive` "Supprimer le brouillon" — rendu uniquement si `onDelete` fourni (mode draft).
@@ -409,7 +409,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
   - `websiteUrl` : trimmé ; vide = OK ; sinon doit être parsable par `new URL()` avec protocole `http:` ou `https:` ; longueur ≤ `EVENT_WEBSITE_URL_MAX_LENGTH` (500).
   - `contactEmail` : trimmé ; vide = OK ; sinon regex `^[^\s@]+@[^\s@]+\.[^\s@]+$` ; longueur ≤ `EVENT_CONTACT_EMAIL_MAX_LENGTH` (255). Le backend reste autoritatif via `@Email`.
   - `registrationDeadline` : optionnelle ; si fournie, doit être une date valide et **strictement antérieure à `startDate`** (comparaison front uniquement — le backend ne valide pas cette règle croisée, explicitement).
-  - `tags` : tableau ; ≤ `EVENT_TAGS_MAX_ITEMS` (20) tags, chacun ≤ `EVENT_TAG_MAX_LENGTH` (64) caractères.
+  - `tags` : tableau ; ≤ `EVENT_TAGS_MAX_ITEMS` (20) tags, chacun ≤ `EVENT_TAG_MAX_LENGTH` (16) caractères.
 - Le payload envoyé normalise les chaînes trimmées vides en `null` pour `websiteUrl`/`contactEmail`/`registrationDeadline`, et un tableau vide en `null` pour `tags` — cohérent avec le contrat PUT à sémantique de remplacement complet.
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.

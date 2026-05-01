@@ -64,7 +64,7 @@ Table : `events`
 | `websiteUrl` | `websiteUrl` | `String` | `website_url` | nullable, `@URL` (Hibernate Validator), `@Column(length=500)` — SCRUM-126 |
 | `contactEmail` | `contactEmail` | `String` | `contact_email` | nullable, `@Email` (jakarta), `@Column(length=255)` — SCRUM-126 |
 | `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
-| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, tag `length=64`, max 20 — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
+| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, colonne DB `tag VARCHAR(64)` (legacy compat), validation DTO `@Size(max=16)` sur les éléments depuis ISSUE-122, max 20 tags — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |

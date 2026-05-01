@@ -1,6 +1,12 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-04-28
+Dernière mise à jour : 2026-05-01
+
+## Sprint 7 — Fix overflow visuel des tags dans `EventForm` (ISSUE-122) — 2026-05-01
+
+Livré.
+
+- [x] **ISSUE-122** — Fix overflow visuel des tags (limite 64 → 16, `max-w-full break-all whitespace-normal` sur la chip, `maxLength` HTML sur l'`<input>` de `TagInput`). Backend `@Size(max=16)` aligné sur l'élément de `EventRequestBase.tags` ; pas de migration DB (colonne `event_tags.tag VARCHAR(64)` conservée pour compatibilité avec les tags existants > 16 chars).
 
 ## Sprint 7 — Redirect post-login vers la page d'origine (SCRUM-S7) — 2026-04-28
 
