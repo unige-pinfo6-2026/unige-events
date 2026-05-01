@@ -16,10 +16,23 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import ch.unige.events.util.ImageMagicBytes;
+
+import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
 public class FileStorageService {
+
+    private static final Map<String, String> ALLOWED_TYPES = Map.of(
+            "image/jpeg", ".jpg",
+            "image/png",  ".png",
+            "image/webp", ".webp",
+            "image/gif",  ".gif"
+    );
+
+    private static final String INVALID_FILE_MESSAGE =
+            "File must be a JPEG, PNG, WebP or GIF image";
 
     private final S3Client s3;
     private final AppConfig config;
@@ -55,27 +68,19 @@ public class FileStorageService {
             .build());
     }
 
-    /**
-     * Stocke un fichier image dans S3 sous le préfixe donné.
-     *
-     * @param fileUpload le fichier reçu en multipart
-     * @param folder     le dossier S3 ("users/avatars" ou "events/banners")
-     * @return la clé S3 complète, e.g. "avatars/uuid.jpg"
-     */
     public String saveImage(FileUpload fileUpload, String folder) {
         String contentType = fileUpload.contentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BadRequestException(
-                    "File must be an image (accepted: image/jpeg, image/png, image/webp, image/gif)");
+        if (contentType == null || !ALLOWED_TYPES.containsKey(contentType)) {
+            throw new BadRequestException(INVALID_FILE_MESSAGE);
         }
 
-        String originalName = fileUpload.fileName();
-        String extension = (originalName != null && originalName.contains("."))
-                ? originalName.substring(originalName.lastIndexOf('.'))
-                : ".bin";
+        if (!ImageMagicBytes.matches(fileUpload.uploadedFile(), contentType)) {
+            throw new BadRequestException(INVALID_FILE_MESSAGE);
+        }
 
+        String extension = ALLOWED_TYPES.get(contentType);
         String key = folder + "/" + UUID.randomUUID() + extension;
-        
+
         try {
             s3.putObject(
                     PutObjectRequest.builder()

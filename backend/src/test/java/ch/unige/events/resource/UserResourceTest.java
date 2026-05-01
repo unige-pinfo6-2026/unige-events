@@ -359,6 +359,37 @@ class UserResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgContentTypeReturns400() {
+        // Finding 4.11: SVG declared as image/svg+xml must be rejected (not in allow-list).
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgDisguisedAsPngReturns400() {
+        // Finding 4.18: SVG bytes sent with Content-Type image/png must be rejected
+        // (magic-byte check tested at unit level; this test verifies HTTP plumbing via mock).
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceBadMimeOnUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.png", "<svg><script>alert(1)</script></svg>".getBytes(), "image/png")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void uploadImageUnauthenticatedReturns401() {
         given()
             .contentType("multipart/form-data")
@@ -408,6 +439,20 @@ class UserResourceTest {
         given()
             .contentType("multipart/form-data")
             .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerSvgContentTypeReturns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
             .when().post("/users/me/banner")
             .then()
             .statusCode(400);

@@ -801,7 +801,7 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("banner.jpg");
-        Files.write(fakeFile, "fake-jpeg".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|img", upload, false);
@@ -818,12 +818,13 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("banner.png");
-        Files.write(fakeFile, "fake-png".getBytes());
+        Files.write(fakeFile, pngHeader());
         FileUpload upload = new StubFileUpload("banner.png", "image/png", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|admin2", upload, true);
 
         assertTrue(result.bannerUrl().startsWith("http"));
+        assertTrue(result.bannerUrl().endsWith(".png"));
     }
 
     @Test
@@ -833,6 +834,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
 
+        // Event lookup happens before file validation — NotFoundException is expected.
         assertThrows(NotFoundException.class,
                 () -> eventService.uploadImage(999999L, "auth0|x", upload, false));
     }
@@ -847,6 +849,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
 
+        // Auth check happens before file validation — ForbiddenException is expected.
         assertThrows(ForbiddenException.class,
                 () -> eventService.uploadImage(event.id, "auth0|intruder", upload, false));
     }
@@ -881,32 +884,33 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_extensionDerivedFromMime_notFromFileName(@TempDir Path tempDir) throws IOException {
         User user = persistUser("auth0|noext", "noext@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("image");
-        Files.write(fakeFile, "data".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("image", "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|noext", upload, false);
 
-        assertTrue(result.bannerUrl().endsWith(".bin"));
+        // Extension comes from the validated MIME type, not the client filename.
+        assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
     @Test
     @TestTransaction
-    void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_nullFileName_extensionFromMime(@TempDir Path tempDir) throws IOException {
         User user = persistUser("auth0|nullname", "nullname@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("file");
-        Files.write(fakeFile, "data".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload(null, "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|nullname", upload, false);
 
-        assertTrue(result.bannerUrl().endsWith(".bin"));
+        assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
     // --- faculty filter (SCRUM-77) ---
@@ -1337,6 +1341,14 @@ class EventServiceCoverageTest {
         req.category = category;
         req.status = status;
         return req;
+    }
+
+    static byte[] jpegHeader() {
+        return new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0, 0, 0};
+    }
+
+    static byte[] pngHeader() {
+        return new byte[]{(byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A};
     }
 
     static class StubFileUpload implements FileUpload {

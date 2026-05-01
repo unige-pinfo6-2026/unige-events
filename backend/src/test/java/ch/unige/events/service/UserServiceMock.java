@@ -127,10 +127,17 @@ public class UserServiceMock extends UserService {
         return user;
     }
 
+    private static final Set<String> ALLOWED_MIME_TYPES =
+            Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+
     @Override
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         if (forceBadMimeOnUpload) {
-            throw new BadRequestException("File must be an image");
+            throw new BadRequestException("File must be a JPEG, PNG, WebP or GIF image");
+        }
+        String ct = fileUpload.contentType();
+        if (ct == null || !ALLOWED_MIME_TYPES.contains(ct)) {
+            throw new BadRequestException("File must be a JPEG, PNG, WebP or GIF image");
         }
         User user = usersByAuth0Id.get(auth0Id);
         if (user == null) {
@@ -143,7 +150,11 @@ public class UserServiceMock extends UserService {
     @Override
     public User uploadBanner(String auth0Id, FileUpload fileUpload) {
         if (forceBadMimeOnBannerUpload) {
-            throw new BadRequestException("File must be an image");
+            throw new BadRequestException("File must be a JPEG, PNG, WebP or GIF image");
+        }
+        String ct = fileUpload.contentType();
+        if (ct == null || !ALLOWED_MIME_TYPES.contains(ct)) {
+            throw new BadRequestException("File must be a JPEG, PNG, WebP or GIF image");
         }
         User user = usersByAuth0Id.get(auth0Id);
         if (user == null) {
