@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-public final class ImageMagicBytes {
+public final class ImageFormat {
 
     public static final Map<String, String> MIME_TO_EXTENSION = Map.of(
             "image/jpeg", ".jpg",
@@ -15,7 +15,7 @@ public final class ImageMagicBytes {
             "image/gif",  ".gif"
     );
 
-    private ImageMagicBytes() {}
+    private ImageFormat() {}
 
     public static boolean matches(Path file, String mimeType) throws IOException {
         try (InputStream in = Files.newInputStream(file)) {

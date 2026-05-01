@@ -2,7 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.config.AppConfig;
 import ch.unige.events.exception.InvalidFileTypeException;
-import ch.unige.events.util.ImageMagicBytes;
+import ch.unige.events.util.ImageFormat;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -62,19 +62,19 @@ public class FileStorageService {
 
     public String saveImage(FileUpload fileUpload, String folder) {
         String contentType = fileUpload.contentType();
-        if (contentType == null || !ImageMagicBytes.MIME_TO_EXTENSION.containsKey(contentType)) {
+        if (contentType == null || !ImageFormat.MIME_TO_EXTENSION.containsKey(contentType)) {
             throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
         }
 
         try {
-            if (!ImageMagicBytes.matches(fileUpload.uploadedFile(), contentType)) {
+            if (!ImageFormat.matches(fileUpload.uploadedFile(), contentType)) {
                 throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
             }
         } catch (IOException e) {
             throw new InternalServerErrorException("Failed to read uploaded file");
         }
 
-        String extension = ImageMagicBytes.MIME_TO_EXTENSION.get(contentType);
+        String extension = ImageFormat.MIME_TO_EXTENSION.get(contentType);
         String key = folder + "/" + UUID.randomUUID() + extension;
 
         try {
