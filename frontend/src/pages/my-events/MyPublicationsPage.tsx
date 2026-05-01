@@ -375,7 +375,7 @@ export default function MyPublicationsPage() {
       <Link
         to="/events/new"
         aria-label="Créer un événement"
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-linear-to-r from-accent to-pink-600 text-white font-semibold shadow-xl shadow-accent/30 no-underline hover:from-accent/90 hover:to-pink-600/90 transition-colors"
+        className="sticky bottom-6 self-end z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-linear-to-r from-accent to-pink-600 text-white font-semibold shadow-xl shadow-accent/30 no-underline hover:from-accent/90 hover:to-pink-600/90 transition-colors"
       >
         <Plus className="size-5" />
         Créer un événement
