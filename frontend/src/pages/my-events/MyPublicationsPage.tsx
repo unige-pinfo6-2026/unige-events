@@ -297,11 +297,20 @@ export default function MyPublicationsPage() {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(update)
     }
+    // Watch the document body so the FAB recomputes its offset as the page
+    // grows when the skeleton resolves into real content (otherwise the
+    // initial render's short body keeps the FAB stuck high until the user
+    // scrolls or resizes the window).
+    const bodyObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(schedule)
+      : null
+    bodyObserver?.observe(document.body)
     update()
     window.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
     return () => {
       cancelAnimationFrame(frame)
+      bodyObserver?.disconnect()
       window.removeEventListener('scroll', schedule)
       window.removeEventListener('resize', schedule)
     }
