@@ -1276,6 +1276,162 @@ class EventServiceCoverageTest {
         entityManager.persist(a);
     }
 
+    // =========================================================
+    // SCRUM-136 — Cascade isCreatorOrAcceptedCoOrganizer
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void update_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-upd-c", "cas-upd-c@example.com");
+        User coOrg = persistUser("auth0|cas-upd-co", "cas-upd-co@example.com");
+        Event event = persistEvent("Cascade Update", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        EventDTO updated = eventService.update(event.id, coOrg.auth0Id,
+                validUpdateRequest("Edited by co-org", EventCategory.ACADEMIC, EventStatus.PUBLISHED));
+
+        assertEquals("Edited by co-org", updated.title());
+    }
+
+    @Test
+    @TestTransaction
+    void update_byPendingCoOrganizer_throws403() {
+        User creator = persistUser("auth0|cas-pen-c", "cas-pen-c@example.com");
+        User coOrg = persistUser("auth0|cas-pen-co", "cas-pen-co@example.com");
+        Event event = persistEvent("Cascade Pending", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.PENDING);
+
+        assertThrows(ForbiddenException.class,
+                () -> eventService.update(event.id, coOrg.auth0Id,
+                        validUpdateRequest("nope", EventCategory.ACADEMIC, EventStatus.PUBLISHED)));
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-can-c", "cas-can-c@example.com");
+        User coOrg = persistUser("auth0|cas-can-co", "cas-can-co@example.com");
+        Event event = persistEvent("Cascade Cancel", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        EventDTO cancelled = eventService.cancel(event.id, coOrg.auth0Id);
+
+        assertEquals(EventStatus.CANCELLED, cancelled.status());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-res-c", "cas-res-c@example.com");
+        User coOrg = persistUser("auth0|cas-res-co", "cas-res-co@example.com");
+        Event event = persistEvent("Cascade Restore", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        EventDTO restored = eventService.restore(event.id, coOrg.auth0Id);
+
+        assertEquals(EventStatus.DRAFT, restored.status());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-pub-c", "cas-pub-c@example.com");
+        User coOrg = persistUser("auth0|cas-pub-co", "cas-pub-co@example.com");
+        Event event = persistEvent("Cascade Publish", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        EventDTO published = eventService.publish(event.id, coOrg.auth0Id, false);
+
+        assertEquals(EventStatus.PUBLISHED, published.status());
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_byAcceptedCoOrganizer_succeeds(@TempDir Path tempDir) throws IOException {
+        User creator = persistUser("auth0|cas-upl-c", "cas-upl-c@example.com");
+        User coOrg = persistUser("auth0|cas-upl-co", "cas-upl-co@example.com");
+        Event event = persistEvent("Cascade Upload", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        Path src = tempDir.resolve("banner.jpg");
+        Files.write(src, new byte[]{0x00, 0x01, 0x02});
+        StubFileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", src);
+
+        EventDTO updated = eventService.uploadImage(event.id, coOrg.auth0Id, upload, false);
+
+        assertNotNull(updated.bannerUrl());
+    }
+
+    @Test
+    @TestTransaction
+    void delete_byAcceptedCoOrganizer_throws403() {
+        User creator = persistUser("auth0|cas-del-c", "cas-del-c@example.com");
+        User coOrg = persistUser("auth0|cas-del-co", "cas-del-co@example.com");
+        Event event = persistEvent("Cascade Delete", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        // Sentinel décision 2 — delete reste strict-creator même pour un co-org ACCEPTED.
+        assertThrows(ForbiddenException.class,
+                () -> eventService.delete(event.id, coOrg.auth0Id));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftByAcceptedCoOrganizer_returns200() {
+        User creator = persistUser("auth0|cas-gb-c", "cas-gb-c@example.com");
+        User coOrg = persistUser("auth0|cas-gb-co", "cas-gb-co@example.com");
+        Event event = persistEvent("Cascade GetById", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+
+        EventDTO dto = eventService.getById(event.id, coOrg.auth0Id, false);
+
+        assertEquals(event.id, dto.id());
+        assertEquals(EventStatus.DRAFT, dto.status());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_draftByPendingCoOrganizer_throws404() {
+        User creator = persistUser("auth0|cas-gbp-c", "cas-gbp-c@example.com");
+        User coOrg = persistUser("auth0|cas-gbp-co", "cas-gbp-co@example.com");
+        Event event = persistEvent("Cascade GetById Pending", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.PENDING);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getById(event.id, coOrg.auth0Id, false));
+    }
+
+    @Test
+    @TestTransaction
+    void findByIdsAsDTO_returnsMappedDTOs() {
+        User creator = persistUser("auth0|fbids-c", "fbids-c@example.com");
+        Event e1 = persistEvent("FB1", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        Event e2 = persistEvent("FB2", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+
+        java.util.Map<Long, EventDTO> map = eventService.findByIdsAsDTO(List.of(e1.id, e2.id));
+
+        assertEquals(2, map.size());
+        assertEquals("FB1", map.get(e1.id).title());
+        assertEquals("FB2", map.get(e2.id).title());
+    }
+
+    @Test
+    @TestTransaction
+    void findByIdsAsDTO_emptyInput_returnsEmptyMap() {
+        assertTrue(eventService.findByIdsAsDTO(List.of()).isEmpty());
+        assertTrue(eventService.findByIdsAsDTO(null).isEmpty());
+    }
+
+    private void persistCoOrg(Long eventId, UUID userId, ch.unige.events.entity.CoOrganizerStatus status) {
+        ch.unige.events.entity.EventCoOrganizer e = new ch.unige.events.entity.EventCoOrganizer();
+        e.eventId = eventId;
+        e.userId = userId;
+        e.status = status;
+        entityManager.persist(e);
+        entityManager.flush();
+    }
+
     // --- helpers ---
 
     private User persistUser(String auth0Id, String email) {
