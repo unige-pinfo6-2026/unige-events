@@ -1360,7 +1360,7 @@ class EventServiceCoverageTest {
         persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
 
         Path src = tempDir.resolve("banner.jpg");
-        Files.write(src, new byte[]{0x00, 0x01, 0x02});
+        Files.write(src, jpegHeader());
         StubFileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", src);
 
         EventDTO updated = eventService.uploadImage(event.id, coOrg.auth0Id, upload, false);
