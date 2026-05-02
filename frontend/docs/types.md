@@ -91,7 +91,7 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 **Constantes de validation frontend** (`src/types/event.ts`) :
 - `EVENT_WEBSITE_URL_MAX_LENGTH = 500` — longueur max de `websiteUrl`
 - `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
-- `EVENT_TAG_MAX_LENGTH = 64` — longueur max d'un tag individuel
+- `EVENT_TAG_MAX_LENGTH = 16` — longueur max d'un tag individuel
 - `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
 
 ### CreateEventRequest

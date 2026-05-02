@@ -443,6 +443,7 @@ export default function EventForm({
             onChange={(tags) => onFieldChange('tags', tags)}
             placeholder="Ajoutez des mots-clés…"
             maxTags={EVENT_TAGS_MAX_ITEMS}
+            maxLength={EVENT_TAG_MAX_LENGTH}
           />
           <div className="text-right text-xs text-foreground/40 mt-1">
             {values.tags.length} / {EVENT_TAGS_MAX_ITEMS} · max {EVENT_TAG_MAX_LENGTH} car. par mot-clé
