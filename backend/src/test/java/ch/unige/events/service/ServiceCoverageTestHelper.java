@@ -22,6 +22,7 @@ final class ServiceCoverageTestHelper {
         user.email = email;
         user.profilePublic = false;
         user.createdAt = LocalDateTime.now();
+        user.username = ("u" + UUID.randomUUID().toString().replace("-", "").substring(0, 16)).toLowerCase();
         em.persist(user);
         em.flush();
         return user;

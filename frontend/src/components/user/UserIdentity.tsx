@@ -39,7 +39,10 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
   const { user: currentUser } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
-  const profileUrl = currentUser?.id === user?.id ? '/profile/me' : `/profile/${user?.id}`
+  const profileUrl =
+    currentUser?.id === user?.id
+      ? '/profile/me'
+      : `/profile/${encodeURIComponent(user?.username ?? '')}`
 
   if (loading) {
     return (
@@ -60,8 +63,7 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
 
         {variant === 'card' && (
           <span className="text-sm text-foreground/40 font-light">
-            {/* TODO: SPRINT 5 : Username */}
-            @{user.username ?? "username"}
+            @{user.username}
           </span>
         )}
       </div>

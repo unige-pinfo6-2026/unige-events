@@ -2,6 +2,8 @@ package ch.unige.events.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,6 +14,8 @@ import java.util.UUID;
 @Table(name = "users")
 public class User extends PanacheEntityBase {
 
+    public static final String USERNAME_PATTERN = "^[a-z0-9._-]{3,30}$";
+
     @Id
     @GeneratedValue
     public UUID id;
@@ -21,6 +25,11 @@ public class User extends PanacheEntityBase {
 
     @Column(nullable = false, unique = true, updatable = false)
     public String email;
+
+    @NotBlank
+    @Pattern(regexp = USERNAME_PATTERN, message = "must match " + USERNAME_PATTERN)
+    @Column(nullable = false, unique = true)
+    public String username;
 
     public String displayName;
     public String firstName;
@@ -56,5 +65,19 @@ public class User extends PanacheEntityBase {
 
     public static Optional<User> findByEmail(String email) {
         return find("email", email).firstResultOptional();
+    }
+
+    public static Optional<User> findByUsername(String username) {
+        if (username == null) {
+            return Optional.empty();
+        }
+        return find("LOWER(username)", username.toLowerCase()).firstResultOptional();
+    }
+
+    public static boolean existsByUsername(String username) {
+        if (username == null) {
+            return false;
+        }
+        return count("LOWER(username)", username.toLowerCase()) > 0;
     }
 }

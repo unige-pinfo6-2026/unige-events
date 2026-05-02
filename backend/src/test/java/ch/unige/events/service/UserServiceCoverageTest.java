@@ -455,6 +455,10 @@ class UserServiceCoverageTest {
         user.email = email;
         user.profilePublic = profilePublic;
         user.createdAt = LocalDateTime.now();
+        // Ensure the @NotNull/@Pattern constraint on username is satisfied. The actual
+        // value doesn't matter for these coverage tests — just needs to be unique
+        // and match the public pattern.
+        user.username = ("u" + UUID.randomUUID().toString().replace("-", "").substring(0, 16)).toLowerCase();
         entityManager.persist(user);
         entityManager.flush();
         return user;

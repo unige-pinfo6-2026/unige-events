@@ -497,7 +497,7 @@ export default function EventDetailPage() {
             {/* Organisateur */}
             {organizer && (
               <Link
-                to={`/profile/${organizer.id}`}
+                to={`/profile/${encodeURIComponent(organizer.username)}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
               >
                 <UserAvatar user={organizer} className="size-8 shrink-0" />

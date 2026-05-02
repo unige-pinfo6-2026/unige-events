@@ -8,8 +8,8 @@
 | /events/new | CreateEventPage | fait |
 | /events/:id | EventDetailPage | fait |
 | /events/:id/edit | EditEventPage | fait |
-| /profile/:id | ProfilePage | fait |
-| /profile/me/edit | ProfileEditPage | fait |
+| /profile/:username | ProfilePage | fait (alias `me`, redirect transitoire UUID → username) |
+| /profile/me/edit | ProfileEditPage | fait (inclut le champ "Nom d'utilisateur" avec live-check debounced) |
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
 | /events/favorites | FavoritesPage | fait |
@@ -273,7 +273,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 - Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
 - Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
-- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
+- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.username}` (encodé via `encodeURIComponent`).
 - Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
 - Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
 

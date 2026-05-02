@@ -116,6 +116,7 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | id            | string     | oui    |
 | auth0Id       | string     | oui    |
 | email         | string     | oui    |
+| username      | string     | oui    |
 | displayName   | string     | non    |
 | firstName     | string     | non    |
 | lastName      | string     | non    |
@@ -134,11 +135,12 @@ Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCT
 
 ### UserPublicResponse
 
-Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+Profil public retourné par `GET /api/users/{id}` ou `GET /api/users/by-username/{username}` quand `profilePublic = true`.
 
 | Champ       | Type                      | Requis |
 |-------------|---------------------------|--------|
 | id          | string                    | oui    |
+| username    | string                    | oui    |
 | displayName | string \| null            | non    |
 | faculty     | string \| null            | non    |
 | studyLevel  | string \| null            | non    |
@@ -146,6 +148,13 @@ Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
 | interests   | string[]                  | non    |
 | avatarUrl   | string \| null            | non    |
 | bannerUrl   | string \| null            | non    |
+
+### Username — contraintes et helpers
+
+- Pattern : `USERNAME_PATTERN = /^[a-z0-9._-]{3,30}$/`
+- Longueurs : `USERNAME_MIN_LENGTH = 3`, `USERNAME_MAX_LENGTH = 30`
+- Blocklist : `RESERVED_USERNAMES = ['me', 'admin', 'api', 'login', 'logout', 'signup', 'register', 'settings']`
+- Helpers : `isValidUsername(value)` (pattern + blocklist), `isUuid(value)` (détection UUID v4 — utilisé par `ProfilePage` pour la redirection transitoire UUID → username).
 
 ---
 

@@ -816,6 +816,188 @@ class UserResourceTest {
             .statusCode(404);
     }
 
+    // --- PATCH /users/me/username — Sprint 7 ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMyUsername_happyPath_returns200() {
+        var user = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        user.username = "alice";
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"username": "alice.martin"}
+                """)
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("alice.martin"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMyUsername_normalizesUppercase() {
+        var user = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        user.username = "alice";
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"username": "Alice.Martin"}
+                """)
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("alice.martin"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMyUsername_taken_returns409() {
+        var alice = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        alice.username = "alice";
+        var bob = userServiceMock.seedUser("auth0|bob", "bob@example.com");
+        bob.username = "bob.smith";
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"username": "bob.smith"}
+                """)
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(409)
+            .body("error", equalTo("username_taken"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMyUsername_invalid_returns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"username": "ab"}
+                """)
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void updateMyUsername_reserved_returns400() {
+        var alice = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        alice.username = "alice";
+
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                {"username": "admin"}
+                """)
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(400)
+            .body("error", equalTo("username_reserved"));
+    }
+
+    @Test
+    void updateMyUsername_unauthenticated_returns401() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("{\"username\":\"foo\"}")
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(401);
+    }
+
+    // --- GET /users/by-username/{username} — Sprint 7 ---
+
+    @Test
+    void getByUsername_publicProfile_anon_returns200_strippedPayload() {
+        var user = userServiceMock.seedUser("auth0|public-username", "pu@example.com");
+        user.profilePublic = true;
+        user.username = "alice.public";
+        user.displayName = "Alice";
+        user.bio = "Étudiant";
+
+        given()
+            .when().get("/users/by-username/alice.public")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("alice.public"))
+            .body("displayName", equalTo("Alice"))
+            .body("bio", nullValue());
+    }
+
+    @Test
+    void getByUsername_caseInsensitive_returns200() {
+        var user = userServiceMock.seedUser("auth0|case", "case@example.com");
+        user.profilePublic = true;
+        user.username = "alice.case";
+
+        given()
+            .when().get("/users/by-username/Alice.Case")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("alice.case"));
+    }
+
+    @Test
+    void getByUsername_unknown_returns404() {
+        given()
+            .when().get("/users/by-username/does.not.exist")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void getByUsername_privateProfile_anon_returns404() {
+        var user = userServiceMock.seedUser("auth0|private-uname", "pp@example.com");
+        user.profilePublic = false;
+        user.username = "alice.private";
+
+        given()
+            .when().get("/users/by-username/alice.private")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|private-uname")
+    void getByUsername_privateProfile_owner_returns200() {
+        var user = userServiceMock.seedUser("auth0|private-uname", "pp@example.com");
+        user.profilePublic = false;
+        user.username = "alice.private";
+
+        given()
+            .when().get("/users/by-username/alice.private")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("alice.private"));
+    }
+
+    @Test
+    void headUsernameExists_taken_returns200() {
+        var user = userServiceMock.seedUser("auth0|head", "h@example.com");
+        user.username = "alice.head";
+
+        given()
+            .when().head("/users/by-username/alice.head")
+            .then()
+            .statusCode(200);
+    }
+
+    @Test
+    void headUsernameExists_available_returns404() {
+        given()
+            .when().head("/users/by-username/free.username")
+            .then()
+            .statusCode(404);
+    }
+
     private EventDTO sampleEventDTO(String title) {
         return new EventDTO(
                 42L, title, null, "Uni Mail",

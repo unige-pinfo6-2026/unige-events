@@ -6,6 +6,7 @@ import ch.unige.events.dto.calendar.CalendarTokenResponse;
 import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
+import ch.unige.events.dto.user.UpdateUsernameRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
 import ch.unige.events.entity.CoOrganizerStatus;
@@ -57,6 +58,51 @@ public class UserResource {
     @Inject AttendanceService attendanceService;
     @Inject EventService eventService;
     @Inject EventCoOrganizerService coOrganizerService;
+
+    /**
+     * GET /api/users/by-username/{username}
+     * Profil public d'un utilisateur identifié par son username (case-insensitive).
+     * Mêmes règles d'autorisation que /api/users/{id}.
+     */
+    @GET
+    @Path("/by-username/{username}")
+    @PermitAll
+    public Response getProfileByUsername(@PathParam("username") String username) {
+        boolean anonymous = identity.isAnonymous();
+        String auth0Id = anonymous ? null : identity.getPrincipal().getName();
+        User user = userService.getPublicProfileByUsername(username, auth0Id);
+        UserPublicResponse body = anonymous
+                ? UserPublicResponse.fromAnonymous(user)
+                : UserPublicResponse.from(user);
+        return Response.ok(body).build();
+    }
+
+    /**
+     * HEAD /api/users/by-username/{username}
+     * Live-check d'unicité — 200 si pris, 404 si disponible. Aucun body.
+     */
+    @HEAD
+    @Path("/by-username/{username}")
+    @PermitAll
+    public Response checkUsernameTaken(@PathParam("username") String username) {
+        if (userService.usernameExists(username)) {
+            return Response.ok().build();
+        }
+        return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    /**
+     * PATCH /api/users/me/username
+     * Modifie son propre username. Normalisation lowercase + validation pattern + blocklist.
+     */
+    @PATCH
+    @Path("/me/username")
+    @Authenticated
+    public Response updateMyUsername(@Valid UpdateUsernameRequest req) {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.updateMyUsername(auth0Id, req.username());
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
 
     /**
      * GET /api/users/{id}

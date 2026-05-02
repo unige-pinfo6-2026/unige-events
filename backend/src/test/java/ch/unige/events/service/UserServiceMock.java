@@ -1,9 +1,11 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
 import ch.unige.events.exception.InvalidFileTypeException;
 import ch.unige.events.util.ImageFormat;
+import ch.unige.events.util.UsernameGenerator;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -13,6 +15,9 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
@@ -81,12 +86,85 @@ public class UserServiceMock extends UserService {
         if (user == null) {
             throw new NotFoundException();
         }
-        // Same rule as prod — hotfix pentest 4.1 (404 anti-oracle, self-case bypass).
+        return ensureViewableMock(user, auth0Id);
+    }
+
+    @Override
+    public User getPublicProfileByUsername(String username, String auth0Id) {
+        if (username == null || username.isBlank()) {
+            throw new NotFoundException();
+        }
+        User user = findUserByUsername(username);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        return ensureViewableMock(user, auth0Id);
+    }
+
+    @Override
+    public boolean usernameExists(String username) {
+        return findUserByUsername(username) != null;
+    }
+
+    @Override
+    public User updateMyUsername(String auth0Id, String rawUsername) {
+        if (rawUsername == null) {
+            throw badRequestError("username_invalid", "Username must not be null");
+        }
+        String candidate = rawUsername.trim().toLowerCase();
+        if (!candidate.matches(User.USERNAME_PATTERN)) {
+            throw badRequestError("username_invalid",
+                    "Username must match " + User.USERNAME_PATTERN);
+        }
+        if (UsernameGenerator.isReserved(candidate)) {
+            throw badRequestError("username_reserved", "This username is reserved");
+        }
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        if (candidate.equals(user.username)) {
+            return user;
+        }
+        User existing = findUserByUsername(candidate);
+        if (existing != null && !existing.id.equals(user.id)) {
+            throw conflictError("username_taken", "Username is already taken");
+        }
+        user.username = candidate;
+        return user;
+    }
+
+    private User ensureViewableMock(User user, String auth0Id) {
         boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
         if (!user.profilePublic && !isOwner) {
             throw new NotFoundException();
         }
         return user;
+    }
+
+    private User findUserByUsername(String username) {
+        if (username == null) return null;
+        String needle = username.toLowerCase();
+        return usersById.values().stream()
+                .filter(u -> u.username != null && u.username.equalsIgnoreCase(needle))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static WebApplicationException badRequestError(String error, String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
+    }
+
+    private static WebApplicationException conflictError(String error, String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.CONFLICT)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
     }
 
     @Override
@@ -183,7 +261,13 @@ public class UserServiceMock extends UserService {
         user.lastName = claim(jwt, "family_name");
         user.avatarUrl = claim(jwt, "picture");
         user.profilePublic = false;
+        user.username = generateUsernameFromContext(user);
         return user;
+    }
+
+    private String generateUsernameFromContext(User user) {
+        String base = UsernameGenerator.baseSlug(user.displayName, user.firstName, user.lastName);
+        return UsernameGenerator.firstAvailable(base, this::usernameExists);
     }
 
     private String claim(JsonWebToken jwt, String claimName) {

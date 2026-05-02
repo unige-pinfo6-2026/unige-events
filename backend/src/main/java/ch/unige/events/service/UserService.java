@@ -1,7 +1,9 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.util.UsernameGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -13,14 +15,20 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @ApplicationScoped
 public class UserService {
+
+    private static final Pattern USERNAME_PATTERN = Pattern.compile(User.USERNAME_PATTERN);
 
     @Inject FileStorageService fileStorageService;
     @Inject Instance<EntityManager> entityManager;
@@ -36,19 +44,6 @@ public class UserService {
             return existing;
         }
 
-        /*
-        Auth0 Custom Action
-
-        exports.onExecutePostLogin = async (event, api) => {
-            api.accessToken.setCustomClaim('email', event.user.email);
-            api.accessToken.setCustomClaim('name', event.user.name);
-            api.accessToken.setCustomClaim('given_name', event.user.given_name);
-            api.accessToken.setCustomClaim('family_name', event.user.family_name);
-            api.accessToken.setCustomClaim('picture', event.user.picture);
-        };
-        ```
-        */
-
         String email = jwt.getClaim("email");
         if (email == null) {
             throw new NotAuthorizedException("Email claim is required");
@@ -62,6 +57,8 @@ public class UserService {
             newUser.firstName = jwt.getClaim("given_name");
             newUser.lastName = jwt.getClaim("family_name");
             newUser.avatarUrl = jwt.getClaim("picture");
+            newUser.username = generateUniqueUsername(
+                    newUser.displayName, newUser.firstName, newUser.lastName);
             newUser.persist();
 
             flushEntityManager();
@@ -77,16 +74,19 @@ public class UserService {
 
     public User getPublicProfile(UUID id, String auth0Id) {
         User user = (User) User.findByIdOptional(id).orElseThrow(NotFoundException::new);
+        return ensureViewable(user, auth0Id);
+    }
 
-        // Hotfix pentest 4.1: hide private profiles with 404 (not 403) to close the
-        // existence oracle — identical envelope as "user does not exist". The owner
-        // (self-case) can always read their own profile regardless of profilePublic.
-        boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
-        if (!user.profilePublic && !isOwner) {
+    public User getPublicProfileByUsername(String username, String auth0Id) {
+        if (username == null || username.isBlank()) {
             throw new NotFoundException();
         }
+        User user = User.findByUsername(username).orElseThrow(NotFoundException::new);
+        return ensureViewable(user, auth0Id);
+    }
 
-        return user;
+    public boolean usernameExists(String username) {
+        return username != null && User.existsByUsername(username);
     }
 
     @Transactional
@@ -128,6 +128,49 @@ public class UserService {
         return user;
     }
 
+    /**
+     * Updates the authenticated user's username. The candidate is normalized to
+     * lowercase, validated against the public pattern and the reserved blocklist,
+     * then checked for uniqueness (case-insensitive). Returns the updated User.
+     */
+    @Transactional
+    public User updateMyUsername(String auth0Id, String rawUsername) {
+        if (rawUsername == null) {
+            throw badRequest("username_invalid", "Username must not be null");
+        }
+        String candidate = rawUsername.trim().toLowerCase();
+        if (!USERNAME_PATTERN.matcher(candidate).matches()) {
+            throw badRequest("username_invalid",
+                    "Username must match " + User.USERNAME_PATTERN);
+        }
+        if (UsernameGenerator.isReserved(candidate)) {
+            throw badRequest("username_reserved", "This username is reserved");
+        }
+
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+
+        if (candidate.equals(user.username)) {
+            return user;
+        }
+
+        if (User.existsByUsername(candidate)) {
+            throw conflict("username_taken", "Username is already taken");
+        }
+
+        user.username = candidate;
+
+        try {
+            flushEntityManager();
+        } catch (PersistenceException exception) {
+            if (isUniqueUsernameConflict(exception)) {
+                throw conflict("username_taken", "Username is already taken");
+            }
+            throw exception;
+        }
+
+        return user;
+    }
+
     @Transactional
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
@@ -152,15 +195,53 @@ public class UserService {
         return user;
     }
 
+    private User ensureViewable(User user, String auth0Id) {
+        boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
+        if (!user.profilePublic && !isOwner) {
+            throw new NotFoundException();
+        }
+        return user;
+    }
+
+    private String generateUniqueUsername(String displayName, String firstName, String lastName) {
+        String base = UsernameGenerator.baseSlug(displayName, firstName, lastName);
+        return UsernameGenerator.firstAvailable(base, User::existsByUsername);
+    }
+
     private void flushEntityManager() {
         entityManager.get().flush();
     }
 
+    private static WebApplicationException badRequest(String error, String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
+    }
+
+    private static WebApplicationException conflict(String error, String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.CONFLICT)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
+    }
+
     private boolean isUniqueAuth0Conflict(Throwable throwable) {
+        return matchesMessage(throwable, "users_auth0_id_unique");
+    }
+
+    private boolean isUniqueUsernameConflict(Throwable throwable) {
+        return matchesMessage(throwable, "users_username_unique")
+                || matchesMessage(throwable, "users_username_lower_idx");
+    }
+
+    private boolean matchesMessage(Throwable throwable, String needle) {
         Throwable current = throwable;
         while (current != null) {
             String message = current.getMessage();
-            if (message != null && message.contains("users_auth0_id_unique")) {
+            if (message != null && message.contains(needle)) {
                 return true;
             }
             current = current.getCause();

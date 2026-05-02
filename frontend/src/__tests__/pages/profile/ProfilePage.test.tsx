@@ -15,6 +15,7 @@ vi.mock('@/contexts/ThemeContext', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
+  getUserByUsername: vi.fn(),
   getCalendarToken: vi.fn().mockResolvedValue({
     calendarToken: 'test-token',
     webcalUrl: 'webcal://example.com/cal.ics',
@@ -37,11 +38,12 @@ vi.mock('@/hooks/useMyEvents', () => ({
 }))
 
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById, getCalendarToken } from '@/services/userService'
+import { getUserById, getUserByUsername, getCalendarToken } from '@/services/userService'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
@@ -49,6 +51,7 @@ const mockUser = {
   id: '123',
   auth0Id: 'auth0|123',
   email: 'test@example.com',
+  username: 'test.user',
   displayName: 'Test User',
   profilePublic: true,
   createdAt: '2024-01-01',
@@ -71,7 +74,7 @@ function renderProfilePage(id: string) {
   return render(
     <MemoryRouter initialEntries={[`/profile/${id}`]}>
       <Routes>
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/profile/:username" element={<ProfilePage />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -93,44 +96,51 @@ describe('ProfilePage', () => {
 
   it('fetches and renders another user profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
+    mockGetUserByUsername.mockResolvedValue({
       id: '456',
-      auth0Id: 'auth0|456',
-      email: 'other@example.com',
+      username: 'other.user',
       displayName: 'Other User',
-      profilePublic: true,
-      createdAt: '2024-01-01',
     })
-    renderProfilePage('auth0|456')
+    renderProfilePage('other.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
   })
 
-  it('shows not found when getUserById returns null', async () => {
+  it('shows not found when getUserByUsername rejects', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue(null)
-    renderProfilePage('auth0|456')
+    mockGetUserByUsername.mockRejectedValue(new Error('not found'))
+    renderProfilePage('other.user')
     expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
   })
 
-  it('shows error when getUserById rejects', async () => {
+  it('shows error when getUserByUsername rejects (network)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockRejectedValue(new Error('Network error'))
-    renderProfilePage('auth0|456')
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    mockGetUserByUsername.mockRejectedValue(new Error('Network error'))
+    renderProfilePage('other.user')
+    expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
   })
 
-  it('shows private profile message for non-public profiles', async () => {
+  it('redirects UUID URL to canonical /profile/:username', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockGetUserById.mockResolvedValue({
-      id: '789',
-      auth0Id: 'auth0|789',
-      email: 'private@example.com',
-      displayName: 'Private User',
-      profilePublic: false,
-      createdAt: '2024-01-01',
+      id: '00000000-0000-4000-8000-000000000001',
+      username: 'redirected.user',
+      displayName: 'Redirected',
     })
-    renderProfilePage('auth0|789')
-    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+    mockGetUserByUsername.mockResolvedValue({
+      id: '00000000-0000-4000-8000-000000000001',
+      username: 'redirected.user',
+      displayName: 'Redirected',
+    })
+    renderProfilePage('00000000-0000-4000-8000-000000000001')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Redirected' })).toBeTruthy()
+    expect(mockGetUserById).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000001')
+  })
+
+  it('shows not found when API returns 404 (private profile)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserByUsername.mockRejectedValue(new Error('not found'))
+    renderProfilePage('private.user')
+    expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
   })
 
   it('renders faculty and study level when present', async () => {
@@ -159,9 +169,9 @@ describe('ProfilePage', () => {
     expect(screen.getByText('Coding')).toBeTruthy()
   })
 
-  it('loads own profile when id matches currentUser.auth0Id', async () => {
+  it('loads own profile when username matches currentUser.username', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    renderProfilePage('auth0|123')
+    renderProfilePage('test.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
     expect(screen.getByText('Modifier')).toBeTruthy()
   })
@@ -236,15 +246,12 @@ describe('ProfilePage', () => {
 
   it('does not render the Mes publications preview on another user profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
+    mockGetUserByUsername.mockResolvedValue({
       id: '456',
-      auth0Id: 'auth0|456',
-      email: 'other@example.com',
+      username: 'other.user',
       displayName: 'Other User',
-      profilePublic: true,
-      createdAt: '2024-01-01',
     })
-    renderProfilePage('auth0|456')
+    renderProfilePage('other.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
     expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
   })

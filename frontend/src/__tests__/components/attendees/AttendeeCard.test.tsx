@@ -19,6 +19,7 @@ const attendance: Attendance = {
 
 const profile: UserPublicResponse = {
   id: 'user-1',
+  username: 'alice.martin',
   displayName: 'Alice Martin',
   faculty: 'SCIENCES',
   studyLevel: 'MASTER',
@@ -38,11 +39,11 @@ function renderCard(...args: Parameters<typeof AttendeeCard>) {
 }
 
 describe('AttendeeCard', () => {
-  it('renders profile and links to /profile/:id', () => {
+  it('renders profile and links to /profile/:username', () => {
     renderCard({ attendance, profile })
 
     const link = screen.getByRole('link') as HTMLAnchorElement
-    expect(link.getAttribute('href')).toBe('/profile/user-1')
+    expect(link.getAttribute('href')).toBe('/profile/alice.martin')
     expect(screen.getByText('Alice Martin')).toBeTruthy()
     expect(screen.getByText(/Master/)).toBeTruthy()
     expect(screen.getByText(/Sciences/)).toBeTruthy()

@@ -1,9 +1,26 @@
-import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useState } from 'react'
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { AxiosError } from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
+import {
+  checkUsernameAvailable,
+  deleteBanner,
+  getMe,
+  updateProfile,
+  updateUsername,
+  uploadBanner,
+  uploadPhoto,
+} from '@/services/userService'
 import { FACULTIES } from '@/types/faculty'
-import { STUDY_LEVELS, type User } from '@/types/user'
+import {
+  isValidUsername,
+  RESERVED_USERNAMES,
+  STUDY_LEVELS,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  USERNAME_PATTERN,
+  type User,
+} from '@/types/user'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
 import { ImagePlus, Trash2, X } from 'lucide-react'
@@ -24,7 +41,12 @@ interface FormErrors {
   bio?: string
   photo?: string
   banner?: string
+  username?: string
 }
+
+const USERNAME_DEBOUNCE_MS = 400
+
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid' | 'reserved'
 
 export default function ProfileEditPage() {
   const { user, updateUser } = useAuth()
@@ -33,6 +55,10 @@ export default function ProfileEditPage() {
   const navigate = useNavigate()
 
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
+  const usernameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const usernameCheckSeq = useRef(0)
   const [faculty, setFaculty] = useState('')
   const [studyLevel, setStudyLevel] = useState('')
   const [bio, setBio] = useState('')
@@ -50,6 +76,7 @@ export default function ProfileEditPage() {
   useEffect(() => {
     if (user) {
       setName(user.displayName ?? '')
+      setUsername(user.username ?? '')
       setFaculty(user.faculty ?? '')
       setStudyLevel(user.studyLevel ?? '')
       setBio(user.bio ?? '')
@@ -59,6 +86,39 @@ export default function ProfileEditPage() {
       if (user.bannerUrl) setBannerPreview(user.bannerUrl)
     }
   }, [user])
+
+  useEffect(() => {
+    if (usernameDebounce.current) clearTimeout(usernameDebounce.current)
+    const trimmed = username.trim().toLowerCase()
+    if (!trimmed || trimmed === user?.username) {
+      setUsernameStatus('idle')
+      return
+    }
+    if ((RESERVED_USERNAMES as readonly string[]).includes(trimmed)) {
+      setUsernameStatus('reserved')
+      return
+    }
+    if (!USERNAME_PATTERN.test(trimmed)) {
+      setUsernameStatus('invalid')
+      return
+    }
+    setUsernameStatus('checking')
+    const seq = ++usernameCheckSeq.current
+    usernameDebounce.current = setTimeout(() => {
+      checkUsernameAvailable(trimmed)
+        .then((available) => {
+          if (seq !== usernameCheckSeq.current) return
+          setUsernameStatus(available ? 'available' : 'taken')
+        })
+        .catch(() => {
+          if (seq !== usernameCheckSeq.current) return
+          setUsernameStatus('idle')
+        })
+    }, USERNAME_DEBOUNCE_MS)
+    return () => {
+      if (usernameDebounce.current) clearTimeout(usernameDebounce.current)
+    }
+  }, [username, user?.username])
 
   function validatePhoto(file: File): string | null {
     if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
@@ -130,6 +190,19 @@ export default function ProfileEditPage() {
     const newErrors: FormErrors = {}
     if (!name.trim()) newErrors.name = 'Le nom est requis.'
     if (bio.length > MAX_BIO_LENGTH) newErrors.bio = `La biographie ne doit pas dépasser ${MAX_BIO_LENGTH} caractères.`
+
+    const trimmedUsername = username.trim().toLowerCase()
+    if (trimmedUsername !== (user?.username ?? '')) {
+      if (!trimmedUsername) {
+        newErrors.username = "Le nom d'utilisateur est requis."
+      } else if ((RESERVED_USERNAMES as readonly string[]).includes(trimmedUsername)) {
+        newErrors.username = "Ce nom d'utilisateur est réservé."
+      } else if (!isValidUsername(trimmedUsername)) {
+        newErrors.username = `Doit faire ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} caractères : a-z, 0-9, ._-`
+      } else if (usernameStatus === 'taken') {
+        newErrors.username = "Ce nom d'utilisateur est déjà pris."
+      }
+    }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -142,6 +215,22 @@ export default function ProfileEditPage() {
       if (photoFile) await uploadPhoto(photoFile)
       if (bannerFile) await uploadBanner(bannerFile)
       else if (bannerDeleted) await deleteBanner()
+
+      const trimmedUsername = username.trim().toLowerCase()
+      if (trimmedUsername && trimmedUsername !== user?.username) {
+        try {
+          await updateUsername(trimmedUsername)
+        } catch (error) {
+          if (error instanceof AxiosError && error.response?.status === 409) {
+            setErrors((prev) => ({ ...prev, username: "Ce nom d'utilisateur est déjà pris." }))
+            setUsernameStatus('taken')
+            setSubmitting(false)
+            return
+          }
+          throw error
+        }
+      }
+
       const profileData: Partial<User> = {
         displayName: name.trim(),
         faculty: faculty as User['faculty'],
@@ -160,6 +249,23 @@ export default function ProfileEditPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const usernameHint: Record<UsernameStatus, string | null> = {
+    idle: null,
+    checking: 'Vérification…',
+    available: 'Disponible',
+    taken: "Ce nom d'utilisateur est déjà pris.",
+    invalid: `Doit faire ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} caractères : a-z, 0-9, ._-`,
+    reserved: "Ce nom d'utilisateur est réservé.",
+  }
+  const usernameHintColor: Record<UsernameStatus, string> = {
+    idle: 'text-foreground/40',
+    checking: 'text-foreground/40',
+    available: 'text-emerald-500',
+    taken: 'text-error',
+    invalid: 'text-error',
+    reserved: 'text-error',
   }
 
   const previewUser = user ? { ...user, displayName: name, avatarUrl: photoPreview ?? user.avatarUrl, bannerUrl: bannerPreview } : null
@@ -225,6 +331,27 @@ export default function ProfileEditPage() {
               error={errors.name}
               placeholder="Votre nom complet"
             />
+          </FormField>
+
+          <FormField label="Nom d'utilisateur" htmlFor="username" required error={errors.username}>
+            <Input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              error={errors.username}
+              placeholder="ex. jean.dupont"
+              minLength={USERNAME_MIN_LENGTH}
+              maxLength={USERNAME_MAX_LENGTH}
+              autoCapitalize="none"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            {!errors.username && usernameHint[usernameStatus] && (
+              <p className={`text-xs mt-1 ${usernameHintColor[usernameStatus]}`}>
+                {usernameHint[usernameStatus]}
+              </p>
+            )}
           </FormField>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">

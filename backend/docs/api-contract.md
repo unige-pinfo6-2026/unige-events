@@ -12,8 +12,11 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | Méthode | Path | Auth | Description | Codes HTTP |
 |---|---|---|---|---|
 | `GET` | `/users/{id}` | `@PermitAll` | Profil public d'un utilisateur — **payload réduit pour anon**, 404 si privé ou non autorisé (pas d'oracle d'existence) | 200, 404 |
+| `GET` | `/users/by-username/{username}` | `@PermitAll` | Variante de `/users/{id}` indexée par le username public (case-insensitive). Mêmes règles d'autorisation. | 200, 404 |
+| `HEAD` | `/users/by-username/{username}` | `@PermitAll` | Live-check d'unicité du username (200 = pris, 404 = libre). Pas de body. | 200, 404 |
 | `GET` | `/users/me` | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
 | `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
+| `PATCH` | `/users/me/username` | `@Authenticated` | Mise à jour du `username` public — normalisation lowercase + validation pattern + blocklist + uniqueness | 200, 400 (`username_invalid` / `username_reserved`), 401, 409 (`username_taken`) |
 | `GET` | `/events` | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
 | `POST` | `/events` | `@Authenticated` | Créer un événement | 201 |
 | `GET` | `/events/{id}` | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |

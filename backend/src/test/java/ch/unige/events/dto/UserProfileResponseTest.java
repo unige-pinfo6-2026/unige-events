@@ -25,6 +25,7 @@ class UserProfileResponseTest {
         user.id = id;
         user.auth0Id = "auth0|alice";
         user.email = "alice@example.com";
+        user.username = "alice";
         user.displayName = "Alice";
         user.faculty = "Science";
         user.studyLevel = "Bachelor";
@@ -39,6 +40,7 @@ class UserProfileResponseTest {
         assertEquals(id, response.id());
         assertEquals("auth0|alice", response.auth0Id());
         assertEquals("alice@example.com", response.email());
+        assertEquals("alice", response.username());
         assertEquals("Alice", response.displayName());
         assertEquals("Science", response.faculty());
         assertEquals("Bachelor", response.studyLevel());

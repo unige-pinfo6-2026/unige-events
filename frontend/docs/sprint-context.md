@@ -1,6 +1,18 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-01
+Dernière mise à jour : 2026-05-02
+
+## Sprint 7 — Username public pour `/profile/<username>` — 2026-05-02
+
+Livré.
+
+- Type `User.username` désormais obligatoire (post-back-fill backend) ; nouveaux helpers `USERNAME_PATTERN`, `RESERVED_USERNAMES`, `isValidUsername`, `isUuid` exposés depuis `src/types/user.ts`.
+- `userService` : ajout de `getUserByUsername`, `updateUsername`, `checkUsernameAvailable` (HEAD pour live-check). Les anciens helpers (`getUserById`, etc.) sont conservés.
+- `AppRouter` : la route `/profile/:id` devient `/profile/:username`. `/profile/me/edit` reste déclarée avant la dynamique. `/profile/me` reste un alias du profil connecté.
+- `ProfilePage` : `useParams<{ username }>()`, lookup via `getUserByUsername`, `isOwnProfile = username === 'me' || username === currentUser?.username`. Si l'URL contient un UUID v4 (legacy), `getUserById` puis `<Navigate replace>` vers `/profile/{user.username}`.
+- `ProfileEditPage` : nouveau champ "Nom d'utilisateur" (lowercase forcé, validation client miroir backend, debounce 400 ms via `checkUsernameAvailable`, feedback inline `idle/checking/available/taken/invalid/reserved`). Modifié indépendamment de `PUT /users/me` via `PATCH /users/me/username` ; gestion du 409 `username_taken` post-soumission.
+- Liens internes mis à jour : `UserIdentity`, `EventDetailPage`, `AttendeeCard` pointent vers `/profile/{username}` (encodé via `encodeURIComponent`). La balise `@username` dans la card variant `UserIdentity` ne dépend plus du fallback `"username"`.
+- Tests : `userService.test` couvre les 3 nouvelles fonctions ; `ProfilePage.test` couvre lookup, redirect UUID, alias `me`, error states ; `AttendeeCard.test` valide le format de lien `/profile/:username`.
 
 ## Sprint 7 — Fix overflow visuel des tags dans `EventForm` (ISSUE-122) — 2026-05-01
 

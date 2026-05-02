@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById } from '@/services/userService'
+import { getUserById, getUserByUsername } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
-import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
+import { isUuid, STUDY_LEVELS, type StudyLevel, type User, type UserPublicResponse } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, Lock, Mail, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
@@ -69,22 +69,27 @@ function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; childre
   )
 }
 
+type DisplayProfile = User | UserPublicResponse
+
 export default function ProfilePage() {
-  const { id } = useParams<{ id: string }>()
+  const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
-  const [profile, setProfile] = useState<User | null>(null)
+  const [profile, setProfile] = useState<DisplayProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [redirectTo, setRedirectTo] = useState<string | null>(null)
 
-  const isOwnProfile = id === 'me' || (currentUser !== null && id === currentUser.auth0Id)
+  const isOwnProfile =
+    username === 'me' || (currentUser !== null && username === currentUser.username)
 
   useEffect(() => {
-    if (!id || authLoading) return
+    if (!username || authLoading) return
 
     setLoading(true)
     setError(null)
+    setRedirectTo(null)
 
     if (isOwnProfile) {
       if (currentUser) {
@@ -93,19 +98,32 @@ export default function ProfilePage() {
         setError('Impossible de charger le profil.')
       }
       setLoading(false)
-    } else {
-      getUserById(id)
+      return
+    }
+
+    if (isUuid(username)) {
+      getUserById(username)
         .then((data) => {
           if (data === null) {
             setError('Profil introuvable.')
+          } else if (data.username) {
+            setRedirectTo(`/profile/${encodeURIComponent(data.username)}`)
           } else {
             setProfile(data)
           }
         })
-        .catch(() => setError('Impossible de charger le profil.'))
+        .catch(() => setError('Profil introuvable.'))
         .finally(() => setLoading(false))
+      return
     }
-  }, [id, isOwnProfile, currentUser, authLoading])
+
+    getUserByUsername(username)
+      .then((data) => setProfile(data))
+      .catch(() => setError('Profil introuvable.'))
+      .finally(() => setLoading(false))
+  }, [username, isOwnProfile, currentUser, authLoading])
+
+  if (redirectTo) return <Navigate to={redirectTo} replace />
 
   if (loading) return (
     <Skeleton
@@ -126,7 +144,10 @@ export default function ProfilePage() {
   const FacultyLogo = facultyEntry?.logo ?? null
   const profileSubtitle = [studyLevelName, facultyName].filter(Boolean).join(' · ')
 
-  if (!isOwnProfile && !profile.profilePublic) {
+  // The API gates visibility on private profiles (404). When viewing our own
+  // profile, only block if we explicitly hold a User payload with profilePublic=false
+  // and isOwnProfile is false — defensive, never reached in practice.
+  if (!isOwnProfile && 'profilePublic' in profile && !profile.profilePublic) {
     return (
       <div>
         <div className="relative h-52 overflow-hidden bg-linear-to-br from-foreground/5 via-foreground/3 to-foreground/5">
@@ -198,7 +219,9 @@ export default function ProfilePage() {
             <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-5">À propos</h2>
               <div className="flex flex-col gap-4">
-                <AboutRow icon={Mail}>{profile.email}</AboutRow>
+                {'email' in profile && profile.email && (
+                  <AboutRow icon={Mail}>{profile.email}</AboutRow>
+                )}
                 {studyLevelName && (
                   <AboutRow icon={GraduationCap}>{studyLevelName}</AboutRow>
                 )}

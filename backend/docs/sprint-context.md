@@ -187,6 +187,18 @@ Fix :
       (Flyway désormais source du schéma), `POST /co-organizers` sur body absent → 400
       via `@NotNull`, et `PATCH /me/accept|decline` sans row → 422
       `no_pending_invitation` au lieu de 404.
+- [x] **S7 — username public pour `/profile/<username>`** : ajout du champ `username`
+      (`@NotBlank`, `@Pattern("^[a-z0-9._-]{3,30}$")`, `unique`) sur l'entité `User`,
+      auto-généré à la création via `UsernameGenerator` (slug du `displayName` →
+      `firstName.lastName` → `"user"`, suffixe numérique incrémental, blocklist
+      `me/admin/api/login/logout/signup/register/settings`). Migration Flyway
+      `V9__add_user_username.sql` qui ajoute la colonne nullable, back-fill via PL/pgSQL,
+      bascule en NOT NULL UNIQUE et ajoute un index unique `LOWER(username)`. Endpoints
+      `PATCH /users/me/username` (200 / 400 `username_invalid`/`username_reserved` /
+      401 / 409 `username_taken`), `GET /users/by-username/{username}` (case-insensitive,
+      mêmes règles que `GET /users/{id}`) et `HEAD /users/by-username/{username}`
+      (live-check d'unicité, 200 = pris / 404 = libre). UUID conservé comme PK et
+      identifiant interne ; le username est l'identifiant public-facing.
 
 ---
 

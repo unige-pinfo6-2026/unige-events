@@ -71,7 +71,7 @@ export default function AttendeeCard({ attendance, profile }: Readonly<AttendeeC
   }
 
   return (
-    <Link to={`/profile/${profile.id}`} className={cardClass}>
+    <Link to={`/profile/${encodeURIComponent(profile.username)}`} className={cardClass}>
       <ProfileBody profile={profile} />
       {isWaitlisted && <WaitlistBadge />}
     </Link>

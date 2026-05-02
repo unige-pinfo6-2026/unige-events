@@ -11,6 +11,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `id` | `id` | `UUID` | `id` | PK, auto-généré (`@GeneratedValue`) |
 | `auth0Id` | `auth0Id` | `String` | `auth0_id` | unique, not updatable |
 | `email` | `email` | `String` | `email` | unique, not updatable |
+| `username` | `username` | `String` | `username` | NOT NULL, unique (case-insensitive), `@Pattern("^[a-z0-9._-]{3,30}$")` — auto-généré à la création |
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
@@ -24,7 +25,20 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `version` | `version` | `Long` | `version` | `@Version` (optimistic locking) |
 | `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
-Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
+Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`,
+`User.findByUsername(String)` (case-insensitive), `User.existsByUsername(String)`.
+
+#### Génération automatique du `username` (Sprint 7)
+
+À la création (`UserService.getOrCreateUser`) le username est dérivé de
+`displayName`, à défaut `firstName.lastName`, à défaut `"user"`. La génération est
+implémentée dans `ch.unige.events.util.UsernameGenerator` :
+
+1. Slugify : ASCII fold via `Normalizer.NFD`, lowercase, espaces → `.`, retrait des chars hors `[a-z0-9._-]`, collapsing des séparateurs, troncation à 30 chars.
+2. Anti-collision : suffixe numérique incrémental (`jean.dupont`, `jean.dupont2`, `jean.dupont3`…). Préféré au suffixe random — prévisible, lisible, stable.
+3. Blocklist (mots réservés) : `me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`. Skipped à la génération automatique.
+
+La migration Flyway `V9__add_user_username.sql` reproduit cette logique en PL/pgSQL pour back-fill les utilisateurs existants avant de basculer la colonne en `NOT NULL UNIQUE`.
 
 #### Règle de visibilité du profil (hotfix pentest 2026-04-17)
 
@@ -281,7 +295,7 @@ Les champs booléens **n'utilisent pas le préfixe `is`** dans les entités JPA.
 Profil complet — retourné à l'utilisateur authentifié via `GET /users/me` et `PUT /users/me`.
 
 ```
-id, auth0Id, email, displayName, faculty, studyLevel, bio, interests, avatarUrl, profilePublic, createdAt
+id, auth0Id, email, username, displayName, faculty, studyLevel, bio, interests, avatarUrl, profilePublic, createdAt
 ```
 
 Factory : `UserProfileResponse.from(User user)`
@@ -290,7 +304,7 @@ Factory : `UserProfileResponse.from(User user)`
 Profil public — retourné via `GET /users/{id}` si `profilePublic = true`.
 
 ```
-id, displayName, faculty, studyLevel, bio, interests, avatarUrl
+id, username, displayName, faculty, studyLevel, bio, interests, avatarUrl
 ```
 
 Factory : `UserPublicResponse.from(User u)`
@@ -414,7 +428,7 @@ Valeurs attendues pour `studyLevel` :
 | `@Size(max=120)` | `EventRequestBase.title` |
 | `@Size(max=2000)` | `EventRequestBase.description` |
 | `@Version` | `User.version` (optimistic locking) |
-| Unique constraint | `User.auth0Id`, `User.email` |
+| Unique constraint | `User.auth0Id`, `User.email`, `User.username` (case-insensitive) |
 | Unique constraint (planifié) | `Attendance(userId, eventId)` |
 
 ---

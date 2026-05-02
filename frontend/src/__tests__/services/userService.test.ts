@@ -1,13 +1,28 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { deleteBanner, getCalendarToken, getMe, getUserById, regenerateCalendarToken, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
+import { AxiosError } from 'axios'
+import {
+  checkUsernameAvailable,
+  deleteBanner,
+  getCalendarToken,
+  getMe,
+  getUserById,
+  getUserByUsername,
+  regenerateCalendarToken,
+  updateProfile,
+  updateUsername,
+  uploadBanner,
+  uploadPhoto,
+} from '@/services/userService'
 
 vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
     post: vi.fn(),
     delete: vi.fn(),
+    head: vi.fn(),
   },
 }))
 
@@ -15,8 +30,10 @@ import api from '@/services/api'
 
 const mockApiGet = api.get as ReturnType<typeof vi.fn>
 const mockApiPut = api.put as ReturnType<typeof vi.fn>
+const mockApiPatch = api.patch as ReturnType<typeof vi.fn>
 const mockApiPost = api.post as ReturnType<typeof vi.fn>
 const mockApiDelete = api.delete as ReturnType<typeof vi.fn>
+const mockApiHead = api.head as ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -105,6 +122,58 @@ describe('userService', () => {
       const result = await regenerateCalendarToken()
       expect(result).toEqual(token)
       expect(mockApiPost).toHaveBeenCalledWith('/users/me/calendar-token/regenerate')
+    })
+  })
+
+  describe('getUserByUsername', () => {
+    it('GETs /users/by-username/:username (URL-encoded)', async () => {
+      const profile = { id: '1', username: 'alice.martin', displayName: 'Alice' }
+      mockApiGet.mockResolvedValue({ data: profile })
+      const result = await getUserByUsername('alice.martin')
+      expect(result).toEqual(profile)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/alice.martin')
+    })
+
+    it('URL-encodes special characters', async () => {
+      mockApiGet.mockResolvedValue({ data: {} })
+      await getUserByUsername('a b')
+      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/a%20b')
+    })
+  })
+
+  describe('updateUsername', () => {
+    it('PATCHes /users/me/username with the new value', async () => {
+      const user = { id: '1', username: 'jean.dupont' }
+      mockApiPatch.mockResolvedValue({ data: user })
+      const result = await updateUsername('jean.dupont')
+      expect(result).toEqual(user)
+      expect(mockApiPatch).toHaveBeenCalledWith('/users/me/username', { username: 'jean.dupont' })
+    })
+  })
+
+  describe('checkUsernameAvailable', () => {
+    it('returns false (taken) when HEAD returns 200', async () => {
+      mockApiHead.mockResolvedValue({})
+      const available = await checkUsernameAvailable('taken.user')
+      expect(available).toBe(false)
+      expect(mockApiHead).toHaveBeenCalledWith('/users/by-username/taken.user')
+    })
+
+    it('returns true (available) when HEAD returns 404', async () => {
+      const error = new AxiosError('not found')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(error as any).response = { status: 404 }
+      mockApiHead.mockRejectedValue(error)
+      const available = await checkUsernameAvailable('free.user')
+      expect(available).toBe(true)
+    })
+
+    it('rethrows other errors (e.g. 500)', async () => {
+      const error = new AxiosError('boom')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(error as any).response = { status: 500 }
+      mockApiHead.mockRejectedValue(error)
+      await expect(checkUsernameAvailable('foo.user')).rejects.toBe(error)
     })
   })
 })

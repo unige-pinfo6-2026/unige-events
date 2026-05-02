@@ -19,7 +19,7 @@ Model : src/hooks, src/contexts et src/types
 | /callback | CallbackPage | pages/CallbackPage.tsx | publique |
 | /home | HomePage | pages/HomePage.tsx | PrivateRoute |
 | /profile/me/edit | ProfileEditPage | pages/ProfileEditPage.tsx | PrivateRoute |
-| /profile/:id | ProfilePage | pages/ProfilePage.tsx | PrivateRoute |
+| /profile/:username | ProfilePage | pages/ProfilePage.tsx | PrivateRoute (alias `me`) |
 | /events/new | CreateEventPage | pages/CreateEventPage.tsx | PrivateRoute |
 | /events/search | EventsSearchPage | pages/event/EventsSearchPage.tsx | publique |
 | /events/:id | EventDetailPage | pages/event/EventDetailPage.tsx | publique |
@@ -33,7 +33,9 @@ Model : src/hooks, src/contexts et src/types
 | /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
 | * | redirect | — | redirect vers /home |
 
-Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter que me soit capturé comme paramètre dynamique.
+Note : /profile/me/edit doit rester déclaré avant /profile/:username pour éviter que `me` soit capturé comme paramètre dynamique.
+
+Le paramètre `:username` accepte trois formes : `me` (alias du profil connecté), un username public (`^[a-z0-9._-]{3,30}$`), ou un UUID v4 — dans ce dernier cas `ProfilePage` détecte le format, fetch via `getUserById` et redirige (`<Navigate replace>`) vers `/profile/{user.username}`. Cette redirection conserve l'ancienne URL en marche pendant la transition Sprint 7.
 
 ## Couche services
 
@@ -41,7 +43,7 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 |---|---|---|
 | services/api.ts | Instance Axios centrale et intercepteur Bearer | — |
 | services/tokenStore.ts | Lecture et écriture du token access_token | — |
-| services/userService.ts | Lecture et mise à jour du profil utilisateur | GET /api/users/me, GET /api/users/{id}, PUT /api/users/me |
+| services/userService.ts | Lecture et mise à jour du profil utilisateur | GET /api/users/me, GET /api/users/{id}, GET/HEAD /api/users/by-username/{username}, PUT /api/users/me, PATCH /api/users/me/username |
 | services/eventApi.ts | Liste, détail, création, édition, annulation, upload de bannière et publication DRAFT→PUBLISHED | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image, PATCH /api/events/{id}/publish |
 | services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 | services/favoriteApi.ts | Liste, ajout et retrait des favoris | GET /api/users/me/favorites, POST/DELETE /api/events/{id}/favorite |

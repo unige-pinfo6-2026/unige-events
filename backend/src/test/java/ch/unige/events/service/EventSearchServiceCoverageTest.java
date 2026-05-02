@@ -481,6 +481,7 @@ class EventSearchServiceCoverageTest {
         user.email = email;
         user.profilePublic = false;
         user.createdAt = LocalDateTime.now();
+        user.username = ("u" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16)).toLowerCase();
         entityManager.persist(user);
         entityManager.flush();
         return user;

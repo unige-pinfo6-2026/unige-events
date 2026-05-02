@@ -37,6 +37,16 @@ components:
         email:
           type: string
           format: email
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: "^[a-z0-9._-]{3,30}$"
+          description: |
+            Identifiant public de l'utilisateur, unique (case-insensitive),
+            stocké en lowercase. Sert d'URL publique : `/profile/<username>`.
+            Auto-généré à la création (slug du displayName ou fallback) puis
+            éditable via `PATCH /users/me/username`.
         displayName:
           type: string
           nullable: true
@@ -79,6 +89,7 @@ components:
         id: "550e8400-e29b-41d4-a716-446655440000"
         auth0Id: "auth0|abc123"
         email: "alice.martin@unige.ch"
+        username: "alice.martin"
         displayName: "Alice Martin"
         firstName: "Alice"
         lastName: "Martin"
@@ -97,13 +108,18 @@ components:
         Profil public d'un utilisateur.
 
         **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
-        appelant sans JWT, seuls `id`, `displayName` et `avatarUrl` sont renseignés ;
-        `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont systématiquement
-        `null`. Les appelants authentifiés reçoivent tous les champs renseignés en base.
+        appelant sans JWT, seuls `id`, `username`, `displayName` et `avatarUrl` sont
+        renseignés ; `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont
+        systématiquement `null`. Les appelants authentifiés reçoivent tous les champs
+        renseignés en base.
       properties:
         id:
           type: string
           format: uuid
+        username:
+          type: string
+          pattern: "^[a-z0-9._-]{3,30}$"
+          description: Identifiant public lisible — utilisé dans l'URL `/profile/<username>`.
         displayName:
           type: string
           nullable: true
@@ -129,6 +145,21 @@ components:
           type: string
           format: uri
           nullable: true
+
+    UpdateUsernameRequest:
+      type: object
+      description: |
+        Body pour `PATCH /users/me/username`. Le username est normalisé en lowercase
+        côté serveur. Doit matcher `^[a-z0-9._-]{3,30}$` et ne pas faire partie de la
+        blocklist (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`,
+        `settings`).
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: "^[a-z0-9._-]{3,30}$"
 
     UpdateProfileRequest:
       type: object
@@ -916,6 +947,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/username:
+    patch:
+      summary: Mise à jour du username de l'utilisateur connecté
+      description: |
+        Met à jour le `username` (identifiant public) de l'utilisateur authentifié.
+        Le serveur normalise la valeur en lowercase, valide le pattern
+        `^[a-z0-9._-]{3,30}$`, vérifie la blocklist et l'unicité (case-insensitive).
+        Retourne le profil utilisateur complet mis à jour.
+      operationId: updateMyUsername
+      tags: [users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUsernameRequest'
+      responses:
+        '200':
+          description: Username mis à jour, profil complet retourné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: |
+            Username invalide. `error: "username_invalid"` (pattern non respecté) ou
+            `error: "username_reserved"` (mot réservé blocklist).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Username déjà pris (`error: "username_taken"`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/by-username/{username}:
+    get:
+      summary: Profil public d'un utilisateur par username
+      description: |
+        Variante de `GET /users/{id}` qui prend un `username` (identifiant public)
+        plutôt qu'un UUID. Lookup case-insensitive (le username est stocké en lowercase).
+        Mêmes règles d'autorisation que `GET /users/{id}` : payload réduit pour les
+        appelants anonymes, 404 pour les profils privés non possédés.
+      operationId: getUserByUsername
+      tags: [users]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9._-]{3,30}$"
+      responses:
+        '200':
+          description: Profil public de l'utilisateur (même envelope que `/users/{id}`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicResponse'
+        '404':
+          description: Username inconnu ou profil privé non possédé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    head:
+      summary: Vérification d'existence d'un username (debounced live-check)
+      description: |
+        Endpoint léger pour le live-check d'unicité côté frontend (debounced).
+        Retourne 200 si le username existe (= déjà pris), 404 sinon. Aucun body.
+        Toujours autorisé sans authentification.
+      operationId: checkUsernameAvailable
+      tags: [users]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9._-]{3,30}$"
+      responses:
+        '200':
+          description: Username pris
+        '404':
+          description: Username disponible
 
   /users/{id}:
     get:
