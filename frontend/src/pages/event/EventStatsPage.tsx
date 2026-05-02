@@ -283,9 +283,9 @@ export default function EventStatsPage() {
             Répartition
           </h3>
           <StatsChart
+            views={stats.viewCount}
             attending={stats.attendingCount}
             interested={stats.interestedCount}
-            capacity={event.capacity}
           />
         </div>
 

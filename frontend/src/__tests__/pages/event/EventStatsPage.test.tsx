@@ -164,9 +164,9 @@ describe('EventStatsPage', () => {
 
     renderPage()
     await waitFor(() => {
-      expect(screen.getByText('142')).toBeTruthy()
-      expect(screen.getByText('38')).toBeTruthy()
-      expect(screen.getByText('21')).toBeTruthy()
+      expect(screen.getAllByText('142').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('38').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('21').length).toBeGreaterThan(0)
     })
   })
 
@@ -188,7 +188,7 @@ describe('EventStatsPage', () => {
     mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
     expect(screen.queryByText(/taux de remplissage/i)).toBeNull()
   })
 
@@ -216,7 +216,7 @@ describe('EventStatsPage', () => {
     })
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() => expect(screen.getByText('Alice Martin')).toBeTruthy())
@@ -235,7 +235,7 @@ describe('EventStatsPage', () => {
     })
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() => expect(screen.getByText('bob@test.com')).toBeTruthy())
@@ -251,7 +251,7 @@ describe('EventStatsPage', () => {
     mockGetUserById.mockRejectedValue(new Error('Not found'))
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() => expect(screen.getByText('u-unknown')).toBeTruthy())
@@ -268,7 +268,7 @@ describe('EventStatsPage', () => {
     )
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     expect(screen.getByText(/chargement/i)).toBeTruthy()
@@ -283,7 +283,7 @@ describe('EventStatsPage', () => {
     mockGetEventAttendees.mockRejectedValue(new Error('Forbidden'))
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() =>
@@ -298,7 +298,7 @@ describe('EventStatsPage', () => {
     mockGetEventAttendees.mockResolvedValue([])
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() =>
@@ -313,7 +313,7 @@ describe('EventStatsPage', () => {
     mockGetEventAttendees.mockResolvedValue([])
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() => expect(mockGetEventAttendees).toHaveBeenCalledTimes(1))
@@ -329,7 +329,7 @@ describe('EventStatsPage', () => {
     mockGetEventAttendees.mockResolvedValue([])
 
     renderPage()
-    await waitFor(() => expect(screen.getByText('142')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
     await waitFor(() => expect(mockGetEventAttendees).toHaveBeenCalledTimes(1))
