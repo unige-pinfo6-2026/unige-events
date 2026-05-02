@@ -123,7 +123,7 @@ describe('AttendanceButtons', () => {
   })
 
   describe('when event is full but user is already attending', () => {
-    it('attending button shows "Je participe" active state', () => {
+    it('attending button shows "Annuler ma participation" active state', () => {
       mockUseAttendance.mockReturnValue(
         makeHookResult({ isFull: true, currentStatus: 'ATTENDING' }),
       )
@@ -131,7 +131,7 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      expect(screen.getByRole('button', { name: /je participe/i })).not.toBeNull()
+      expect(screen.getByRole('button', { name: /annuler ma participation/i })).not.toBeNull()
     })
 
     it('attending button is enabled (user can toggle off)', () => {
@@ -142,7 +142,7 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      const button = screen.getByRole('button', { name: /je participe/i })
+      const button = screen.getByRole('button', { name: /annuler ma participation/i })
       expect((button as HTMLButtonElement).disabled).toBe(false)
     })
   })
