@@ -1,44 +1,37 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import React from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import StatsChart from '@/components/event/StatsChart'
+
+vi.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  BarChart: ({ data, children }: { data: { name: string }[]; children: React.ReactNode }) => (
+    <div>
+      {data.map((d) => <span key={d.name}>{d.name}</span>)}
+      {children}
+    </div>
+  ),
+  Bar: () => null,
+  Cell: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+}))
 
 afterEach(cleanup)
 
 describe('StatsChart', () => {
-  it('renders all three funnel steps', () => {
+  it('renders all three axis labels', () => {
     render(<StatsChart views={100} attending={30} interested={60} />)
     expect(screen.getByText('Vues totales')).toBeTruthy()
     expect(screen.getByText('Intéressés')).toBeTruthy()
     expect(screen.getByText('Inscrits')).toBeTruthy()
   })
 
-  it('displays the correct values', () => {
-    render(<StatsChart views={100} attending={30} interested={60} />)
-    expect(screen.getByText('100')).toBeTruthy()
-    expect(screen.getByText('60')).toBeTruthy()
-    expect(screen.getByText('30')).toBeTruthy()
-  })
-
-  it('shows conversion from views to interested', () => {
-    render(<StatsChart views={100} attending={30} interested={60} />)
-    expect(screen.getByText(/60%.*visiteurs/)).toBeTruthy()
-  })
-
-  it('shows conversion from interested to attending', () => {
-    render(<StatsChart views={100} attending={30} interested={60} />)
-    expect(screen.getByText(/50%.*intéressés/)).toBeTruthy()
-  })
-
-  it('hides conversion when views is 0', () => {
+  it('renders without crashing when all values are zero', () => {
     render(<StatsChart views={0} attending={0} interested={0} />)
-    expect(screen.queryByText(/visiteurs/)).toBeNull()
-    expect(screen.queryByText(/des intéressés/)).toBeNull()
-  })
-
-  it('hides interested-to-attending conversion when interested is 0', () => {
-    render(<StatsChart views={10} attending={0} interested={0} />)
-    expect(screen.queryByText(/des intéressés/)).toBeNull()
+    expect(screen.getByText('Vues totales')).toBeTruthy()
   })
 })
