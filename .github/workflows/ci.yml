@@ -59,6 +59,12 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./mvnw sonar:sonar -B
 
+      - name: Cleanup Docker images
+        if: always()
+        run: |
+          docker volume prune -f
+          docker image prune -f
+
   # Build & Tests Frontend
   build-frontend:
     name: Build Frontend
@@ -128,10 +134,9 @@ jobs:
           push: ${{  github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/buildx-cache
-          cache-to: type=local,dest=/tmp/buildx-cache-new,mode=max
 
-      - name: Rotate Docker cache
+      - name: Cleanup Docker images
+        if: always()
         run: |
-          rm -rf /tmp/buildx-cache
-          mv /tmp/buildx-cache-new /tmp/buildx-cache
+          docker volume prune -f
+          docker image prune -f
