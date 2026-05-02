@@ -8,7 +8,7 @@ interface StatsChartProps {
 
 const BAR_COLORS = {
   attending:  '#22c55e',
-  interested: '#3b82f6',
+  interested: '#a855f7',
   remaining:  '#6b7280',
 } as const
 
@@ -46,6 +46,10 @@ export default function StatsChart({ attending, interested, capacity }: Readonly
             fontSize: '13px',
           }}
           cursor={{ fill: 'currentColor', opacity: 0.05 }}
+          formatter={(value: number, _key: string, props: { payload?: { name: string } }) => [
+            value.toLocaleString('fr-CH'),
+            props.payload?.name ?? _key,
+          ]}
         />
         <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={80}>
           {data.map((entry, i) => (
