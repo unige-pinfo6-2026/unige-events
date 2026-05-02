@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -62,7 +63,11 @@ public class FileStorageService {
 
     public String saveImage(FileUpload fileUpload, String folder) {
         String contentType = fileUpload.contentType();
-        if (contentType == null || !ImageFormat.MIME_TO_EXTENSION.containsKey(contentType)) {
+        if (contentType == null) {
+            throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
+        }
+        contentType = contentType.split(";")[0].strip().toLowerCase(Locale.ROOT);
+        if (!ImageFormat.MIME_TO_EXTENSION.containsKey(contentType)) {
             throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
         }
 
@@ -71,7 +76,7 @@ public class FileStorageService {
                 throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
             }
         } catch (IOException e) {
-            throw new InternalServerErrorException("Failed to read uploaded file");
+            throw new InternalServerErrorException("Failed to read uploaded file", e);
         }
 
         String extension = ImageFormat.MIME_TO_EXTENSION.get(contentType);

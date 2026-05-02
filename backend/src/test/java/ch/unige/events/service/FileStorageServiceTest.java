@@ -49,6 +49,78 @@ class FileStorageServiceTest {
                 () -> svc.saveImage(upload, "folder"));
     }
 
+    // --- saveImage: MIME normalization (case + parameters) ---
+
+    @Test
+    void saveImage_uppercaseMime_accepted(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("IMAGE/JPEG");
+        when(upload.uploadedFile()).thenReturn(file);
+
+        S3Client s3 = mock(S3Client.class);
+        String url = service(s3).saveImage(upload, "folder");
+
+        assertTrue(url.endsWith(".jpg"));
+    }
+
+    @Test
+    void saveImage_mixedCaseMime_accepted(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.png");
+        Files.write(file, new byte[]{(byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("Image/PNG");
+        when(upload.uploadedFile()).thenReturn(file);
+
+        S3Client s3 = mock(S3Client.class);
+        String url = service(s3).saveImage(upload, "folder");
+
+        assertTrue(url.endsWith(".png"));
+    }
+
+    @Test
+    void saveImage_mimeWithCharsetParam_accepted(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg; charset=utf-8");
+        when(upload.uploadedFile()).thenReturn(file);
+
+        S3Client s3 = mock(S3Client.class);
+        String url = service(s3).saveImage(upload, "folder");
+
+        assertTrue(url.endsWith(".jpg"));
+    }
+
+    @Test
+    void saveImage_uppercaseSvg_rejected() {
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("IMAGE/SVG+XML");
+        FileStorageService svc = service(mock(S3Client.class));
+
+        assertThrows(InvalidFileTypeException.class,
+                () -> svc.saveImage(upload, "folder"));
+    }
+
+    @Test
+    void saveImage_mimeWithWhitespace_accepted(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.gif");
+        Files.write(file, new byte[]{'G', 'I', 'F', '8', '9', 'a', 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("  image/gif  ");
+        when(upload.uploadedFile()).thenReturn(file);
+
+        S3Client s3 = mock(S3Client.class);
+        String url = service(s3).saveImage(upload, "folder");
+
+        assertTrue(url.endsWith(".gif"));
+    }
+
     // --- saveImage: magic bytes mismatch ---
 
     @Test

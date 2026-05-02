@@ -383,8 +383,11 @@ class UserResourceTest {
     @Test
     @TestSecurity(user = "auth0|alice")
     void uploadImageSvgDisguisedAsPngReturns400() {
-        // Finding 4.18: SVG bytes sent with Content-Type image/png must be rejected
-        // (magic-byte check tested at unit level; this test verifies HTTP plumbing via mock).
+        // PLUMBING TEST — verifies that InvalidFileTypeExceptionMapper returns HTTP 400
+        // with the correct JSON envelope. This test does NOT validate magic-byte rejection
+        // because UserServiceMock does not call ImageFormat.matches(). The real security
+        // test for finding 4.18 (SVG-as-PNG) is in:
+        //   UserServiceCoverageTest.uploadImage_svgDisguisedAsPng_throwsBadRequest
         userServiceMock.seedUser("auth0|alice", "alice@example.com");
         UserServiceMock.forceBadMimeOnUpload = true;
 
