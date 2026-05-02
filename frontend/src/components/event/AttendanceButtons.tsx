@@ -24,7 +24,7 @@ const buttonVariants = {
 type ButtonVariantKey = keyof typeof buttonVariants
 
 const buttonLabels: Record<ButtonVariantKey, string> = {
-  activeAttending:   'Je participe',
+  activeAttending:   'Annuler ma participation',
   inactiveAttending: 'Je participe',
   waitlistJoin:      "Rejoindre la liste d'attente",
   activeWaitlisted:  "En liste d'attente",
