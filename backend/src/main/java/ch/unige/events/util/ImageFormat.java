@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 
 public final class ImageFormat {
@@ -15,63 +16,36 @@ public final class ImageFormat {
             "image/gif",  ".gif"
     );
 
+    private static final byte[] JPEG_MAGIC   = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+    private static final byte[] PNG_MAGIC    = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    private static final byte[] RIFF_PREFIX  = {'R', 'I', 'F', 'F'};
+    private static final byte[] WEBP_MARKER  = {'W', 'E', 'B', 'P'};
+    private static final byte[] GIF87A_MAGIC = {'G', 'I', 'F', '8', '7', 'a'};
+    private static final byte[] GIF89A_MAGIC = {'G', 'I', 'F', '8', '9', 'a'};
+
     private ImageFormat() {}
 
     public static boolean matches(Path file, String mimeType) throws IOException {
         try (InputStream in = Files.newInputStream(file)) {
             byte[] h = in.readNBytes(12);
             return switch (mimeType) {
-                case "image/jpeg" -> isJpeg(h);
-                case "image/png"  -> isPng(h);
+                case "image/jpeg" -> startsWith(h, JPEG_MAGIC);
+                case "image/png"  -> startsWith(h, PNG_MAGIC);
                 case "image/webp" -> isWebp(h);
-                case "image/gif"  -> isGif(h);
+                case "image/gif"  -> startsWith(h, GIF87A_MAGIC) || startsWith(h, GIF89A_MAGIC);
                 default           -> false;
             };
         }
     }
 
-    private static boolean isJpeg(byte[] h) {
-        if (h.length < 3)          return false;
-        if ((h[0] & 0xFF) != 0xFF) return false;
-        if ((h[1] & 0xFF) != 0xD8) return false;
-        if ((h[2] & 0xFF) != 0xFF) return false;
-        return true;
-    }
-
-    private static boolean isPng(byte[] h) {
-        if (h.length < 8)          return false;
-        if ((h[0] & 0xFF) != 0x89) return false;
-        if (h[1] != 'P')           return false;
-        if (h[2] != 'N')           return false;
-        if (h[3] != 'G')           return false;
-        if ((h[4] & 0xFF) != 0x0D) return false;
-        if ((h[5] & 0xFF) != 0x0A) return false;
-        if ((h[6] & 0xFF) != 0x1A) return false;
-        if ((h[7] & 0xFF) != 0x0A) return false;
-        return true;
-    }
-
     private static boolean isWebp(byte[] h) {
-        if (h.length < 12) return false;
-        if (h[0] != 'R')   return false;
-        if (h[1] != 'I')   return false;
-        if (h[2] != 'F')   return false;
-        if (h[3] != 'F')   return false;
-        if (h[8] != 'W')   return false;
-        if (h[9] != 'E')   return false;
-        if (h[10] != 'B')  return false;
-        if (h[11] != 'P')  return false;
-        return true;
+        return h.length >= 12
+            && Arrays.equals(h, 0, 4, RIFF_PREFIX, 0, 4)
+            && Arrays.equals(h, 8, 12, WEBP_MARKER, 0, 4);
     }
 
-    private static boolean isGif(byte[] h) {
-        if (h.length < 6)                return false;
-        if (h[0] != 'G')                 return false;
-        if (h[1] != 'I')                 return false;
-        if (h[2] != 'F')                 return false;
-        if (h[3] != '8')                 return false;
-        if (h[4] != '7' && h[4] != '9') return false;
-        if (h[5] != 'a')                 return false;
-        return true;
+    private static boolean startsWith(byte[] h, byte[] prefix) {
+        return h.length >= prefix.length
+            && Arrays.equals(h, 0, prefix.length, prefix, 0, prefix.length);
     }
 }
