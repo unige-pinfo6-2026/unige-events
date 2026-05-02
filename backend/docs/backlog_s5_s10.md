@@ -54,7 +54,7 @@ En tant qu'organisateur, je veux visualiser les statistiques de participation (v
 
 \[BACK\] Sprint 5 — Feature 4 / Tâche 1
 
-1. **Entité** `User` : ajouter le champ `bannerUrl` (String, nullable). Hibernate mode `update` applique le changement automatiquement.
+1. **Entité** `User` : ajouter le champ `bannerUrl` (String, nullable). Créer une migration Flyway `V<N>__add_user_banner_url.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »).
 2. **Endpoint upload** : `POST /api/users/me/banner` — multipart/form-data, champ `file`. Déléguer à `FileStorageService.store()` (même pattern que `POST /api/users/me/image`). Retourner le `UserProfileResponse` mis à jour.
 3. **Endpoint suppression** : `DELETE /api/users/me/banner` — remet `bannerUrl = null`, retourner `UserProfileResponse` mis à jour.
 4. **OpenAPI** : ajouter `bannerUrl` dans le schéma `User` et `UserPublicResponse`. Ajouter les deux nouveaux paths.
@@ -206,7 +206,7 @@ Implémenter le tracking des vues sur les pages événement :
 
 * Entité `EventView` (eventId, userId, viewedAt)
 * Contrainte d'unicité `(eventId, userId)` pour déduplication : un user = 1 vue par event
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__create_event_views.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »)
 * `POST /api/events/{id}/view` appelé depuis le front à l'ouverture de la page détail
 * Service `EventViewService` avec logique upsert (ignore si déjà existant)
 * Tests `@QuarkusTest` : 1ère vue comptée, 2ème ignorée
@@ -690,7 +690,7 @@ Ce mécanisme garantit que la section fonctionne **dès le départ sans admin ac
 1. **Entité `Event`** : ajouter :
     * `featured` (boolean, default `false`)
     * `featuredAt` (LocalDateTime, nullable)
-    * Hibernate mode `update` applique les changements automatiquement.
+    * Créer une migration Flyway `V<N>__add_event_featured.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »).
 2. **Endpoints admin** (dans `AdminEventResource`, fichier dédié distinct de `AdminReportResource` de SCRUM-94) :
     * `PATCH /api/admin/events/{id}/feature` → `featured = true`, `featuredAt = now()`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
     * `PATCH /api/admin/events/{id}/unfeature` → `featured = false`, `featuredAt = null`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
@@ -778,7 +778,7 @@ Implémenter le job d'expiration automatique des événements passés :
     * Sélectionne tous les `Event` avec `status=PUBLISHED` ET `endDate < now()`
     * Passe leur `status` à `EXPIRED` (nouveau statut à ajouter à l'enum `EventStatus`)
     
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__add_event_status_expired.sql` dans `backend/src/main/resources/db/migration/` qui drop+recrée la contrainte `events_status_check` avec la valeur `EXPIRED` ajoutée (Hibernate est en `validate` depuis SCRUM-164 — l'ajout d'une valeur d'enum impose de mettre à jour la CHECK, cf. pattern V1/V7 du repo et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »)
 * `EventExpirationJob.java` : classe dédiée annotée `@ApplicationScoped` + `@Scheduled(every="1h")`
 * `EventExpirationService.java` : logique de sélection + update en batch (pour éviter les N+1)
 * Les événements EXPIRED n'apparaissent plus dans `GET /api/events` par défaut (filtre automatique sur status IN (PUBLISHED))
@@ -787,12 +787,13 @@ Implémenter le job d'expiration automatique des événements passés :
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
 
-### 🔧 [SCRUM-164] [BACK][S7] Recréer les contraintes CHECK orphelines sur events (faculty, category, status) — ✅ RÉSOLU
-**Type :** Tâche · **Story Points :** 2 SP · **Statut : Résolu**
+### 📜 Note historique — Adoption de Flyway et passage de Hibernate en `validate`
 
-**Sprint** : S7 | **Assigné** : Elie | **SP** : 2 | **Épic** : — | **Story** : —
+> Pas de ticket JIRA associé (le ticket initialement créé pour ce travail a été supprimé après coup ; la décision finale d'adoption de Flyway a été prise en parallèle, sans renumérotation). Conservé ici pour la traçabilité.
 
-Résolu en remplaçant le bean `SchemaFixup` par une migration Flyway `V1__reconcile_check_constraints.sql` qui drop+recrée les quatre contraintes (`events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check`) avec les valeurs courantes des enums Java. Hibernate est passé en `validate` (dev/prod). Voir `backend/docs/data-model.md` section « Gestion du schéma — Flyway ».
+Le bean `SchemaFixup` (qui drop+recréait à la main les contraintes `events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check` au démarrage Quarkus) a été remplacé par une migration Flyway `V1__reconcile_check_constraints.sql` qui pose les mêmes contraintes avec les valeurs courantes des enums Java.
+
+Hibernate est désormais en `validate` (dev/prod) ; Flyway est l'unique source du schéma. Voir [`backend/docs/data-model.md`](backend/docs/data-model.md) section « Gestion du schéma — Flyway » et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway » pour les conventions à respecter dans toute nouvelle migration.
 
 ### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
 **Type :** Tâche · **Story Points :** 2 SP
@@ -1214,7 +1215,7 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 
 * Entité `Notification` (PanacheEntity) : `userId`, `type` (enum), `message`, `eventId` (nullable), `read` (boolean, default false), `createdAt`
 * Enum `NotificationType` : EVENT_CANCELLED, EVENT_UPDATED, EVENT_REMINDER, NEW_ATTENDEE
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__create_notifications.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway ». Pour `NotificationType`, poser la CHECK constraint sur la colonne `type` avec les 4 valeurs ; toute future modification de l'enum exigera un nouveau `V<N+1>__…` qui drop+recrée la CHECK.)
 * Endpoints :
 
     * `GET /api/notifications` → liste des notifs de l'utilisateur connecté (non lues en premier), paginée

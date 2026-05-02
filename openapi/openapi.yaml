@@ -496,7 +496,7 @@ components:
 
     EventStats:
       type: object
-      description: Statistiques agrégées d'un événement (créateur uniquement)
+      description: Statistiques agrégées d'un événement (créateur ou co-organisateur ACCEPTED)
       properties:
         attendingCount:
           type: integer
@@ -517,7 +517,7 @@ components:
 
     EventView:
       type: object
-      description: Vue unique d'un événement par un utilisateur
+      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
       properties:
         id:
           type: integer
@@ -574,6 +574,77 @@ components:
           backend quand l'événement a atteint sa capacité. Promue en `ATTENDING` (FIFO
           sur `createdAt`) dès qu'un slot se libère côté serveur.
 
+    CoOrganizerStatus:
+      type: string
+      description: |
+        Statut d'une invitation à co-organiser un événement.
+        - `PENDING` : invitation envoyée, en attente de réponse.
+        - `ACCEPTED` : invitation acceptée — le co-organisateur peut désormais éditer / publier / annuler /
+          consulter les inscrits / les stats de l'événement.
+        - `DECLINED` : valeur transitoire renvoyée par `PATCH /events/{id}/co-organizers/me/decline` ;
+          la row est supprimée juste après. N'apparaît jamais dans `GET /events/{id}/co-organizers` ni
+          dans `GET /users/me/co-organizer-invitations`.
+      enum: [PENDING, ACCEPTED, DECLINED]
+
+    CoOrganizer:
+      type: object
+      description: |
+        Représentation d'un co-organisateur dans la liste d'un événement
+        (renvoyée par `GET /events/{id}/co-organizers`). Projection minimaliste —
+        `email`, `bio`, `faculty`, `studyLevel` ne sont pas exposés (privacy).
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: ID interne de la row EventCoOrganizer
+        userId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CoOrganizerStatus'
+        invitedAt:
+          type: string
+          format: date-time
+      required: [id, userId, status, invitedAt]
+
+    CoOrganizerInvitation:
+      type: object
+      description: |
+        Représentation d'une invitation à co-organiser, du point de vue de l'utilisateur invité
+        (renvoyée par `GET /users/me/co-organizer-invitations`). Inclut l'`Event` enrichi pour
+        permettre à l'UI d'afficher titre / dates / banner sans refetch.
+      properties:
+        id:
+          type: integer
+          format: int64
+        event:
+          $ref: '#/components/schemas/Event'
+        status:
+          $ref: '#/components/schemas/CoOrganizerStatus'
+        invitedAt:
+          type: string
+          format: date-time
+      required: [id, event, status, invitedAt]
+
+    InviteCoOrganizerRequest:
+      type: object
+      description: |
+        Body de `POST /events/{id}/co-organizers`. Identifie l'utilisateur à inviter par UUID.
+        Inviter par email est explicitement non supporté en S7.
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: UUID de l'utilisateur à inviter (doit être provisionné en base — sinon 404)
+
     ReportStatus:
       type: string
       enum: [PENDING, REVIEWED, DISMISSED]
@@ -625,23 +696,6 @@ components:
       example:
         shareUrl: "https://10.25.10.136.nip.io/events/42"
         shortCode: "aB3xZ9mQ"
-
-    EventView:
-      type: object
-      description: Vue unique d'un événement par un utilisateur (dédupliquée par couple eventId/userId)
-      properties:
-        id:
-          type: integer
-          format: int64
-        eventId:
-          type: integer
-          format: int64
-        userId:
-          type: string
-          format: uuid
-        viewedAt:
-          type: string
-          format: date-time
 
     CalendarTokenResponse:
       type: object
@@ -1342,9 +1396,10 @@ paths:
 
         **Règle d'autorisation** : seuls les événements `PUBLISHED` sont accessibles
         anonymement. Les événements `DRAFT` ou `CANCELLED` ne sont visibles que par
-        leur créateur ou un administrateur (rôle `ADMIN`). Dans tout autre cas —
-        appelant anonyme, appelant authentifié non-créateur non-admin, ou appelant
-        authentifié dont le profil n'est pas provisionné — le serveur renvoie
+        leur créateur, **un co-organisateur ACCEPTED** (cf. SCRUM-136), ou un
+        administrateur (rôle `ADMIN`). Dans tout autre cas —
+        appelant anonyme, appelant authentifié non-créateur non-co-org non-admin, ou
+        appelant authentifié dont le profil n'est pas provisionné — le serveur renvoie
         `404 not_found`, envelope identique à celle pour un ID inexistant (évite un
         oracle d'existence — cf. pentest 2026-04-17 findings 4.12 + 4.15).
       operationId: getEventById
@@ -1377,7 +1432,10 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
     put:
-      summary: Modifier un événement (créateur uniquement) — mise à jour complète
+      summary: Modifier un événement (créateur ou co-organisateur ACCEPTED) — mise à jour complète
+      description: |
+        Réservé au créateur **ou à un co-organisateur ACCEPTED** (cf. SCRUM-136 cascade
+        `isCreatorOrAcceptedCoOrganizer`). Renvoie 403 pour tout autre appelant authentifié.
       operationId: updateEvent
       tags: [events]
       security:
@@ -1415,7 +1473,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur
+          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
@@ -1439,6 +1497,10 @@ paths:
         Supprime définitivement l'événement de la base. Opération irréversible.
         L'événement doit être en statut CANCELLED — sinon 409. Pour annuler un événement,
         utiliser PATCH /events/{id}/cancel d'abord.
+
+        **Réservé au créateur** (suppression physique d'un CANCELLED — non délégable aux
+        co-organisateurs ACCEPTED, cf. SCRUM-136 décision 2 : la cascade ne s'étend pas
+        aux actions irréversibles).
       operationId: deleteEvent
       tags: [events]
       security:
@@ -1460,7 +1522,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur
+          description: |
+            Appelant non créateur. Le hard-delete reste strict-creator — non délégable
+            aux co-organisateurs ACCEPTED (cf. SCRUM-136 décision 2 : action irréversible
+            hors scope du « partage de gestion »).
           content:
             application/json:
               schema:
@@ -1483,7 +1548,8 @@ paths:
       summary: Annuler un événement (DRAFT/PUBLISHED → CANCELLED)
       description: |
         Passe le statut de l'événement à CANCELLED. L'événement reste en base et
-        demeure interrogeable. Réservé au créateur. Retourne 409 si déjà annulé.
+        demeure interrogeable. Réservé au créateur **ou à un co-organisateur ACCEPTED**
+        (cf. SCRUM-136 cascade). Retourne 409 si déjà annulé.
       operationId: cancelEvent
       tags: [events]
       security:
@@ -1509,7 +1575,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur
+          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
@@ -1531,7 +1597,8 @@ paths:
     patch:
       summary: Restaurer un événement annulé (CANCELLED → DRAFT)
       description: |
-        Remet un événement annulé au statut DRAFT. Réservé au créateur.
+        Remet un événement annulé au statut DRAFT. Réservé au créateur **ou à un
+        co-organisateur ACCEPTED** (cf. SCRUM-136 cascade).
         Retourne 409 si l'événement n'est pas en statut CANCELLED.
       operationId: restoreEvent
       tags: [events]
@@ -1558,7 +1625,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur
+          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
@@ -1582,7 +1649,8 @@ paths:
       description: |
         Passe le statut de l'événement de DRAFT à PUBLISHED.
         Accessible à tout utilisateur authentifié — le service vérifie ensuite
-        que l'appelant est le créateur de l'événement ou un administrateur.
+        que l'appelant est le créateur de l'événement, **un co-organisateur ACCEPTED**
+        (cf. SCRUM-136 cascade), ou un administrateur.
         Retourne 409 si l'événement n'est pas en statut DRAFT (déjà publié ou annulé).
       operationId: publishEvent
       tags: [events]
@@ -1609,7 +1677,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Rôle insuffisant (ni ORGANIZER ni ADMIN) ou pas le créateur de l'événement
+          description: Appelant ni créateur, ni co-organisateur ACCEPTED, ni ADMIN (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
@@ -1649,7 +1717,11 @@ paths:
 
   /events/{id}/image:
     post:
-      summary: Upload de la bannière d'un événement (créateur uniquement)
+      summary: Upload de la bannière d'un événement (créateur, co-organisateur ACCEPTED ou ADMIN)
+      description: |
+        Upload une bannière (image multipart) pour un événement.
+        Réservé au créateur, **à un co-organisateur ACCEPTED** (cf. SCRUM-136 cascade),
+        ou à un administrateur.
       operationId: uploadEventImage
       tags: [events]
       security:
@@ -1691,7 +1763,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Rôle insuffisant ou pas le créateur de l'événement
+          description: Appelant ni créateur, ni co-organisateur ACCEPTED, ni ADMIN (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
@@ -1808,10 +1880,11 @@ paths:
 
   /events/{id}/attendees:
     get:
-      summary: Liste des participants à un événement (créateur uniquement)
+      summary: Liste des participants à un événement (créateur ou co-organisateur ACCEPTED)
       description: |
         Retourne la liste paginée des inscriptions à l'événement.
-        Réservé au créateur de l'événement — retourne 403 pour tout autre utilisateur authentifié.
+        Réservé au créateur de l'événement **ou à un co-organisateur ACCEPTED** (cf. SCRUM-136
+        cascade `isCreatorOrAcceptedCoOrganizer`) — retourne 403 pour tout autre utilisateur authentifié.
       operationId: getEventAttendees
       tags: [events, attendance]
       security:
@@ -1852,13 +1925,305 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Appelant non créateur de l'événement
+          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/co-organizers:
+    post:
+      summary: Inviter un utilisateur comme co-organisateur
+      description: |
+        Crée une invitation `PENDING`. Réservé au créateur de l'événement ou à un admin.
+        L'utilisateur invité doit déjà être provisionné en base.
+
+        Codes d'erreur :
+        - `400 cannot_invite_self` : tentative d'auto-invitation par le créateur.
+        - `403 forbidden` : appelant non créateur et non admin.
+        - `404 not_found` : événement introuvable, ou `userId` cible introuvable.
+        - `409 already_invited` : l'utilisateur a déjà une invitation PENDING ou ACCEPTED sur cet event.
+      operationId: inviteCoOrganizer
+      tags: [events, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteCoOrganizerRequest'
+      responses:
+        '201':
+          description: Invitation créée (status PENDING)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoOrganizer'
+        '400':
+          description: |
+            Body absent ou body sans `userId` → `ValidationErrorResponse` (validation
+            Hibernate Validator). `error=cannot_invite_self` si le créateur tente de
+            s'inviter lui-même.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Appelant non créateur de l'événement et non admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement ou utilisateur cible introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Une invitation PENDING ou ACCEPTED existe déjà pour ce couple (event, user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+    get:
+      summary: Lister les co-organisateurs d'un événement
+      description: |
+        Retourne la liste de tous les co-organisateurs (PENDING + ACCEPTED) d'un événement,
+        triée par `invitedAt` ASC. Authentifié uniquement.
+        Les rows DECLINED sont supprimées physiquement (cf. `PATCH /me/decline`) — elles
+        n'apparaissent donc jamais ici.
+      operationId: listCoOrganizers
+      tags: [events, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Liste des co-organisateurs (tableau vide si aucun — jamais 404)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoOrganizer'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/co-organizers/{userId}:
+    delete:
+      summary: Retirer un co-organisateur
+      description: |
+        Supprime physiquement la row `EventCoOrganizer`. Réservé au créateur ou à un admin.
+        Idempotent côté résultat : retourne 204 même si l'utilisateur n'avait pas d'invitation
+        (mais retourne 404 si l'événement lui-même n'existe pas — pour éviter de masquer un
+        ID erroné côté client).
+      operationId: removeCoOrganizer
+      tags: [events, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Co-organisateur retiré (ou n'avait pas d'invitation — idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Appelant non créateur et non admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/co-organizers/me/accept:
+    patch:
+      summary: Accepter une invitation à co-organiser
+      description: |
+        Bascule le status `PENDING` → `ACCEPTED`. L'utilisateur authentifié doit avoir une
+        invitation PENDING sur cet événement. À partir de là, il peut éditer / publier /
+        annuler / restaurer / charger une bannière / consulter les inscrits / les stats.
+
+        Si l'invitation est déjà ACCEPTED → 200 idempotent (renvoie l'état actuel sans
+        modification).
+        Si aucune invitation → 404.
+      operationId: acceptCoOrganizerInvitation
+      tags: [events, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Invitation acceptée (ou déjà ACCEPTED — idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoOrganizer'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            `error=no_pending_invitation` — aucune invitation pour l'utilisateur courant
+            sur cet événement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/co-organizers/me/decline:
+    patch:
+      summary: Décliner une invitation à co-organiser
+      description: |
+        Supprime physiquement la row `EventCoOrganizer` correspondant à l'utilisateur courant
+        (cf. décision 5 de la spec : DECLINE = DELETE row, autorise une ré-invitation
+        ultérieure sans 409). Si aucune invitation → 404.
+      operationId: declineCoOrganizerInvitation
+      tags: [events, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Invitation déclinée (row supprimée)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            `error=no_pending_invitation` — aucune invitation pour l'utilisateur courant
+            sur cet événement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/co-organizer-invitations:
+    get:
+      summary: Mes invitations à co-organiser
+      description: |
+        Retourne les invitations adressées à l'utilisateur courant. Par défaut `status=PENDING`.
+        Chaque entrée enrichit l'événement complet (`Event` schema) pour que le frontend puisse
+        afficher titre / dates / banner sans refetch.
+
+        Les invitations sur des événements `CANCELLED` apparaissent normalement (l'invité a le
+        droit de comprendre pourquoi son badge a clignoté).
+      operationId: getMyCoOrganizerInvitations
+      tags: [users, co-organizers]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filtre optionnel sur un statut. Par défaut `PENDING`.
+          schema:
+            $ref: '#/components/schemas/CoOrganizerStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Liste paginée des invitations (tableau vide si aucune)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoOrganizerInvitation'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (non provisionné — appeler GET /users/me d'abord)
           content:
             application/json:
               schema:
@@ -2000,10 +2365,11 @@ paths:
   # TODO: Sprint 5
   /events/{id}/stats:
     get:
-      summary: Statistiques de l'événement — créateur uniquement
+      summary: Statistiques de l'événement — créateur ou co-organisateur ACCEPTED
       description: |
         Retourne les compteurs agrégés de l'événement (participants, favoris, vues uniques).
-        Accessible uniquement par le créateur de l'événement (token JWT requis).
+        Accessible par le créateur de l'événement **ou un co-organisateur ACCEPTED**
+        (cf. SCRUM-136 cascade `isCreatorOrAcceptedCoOrganizer`). Token JWT requis.
       operationId: getEventStats
       tags: [events]
       security:
@@ -2029,7 +2395,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
-          description: Pas le créateur de l'événement
+          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:

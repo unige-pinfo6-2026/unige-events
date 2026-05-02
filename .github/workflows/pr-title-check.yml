@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Validate PR title format
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -28,6 +28,7 @@ jobs:
             chore
             ci
             perf
+            deps
           requireScope: false
           subjectPattern: "^[a-z].+"
           subjectPatternError: |

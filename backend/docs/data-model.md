@@ -164,6 +164,65 @@ Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
+### EventCoOrganizer
+
+Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | — | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `status` | `status` | `CoOrganizerStatus` | `status` | not null, `@Enumerated(STRING)` |
+| `invitedAt` | `invitedAt` | `LocalDateTime` | `invited_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_co_organizers_event_user` sur `(event_id, user_id)`.
+Index : `idx_event_co_organizers_event` (`event_id`), `idx_event_co_organizers_user` (`user_id`).
+
+Suppression physique autorisée (pas de soft-delete) — symétrique à `Favorite`. Le retrait par
+le créateur (`DELETE /events/{id}/co-organizers/{userId}`) et le decline par l'invité
+(`PATCH /events/{id}/co-organizers/me/decline`) suppriment la row directement.
+
+#### Sémantique du `DECLINE`
+
+`PATCH /events/{id}/co-organizers/me/decline` **supprime physiquement** la row au lieu de la marquer
+`DECLINED`. La valeur `DECLINED` reste définie dans l'enum `CoOrganizerStatus` mais n'apparaît jamais
+en base. Cette décision permet au créateur de ré-inviter la même personne après un refus, sans 409
+(la contrainte unique étant strictement basée sur la présence d'une row, pas sur son statut).
+
+`PATCH /events/{id}/co-organizers/me/accept` et `PATCH /events/{id}/co-organizers/me/decline`
+retournent `422 Unprocessable Entity` avec `error=no_pending_invitation` lorsqu'aucune row
+n'existe pour l'utilisateur courant sur cet événement (cf. fix de review SCRUM-136).
+
+#### Helpers statiques
+
+- `EventCoOrganizer.isAcceptedFor(Long eventId, UUID userId)` — réponse boolean en
+  une seule requête `count`. Utilisé par `EventService.isCreatorOrAcceptedCoOrganizer`.
+- `EventCoOrganizer.findByEventAndUser(Long, UUID)` — résolution unitaire pour accept/decline/remove.
+- `EventCoOrganizer.findByEvent(Long eventId)` — listing par event, tri `invitedAt ASC`.
+- `EventCoOrganizer.findByUser(UUID userId, CoOrganizerStatus status, int page, int size)` — listing
+  par user filtré sur un statut, paginé, tri `invitedAt DESC`.
+
+#### Permissions « créateur ou co-organisateur ACCEPTED » (cascade SCRUM-136)
+
+Le helper privé `EventService.isCreatorOrAcceptedCoOrganizer(Event, String)` (et son wrapper public
+`isCreatorOrAcceptedCoOrganizerPublic` réutilisé par les services voisins) unifie la garde
+d'autorisation pour les opérations de gestion d'événement déléguables :
+
+- `EventService.update`, `cancel`, `restore`, `publish`, `uploadImage`, `getById`
+  (visibilité DRAFT/CANCELLED).
+- `AttendanceService.getAttendees`, `EventStatsService.getStats`.
+
+`EventService.delete` (suppression physique d'un event CANCELLED) reste **strict-creator** —
+non délégable aux co-organisateurs (action irréversible, hors scope du « partage de gestion »
+de US-29). Cette divergence par rapport au libellé du ticket est documentée dans la PR
+SCRUM-136.
+
+L'invitation par le créateur OU un admin ; l'accept/decline est self-only (l'identité provient
+du JWT — pas de spoofing).
+
+---
+
 ### Report
 
 Table : `reports`
@@ -315,6 +374,7 @@ attendingCount, interestedCount, viewCount
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
+| `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
@@ -385,3 +445,10 @@ Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus
 ### V1 — Réconciliation des contraintes CHECK
 
 `V1__reconcile_check_constraints.sql` est la première migration : elle drop+recrée `events_faculty_check`, `events_category_check`, `events_status_check` et `attendances_status_check` avec les valeurs courantes des enums Java. Elle remplace l'ancien bean `SchemaFixup` qui faisait le même travail au démarrage.
+
+> **À surveiller pour `event_co_organizers_status_check` (SCRUM-136).** La table
+> `event_co_organizers` est créée par la migration `V8__create_event_co_organizers.sql`,
+> qui pose la CHECK initiale sur `CoOrganizerStatus`. Toute future modification de l'enum
+> (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
+> drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
+> muter une migration committée.

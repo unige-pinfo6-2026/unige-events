@@ -3,14 +3,17 @@ package ch.unige.events.resource;
 import ch.unige.events.dto.*;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
+import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.CoOrganizerStatus;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.AttendanceService;
 import ch.unige.events.service.CalendarService;
+import ch.unige.events.service.EventCoOrganizerService;
 import ch.unige.events.service.EventService;
 import ch.unige.events.service.FavoriteService;
 import ch.unige.events.service.UserService;
@@ -53,6 +56,7 @@ public class UserResource {
     @Inject CalendarService calendarService;
     @Inject AttendanceService attendanceService;
     @Inject EventService eventService;
+    @Inject EventCoOrganizerService coOrganizerService;
 
     /**
      * GET /api/users/{id}
@@ -301,5 +305,16 @@ public class UserResource {
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
         return eventService.getMyEvents(identity.getPrincipal().getName(), status, page, size);
+    }
+
+    @GET
+    @Path("/me/co-organizer-invitations")
+    @Authenticated
+    public List<CoOrganizerInvitationDTO> getMyCoOrganizerInvitations(
+            @QueryParam("status") CoOrganizerStatus status,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
+        return coOrganizerService.getMyInvitations(
+                identity.getPrincipal().getName(), status, page, size);
     }
 }

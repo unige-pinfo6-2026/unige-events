@@ -169,6 +169,24 @@ Fix :
 - [ ] `GET /notifications`, `PUT /notifications/{id}/read`
 - [ ] `POST /events/{id}/duplicate` (réservé au créateur)
 - [ ] Job `@Scheduled` : désactivation auto des events dont `endDate < now()`
+- [x] **SCRUM-136** — Co-organisateurs : entité `EventCoOrganizer` (eventId, userId,
+      status PENDING/ACCEPTED/DECLINED, invitedAt, contrainte unique `(event_id, user_id)`,
+      indexes `idx_event_co_organizers_event` / `idx_event_co_organizers_user`) +
+      6 endpoints REST (`POST/GET /events/{id}/co-organizers`,
+      `DELETE /events/{id}/co-organizers/{userId}`,
+      `PATCH /events/{id}/co-organizers/me/accept|decline`,
+      `GET /users/me/co-organizer-invitations`).
+      Cascade d'autorisation `isCreatorOrAcceptedCoOrganizer` sur `EventService.update/cancel/
+      restore/publish/uploadImage/getById`, `AttendanceService.getAttendees`,
+      `EventStatsService.getStats`. `EventService.delete` reste strict-creator (action
+      irréversible — divergence assumée par rapport au libellé du ticket Jira).
+      DECLINE supprime physiquement la row pour autoriser la ré-invitation sans 409.
+      Hors scope : notifications email, transfert d'ownership, invitation par email,
+      bulk invite. Frontend SCRUM-137 dépendant.
+      *Fix de review post-merge main :* migration `V8__create_event_co_organizers.sql`
+      (Flyway désormais source du schéma), `POST /co-organizers` sur body absent → 400
+      via `@NotNull`, et `PATCH /me/accept|decline` sans row → 422
+      `no_pending_invitation` au lieu de 404.
 
 ---
 

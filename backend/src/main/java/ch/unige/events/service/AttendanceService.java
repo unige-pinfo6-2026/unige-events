@@ -32,6 +32,9 @@ public class AttendanceService {
     @Inject
     EntityManager entityManager;
 
+    @Inject
+    EventService eventService;
+
     @Transactional
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
         if (status != AttendanceStatus.ATTENDING) {
@@ -140,8 +143,9 @@ public class AttendanceService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        if (event.creator == null || event.creator.auth0Id == null || !event.creator.auth0Id.equals(auth0Id)) {
-            throw new ForbiddenException("Only the event creator can view attendees");
+        // SCRUM-136 : créateur OU co-organisateur ACCEPTED.
+        if (!eventService.isCreatorOrAcceptedCoOrganizerPublic(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an accepted co-organizer can view attendees");
         }
 
         return Attendance.findByEvent(eventId, page, size).stream()
