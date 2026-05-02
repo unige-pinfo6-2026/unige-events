@@ -10,6 +10,7 @@ import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.InvalidFileTypeException;
 
 import java.util.UUID;
 import io.quarkus.test.TestTransaction;
@@ -801,7 +802,7 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("banner.jpg");
-        Files.write(fakeFile, "fake-jpeg".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|img", upload, false);
@@ -818,12 +819,13 @@ class EventServiceCoverageTest {
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("banner.png");
-        Files.write(fakeFile, "fake-png".getBytes());
+        Files.write(fakeFile, pngHeader());
         FileUpload upload = new StubFileUpload("banner.png", "image/png", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|admin2", upload, true);
 
         assertTrue(result.bannerUrl().startsWith("http"));
+        assertTrue(result.bannerUrl().endsWith(".png"));
     }
 
     @Test
@@ -833,6 +835,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
 
+        // Event lookup happens before file validation — NotFoundException is expected.
         assertThrows(NotFoundException.class,
                 () -> eventService.uploadImage(999999L, "auth0|x", upload, false));
     }
@@ -847,6 +850,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
 
+        // Auth check happens before file validation — ForbiddenException is expected.
         assertThrows(ForbiddenException.class,
                 () -> eventService.uploadImage(event.id, "auth0|intruder", upload, false));
     }
@@ -861,7 +865,7 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
                 () -> eventService.uploadImage(event.id, "auth0|mime", upload, false));
     }
 
@@ -875,38 +879,39 @@ class EventServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
                 () -> eventService.uploadImage(event.id, "auth0|nullmime", upload, false));
     }
 
     @Test
     @TestTransaction
-    void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_extensionDerivedFromMime_notFromFileName(@TempDir Path tempDir) throws IOException {
         User user = persistUser("auth0|noext", "noext@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("image");
-        Files.write(fakeFile, "data".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("image", "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|noext", upload, false);
 
-        assertTrue(result.bannerUrl().endsWith(".bin"));
+        // Extension comes from the validated MIME type, not the client filename.
+        assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
     @Test
     @TestTransaction
-    void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_nullFileName_extensionFromMime(@TempDir Path tempDir) throws IOException {
         User user = persistUser("auth0|nullname", "nullname@example.com");
         Event event = persistEvent("Event", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
 
         Path fakeFile = tempDir.resolve("file");
-        Files.write(fakeFile, "data".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload(null, "image/jpeg", fakeFile);
 
         EventDTO result = eventService.uploadImage(event.id, "auth0|nullname", upload, false);
 
-        assertTrue(result.bannerUrl().endsWith(".bin"));
+        assertTrue(result.bannerUrl().endsWith(".jpg"));
     }
 
     // --- faculty filter (SCRUM-77) ---
@@ -1355,7 +1360,7 @@ class EventServiceCoverageTest {
         persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
 
         Path src = tempDir.resolve("banner.jpg");
-        Files.write(src, new byte[]{0x00, 0x01, 0x02});
+        Files.write(src, jpegHeader());
         StubFileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", src);
 
         EventDTO updated = eventService.uploadImage(event.id, coOrg.auth0Id, upload, false);
@@ -1493,6 +1498,14 @@ class EventServiceCoverageTest {
         req.category = category;
         req.status = status;
         return req;
+    }
+
+    static byte[] jpegHeader() {
+        return new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0, 0, 0};
+    }
+
+    static byte[] pngHeader() {
+        return new byte[]{(byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A};
     }
 
     static class StubFileUpload implements FileUpload {

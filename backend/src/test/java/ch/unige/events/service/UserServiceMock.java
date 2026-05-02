@@ -2,6 +2,8 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.InvalidFileTypeException;
+import ch.unige.events.util.ImageFormat;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -130,7 +132,11 @@ public class UserServiceMock extends UserService {
     @Override
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         if (forceBadMimeOnUpload) {
-            throw new BadRequestException("File must be an image");
+            throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
+        }
+        String ct = fileUpload.contentType();
+        if (ct == null || !ImageFormat.MIME_TO_EXTENSION.containsKey(ct)) {
+            throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
         }
         User user = usersByAuth0Id.get(auth0Id);
         if (user == null) {
@@ -143,7 +149,11 @@ public class UserServiceMock extends UserService {
     @Override
     public User uploadBanner(String auth0Id, FileUpload fileUpload) {
         if (forceBadMimeOnBannerUpload) {
-            throw new BadRequestException("File must be an image");
+            throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
+        }
+        String ct = fileUpload.contentType();
+        if (ct == null || !ImageFormat.MIME_TO_EXTENSION.containsKey(ct)) {
+            throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
         }
         User user = usersByAuth0Id.get(auth0Id);
         if (user == null) {
