@@ -17,6 +17,7 @@
 | /my-events/favorites | MyFavoritesPage | fait |
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
+| /events/:id/stats | EventStatsPage | fait (S6) |
 
 ### LandingPage
 
@@ -79,6 +80,17 @@
 - Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Tri par `startDate` décroissante.
 - Bouton flottant "Créer un événement" en bas-droite.
 - Skeleton `my-events`.
+
+### EventStatsPage
+
+- Route `/events/:id/stats`, protégée par PrivateRoute — réservé à l'organisateur de l'événement.
+- Charge l'événement via `useEvent(id)`, puis les stats via `useEventStats(id)` (auto-refresh toutes les 60 s).
+- Vérifie que `user.id === event.creatorId` avant de charger les stats (évite le 403).
+- KPI cards : 👁 Vues totales (`stats.viewCount`), ⭐ Intéressés (`stats.interestedCount`), ✅ Inscrits (`stats.attendingCount`).
+- `StatsChart` : BarChart vertical recharts (Vues / Intéressés / Inscrits).
+- Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
+- Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
+- Skeleton `event-stats` généré par `skeleton/generate.mjs` (3 breakpoints container width : 343 / 720 / 960). Le fixture reflète exactement le layout : bouton "Rafraîchir" en haut, grille KPI (3 cols ≥sm, stackée mobile), card chart `h-[260px]`, capacity bar `h-[100px]`, attendees toggle `h-12`.
 
 ### CreateEventPage
 
@@ -281,6 +293,14 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 - Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
 
+### EventStatsPanel
+
+- Card publique "Statistiques de participation" (`src/components/event/EventStatsPanel.tsx`) insérée dans la **sidebar** de `EventDetailPage`, après `IcsExportButton` et avant les actions organisateur. Visible pour **tous** les utilisateurs (pas seulement l'organisateur) — la page `/events/:id/stats` reste réservée à l'organisateur pour les visualisations avancées (chart + capacity bar + liste des participants).
+- Props : `viewCount: number | null | undefined`, `interestedCount: number | null | undefined`, `attendingCount: number`.
+- Layout : titre avec icône `BarChart2` puis `grid grid-cols-3 gap-2` de 3 mini-cards (icône + valeur + label). Pattern KPI compact réutilisé d'`EventStatsPage` : gradient `blue` pour Vues, `green` pour Inscrits, `purple` pour Intéressés.
+- Affiche `'—'` quand `viewCount`/`interestedCount` sont `null` ou `undefined` (cas des endpoints de liste/recherche qui ne calculent pas ces compteurs). `attendingCount` est toujours présent dans le DTO Event public.
+- Formatage `toLocaleString('fr-CH')` (séparateur U+202F entre milliers).
+
 ### CalendarSubscribeButton
 
 - Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
@@ -367,6 +387,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
 | `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
+| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 

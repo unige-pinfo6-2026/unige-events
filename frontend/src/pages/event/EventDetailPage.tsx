@@ -5,6 +5,7 @@ import { useAttendees } from '@/hooks/useAttendees'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
+import { recordEventView } from '@/services/statsApi'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES } from '@/types/event'
@@ -17,6 +18,7 @@ import AttendanceButtons from '@/components/event/AttendanceButtons'
 import AttendeesList from '@/components/attendees/AttendeesList'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
+import EventStatsPanel from '@/components/event/EventStatsPanel'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
@@ -41,7 +43,7 @@ function EventDetailFixture() {
         <div className="h-72 rounded-3xl" />
         <div className="h-44 rounded-3xl" />
         <div className="h-[236px] rounded-3xl" />
-        <div className="h-[104px] rounded-2xl" />
+        <div className="h-[172px] rounded-3xl" />
       </div>
     </div>
   )
@@ -67,44 +69,11 @@ function InfoRow({ icon: Icon, color, children }: Readonly<InfoRowProps>) {
   )
 }
 
-interface ComingSoonBlockProps {
-  icon: LucideIcon
-  label: string
-  sprint: string
-  children?: React.ReactNode
-}
-
-const comingSoonVariants = {
-  container: 'rounded-2xl border border-dashed border-border/40 bg-foreground/[0.018] px-4 py-3',
-  header:    'flex items-center justify-between gap-3',
-  iconLabel: 'flex items-center gap-2 text-foreground/30',
-  icon:      'w-4 h-4 shrink-0',
-  label:     'text-sm',
-  badge:     'text-[10px] font-semibold tracking-widest uppercase text-foreground/20 bg-foreground/5 px-2 py-0.5 rounded-full border border-border/30 shrink-0',
-  body:      'mt-3 pointer-events-none select-none opacity-30',
-} as const
-
-function ComingSoonBlock({ icon: Icon, label, sprint, children }: Readonly<ComingSoonBlockProps>) {
-  return (
-    <div className={comingSoonVariants.container}>
-      <div className={comingSoonVariants.header}>
-        <div className={comingSoonVariants.iconLabel}>
-          <Icon className={comingSoonVariants.icon} />
-          <span className={comingSoonVariants.label}>{label}</span>
-        </div>
-        <span className={comingSoonVariants.badge}>{sprint}</span>
-      </div>
-      {children && (
-        <div className={comingSoonVariants.body}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FavoriteTextButton({ eventId }: Readonly<{ eventId: number }>) {
-  const { favorited, loading, toggle } = useFavorite(eventId)
+function FavoriteTextButton({
+  eventId,
+  onAfterSuccess,
+}: Readonly<{ eventId: number; onAfterSuccess?: () => void | Promise<void> }>) {
+  const { favorited, loading, toggle } = useFavorite(eventId, false, { onAfterSuccess })
   return (
     <button
       type="button"
@@ -256,6 +225,11 @@ export default function EventDetailPage() {
       return () => clearTimeout(t)
     }
   }, [])
+
+  useEffect(() => {
+    if (!eventId || !user) return
+    recordEventView(eventId).catch(() => {})
+  }, [eventId, user])
 
   useEffect(() => {
     if (!event) { setOrganizer(null); return }
@@ -530,7 +504,7 @@ export default function EventDetailPage() {
 
             {/* Favoris + partager */}
             <div className="grid grid-cols-2 gap-3">
-              <FavoriteTextButton eventId={event.id} />
+              <FavoriteTextButton eventId={event.id} onAfterSuccess={handleAttendanceSuccess} />
 
               <button
                 type="button"
@@ -556,6 +530,13 @@ export default function EventDetailPage() {
 
           {/* IcsExportButton */}
           <IcsExportButton event={event} />
+
+          {/* Stats publiques (review #90) — visible pour tous, pas seulement l'organisateur */}
+          <EventStatsPanel
+            viewCount={event.viewCount}
+            interestedCount={event.interestedCount}
+            attendingCount={event.attendingCount}
+          />
 
           {/* Actions organisateur */}
           {isOrganizer && (
@@ -604,22 +585,19 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Shell statistiques organisateur — S6 (SCRUM-92) */}
+          {/* Lien statistiques organisateur — S6.
+              Caveat: shown only to the creator. The backend authorizes ACCEPTED
+              co-organizers too, but the frontend has no co-organizer
+              integration yet, so they currently lack an in-app entry point
+              to /events/:id/stats. Same dette as in EventStatsPage. */}
           {isOrganizer && (
-            <ComingSoonBlock icon={BarChart2} label="Statistiques de participation" sprint="S6">
-              <div className="grid grid-cols-3 gap-2 mt-1">
-                {[
-                  { label: 'Vues', value: '—' },
-                  { label: 'Inscrits', value: '—' },
-                  { label: 'Intéressés', value: '—' },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex flex-col items-center rounded-xl border border-border/30 bg-foreground/5 py-2">
-                    <span className="text-sm font-bold text-foreground/20">{value}</span>
-                    <span className="text-[10px] text-foreground/20 mt-0.5">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </ComingSoonBlock>
+            <Link
+              to={`/events/${event.id}/stats`}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+            >
+              <BarChart2 className="w-4 h-4 shrink-0" />
+              Voir les statistiques
+            </Link>
           )}
 
         </div>

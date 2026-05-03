@@ -1,0 +1,11 @@
+-- Some legacy databases were created by Hibernate auto-update before the
+-- Event.description column was annotated with @Column(columnDefinition = "TEXT").
+-- They ended up with VARCHAR(255), which makes any event with a longer
+-- description fail at INSERT/UPDATE time with:
+--   ERROR: value too long for type character varying(255)
+--
+-- V2__create_events.sql already declares description as TEXT, but its
+-- CREATE TABLE IF NOT EXISTS is a no-op when the table predates the
+-- migration history (typical for devs that ran Hibernate-update first).
+-- This migration brings those legacy schemas in line with the entity.
+ALTER TABLE events ALTER COLUMN description TYPE TEXT;

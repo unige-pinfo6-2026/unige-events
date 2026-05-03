@@ -72,8 +72,18 @@ Détail d'un événement.
 **Paramètre :** `id` — ID numérique de l'événement (`Long` séquentiel).
 
 **Réponses :**
-- `200 OK` — `EventDTO` complet (mêmes champs que `GET /events`)
+- `200 OK` — `EventDTO` complet (mêmes champs que `GET /events`, **plus** `viewCount` et `interestedCount` renseignés — voir ci-dessous)
 - `404 Not Found` — événement introuvable, OU événement non-PUBLISHED demandé par un appelant non autorisé
+
+**Compteurs publics `viewCount` et `interestedCount`** (review #90, SCRUM-92) : `EventDTO`
+expose ces deux champs `Long` nullable (vues uniques + favoris) à **tous les utilisateurs**
+(pas seulement à l'organisateur). Stratégie volontairement asymétrique pour éviter les
+requêtes N+1 sur les listes : seul `EventService.getById` les calcule. Tous les autres
+endpoints qui retournent un `EventDTO` (`POST/PUT/PATCH /events`, `GET /events`,
+`GET /events/search`, `GET /users/me/favorites`, etc.) renvoient `null` pour ces deux
+champs. Le frontend les consomme uniquement sur la page détail (`EventStatsPanel`). La
+page dashboard `/events/{id}/stats` reste **réservée à l'organisateur** et expose les
+mêmes compteurs au sein de `EventStatsDTO` (anciens noms gardés pour compatibilité).
 
 ---
 

@@ -20,6 +20,7 @@ const MyEventsPage = lazy(() => import('@/pages/my-events/MyEventsPage'))
 const MyFavoritesPage = lazy(() => import('@/pages/my-events/MyFavoritesPage'))
 const MyParticipationsPage = lazy(() => import('@/pages/my-events/MyParticipationsPage'))
 const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPage'))
+const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const AppRouter = () => {
@@ -53,6 +54,7 @@ const AppRouter = () => {
               <Route path="/events">
                 <Route path="new" element={<EventCreatePage />} />
                 <Route path=":id/edit" element={<EventEditPage />} />
+                <Route path=":id/stats" element={<EventStatsPage />} />
                 <Route path="favorites" element={<FavoritesPage />} />
               </Route>
 

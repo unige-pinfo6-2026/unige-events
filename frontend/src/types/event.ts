@@ -15,6 +15,8 @@ export type Event = {
   capacity?: number
   availableSpots?: number | null
   waitlistedCount?: number
+  viewCount?: number | null
+  interestedCount?: number | null
   allDay: boolean
   attendingCount: number
   websiteUrl?: string | null

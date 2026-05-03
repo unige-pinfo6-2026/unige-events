@@ -8,7 +8,9 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.Faculty;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import ch.unige.events.exception.InvalidFileTypeException;
 
@@ -1279,6 +1281,56 @@ class EventServiceCoverageTest {
         a.eventId = eventId;
         a.status = status;
         entityManager.persist(a);
+    }
+
+    private void persistEventViewFor(Long eventId, UUID userId) {
+        EventView v = new EventView();
+        v.eventId = eventId;
+        v.userId = userId;
+        entityManager.persist(v);
+    }
+
+    private void persistFavoriteFor(Long eventId, UUID userId) {
+        Favorite f = new Favorite();
+        f.eventId = eventId;
+        f.userId = userId;
+        entityManager.persist(f);
+    }
+
+    // --- review #90 — public stats counters on getById ---
+
+    @Test
+    @TestTransaction
+    void getById_exposesViewCountAndInterestedCount() {
+        User user = persistUser("auth0|stats-pub", "stats-pub@example.com");
+        Event event = persistEvent("Public stats", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        entityManager.flush();
+
+        User v1 = persistUser("auth0|stats-v1", "v1@example.com");
+        User v2 = persistUser("auth0|stats-v2", "v2@example.com");
+        User f1 = persistUser("auth0|stats-f1", "f1@example.com");
+        persistEventViewFor(event.id, v1.id);
+        persistEventViewFor(event.id, v2.id);
+        persistFavoriteFor(event.id, f1.id);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id, null, false);
+
+        assertEquals(2L, dto.viewCount());
+        assertEquals(1L, dto.interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_withNoViewsOrFavorites_returnsZeroCounters() {
+        User user = persistUser("auth0|stats-empty", "stats-empty@example.com");
+        Event event = persistEvent("Empty stats", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id, null, false);
+
+        assertEquals(0L, dto.viewCount());
+        assertEquals(0L, dto.interestedCount());
     }
 
     // =========================================================
