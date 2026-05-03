@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -14,13 +14,11 @@ env:
   JAVA_VERSION: 21
   JAVA_DISTRIBUTION: "temurin"
   NODE_VERSION: 24
-
-  CONTAINER_IMAGE_REGISTRY: ghcr.io
-  CONTAINER_IMAGE_NAME_BACKEND: unige-events-api
-  CONTAINER_IMAGE_NAME_FRONTEND: unige-events-web
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: unige-events-api
+  FRONTEND_IMAGE: unige-events-web
 
 jobs:
-  # Build & Tests Backend
   build-backend:
     name: Build Backend
     runs-on: builds
@@ -47,13 +45,12 @@ jobs:
           ./mvnw verify -B \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=${{ github.event_name == 'push' }} \
-            -Dquarkus.container-image.registry=${{ env.CONTAINER_IMAGE_REGISTRY }} \
+            -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
             -Dquarkus.container-image.group=${{ github.repository_owner }} \
-            -Dquarkus.container-image.name=${{ env.CONTAINER_IMAGE_NAME_BACKEND }} \
+            -Dquarkus.container-image.name=${{ env.BACKEND_IMAGE }} \
             -Dquarkus.container-image.tag=${{ github.sha }} \
-            -Dquarkus.container-image.additional-tags=latest \
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
-      
+
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -65,7 +62,6 @@ jobs:
           docker volume prune -f
           docker image prune -f
 
-  # Build & Tests Frontend
   build-frontend:
     name: Build Frontend
     runs-on: builds
@@ -99,7 +95,7 @@ jobs:
           projectBaseDir: frontend
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  
+
       - name: Build
         env:
           VITE_AUTH0_DOMAIN: ${{ vars.VITE_AUTH0_DOMAIN }}
@@ -114,7 +110,7 @@ jobs:
         if: github.event_name == 'push'
         uses: docker/login-action@v4
         with:
-          registry: ${{ env.CONTAINER_IMAGE_REGISTRY }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,16 +118,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.CONTAINER_IMAGE_REGISTRY }}/${{ github.repository_owner }}/${{ env.CONTAINER_IMAGE_NAME_FRONTEND }}
-          tags: |
-            type=sha
-            type=raw,value=latest
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE }}
+          tags: ${{ github.sha }}
 
-      - name: Build Docker image
+      - name: Build & Push Docker image
         uses: docker/build-push-action@v7
         with:
           context: frontend
-          push: ${{  github.event_name == 'push' }}
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

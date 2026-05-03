@@ -1,0 +1,60 @@
+image:
+  registry: ghcr.io
+  org: unige-pinfo6-2026
+  pullPolicy: Always
+  api:
+    name: unige-events-api
+    tag: latest
+  web:
+    name: unige-events-web
+    tag: latest
+
+ingress:
+  host: pinfo6.p-info.net
+
+db:
+  image: postgres:16
+  storageSize: 1Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "512Mi"
+
+minio:
+  image: "minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1"
+  storageSize: 5Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "512Mi"
+
+api:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "512Mi"
+
+web:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "128Mi"
+      ephemeral-storage: "256Mi"
+
+cloudflared:
+  enabled: true

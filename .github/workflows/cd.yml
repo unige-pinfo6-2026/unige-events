@@ -4,22 +4,31 @@ on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
-    branches: [main]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  packages: read
 
 env:
-  NAMESPACE: unige-events
-  CONTAINER_IMAGE_REGISTRY: ghcr.io
+  REGISTRY: ghcr.io
 
 jobs:
-  # Deploy to Production
-  deploy:
-    name: Deploy to Production
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  # ─── Staging ──────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'develop'
     runs-on: deployments
-    environment: production
+    environment: staging
+    env:
+      NAMESPACE: unige-events-staging
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set kubectl context
         uses: azure/k8s-set-context@v5
@@ -27,77 +36,95 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
+      - name: Create namespace
+        run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create Doppler token secret
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-name: doppler-token
+          secret-type: generic
+          data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
+
       - name: Create GHCR secret
         uses: azure/k8s-create-secret@v6
         with:
           namespace: ${{ env.NAMESPACE }}
           secret-name: ghcr-secret
-          container-registry-url: ${{ env.CONTAINER_IMAGE_REGISTRY }}
+          container-registry-url: ${{ env.REGISTRY }}
           container-registry-username: ${{ github.actor }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create DB secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-type: generic
-          secret-name: db-secret
-          string-data: |
-            {
-              "DB_NAME": "${{ vars.DB_NAME }}",
-              "DB_USER": "${{ secrets.DB_USER }}",
-              "DB_PASSWORD": "${{ secrets.DB_PASSWORD }}"
-            }
-      
-      - name: Create MinIO secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-type: generic
-          secret-name: minio-secret
-          string-data: |
-            {
-              "MINIO_USER": "${{ vars.MINIO_USER }}",
-              "MINIO_PASSWORD": "${{ secrets.MINIO_PASSWORD }}"
-            }
+      - name: Install Helm
+        uses: azure/setup-helm@v4
 
-      - name: Create API secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-type: generic
-          secret-name: api-secret
-          string-data: |
-            {
-              "OIDC_AUTH_SERVER_URL": "${{ vars.OIDC_AUTH_SERVER_URL }}",
-              "OIDC_CLIENT_ID": "${{ vars.OIDC_CLIENT_ID }}",
-              "OIDC_CLIENT_SECRET": "${{ secrets.OIDC_CLIENT_SECRET }}",
-              "OIDC_AUDIENCE": "${{ vars.OIDC_AUDIENCE }}",
-              "FRONTEND_URL": "${{ vars.FRONTEND_URL }}",
-              "S3_URL": "${{ vars.S3_URL }}",
-              "S3_BUCKET": "${{ vars.S3_BUCKET }}"
-            }
-
-      - name: Create Cloudflare Tunnel secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-type: generic
-          secret-name: cloudflare-tunnel-secret
-          string-data: |
-            {
-              "CLOUDFLARE_TUNNEL_TOKEN": "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
-            }
-
-      - name: Apply manifests
-        run: kubectl apply -f k8s/ -R
-
-      - name: Restart api deployment
+      - name: Deploy
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          kubectl rollout restart deployment/api -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/api -n ${{ env.NAMESPACE }} --timeout=180s
+          helm upgrade --install unige-events-staging ./k8s/chart \
+            --namespace ${{ env.NAMESPACE }} \
+            --create-namespace \
+            -f k8s/chart/values-staging.yaml \
+            --set image.api.tag="${HEAD_SHA}" \
+            --set image.web.tag="${HEAD_SHA}" \
+            --timeout 3m \
+            --wait
 
-      - name: Restart web deployment
+  # ─── Production ───────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: deployments
+    environment: production
+    env:
+      NAMESPACE: unige-events
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v5
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Create namespace
+        run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create Doppler token secret
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-name: doppler-token
+          secret-type: generic
+          data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
+
+      - name: Create GHCR secret
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          secret-name: ghcr-secret
+          container-registry-url: ${{ env.REGISTRY }}
+          container-registry-username: ${{ github.actor }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          kubectl rollout restart deployment/web -n ${{ env.NAMESPACE }}
-          kubectl rollout status deployment/web -n ${{ env.NAMESPACE }} --timeout=180s
+          helm upgrade --install unige-events ./k8s/chart \
+            --namespace ${{ env.NAMESPACE }} \
+            --create-namespace \
+            --set image.api.tag="${HEAD_SHA}" \
+            --set image.web.tag="${HEAD_SHA}" \
+            --timeout 3m \
+            --wait

@@ -39,3 +39,15 @@ microk8s helm install cert-manager-webhook-duckdns \
 kubectl get pods -n cert-manager
 kubectl get certificate -n unige-events
 ```
+
+9. Installer l'opérateur Doppler (gestion des secrets) :
+
+```bash
+helm repo add doppler https://helm.doppler.com
+helm install doppler doppler/doppler-kubernetes-operator \
+  --namespace doppler-operator-system --create-namespace
+```
+
+10. Générer les tokens Doppler depuis le dashboard Doppler → Service Tokens (un token `staging`, un token `prd`) et les ajouter comme secret `DOPPLER_TOKEN` dans chaque environment GitHub (Settings → Environments → staging / production).
+
+> La pipeline CD crée automatiquement le secret `doppler-token` dans chaque namespace. L'opérateur synchronise ensuite le secret `app-secrets` à partir des configs Doppler correspondantes.
