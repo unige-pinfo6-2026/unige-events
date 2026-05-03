@@ -143,6 +143,12 @@ Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upser
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
 
+#### `AttendanceDTO` — projection du nom du participant
+
+`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
+
+`AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
+
 ---
 
 ### EventView

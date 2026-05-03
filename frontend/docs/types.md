@@ -194,15 +194,17 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 
 ### Attendance
 
-| Champ     | Type   | Requis |
-|-----------|--------|--------|
-| id        | number | oui    |
-| userId    | string | oui    |
-| eventId   | number | oui    |
-| status    | AttendanceStatus | oui |
-| createdAt | string | oui    |
+| Champ       | Type             | Requis | Notes |
+|-------------|------------------|--------|-------|
+| id          | number           | oui    | |
+| userId      | string           | oui    | |
+| eventId     | number           | oui    | |
+| status      | AttendanceStatus | oui    | |
+| createdAt   | string           | oui    | |
+| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
+| avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
 
-Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend`).
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
 
 ### AttendanceRequest
 

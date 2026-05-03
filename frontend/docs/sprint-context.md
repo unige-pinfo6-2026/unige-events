@@ -2,6 +2,18 @@
 
 Dernière mise à jour : 2026-05-03
 
+## Sprint 7 — Fix nom des participants privés sur la page stats organisateur — 2026-05-03
+
+Livré.
+
+Sur `/events/:id/stats`, la collapsable "Voir les participants" affichait l'UUID brut au lieu du nom pour les attendees `profilePublic = false`. La cause : `AttendeesSection` faisait un N+1 sur `GET /users/{id}` qui renvoie 404 pour les profils privés (hotfix pentest 4.1), donc `userMap` contenait `null` et la cascade `user?.displayName ?? user?.email ?? attendance.userId` tombait sur l'UUID.
+
+Fix : le backend enrichit `AttendanceDTO` avec `displayName` et `avatarUrl`, et le front lit ces champs directement depuis `attendance.*`. La route `GET /events/{id}/attendees` étant déjà restreinte au créateur / co-organisateur ACCEPTED, exposer le nom y est sûr y compris pour les profils privés. Le N+1 frontend disparaît (drop de l'import `getUserById`, du `userMap`, des `try/catch` par row).
+
+La page détail publique `/events/:id` reste inchangée — elle continue d'afficher "Utilisateur anonyme" pour les profils privés via le flux séparé `useAttendees` → `getPublicUser`. Type `Attendance` (frontend) reçoit `displayName: string | null` et `avatarUrl: string | null` ; les tests qui construisent des `Attendance` littéraux (`AttendeeCard.test`, `AttendeesList.test`, `useAttendees.test`) ont été ajustés.
+
+Tests : `EventStatsPage.test.tsx` réécrit (drop des mocks `getUserById`, ajout d'un test "private user shows displayName, never UUID" et d'un test fallback "Utilisateur supprimé" pour les inscriptions orphelines).
+
 ## Sprint 6 — Bloc stats publiques sur EventDetailPage (review #90 — SCRUM-92) — 2026-05-03
 
 Livré.

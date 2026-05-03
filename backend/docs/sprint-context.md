@@ -4,6 +4,18 @@ Dernière mise à jour : 2026-05-03
 
 ---
 
+## Sprint 7 — `AttendanceDTO` projette `displayName` / `avatarUrl` (fix UUID stats organisateur) — 2026-05-03
+
+Livré.
+
+Sur `/events/:id/stats`, la liste des participants affichait un UUID brut au lieu du nom pour tout user `profilePublic = false`. Cause : le front faisait du N+1 sur `GET /users/{id}` qui renvoie 404 pour les profils privés (hotfix pentest 4.1, anti-oracle). La route `GET /events/{id}/attendees` étant déjà restreinte au créateur ou co-organisateur ACCEPTED (cf. `AttendanceService.getAttendees`), enrichir le DTO ne fuite rien et permet au front de lire le nom directement.
+
+`AttendanceDTO` reçoit deux nouveaux champs `displayName` (toujours présent pour un user existant — initialisé depuis le claim Auth0 `name` à la création) et `avatarUrl` (nullable). `AttendanceService.getAttendees(...)` charge tous les `User` du batch en une seule requête (`User.list("id in ?1", ids)`) pour éviter le N+1 côté serveur. La page détail publique reste inchangée — elle continue d'afficher "Utilisateur anonyme" pour les profils privés via le flux séparé `getPublicUser`.
+
+Tests : `AttendanceServiceCoverageTest` enrichi de 3 cas (factory DTO avec/sans User, `getAttendees` projette le `displayName` même pour profil privé, ligne orpheline retourne `null` sans planter). `AttendanceServiceMock` adapté à la nouvelle signature `from(Attendance, User)`. OpenAPI : champs `displayName` et `avatarUrl` ajoutés au schéma `Attendance`.
+
+---
+
 ## Sprint 6 — `EventDTO` enrichi avec compteurs publics (review #90, SCRUM-92) — 2026-05-03
 
 Livré.
