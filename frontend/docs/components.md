@@ -90,7 +90,7 @@
 - `StatsChart` : BarChart vertical recharts (Vues / Intéressés / Inscrits).
 - Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
 - Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
-- Skeleton `event-stats` (2 breakpoints : 300 / 600 px).
+- Skeleton `event-stats` généré par `skeleton/generate.mjs` (3 breakpoints container width : 343 / 720 / 960). Le fixture reflète exactement le layout : bouton "Rafraîchir" en haut, grille KPI (3 cols ≥sm, stackée mobile), card chart `h-[260px]`, capacity bar `h-[100px]`, attendees toggle `h-12`.
 
 ### CreateEventPage
 
@@ -387,7 +387,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
 | `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
-| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | manuel |
+| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 

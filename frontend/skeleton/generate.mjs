@@ -924,9 +924,183 @@ function genPublications() {
   writeBones('my-publications.bones.json', out)
 }
 
+// ============================================================
+// EVENT STATS — organizer dashboard (/events/:id/stats)
+// Layout (from EventStatsPage.tsx → EventStatsFixture):
+//   SectionWrapper size="lg" (max-w-5xl, container ≤ 960 desktop) wraps
+//   `<div className="flex flex-col gap-6">` containing:
+//     - Refresh button row (justify-end)
+//     - KPI grid (3 cols on ≥sm, stacked on mobile)
+//     - Chart card (h-[260px])
+//     - Capacity bar card (h-[100px])
+//     - Attendees toggle button (h-12)
+// 2-shade hierarchy:
+//   - Card surfaces, KPI icon containers, refresh button, attendees button
+//     → containers (lighter)
+//   - Heading lines, bar shapes inside the chart, capacity bar fill,
+//     icon/text inside cards → leaves (darker)
+// ============================================================
+
+const ES_REFRESH_H = 36       // h-9 (px-3 py-1.5 + text-sm)
+const ES_REFRESH_W = 130      // ~width of "Rafraîchir" + icon + padding
+const ES_KPI_H = 88           // h-[88px]
+const ES_CHART_H = 260        // h-[260px]
+const ES_CAPACITY_H = 100     // h-[100px]
+const ES_ATTENDEES_H = 48     // h-12
+const ES_GAP = 24             // gap-6
+const ES_KPI_GAP = 16         // gap-4
+
+// "max-sm:grid-cols-1" → stacked when viewport < 640. Tailwind sm = 640px viewport;
+// the SectionWrapper subtracts horizontal padding so the corresponding container
+// width is roughly 608px. Below that, KPI cards stack.
+const ES_KPI_STACK_THRESHOLD = 608
+
+function pushEsRefreshButton(bones, pct, colW, y0) {
+  const x_px = colW - ES_REFRESH_W
+  // Button surface (container, lighter)
+  bones.push([pct.x(x_px), y0, pct.w(ES_REFRESH_W), ES_REFRESH_H, 12, true])
+  // Icon (leaf, darker — 16x16 centered vertically)
+  bones.push([pct.x(x_px + 14), y0 + (ES_REFRESH_H - 16) / 2, pct.w(16), 16, 4])
+  // Label (leaf, darker — text-sm = 14px tall, ~72px wide)
+  bones.push([pct.x(x_px + 38), y0 + (ES_REFRESH_H - 14) / 2, pct.w(72), 14, 4])
+}
+
+function pushEsKpiCard(bones, pct, x_px, w_px, y0) {
+  // p-4 = 16, items-center vertically. Inner = 88 - 32 = 56.
+  // Icon container is 40x40, centered vertically: y = y0 + (88-40)/2 = y0 + 24.
+  // Card surface (container, lighter)
+  bones.push([pct.x(x_px), y0, pct.w(w_px), ES_KPI_H, 16, true])
+  // Icon container (container, lighter — gradient pill 40x40)
+  bones.push([pct.x(x_px + 16), y0 + 24, pct.w(40), 40, 12, true])
+  // Label (leaf — text-xs = 12, mb-1)
+  bones.push([pct.x(x_px + 72), y0 + 30, pct.w(Math.min(80, w_px - 96)), 12, 4])
+  // Value (leaf — text-2xl = 24, leading-none)
+  bones.push([pct.x(x_px + 72), y0 + 48, pct.w(Math.min(48, w_px - 96)), 22, 4])
+}
+
+function pushEsChartCard(bones, pct, colW, y0) {
+  // p-6 = 24 padding. Heading text-xs (12) + mb-4 (16). Chart area below.
+  // Card surface (container)
+  bones.push([pct.x(0), y0, 100, ES_CHART_H, 24, true])
+  // Heading "Répartition" (leaf)
+  bones.push([pct.x(24), y0 + 28, pct.w(80), 12, 4])
+  // Y-axis ticks (4 short leaves on the left)
+  for (let i = 0; i < 4; i++) {
+    const ty = y0 + 70 + i * 40
+    bones.push([pct.x(28), ty, pct.w(8), 10, 4])
+  }
+  // 3 vertical bars centered in the plot area, varied heights
+  const plotX = 60
+  const plotW = colW - 60 - 24
+  const plotBaseline = y0 + ES_CHART_H - 36 // leave room for x-axis labels
+  const barW = 56
+  const slotW = plotW / 3
+  const heights = [120, 80, 100]
+  for (let i = 0; i < 3; i++) {
+    const cx = plotX + slotW * (i + 0.5)
+    const bx = cx - barW / 2
+    const bh = heights[i]
+    // Bar (leaf — colored at runtime; skeleton just renders the shape)
+    bones.push([pct.x(bx), plotBaseline - bh, pct.w(barW), bh, 6])
+    // X-axis label (leaf)
+    bones.push([pct.x(cx - 28), plotBaseline + 12, pct.w(56), 10, 4])
+  }
+}
+
+function pushEsCapacityBar(bones, pct, colW, y0) {
+  // p-5 = 20, gap-3 = 12. Heading row + bar + sublabel.
+  // Card surface (container)
+  bones.push([pct.x(0), y0, 100, ES_CAPACITY_H, 24, true])
+  // Heading label (leaf, left) "Taux de remplissage"
+  bones.push([pct.x(20), y0 + 22, pct.w(140), 12, 4])
+  // Pct value (leaf, right) "33%"
+  bones.push([pct.x(colW - 20 - 32), y0 + 22, pct.w(32), 14, 4])
+  // Bar background (leaf — darker rail)
+  bones.push([pct.x(20), y0 + 48, pct.w(colW - 40), 16, 9999])
+  // Bar fill (container, lighter — partial width)
+  bones.push([pct.x(20), y0 + 48, pct.w(Math.round((colW - 40) * 0.33)), 16, 9999, true])
+  // Sublabel (leaf) "X / Y places"
+  bones.push([pct.x(20), y0 + 78, pct.w(80), 10, 4])
+}
+
+function pushEsAttendeesToggle(bones, pct, colW, y0) {
+  // h-12 = 48. button px-5 py-3.5 with icon + label + chevron.
+  // Surface (container)
+  bones.push([pct.x(0), y0, 100, ES_ATTENDEES_H, 16, true])
+  // Users icon (leaf)
+  bones.push([pct.x(20), y0 + 16, pct.w(16), 16, 4])
+  // Label (leaf) "Voir les participants"
+  bones.push([pct.x(44), y0 + 18, pct.w(160), 12, 4])
+  // Chevron (leaf)
+  bones.push([pct.x(colW - 20 - 16), y0 + 16, pct.w(16), 16, 4])
+}
+
+function buildEventStats(containerW) {
+  const pct = {
+    x: px => round(px * 100 / containerW),
+    w: px => round(px * 100 / containerW),
+  }
+  const bones = []
+  let y = 0
+
+  // Refresh button row (always justify-end)
+  pushEsRefreshButton(bones, pct, containerW, y)
+  y += ES_REFRESH_H + ES_GAP
+
+  // KPI grid
+  const stacked = containerW < ES_KPI_STACK_THRESHOLD
+  if (stacked) {
+    for (let i = 0; i < 3; i++) {
+      pushEsKpiCard(bones, pct, 0, containerW, y)
+      y += ES_KPI_H
+      if (i < 2) y += ES_KPI_GAP
+    }
+  } else {
+    const cardW = (containerW - 2 * ES_KPI_GAP) / 3
+    for (let i = 0; i < 3; i++) {
+      const cx = i * (cardW + ES_KPI_GAP)
+      pushEsKpiCard(bones, pct, cx, cardW, y)
+    }
+    y += ES_KPI_H
+  }
+  y += ES_GAP
+
+  // Chart card
+  pushEsChartCard(bones, pct, containerW, y)
+  y += ES_CHART_H + ES_GAP
+
+  // Capacity bar
+  pushEsCapacityBar(bones, pct, containerW, y)
+  y += ES_CAPACITY_H + ES_GAP
+
+  // Attendees toggle
+  pushEsAttendeesToggle(bones, pct, containerW, y)
+  y += ES_ATTENDEES_H
+
+  return { bones, height: y }
+}
+
+const STATS_CONTAINERS = [343, 720, 960]
+
+function genEventStats() {
+  const out = { breakpoints: {} }
+  for (const cw of STATS_CONTAINERS) {
+    const { bones, height } = buildEventStats(cw)
+    out.breakpoints[String(cw)] = {
+      name: 'event-stats',
+      viewportWidth: cw,
+      width: cw,
+      height,
+      bones,
+    }
+  }
+  writeBones('event-stats.bones.json', out)
+}
+
 genCards()
 genSearch()
 genCalendar()
 genEventDetail()
 genEventEdit()
 genPublications()
+genEventStats()

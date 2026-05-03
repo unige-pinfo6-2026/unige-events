@@ -21,6 +21,9 @@ import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Eye, RefreshCw, Star, 
 function EventStatsFixture() {
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <div className="h-9 w-[130px] rounded-xl" />
+      </div>
       <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
         <div className="h-[88px] rounded-2xl" />
         <div className="h-[88px] rounded-2xl" />
