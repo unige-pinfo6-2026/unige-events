@@ -79,7 +79,6 @@ describe('useAttendance — mount initialization', () => {
     mockGetMyAttendance.mockReturnValue(new Promise((r) => { resolve = r }))
     const { result, unmount } = renderHook(() => useAttendance(42, 5, null))
     unmount()
-    // Resolving after unmount should not throw or update state
     await act(async () => { resolve('ATTENDING') })
     expect(result.current.currentStatus).toBeNull()
   })
@@ -91,19 +90,19 @@ describe('useAttendance — mount initialization', () => {
     expect(mockAttend).not.toHaveBeenCalled()
   })
 
-  it('starts with isFull=true when initialAvailableSpots is 0', async () => {
+  it('starts with isFull=true when initialAvailableSpots is 0', () => {
     mockGetMyAttendance.mockResolvedValue(null)
     const { result } = renderHook(() => useAttendance(42, 5, null, 0))
     expect(result.current.isFull).toBe(true)
   })
 
-  it('starts with isFull=false when initialAvailableSpots is > 0', async () => {
+  it('starts with isFull=false when initialAvailableSpots is > 0', () => {
     mockGetMyAttendance.mockResolvedValue(null)
     const { result } = renderHook(() => useAttendance(42, 5, null, 3))
     expect(result.current.isFull).toBe(false)
   })
 
-  it('starts with isFull=false when initialAvailableSpots is not provided', async () => {
+  it('starts with isFull=false when initialAvailableSpots is not provided', () => {
     mockGetMyAttendance.mockResolvedValue(null)
     const { result } = renderHook(() => useAttendance(42, 5, null))
     expect(result.current.isFull).toBe(false)
@@ -131,13 +130,13 @@ describe('useAttendance — toggle ON (set status)', () => {
 
     act(() => result.current.toggle('ATTENDING'))
 
-    // Optimistic state: ATTENDING + count incremented
+    // Optimistic: ATTENDING + count incremented
     expect(result.current.currentStatus).toBe('ATTENDING')
     expect(result.current.attendingCount).toBe(6)
 
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    // Final state: WAITLISTED, attendingCount rolled back
+    // Final: WAITLISTED, attendingCount rolled back
     expect(result.current.currentStatus).toBe('WAITLISTED')
     expect(result.current.attendingCount).toBe(5)
   })
@@ -221,8 +220,11 @@ describe('useAttendance — optimistic rollback on error', () => {
   })
 })
 
-describe('useAttendance — 409 → isFull flag', () => {
-  it('sets isFull on 409 and rolls back state', async () => {
+describe('useAttendance — error mapping', () => {
+  // The 409 → isFull mapping was removed: capacity-reached is now a 200
+  // with status=WAITLISTED. 409 is reserved for registration_closed and
+  // other server errors, none of which should mutate isFull.
+  it('rolls back state and surfaces a generic message on bare 409 (no body)', async () => {
     const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
     Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
     mockAttend.mockRejectedValue(axiosError)
@@ -232,8 +234,8 @@ describe('useAttendance — 409 → isFull flag', () => {
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(result.current.isFull).toBe(true)
-    expect(result.current.error).toBeNull()
+    expect(result.current.isFull).toBe(false)
+    expect(result.current.error).toBe('Une erreur est survenue.')
     expect(result.current.currentStatus).toBeNull()
     expect(result.current.attendingCount).toBe(5)
   })
@@ -253,6 +255,260 @@ describe('useAttendance — 409 → isFull flag', () => {
   })
 })
 
+describe('useAttendance — onAfterSuccess callback', () => {
+  it('calls onAfterSuccess once after a successful attend (ATTENDING)', async () => {
+    mockAttend.mockResolvedValue(sampleAttendance)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onAfterSuccess once after a successful attend (WAITLISTED)', async () => {
+    mockAttend.mockResolvedValue(waitlistedAttendance)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onAfterSuccess once after a successful unattend', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT call onAfterSuccess when attend fails', async () => {
+    mockAttend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue(null)
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+  })
+
+  it('does NOT call onAfterSuccess when unattend fails', async () => {
+    mockUnattend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('useAttendance — leave waitlist', () => {
+  it('WAITLISTED user toggles → calls unattend, not attend', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED', 0)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockUnattend).toHaveBeenCalledWith(42)
+    expect(mockAttend).not.toHaveBeenCalled()
+  })
+})
+
+describe('useAttendance — batched optimistic state (no flicker)', () => {
+  it('ATTENDING user unattending a full event optimistically clears isFull and currentStatus together', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'ATTENDING', 0)
+    expect(result.current.isFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    // Both fields update in one render — no orange "waitlist" intermediate state.
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.isFull).toBe(false)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('WAITLISTED user leaving waitlist keeps isFull (no slot is freed)', async () => {
+    mockUnattend.mockResolvedValue(undefined)
+    const { result } = await renderInitialized(42, 5, null, 'WAITLISTED', 0)
+    expect(result.current.isFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    expect(result.current.currentStatus).toBeNull()
+    expect(result.current.isFull).toBe(true)
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+})
+
+describe('useAttendance — mutating + onAfterSuccess gating', () => {
+  it('keeps mutating=true until onAfterSuccess resolves', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue(sampleAttendance)
+
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
+
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    expect(result.current.mutating).toBe(true)
+    expect(result.current.loading).toBe(true)
+
+    // Drain the API microtask so the body of attend() resolves.
+    await act(async () => { await Promise.resolve() })
+
+    // API resolved but onAfterSuccess is still pending — mutating stays true.
+    expect(result.current.mutating).toBe(true)
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+
+    // Now resolve the parent refetch — mutating clears.
+    await act(async () => { resolveAfterSuccess() })
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('clears mutating immediately on error (no onAfterSuccess await)', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockRejectedValue(new Error('boom'))
+    const onAfterSuccess = vi.fn()
+
+    const { result } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+    expect(result.current.error).toBe('Une erreur est survenue.')
+  })
+
+  it('does not setState after unmount during a pending onAfterSuccess', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+    mockAttend.mockResolvedValue(sampleAttendance)
+
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
+
+    const { result, unmount } = renderHook(() =>
+      useAttendance(42, 5, null, undefined, { onAfterSuccess }),
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => result.current.toggle('ATTENDING'))
+    unmount()
+
+    // Should not throw / log warnings.
+    await act(async () => { resolveAfterSuccess() })
+  })
+})
+
+describe('useAttendance — frozen label snapshot', () => {
+  it('displayStatus / displayIsFull stay at click-time values during the mutation', async () => {
+    mockGetMyAttendance.mockResolvedValue(null)
+
+    type AnyAttendance = typeof sampleAttendance | typeof waitlistedAttendance
+    let resolveAttend: (a: AnyAttendance) => void = () => {}
+    mockAttend.mockReturnValue(new Promise<AnyAttendance>((r) => { resolveAttend = r }))
+
+    // onAfterSuccess held pending so we can observe the post-API / pre-settle window.
+    let resolveAfterSuccess: () => void = () => {}
+    const onAfterSuccess = vi.fn(
+      () => new Promise<void>((r) => { resolveAfterSuccess = r }),
+    )
+
+    // Full event → at click time, display* = (null, true) → label "Rejoindre la liste d'attente".
+    const { result } = renderHook(() => useAttendance(42, 5, null, 0, { onAfterSuccess }))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+
+    act(() => result.current.toggle('ATTENDING'))
+
+    // Optimistic ui.currentStatus flips to ATTENDING, but display* stays frozen.
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+
+    // Server returns WAITLISTED. ui flips again — display* still frozen because
+    // mutating remains true while onAfterSuccess is pending.
+    await act(async () => { resolveAttend(waitlistedAttendance) })
+    expect(result.current.currentStatus).toBe('WAITLISTED')
+    expect(result.current.displayStatus).toBeNull()
+    expect(result.current.displayIsFull).toBe(true)
+    expect(result.current.mutating).toBe(true)
+
+    // Resolve the parent refetch — mutating clears, display* now matches live state.
+    await act(async () => { resolveAfterSuccess() })
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+    expect(result.current.displayStatus).toBe('WAITLISTED')
+    expect(result.current.displayIsFull).toBe(true)
+  })
+
+  it('label snapshot is restored on rollback after error', async () => {
+    mockGetMyAttendance.mockResolvedValue('ATTENDING')
+    mockAttend.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useAttendance(42, 5, null, 0))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.displayStatus).toBe('ATTENDING')
+
+    // We're ATTENDING, so toggle calls unattend (which we did not mock to
+    // reject); use the inverse — re-mock unattend to reject.
+    mockUnattend.mockRejectedValue(new Error('boom'))
+
+    act(() => result.current.toggle('ATTENDING'))
+    await waitFor(() => expect(result.current.mutating).toBe(false))
+
+    // Rolled back. Display* equal live state and live state is restored.
+    expect(result.current.currentStatus).toBe('ATTENDING')
+    expect(result.current.displayStatus).toBe('ATTENDING')
+  })
+})
+
 describe('useAttendance — guards', () => {
   it('ignores toggle call while loading is true (post-init toggle in flight)', async () => {
     let resolve: (v: unknown) => void = () => {}
@@ -262,7 +518,6 @@ describe('useAttendance — guards', () => {
     act(() => result.current.toggle('ATTENDING'))
     expect(result.current.loading).toBe(true)
 
-    // A second toggle while loading should be a no-op
     act(() => result.current.toggle('ATTENDING'))
     expect(result.current.currentStatus).toBe('ATTENDING')
 
@@ -271,7 +526,8 @@ describe('useAttendance — guards', () => {
     expect(mockAttend).toHaveBeenCalledTimes(1)
   })
 
-  it('clears isFull when toggling again after a 409', async () => {
+  it('preserves isFull across a 409 then a successful ATTENDING retry', async () => {
+    // 409 must NOT touch isFull; the success retry derives it from the response status.
     const axiosError = new axios.AxiosError('Conflict', 'ERR_BAD_RESPONSE')
     Object.defineProperty(axiosError, 'response', { value: { status: 409 }, writable: false })
     mockAttend.mockRejectedValueOnce(axiosError).mockResolvedValue(sampleAttendance)
@@ -280,7 +536,7 @@ describe('useAttendance — guards', () => {
 
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.isFull).toBe(true)
+    expect(result.current.isFull).toBe(false)
 
     act(() => result.current.toggle('ATTENDING'))
     await waitFor(() => expect(result.current.loading).toBe(false))

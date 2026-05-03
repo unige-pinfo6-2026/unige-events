@@ -1,8 +1,13 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
+import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.entity.CoOrganizerStatus;
+import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.service.AttendanceServiceMock;
 import ch.unige.events.service.CalendarServiceMock;
+import ch.unige.events.service.EventCoOrganizerServiceMock;
 import ch.unige.events.service.EventServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
 import ch.unige.events.service.UserServiceMock;
@@ -22,6 +27,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 @QuarkusTest
 class UserResourceTest {
@@ -31,6 +37,7 @@ class UserResourceTest {
     @Inject CalendarServiceMock calendarServiceMock;
     @Inject AttendanceServiceMock attendanceServiceMock;
     @Inject EventServiceMock eventServiceMock;
+    @Inject EventCoOrganizerServiceMock coOrganizerServiceMock;
 
     @BeforeEach
     void setUp() {
@@ -38,39 +45,128 @@ class UserResourceTest {
         favoriteServiceMock.reset();
         attendanceServiceMock.reset();
         eventServiceMock.reset();
+        coOrganizerServiceMock.reset();
     }
 
+    // --- GET /users/{id} — ISSUE-93 (pentest 4.1 + 4.1b) ---
+
     @Test
-    void getProfilePublicSuccess() {
+    void getProfile_publicProfile_anon_returns200_strippedPayload() {
         var user = userServiceMock.seedUser("auth0|public-profile", "public@example.com");
         user.profilePublic = true;
+        user.displayName = "Alice";
+        user.faculty = "Sciences";
+        user.studyLevel = "Master";
+        user.bio = "Étudiant";
+        user.interests = java.util.List.of("tech");
+        user.avatarUrl = "https://cdn/avatar.png";
+        user.bannerUrl = "https://cdn/banner.png";
 
         given()
             .when().get("/users/" + user.id)
             .then()
             .statusCode(200)
             .contentType(ContentType.JSON)
-            .body("id", equalTo(user.id.toString()));
+            .body("id", equalTo(user.id.toString()))
+            .body("displayName", equalTo("Alice"))
+            .body("avatarUrl", equalTo("https://cdn/avatar.png"))
+            // Sensitive fields stripped for anonymous callers (hotfix pentest 4.1b).
+            .body("faculty", nullValue())
+            .body("studyLevel", nullValue())
+            .body("bio", nullValue())
+            .body("interests", nullValue())
+            .body("bannerUrl", nullValue());
     }
 
     @Test
-    void getProfilePrivateForbidden() {
+    void getProfile_privateProfile_anon_returns404_sameEnvelopeAsUnknown() {
+        // Anti-oracle: the 404 response for a hidden private profile must be strictly
+        // identical to the 404 response for an unknown UUID. Extract the unknown-id
+        // response at runtime and compare the FULL raw body, not just `error`/`message` —
+        // if ApiErrorResponse ever gains a field (path, timestamp, requestId...), a
+        // field-wise assertion would let the two responses diverge silently while still
+        // passing. Full-body equality closes that latent coupling.
+        //
+        // This also avoids hard-coding the JAX-RS default message (implementation detail
+        // that could shift with a RESTEasy / Quarkus upgrade — see ISSUE-92 commit 5273d13).
         var user = userServiceMock.seedUser("auth0|private-profile", "private@example.com");
+        user.profilePublic = false;
+
+        String unknownBody = given()
+            .when().get("/users/" + UUID.randomUUID())
+            .then()
+            .statusCode(404)
+            .extract().body().asString();
 
         given()
             .when().get("/users/" + user.id)
             .then()
-            .statusCode(403)
-            .body("error", equalTo("forbidden"));
+            .statusCode(404)
+            .body(equalTo(unknownBody));
     }
 
     @Test
-    void getProfileNotFound() {
+    void getProfile_unknownUuid_anon_returns404() {
         given()
             .when().get("/users/" + UUID.randomUUID())
             .then()
             .statusCode(404)
             .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob", attributes = {
+        @SecurityAttribute(key = "email", value = "bob@example.com")
+    })
+    void getProfile_privateProfile_otherUser_returns404() {
+        var user = userServiceMock.seedUser("auth0|alice-private", "alice@example.com");
+        user.profilePublic = false;
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice-self", attributes = {
+        @SecurityAttribute(key = "email", value = "alice-self@example.com")
+    })
+    void getProfile_privateProfile_owner_returns200_fullPayload() {
+        var user = userServiceMock.seedUser("auth0|alice-self", "alice-self@example.com");
+        user.profilePublic = false;
+        user.faculty = "Sciences";
+        user.bio = "Secret bio";
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("faculty", equalTo("Sciences"))
+            .body("bio", equalTo("Secret bio"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob", attributes = {
+        @SecurityAttribute(key = "email", value = "bob@example.com")
+    })
+    void getProfile_publicProfile_authenticated_returns200_fullPayload() {
+        // Non-regression: any authenticated caller receives the FULL payload on a
+        // public profile — stripping applies only to anonymous callers.
+        var user = userServiceMock.seedUser("auth0|alice-pub", "alice-pub@example.com");
+        user.profilePublic = true;
+        user.faculty = "Sciences";
+        user.bio = "Public bio";
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("faculty", equalTo("Sciences"))
+            .body("bio", equalTo("Public bio"));
     }
 
     @Test
@@ -270,6 +366,40 @@ class UserResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgContentTypeReturns400() {
+        // Finding 4.11: SVG declared as image/svg+xml must be rejected (not in allow-list).
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgDisguisedAsPngReturns400() {
+        // PLUMBING TEST — verifies that InvalidFileTypeExceptionMapper returns HTTP 400
+        // with the correct JSON envelope. This test does NOT validate magic-byte rejection
+        // because UserServiceMock does not call ImageFormat.matches(). The real security
+        // test for finding 4.18 (SVG-as-PNG) is in:
+        //   UserServiceCoverageTest.uploadImage_svgDisguisedAsPng_throwsBadRequest
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceBadMimeOnUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.png", "<svg><script>alert(1)</script></svg>".getBytes(), "image/png")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void uploadImageUnauthenticatedReturns401() {
         given()
             .contentType("multipart/form-data")
@@ -319,6 +449,20 @@ class UserResourceTest {
         given()
             .contentType("multipart/form-data")
             .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerSvgContentTypeReturns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
             .when().post("/users/me/banner")
             .then()
             .statusCode(400);
@@ -602,5 +746,85 @@ class UserResourceTest {
             .when().get("/users/me/events")
             .then()
             .statusCode(org.hamcrest.Matchers.not(org.hamcrest.Matchers.equalTo(200)));
+    }
+
+    // =========================================================
+    // SCRUM-136 — GET /users/me/co-organizer-invitations
+    // =========================================================
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_default_returnsPending() {
+        coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                1L, sampleEventDTO("Event 1"), CoOrganizerStatus.PENDING, java.time.LocalDateTime.now()));
+
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].status", equalTo("PENDING"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_filterAccepted_returnsAccepted() {
+        coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                1L, sampleEventDTO("Accepted event"), CoOrganizerStatus.ACCEPTED, java.time.LocalDateTime.now()));
+
+        given()
+            .queryParam("status", "ACCEPTED")
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].status", equalTo("ACCEPTED"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_pagination() {
+        for (int i = 0; i < 3; i++) {
+            coOrganizerServiceMock.myInvitationsFixture.add(new CoOrganizerInvitationDTO(
+                    (long) i, sampleEventDTO("Event " + i), CoOrganizerStatus.PENDING,
+                    java.time.LocalDateTime.now()));
+        }
+        given()
+            .queryParam("size", "2")
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(200);
+        // Le mock renvoie tout le fixture (pagination déléguée à la couche DB) ;
+        // on valide ici que la query passe les contraintes @Min/@Max sans 400.
+    }
+
+    @Test
+    void getMyCoOrganizerInvitations_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyCoOrganizerInvitations_userNotProvisioned_returns404() {
+        EventCoOrganizerServiceMock.forceNotFoundOnGetMyInvitations = true;
+        given()
+            .when().get("/users/me/co-organizer-invitations")
+            .then()
+            .statusCode(404);
+    }
+
+    private EventDTO sampleEventDTO(String title) {
+        return new EventDTO(
+                42L, title, null, "Uni Mail",
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(2),
+                EventCategory.ACADEMIC, null, null,
+                UUID.randomUUID(), EventStatus.PUBLISHED, null, false,
+                0L, null, 0L,
+                null, null, null, java.util.List.of(),
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now()
+        );
     }
 }

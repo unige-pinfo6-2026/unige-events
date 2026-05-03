@@ -1,4 +1,4 @@
-import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useState } from 'react'
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
@@ -10,10 +10,14 @@ import { ImagePlus, Trash2, X } from 'lucide-react'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
 import { useToast } from '@/hooks/useToast'
+import ImageCropper from '@/components/utils/ImageCropper'
+import { useImageCropFlow } from '@/hooks/useImageCropFlow'
 
 const MAX_BIO_LENGTH = 500
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024
 const MAX_BANNER_SIZE = 5 * 1024 * 1024
+const AVATAR_ASPECT = 1
+const PROFILE_BANNER_ASPECT = 3
 
 interface FormErrors {
   name?: string
@@ -56,38 +60,50 @@ export default function ProfileEditPage() {
     }
   }, [user])
 
-  function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, photo: 'Le fichier doit être une image.' }))
-      return
-    }
-    if (file.size > MAX_PHOTO_SIZE) {
-      setErrors((prev) => ({ ...prev, photo: 'La photo ne doit pas dépasser 2 Mo.' }))
-      return
-    }
-    setErrors((prev) => ({ ...prev, photo: undefined }))
-    setPhotoFile(file)
-    setPhotoPreview(URL.createObjectURL(file))
+  function validatePhoto(file: File): string | null {
+    if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
+    if (file.size > MAX_PHOTO_SIZE) return 'La photo ne doit pas dépasser 2 Mo.'
+    return null
   }
 
-  function handleBannerChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  function validateBanner(file: File): string | null {
+    if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
+    if (file.size > MAX_BANNER_SIZE) return 'La bannière ne doit pas dépasser 5 Mo.'
+    return null
+  }
+
+  const photoCrop = useImageCropFlow({
+    aspect: AVATAR_ASPECT,
+    circular: true,
+    validate: validatePhoto,
+    onValidationError: (message) => setErrors((prev) => ({ ...prev, photo: message })),
+  })
+  const { confirmCrop: confirmPhotoCrop } = photoCrop
+
+  const bannerCrop = useImageCropFlow({
+    aspect: PROFILE_BANNER_ASPECT,
+    circular: false,
+    validate: validateBanner,
+    onValidationError: (message) => setErrors((prev) => ({ ...prev, banner: message })),
+  })
+  const { confirmCrop: confirmBannerCrop } = bannerCrop
+
+  const handlePhotoCropComplete = useCallback((blob: Blob) => {
+    const file = confirmPhotoCrop(blob)
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, banner: 'Le fichier doit être une image.' }))
-      return
-    }
-    if (file.size > MAX_BANNER_SIZE) {
-      setErrors((prev) => ({ ...prev, banner: 'La bannière ne doit pas dépasser 5 Mo.' }))
-      return
-    }
+    setErrors((prev) => ({ ...prev, photo: undefined }))
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(blob))
+  }, [confirmPhotoCrop])
+
+  const handleBannerCropComplete = useCallback((blob: Blob) => {
+    const file = confirmBannerCrop(blob)
+    if (!file) return
     setErrors((prev) => ({ ...prev, banner: undefined }))
     setBannerFile(file)
-    setBannerPreview(URL.createObjectURL(file))
+    setBannerPreview(URL.createObjectURL(blob))
     setBannerDeleted(false)
-  }
+  }, [confirmBannerCrop])
 
   function handleBannerDelete() {
     setBannerFile(null)
@@ -166,7 +182,7 @@ export default function ProfileEditPage() {
                 <ImagePlus className="w-4 h-4" />
                 Changer la bannière
               </label>
-              <input id="banner-input" type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
+              <input id="banner-input" type="file" accept="image/*" onChange={bannerCrop.handleFileSelect} className="hidden" />
               {bannerPreview !== null && (
                 <button
                   type="button"
@@ -193,7 +209,7 @@ export default function ProfileEditPage() {
               >
                 Changer la photo
               </label>
-              <input id="photo-input" type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+              <input id="photo-input" type="file" accept="image/*" onChange={photoCrop.handleFileSelect} className="hidden" />
               {errors.photo && <p className="text-xs text-error">{errors.photo}</p>}
             </div>
           </div>
@@ -307,6 +323,24 @@ export default function ProfileEditPage() {
           </div>
         </form>
       </div>
+      {photoCrop.cropSource && (
+        <ImageCropper
+          src={photoCrop.cropSource}
+          aspect={photoCrop.aspect}
+          circular={photoCrop.circular}
+          onCropComplete={handlePhotoCropComplete}
+          onCancel={photoCrop.cancelCrop}
+        />
+      )}
+      {bannerCrop.cropSource && (
+        <ImageCropper
+          src={bannerCrop.cropSource}
+          aspect={bannerCrop.aspect}
+          circular={bannerCrop.circular}
+          onCropComplete={handleBannerCropComplete}
+          onCancel={bannerCrop.cancelCrop}
+        />
+      )}
     </div>
   )
 }

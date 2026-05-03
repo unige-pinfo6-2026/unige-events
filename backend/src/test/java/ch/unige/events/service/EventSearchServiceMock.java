@@ -61,8 +61,18 @@ public class EventSearchServiceMock extends EventSearchService {
     @Override
     @SuppressWarnings("java:S107")
     public List<EventDTO> search(String q, EventCategory category, Faculty faculty, Boolean facultyNone,
+                                  List<String> tags,
                                   LocalDate dateFrom, LocalDate dateTo,
                                   int page, int size) {
+        List<String> normalizedTags = (tags == null || tags.isEmpty())
+                ? List.of()
+                : tags.stream()
+                    .filter(java.util.Objects::nonNull)
+                    .map(t -> t.trim().toLowerCase(java.util.Locale.ROOT))
+                    .filter(t -> !t.isEmpty())
+                    .distinct()
+                    .toList();
+
         return eventsById.values().stream()
                 .filter(e -> {
                     if (q == null || q.isBlank()) return true;
@@ -77,6 +87,18 @@ public class EventSearchServiceMock extends EventSearchService {
                         return e.faculty == null;
                     }
                     return faculty == null || e.faculty == faculty;
+                })
+                .filter(e -> {
+                    if (normalizedTags.isEmpty()) return true;
+                    if (e.tags == null || e.tags.isEmpty()) return false;
+                    // Substring match : un event remonte si au moins un de ses tags contient
+                    // au moins une des valeurs fournies. String.contains() est littéral, donc
+                    // '%' / '_' saisis sont naturellement traités comme du texte — aligné avec
+                    // le backend JPQL qui utilise ESCAPE '|' + escapeLikePattern.
+                    return e.tags.stream()
+                            .filter(java.util.Objects::nonNull)
+                            .map(t -> t.toLowerCase(java.util.Locale.ROOT))
+                            .anyMatch(eventTag -> normalizedTags.stream().anyMatch(eventTag::contains));
                 })
                 .filter(e -> dateFrom == null || !e.startDate.isBefore(dateFrom.atStartOfDay()))
                 .filter(e -> dateTo == null || !e.startDate.isAfter(dateTo.atTime(23, 59, 59)))

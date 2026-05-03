@@ -163,7 +163,7 @@ function DesktopNav() {
             <LogoutButton onClick={logout} variant="dropdown" />
           </Dropdown>
         )
-        : <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+        : <ButtonPrimary size="sm" onClick={() => login()}>Se connecter</ButtonPrimary>
       )}
     </div>
   )
@@ -219,11 +219,11 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
 
   return createPortal(
     <div className="relative lg:hidden">
-      <div aria-hidden="true" className="fixed inset-0 backdrop-blur-lg z-40" onClick={onClose} />
+      <div aria-hidden="true" className="fixed top-0 left-0 w-full h-screen backdrop-blur-lg z-40" onClick={onClose} />
 
-      <div className="fixed top-0 left-0 h-screen w-72 bg-background border-r border-border z-50 flex flex-col">
+      <div className="fixed top-0 left-0 h-dvh w-72 bg-background border-r rounded-r-xl border-border z-50 flex flex-col divide-y divide-border">
         {/* Header */}
-        <div className="relative border-b border-border">
+        <div className="relative">
           <div className="flex items-center justify-between px-4 shrink-0 h-navbar">
             <Banner />
             <IconButton label="Fermer le menu" onClick={onClose}>
@@ -234,7 +234,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
 
         {/* User identity */}
         {(isLoading || user) && (
-          <div className="p-4 border-b border-border shrink-0">
+          <div className="p-4 shrink-0">
             <UserIdentity user={user ?? null} loading={isLoading} variant="card" />
           </div>
         )}
@@ -247,7 +247,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
         </nav>
 
         {/* User menu */}
-        <div className="flex flex-col gap-0.5 p-4 border-t border-border shrink-0">
+        <div className="flex flex-col gap-0.5 p-4 shrink-0">
           {user ? (
             <>
               {visibleUserMenu(user).map(item => (
@@ -256,7 +256,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
               <LogoutButton onClick={() => { onClose(); logout() }} variant="sidebar" />
             </>
           ) : (
-            <ButtonPrimary size="sm" onClick={login}>Se connecter</ButtonPrimary>
+            <ButtonPrimary size="sm" onClick={() => login()}>Se connecter</ButtonPrimary>
           )}
         </div>
       </div>
@@ -290,9 +290,11 @@ export default function Navbar() {
 
           {/* Mobile */}
           <div className="flex lg:hidden items-center gap-1">
-            {actionButtons.map(({ to, icon, label }) => (
-              <ActionLink key={to} to={to} icon={icon} label={label} />
-            ))}
+            <div className="hidden md:flex">
+              {actionButtons.map(({ to, icon, label }) => (
+                <ActionLink key={to} to={to} icon={icon} label={label} />
+              ))}
+            </div> 
 
             <ThemeToggle />
             <NotificationsDropdown />

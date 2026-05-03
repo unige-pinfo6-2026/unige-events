@@ -27,4 +27,22 @@ public record UserPublicResponse(
                 user.bannerUrl
         );
     }
+
+    /**
+     * Factory for anonymous callers — projects only id, displayName and avatarUrl;
+     * other fields are null. Hotfix pentest 2026-04-17 finding 4.1b (limit anonymous
+     * harvest of opt-in public profiles).
+     */
+    public static UserPublicResponse fromAnonymous(User user) {
+        return new UserPublicResponse(
+                user.id,
+                user.displayName,
+                null, // faculty
+                null, // studyLevel
+                null, // bio
+                null, // interests
+                user.avatarUrl,
+                null  // bannerUrl
+        );
+    }
 }

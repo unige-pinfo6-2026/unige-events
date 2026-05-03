@@ -7,6 +7,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
+import ch.unige.events.entity.EventCoOrganizer;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.User;
@@ -131,9 +132,18 @@ public class EventService {
     }
 
     @Transactional
-    public EventDTO getById(Long id) {
+    public EventDTO getById(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
+
+        // Hotfix pentest 4.12 : hide DRAFT / CANCELLED events from non-owners / non-admins.
+        // 404 (not 403) is intentional — same envelope as "does not exist" to close the
+        // existence oracle highlighted in finding 4.12 (ID enumeration).
+        // SCRUM-136 : un co-organisateur ACCEPTED peut aussi voir un DRAFT/CANCELLED.
+        if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new NotFoundException();
+        }
+
         long att = countAttending(id);
         return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
     }
@@ -143,8 +153,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreator(event, auth0Id)) {
-            throw new ForbiddenException("Only the event creator can update this event");
+        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an accepted co-organizer can update this event");
         }
 
         if (event.status == EventStatus.CANCELLED) {
@@ -194,8 +204,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreator(event, auth0Id)) {
-            throw new ForbiddenException("Only the event creator can cancel this event");
+        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an accepted co-organizer can cancel this event");
         }
 
         if (event.status == EventStatus.CANCELLED) {
@@ -212,8 +222,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreator(event, auth0Id)) {
-            throw new ForbiddenException("Only the event creator can restore this event");
+        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator or an accepted co-organizer can restore this event");
         }
 
         if (event.status != EventStatus.CANCELLED) {
@@ -236,8 +246,8 @@ public class EventService {
     public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        if (!isAdmin && !isCreator(event, auth0Id)) {
-            throw new ForbiddenException("Only the event creator or an admin can publish this event");
+        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can publish this event");
         }
 
         if (event.status != EventStatus.DRAFT) {
@@ -286,8 +296,8 @@ public class EventService {
     public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        if (!isAdmin && !isCreator(event, auth0Id)) {
-            throw new ForbiddenException("Only the event creator or an admin can upload a banner");
+        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can upload a banner");
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
@@ -344,5 +354,52 @@ public class EventService {
         return event.creator != null
                 && event.creator.auth0Id != null
                 && event.creator.auth0Id.equals(auth0Id);
+    }
+
+    /**
+     * SCRUM-136 — Garde de cascade : créateur OU co-organisateur ACCEPTED.
+     * Non-static car effectue une lookup DB (résolution auth0Id → User puis check
+     * d'invitation ACCEPTED via {@link EventCoOrganizer#isAcceptedFor}).
+     */
+    private boolean isCreatorOrAcceptedCoOrganizer(Event event, String auth0Id) {
+        if (isCreator(event, auth0Id)) {
+            return true;
+        }
+        if (auth0Id == null) {
+            return false;
+        }
+        return User.findByAuth0Id(auth0Id)
+                .map(user -> EventCoOrganizer.isAcceptedFor(event.id, user.id))
+                .orElse(false);
+    }
+
+    /**
+     * SCRUM-136 — Exposition publique de la cascade pour les services voisins
+     * ({@link AttendanceService}, {@link EventStatsService}). Le suffixe {@code Public}
+     * dénote le wrapper visible hors-classe ; la logique vit dans la version privée.
+     */
+    public boolean isCreatorOrAcceptedCoOrganizerPublic(Event event, String auth0Id) {
+        return isCreatorOrAcceptedCoOrganizer(event, auth0Id);
+    }
+
+    /**
+     * SCRUM-136 — Bulk-resolve d'IDs d'événements vers leur projection EventDTO.
+     * Réutilise {@link #toEventDTOs(List)} pour récupérer les compteurs
+     * ATTENDING/WAITLISTED en une seule requête grouped-by. Utilisé par
+     * {@link EventCoOrganizerService#getMyInvitations} pour enrichir
+     * {@code CoOrganizerInvitationDTO} sans N+1.
+     */
+    @Transactional
+    public Map<Long, EventDTO> findByIdsAsDTO(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<Event> events = Event.<Event>list("id IN ?1", ids);
+        List<EventDTO> dtos = toEventDTOs(events);
+        Map<Long, EventDTO> result = new HashMap<>();
+        for (EventDTO dto : dtos) {
+            result.put(dto.id(), dto);
+        }
+        return result;
     }
 }

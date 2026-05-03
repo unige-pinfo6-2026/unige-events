@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
+import { useAttendees } from '@/hooks/useAttendees'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
@@ -14,6 +15,7 @@ import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
+import AttendeesList from '@/components/attendees/AttendeesList'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -66,42 +68,6 @@ function InfoRow({ icon: Icon, color, children }: Readonly<InfoRowProps>) {
   )
 }
 
-interface ComingSoonBlockProps {
-  icon: LucideIcon
-  label: string
-  sprint: string
-  children?: React.ReactNode
-}
-
-const comingSoonVariants = {
-  container: 'rounded-2xl border border-dashed border-border/40 bg-foreground/[0.018] px-4 py-3',
-  header:    'flex items-center justify-between gap-3',
-  iconLabel: 'flex items-center gap-2 text-foreground/30',
-  icon:      'w-4 h-4 shrink-0',
-  label:     'text-sm',
-  badge:     'text-[10px] font-semibold tracking-widest uppercase text-foreground/20 bg-foreground/5 px-2 py-0.5 rounded-full border border-border/30 shrink-0',
-  body:      'mt-3 pointer-events-none select-none opacity-30',
-} as const
-
-function ComingSoonBlock({ icon: Icon, label, sprint, children }: Readonly<ComingSoonBlockProps>) {
-  return (
-    <div className={comingSoonVariants.container}>
-      <div className={comingSoonVariants.header}>
-        <div className={comingSoonVariants.iconLabel}>
-          <Icon className={comingSoonVariants.icon} />
-          <span className={comingSoonVariants.label}>{label}</span>
-        </div>
-        <span className={comingSoonVariants.badge}>{sprint}</span>
-      </div>
-      {children && (
-        <div className={comingSoonVariants.body}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function FavoriteTextButton({ eventId }: Readonly<{ eventId: number }>) {
   const { favorited, loading, toggle } = useFavorite(eventId)
   return (
@@ -139,12 +105,16 @@ interface CapacityIndicatorProps {
   capacity: number
   availableSpots: number
   waitlistedCount?: number
+  isRefetching?: boolean
 }
 
-function CapacityIndicator({ capacity, availableSpots, waitlistedCount }: Readonly<CapacityIndicatorProps>) {
+function CapacityIndicator({ capacity, availableSpots, waitlistedCount, isRefetching }: Readonly<CapacityIndicatorProps>) {
   const { variant, label } = getCapacityBadge(availableSpots, capacity)
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={`flex flex-col gap-2 transition-opacity ${isRefetching ? 'opacity-70' : ''}`}
+      aria-busy={isRefetching || undefined}
+    >
       <div className="flex items-center gap-2 text-xs text-foreground/40">
         <Users className="w-4 h-4 shrink-0" />
         <span>Places disponibles</span>
@@ -201,6 +171,18 @@ function ConfirmDialog({ title, message, confirmLabel, pending, onConfirm, onClo
   )
 }
 
+// Whitelist pour le lien externe `websiteUrl` — le backend stocke l'URL avec @URL, qui
+// accepte d'autres schémas (p. ex. `javascript:`). On ne rend un <a href> que si l'URL
+// parse en http(s) ; sinon on affiche la chaîne brute pour éviter tout XSS/open-redirect.
+function safeExternalHref(value: string): string | null {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -210,7 +192,16 @@ export default function EventDetailPage() {
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
-  const { event, loading, error } = useEvent(eventId)
+  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
+  const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
+  const refetchAttendees = attendeesHook.refetch
+  const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
+    await Promise.all([
+      refetchEvent(),
+      isOrganizer ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
+    ])
+  }, [refetchEvent, refetchAttendees, isOrganizer])
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
@@ -247,7 +238,10 @@ export default function EventDetailPage() {
 
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
-  if (loading) return (
+  // Only the very first fetch shows the full-page skeleton. Subsequent
+  // refetches (after an attendance action, etc.) keep the page visible and
+  // surface progress via subtle child hints (see `isRefetching` below).
+  if (isInitialLoad && event === null) return (
     <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
       <SectionHeader
         title={<>Détails de <mark>l'événement</mark></>}
@@ -263,10 +257,9 @@ export default function EventDetailPage() {
     </SectionWrapper>
   )
 
-  if (error) return <InfoMessage type='error' message={error} />
+  if (error && event === null) return <InfoMessage type='error' message={error} />
   if (!event) return <InfoMessage type='error' message="Événement introuvable." />
 
-  const isOrganizer = user !== null && user.id === event.creatorId
   const category = EVENT_CATEGORIES[event.category]
 
   function handleShare() {
@@ -368,41 +361,78 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Shells champs additionnels — S5 */}
-          <div className="flex flex-col gap-3">
+          <AttendeesList
+            isOrganizer={isOrganizer}
+            attendingCount={event.attendingCount}
+            attendeesHook={attendeesHook}
+          />
 
-            <ComingSoonBlock icon={Globe} label="Site web de l'événement" sprint="S5">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-foreground/30 shrink-0" />
-                <span className="text-xs text-foreground/20 truncate">https://unige.ch/evenement…</span>
+          {/* Champs additionnels (SCRUM-117) */}
+          {(event.websiteUrl || event.contactEmail || event.registrationDeadline || (event.tags && event.tags.length > 0)) && (
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border flex flex-col gap-4">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30">
+                Informations complémentaires
+              </h2>
+
+              <div className="flex flex-col gap-3">
+                {event.websiteUrl && (() => {
+                  const safeHref = safeExternalHref(event.websiteUrl)
+                  return (
+                    <InfoRow icon={Globe} color={category.color}>
+                      {safeHref ? (
+                        <a
+                          href={safeHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-foreground hover:underline break-all"
+                        >
+                          {event.websiteUrl}
+                        </a>
+                      ) : (
+                        <span className="text-foreground/70 break-all">{event.websiteUrl}</span>
+                      )}
+                    </InfoRow>
+                  )
+                })()}
+
+                {event.contactEmail && (
+                  <InfoRow icon={Mail} color={category.color}>
+                    <a
+                      href={`mailto:${event.contactEmail}`}
+                      className="text-foreground hover:underline break-all"
+                    >
+                      {event.contactEmail}
+                    </a>
+                  </InfoRow>
+                )}
+
+                {event.registrationDeadline && (
+                  <InfoRow icon={CalendarClock} color={category.color}>
+                    <span>
+                      <span className="text-foreground/40">Inscriptions jusqu'au </span>
+                      <span className="text-foreground">{formatEventDateTime(event.registrationDeadline)}</span>
+                    </span>
+                  </InfoRow>
+                )}
+
+                {event.tags && event.tags.length > 0 && (
+                  <InfoRow icon={Tag} color={category.color}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {event.tags.map((tag) => (
+                        <Link
+                          key={tag}
+                          to={`/events/search?q=${encodeURIComponent(tag)}`}
+                          className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/70 hover:text-foreground hover:border-foreground/30 transition-colors no-underline"
+                        >
+                          {tag}
+                        </Link>
+                      ))}
+                    </div>
+                  </InfoRow>
+                )}
               </div>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={Mail} label="Email de contact" sprint="S5">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-foreground/30 shrink-0" />
-                <span className="text-xs text-foreground/20">contact@unige.ch</span>
-              </div>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={CalendarClock} label="Date limite d'inscription" sprint="S5">
-              <span className="text-xs text-foreground/20">jj/mm/aaaa à HH:MM</span>
-            </ComingSoonBlock>
-
-            <ComingSoonBlock icon={Tag} label="Mots-clés" sprint="S5">
-              <div className="flex flex-wrap gap-1.5">
-                {(['conférence', 'réseau', 'emploi'] as const).map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs bg-foreground/5 border border-border/30 text-foreground/20"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </ComingSoonBlock>
-
-          </div>
+            </div>
+          )}
 
         </div>
 
@@ -458,6 +488,7 @@ export default function EventDetailPage() {
                   capacity={event.capacity}
                   availableSpots={event.availableSpots}
                   waitlistedCount={event.waitlistedCount}
+                  isRefetching={isRefetching}
                 />
               </>
             )}
@@ -488,24 +519,8 @@ export default function EventDetailPage() {
               initialAttendingCount={event.attendingCount}
               initialStatus={null}
               availableSpots={event.availableSpots ?? null}
+              onAfterSuccess={handleAttendanceSuccess}
             />
-
-            <div className="border-t border-border" />
-
-            {/* Shell liste des participants — S6 */}
-            <ComingSoonBlock icon={Users} label="Liste des participants" sprint="S6">
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full bg-foreground/10 border-2 border-background"
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-foreground/20">12 participants · 4 intéressés</span>
-              </div>
-            </ComingSoonBlock>
 
           </div>
 

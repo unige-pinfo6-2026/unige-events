@@ -261,21 +261,21 @@ class AttendanceServiceCoverageTest {
         persistUser("auth0|cnt-user", "cnt-user@example.com");
 
         // Avant toute inscription — compteur à 0
-        EventDTO before = eventService.getById(event.id);
+        EventDTO before = eventService.getById(event.id, null, false);
         assertEquals(0, before.attendingCount());
 
         // Inscription ATTENDING
         attendanceService.attend("auth0|cnt-user", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO afterAttend = eventService.getById(event.id);
+        EventDTO afterAttend = eventService.getById(event.id, null, false);
         assertEquals(1, afterAttend.attendingCount());
 
         // Désinscription
         attendanceService.removeAttendance("auth0|cnt-user", event.id);
         entityManager.flush();
 
-        EventDTO afterUnattend = eventService.getById(event.id);
+        EventDTO afterUnattend = eventService.getById(event.id, null, false);
         assertEquals(0, afterUnattend.attendingCount());
     }
 
@@ -293,7 +293,7 @@ class AttendanceServiceCoverageTest {
         attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
         assertEquals(3, dto.attendingCount());
     }
 
@@ -489,7 +489,7 @@ class AttendanceServiceCoverageTest {
         persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertEquals(2, dto.attendingCount());
         assertEquals(0L, dto.availableSpots());
@@ -502,7 +502,7 @@ class AttendanceServiceCoverageTest {
         User organizer = persistUser("auth0|noc-org", "noc-org@example.com");
         Event event = persistEvent("No Capacity Event", organizer, EventStatus.PUBLISHED, null);
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertNull(dto.availableSpots());
         assertEquals(0, dto.waitlistedCount());
@@ -543,6 +543,45 @@ class AttendanceServiceCoverageTest {
         assertEquals(42L, dto.eventId());
         assertEquals(AttendanceStatus.ATTENDING, dto.status());
         assertEquals(a.createdAt, dto.createdAt());
+    }
+
+    // =========================================================
+    // SCRUM-136 — Cascade getAttendees autorise un co-organisateur ACCEPTED
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void getAttendees_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-att-c", "cas-att-c@example.com");
+        User coOrg = persistUser("auth0|cas-att-co", "cas-att-co@example.com");
+        Event event = persistEvent("Cascade Att", creator, EventStatus.PUBLISHED, null);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+        User attendee = persistUser("auth0|cas-att-x", "cas-att-x@example.com");
+        persistAttendance(attendee.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees(coOrg.auth0Id, event.id, 0, 20);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_byNonCoOrganizer_throwsForbidden() {
+        User creator = persistUser("auth0|cas-att-nc-c", "cas-att-nc-c@example.com");
+        User intruder = persistUser("auth0|cas-att-nc-x", "cas-att-nc-x@example.com");
+        Event event = persistEvent("Cascade Att Forbidden", creator, EventStatus.PUBLISHED, null);
+
+        assertThrows(ForbiddenException.class,
+                () -> attendanceService.getAttendees(intruder.auth0Id, event.id, 0, 20));
+    }
+
+    private void persistCoOrg(Long eventId, UUID userId, ch.unige.events.entity.CoOrganizerStatus status) {
+        ch.unige.events.entity.EventCoOrganizer e = new ch.unige.events.entity.EventCoOrganizer();
+        e.eventId = eventId;
+        e.userId = userId;
+        e.status = status;
+        entityManager.persist(e);
+        entityManager.flush();
     }
 
     // =========================================================

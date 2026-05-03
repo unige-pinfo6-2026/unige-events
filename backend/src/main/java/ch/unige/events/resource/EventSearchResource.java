@@ -35,10 +35,11 @@ public class EventSearchResource {
             @QueryParam("category") EventCategory category,
             @QueryParam("faculty") Faculty faculty,
             @QueryParam("facultyNone") Boolean facultyNone,
+            @QueryParam("tags") List<String> tags,
             @QueryParam("dateFrom") LocalDate dateFrom,
             @QueryParam("dateTo") LocalDate dateTo,
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
-        return eventSearchService.search(q, category, faculty, facultyNone, dateFrom, dateTo, page, size);
+        return eventSearchService.search(q, category, faculty, facultyNone, tags, dateFrom, dateTo, page, size);
     }
 }

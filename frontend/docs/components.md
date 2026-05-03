@@ -35,6 +35,11 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+- **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
+  - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute.
+  - `contactEmail` → ancre `mailto:` avec icône `Mail`.
+  - `registrationDeadline` → libellé "Inscriptions jusqu'au" + valeur formatée via `formatEventDateTime` avec icône `CalendarClock`.
+  - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags.
 
 ### FavoritesPage
 
@@ -81,8 +86,8 @@
 - Route `/events/:id/stats`, protégée par PrivateRoute — réservé à l'organisateur de l'événement.
 - Charge l'événement via `useEvent(id)`, puis les stats via `useEventStats(id)` (auto-refresh toutes les 60 s).
 - Vérifie que `user.id === event.creatorId` avant de charger les stats (évite le 403).
-- KPI cards : 👁 Vues totales (`stats.views`), ✅ Participants (`stats.attendingCount`), ⭐ Check-ins (`stats.checkInCount`).
-- `StatsChart` : BarChart recharts (Inscrits / Check-ins / Places restantes).
+- KPI cards : 👁 Vues totales (`stats.viewCount`), ⭐ Intéressés (`stats.interestedCount`), ✅ Inscrits (`stats.attendingCount`).
+- `StatsChart` : BarChart vertical recharts (Vues / Intéressés / Inscrits).
 - Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
 - Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
 - Skeleton `event-stats` (2 breakpoints : 300 / 600 px).
@@ -121,6 +126,7 @@
 - État vide : "Aucun résultat — essayez de modifier vos filtres ou votre recherche".
 - Gère les états loading (spinner), error et success.
 - Résultats affichés via `EventCard`.
+- Filtre par mots-clés : section `<TagInput>` dans la sidebar (SCRUM-132), multi-tags, persistés dans l'URL via `?tags=foo&tags=bar`.
 
 ## Composants réutilisables
 
@@ -132,7 +138,13 @@
 - À la confirmation, applique le crop via un `<canvas>` (`canvas.toBlob()`) et appelle `onCropComplete` avec le `Blob` résultant.
 - Overlay sombre (`bg-black/70 backdrop-blur-sm`), boutons "Recadrer" (`ButtonPrimary`) / "Annuler" (`ButtonSecondary`).
 - Le bouton "Recadrer" est désactivé tant qu'aucune zone de crop n'est sélectionnée.
-- Utilisable pour avatar (aspect 1, circular), bannière profil et bannière événement (aspect 3).
+- Utilisable pour avatar (aspect 1, circular), bannière profil (aspect 3:1) et bannière événement (aspect 16:9).
+
+**Intégrations actives (SCRUM-123) :**
+- `ProfileEditPage` — avatar (aspect 1:1, circular) et bannière profil (aspect 3:1)
+- `EventForm` (consommé par `EventCreatePage` et `EventEditPage`) — bannière événement (aspect 16:9)
+
+Le flux d'intégration (sélection fichier → validation → FileReader → modale crop → confirm → File final) est centralisé dans le hook réutilisable `useImageCropFlow` (`@/hooks/useImageCropFlow`).
 
 ### Buttons
 
@@ -217,7 +229,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
   - Bande 1 : bannière cliquable (colonne gauche alignée via `pt-7 max-lg:pt-0`) | Titre + Description.
   - Bande 2 : Lieu (avec icône MapPin) | Début (avec shell checkbox "Toute la journée" S5) | Fin.
   - Bande 3 : CategorySelect | Faculté concernée | Capacité (spinners masqués) | **zone CTA horizontale** qui se colle à droite via `ml-auto` et rassemble les vrais boutons d'action (voir ci-dessous).
-  - Bande 4 : shells non-interactifs S5/S6/S8/S9 (websiteUrl, email, deadline, mots-clés, récurrence create-only, pièces jointes).
+  - Bande 4 (SCRUM-117) : champs additionnels réels — ligne 1 grille 2 colonnes `websiteUrl` (Input `type="url"`, icône `Globe`, max 500 car.) + `contactEmail` (Input `type="email"`, icône `Mail`, max 255 car.) ; ligne 2 `registrationDeadline` (date + heure + minute via `renderDateTimeField`, le sélecteur horaire reste visible même quand `allDay` est actif car il ne suit pas le toggle de l'événement) ; ligne 3 `TagInput` mots-clés (max 20 tags × 16 car.) avec compteur. Les shells non-interactifs restants (récurrence S8 create-only, pièces jointes S9) sont toujours présents sous un séparateur.
   - Bande 5 : shell co-organisateurs (edit only, S8).
 - **Zone CTA (Bande 3)** : rangée `flex flex-wrap items-center gap-3 ml-auto` qui prend sa largeur naturelle et se colle contre le bord droit du formulaire — l'espace à gauche est occupé par CategorySelect, Faculté et Capacité. Chaque action est un vrai bouton (plus de micro-links texte) :
   - `ButtonDestructive` "Supprimer le brouillon" — rendu uniquement si `onDelete` fourni (mode draft).
@@ -259,6 +271,28 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Affiche un compteur live : "X personnes participent · Y intéressées".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
+### AttendeesList
+
+- Section "Participants" insérée dans la **colonne principale** de `EventDetailPage`, immédiatement sous le bloc "À propos". Mêmes primitives de card que les autres blocs de la colonne (glassmorphism, heading `text-xs font-bold uppercase tracking-widest text-foreground/30`).
+- Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
+- **Vue non-organisateur (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Padding vertical réduit (`px-6 py-4`). Aucun appel API. La compacité est dérivée automatiquement de `!isOrganizer` (const map `sectionVariants`).
+- **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
+- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`) — la colonne de contenu est étroite, un layout vertical scanne mieux qu'une grille 2 colonnes. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- États gérés : skeleton de chargement initial (4 placeholders empilés), message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
+- Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
+
+### AttendeeCard
+
+- Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
+- Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
+- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
+- Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
+- Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
+
+### WaitlistBadge
+
+- Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
+
 ### CalendarSubscribeButton
 
 - Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.
@@ -267,6 +301,21 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Bouton "Révoquer et régénérer le lien" : appelle `regenerateCalendarToken()`, met à jour les trois URLs, affiche un message de confirmation.
 - Gère les états loading, error et regenerating.
 - Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
+
+### MyPublicationsPreview
+
+- Composant `src/components/profile/MyPublicationsPreview.tsx` rendu uniquement pour `isOwnProfile` dans `ProfilePage`, en colonne gauche sous la card "À propos".
+- Mini-tabs `Publiés` (défaut) / `Brouillons` / `Annulés` ; chaque clic rappelle `useMyEvents(status)` avec le nouveau statut (mêmes refetchs que `MyPublicationsPage`, pas de partage de state). Le compte `(N)` est affiché sur l'onglet actif uniquement — le hook ne fetch qu'un statut à la fois et on évite des requêtes parallèles juste pour les libellés des onglets inactifs.
+- Affiche jusqu'à 3 événements via `PreviewRow` (l'API renvoie déjà `createdAt DESC`).
+- Loading : 3 lignes skeleton inline (Tailwind `animate-pulse`). Erreur : message + bouton `Réessayer` qui appelle `refresh()` du hook.
+- Empty state spécifique par statut. Le tab `Publiés` vide affiche en plus un CTA `Créer un événement` → `/events/new` ; les autres tabs vides n'affichent que le message.
+- Lien `Voir toutes mes publications` → `/my-events/publications?status=<param>` où `<param>` provient de `EVENT_STATUS_PARAMS` (cf. `src/utils/eventStatusStyles.ts`), pour préserver l'onglet courant à la navigation.
+
+### PreviewRow
+
+- Composant `src/components/profile/PreviewRow.tsx` consommé par `MyPublicationsPreview`.
+- Props : `{ event: Event }`. Lecture seule, pas d'actions.
+- Rendu : `<Link>` vers `/events/{id}` enveloppant une vignette 48px (bannière ou gradient catégorie en fallback), titre `line-clamp-1`, ligne meta date + `attendingCount`, badge statut (libellé via `EVENT_STATUSES[status].name`, classes via `EVENT_STATUS_VARIANTS`).
 
 ### IcsExportButton
 
@@ -339,6 +388,15 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 ## Hooks
 
+### useImageCropFlow
+
+Hook utilitaire qui encapsule le flux complet « sélection fichier → validation → FileReader → ouverture du cropper → conversion Blob → File ». Utilisé par `ProfileEditPage` (×2 : avatar + bannière) et `useEventForm` (×1 : bannière événement).
+
+Options : `aspect`, `circular?`, `validate?`, `onValidationError?`.
+Résultat : `cropSource`, `handleFileSelect`, `aspect`, `circular`, `confirmCrop`, `cancelCrop`.
+
+Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur — sans cela, re-sélectionner le même fichier ne redéclenche pas l'event `change` (comportement HTML standard). Préserve le nom original du fichier lors de la conversion Blob → File.
+
 ### useEvents
 
 - Charge les événements publiés par pages de 12.
@@ -360,6 +418,12 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 - Centralise l'état du formulaire, la validation, l'aperçu local de bannière et la soumission.
 - Valide les champs requis, l'ordre des dates, la capacité positive et la date de début dans le futur.
+- **Validation des 4 champs optionnels (SCRUM-117)** :
+  - `websiteUrl` : trimmé ; vide = OK ; sinon doit être parsable par `new URL()` avec protocole `http:` ou `https:` ; longueur ≤ `EVENT_WEBSITE_URL_MAX_LENGTH` (500).
+  - `contactEmail` : trimmé ; vide = OK ; sinon regex `^[^\s@]+@[^\s@]+\.[^\s@]+$` ; longueur ≤ `EVENT_CONTACT_EMAIL_MAX_LENGTH` (255). Le backend reste autoritatif via `@Email`.
+  - `registrationDeadline` : optionnelle ; si fournie, doit être une date valide et **strictement antérieure à `startDate`** (comparaison front uniquement — le backend ne valide pas cette règle croisée, explicitement).
+  - `tags` : tableau ; ≤ `EVENT_TAGS_MAX_ITEMS` (20) tags, chacun ≤ `EVENT_TAG_MAX_LENGTH` (16) caractères.
+- Le payload envoyé normalise les chaînes trimmées vides en `null` pour `websiteUrl`/`contactEmail`/`registrationDeadline`, et un tableau vide en `null` pour `tags` — cohérent avec le contrat PUT à sémantique de remplacement complet.
 - En création, envoie le statut initial choisi au backend.
 - En édition, envoie un payload complet pour rester cohérent avec le PUT documenté, y compris le bannerUrl déjà présent.
 - Traduit les erreurs backend techniques en messages français plus utiles, tout en réutilisant les détails de validation quand ils sont disponibles.
@@ -393,6 +457,15 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 - Tri local par `updatedAt` DESC (fallback `createdAt`).
 - Erreur réseau → `error` rempli + `console.warn`, `drafts = []`, pas de retry.
 
+### useAttendees
+
+- Charge la liste paginée des participants d'un événement pour la vue organisateur.
+- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch.
+- Pour chaque `Attendance` retournée, fetch `getPublicUser(userId)` en parallèle via `Promise.allSettled` — un 403/404 sur un profil n'invalide pas le batch, le profil est mappé à `null`.
+- Retourne : `attendees: AttendeeWithProfile[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `isForbidden`.
+- Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
+- Réponse 403 sur `/attendees` → `isForbidden = true`, pas de retry.
+
 ### useAttendance
 
 - Gère l'état d'inscription d'un utilisateur à un événement.
@@ -413,6 +486,11 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
 - `getCalendarToken()` : `GET /api/users/me/calendar-token`.
 - `regenerateCalendarToken()` : `POST /api/users/me/calendar-token/regenerate`.
+
+### attendeesApi.ts
+
+- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — réservé au créateur (403 sinon).
+- `getPublicUser(userId)` : `GET /api/users/{id}` — retourne `null` sur 403 (profil privé) et 404 (introuvable). Toute autre erreur est rethrown.
 
 ### attendanceApi.ts
 
