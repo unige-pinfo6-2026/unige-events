@@ -5,6 +5,7 @@ import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.BadRequestException;
@@ -84,7 +85,7 @@ public class AttendanceServiceMock extends AttendanceService {
         AttendanceStatus effective = returnWaitlisted ? AttendanceStatus.WAITLISTED : status;
         attendances.put(eventId, effective);
         Attendance a = buildAttendance(eventId, effective);
-        return AttendanceDTO.from(a);
+        return AttendanceDTO.from(a, stubUser(a.userId));
     }
 
     @Override
@@ -100,7 +101,10 @@ public class AttendanceServiceMock extends AttendanceService {
         if (!eventsById.containsKey(eventId)) throw new NotFoundException();
         return attendances.entrySet().stream()
                 .filter(e -> e.getKey().equals(eventId))
-                .map(e -> AttendanceDTO.from(buildAttendance(e.getKey(), e.getValue())))
+                .map(e -> {
+                    Attendance a = buildAttendance(e.getKey(), e.getValue());
+                    return AttendanceDTO.from(a, stubUser(a.userId));
+                })
                 .skip((long) page * size)
                 .limit(size)
                 .toList();
@@ -109,7 +113,10 @@ public class AttendanceServiceMock extends AttendanceService {
     @Override
     public List<AttendanceDTO> getMyAttendances(String auth0Id) {
         return attendances.entrySet().stream()
-                .map(e -> AttendanceDTO.from(buildAttendance(e.getKey(), e.getValue())))
+                .map(e -> {
+                    Attendance a = buildAttendance(e.getKey(), e.getValue());
+                    return AttendanceDTO.from(a, stubUser(a.userId));
+                })
                 .toList();
     }
 
@@ -121,5 +128,13 @@ public class AttendanceServiceMock extends AttendanceService {
         a.status = status;
         a.createdAt = LocalDateTime.now();
         return a;
+    }
+
+    private User stubUser(UUID userId) {
+        User u = new User();
+        u.id = userId;
+        u.displayName = "Mock User";
+        u.avatarUrl = null;
+        return u;
     }
 }
