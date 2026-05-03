@@ -11,7 +11,11 @@ newgrp docker
 
 3. Activer les addons nécessaires : `microk8s enable dns storage ingress cert-manager`
 
-4. Créer un alias kubectl : `sudo snap alias microk8s.kubectl kubectl`
+4. Créer les alias kubectl et helm :
+```bash
+sudo snap alias microk8s.kubectl kubectl
+sudo snap alias microk8s.helm helm
+```
 
 5. Créer le namespace : `kubectl create namespace unige-events`
 
