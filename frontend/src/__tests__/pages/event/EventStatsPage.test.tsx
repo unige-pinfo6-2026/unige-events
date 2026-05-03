@@ -17,10 +17,6 @@ vi.mock('@/services/statsApi', () => ({
   getEventAttendees: vi.fn(),
 }))
 
-vi.mock('@/services/userService', () => ({
-  getUserById: vi.fn(),
-}))
-
 vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light' }),
 }))
@@ -38,13 +34,11 @@ vi.mock('recharts', () => ({
 import { useAuth, useEvent } from '@/hooks'
 import { useEventStats } from '@/hooks/useEventStats'
 import { getEventAttendees } from '@/services/statsApi'
-import { getUserById } from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseEventStats = useEventStats as ReturnType<typeof vi.fn>
 const mockGetEventAttendees = getEventAttendees as ReturnType<typeof vi.fn>
-const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 
 const mockUser = { id: 'user-1', email: 'org@test.com', profilePublic: true, admin: false, createdAt: '' }
 
@@ -203,17 +197,16 @@ describe('EventStatsPage', () => {
     )
   })
 
-  it('loads and shows attendees when toggle is clicked', async () => {
+  it('shows attendees with displayName from the AttendanceDTO', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
     mockGetEventAttendees.mockResolvedValue([
-      { id: 1, userId: 'u-1', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+      {
+        id: 1, userId: 'u-1', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01',
+        displayName: 'Alice Martin', avatarUrl: null,
+      },
     ])
-    mockGetUserById.mockResolvedValue({
-      id: 'u-1', email: 'alice@test.com', displayName: 'Alice Martin',
-      profilePublic: true, admin: false, createdAt: '',
-    })
 
     renderPage()
     await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
@@ -222,39 +215,49 @@ describe('EventStatsPage', () => {
     await waitFor(() => expect(screen.getByText('Alice Martin')).toBeTruthy())
   })
 
-  it('falls back to email when attendee user has no displayName', async () => {
+  it('shows displayName for a private participant — never the UUID', async () => {
+    // SCRUM hotfix : sur la page stats, l'organisateur doit voir le vrai nom même
+    // pour les profils profilePublic=false. Le backend l'expose via AttendanceDTO
+    // (route déjà restreinte au créateur / co-organisateur ACCEPTED), donc le
+    // front lit `attendance.displayName` directement, sans fetch /users/{id}.
+    const privateParticipantUuid = 'u-private-uuid-90174af2'
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
     mockGetEventAttendees.mockResolvedValue([
-      { id: 2, userId: 'u-2', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+      {
+        id: 5, userId: privateParticipantUuid, eventId: 42, status: 'ATTENDING',
+        createdAt: '2026-01-01', displayName: 'Charlie Privé', avatarUrl: null,
+      },
     ])
-    mockGetUserById.mockResolvedValue({
-      id: 'u-2', email: 'bob@test.com',
-      profilePublic: true, admin: false, createdAt: '',
-    })
 
     renderPage()
     await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
-    await waitFor(() => expect(screen.getByText('bob@test.com')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Charlie Privé')).toBeTruthy())
+    expect(screen.queryByText(privateParticipantUuid)).toBeNull()
   })
 
-  it('falls back to userId when user fetch fails', async () => {
+  it('falls back to "Utilisateur supprimé" on orphan attendance (displayName null)', async () => {
+    const orphanUuid = 'u-ghost'
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
     mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
     mockGetEventAttendees.mockResolvedValue([
-      { id: 3, userId: 'u-unknown', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' },
+      {
+        id: 9, userId: orphanUuid, eventId: 42, status: 'ATTENDING',
+        createdAt: '2026-01-01', displayName: null, avatarUrl: null,
+      },
     ])
-    mockGetUserById.mockRejectedValue(new Error('Not found'))
 
     renderPage()
     await waitFor(() => expect(screen.getByText(/retour à l'événement/i)).toBeTruthy())
 
     fireEvent.click(screen.getByText(/voir les participants/i))
-    await waitFor(() => expect(screen.getByText('u-unknown')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/utilisateur supprimé/i)).toBeTruthy())
+    // Even on orphan rows, the UUID must never leak to the UI.
+    expect(screen.queryByText(orphanUuid)).toBeNull()
   })
 
   it('shows loading state while fetching attendees', async () => {

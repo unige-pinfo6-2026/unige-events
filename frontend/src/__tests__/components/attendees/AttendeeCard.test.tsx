@@ -15,6 +15,8 @@ const attendance: Attendance = {
   eventId: 42,
   status: 'ATTENDING',
   createdAt: '2026-04-08T10:00:00.000Z',
+  displayName: 'Alice Martin',
+  avatarUrl: null,
 }
 
 const profile: UserPublicResponse = {
