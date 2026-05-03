@@ -64,6 +64,7 @@ jobs:
 
   build-frontend:
     name: Build Frontend
+    environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
     runs-on: builds
 
     defaults:
