@@ -142,6 +142,50 @@ describe('EventDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
   })
 
+  it('renders the public stats panel for any user (review #90)', () => {
+    // Non-organizer (user.id !== creatorId) sees the public stats block too.
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, attendingCount: 12, viewCount: 1234, interestedCount: 5 },
+      loading: false,
+      isInitialLoad: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+      error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByText('Statistiques de participation')).toBeTruthy()
+    expect(screen.getByText('Vues')).toBeTruthy()
+    expect(screen.getByText('Inscrits')).toBeTruthy()
+    expect(screen.getByText('Intéressés')).toBeTruthy()
+    // fr-CH thin space (U+202F) between thousands
+    expect(screen.getByText(/1.234/)).toBeTruthy()
+    expect(screen.getByText('12')).toBeTruthy()
+    expect(screen.getByText('5')).toBeTruthy()
+  })
+
+  it('public stats panel shows — when viewCount and interestedCount are missing', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, attendingCount: 7 },
+      loading: false,
+      isInitialLoad: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+      error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByText('Statistiques de participation')).toBeTruthy()
+    expect(screen.getAllByText('—').length).toBe(2)
+    expect(screen.getByText('7')).toBeTruthy()
+  })
+
   it('CapacityIndicator surfaces aria-busy while isRefetching', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({

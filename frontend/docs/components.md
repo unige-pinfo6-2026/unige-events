@@ -293,6 +293,14 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 - Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
 
+### EventStatsPanel
+
+- Card publique "Statistiques de participation" (`src/components/event/EventStatsPanel.tsx`) insérée dans la **sidebar** de `EventDetailPage`, après `IcsExportButton` et avant les actions organisateur. Visible pour **tous** les utilisateurs (pas seulement l'organisateur) — la page `/events/:id/stats` reste réservée à l'organisateur pour les visualisations avancées (chart + capacity bar + liste des participants).
+- Props : `viewCount: number | null | undefined`, `interestedCount: number | null | undefined`, `attendingCount: number`.
+- Layout : titre avec icône `BarChart2` puis `grid grid-cols-3 gap-2` de 3 mini-cards (icône + valeur + label). Pattern KPI compact réutilisé d'`EventStatsPage` : gradient `blue` pour Vues, `green` pour Inscrits, `purple` pour Intéressés.
+- Affiche `'—'` quand `viewCount`/`interestedCount` sont `null` ou `undefined` (cas des endpoints de liste/recherche qui ne calculent pas ces compteurs). `attendingCount` est toujours présent dans le DTO Event public.
+- Formatage `toLocaleString('fr-CH')` (séparateur U+202F entre milliers).
+
 ### CalendarSubscribeButton
 
 - Affiche un bloc "S'abonner au calendrier" sur la page de profil de l'utilisateur connecté.

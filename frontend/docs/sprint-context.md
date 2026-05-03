@@ -1,6 +1,19 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-01
+Dernière mise à jour : 2026-05-03
+
+## Sprint 6 — Bloc stats publiques sur EventDetailPage (review #90 — SCRUM-92) — 2026-05-03
+
+Livré.
+
+Fonctionnalités livrées :
+- **`EventStatsPanel`** (`src/components/event/EventStatsPanel.tsx`) : card publique "Statistiques de participation" insérée dans la sidebar d'`EventDetailPage` après `IcsExportButton`, **visible pour tous** (pas seulement l'organisateur). 3 mini-cards Vues / Inscrits / Intéressés, pattern KPI compact réutilisé d'`EventStatsPage`. Affiche `—` quand la valeur est `null`/`undefined`.
+- **Backend — `EventDTO` étendu** : ajout des champs `viewCount` et `interestedCount` (Long nullable). Stratégie volontairement asymétrique pour éviter les requêtes N+1 sur les listes : seul `EventService.getById(...)` calcule ces compteurs (`countViews` / `countInterested`). Tous les autres call sites (`create`, `update`, `cancel`, `restore`, `publish`, `uploadImage`, `toEventDTOs` pour les listes, `FavoriteService.getFavorites`, `EventSearchService.search`) passent `null, null`.
+- **OpenAPI** : `viewCount` et `interestedCount` ajoutés au schéma `Event` avec `nullable: true` et description précisant qu'ils ne sont remplis que sur `GET /events/{id}`.
+- **Type frontend `Event`** : `viewCount?: number | null` et `interestedCount?: number | null`.
+- **La page dashboard `/events/:id/stats` reste réservée à l'organisateur** (créateur ou co-organisateur ACCEPTED) — même autorisation, mêmes données enrichies (chart + capacity bar + liste des participants).
+- Skeleton `event-detail` mis à jour : `STATS_CARD_H` passe de 104 à 172, builder `pushStatsCard` réécrit pour matcher le nouveau composant (titre + 3 mini-cards verticales avec icône container + valeur + label centrés). Fixture `EventDetailFixture` alignée sur la nouvelle hauteur.
+- **Tests** : `EventStatsPanel.test.tsx` (5 cas — titre, libellés, formatage fr-CH avec séparateur U+202F, `—` pour null/undefined). 2 tests ajoutés dans `EventDetailPage.test.tsx` (panel rendu pour utilisateur non-organisateur, dashes affichés quand stats absentes). Côté backend : `EventDTOTest` enrichi de 2 cas (`null/null` et valeurs renseignées) ; `EventServiceCoverageTest` enrichi de 2 cas (`getById` expose les compteurs depuis `EventView`/`Favorite`, ou retourne `0` quand vide). Tous les call sites de `EventDTO.from` mis à jour.
 
 ## Sprint 7 — Fix overflow visuel des tags dans `EventForm` (ISSUE-122) — 2026-05-01
 

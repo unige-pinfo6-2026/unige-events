@@ -18,6 +18,7 @@ import AttendanceButtons from '@/components/event/AttendanceButtons'
 import AttendeesList from '@/components/attendees/AttendeesList'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
+import EventStatsPanel from '@/components/event/EventStatsPanel'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
@@ -42,7 +43,7 @@ function EventDetailFixture() {
         <div className="h-72 rounded-3xl" />
         <div className="h-44 rounded-3xl" />
         <div className="h-[236px] rounded-3xl" />
-        <div className="h-[104px] rounded-2xl" />
+        <div className="h-[172px] rounded-3xl" />
       </div>
     </div>
   )
@@ -526,6 +527,13 @@ export default function EventDetailPage() {
 
           {/* IcsExportButton */}
           <IcsExportButton event={event} />
+
+          {/* Stats publiques (review #90) — visible pour tous, pas seulement l'organisateur */}
+          <EventStatsPanel
+            viewCount={event.viewCount}
+            interestedCount={event.interestedCount}
+            attendingCount={event.attendingCount}
+          />
 
           {/* Actions organisateur */}
           {isOrganizer && (

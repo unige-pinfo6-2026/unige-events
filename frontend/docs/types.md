@@ -78,6 +78,8 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | capacity        | number        | non    |
 | availableSpots  | number \| null | non   |
 | waitlistedCount | number        | non    |
+| viewCount       | number \| null | non   |
+| interestedCount | number \| null | non   |
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
 | interestedCount | number        | non    |
@@ -93,6 +95,12 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 - `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
 - `EVENT_TAG_MAX_LENGTH = 16` — longueur max d'un tag individuel
 - `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
+
+**Compteurs publics `viewCount` / `interestedCount`** : renseignés uniquement
+sur `GET /events/{id}` (page détail). Les endpoints de liste/recherche
+retournent `null` pour ces champs afin d'éviter des requêtes N+1. Le
+composant `EventStatsPanel` affiche `—` quand la valeur est `null` /
+`undefined`.
 
 ### CreateEventRequest
 

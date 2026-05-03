@@ -229,6 +229,25 @@ components:
           readOnly: true
           minimum: 0
           description: Nombre d'utilisateurs en liste d'attente (status WAITLISTED).
+        viewCount:
+          type: integer
+          format: int64
+          nullable: true
+          readOnly: true
+          minimum: 0
+          description: |
+            Nombre de vues uniques (1 par utilisateur). Renseigné uniquement
+            sur GET /events/{id}; null sur les endpoints de liste/recherche
+            pour éviter les requêtes N+1.
+        interestedCount:
+          type: integer
+          format: int64
+          nullable: true
+          readOnly: true
+          minimum: 0
+          description: |
+            Nombre d'utilisateurs ayant mis l'événement en favoris. Renseigné
+            uniquement sur GET /events/{id}; null sur les endpoints de liste.
         websiteUrl:
           type: string
           format: uri

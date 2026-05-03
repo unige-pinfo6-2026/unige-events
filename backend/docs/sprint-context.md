@@ -1,6 +1,17 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-04-24
+Dernière mise à jour : 2026-05-03
+
+---
+
+## Sprint 6 — `EventDTO` enrichi avec compteurs publics (review #90, SCRUM-92) — 2026-05-03
+
+Livré.
+
+- `EventDTO` reçoit deux champs `Long viewCount` / `Long interestedCount` (nullable). Ils sont **renseignés uniquement** sur `GET /events/{id}` (via les helpers `EventService.countViews` / `countInterested`). Tous les autres call sites de `EventDTO.from(...)` (`create`, `update`, `cancel`, `restore`, `publish`, `uploadImage`, `toEventDTOs` pour les listes paginées, `FavoriteService.getFavorites`, `EventSearchService.search`) passent `null, null` — décision volontaire pour éviter des `count(*)` N+1 sur les listes.
+- L'endpoint `GET /events/{id}/stats` reste inchangé et **réservé** au créateur ou co-organisateur ACCEPTED. Frontend : la page `/events/:id/stats` continue d'afficher les visualisations avancées (chart + capacity bar + liste des participants).
+- OpenAPI mis à jour (`Event.viewCount`, `Event.interestedCount` avec `nullable: true` et description précisant le scope).
+- Tests : `EventDTOTest` (2 cas — `null/null` et valeurs renseignées), `EventServiceCoverageTest` (2 cas — `getById` expose les compteurs depuis `EventView`/`Favorite`, retourne `0` quand vide). Tous les call sites tests (`EventServiceMock`, `EventSearchServiceMock`, `FavoriteServiceMock`, `UserResourceTest`, `CoOrganizerDTOTest`) mis à jour.
 
 ---
 

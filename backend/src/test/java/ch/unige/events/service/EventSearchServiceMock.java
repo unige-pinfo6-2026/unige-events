@@ -105,7 +105,7 @@ public class EventSearchServiceMock extends EventSearchService {
                 .sorted(Comparator.comparing((Event e) -> e.startDate).thenComparingLong(e -> e.id))
                 .skip((long) page * size)
                 .limit(size)
-                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L))
+                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null))
                 .toList();
     }
 }

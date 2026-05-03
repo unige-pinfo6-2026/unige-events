@@ -287,7 +287,7 @@ const MAIN_GAP = 20          // gap-5
 const INFOS_CARD_H = 288
 const ATTENDANCE_CARD_H = 176
 const ICS_CARD_H = 236       // IcsExportButton is a full card: header + 3 option buttons
-const STATS_CARD_H = 104     // ComingSoonBlock with 3 stat boxes in grid-cols-3
+const STATS_CARD_H = 172     // EventStatsPanel: header + 3 vertical mini-cards (icon + value + label)
 const SIDEBAR_GAP = 16       // gap-4
 const GRID_GAP = 24          // gap-6
 
@@ -422,26 +422,27 @@ function pushMainCol(bones, pct, colX, colW, y0, bannerH) {
   }
 }
 
-// Builder for the "Statistiques de participation" coming soon card (S6)
-// ComingSoonBlock shell with 3 stat boxes in grid-cols-3
+// Builder for the public "Statistiques de participation" card (review #90)
+// EventStatsPanel: glass card with title row + 3 vertical mini-cards
 function pushStatsCard(bones, pct, colX, colW, y0) {
-  // Shell (container, lighter — dashed border in reality)
-  bones.push([pct.x(colX), y0, pct.w(colW), STATS_CARD_H, 16, true])
-  // Header row: icon + label + sprint badge
-  bones.push([pct.x(colX + 16), y0 + 14, pct.w(16), 16, 4])                                    // icon
-  bones.push([pct.x(colX + 40), y0 + 16, pct.w(Math.round((colW - 88) * 0.8)), 12, 4])         // label
-  bones.push([pct.x(colX + colW - 46), y0 + 14, pct.w(30), 16, 9999])                          // sprint badge
-  // 3 stat boxes (containers — each a bordered mini-card with value + label)
-  const bodyY = y0 + 42
+  // Card surface (container, full border — glassmorphism in reality)
+  bones.push([pct.x(colX), y0, pct.w(colW), STATS_CARD_H, 24, true])
+  // Header row: small icon + label
+  bones.push([pct.x(colX + 20), y0 + 22, pct.w(16), 16, 4])                                    // icon
+  bones.push([pct.x(colX + 44), y0 + 24, pct.w(Math.round(colW * 0.55)), 12, 4])               // label
+  // 3 vertical mini-cards: icon container + value + label, centered
+  const bodyY = y0 + 56
+  const tileH = 96
   const gapX = 8
-  const innerX = colX + 16
-  const innerW = colW - 32
+  const innerX = colX + 20
+  const innerW = colW - 40
   const boxW = (innerW - 2 * gapX) / 3
   for (let i = 0; i < 3; i++) {
     const bx = innerX + i * (boxW + gapX)
-    bones.push([pct.x(bx), bodyY, pct.w(boxW), 44, 12, true])                                  // box surface
-    bones.push([pct.x(bx + (boxW - 16) / 2), bodyY + 10, pct.w(16), 14, 4])                    // value (centered)
-    bones.push([pct.x(bx + (boxW - 28) / 2), bodyY + 28, pct.w(28), 10, 4])                    // label (centered)
+    bones.push([pct.x(bx), bodyY, pct.w(boxW), tileH, 16, true])                               // tile surface
+    bones.push([pct.x(bx + (boxW - 32) / 2), bodyY + 12, pct.w(32), 32, 8, true])              // icon container
+    bones.push([pct.x(bx + (boxW - 24) / 2), bodyY + 52, pct.w(24), 16, 4])                    // value
+    bones.push([pct.x(bx + (boxW - 36) / 2), bodyY + 76, pct.w(36), 10, 4])                    // label
   }
 }
 
