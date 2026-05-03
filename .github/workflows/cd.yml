@@ -48,8 +48,7 @@ jobs:
           namespace: ${{ env.NAMESPACE }}
           secret-name: doppler-token
           secret-type: generic
-          string-data: |
-            serviceToken=${{ secrets.DOPPLER_TOKEN }}
+          string-data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
 
       - name: Create GHCR secret
         uses: azure/k8s-create-secret@v6
@@ -109,8 +108,7 @@ jobs:
           namespace: ${{ env.PR_NAMESPACE }}
           secret-name: doppler-token
           secret-type: generic
-          string-data: |
-            serviceToken=${{ secrets.DOPPLER_TOKEN }}
+          string-data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
 
       - name: Create GHCR secret
         uses: azure/k8s-create-secret@v6
