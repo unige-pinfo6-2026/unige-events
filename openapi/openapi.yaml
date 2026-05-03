@@ -435,7 +435,15 @@ components:
 
     Attendance:
       type: object
-      description: Inscription d'un utilisateur à un événement (ATTENDING)
+      description: |
+        Inscription d'un utilisateur à un événement (statut `ATTENDING` ou `WAITLISTED`).
+
+        Les champs `displayName` et `avatarUrl` projettent le profil du user lié, pour que
+        les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui renvoie 404
+        pour les profils `profilePublic = false`, hotfix pentest 4.1). Comme les routes qui
+        retournent un `Attendance` sont restreintes (la liste organisateur l'est au créateur
+        ou à un co-organisateur ACCEPTED, et les autres routes ne renvoient que des inscriptions
+        appartenant au caller), exposer le nom est sûr même pour les profils privés.
       properties:
         id:
           type: integer
@@ -451,6 +459,17 @@ components:
         createdAt:
           type: string
           format: date-time
+        displayName:
+          type: string
+          nullable: true
+          description: |
+            Nom d'affichage du participant. Toujours peuplé pour un user existant
+            (initialisé depuis le claim `name` Auth0 à la création), `null` uniquement
+            pour les inscriptions orphelines (user supprimé sans cascade FK).
+        avatarUrl:
+          type: string
+          nullable: true
+          description: URL de l'avatar du participant, si défini.
       required: [id, userId, eventId, status, createdAt]
 
     AttendanceRequest:
