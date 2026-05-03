@@ -130,11 +130,28 @@ jobs:
             --timeout 3m \
             --wait
 
+      - name: Set PR context
+        run: |
+          echo "TIME=$(TZ=Europe/Zurich date '+%b %d, %Y %H:%M %Z')" >> $GITHUB_ENV
+
       - name: Comment PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           number: ${{ env.PR_NUMBER }}
-          message: "Deploy preview: https://${{ env.PR_HOST }}"
+          message: |
+            ## 🚀 Preview Environment Ready
+
+            | Service | URL |
+            |--------|-----|
+            | 🌐 Frontend | https://${{ env.PR_HOST }} |
+            | 🔗 API | https://${{ env.PR_HOST }}/api |
+            | 📦 S3 | https://${{ env.PR_HOST }}/s3 |
+            ---
+
+            ✅ Deployed from PR #${{ env.PR_NUMBER }}
+            🌿 Branch: `${{ github.head_ref }}`
+            🔖 Commit: `${{ github.sha }}`
+            🕒 Updated: ${{ env.TIME }}
 
   # ─── Cleanup Preview ──────────────────────────────────────────────────────
   cleanup-preview:
