@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 permissions:
   contents: read
@@ -44,11 +44,11 @@ jobs:
         run: |
           ./mvnw verify -B \
             -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=${{ github.event_name == 'push' }} \
+            -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
             -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
             -Dquarkus.container-image.group=${{ github.repository_owner }} \
             -Dquarkus.container-image.name=${{ env.BACKEND_IMAGE }} \
-            -Dquarkus.container-image.tag=${{ github.sha }} \
+            -Dquarkus.container-image.tag=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }} \
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
 
       - name: SonarQube Scan
@@ -107,7 +107,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -119,13 +119,13 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE }}
-          tags: ${{ github.sha }}
+          tags: type=raw,value=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
 
       - name: Build & Push Docker image
         uses: docker/build-push-action@v7
         with:
           context: frontend
-          push: ${{ github.event_name == 'push' }}
+          push: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 

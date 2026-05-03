@@ -4,78 +4,23 @@ on:
   workflow_run:
     workflows: ["CI Pipeline"]
     types: [completed]
-    branches: [main, develop]
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: read
   packages: read
+  pull-requests: write
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  # ─── Staging ──────────────────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to Staging
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'develop'
-    runs-on: deployments
-    environment: staging
-    env:
-      NAMESPACE: unige-events-staging
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Set kubectl context
-        uses: azure/k8s-set-context@v5
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
-
-      - name: Create namespace
-        run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create Doppler token secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-name: doppler-token
-          secret-type: generic
-          data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
-
-      - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-name: ghcr-secret
-          container-registry-url: ${{ env.REGISTRY }}
-          container-registry-username: ${{ github.actor }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Deploy
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          helm upgrade --install unige-events-staging ./k8s/chart \
-            --namespace ${{ env.NAMESPACE }} \
-            --create-namespace \
-            -f k8s/chart/values-staging.yaml \
-            --set image.api.tag="${HEAD_SHA}" \
-            --set image.web.tag="${HEAD_SHA}" \
-            --timeout 3m \
-            --wait
-
   # ─── Production ───────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     if: |
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: deployments
@@ -121,10 +66,97 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          helm upgrade --install unige-events ./k8s/chart \
+          helm upgrade --install ${{ env.NAMESPACE }} ./k8s/chart \
             --namespace ${{ env.NAMESPACE }} \
             --create-namespace \
             --set image.api.tag="${HEAD_SHA}" \
             --set image.web.tag="${HEAD_SHA}" \
             --timeout 3m \
             --wait
+
+  # ─── Preview ──────────────────────────────────────────────────────────────
+  deploy-preview:
+    name: Deploy Preview
+    if: |
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: deployments
+    environment: preview
+    env:
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      PR_NAMESPACE: unige-events-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      PR_HOST: pr-${{ github.event.workflow_run.pull_requests[0].number }}.pinfo6.p-info.net
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v5
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Create namespace
+        run: kubectl create namespace ${{ env.PR_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create Doppler token secret
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.PR_NAMESPACE }}
+          secret-name: doppler-token
+          secret-type: generic
+          data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
+
+      - name: Create GHCR secret
+        uses: azure/k8s-create-secret@v6
+        with:
+          namespace: ${{ env.PR_NAMESPACE }}
+          secret-name: ghcr-secret
+          container-registry-url: ${{ env.REGISTRY }}
+          container-registry-username: ${{ github.actor }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy
+        run: |
+          helm upgrade --install ${{ env.PR_NAMESPACE }} ./k8s/chart \
+            --namespace ${{ env.PR_NAMESPACE }} \
+            --create-namespace \
+            -f k8s/chart/values-preview.yaml \
+            --set ingress.host="${{ env.PR_HOST }}" \
+            --set image.api.tag="pr-${{ env.PR_NUMBER }}" \
+            --set image.web.tag="pr-${{ env.PR_NUMBER }}" \
+            --timeout 3m \
+            --wait
+
+      - name: Comment PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          number: ${{ env.PR_NUMBER }}
+          message: "Deploy preview: https://${{ env.PR_HOST }}"
+
+  # ─── Cleanup Preview ──────────────────────────────────────────────────────
+  cleanup-preview:
+    name: Cleanup Preview
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: deployments
+    environment: preview
+    env:
+      PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v5
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Cleanup
+        run: |
+          helm uninstall ${{ env.PR_NAMESPACE }} --namespace ${{ env.PR_NAMESPACE }} --ignore-not-found || true
+          kubectl delete namespace ${{ env.PR_NAMESPACE }} --ignore-not-found
