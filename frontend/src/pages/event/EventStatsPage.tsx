@@ -14,7 +14,7 @@ import UserAvatar from '@/components/user/UserAvatar'
 import type { Attendance } from '@/types/attendance'
 import type { User } from '@/types/user'
 import type { LucideIcon } from 'lucide-react'
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Eye, Star, Users } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Eye, RefreshCw, Star, Users } from 'lucide-react'
 
 // ─── Fixture ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +201,29 @@ function AttendeesSection({ eventId }: Readonly<AttendeesSectionProps>) {
   )
 }
 
+// ─── Refresh button ───────────────────────────────────────────────────────────
+
+interface RefreshButtonProps {
+  refetching: boolean
+  onRefresh: () => void
+}
+
+function RefreshButton({ refetching, onRefresh }: Readonly<RefreshButtonProps>) {
+  return (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={refetching}
+      aria-label="Rafraîchir les statistiques"
+      aria-busy={refetching || undefined}
+      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border text-sm text-foreground/70 hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent"
+    >
+      <RefreshCw className={`w-4 h-4 shrink-0 ${refetching ? 'animate-spin' : ''}`} />
+      {refetching ? 'Rafraîchissement…' : 'Rafraîchir'}
+    </button>
+  )
+}
+
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventStatsPage() {
@@ -215,9 +238,13 @@ export default function EventStatsPage() {
 
   // Confirm organizer before fetching stats (avoids 403 noise for non-organizers)
   const isConfirmedOrganizer = event !== null && user !== null && user.id === event.creatorId
-  const { stats, loading: statsLoading, error: statsError } = useEventStats(
-    isConfirmedOrganizer ? eventId : null,
-  )
+  const {
+    stats,
+    loading: statsLoading,
+    isRefetching: statsRefetching,
+    error: statsError,
+    refetch: refetchStats,
+  } = useEventStats(isConfirmedOrganizer ? eventId : null)
 
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
@@ -270,8 +297,19 @@ export default function EventStatsPage() {
 
       <div className="flex flex-col gap-6">
 
+        {/* Refresh-only control — refetches the stats endpoint without reloading the page or the underlying event */}
+        <div className="flex justify-end">
+          <RefreshButton
+            refetching={statsRefetching}
+            onRefresh={() => { refetchStats().catch(() => { /* error captured in hook state */ }) }}
+          />
+        </div>
+
         {/* KPI cards */}
-        <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+        <div
+          className={`grid grid-cols-3 gap-4 max-sm:grid-cols-1 transition-opacity ${statsRefetching ? 'opacity-70' : ''}`}
+          aria-busy={statsRefetching || undefined}
+        >
           <KpiCard icon={Eye}           label="Vues totales"  value={stats.viewCount}       color="blue"   />
           <KpiCard icon={Star}          label="Intéressés"    value={stats.interestedCount} color="purple" />
           <KpiCard icon={CheckCircle2}  label="Inscrits"      value={stats.attendingCount}  color="green"  />

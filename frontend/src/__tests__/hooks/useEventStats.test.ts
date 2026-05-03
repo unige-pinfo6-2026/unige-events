@@ -118,4 +118,49 @@ describe('useEventStats', () => {
     await act(async () => { rejectFetch(new Error('gone')) })
     expect(mockGetEventStats).toHaveBeenCalledTimes(1)
   })
+
+  it('refetch() triggers a new fetch and updates stats', async () => {
+    mockGetEventStats
+      .mockResolvedValueOnce(mockStats)
+      .mockResolvedValueOnce({ ...mockStats, viewCount: 999 })
+    const { result } = renderHook(() => useEventStats(1))
+    await waitFor(() => expect(result.current.stats).toEqual(mockStats))
+
+    await act(async () => { await result.current.refetch() })
+
+    expect(mockGetEventStats).toHaveBeenCalledTimes(2)
+    expect(result.current.stats).toEqual({ ...mockStats, viewCount: 999 })
+  })
+
+  it('refetch() flips isRefetching during the request without setting loading', async () => {
+    let resolveFirst: (v: typeof mockStats) => void
+    let resolveSecond: (v: typeof mockStats) => void
+    mockGetEventStats
+      .mockImplementationOnce(() => new Promise(r => { resolveFirst = r }))
+      .mockImplementationOnce(() => new Promise(r => { resolveSecond = r }))
+
+    const { result } = renderHook(() => useEventStats(1))
+    expect(result.current.loading).toBe(true)
+    expect(result.current.isRefetching).toBe(false)
+
+    await act(async () => { resolveFirst(mockStats) })
+    expect(result.current.loading).toBe(false)
+
+    let refetchPromise!: Promise<void>
+    act(() => { refetchPromise = result.current.refetch() })
+    expect(result.current.loading).toBe(false) // initial-load flag stays false
+    expect(result.current.isRefetching).toBe(true)
+
+    await act(async () => {
+      resolveSecond(mockStats)
+      await refetchPromise
+    })
+    expect(result.current.isRefetching).toBe(false)
+  })
+
+  it('refetch() is a no-op when eventId is null', async () => {
+    const { result } = renderHook(() => useEventStats(null))
+    await act(async () => { await result.current.refetch() })
+    expect(mockGetEventStats).not.toHaveBeenCalled()
+  })
 })

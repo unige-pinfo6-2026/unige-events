@@ -69,8 +69,11 @@ function InfoRow({ icon: Icon, color, children }: Readonly<InfoRowProps>) {
   )
 }
 
-function FavoriteTextButton({ eventId }: Readonly<{ eventId: number }>) {
-  const { favorited, loading, toggle } = useFavorite(eventId)
+function FavoriteTextButton({
+  eventId,
+  onAfterSuccess,
+}: Readonly<{ eventId: number; onAfterSuccess?: () => void | Promise<void> }>) {
+  const { favorited, loading, toggle } = useFavorite(eventId, false, { onAfterSuccess })
   return (
     <button
       type="button"
@@ -501,7 +504,7 @@ export default function EventDetailPage() {
 
             {/* Favoris + partager */}
             <div className="grid grid-cols-2 gap-3">
-              <FavoriteTextButton eventId={event.id} />
+              <FavoriteTextButton eventId={event.id} onAfterSuccess={handleAttendanceSuccess} />
 
               <button
                 type="button"

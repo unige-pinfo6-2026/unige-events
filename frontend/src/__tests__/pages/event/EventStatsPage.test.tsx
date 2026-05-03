@@ -338,4 +338,64 @@ describe('EventStatsPage', () => {
     fireEvent.click(screen.getByText(/voir les participants/i)) // reopen
     expect(mockGetEventAttendees).toHaveBeenCalledTimes(1) // no second fetch
   })
+
+  // --- Refresh button (review #90 follow-up) ---
+
+  it('renders the refresh button alongside the stats', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({
+      stats: mockStats, loading: false, isRefetching: false, error: null, refetch: vi.fn().mockResolvedValue(undefined),
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByRole('button', { name: /rafraîchir les statistiques/i })).toBeTruthy())
+  })
+
+  it('clicking the refresh button calls refetch from useEventStats', async () => {
+    const refetch = vi.fn().mockResolvedValue(undefined)
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({
+      stats: mockStats, loading: false, isRefetching: false, error: null, refetch,
+    })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByRole('button', { name: /rafraîchir les statistiques/i })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /rafraîchir les statistiques/i }))
+    expect(refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('refresh button is disabled and shows the spinner state while refetching', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({
+      stats: mockStats, loading: false, isRefetching: true, error: null, refetch: vi.fn().mockResolvedValue(undefined),
+    })
+
+    renderPage()
+    const button = await screen.findByRole('button', { name: /rafraîchir les statistiques/i })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(button.getAttribute('aria-busy')).toBe('true')
+    expect(screen.getByText(/rafraîchissement/i)).toBeTruthy()
+  })
+
+  it('survives a refetch rejection without throwing', async () => {
+    const refetch = vi.fn().mockRejectedValue(new Error('boom'))
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({
+      stats: mockStats, loading: false, isRefetching: false, error: null, refetch,
+    })
+
+    renderPage()
+    const button = await screen.findByRole('button', { name: /rafraîchir les statistiques/i })
+
+    fireEvent.click(button)
+    expect(refetch).toHaveBeenCalledTimes(1)
+    // The rejection handler swallows the error — no unhandled rejection escapes.
+    await new Promise(r => setTimeout(r, 0))
+    expect(button).toBeTruthy()
+  })
 })

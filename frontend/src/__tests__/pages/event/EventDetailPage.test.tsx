@@ -13,7 +13,7 @@ vi.mock('@/services/eventApi', () => ({
 }))
 vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
 vi.mock('@/hooks/useFavorite', () => ({
-  useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
+  useFavorite: vi.fn(() => ({ favorited: false, loading: false, toggle: vi.fn() })),
 }))
 vi.mock('@/hooks/useAttendees', () => ({
   useAttendees: vi.fn(),
@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useAttendance } from '@/hooks/useAttendance'
+import { useFavorite } from '@/hooks/useFavorite'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
@@ -38,6 +39,7 @@ const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseAttendees = useAttendees as ReturnType<typeof vi.fn>
 const mockUseAttendance = useAttendance as ReturnType<typeof vi.fn>
+const mockUseFavorite = useFavorite as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
@@ -832,6 +834,31 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('link', { name: 'contact@unige.ch' })).toBeTruthy()
       expect(screen.getByText(/Inscriptions jusqu'au/)).toBeTruthy()
       expect(screen.getByRole('link', { name: 'forum' })).toBeTruthy()
+    })
+  })
+
+  // --- Favorite refetch wiring (review #90 follow-up) ---
+
+  describe('favorite onAfterSuccess', () => {
+    it('passes an onAfterSuccess callback to useFavorite that refetches the event', async () => {
+      const refetchEvent = vi.fn().mockResolvedValue(undefined)
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: refetchEvent, error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      // Find the call made by FavoriteTextButton (eventId, initialFavorited, options)
+      const favoriteCallWithOptions = mockUseFavorite.mock.calls.find(
+        ([, , opts]) => opts && typeof opts.onAfterSuccess === 'function',
+      )
+      expect(favoriteCallWithOptions).toBeTruthy()
+
+      const onAfterSuccess = favoriteCallWithOptions![2].onAfterSuccess as () => Promise<void>
+      await onAfterSuccess()
+      expect(refetchEvent).toHaveBeenCalledTimes(1)
     })
   })
 })
