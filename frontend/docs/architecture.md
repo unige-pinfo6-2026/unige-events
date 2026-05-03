@@ -30,6 +30,8 @@ Model : src/hooks, src/contexts et src/types
 | /my-events/favorites | MyFavoritesPage | pages/my-events/MyFavoritesPage.tsx | PrivateRoute |
 | /my-events/participations | MyParticipationsPage | pages/my-events/MyParticipationsPage.tsx | PrivateRoute |
 | /my-events/publications | MyPublicationsPage | pages/my-events/MyPublicationsPage.tsx | PrivateRoute |
+| /legal/privacy | PrivacyPage | pages/legal/PrivacyPage.tsx | publique |
+| /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
 | /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
 | * | redirect | — | redirect vers /home |
 

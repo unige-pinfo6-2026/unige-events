@@ -17,6 +17,8 @@
 | /my-events/favorites | MyFavoritesPage | fait |
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
+| /legal/privacy | PrivacyPage | fait |
+| /legal/terms | TermsPage | fait |
 
 ### LandingPage
 
@@ -79,6 +81,24 @@
 - Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Tri par `startDate` décroissante.
 - Bouton flottant "Créer un événement" en bas-droite.
 - Skeleton `my-events`.
+
+### PrivacyPage
+
+- Route `/legal/privacy`, publique.
+- Page statique de lecture (SectionWrapper size `md` = `max-w-3xl`, BlobsSubtle).
+- Contenu : politique de confidentialité inspirée du cadre légal UNIGE (LIPAD, RIPAD, RGPD).
+- Sections : cadre légal, responsable du traitement, données collectées, finalités, base légale, principes, partage, cookies, durée de conservation, droits, sécurité, contact.
+- Lien interne vers `/profile/me/edit` pour l'exercice du droit de rectification.
+- Mention explicite du caractère académique (projet PINFO).
+
+### TermsPage
+
+- Route `/legal/terms`, publique.
+- Page statique de lecture (même layout que PrivacyPage).
+- Contenu : conditions générales d'utilisation de la plateforme.
+- Sections : objet, description de la plateforme, inscription, contenu utilisateur, modération, propriété intellectuelle, disponibilité, limitation de responsabilité, données personnelles (renvoi vers `/legal/privacy`), modification des conditions, droit applicable, contact.
+- Lien externe vers le dépôt GitHub (open source).
+- Mention explicite du caractère académique (projet PINFO).
 
 ### CreateEventPage
 
