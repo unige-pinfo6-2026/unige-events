@@ -21,8 +21,12 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class AttendanceService {
@@ -66,15 +70,15 @@ public class AttendanceService {
                             .build());
         }
 
-        UUID userId = resolveUserId(auth0Id);
+        User user = resolveUser(auth0Id);
 
         // Idempotence sous verrou : si déjà inscrit (ATTENDING ou WAITLISTED), renvoyer tel quel
         Attendance existing = Attendance.<Attendance>find(
-                "userId = ?1 and eventId = ?2", userId, eventId)
+                "userId = ?1 and eventId = ?2", user.id, eventId)
                 .firstResultOptional()
                 .orElse(null);
         if (existing != null) {
-            return AttendanceDTO.from(existing);
+            return AttendanceDTO.from(existing, user);
         }
 
         // Détermination du statut effectif (ATTENDING ou WAITLISTED)
@@ -90,12 +94,12 @@ public class AttendanceService {
         }
 
         Attendance attendance = new Attendance();
-        attendance.userId = userId;
+        attendance.userId = user.id;
         attendance.eventId = eventId;
         attendance.status = effective;
         attendance.persist();
 
-        return AttendanceDTO.from(attendance);
+        return AttendanceDTO.from(attendance, user);
     }
 
     @Transactional
@@ -148,23 +152,47 @@ public class AttendanceService {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can view attendees");
         }
 
-        return Attendance.findByEvent(eventId, page, size).stream()
-                .map(AttendanceDTO::from)
+        List<Attendance> rows = Attendance.findByEvent(eventId, page, size);
+        Map<UUID, User> usersById = loadUsersByIds(
+                rows.stream().map(a -> a.userId).collect(Collectors.toSet()));
+
+        return rows.stream()
+                .map(a -> AttendanceDTO.from(a, usersById.get(a.userId)))
                 .toList();
     }
 
     @Transactional
     public List<AttendanceDTO> getMyAttendances(String auth0Id) {
-        UUID userId = resolveUserId(auth0Id);
-        return Attendance.findAllByUser(userId).stream()
-                .map(AttendanceDTO::from)
+        User user = resolveUser(auth0Id);
+        return Attendance.findAllByUser(user.id).stream()
+                .map(a -> AttendanceDTO.from(a, user))
                 .toList();
     }
 
-    private UUID resolveUserId(String auth0Id) {
+    private User resolveUser(String auth0Id) {
         return User.<User>find("auth0Id", auth0Id)
                 .firstResultOptional()
-                .orElseThrow(() -> new NotFoundException("User profile not found"))
-                .id;
+                .orElseThrow(() -> new NotFoundException("User profile not found"));
+    }
+
+    private UUID resolveUserId(String auth0Id) {
+        return resolveUser(auth0Id).id;
+    }
+
+    /**
+     * Single SELECT loading every {@link User} referenced by a batch of attendance rows.
+     * Used by {@link #getAttendees(String, Long, int, int)} to avoid the N+1 that would
+     * otherwise happen if each row triggered its own User lookup.
+     */
+    private Map<UUID, User> loadUsersByIds(Set<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        List<User> users = User.<User>list("id in ?1", userIds);
+        Map<UUID, User> byId = new HashMap<>();
+        for (User u : users) {
+            byId.put(u.id, u);
+        }
+        return byId;
     }
 }
