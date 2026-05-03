@@ -20,7 +20,8 @@ describe('PrivacyPage', () => {
 
   it('renders the page title', () => {
     renderPage()
-    expect(screen.getByText('Politique de confidentialité')).toBeTruthy()
+    expect(screen.getByText(/Politique de/)).toBeTruthy()
+    expect(screen.getAllByText(/confidentialité/).length).toBeGreaterThan(0)
   })
 
   it('renders the academic project disclaimer', () => {

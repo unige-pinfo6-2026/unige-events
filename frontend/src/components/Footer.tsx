@@ -87,10 +87,10 @@ export default function Footer() {
                     <p className="text-sm text-overlay">© {year} UNIGE Events. Tous droits réservés.</p>
                     
                     <div className="flex gap-8">
-                        <Link to="/legal/privacy" className="text-sm text-overlay hover:text-foreground transition-colors">
+                        <Link to="/legal/privacy" onClick={() => window.scrollTo({ top: 0 })} className="text-sm text-overlay hover:text-foreground transition-colors">
                             Politique de confidentialité
                         </Link>
-                        <Link to="/legal/terms" className="text-sm text-overlay hover:text-foreground transition-colors">
+                        <Link to="/legal/terms" onClick={() => window.scrollTo({ top: 0 })} className="text-sm text-overlay hover:text-foreground transition-colors">
                             Conditions générales
                         </Link>
                     </div>

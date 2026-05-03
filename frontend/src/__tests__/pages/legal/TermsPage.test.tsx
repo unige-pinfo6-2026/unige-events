@@ -20,7 +20,8 @@ describe('TermsPage', () => {
 
   it('renders the page title', () => {
     renderPage()
-    expect(screen.getByText("Conditions générales d'utilisation")).toBeTruthy()
+    expect(screen.getByText(/Conditions générales/)).toBeTruthy()
+    expect(screen.getAllByText(/d'utilisation/).length).toBeGreaterThan(0)
   })
 
   it('renders the academic project disclaimer', () => {

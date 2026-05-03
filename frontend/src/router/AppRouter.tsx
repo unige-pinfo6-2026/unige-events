@@ -46,6 +46,7 @@ const AppRouter = () => {
             </Route>
 
             <Route path="/legal">
+              <Route index element={<Navigate to="/legal/privacy" replace />} />
               <Route path="privacy" element={<PrivacyPage />} />
               <Route path="terms" element={<TermsPage />} />
             </Route>

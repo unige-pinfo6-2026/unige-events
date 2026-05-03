@@ -14,26 +14,27 @@ Model : src/hooks, src/contexts et src/types
 
 | Route | Composant | Fichier | Protection |
 |---|---|---|---|
-| / | redirect | — | redirect vers /home |
-| /login | LoginPage | pages/LoginPage.tsx | publique |
-| /callback | CallbackPage | pages/CallbackPage.tsx | publique |
-| /home | HomePage | pages/HomePage.tsx | PrivateRoute |
-| /profile/me/edit | ProfileEditPage | pages/ProfileEditPage.tsx | PrivateRoute |
-| /profile/:id | ProfilePage | pages/ProfilePage.tsx | PrivateRoute |
-| /events/new | CreateEventPage | pages/CreateEventPage.tsx | PrivateRoute |
+| / | LandingPage | pages/LandingPage.tsx | publique |
+| /login | LoginPage | pages/login/LoginPage.tsx | publique |
+| /login/callback | LoginCallbackPage | pages/login/callback/LoginCallbackPage.tsx | publique |
+| /events | EventsPage | pages/event/EventsPage.tsx | publique |
 | /events/search | EventsSearchPage | pages/event/EventsSearchPage.tsx | publique |
 | /events/:id | EventDetailPage | pages/event/EventDetailPage.tsx | publique |
-| /events/:id/edit | EditEventPage | pages/event/EventEditPage.tsx | PrivateRoute |
-| /calendar | CalendarPage | pages/CalendarPage.tsx | publique |
+| /events/new | EventCreatePage | pages/event/EventCreatePage.tsx | PrivateRoute |
+| /events/:id/edit | EventEditPage | pages/event/EventEditPage.tsx | PrivateRoute |
 | /events/favorites | FavoritesPage | pages/event/favorites/FavoritesPage.tsx | PrivateRoute |
-| /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute (redirect → /my-events/favorites) |
+| /calendar | CalendarPage | pages/calendar/CalendarPage.tsx | publique |
+| /legal | redirect | — | redirect → /legal/privacy |
+| /legal/privacy | PrivacyPage | pages/legal/PrivacyPage.tsx | publique |
+| /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
+| /profile | redirect | — | redirect → /profile/me |
+| /profile/me/edit | ProfileEditPage | pages/profile/ProfileEditPage.tsx | PrivateRoute |
+| /profile/:id | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute |
+| /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute |
 | /my-events/favorites | MyFavoritesPage | pages/my-events/MyFavoritesPage.tsx | PrivateRoute |
 | /my-events/participations | MyParticipationsPage | pages/my-events/MyParticipationsPage.tsx | PrivateRoute |
 | /my-events/publications | MyPublicationsPage | pages/my-events/MyPublicationsPage.tsx | PrivateRoute |
-| /legal/privacy | PrivacyPage | pages/legal/PrivacyPage.tsx | publique |
-| /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
-| /admin/* | AdminDashboard | à créer | PrivateRoute + rôle admin |
-| * | redirect | — | redirect vers /home |
+| * | NotFoundPage | pages/NotFoundPage.tsx | publique |
 
 Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter que me soit capturé comme paramètre dynamique.
 

@@ -6,7 +6,7 @@ export default function TermsPage() {
   return (
     <SectionWrapper padding="md" size="md" background={<BlobsSubtle />}>
       <SectionHeader
-        title="Conditions générales d'utilisation"
+        title={<>Conditions générales <mark>d'utilisation</mark></>}
         subtitle="Dernière mise à jour : mai 2026"
         heading="md"
         align="center"
@@ -190,7 +190,7 @@ export default function TermsPage() {
 
         {/* Retour */}
         <div className="pt-4 text-center">
-          <Link to="/" className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors">
+          <Link to="/" onClick={() => window.scrollTo({ top: 0 })} className="text-sm text-foreground/40 hover:text-foreground/60 transition-colors">
             Retour à l'accueil
           </Link>
         </div>
