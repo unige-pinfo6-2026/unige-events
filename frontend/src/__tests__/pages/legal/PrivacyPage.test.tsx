@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import PrivacyPage from '@/pages/legal/PrivacyPage'
 
@@ -72,5 +72,15 @@ describe('PrivacyPage', () => {
     const link = screen.getByText('Mon profil')
     expect(link).toBeTruthy()
     expect(link.getAttribute('href')).toBe('/profile/me/edit')
+  })
+
+  it('scrolls to top when clicking the back to home link', () => {
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+
+    renderPage()
+    fireEvent.click(screen.getByText("Retour à l'accueil"))
+
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 0 })
   })
 })

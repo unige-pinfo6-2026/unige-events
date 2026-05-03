@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import TermsPage from '@/pages/legal/TermsPage'
 
@@ -75,5 +75,15 @@ describe('TermsPage', () => {
     expect(link.getAttribute('href')).toBe('https://github.com/unige-pinfo6-2026/unige-events')
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+  })
+
+  it('scrolls to top when clicking the back to home link', () => {
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+
+    renderPage()
+    fireEvent.click(screen.getByText("Retour à l'accueil"))
+
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 0 })
   })
 })
