@@ -585,7 +585,11 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Lien statistiques organisateur — S6 */}
+          {/* Lien statistiques organisateur — S6.
+              Caveat: shown only to the creator. The backend authorizes ACCEPTED
+              co-organizers too, but the frontend has no co-organizer
+              integration yet, so they currently lack an in-app entry point
+              to /events/:id/stats. Same dette as in EventStatsPage. */}
           {isOrganizer && (
             <Link
               to={`/events/${event.id}/stats`}

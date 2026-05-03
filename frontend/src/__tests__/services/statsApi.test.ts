@@ -47,14 +47,49 @@ describe('recordEventView', () => {
 })
 
 describe('getEventAttendees', () => {
-  it('calls GET /events/:id/attendees and returns data', async () => {
+  it('paginates with size=100 and returns the full list', async () => {
     const attendees = [{ id: 1, userId: 'u-1', eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01' }]
     mockGet.mockResolvedValue({ data: attendees })
 
     const result = await getEventAttendees(42)
 
-    expect(mockGet).toHaveBeenCalledWith('/events/42/attendees')
+    expect(mockGet).toHaveBeenCalledWith('/events/42/attendees', { params: { page: 0, size: 100 } })
+    expect(mockGet).toHaveBeenCalledTimes(1) // first batch is short → stop
     expect(result).toEqual(attendees)
+  })
+
+  it('keeps fetching while a batch is full and stops on a short one', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      id: i, userId: `u-${i}`, eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01',
+    }))
+    const shortPage = Array.from({ length: 7 }, (_, i) => ({
+      id: 1000 + i, userId: `u-tail-${i}`, eventId: 42, status: 'WAITLISTED', createdAt: '2026-01-01',
+    }))
+    mockGet
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: shortPage })
+
+    const result = await getEventAttendees(42)
+
+    expect(mockGet).toHaveBeenNthCalledWith(1, '/events/42/attendees', { params: { page: 0, size: 100 } })
+    expect(mockGet).toHaveBeenNthCalledWith(2, '/events/42/attendees', { params: { page: 1, size: 100 } })
+    expect(mockGet).toHaveBeenNthCalledWith(3, '/events/42/attendees', { params: { page: 2, size: 100 } })
+    expect(result).toHaveLength(207)
+  })
+
+  it('stops on an empty page (exact multiple of PAGE_SIZE in DB)', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      id: i, userId: `u-${i}`, eventId: 42, status: 'ATTENDING', createdAt: '2026-01-01',
+    }))
+    mockGet
+      .mockResolvedValueOnce({ data: fullPage })
+      .mockResolvedValueOnce({ data: [] })
+
+    const result = await getEventAttendees(42)
+
+    expect(mockGet).toHaveBeenCalledTimes(2)
+    expect(result).toHaveLength(100)
   })
 
   it('propagates errors from the API', async () => {

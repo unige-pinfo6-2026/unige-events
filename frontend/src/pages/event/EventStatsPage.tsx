@@ -239,7 +239,13 @@ export default function EventStatsPage() {
 
   const { event, loading: eventLoading, error: eventError } = useEvent(eventId)
 
-  // Confirm organizer before fetching stats (avoids 403 noise for non-organizers)
+  // Confirm organizer before fetching stats (avoids 403 noise for non-organizers).
+  // Caveat: the backend also lets ACCEPTED co-organizers view stats
+  // (cf. EventStatsService.getStats + isCreatorOrAcceptedCoOrganizerPublic),
+  // but the frontend has no co-organizer integration yet (no service, no
+  // hook, no ACCEPTED list to consult). Until that lands, accepted
+  // co-organizers see "Accès réservé à l'organisateur" even though the API
+  // would serve them. Tracked separately from review #90.
   const isConfirmedOrganizer = event !== null && user !== null && user.id === event.creatorId
   const {
     stats,

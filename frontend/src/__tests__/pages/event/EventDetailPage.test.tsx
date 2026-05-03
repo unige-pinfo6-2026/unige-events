@@ -12,6 +12,9 @@ vi.mock('@/services/eventApi', () => ({
   restoreEvent: vi.fn(),
 }))
 vi.mock('@/services/userService', () => ({ getUserById: vi.fn() }))
+vi.mock('@/services/statsApi', () => ({
+  recordEventView: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: vi.fn(() => ({ favorited: false, loading: false, toggle: vi.fn() })),
 }))
@@ -33,6 +36,7 @@ import { useAttendance } from '@/hooks/useAttendance'
 import { useFavorite } from '@/hooks/useFavorite'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
+import { recordEventView } from '@/services/statsApi'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
@@ -40,6 +44,7 @@ const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseAttendees = useAttendees as ReturnType<typeof vi.fn>
 const mockUseAttendance = useAttendance as ReturnType<typeof vi.fn>
 const mockUseFavorite = useFavorite as ReturnType<typeof vi.fn>
+const mockRecordEventView = recordEventView as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
@@ -103,6 +108,7 @@ const defaultAttendanceState = {
 beforeEach(() => {
   mockUseAttendees.mockReturnValue(defaultAttendeesState)
   mockUseAttendance.mockReturnValue(defaultAttendanceState)
+  mockRecordEventView.mockResolvedValue(undefined)
 })
 
 function renderPage(eventId = '1') {
@@ -834,6 +840,62 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('link', { name: 'contact@unige.ch' })).toBeTruthy()
       expect(screen.getByText(/Inscriptions jusqu'au/)).toBeTruthy()
       expect(screen.getByRole('link', { name: 'forum' })).toBeTruthy()
+    })
+  })
+
+  // --- View tracking (Copilot review) ---
+
+  describe('view tracking', () => {
+    it('calls recordEventView on mount when authenticated and eventId is valid', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      await waitFor(() => expect(mockRecordEventView).toHaveBeenCalledWith(1))
+      expect(mockRecordEventView).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call recordEventView for anonymous (no user) viewers', async () => {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      // wait long enough for the effect to have run if it were going to
+      await new Promise(r => setTimeout(r, 0))
+      expect(mockRecordEventView).not.toHaveBeenCalled()
+    })
+
+    it('does not call recordEventView when eventId is invalid', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: null, loading: false, isInitialLoad: true, isRefetching: false, refetch: vi.fn(), error: null })
+
+      renderPage('abc') // non-numeric id → eventId resolves to null
+
+      await new Promise(r => setTimeout(r, 0))
+      expect(mockRecordEventView).not.toHaveBeenCalled()
+    })
+
+    it('swallows recordEventView errors without breaking the page', async () => {
+      mockRecordEventView.mockRejectedValueOnce(new Error('network'))
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      await waitFor(() => expect(mockRecordEventView).toHaveBeenCalled())
+      // Page still renders normally
+      expect(screen.getByRole('heading', { name: 'Conférence IA' })).toBeTruthy()
     })
   })
 

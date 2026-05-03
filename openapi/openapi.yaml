@@ -247,7 +247,9 @@ components:
           minimum: 0
           description: |
             Nombre d'utilisateurs ayant mis l'événement en favoris. Renseigné
-            uniquement sur GET /events/{id}; null sur les endpoints de liste.
+            uniquement sur GET /events/{id}; null sur les endpoints de liste
+            et de recherche (GET /events, GET /events/search,
+            GET /users/me/favorites) pour éviter les requêtes N+1.
         websiteUrl:
           type: string
           format: uri
