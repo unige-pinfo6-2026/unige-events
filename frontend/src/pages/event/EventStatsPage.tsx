@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth, useEvent } from '@/hooks'
 import { useEventStats } from '@/hooks/useEventStats'
 import { getEventAttendees } from '@/services/statsApi'
-import { getUserById } from '@/services/userService'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { InfoMessage } from '@/components/utils/InfoMessage'
@@ -12,7 +11,6 @@ import { useTheme } from '@/contexts/ThemeContext'
 import StatsChart from '@/components/event/StatsChart'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { Attendance } from '@/types/attendance'
-import type { User } from '@/types/user'
 import type { LucideIcon } from 'lucide-react'
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Eye, RefreshCw, Star, Users } from 'lucide-react'
 
@@ -111,16 +109,19 @@ function CapacityBar({ attending, capacity }: Readonly<CapacityBarProps>) {
 
 // ─── Attendees section ────────────────────────────────────────────────────────
 
-interface AttendeeRowProps {
-  attendance: Attendance
-  user: User | null
-}
-
-function AttendeeRow({ attendance, user }: Readonly<AttendeeRowProps>) {
-  const name = user?.displayName ?? user?.email ?? attendance.userId
+// Page stats organisateur — le backend renvoie déjà displayName/avatarUrl
+// dans chaque AttendanceDTO (route restreinte au créateur ou co-organisateur
+// ACCEPTED). On lit donc le nom directement, sans N+1 via /users/{id} qui
+// renverrait 404 pour les profils privés. La page détail publique garde,
+// elle, le rendu "Utilisateur anonyme" via le flux séparé `useAttendees`.
+function AttendeeRow({ attendance }: Readonly<{ attendance: Attendance }>) {
+  // displayName est toujours peuplé pour un user existant (init depuis le claim
+  // Auth0 `name`). Le `??` couvre l'unique cas pathologique d'une attendance
+  // orpheline (user supprimé sans cascade FK) — jamais l'UUID en fallback.
+  const name = attendance.displayName ?? 'Utilisateur supprimé'
   return (
     <div className="flex items-center gap-3 py-2">
-      <UserAvatar user={user} className="size-8 shrink-0" />
+      <UserAvatar user={attendance} className="size-8 shrink-0" />
       <span className="text-sm text-foreground/80 truncate flex-1">{name}</span>
       <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/30 shrink-0">
         {attendance.status}
@@ -136,7 +137,6 @@ interface AttendeesSectionProps {
 function AttendeesSection({ eventId }: Readonly<AttendeesSectionProps>) {
   const [open, setOpen] = useState(false)
   const [attendees, setAttendees] = useState<Attendance[]>([])
-  const [userMap, setUserMap] = useState<Map<string, User | null>>(new Map())
   const [fetching, setFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [fetched, setFetched] = useState(false)
@@ -151,19 +151,6 @@ function AttendeesSection({ eventId }: Readonly<AttendeesSectionProps>) {
     try {
       const data = await getEventAttendees(eventId)
       setAttendees(data)
-
-      const map = new Map<string, User | null>()
-      await Promise.all(
-        data.map(async (a) => {
-          try {
-            const u = await getUserById(a.userId)
-            map.set(a.userId, u)
-          } catch {
-            map.set(a.userId, null)
-          }
-        }),
-      )
-      setUserMap(map)
       setFetched(true)
     } catch {
       setFetchError('Impossible de charger les participants.')
@@ -196,7 +183,7 @@ function AttendeesSection({ eventId }: Readonly<AttendeesSectionProps>) {
             <p className="text-xs text-foreground/40 py-4 text-center">Aucun participant pour le moment.</p>
           )}
           {!fetching && attendees.map((a) => (
-            <AttendeeRow key={a.id} attendance={a} user={userMap.get(a.userId) ?? null} />
+            <AttendeeRow key={a.id} attendance={a} />
           ))}
         </div>
       )}
