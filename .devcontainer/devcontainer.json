@@ -11,7 +11,8 @@
 		"ghcr.io/devcontainers/features/node:1": {
             "version": "24"
         },
-		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
 	},
 
 	"forwardPorts": [8080, 5005, 5173, 9001],
