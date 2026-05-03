@@ -1,0 +1,11 @@
+apiVersion: secrets.doppler.com/v1alpha1
+kind: DopplerSecret
+metadata:
+  name: doppler-sync
+  namespace: {{ .Release.Namespace }}
+spec:
+  tokenSecret:
+    name: doppler-token
+  managedSecret:
+    name: app-secrets
+    namespace: {{ .Release.Namespace }}

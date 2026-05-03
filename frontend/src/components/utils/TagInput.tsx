@@ -5,10 +5,11 @@ interface TagInputProps {
   onChange: (tags: string[]) => void
   placeholder?: string
   maxTags?: number
+  maxLength?: number
   inputId?: string
 }
 
-export default function TagInput({ value, onChange, placeholder = 'Add a tag...', maxTags, inputId }: Readonly<TagInputProps>) {
+export default function TagInput({ value, onChange, placeholder = 'Add a tag...', maxTags, maxLength, inputId }: Readonly<TagInputProps>) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   function addTag(raw: string) {
@@ -50,7 +51,7 @@ export default function TagInput({ value, onChange, placeholder = 'Add a tag...'
       {value.map((tag, i) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-foreground/10 text-foreground text-sm font-medium"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-foreground/10 text-foreground text-sm font-medium max-w-full break-all whitespace-normal"
         >
           {tag}
           <button
@@ -68,6 +69,7 @@ export default function TagInput({ value, onChange, placeholder = 'Add a tag...'
           ref={inputRef}
           id={inputId}
           type="text"
+          maxLength={maxLength}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           placeholder={value.length === 0 ? placeholder : ''}

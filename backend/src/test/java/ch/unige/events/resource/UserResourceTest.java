@@ -366,6 +366,40 @@ class UserResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgContentTypeReturns400() {
+        // Finding 4.11: SVG declared as image/svg+xml must be rejected (not in allow-list).
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageSvgDisguisedAsPngReturns400() {
+        // PLUMBING TEST — verifies that InvalidFileTypeExceptionMapper returns HTTP 400
+        // with the correct JSON envelope. This test does NOT validate magic-byte rejection
+        // because UserServiceMock does not call ImageFormat.matches(). The real security
+        // test for finding 4.18 (SVG-as-PNG) is in:
+        //   UserServiceCoverageTest.uploadImage_svgDisguisedAsPng_throwsBadRequest
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceBadMimeOnUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.png", "<svg><script>alert(1)</script></svg>".getBytes(), "image/png")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void uploadImageUnauthenticatedReturns401() {
         given()
             .contentType("multipart/form-data")
@@ -415,6 +449,20 @@ class UserResourceTest {
         given()
             .contentType("multipart/form-data")
             .multiPart("file", "script.sh", "#!/bin/bash".getBytes(), "text/plain")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadBannerSvgContentTypeReturns400() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        byte[] svgBytes = "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "xss.svg", svgBytes, "image/svg+xml")
             .when().post("/users/me/banner")
             .then()
             .statusCode(400);
