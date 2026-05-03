@@ -4,7 +4,7 @@
 
 Lors de la création d'un événement avec une bannière, l'événement est bien persisté en base (HTTP 201), mais l'upload de l'image échoue avec un HTTP 403 car `POST /events/{id}/image` exigeait le rôle `ORGANIZER` ou `ADMIN`, que les utilisateurs normaux ne possèdent pas. Le frontend, ne distinguant pas l'échec de la création de l'échec de l'upload, affichait "La création de l'événement a échoué" et laissait le formulaire actif — poussant l'utilisateur à re-soumettre et créer des doublons sans bannière.
 
-Un second problème structurel s'est révélé lors du test : le `bannerUrl` stocké en base (`/uploads/...`) était un chemin mort en dev comme en production, car avec `quarkus.http.root-path=api` les fichiers statiques sont servis sous `/api/uploads/...`, seul chemin proxifié par Nginx et Vite.
+Un second problème structurel s'est révélé lors du test : le `bannerUrl` stocké en base (`/uploads/...`) était un chemin mort en dev comme en production, car avec `quarkus.http.root-path=api` les fichiers statiques sont servis sous `/api/uploads/...`, seul chemin proxifié par Nginx et Vite..
 
 ---
 
