@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
 import { useAttendees } from '@/hooks/useAttendees'
+import { useReport } from '@/hooks/useReport'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
@@ -15,12 +16,13 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import AttendeesList from '@/components/attendees/AttendeesList'
+import ReportModal from '@/components/event/ReportModal'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Ban, BarChart2, Calendar, CalendarClock, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
+import { Ban, BarChart2, Calendar, CalendarClock, Flag, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -229,6 +231,7 @@ export default function EventDetailPage() {
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
   const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const reportHook = useReport(eventId ?? 0)
   const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
   const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
@@ -542,6 +545,18 @@ export default function EventDetailPage() {
               </button>
             </div>
 
+            {/* Signalement — visible pour tout utilisateur connecté sauf l'organisateur */}
+            {user !== null && !isOrganizer && (
+              <button
+                type="button"
+                onClick={reportHook.open}
+                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border text-foreground/50 text-sm cursor-pointer bg-transparent hover:border-error/40 hover:text-error transition-colors"
+              >
+                <Flag className="w-4 h-4 shrink-0" />
+                Signaler cet événement
+              </button>
+            )}
+
             {/* Boutons participation */}
             <AttendanceButtons
               key={event.id}
@@ -647,6 +662,14 @@ export default function EventDetailPage() {
           pending={cancelling}
           onConfirm={handleCancelEvent}
           onClose={() => setShowCancelConfirm(false)}
+        />
+      )}
+
+      {reportHook.isOpen && (
+        <ReportModal
+          onClose={reportHook.close}
+          onSubmit={reportHook.submit}
+          submitting={reportHook.submitting}
         />
       )}
 

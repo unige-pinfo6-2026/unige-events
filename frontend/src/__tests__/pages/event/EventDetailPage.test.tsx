@@ -21,6 +21,20 @@ vi.mock('@/hooks/useAttendees', () => ({
 vi.mock('@/hooks/useAttendance', () => ({
   useAttendance: vi.fn(),
 }))
+const mockReportOpen = vi.fn()
+const mockReportClose = vi.fn()
+const mockReportSubmit = vi.fn()
+vi.mock('@/hooks/useReport', () => ({
+  useReport: vi.fn(),
+}))
+vi.mock('@/components/event/ReportModal', () => ({
+  default: ({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => Promise<void> }) => (
+    <div data-testid="report-modal">
+      <button type="button" onClick={onClose}>CloseModal</button>
+      <button type="button" onClick={() => onSubmit()}>SubmitModal</button>
+    </div>
+  ),
+}))
 const mockShowToast = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
@@ -30,6 +44,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useAttendance } from '@/hooks/useAttendance'
+import { useReport } from '@/hooks/useReport'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { getUserById } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
@@ -42,6 +57,7 @@ const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
 const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockUseReport = vi.mocked(useReport)
 
 const mockUser = {
   id: 'user-1',
@@ -98,9 +114,18 @@ const defaultAttendanceState = {
   toggle: vi.fn(),
 }
 
+const defaultReportState = {
+  isOpen: false,
+  submitting: false,
+  open: mockReportOpen,
+  close: mockReportClose,
+  submit: mockReportSubmit,
+}
+
 beforeEach(() => {
   mockUseAttendees.mockReturnValue(defaultAttendeesState)
   mockUseAttendance.mockReturnValue(defaultAttendanceState)
+  mockUseReport.mockReturnValue(defaultReportState)
 })
 
 function renderPage(eventId = '1') {
@@ -788,6 +813,70 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('link', { name: 'contact@unige.ch' })).toBeTruthy()
       expect(screen.getByText(/Inscriptions jusqu'au/)).toBeTruthy()
       expect(screen.getByRole('link', { name: 'forum' })).toBeTruthy()
+    })
+  })
+
+  describe('Report button and modal', () => {
+    it('shows "Signaler cet événement" button for logged-in non-organizer', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByRole('button', { name: /Signaler cet événement/ })).toBeTruthy()
+    })
+
+    it('hides "Signaler cet événement" button for the organizer', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByRole('button', { name: /Signaler cet événement/ })).toBeNull()
+    })
+
+    it('hides "Signaler cet événement" button when user is not logged in', () => {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByRole('button', { name: /Signaler cet événement/ })).toBeNull()
+    })
+
+    it('clicking "Signaler cet événement" calls reportHook.open', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Signaler cet événement/ }))
+
+      expect(mockReportOpen).toHaveBeenCalledOnce()
+    })
+
+    it('renders ReportModal when isOpen is true', () => {
+      mockUseReport.mockReturnValue({ ...defaultReportState, isOpen: true })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByTestId('report-modal')).toBeTruthy()
+    })
+
+    it('does not render ReportModal when isOpen is false', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.queryByTestId('report-modal')).toBeNull()
     })
   })
 })

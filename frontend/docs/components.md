@@ -34,6 +34,7 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté qui n'est pas l'organisateur (`user.id !== event.creatorId`). Ouvre `ReportModal` via `useReport`. Non affiché pour les utilisateurs non connectés ni pour l'organisateur.
 - **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
   - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute.
   - `contactEmail` → ancre `mailto:` avec icône `Mail`.
@@ -117,6 +118,15 @@
 - Filtre par mots-clés : section `<TagInput>` dans la sidebar (SCRUM-132), multi-tags, persistés dans l'URL via `?tags=foo&tags=bar`.
 
 ## Composants réutilisables
+
+### ReportModal
+
+- `src/components/event/ReportModal.tsx` — modale de signalement d'un événement.
+- Props : `onClose: () => void`, `onSubmit: (reason: ReportReason, description?: string) => Promise<void>`, `submitting: boolean`.
+- Champs : select `Motif` (obligatoire : Spam / Contenu inapproprié / Faux événement / Autre) + textarea `Description` (optionnelle).
+- Bouton "Signaler" désactivé tant qu'aucun motif n'est sélectionné ou que `submitting` est `true`.
+- Fermeture via bouton ✕, bouton "Annuler", ou automatiquement après succès (géré par `useReport`).
+- Utilise `FormField`, `Select`, `Textarea` depuis `@/components/utils/FormField`.
 
 ### ImageCropper
 
@@ -375,6 +385,13 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 ## Hooks
 
+### useReport
+
+- `src/hooks/useReport.ts` — gère l'état de la modale de signalement et l'appel API.
+- Retourne : `{ isOpen, submitting, open, close, submit }`.
+- `submit(reason, description?)` : appelle `POST /events/{id}/report`. Si description fournie, la combine dans le champ `reason` (séparateur `\n\n`). Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
+- Exporte aussi `ReportReason` (union type) et `REPORT_REASONS` (tableau readonly).
+
 ### useImageCropFlow
 
 Hook utilitaire qui encapsule le flux complet « sélection fichier → validation → FileReader → ouverture du cropper → conversion Blob → File ». Utilisé par `ProfileEditPage` (×2 : avatar + bannière) et `useEventForm` (×1 : bannière événement).
@@ -485,6 +502,10 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `unattend(eventId)` : `DELETE /api/events/{id}/attend`.
 - `getMyAttendance(eventId)` : filtre `GET /api/users/me/attendances` pour retourner le statut de l'utilisateur sur un événement.
 - `getMyParticipations()` : **stub** retournant `[]`. TODO : remplacer par l'appel réel quand le backend exposera un endpoint d'événements participés enrichis.
+
+### reportApi.ts
+
+- `reportEvent(eventId, { reason })` : `POST /api/events/{id}/report` — signale un événement. Retourne `void`. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement.
 
 ### icsGenerator.ts
 

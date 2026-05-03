@@ -1,6 +1,17 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-01
+Dernière mise à jour : 2026-05-03
+
+## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03
+
+Terminé.
+
+Fonctionnalités livrées :
+- **`reportApi.ts`** (`src/services/reportApi.ts`) : `reportEvent(eventId, { reason })` → `POST /api/events/{id}/report`. Contrat OpenAPI aligné (`ReportRequest.reason: string`).
+- **`useReport`** (`src/hooks/useReport.ts`) : hook gérant l'état `isOpen / submitting` de la modale + appel API. Combine `reason` (select) et `description` (textarea optionnelle) dans le champ `reason` de l'API. Toast succès "Merci pour votre signalement." + fermeture auto. Toast 409 "Vous avez déjà signalé cet événement." Toast générique sur toute autre erreur. Exporte `ReportReason` et `REPORT_REASONS`.
+- **`ReportModal`** (`src/components/event/ReportModal.tsx`) : modale de signalement avec select Motif (obligatoire) et textarea Description (optionnelle). Pattern `FormField` / `Select` / `Textarea` depuis `@/components/utils/FormField`. Bouton "Signaler" désactivé sans motif.
+- **`EventDetailPage`** : bouton "Signaler cet événement" (icône `Flag`) dans la sidebar, conditionnel `user !== null && !isOrganizer`. `ReportModal` monté conditionnellement via `reportHook.isOpen`.
+- **Tests** : 81 tests verts sur les 4 fichiers touchés (`reportApi.test.ts`, `useReport.test.tsx`, `ReportModal.test.tsx`, `EventDetailPage.test.tsx`). Lint propre.
 
 ## Sprint 7 — Fix overflow visuel des tags dans `EventForm` (ISSUE-122) — 2026-05-01
 
