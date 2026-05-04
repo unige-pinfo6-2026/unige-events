@@ -128,8 +128,11 @@ public class EventService {
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
         event.creator = creator;
-        if (request.getStatus() == EventStatus.CANCELLED || request.getStatus() == EventStatus.EXPIRED) {
-            throw new BadRequestException("CANCELLED and EXPIRED are not valid initial statuses");
+        if (request.getStatus() == EventStatus.EXPIRED) {
+            throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+        }
+        if (request.getStatus() == EventStatus.CANCELLED) {
+            throw new BadRequestException("CANCELLED is not a valid initial status");
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();

@@ -660,8 +660,12 @@ components:
 
     EventStatus:
       type: string
-      description: Statut de publication d'un événement
-      enum: [DRAFT, PUBLISHED, CANCELLED]
+      description: |
+        Statut d'un événement.
+        DRAFT/PUBLISHED/CANCELLED sont définis par l'organisateur ; EXPIRED est
+        attribué automatiquement par le job d'expiration quand un PUBLISHED voit
+        sa endDate passer dans le passé. EXPIRED ne peut pas être posé via l'API.
+      enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED]
 
     AttendanceStatus:
       type: string

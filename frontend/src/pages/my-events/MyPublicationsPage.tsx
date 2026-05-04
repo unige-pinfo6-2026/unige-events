@@ -21,6 +21,7 @@ const STATUS_TABS = {
   PUBLISHED: { label: 'Publiés',    param: 'published' },
   DRAFT:     { label: 'Brouillons', param: 'draft' },
   CANCELLED: { label: 'Annulés',    param: 'cancelled' },
+  EXPIRED:   { label: 'Terminés',   param: 'expired' },
 } as const
 
 const STATUS_KEYS = Object.keys(STATUS_TABS) as EventStatus[]
