@@ -30,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set kubectl context
         uses: azure/k8s-set-context@v5
@@ -88,6 +90,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set kubectl context
         uses: azure/k8s-set-context@v5
@@ -149,7 +153,7 @@ jobs:
             ---
 
             ✅ Deployed from PR #${{ env.PR_NUMBER }}
-            🌿 Branch: ${{ github.event.workflow_run.head_branch }}
+            🌿 Branch: `${{ github.event.workflow_run.head_branch }}`
             🔖 Commit: ${{ github.event.workflow_run.head_sha }}
             🕒 Updated: ${{ env.TIME }}
 
