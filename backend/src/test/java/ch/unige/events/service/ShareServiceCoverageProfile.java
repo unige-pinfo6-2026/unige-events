@@ -16,11 +16,13 @@ public class ShareServiceCoverageProfile implements QuarkusTestProfile {
             List.of(
                     "ch.unige.events.service.AttendanceServiceMock",
                     "ch.unige.events.service.CalendarServiceMock",
+                    "ch.unige.events.service.EventCoOrganizerServiceMock",
                     "ch.unige.events.service.EventSearchServiceMock",
                     "ch.unige.events.service.EventServiceMock",
                     "ch.unige.events.service.EventStatsServiceMock",
                     "ch.unige.events.service.EventViewServiceMock",
                     "ch.unige.events.service.FavoriteServiceMock",
+                    "ch.unige.events.service.ReportServiceMock",
                     "ch.unige.events.service.ShareServiceMock",
                     "ch.unige.events.service.UserServiceMock",
                     "ch.unige.events.resource.*"

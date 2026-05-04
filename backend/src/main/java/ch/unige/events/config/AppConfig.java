@@ -14,4 +14,7 @@ public interface AppConfig {
 
     @WithName("s3.bucket")
     String s3Bucket();
+
+    @WithName("moderation.auto-hide-threshold")
+    int moderationAutoHideThreshold();
 }

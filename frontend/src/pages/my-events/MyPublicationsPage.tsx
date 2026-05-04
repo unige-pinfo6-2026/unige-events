@@ -10,6 +10,7 @@ import { ButtonPrimary } from '@/components/utils/Buttons'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
+import { EVENT_STATUS_VARIANTS } from '@/utils/eventStatusStyles'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import { PublicationGridFixture } from './shared'
@@ -23,12 +24,6 @@ const STATUS_TABS = {
 } as const
 
 const STATUS_KEYS = Object.keys(STATUS_TABS) as EventStatus[]
-
-const statusVariants = {
-  PUBLISHED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-  DRAFT:     'bg-amber-500/20 text-amber-400 border-amber-500/40',
-  CANCELLED: 'bg-red-500/20 text-red-400 border-red-500/40',
-} as const
 
 function paramToStatus(param: string | null): EventStatus {
   for (const key of STATUS_KEYS) {
@@ -148,7 +143,7 @@ interface PublicationCardProps {
 
 function PublicationCard({ event, publishing, restoring, onPublish, onCancel, onRestore, onDelete }: Readonly<PublicationCardProps>) {
   const category = EVENT_CATEGORIES[event.category]
-  const statusClass = statusVariants[event.status]
+  const statusClass = EVENT_STATUS_VARIANTS[event.status]
   const banner = event.bannerUrl
     ? { backgroundImage: `url(${event.bannerUrl})` }
     : { background: `linear-gradient(135deg, ${category.color}55, ${category.color}cc)` }

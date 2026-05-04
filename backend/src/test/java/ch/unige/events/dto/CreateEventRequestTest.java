@@ -196,7 +196,7 @@ class CreateEventRequestTest {
     @Test
     void tooLongTagElement_hasViolation() {
         CreateEventRequest req = validRequest();
-        req.tags = new ArrayList<>(List.of("a".repeat(65)));
+        req.tags = new ArrayList<>(List.of("a".repeat(17)));
 
         Set<ConstraintViolation<CreateEventRequest>> violations = validator.validate(req);
 

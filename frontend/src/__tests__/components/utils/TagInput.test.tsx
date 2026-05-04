@@ -104,4 +104,12 @@ describe('TagInput', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onChange).toHaveBeenCalledWith(['vitest'])
   })
+
+  it('forwards maxLength to the underlying input', () => {
+    const { container } = render(
+      <TagInput value={[]} onChange={vi.fn()} maxLength={16} />,
+    )
+    const input = container.querySelector('input')!
+    expect(input.maxLength).toBe(16)
+  })
 })

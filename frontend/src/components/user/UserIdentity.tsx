@@ -13,7 +13,7 @@ interface UserIdentityProps {
 
 const variants = {
   inline: { wrapper: 'flex items-center gap-3', avatarClass: 'size-8', nameSize: 'sm' },
-  card: { wrapper: 'flex flex-row items-center gap-3', avatarClass: 'size-12', nameSize: 'lg' },
+  card: { wrapper: 'flex flex-col gap-3', avatarClass: 'size-18', nameSize: 'lg' },
 } as const
 
 const fixtureVariants = {
@@ -24,8 +24,8 @@ const fixtureVariants = {
     </div>
   ),
   card: (
-    <div className="flex items-center gap-3">
-      <div className="rounded-full shrink-0" style={{ width: 48, height: 48 }} />
+    <div className="flex flex-col gap-3">
+      <div className="rounded-full shrink-0" style={{ width: 72, height: 72 }} />
       <div className="flex flex-col gap-0.5">
         <span className="text-lg font-semibold">Elie Bsd</span>
         <span className="text-xs">@username</span>
@@ -59,7 +59,7 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
         <span className={`text-${nameSize} font-semibold text-foreground`}>{user.displayName}</span>
 
         {variant === 'card' && (
-          <span className="text-xs text-foreground/40 font-light">
+          <span className="text-sm text-foreground/40 font-light">
             {/* TODO: SPRINT 5 : Username */}
             @{user.username ?? "username"}
           </span>

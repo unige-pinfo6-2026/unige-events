@@ -7,7 +7,7 @@ const sizes = {
 
 export const Banner = ({ size = 'md' }: { size?: keyof typeof sizes }) => {
   return (
-    <Link to="/">
+    <Link to="/" className="shrink-0">
       <img className={sizes[size]} src="/banner.svg" alt="Bannière UNIGE" />
     </Link>
   )

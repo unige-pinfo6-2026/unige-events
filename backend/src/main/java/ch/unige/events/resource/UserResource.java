@@ -3,14 +3,17 @@ package ch.unige.events.resource;
 import ch.unige.events.dto.*;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
+import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
 import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.CoOrganizerStatus;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.AttendanceService;
 import ch.unige.events.service.CalendarService;
+import ch.unige.events.service.EventCoOrganizerService;
 import ch.unige.events.service.EventService;
 import ch.unige.events.service.FavoriteService;
 import ch.unige.events.service.UserService;
@@ -53,17 +56,28 @@ public class UserResource {
     @Inject CalendarService calendarService;
     @Inject AttendanceService attendanceService;
     @Inject EventService eventService;
+    @Inject EventCoOrganizerService coOrganizerService;
 
     /**
      * GET /api/users/{id}
-     * Public si profilePublic=true, sinon 403
+     * Profil public d'un utilisateur.
+     * - profilePublic=true + anon  → 200 payload réduit (id, displayName, avatarUrl)
+     * - profilePublic=true + auth  → 200 payload complet
+     * - profilePublic=false + self → 200 payload complet
+     * - sinon                      → 404 (envelope identique à UUID inexistant, anti-oracle)
+     * Hotfix pentest 2026-04-17 findings 4.1 + 4.1b.
      */
     @GET
     @Path("/{id}")
     @PermitAll
     public Response getProfile(@PathParam("id") UUID id) {
-        User user = userService.getPublicProfile(id);
-        return Response.ok(UserPublicResponse.from(user)).build();
+        boolean anonymous = identity.isAnonymous();
+        String auth0Id = anonymous ? null : identity.getPrincipal().getName();
+        User user = userService.getPublicProfile(id, auth0Id);
+        UserPublicResponse body = anonymous
+                ? UserPublicResponse.fromAnonymous(user)
+                : UserPublicResponse.from(user);
+        return Response.ok(body).build();
     }
 
     @GET
@@ -291,5 +305,16 @@ public class UserResource {
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
         return eventService.getMyEvents(identity.getPrincipal().getName(), status, page, size);
+    }
+
+    @GET
+    @Path("/me/co-organizer-invitations")
+    @Authenticated
+    public List<CoOrganizerInvitationDTO> getMyCoOrganizerInvitations(
+            @QueryParam("status") CoOrganizerStatus status,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
+        return coOrganizerService.getMyInvitations(
+                identity.getPrincipal().getName(), status, page, size);
     }
 }

@@ -54,7 +54,7 @@ En tant qu'organisateur, je veux visualiser les statistiques de participation (v
 
 \[BACK\] Sprint 5 — Feature 4 / Tâche 1
 
-1. **Entité** `User` : ajouter le champ `bannerUrl` (String, nullable). Hibernate mode `update` applique le changement automatiquement.
+1. **Entité** `User` : ajouter le champ `bannerUrl` (String, nullable). Créer une migration Flyway `V<N>__add_user_banner_url.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »).
 2. **Endpoint upload** : `POST /api/users/me/banner` — multipart/form-data, champ `file`. Déléguer à `FileStorageService.store()` (même pattern que `POST /api/users/me/image`). Retourner le `UserProfileResponse` mis à jour.
 3. **Endpoint suppression** : `DELETE /api/users/me/banner` — remet `bannerUrl = null`, retourner `UserProfileResponse` mis à jour.
 4. **OpenAPI** : ajouter `bannerUrl` dans le schéma `User` et `UserPublicResponse`. Ajouter les deux nouveaux paths.
@@ -206,7 +206,7 @@ Implémenter le tracking des vues sur les pages événement :
 
 * Entité `EventView` (eventId, userId, viewedAt)
 * Contrainte d'unicité `(eventId, userId)` pour déduplication : un user = 1 vue par event
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__create_event_views.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »)
 * `POST /api/events/{id}/view` appelé depuis le front à l'ouverture de la page détail
 * Service `EventViewService` avec logique upsert (ignore si déjà existant)
 * Tests `@QuarkusTest` : 1ère vue comptée, 2ème ignorée
@@ -476,8 +476,8 @@ Créer le dashboard de statistiques pour l'organisateur d'un événement :
 ---
 
 ## Sprint 7 — 28 avr.–2 mai 2026
-**Thème :** Admin/modération + co-organisateurs + jobs planifiés  
-**Total estimé :** 33 SP
+**Thème :** Admin/modération + co-organisateurs + jobs planifiés + UX polish  
+**Total estimé :** 47 SP
 
 ### 🚀 [SCRUM-45] [S7] Je veux modérer les événements et mettre en avant certains contenus (US-15, T4, T5)
 **Type :** Feature · **Story Points :** — SP
@@ -525,26 +525,55 @@ En tant qu'administrateur, je veux disposer d'un tableau de bord de modération 
 
 *Pas de description renseignée.*
 
-### 🔧 [SCRUM-102] [FRONT][S7] Section événements mis en avant sur la page d'accueil (carrousel Hero)
+### 🔧 [SCRUM-102] [FRONT][S7] Section « À la une » sur la page d'accueil (remplacement Événements à venir)
 **Type :** Tâche · **Story Points :** 3 SP
 
-**\[FRONT\] Sprint 6 – Tâche manquante (US-T5)**
+**Sprint** : S7 | **Assigné** : — | **SP** : 3 | **Épic** : SCRUM-16 | **Story** : SCRUM-73 (US-T5)
 
-Afficher les événements mis en avant sur la page d'accueil dans une section Hero/Carrousel :
+\[FRONT\] Sprint 7 — Section « À la une »
 
-* `FeaturedEventsSection.tsx` : section visuelle en haut de `HomePage.tsx`, avant la liste générale
-* Appel `GET /api/events/featured` → liste des événements featured (max 5-10)
-* Affichage en carrousel horizontal (auto-scroll ou navigation manuelle) ou en section "Hero" avec grande carte principale
-* Chaque carte featured : bannière plein-cadre, titre en overlay, date, catégorie, badge "✨ À la une"
-* Responsive : carrousel horizontal sur desktop, liste empilée sur mobile
-* Animation CSS douce (transition entre cartes)
-* Si aucun featured → section masquée (pas d'espace vide)
-* `useFeaturedEvents.ts` : hook de chargement
+**Problème actuel :**
+La section « Événements à venir » de la `LandingPage` affiche les événements publiés récents via `useEvents()` (filtre `status=PUBLISHED` + `endDateFrom=now`, tri chronologique). Il n'y a aucune logique de pertinence — les événements sont simplement listés par date.
 
-**US couverte :** US-T5 — Je veux pouvoir mettre en avant certains événements stratégiques sur la page d'accueil
+**Comportement cible :**
+Remplacer la section « Événements à venir » par une section **« À la une »** qui affiche les **6 événements les plus pertinents**, sélectionnés par un double mécanisme :
 
-**Fichiers touchés :** `FeaturedEventsSection.tsx`, `FeaturedEventCard.tsx`, `useFeaturedEvents.ts`, `HomePage.tsx` (ajout section en haut)
-**Branche suggérée :** `feature/s6-featured-homepage`
+1. **Admin override** : un événement flaggé `featured = true` par un admin (via SCRUM-95) apparaît en priorité, trié par `featuredAt DESC`.
+2. **Popularité automatique** : les slots restants (si < 6 featured) sont remplis par les événements PUBLISHED à venir triés par score de popularité = `attendingCount + favoriteCount` décroissant.
+
+Ce mécanisme garantit que la section fonctionne **dès le départ sans intervention admin** (popularité pure), tout en permettant à un admin de booster un événement stratégique quand nécessaire.
+
+**Implémentation :**
+
+1. **Backend nécessaire (SCRUM-95)** : `GET /api/events/featured` doit être adapté pour retourner :
+    * D'abord les events avec `featured = true`, triés par `featuredAt DESC`
+    * Puis les events PUBLISHED à venir triés par `attendingCount + favoriteCount` DESC pour compléter jusqu'à 6
+    * Paramètre `?limit=6` (défaut 6, max 12)
+    * → **Coordonner avec l'assigné de SCRUM-95 pour intégrer la logique de popularité dans l'endpoint**
+2. **`LandingPage.tsx`** : remplacer le composant `EventCards` (section « Événements à venir ») par un nouveau composant `FeaturedEventsSection`.
+    * Même grille `EventCard` existante (pas de nouveau composant carte) — on réutilise les cards actuelles.
+    * Titre de section : « À la une » (via `SectionHeader`).
+    * Affiche exactement **6 événements** max (2 rangées × 3 colonnes desktop, responsive comme la grille actuelle).
+    * **Pas de bouton « Charger plus »** — c'est une sélection curatée, pas une liste paginée.
+    * Si aucun événement disponible → section masquée (pas d'espace vide).
+    * Badge optionnel « ✨ À la une » en overlay sur les events qui ont `featured = true` (distinguer les choix admin des events populaires).
+3. **`useFeaturedEvents.ts`** : nouveau hook qui appelle `GET /api/events/featured?limit=6`.
+    * Retourne `{ events, loading, error }`.
+    * Pas de pagination, pas de `loadMore`.
+4. **Suppression du code obsolète** :
+    * Le composant `EventCards` (qui orchestrait `useEvents` + bouton « Charger plus ») n'est plus utilisé dans la `LandingPage`. Vérifier s'il est consommé ailleurs avant de le supprimer.
+    * Le hook `useEvents` reste — il est potentiellement utilisé par d'autres pages.
+5. **Skeleton** : réutiliser le skeleton `event-cards` existant (même grille, 6 cards au lieu de 12 — ajuster le nombre de bones si nécessaire).
+6. **Tests :**
+    * `FeaturedEventsSection.test.tsx` : rendu avec 6 events, rendu vide (section masquée), présence du badge « À la une » sur les events featured.
+    * `LandingPage.test.tsx` : vérifier que la section affiche « À la une » et non « Événements à venir ».
+7. **Documentation :**
+    * `docs/components.md` : mettre à jour la section LandingPage + ajouter `FeaturedEventsSection`.
+
+Fichiers créés : `src/components/event/FeaturedEventsSection.tsx`, `src/hooks/useFeaturedEvents.ts`
+Fichiers touchés : `src/pages/LandingPage.tsx`, `docs/components.md`
+Branche suggérée : `feature/s7-featured-homepage`
+Dépendances : SCRUM-95 (backend featured events — endpoint doit inclure la logique popularité)
 
 ### 🔧 [SCRUM-103] [BACK][S7] Job nettoyage auto des événements répétitivement signalés (@Scheduled)
 **Type :** Tâche · **Story Points :** 3 SP
@@ -641,27 +670,52 @@ Implémenter le rôle admin et le système de signalement/modération :
 **Fichiers touchés :** `Report.java`, `ReportReason.java`, `ReportStatus.java`, `ReportService.java`, `ReportResource.java`, `AdminReportResource.java`, `ReportDTO.java`
 **Branche suggérée :** `feature/s6-report-moderation`
 
-### 🔧 [SCRUM-95] [BACK][S7] Featured events : champ + endpoints admin feature/unfeature + GET /api/events/featured
+### 🔧 [SCRUM-95] [BACK][S7] Featured events : champ + endpoints admin + GET /api/events/featured (admin override + popularité)
 **Type :** Tâche · **Story Points :** 3 SP
 
-**\[BACK\] Sprint 6 – Tâche 2/2**
+**Sprint** : S7 | **Assigné** : Antoine | **SP** : 3 | **Épic** : SCRUM-16 | **Story** : SCRUM-73 (US-T5)
 
-Implémenter la mise en avant (featured) des événements par l'admin :
+\[BACK\] Sprint 7 — Featured events avec logique de popularité
 
-* Ajout du champ `featured` (boolean, default false) + `featuredAt` (timestamp) sur l'entité `Event`
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
-* Endpoints :
+**Contexte :**
+La page d'accueil va remplacer la section « Événements à venir » (tri chronologique) par une section « À la une » (SCRUM-102) affichant les 6 événements les plus pertinents. L'endpoint `GET /api/events/featured` doit supporter un **double mécanisme** de sélection :
 
-    * `PATCH /api/admin/events/{id}/feature` → passer `featured=true`, enregistrer `featuredAt` (ADMIN uniquement)
-    * `PATCH /api/admin/events/{id}/unfeature` → passer `featured=false` (ADMIN uniquement)
-    * `GET /api/events/featured` → liste publique des événements mis en avant, triés par `featuredAt` DESC, limités à 10
-    
-* Modification de `GET /api/events` : ajout paramètre optionnel `?featured=true` pour filtrer
-* `FeaturedService` + logique dans `AdminEventResource` (fichier dédié, distinct de `AdminReportResource` de SCRUM-94)
-* Tests `@QuarkusTest` : mise en avant, suppression mise en avant, accès public liste featured, 403 si non-admin
+1. **Admin override** : les events flaggés `featured = true` par un admin apparaissent en priorité.
+2. **Popularité automatique** : les slots restants sont remplis par les events PUBLISHED à venir triés par score = `attendingCount + favoriteCount` décroissant.
 
-**Fichiers touchés :** `Event.java` (champs featured/featuredAt), `FeaturedService.java`, `AdminEventResource.java`
-**Branche suggérée :** `feature/s6-featured-events`
+Ce mécanisme garantit que la section fonctionne **dès le départ sans admin actif** (popularité pure), tout en permettant à un admin de booster un event stratégique.
+
+**Implémentation :**
+
+1. **Entité `Event`** : ajouter :
+    * `featured` (boolean, default `false`)
+    * `featuredAt` (LocalDateTime, nullable)
+    * Créer une migration Flyway `V<N>__add_event_featured.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »).
+2. **Endpoints admin** (dans `AdminEventResource`, fichier dédié distinct de `AdminReportResource` de SCRUM-94) :
+    * `PATCH /api/admin/events/{id}/feature` → `featured = true`, `featuredAt = now()`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
+    * `PATCH /api/admin/events/{id}/unfeature` → `featured = false`, `featuredAt = null`. `@RolesAllowed("ADMIN")`. Retourne `EventDTO`.
+3. **Endpoint public `GET /api/events/featured`** (`@PermitAll`) :
+    * Paramètre `?limit=` (défaut 6, max 12).
+    * **Logique de sélection (requête en deux phases)** :
+        * Phase 1 : sélectionner les events avec `featured = true AND status = PUBLISHED AND endDate >= now()`, triés par `featuredAt DESC`, limités à `limit`.
+        * Phase 2 : si phase 1 retourne < `limit` résultats, compléter avec les events `featured = false AND status = PUBLISHED AND endDate >= now()`, triés par `(attendingCount + favoriteCount) DESC`, en excluant les IDs déjà retournés en phase 1, limités à `limit - phase1.size()`.
+    * Le score de popularité est calculé via des sous-requêtes COUNT (même pattern que `attendingCount` / `waitlistedCount` dans `EventService.getAll()`).
+    * Retourne `List<EventDTO>` (les events featured admin ont `featured: true` dans le DTO — le frontend distingue visuellement les deux types).
+4. **Filtre sur `GET /api/events`** : ajout du paramètre optionnel `?featured=true` pour filtrer (utilisé par le dashboard admin SCRUM-97).
+5. **`FeaturedService`** (`@ApplicationScoped`) :
+    * `getFeatured(int limit)` : logique deux phases décrite ci-dessus.
+    * `feature(Long eventId)` / `unfeature(Long eventId)` : `@Transactional`.
+6. **`EventDTO`** : vérifier que `featured` (boolean) est bien mappé dans `EventDTO.from()`.
+7. **OpenAPI** : documenter `featured` / `featuredAt` dans le schéma `Event`, les deux endpoints admin, et le paramètre `limit` de `GET /api/events/featured`.
+8. **Tests `@QuarkusTest`** :
+    * Feature un event → 200, `featured = true`. Unfeature → 200, `featured = false`. 403 si non-admin.
+    * `GET /api/events/featured` sans aucun featured → retourne les 6 events les plus populaires.
+    * `GET /api/events/featured` avec 2 featured + events populaires → 2 featured en tête + 4 populaires derrière.
+    * `GET /api/events/featured?limit=3` → max 3 résultats.
+
+Fichiers créés/touchés : `Event.java` (champs featured/featuredAt), `FeaturedService.java`, `AdminEventResource.java`, `EventDTO.java`, `EventService.java`, `openapi.yaml`
+Branche suggérée : `feature/s7-featured-events`
+Dépendances : aucune (SCRUM-102 front dépend de cette tâche)
 
 ### 🔧 [SCRUM-96] [FRONT][S7] Modale de signalement d'événement (ReportModal)
 **Type :** Tâche · **Story Points :** 3 SP
@@ -724,7 +778,7 @@ Implémenter le job d'expiration automatique des événements passés :
     * Sélectionne tous les `Event` avec `status=PUBLISHED` ET `endDate < now()`
     * Passe leur `status` à `EXPIRED` (nouveau statut à ajouter à l'enum `EventStatus`)
     
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__add_event_status_expired.sql` dans `backend/src/main/resources/db/migration/` qui drop+recrée la contrainte `events_status_check` avec la valeur `EXPIRED` ajoutée (Hibernate est en `validate` depuis SCRUM-164 — l'ajout d'une valeur d'enum impose de mettre à jour la CHECK, cf. pattern V1/V7 du repo et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway »)
 * `EventExpirationJob.java` : classe dédiée annotée `@ApplicationScoped` + `@Scheduled(every="1h")`
 * `EventExpirationService.java` : logique de sélection + update en batch (pour éviter les N+1)
 * Les événements EXPIRED n'apparaissent plus dans `GET /api/events` par défaut (filtre automatique sur status IN (PUBLISHED))
@@ -732,6 +786,221 @@ Implémenter le job d'expiration automatique des événements passés :
 
 **Fichiers touchés :** `EventStatus.java` (valeur EXPIRED), `EventExpirationJob.java`, `EventExpirationService.java`, `EventService.java` (filtre status)
 **Branche suggérée :** `feature/s7-expiration-job`
+
+### 📜 Note historique — Adoption de Flyway et passage de Hibernate en `validate`
+
+> Pas de ticket JIRA associé (le ticket initialement créé pour ce travail a été supprimé après coup ; la décision finale d'adoption de Flyway a été prise en parallèle, sans renumérotation). Conservé ici pour la traçabilité.
+
+Le bean `SchemaFixup` (qui drop+recréait à la main les contraintes `events_faculty_check`, `events_category_check`, `events_status_check`, `attendances_status_check` au démarrage Quarkus) a été remplacé par une migration Flyway `V1__reconcile_check_constraints.sql` qui pose les mêmes contraintes avec les valeurs courantes des enums Java.
+
+Hibernate est désormais en `validate` (dev/prod) ; Flyway est l'unique source du schéma. Voir [`backend/docs/data-model.md`](backend/docs/data-model.md) section « Gestion du schéma — Flyway » et [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway » pour les conventions à respecter dans toute nouvelle migration.
+
+### 🔧 [SCRUM-165] [FRONT][S7] Redirection post-login vers la page d'origine (returnTo)
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FRONT\] Sprint 7 — Redirect post-login
+
+**Problème actuel :**
+Quand un utilisateur non authentifié accède à une route protégée (ex. `/profile/me`, `/events/new`, `/my-events/favorites`), `PrivateRoute` le redirige vers `/login`. Mais après authentification Auth0, l'utilisateur est renvoyé vers `/profile/me` (valeur **hardcodée** dans `AuthContext.login()` via `appState.returnTo`). La page d'origine souhaitée est perdue.
+
+**Comportement cible :**
+Après login, l'utilisateur doit être redirigé vers la page qu'il tentait d'atteindre avant d'être intercepté par `PrivateRoute`.
+
+**Infrastructure existante déjà compatible :**
+- `Auth0ProviderWithNavigate.onRedirectCallback(appState)` lit déjà `appState?.returnTo` et navigue dessus (fallback `/`). Le mécanisme Auth0 est prêt.
+- Il manque **uniquement** la propagation de l'URL d'origine depuis `PrivateRoute` jusqu'à `loginWithRedirect`.
+
+**Implémentation :**
+
+1. **`PrivateRoute.tsx`** : remplacer `<Navigate to="/login" />` par `<Navigate to="/login" state={{ returnTo: location.pathname + location.search }} />`. Importer `useLocation` depuis `react-router-dom`.
+2. **`LoginPage.tsx`** : lire `location.state?.returnTo` via `useLocation()`. Passer cette valeur à `login(returnTo)`.
+3. **`AuthContext.tsx`** : modifier `login` pour accepter un paramètre optionnel `returnTo?: string` (défaut `'/'`). Appeler `loginWithRedirect({ appState: { returnTo: returnTo ?? '/' } })` au lieu du `/profile/me` hardcodé.
+4. **Cas limites :**
+    * Si `returnTo` est absent ou vide → fallback vers `/` (landing page, plus `/profile/me`).
+    * Si `returnTo` contient `/login` ou `/login/callback` → ignorer et utiliser `/` (éviter les boucles).
+    * Les query params et fragments doivent être préservés dans le `returnTo` (ex. `/events/search?q=sport`).
+5. **Tests :**
+    * `PrivateRoute.test.tsx` : vérifier que `Navigate` reçoit `state.returnTo` contenant le pathname courant quand l'utilisateur n'est pas authentifié.
+    * `LoginPage.test.tsx` : vérifier que `login()` est appelé avec le `returnTo` issu de `location.state` quand il est présent ; avec `/` quand il est absent.
+    * `AuthContext.test.tsx` (ou tests existants) : vérifier que `loginWithRedirect` reçoit `appState.returnTo` dynamique au lieu du hardcodé.
+
+Fichiers touchés : `src/components/PrivateRoute.tsx`, `src/pages/login/LoginPage.tsx`, `src/contexts/AuthContext.tsx`
+Branche suggérée : `feature/s7-login-redirect-returnto`
+Dépendances : aucune
+
+### 🔧 [SCRUM-166] [FRONT][S7] Pages légales /legal/privacy et /legal/terms
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FRONT\] Sprint 7 — Pages légales
+
+**Problème actuel :**
+Le `Footer` affiche deux liens — « Politique de confidentialité » (`/privacy`) et « Conditions générales » (`/terms`) — mais aucune route ni page n'existe pour ces chemins. Cliquer dessus tombe sur le catch-all `NotFoundPage` (404).
+
+**Comportement cible :**
+Créer deux pages statiques accessibles publiquement, visuellement cohérentes avec le reste de l'application, et corriger les liens du footer.
+
+**Implémentation :**
+
+1. **Création des pages :**
+    * `src/pages/legal/PrivacyPage.tsx` — route `/legal/privacy`
+    * `src/pages/legal/TermsPage.tsx` — route `/legal/terms`
+2. **Layout et style :**
+    * Utiliser `SectionWrapper` (padding `md`, size `md` soit `max-w-3xl`) pour centrer le contenu comme une page de lecture.
+    * Utiliser `SectionHeader` (heading `md`, align `center`) avec le titre de la page.
+    * Ajouter un composant `Blobs` (ex. `BlobsSubtle`) en background pour la cohérence visuelle.
+    * Le contenu textuel est structuré en sections `<h2>` + paragraphes `<p>` avec les classes Tailwind existantes : `text-foreground/70` pour le corps, `text-foreground font-semibold` pour les sous-titres, `space-y-4` pour l'espacement.
+    * Les deux pages suivent exactement le même layout — seul le contenu textuel diffère.
+3. **Contenu :**
+    * **Privacy** : sections typiques — collecte de données (Auth0, email, profil), utilisation (personnalisation, fonctionnement de la plateforme), partage (aucun partage avec des tiers), cookies (Auth0 session uniquement), droits utilisateur (accès, modification, suppression via le profil), contact.
+    * **Terms** : sections typiques — objet de la plateforme (UNIGE Events, plateforme universitaire), inscription (via Auth0, compte UNIGE), contenu utilisateur (événements créés, responsabilité de l'organisateur), modération (signalement, suppression automatique), propriété intellectuelle, limitation de responsabilité (projet académique PINFO), contact.
+    * Contexte UNIGE : mentionner que c'est un projet académique du cours PINFO (Université de Genève), pas un service commercial. Cela simplifie les clauses légales.
+    * Langue : **français** (cohérent avec toute l'UI).
+4. **Mise à jour du Footer :**
+    * `Footer.tsx` : changer les `href` de `/privacy` vers `/legal/privacy` et de `/terms` vers `/legal/terms`.
+    * Remplacer les `<a>` (`TextLink`) par des `<Link>` de `react-router-dom` pour une navigation SPA sans rechargement.
+5. **Mise à jour du routeur :**
+    * `AppRouter.tsx` : ajouter deux routes publiques (hors `PrivateRoute`) :
+        * `<Route path="/legal/privacy" element={<PrivacyPage />} />`
+        * `<Route path="/legal/terms" element={<TermsPage />} />`
+6. **Tests :**
+    * `PrivacyPage.test.tsx` : vérifier le rendu du titre « Politique de confidentialité » et la présence des sections clés (collecte, utilisation, droits).
+    * `TermsPage.test.tsx` : vérifier le rendu du titre « Conditions générales » et la présence des sections clés (objet, inscription, modération).
+    * `Footer.test.tsx` (si existant, sinon ajouter) : vérifier que les liens pointent vers `/legal/privacy` et `/legal/terms`.
+7. **Documentation :**
+    * `docs/architecture.md` : ajouter les deux routes dans la table de routage (publiques).
+    * `docs/components.md` : ajouter les deux pages dans la section Pages.
+
+Fichiers créés : `src/pages/legal/PrivacyPage.tsx`, `src/pages/legal/TermsPage.tsx`
+Fichiers touchés : `src/components/Footer.tsx`, `src/router/AppRouter.tsx`, `docs/architecture.md`, `docs/components.md`
+Branche suggérée : `feature/s7-legal-pages`
+Dépendances : aucune
+
+### 🔧 [SCRUM-XXX] [FULLSTACK][S7] Identifier les profils utilisateur par `username` plutôt que par UUID
+**Type :** Tâche · **Story Points :** 8 SP
+
+**Sprint** : S7 | **Assigné** : — | **SP** : 8 | **Épic** : SCRUM-13 | **Story** : —
+
+\[FULLSTACK\] Sprint 7 — URL de profil user-friendly
+
+**Problème actuel :**
+L'URL d'un profil utilisateur est aujourd'hui `/profile/<uuid>`, par exemple `/profile/19f3ab78-0fbf-4cfb-896e-5c0346fabed5`. Cette URL est illisible, impossible à mémoriser ou à partager oralement, et expose un identifiant interne (UUID) au public alors qu'il devrait rester un détail d'implémentation.
+
+Côté backend, l'entité `User` (`backend/src/main/java/ch/unige/events/entity/User.java`) ne possède aucun champ `username`. Côté frontend, le type `User` (`frontend/src/types/user.ts:14`) déclare déjà `username?: string` mais il n'est jamais peuplé par l'API ni utilisé. La route React Router `/profile/:id` accepte uniquement un UUID, et `ProfilePage.tsx:80` détecte le profil propre via `id === currentUser.auth0Id` (incohérence pré-existante : le route param est censé être l'UUID DB, pas l'auth0Id — à clarifier dans le cadre du refactor).
+
+**Comportement cible :**
+Chaque utilisateur dispose d'un identifiant public `username` unique, permettant l'accès au profil via `/profile/<username>` (ex. `/profile/jean.dupont`). L'utilisateur peut le définir lui-même depuis la page d'édition de profil ; à défaut, un username est généré automatiquement et garanti unique. L'UUID reste la clé primaire DB et l'identifiant interne ; le username est un identifiant public-facing avec une contrainte d'unicité indépendante.
+
+**Implémentation :**
+
+### Backend
+
+1. **Entité `User` :**
+    * Ajouter `@Column(nullable = false, unique = true) public String username` dans `User.java`.
+    * Ajouter `findByUsername(String username)` aux finders statiques (équivalent `findByEmail`).
+    * Validation Bean Validation : `@NotBlank`, `@Pattern(regexp = "^[a-z0-9._-]{3,30}$")`. Le pattern interdit les majuscules, espaces, caractères Unicode étendus.
+
+2. **Migration + back-fill :**
+    * Hibernate étant en `validate` (depuis SCRUM-164), écrire une migration Flyway `V<N>__add_user_username.sql` dans `backend/src/main/resources/db/migration/` qui :
+        1. Ajoute la colonne `username` en `nullable = true`.
+        2. Back-fill via génération auto pour tous les `users` existants (voir stratégie ci-dessous).
+        3. Bascule la colonne en `NOT NULL UNIQUE`.
+    * Voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway ». Une migration committée est immutable — toute correction passe par un nouveau `V<N+1>__…`.
+    * Stratégie de génération automatique : slug du `displayName` (lowercase, ASCII fold sur les accents, espaces → `.`, retrait des chars hors `[a-z0-9._-]`) ; si `displayName` est null/vide, fallback sur `firstName + "." + lastName` ; si tout est vide, fallback `user`.
+    * Anti-collision : **suffixe numérique incrémental** (`jean.dupont`, `jean.dupont2`, `jean.dupont3`…). Préféré au suffixe random car prévisible, lisible, et stable (un re-back-fill ne change pas les usernames existants). Implémentation : boucle `WHILE EXISTS(SELECT 1 FROM users WHERE username = ?)` avec compteur, dans une transaction sérialisable pour éviter les races.
+    * Blocklist : interdire les usernames réservés (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`) à l'auto-gen comme à l'update manuel.
+
+3. **Endpoints :**
+    * **`PATCH /api/users/me/username`** (nouveau) — body `{ "username": "..." }`. Valide le pattern, vérifie l'unicité, retourne `409 USERNAME_TAKEN` si conflit, `400 USERNAME_INVALID` si pattern KO, `400 USERNAME_RESERVED` si blocklist. Réponse `200` avec le `UserDTO` mis à jour.
+    * **`GET /api/users/by-username/{username}`** (nouveau) — lookup case-insensitive (lowercase normalisé). Retourne `UserDTO` ou `404`. Respecte la même règle de visibilité que `GET /api/users/{id}` (champ `profilePublic`).
+    * **`HEAD /api/users/by-username/{username}/exists`** (optionnel) — endpoint léger pour le check d'unicité côté frontend (debounce sur l'edit). `200 OK` si pris, `404` si libre. **`[À ARBITRER]`** — alternative : réutiliser le GET ; plus REST mais plus coûteux.
+
+4. **OpenAPI :**
+    * `openapi/openapi.yaml` mis à jour **en premier** (règle projet) : ajout du champ `username` dans le schéma `User`, nouveaux endpoints, codes d'erreur documentés.
+
+### Frontend
+
+5. **Types et services (`src/types/user.ts`, `src/services/userService.ts`) :**
+    * Le champ `username` existe déjà dans `User` mais devient **non-optionnel** (`username: string`) une fois le back-fill appliqué.
+    * Ajouter `getUserByUsername(username: string): Promise<User | null>` qui appelle `GET /api/users/by-username/{username}`.
+    * Ajouter `updateUsername(username: string): Promise<User>` qui appelle `PATCH /api/users/me/username`.
+    * Ajouter `checkUsernameAvailable(username: string): Promise<boolean>` (HEAD endpoint si retenu, sinon dérivé de `getUserByUsername`).
+    * `getUserById` reste pour le redirect transitoire UUID → username.
+
+6. **Routing (`src/router/AppRouter.tsx`) :**
+    * Route `/profile/:username` en remplacement de `/profile/:id`.
+    * `/profile/me` reste un alias résolu côté composant.
+    * **Redirect transitoire UUID → username** : ajouter dans `ProfilePage` une détection regex UUID v4 sur le param ; si UUID détecté, lookup via `getUserById(uuid)`, puis `<Navigate to="/profile/${user.username}" replace />`. Cela préserve les vieux liens externes/en cache. **`[À ARBITRER]`** — durée de vie de ce redirect : permanent ou à supprimer dans 1-2 sprints ?
+
+7. **`ProfilePage.tsx` :**
+    * `useParams<{ username: string }>()` au lieu de `{ id: string }`.
+    * Logique `isOwnProfile` : `username === 'me' || username === currentUser?.username`.
+    * Lookup via `getUserByUsername(username)` (sauf cas `me` ou redirect UUID).
+
+8. **`ProfileEditPage.tsx` :**
+    * Ajouter un `FormField` "Nom d'utilisateur" en haut du formulaire (champ visible dès le chargement, valeur initiale = `user.username`).
+    * Validation côté client en miroir du backend : pattern `[a-z0-9._-]`, 3-30 chars.
+    * Vérification d'unicité **debounced** (300-500ms) via `checkUsernameAvailable` — feedback inline : ✅ disponible / ❌ déjà pris / ⏳ vérification…
+    * Le username est mis à jour via `updateUsername` séparément du `updateProfile` global, pour pouvoir afficher proprement les erreurs `USERNAME_TAKEN` / `USERNAME_INVALID` sans bloquer le reste du formulaire. Si non modifié, ne pas re-soumettre.
+
+9. **Mise à jour de tous les liens internes vers profil :**
+    * `src/components/user/UserIdentity.tsx:42` : `/profile/${user?.username}` au lieu de `/profile/${user?.id}`.
+    * `src/pages/event/EventDetailPage.tsx:441` : `/profile/${organizer.username}` au lieu de `/profile/${organizer.id}`.
+    * `src/components/Navbar.tsx:42` : `/profile/me` reste inchangé (alias).
+    * Vérifier que les `EventDTO` côté backend incluent bien `username` dans `creator` pour pouvoir construire les liens sans round-trip.
+
+10. **Documentation :**
+    * `frontend/docs/components.md` : MAJ section services + section pages (route `/profile/:username`).
+    * `frontend/docs/types.md` : `username` passe de optional à required.
+    * `frontend/docs/architecture.md` : MAJ table de routage.
+    * `backend/docs/data-model.md` : ajouter `username` dans la section `User`, documenter le pattern et la stratégie de génération.
+    * `backend/docs/api-contract.md` : nouveaux endpoints documentés.
+    * `frontend/docs/sprint-context.md` + `backend/docs/sprint-context.md` : tâche listée en fin de S7.
+
+**Cas limites :**
+* **Username pris au moment du PATCH** (race entre check d'unicité debounced et submit) → backend retourne `409 USERNAME_TAKEN`, frontend affiche l'erreur sans naviguer.
+* **Username modifié pendant qu'un onglet ouvert affichait l'ancien lien** → `GET /by-username/{ancien}` retourne `404`, ProfilePage affiche "Profil introuvable". Acceptable (impossible de rediriger sans historique).
+* **Migration sur user existant avec `displayName`, `firstName` et `lastName` tous vides** (Auth0 sans onboarding terminé) → fallback `user` avec suffixe numérique (`user`, `user2`…).
+* **Username avec accents lors du back-fill** (`displayName = "François Müller"`) → ASCII fold → `francois.muller`. Tester explicitement.
+* **Username = mot réservé** (`me`, `admin`, etc.) : interdire via blocklist côté backend (autoriserait sinon une collision avec le route alias `/profile/me`).
+* **Changement de username post-déploiement** : faut-il garder l'historique pour un redirect 301 sur l'ancien ? **`[À ARBITRER]`** — préférence : non au S7, à ajouter ultérieurement si besoin.
+
+**Tests :**
+
+* **Backend (UserResourceTest, UserServiceCoverageTest) :**
+    * `PATCH /users/me/username` happy path, `409` si pris, `400` si pattern invalide, `400` si dans la blocklist, `401` si non authentifié.
+    * `GET /users/by-username/{username}` happy path, `404` si inexistant, case-insensitive (`Jean.Dupont` trouve `jean.dupont`), respect du `profilePublic`.
+    * Génération auto : slug correct depuis `displayName`, fallback firstName/lastName, fallback `user`, ASCII fold sur accents, suffixe numérique correct sur collision (test avec 5 users `Jean Dupont` consécutifs).
+    * Migration : test d'intégration qui pré-crée des users sans username, lance le back-fill, vérifie que tous ont un username unique non-null.
+    * Blocklist : `me`, `admin`, etc. rejetés en update.
+
+* **Frontend :**
+    * `userService.test.ts` : couverture des 3 nouvelles fonctions (URL, params, retour).
+    * `ProfilePage.test.tsx` : lookup par username, redirect UUID → username, gestion `404`, alias `me`.
+    * `ProfileEditPage.test.tsx` : champ username pré-rempli, validation pattern, debounce du check d'unicité, gestion `409`, gestion succès.
+    * `EventDetailPage.test.tsx` / `UserIdentity.test.tsx` : lien organizer/user pointe vers `/profile/<username>`.
+    * `AppRouter.test.tsx` : route `/profile/:username` et redirect UUID transitoire.
+
+**Fichiers touchés :**
+
+Backend : `src/main/java/ch/unige/events/entity/User.java`, `service/UserService.java`, `service/SchemaFixup.java`, `resource/UserResource.java`, `dto/UserDTO.java`, tests associés, `openapi/openapi.yaml`, `backend/docs/data-model.md`, `backend/docs/api-contract.md`, `backend/docs/sprint-context.md`.
+
+Frontend : `src/types/user.ts`, `src/services/userService.ts`, `src/router/AppRouter.tsx`, `src/pages/profile/ProfilePage.tsx`, `src/pages/profile/ProfileEditPage.tsx`, `src/components/user/UserIdentity.tsx`, `src/pages/event/EventDetailPage.tsx`, tests associés, `frontend/docs/components.md`, `frontend/docs/types.md`, `frontend/docs/architecture.md`, `frontend/docs/sprint-context.md`.
+
+Branche suggérée : `feature/s7-profile-username-url`
+Dépendances : aucune. Compatible avec les tickets S7 en cours (SCRUM-118 co-organisateurs touche `User` mais sur des champs différents — résolution de conflit triviale).
+
+**Points à arbitrer (recommandations PO) :**
+* Préfixe `@` dans l'URL (`/profile/@jean.dupont` vs `/profile/jean.dupont`) — recommandation : **sans `@`**, plus simple.
+* Endpoint dédié `PATCH /users/me/username` vs extension de `PUT /users/me` — recommandation : **endpoint dédié** (granularité d'erreur, appel indépendant pour le live-check).
+* `HEAD /by-username/{username}/exists` vs réutilisation du GET — recommandation : **endpoint dédié léger**, mais OK de réutiliser le GET si on veut minimiser la surface API.
+* Durée de vie du redirect transitoire UUID → username — recommandation : **permanent** (peu de coût, robuste aux liens en cache).
+* Case-sensitivity du username — recommandation : **stockage lowercase, lookup case-insensitive**.
+* Historique des anciens usernames pour redirects après changement — recommandation : **non au S7**.
+* Blocklist exacte des usernames réservés — recommandation : `me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings` au minimum.
 
 ---
 
@@ -947,7 +1216,7 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 
 * Entité `Notification` (PanacheEntity) : `userId`, `type` (enum), `message`, `eventId` (nullable), `read` (boolean, default false), `createdAt`
 * Enum `NotificationType` : EVENT_CANCELLED, EVENT_UPDATED, EVENT_REMINDER, NEW_ATTENDEE
-* Schéma géré par Hibernate (mode update) — aucune migration nécessaire
+* Créer une migration Flyway `V<N>__create_notifications.sql` dans `backend/src/main/resources/db/migration/` (Hibernate est en `validate` depuis SCRUM-164 — voir [`backend/AGENTS.md`](backend/AGENTS.md) section « Schéma de base de données — Flyway ». Pour `NotificationType`, poser la CHECK constraint sur la colonne `type` avec les 4 valeurs ; toute future modification de l'enum exigera un nouveau `V<N+1>__…` qui drop+recrée la CHECK.)
 * Endpoints :
 
     * `GET /api/notifications` → liste des notifs de l'utilisateur connecté (non lues en premier), paginée
@@ -963,8 +1232,8 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 ---
 
 ## Sprint 9 — 12–16 mai 2026
-**Thème :** Follow/Comment front + Attachments + Profil public  
-**Total estimé :** 36 SP
+**Thème :** Follow/Comment front + Attachments + Profil public + Feed timeline  
+**Total estimé :** 44 SP
 
 ### 🚀 [SCRUM-160] [S9] Je veux consulter les profils publics, suivre des utilisateurs et interagir via commentaires et fichiers joints (US-20, 21, 22, 28, 31, 32)
 **Type :** Feature · **Story Points :** — SP
@@ -985,6 +1254,120 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 **Type :** User Story · **Story Points :** — SP
 
 *Pas de description renseignée.*
+
+### 🔧 [SCRUM-167] [FRONT][S9] Page Feed — fil chronologique d'événements (timeline verticale + EventFeedCard)
+**Type :** Tâche · **Story Points :** 5 SP
+
+**Sprint** : S9 | **Assigné** : — | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : —
+
+\[FRONT\] Sprint 9 — Page Feed timeline
+
+**Concept :**
+Nouvelle page `/feed` accessible depuis la navbar, présentant tous les événements à venir sous forme de **fil chronologique vertical** (style réseau social / timeline). Les événements sont groupés par **date calendrier** (`startDate`), du plus proche au plus lointain, avec une timeline visuelle à gauche et des cartes événement larges à droite.
+
+**Layout de la timeline :**
+```
+┌──────────────────────────────────────────────┐
+│  [Toggle: Tous | Mes abonnements]             │
+├──────────────────────────────────────────────┤
+│                                              │
+│  ● ── Aujourd'hui, 28 avril 2026 ────────── │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   │  Bannière | Titre, lieu, heure  │     │
+│  │   │  Catégorie, faculté, capacity   │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  ● ── Mercredi 30 avril 2026 ────────────── │
+│  │                                           │
+│  │   ┌─────────────────────────────────┐     │
+│  │   │  EventFeedCard (large)          │     │
+│  │   └─────────────────────────────────┘     │
+│  │                                           │
+│  ● ── Vendredi 2 mai 2026 ──────────────── │
+│  │   ...                                     │
+│  ▼   (infinite scroll)                       │
+└──────────────────────────────────────────────┘
+```
+
+**Implémentation :**
+
+1. **Page `FeedPage.tsx`** — route `/feed`, publique (les events sont publics) :
+    * En-tête avec titre « Fil d'événements » et toggle segmenté « Tous » / « Mes abonnements ».
+    * Le toggle « Mes abonnements » est **désactivé visuellement** (grisé + tooltip « Bientôt disponible ») tant que le filtre backend `followedOnly` n'est pas implémenté (SCRUM-168). Il est activable dès que l'endpoint le supporte.
+    * Layout : timeline verticale à gauche + contenu à droite.
+2. **Composant `Timeline.tsx`** — structure visuelle du fil :
+    * **Trait vertical** : `div` fin (2-3px) coloré `bg-border` (ou `bg-accent/20`), positionné à gauche via CSS (`absolute` ou `border-left` sur le container).
+    * **Marqueur de date** : un point (`●`, `w-3 h-3 rounded-full bg-accent`) positionné sur le trait, suivi d'un label de date formaté en français (`Intl.DateTimeFormat('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })`). Cas spéciaux : « Aujourd'hui », « Demain » pour les deux premières dates si applicables.
+    * **Segment entre marqueurs** : le trait continue entre les groupes de cartes.
+    * Responsive : sur mobile (`< md`), le trait passe en bordure gauche fine et les cartes prennent toute la largeur.
+3. **Composant `EventFeedCard.tsx`** — carte événement large pour le fil :
+    * Layout horizontal sur desktop : bannière à gauche (aspect 16:9, `w-48 h-28` ou similaire) + infos à droite.
+    * Infos : titre (tronqué `line-clamp-2`), lieu (`MapPin`), heure de début (`Clock`), catégorie + faculté (badges existants).
+    * Actions inline : `FavoriteButton` (étoile), indicateur capacité (« X places restantes » ou « Complet »).
+    * Glassmorphism cohérent avec `EventCard` existant (`bg-background/60 backdrop-blur-xl border-border`).
+    * Clic sur la carte → `/events/:id`.
+    * Responsive : sur mobile, layout vertical (bannière en haut, infos en dessous).
+4. **Hook `useFeed.ts`** — chargement paginé :
+    * Appelle `GET /api/events?status=PUBLISHED&endDateFrom=<now>&page=X&size=20` trié par `startDate ASC`.
+    * Le frontend **groupe les résultats par date** (`startDate` tronqué au jour) côté client.
+    * Infinite scroll via `IntersectionObserver` sur un sentinel en bas de page.
+    * Gère la fusion des pages : si la dernière carte de la page N et la première de la page N+1 tombent le même jour, elles apparaissent dans le même groupe.
+    * Retourne `{ groups: Array<{ date: string, events: Event[] }>, loading, error, hasMore, loadMore }`.
+    * Futur : paramètre `followedOnly?: boolean` transmis à l'API quand SCRUM-168 est implémenté.
+5. **Dates sans événements** : les dates intermédiaires sans événements sont **sautées**. Le fil passe directement au prochain jour qui a des événements.
+6. **Route + Navbar** :
+    * `AppRouter.tsx` : ajouter `<Route path="/feed" element={<FeedPage />} />` (publique).
+    * `Navbar.tsx` : ajouter un lien « Fil » (icône `Rss` ou `LayoutList` de lucide-react) dans la navigation principale.
+7. **Skeleton** : créer un skeleton `feed` (bones manuels) reproduisant 2-3 marqueurs de date + 3-4 cartes large.
+8. **État vide** : si aucun événement à venir → message centré « Aucun événement à venir pour le moment » avec illustration.
+9. **Tests** : `FeedPage.test.tsx`, `EventFeedCard.test.tsx`, `Timeline.test.tsx`, `useFeed.test.ts` (groupement par date, fusion inter-pages, loadMore).
+10. **Documentation** : `docs/architecture.md` (route `/feed`), `docs/components.md` (`FeedPage`, `Timeline`, `EventFeedCard`, `useFeed`).
+
+Fichiers créés : `src/pages/FeedPage.tsx`, `src/components/feed/Timeline.tsx`, `src/components/feed/EventFeedCard.tsx`, `src/hooks/useFeed.ts`
+Fichiers touchés : `src/router/AppRouter.tsx`, `src/components/Navbar.tsx`, `docs/architecture.md`, `docs/components.md`
+Branche suggérée : `feature/s9-feed-timeline`
+Dépendances : aucune pour la v1. Le toggle « Mes abonnements » dépend de SCRUM-138 (Follow, S8) + SCRUM-168 (filtre backend)
+
+### 🔧 [SCRUM-168] [BACK][S9] Filtre followedOnly sur GET /api/events (feed abonnements)
+**Type :** Tâche · **Story Points :** 3 SP
+
+**Sprint** : S9 | **Assigné** : — | **SP** : 3 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
+
+\[BACK\] Sprint 9 — Filtre followedOnly pour le feed
+
+**Contexte :**
+La page Feed (SCRUM-167) affiche les événements à venir en fil chronologique. Un toggle « Tous » / « Mes abonnements » permet de ne voir que les événements créés par les utilisateurs que l'on suit. Ce filtre nécessite un paramètre backend.
+
+**Prérequis :** L'entité `Follow` et les endpoints follow/unfollow doivent être implémentés (SCRUM-138, Sprint 8).
+
+**Implémentation :**
+
+1. **`GET /api/events`** : ajouter le paramètre optionnel `?followedOnly=true` (`@QueryParam`).
+    * Si `followedOnly=true` et l'utilisateur est authentifié :
+        * Récupérer la liste des `followedId` via `Follow.find("followerId = ?1 AND status = ?2", userId, FollowStatus.ACCEPTED)` → extraire les UUIDs.
+        * Ajouter une condition JPQL `e.creator.id IN :followedIds` au filtre existant.
+        * Si l'utilisateur ne suit personne → retourner une liste vide (pas d'erreur).
+    * Si `followedOnly=true` et l'utilisateur n'est **pas** authentifié → 401.
+    * Si `followedOnly` absent ou `false` → comportement inchangé (tous les events).
+2. **`EventService.getAll()`** : ajouter le paramètre `followedIds: List<UUID>` (nullable). Si non-null et non-vide, ajouter la condition JPQL. Si non-null et vide, court-circuiter avec un résultat vide.
+3. **`EventResource.getAll()`** : lire `followedOnly` depuis `@QueryParam`. Si `true`, récupérer l'utilisateur authentifié via `SecurityIdentity`, puis charger les IDs suivis via `FollowService` ou `Follow.findAcceptedFollowedIds(UUID followerId)`.
+4. **OpenAPI** : ajouter le paramètre `followedOnly` (boolean, optional, default false) sur `GET /api/events`. Documenter le comportement 401 si non authentifié.
+5. **Tests `@QuarkusTest`** :
+    * `followedOnly=true` authentifié, suit 2 users avec events → retourne uniquement ces events.
+    * `followedOnly=true` authentifié, ne suit personne → retourne `[]`.
+    * `followedOnly=true` non authentifié → 401.
+    * `followedOnly` absent → comportement inchangé.
+    * Combinaison avec les autres filtres (`status`, `category`, `endDateFrom`, etc.).
+
+Fichiers touchés : `EventResource.java`, `EventService.java`, `openapi.yaml`
+Branche suggérée : `feature/s9-events-followed-only`
+Dépendances : SCRUM-138 (entité Follow, Sprint 8)
 
 ### 🔧 [SCRUM-140] [BACK][S9] Notifications Follow (NEW_FOLLOWER, FOLLOW_REQUEST, FOLLOW_ACCEPTED)
 **Type :** Tâche · **Story Points :** 3 SP

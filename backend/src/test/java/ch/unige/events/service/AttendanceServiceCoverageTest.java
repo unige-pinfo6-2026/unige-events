@@ -261,21 +261,21 @@ class AttendanceServiceCoverageTest {
         persistUser("auth0|cnt-user", "cnt-user@example.com");
 
         // Avant toute inscription — compteur à 0
-        EventDTO before = eventService.getById(event.id);
+        EventDTO before = eventService.getById(event.id, null, false);
         assertEquals(0, before.attendingCount());
 
         // Inscription ATTENDING
         attendanceService.attend("auth0|cnt-user", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO afterAttend = eventService.getById(event.id);
+        EventDTO afterAttend = eventService.getById(event.id, null, false);
         assertEquals(1, afterAttend.attendingCount());
 
         // Désinscription
         attendanceService.removeAttendance("auth0|cnt-user", event.id);
         entityManager.flush();
 
-        EventDTO afterUnattend = eventService.getById(event.id);
+        EventDTO afterUnattend = eventService.getById(event.id, null, false);
         assertEquals(0, afterUnattend.attendingCount());
     }
 
@@ -293,7 +293,7 @@ class AttendanceServiceCoverageTest {
         attendanceService.attend("auth0|mul-u3", event.id, AttendanceStatus.ATTENDING);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
         assertEquals(3, dto.attendingCount());
     }
 
@@ -511,7 +511,7 @@ class AttendanceServiceCoverageTest {
         persistAttendance(u3.id, event.id, AttendanceStatus.WAITLISTED);
         entityManager.flush();
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertEquals(2, dto.attendingCount());
         assertEquals(0L, dto.availableSpots());
@@ -524,7 +524,7 @@ class AttendanceServiceCoverageTest {
         User organizer = persistUser("auth0|noc-org", "noc-org@example.com");
         Event event = persistEvent("No Capacity Event", organizer, EventStatus.PUBLISHED, null);
 
-        EventDTO dto = eventService.getById(event.id);
+        EventDTO dto = eventService.getById(event.id, null, false);
 
         assertNull(dto.availableSpots());
         assertEquals(0, dto.waitlistedCount());
@@ -558,13 +558,120 @@ class AttendanceServiceCoverageTest {
         a.status = AttendanceStatus.ATTENDING;
         a.createdAt = LocalDateTime.now();
 
-        AttendanceDTO dto = AttendanceDTO.from(a);
+        User user = new User();
+        user.id = a.userId;
+        user.displayName = "Alice";
+        user.avatarUrl = "https://cdn.example.com/alice.png";
+
+        AttendanceDTO dto = AttendanceDTO.from(a, user);
 
         assertEquals(1L, dto.id());
         assertEquals(a.userId, dto.userId());
         assertEquals(42L, dto.eventId());
         assertEquals(AttendanceStatus.ATTENDING, dto.status());
         assertEquals(a.createdAt, dto.createdAt());
+        assertEquals("Alice", dto.displayName());
+        assertEquals("https://cdn.example.com/alice.png", dto.avatarUrl());
+    }
+
+    @Test
+    void attendanceDTO_from_nullUser_yieldsNullProfileFields() {
+        Attendance a = new Attendance();
+        a.id = 7L;
+        a.userId = UUID.randomUUID();
+        a.eventId = 11L;
+        a.status = AttendanceStatus.WAITLISTED;
+        a.createdAt = LocalDateTime.now();
+
+        AttendanceDTO dto = AttendanceDTO.from(a, null);
+
+        assertEquals(7L, dto.id());
+        assertEquals(a.userId, dto.userId());
+        assertNull(dto.displayName());
+        assertNull(dto.avatarUrl());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_byCreator_exposesPrivateUserDisplayName() {
+        // Page stats organisateur : on doit voir le nom des participants même
+        // si leur profil est `profilePublic = false`. La route est restreinte
+        // au créateur / co-organisateur ACCEPTED, donc exposer ces champs ici
+        // est sûr (cf. SCRUM hotfix UUID).
+        User creator = persistUser("auth0|priv-c", "priv-c@example.com");
+        Event event = persistEvent("Stats with private", creator, EventStatus.PUBLISHED, null);
+
+        User privateUser = persistUser("auth0|priv-att", "priv-att@example.com");
+        privateUser.displayName = "Private Attendee";
+        privateUser.avatarUrl = "https://cdn.example.com/private.png";
+        privateUser.profilePublic = false;
+        entityManager.flush();
+        persistAttendance(privateUser.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees("auth0|priv-c", event.id, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Private Attendee", result.get(0).displayName());
+        assertEquals("https://cdn.example.com/private.png", result.get(0).avatarUrl());
+        assertEquals(privateUser.id, result.get(0).userId());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_orphanAttendance_yieldsNullDisplayName() {
+        // Pas de FK contrainte entre Attendance et User : si un user a été supprimé
+        // mais que sa ligne d'attendance survit, le DTO doit rester rendable
+        // (displayName = null) plutôt que de planter le batch entier.
+        User creator = persistUser("auth0|orph-c", "orph-c@example.com");
+        Event event = persistEvent("Stats orphan", creator, EventStatus.PUBLISHED, null);
+        UUID ghostUserId = UUID.randomUUID();
+        persistAttendance(ghostUserId, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees("auth0|orph-c", event.id, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(ghostUserId, result.get(0).userId());
+        assertNull(result.get(0).displayName());
+        assertNull(result.get(0).avatarUrl());
+    }
+
+    // =========================================================
+    // SCRUM-136 — Cascade getAttendees autorise un co-organisateur ACCEPTED
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void getAttendees_byAcceptedCoOrganizer_succeeds() {
+        User creator = persistUser("auth0|cas-att-c", "cas-att-c@example.com");
+        User coOrg = persistUser("auth0|cas-att-co", "cas-att-co@example.com");
+        Event event = persistEvent("Cascade Att", creator, EventStatus.PUBLISHED, null);
+        persistCoOrg(event.id, coOrg.id, ch.unige.events.entity.CoOrganizerStatus.ACCEPTED);
+        User attendee = persistUser("auth0|cas-att-x", "cas-att-x@example.com");
+        persistAttendance(attendee.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees(coOrg.auth0Id, event.id, 0, 20);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_byNonCoOrganizer_throwsForbidden() {
+        User creator = persistUser("auth0|cas-att-nc-c", "cas-att-nc-c@example.com");
+        User intruder = persistUser("auth0|cas-att-nc-x", "cas-att-nc-x@example.com");
+        Event event = persistEvent("Cascade Att Forbidden", creator, EventStatus.PUBLISHED, null);
+
+        assertThrows(ForbiddenException.class,
+                () -> attendanceService.getAttendees(intruder.auth0Id, event.id, 0, 20));
+    }
+
+    private void persistCoOrg(Long eventId, UUID userId, ch.unige.events.entity.CoOrganizerStatus status) {
+        ch.unige.events.entity.EventCoOrganizer e = new ch.unige.events.entity.EventCoOrganizer();
+        e.eventId = eventId;
+        e.userId = userId;
+        e.status = status;
+        entityManager.persist(e);
+        entityManager.flush();
     }
 
     // =========================================================

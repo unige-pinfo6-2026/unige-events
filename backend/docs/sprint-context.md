@@ -1,6 +1,52 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-04-15
+Dernière mise à jour : 2026-05-03
+
+---
+
+## Sprint 7 — `AttendanceDTO` projette `displayName` / `avatarUrl` (fix UUID stats organisateur) — 2026-05-03
+
+Livré.
+
+Sur `/events/:id/stats`, la liste des participants affichait un UUID brut au lieu du nom pour tout user `profilePublic = false`. Cause : le front faisait du N+1 sur `GET /users/{id}` qui renvoie 404 pour les profils privés (hotfix pentest 4.1, anti-oracle). La route `GET /events/{id}/attendees` étant déjà restreinte au créateur ou co-organisateur ACCEPTED (cf. `AttendanceService.getAttendees`), enrichir le DTO ne fuite rien et permet au front de lire le nom directement.
+
+`AttendanceDTO` reçoit deux nouveaux champs `displayName` (toujours présent pour un user existant — initialisé depuis le claim Auth0 `name` à la création) et `avatarUrl` (nullable). `AttendanceService.getAttendees(...)` charge tous les `User` du batch en une seule requête (`User.list("id in ?1", ids)`) pour éviter le N+1 côté serveur. La page détail publique reste inchangée — elle continue d'afficher "Utilisateur anonyme" pour les profils privés via le flux séparé `getPublicUser`.
+
+Tests : `AttendanceServiceCoverageTest` enrichi de 3 cas (factory DTO avec/sans User, `getAttendees` projette le `displayName` même pour profil privé, ligne orpheline retourne `null` sans planter). `AttendanceServiceMock` adapté à la nouvelle signature `from(Attendance, User)`. OpenAPI : champs `displayName` et `avatarUrl` ajoutés au schéma `Attendance`.
+
+---
+
+## Sprint 6 — `EventDTO` enrichi avec compteurs publics (review #90, SCRUM-92) — 2026-05-03
+
+Livré.
+
+- `EventDTO` reçoit deux champs `Long viewCount` / `Long interestedCount` (nullable). Ils sont **renseignés uniquement** sur `GET /events/{id}` (via les helpers `EventService.countViews` / `countInterested`). Tous les autres call sites de `EventDTO.from(...)` (`create`, `update`, `cancel`, `restore`, `publish`, `uploadImage`, `toEventDTOs` pour les listes paginées, `FavoriteService.getFavorites`, `EventSearchService.search`) passent `null, null` — décision volontaire pour éviter des `count(*)` N+1 sur les listes.
+- L'endpoint `GET /events/{id}/stats` reste inchangé et **réservé** au créateur ou co-organisateur ACCEPTED. Frontend : la page `/events/:id/stats` continue d'afficher les visualisations avancées (chart + capacity bar + liste des participants).
+- OpenAPI mis à jour (`Event.viewCount`, `Event.interestedCount` avec `nullable: true` et description précisant le scope).
+- Tests : `EventDTOTest` (2 cas — `null/null` et valeurs renseignées), `EventServiceCoverageTest` (2 cas — `getById` expose les compteurs depuis `EventView`/`Favorite`, retourne `0` quand vide). Tous les call sites tests (`EventServiceMock`, `EventSearchServiceMock`, `FavoriteServiceMock`, `UserResourceTest`, `CoOrganizerDTOTest`) mis à jour.
+
+---
+
+## Sprint 6 — Hotfix sécurité post-pentest (ISSUE-92) — 2026-04-24
+
+Correction du finding **4.12** (Medium) du rapport de pentest du 2026-04-17 :
+`GET /api/events/{id}` renvoyait `200` avec le payload complet d'un event `DRAFT`
+ou `CANCELLED` à n'importe quel appelant, y compris anonyme. Combiné au finding
+**4.15** (IDs séquentiels), n'importe qui pouvait énumérer tous les brouillons et
+events annulés de la plateforme avec `for id in 1..1000; do curl .../events/$id; done`.
+
+Fix :
+- `EventService.getById(Long, String, boolean)` — signature étendue avec l'`auth0Id`
+  de l'appelant et un flag `isAdmin`. Si `event.status != PUBLISHED` et que
+  l'appelant n'est ni le créateur ni un admin → `NotFoundException` (→ `404 not_found`).
+- `EventResource.getById` reste `@PermitAll` (PUBLISHED doit rester anon-accessible)
+  mais lit `identity.isAnonymous()` + `identity.hasRole("ADMIN")` pour transmettre
+  au Service.
+- Envelope d'erreur identique à une 404 classique (pas de code d'erreur custom) —
+  ferme l'oracle d'existence.
+- 12 call-sites internes migrés (tests DB-backed + mock unitaire).
+
+**Pas de changement DB.** Pas d'impact frontend (`useEvent` consomme déjà le 404).
 
 ---
 
@@ -108,6 +154,8 @@ Dernière mise à jour : 2026-04-15
 - [x] **SCRUM-126** — Champs `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags` sur `Event` ; vérification deadline dans `AttendanceService.attend()` (409 `registration_closed`).
 - [x] **SCRUM-129** — Renforcement capacité : `WAITLISTED` ajouté à `AttendanceStatus`, verrou pessimiste sur `Event` pour les mutations liées à la capacité, promotion FIFO (`createdAt ASC`) dans `removeAttendance()`, exposition de `availableSpots` (nullable) et `waitlistedCount` sur `EventDTO`. Plus de 409 pour capacité atteinte — placement automatique en WAITLISTED.
 - [x] **SCRUM-133** — Anticipé depuis S6 pour **motif de sécurité**. Nouvel endpoint `GET /users/me/events?status=&page=&size=` (identité dérivée du JWT, tri `createdAt DESC`, tous statuts par défaut) + durcissement de `GET /events?organizerId=…` qui force désormais `status=PUBLISHED` (rejet `400 organizer_filter_requires_published` si un autre statut est demandé). Ferme la faille qui permettait à n'importe quel utilisateur authentifié d'énumérer les brouillons d'un autre via `GET /events?organizerId=<uuid>&status=DRAFT`. Migre `useMyEvents` côté frontend sur le nouvel endpoint.
+- [x] **SCRUM-131** — Filtre `?tags=` (sémantique OR) sur `GET /api/events/search`. Clause JPQL `EXISTS` sur la collection `event_tags`, normalisation lowercase via `EventService.normalizeTags`. Multi-valeurs `?tags=a&tags=b`, blank/null filtrés silencieusement.
+  - Amélioration : match substring case-insensitive (ex. `?tags=foot` matche `football` ou `barefoot-running`) via `LOWER(t) LIKE :tagN ESCAPE '|'` construit dynamiquement ; les wildcards SQL `%` et `_` saisis par l'utilisateur sont échappés pour être traités littéralement.
 
 ---
 
@@ -119,6 +167,20 @@ Dernière mise à jour : 2026-04-15
 - [ ] Entité `Report` (reporterId, eventId, reason, status PENDING|REVIEWED|DISMISSED)
 - [ ] `POST /events/{id}/report`
 - [ ] `GET /admin/reports`, `PUT /admin/reports/{id}`, `PUT /admin/events/{id}/feature`
+- [x] **ISSUE-93** — Hotfix sécurité post-pentest (2026-04-24) sur `GET /users/{id}`.
+  Correction des findings **4.1** (user-existence oracle via `403` vs `404`) et **4.1b**
+  (harvest anonyme des profils opt-in, GDPR-relevant) du rapport de pentest du 2026-04-17.
+  - `UserService.getPublicProfile(UUID id, String auth0Id)` — signature étendue. Si
+    `profilePublic=false` et que l'appelant n'est pas le propriétaire (self-case sur
+    `auth0Id`), throw `NotFoundException` (→ `404 not_found`, envelope identique à un
+    UUID inexistant). Ferme l'oracle exploité via `creatorId` leaké par `GET /events`.
+  - `UserResource.getProfile` reste `@PermitAll` mais lit `identity.isAnonymous()` pour
+    choisir entre `UserPublicResponse.from(user)` (full, authentifié) et
+    `UserPublicResponse.fromAnonymous(user)` (réduit : `id` + `displayName` + `avatarUrl`).
+  - Nouvelle factory `UserPublicResponse.fromAnonymous(User)` — ne projette que 3 champs
+    sur 8. Les 5 autres sont `null` et conformes au schéma (tous `nullable: true`).
+  - 5 call-sites internes migrés (1 prod + 3 coverage tests + 1 mock override).
+  - Pas de changement DB. Pas d'impact frontend — `ProfilePage.tsx` dégrade gracieusement.
 
 ---
 
@@ -130,6 +192,44 @@ Dernière mise à jour : 2026-04-15
 - [ ] `GET /notifications`, `PUT /notifications/{id}/read`
 - [ ] `POST /events/{id}/duplicate` (réservé au créateur)
 - [ ] Job `@Scheduled` : désactivation auto des events dont `endDate < now()`
+- [x] **SCRUM-136** — Co-organisateurs : entité `EventCoOrganizer` (eventId, userId,
+      status PENDING/ACCEPTED/DECLINED, invitedAt, contrainte unique `(event_id, user_id)`,
+      indexes `idx_event_co_organizers_event` / `idx_event_co_organizers_user`) +
+      6 endpoints REST (`POST/GET /events/{id}/co-organizers`,
+      `DELETE /events/{id}/co-organizers/{userId}`,
+      `PATCH /events/{id}/co-organizers/me/accept|decline`,
+      `GET /users/me/co-organizer-invitations`).
+      Cascade d'autorisation `isCreatorOrAcceptedCoOrganizer` sur `EventService.update/cancel/
+      restore/publish/uploadImage/getById`, `AttendanceService.getAttendees`,
+      `EventStatsService.getStats`. `EventService.delete` reste strict-creator (action
+      irréversible — divergence assumée par rapport au libellé du ticket Jira).
+      DECLINE supprime physiquement la row pour autoriser la ré-invitation sans 409.
+      Hors scope : notifications email, transfert d'ownership, invitation par email,
+      bulk invite. Frontend SCRUM-137 dépendant.
+      *Fix de review post-merge main :* migration `V8__create_event_co_organizers.sql`
+      (Flyway désormais source du schéma), `POST /co-organizers` sur body absent → 400
+      via `@NotNull`, et `PATCH /me/accept|decline` sans row → 422
+      `no_pending_invitation` au lieu de 404.
+- [x] **SCRUM-94** — Modération : enrichissement de l'entité `Report` (livrée par
+      SCRUM-103) avec l'enum `ReportReason` (SPAM/INAPPROPRIATE/FAKE/OTHER), `description`
+      (renommée depuis l'ancienne colonne `reason` libre), `moderationNote`, `reviewedAt`,
+      `reviewedBy`. Migration `V10__add_report_reason_and_review_fields.sql` (Hibernate en
+      `validate` : Flyway obligatoire — la mention « mode update » du libellé Jira est
+      obsolète depuis SCRUM-164). 3 endpoints : `POST /api/events/{id}/report`
+      (`@Authenticated`), `GET /api/admin/reports` (paginé, défaut `status=PENDING`,
+      tri `createdAt DESC`), `PATCH /api/admin/reports/{id}` (`@RolesAllowed("ADMIN")`,
+      transitions `PENDING → REVIEWED|DISMISSED` + audit `reviewedAt`/`reviewedBy`).
+      **Pas de champ `admin: boolean` sur `User`** — rôle géré exclusivement via la claim
+      Auth0 (`identity.hasRole("ADMIN")` + `@RolesAllowed`). Le TODO `admin` du schéma
+      `User` dans openapi.yaml a été retiré, et la section dédiée d'AGENTS.md a été
+      remplacée par une note sur la gestion via claim. La cascade SCRUM-136
+      (`isCreatorOrAcceptedCoOrganizerPublic`) interdit le self-report d'un event où
+      l'on est créateur ou co-organisateur ACCEPTED (422 `cannot_report_own_event`) ;
+      un co-organisateur PENDING peut signaler (sentinel cascade). `ModerationCleanupService`
+      (SCRUM-103) reste insensible — il ne lit que `r.event` et `r.status`. Hors scope :
+      auto-cancel d'event au passage en REVIEWED, bulk-handle, notifications. Frontend
+      SCRUM-96 (modale) et SCRUM-97 (dashboard admin) dépendants — attention au rename
+      de schéma OpenAPI `ReportRequest → CreateReportRequest`.
 
 ---
 

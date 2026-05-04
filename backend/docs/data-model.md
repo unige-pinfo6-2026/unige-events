@@ -14,7 +14,7 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
-| `faculty` | `faculty` | `String` | `faculty` | nullable |
+| `faculty` | `faculty` | `String` | `faculty` | nullable (champ libre côté `User`) |
 | `studyLevel` | `studyLevel` | `String` | `study_level` | nullable |
 | `bio` | `bio` | `String` | `bio` | `@Column(columnDefinition="TEXT")` |
 | `interests` | `interests` | `List<String>` | `user_interests` | `@ElementCollection(fetch=EAGER)` |
@@ -25,6 +25,20 @@ Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
 | `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
 Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
+
+#### Règle de visibilité du profil (hotfix pentest 2026-04-17)
+
+Le champ `profilePublic` contrôle deux dimensions simultanément sur `GET /api/users/{id}` :
+
+| `profilePublic` | Appelant | Réponse |
+|---|---|---|
+| `true` | anon | `200` — payload **réduit** (`id`, `displayName`, `avatarUrl` ; autres `null`) |
+| `true` | authentifié | `200` — payload **complet** |
+| `false` | anon ou autre user | `404 not_found` (envelope identique à un UUID inexistant) |
+| `false` | propriétaire (`auth0Id` matche) | `200` — payload complet (self-case) |
+
+La règle d'autorisation vit dans `UserService.getPublicProfile(UUID, String auth0Id)` ;
+le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.fromAnonymous`.
 
 ---
 
@@ -50,7 +64,7 @@ Table : `events`
 | `websiteUrl` | `websiteUrl` | `String` | `website_url` | nullable, `@URL` (Hibernate Validator), `@Column(length=500)` — SCRUM-126 |
 | `contactEmail` | `contactEmail` | `String` | `contact_email` | nullable, `@Email` (jakarta), `@Column(length=255)` — SCRUM-126 |
 | `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
-| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, tag `length=64`, max 20 — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
+| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, colonne DB `tag VARCHAR(64)` (legacy compat), validation DTO `@Size(max=16)` sur les éléments depuis ISSUE-122, max 20 tags — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
@@ -58,6 +72,20 @@ Table : `events`
 Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty)
 
 Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
+
+#### Règle de visibilité par statut (hotfix pentest 2026-04-17)
+
+Le statut `Event.status` détermine qui peut lire l'événement via `GET /api/events/{id}` :
+
+| Statut | Visibilité |
+|---|---|
+| `PUBLISHED` | Public (anon + authentifié) |
+| `DRAFT` | Créateur (`event.creator.auth0Id`) ou rôle `ADMIN` uniquement |
+| `CANCELLED` | Créateur ou rôle `ADMIN` uniquement |
+
+Un appelant non autorisé reçoit `404 not_found` — même envelope qu'un ID inexistant, pour fermer l'oracle d'existence (cf. findings 4.12 + 4.15 du rapport de pentest). La règle est appliquée dans `EventService.getById(Long, String, boolean)`, avec extraction de l'identité anonyme-safe côté Resource (`identity.isAnonymous()` + `identity.hasRole("ADMIN")`).
+
+Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les statuts non publics correctement — voir SCRUM-133 pour le contexte.
 
 ---
 
@@ -115,6 +143,12 @@ Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upser
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
 
+#### `AttendanceDTO` — projection du nom du participant
+
+`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
+
+`AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
+
 ---
 
 ### EventView
@@ -132,9 +166,122 @@ Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une
 
 L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
 
-Schéma géré par Hibernate en mode `update` — aucun fichier SQL de migration requis.
-
 Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
+
+---
+
+### EventCoOrganizer
+
+Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `eventId` | — | `Long` | `event_id` | not null |
+| `userId` | `userId` | `UUID` | `user_id` | not null |
+| `status` | `status` | `CoOrganizerStatus` | `status` | not null, `@Enumerated(STRING)` |
+| `invitedAt` | `invitedAt` | `LocalDateTime` | `invited_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_event_co_organizers_event_user` sur `(event_id, user_id)`.
+Index : `idx_event_co_organizers_event` (`event_id`), `idx_event_co_organizers_user` (`user_id`).
+
+Suppression physique autorisée (pas de soft-delete) — symétrique à `Favorite`. Le retrait par
+le créateur (`DELETE /events/{id}/co-organizers/{userId}`) et le decline par l'invité
+(`PATCH /events/{id}/co-organizers/me/decline`) suppriment la row directement.
+
+#### Sémantique du `DECLINE`
+
+`PATCH /events/{id}/co-organizers/me/decline` **supprime physiquement** la row au lieu de la marquer
+`DECLINED`. La valeur `DECLINED` reste définie dans l'enum `CoOrganizerStatus` mais n'apparaît jamais
+en base. Cette décision permet au créateur de ré-inviter la même personne après un refus, sans 409
+(la contrainte unique étant strictement basée sur la présence d'une row, pas sur son statut).
+
+`PATCH /events/{id}/co-organizers/me/accept` et `PATCH /events/{id}/co-organizers/me/decline`
+retournent `422 Unprocessable Entity` avec `error=no_pending_invitation` lorsqu'aucune row
+n'existe pour l'utilisateur courant sur cet événement (cf. fix de review SCRUM-136).
+
+#### Helpers statiques
+
+- `EventCoOrganizer.isAcceptedFor(Long eventId, UUID userId)` — réponse boolean en
+  une seule requête `count`. Utilisé par `EventService.isCreatorOrAcceptedCoOrganizer`.
+- `EventCoOrganizer.findByEventAndUser(Long, UUID)` — résolution unitaire pour accept/decline/remove.
+- `EventCoOrganizer.findByEvent(Long eventId)` — listing par event, tri `invitedAt ASC`.
+- `EventCoOrganizer.findByUser(UUID userId, CoOrganizerStatus status, int page, int size)` — listing
+  par user filtré sur un statut, paginé, tri `invitedAt DESC`.
+
+#### Permissions « créateur ou co-organisateur ACCEPTED » (cascade SCRUM-136)
+
+Le helper privé `EventService.isCreatorOrAcceptedCoOrganizer(Event, String)` (et son wrapper public
+`isCreatorOrAcceptedCoOrganizerPublic` réutilisé par les services voisins) unifie la garde
+d'autorisation pour les opérations de gestion d'événement déléguables :
+
+- `EventService.update`, `cancel`, `restore`, `publish`, `uploadImage`, `getById`
+  (visibilité DRAFT/CANCELLED).
+- `AttendanceService.getAttendees`, `EventStatsService.getStats`.
+
+`EventService.delete` (suppression physique d'un event CANCELLED) reste **strict-creator** —
+non délégable aux co-organisateurs (action irréversible, hors scope du « partage de gestion »
+de US-29). Cette divergence par rapport au libellé du ticket est documentée dans la PR
+SCRUM-136.
+
+L'invitation par le créateur OU un admin ; l'accept/decline est self-only (l'identité provient
+du JWT — pas de spoofing).
+
+---
+
+### Report
+
+Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
+enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `reporter` | — | `User` | `reporter_id` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
+| `reason` | `reason` | `ReportReason` | `reason` | `@Enumerated(STRING)`, not null, `length=32`, CHECK constraint — SCRUM-94 |
+| `description` | `description` | `String` | `description` | nullable, `@Column(columnDefinition="TEXT")` — texte libre saisi en complément du motif catégoriel. Renommé depuis `reason` (TEXT libre) en SCRUM-94. |
+| `status` | `status` | `ReportStatus` | `status` | `@Enumerated(STRING)`, not null, défaut `PENDING` |
+| `moderationNote` | `moderationNote` | `String` | `moderation_note` | nullable, `@Column(columnDefinition="TEXT")` — note saisie par l'admin au moment du PATCH |
+| `reviewedAt` | `reviewedAt` | `LocalDateTime` | `reviewed_at` | nullable — posé par `ReportService.handle()` au moment de la transition |
+| `reviewedBy` | — | `User` | `reviewed_by` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Index DB : `idx_report_event` (event_id), `idx_report_status` (status).
+
+Contrainte unique : `uk_report_reporter_event` sur `(reporter_id, event_id)` — empêche
+le double signalement et sert de filet de sécurité au check applicatif `409 already_reported`.
+
+CHECK constraints :
+- `reports_status_check` (posée par V7) : `status IN ('PENDING', 'REVIEWED', 'DISMISSED')`.
+- `reports_reason_check` (posée par V9) : `reason IN ('SPAM', 'INAPPROPRIATE', 'FAKE', 'OTHER')`.
+
+#### Sémantique des champs
+
+- **`reason`** : motif catégoriel choisi par l'utilisateur dans la modale frontend
+  (SCRUM-96). Enum `ReportReason` : `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER`. Obligatoire.
+- **`description`** : texte libre optionnel (max 2000 chars). Vit **à côté** de `reason`.
+- **`reviewedAt`** + **`reviewedBy`** : posés ensemble par `ReportService.handle()` au
+  moment où l'admin transitionne le report (`PENDING → REVIEWED|DISMISSED`). L'invariant
+  *« reviewedAt non-null ↔ reviewedBy non-null ↔ status != PENDING »* est garanti côté service,
+  pas par une CHECK DB.
+- **`moderationNote`** : note libre saisie par l'admin au moment du PATCH (max 2000 chars).
+
+#### Consommation par `ModerationCleanupService`
+
+Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/ModerationCleanupService.java)
+(cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
+lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
+
+#### Consommation par `ReportService`
+
+- `ReportService.create(eventId, auth0Id, CreateReportRequest)` — vérifie l'existence
+  de l'event, son statut PUBLISHED, l'absence de self-report (cascade SCRUM-136 :
+  créateur OU co-organisateur ACCEPTED → 422), l'absence de doublon ; persiste avec status PENDING.
+- `ReportService.listByStatus(status, page, size)` — listing paginé pour le dashboard
+  admin (SCRUM-97), tri `createdAt DESC, id DESC`.
+- `ReportService.handle(reportId, adminAuth0Id, HandleReportRequest)` — transition
+  `PENDING → REVIEWED|DISMISSED` + audit (`reviewedAt`, `reviewedBy`, `moderationNote`).
 
 ---
 
@@ -270,7 +417,9 @@ attendingCount, interestedCount, viewCount
 | `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
-| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 6 | Planifié |
+| `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
+| `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
+| `ReportReason` | `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER` | Sprint 7 | ✅ Implémenté (SCRUM-94 — CHECK constraint posée par V9) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
@@ -328,10 +477,22 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 ---
 
-## Gestion du schéma
+## Gestion du schéma — Flyway
 
-Le schéma est géré par **Hibernate en mode `update`** (`quarkus.hibernate-orm.schema-management.strategy=update`).
+Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Les entités JPA dans `src/main/java/**/entity/` sont la source de vérité
-- Hibernate crée et met à jour les tables automatiquement au démarrage
-- Aucun fichier SQL de migration n'est utilisé ni requis
+- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
+
+### V1 — Réconciliation des contraintes CHECK
+
+`V1__reconcile_check_constraints.sql` est la première migration : elle drop+recrée `events_faculty_check`, `events_category_check`, `events_status_check` et `attendances_status_check` avec les valeurs courantes des enums Java. Elle remplace l'ancien bean `SchemaFixup` qui faisait le même travail au démarrage.
+
+> **À surveiller pour `event_co_organizers_status_check` (SCRUM-136).** La table
+> `event_co_organizers` est créée par la migration `V8__create_event_co_organizers.sql`,
+> qui pose la CHECK initiale sur `CoOrganizerStatus`. Toute future modification de l'enum
+> (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
+> drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
+> muter une migration committée.

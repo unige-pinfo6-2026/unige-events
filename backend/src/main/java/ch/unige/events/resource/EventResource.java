@@ -81,7 +81,9 @@ public class EventResource {
     @Path("/{id}")
     @PermitAll
     public Response getById(@PathParam("id") Long id) {
-        EventDTO event = eventService.getById(id);
+        String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
+        boolean isAdmin = !identity.isAnonymous() && identity.hasRole("ADMIN");
+        EventDTO event = eventService.getById(id, auth0Id, isAdmin);
         return Response.ok(event).build();
     }
 

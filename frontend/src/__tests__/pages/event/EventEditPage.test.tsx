@@ -1,6 +1,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventEditPage from '@/pages/event/EventEditPage'
 import { ToastProvider } from '@/contexts/ToastContext'
@@ -13,6 +13,32 @@ vi.mock('@/services/eventApi', () => ({
   uploadEventImage: vi.fn(),
   deleteEvent: vi.fn(),
 }))
+
+vi.mock('@/components/utils/ImageCropper', () => ({
+  default: ({ onCropComplete, onCancel, src }: { onCropComplete: (b: Blob) => void; onCancel: () => void; src: string }) => (
+    <div data-testid="image-cropper-mock" data-src={src}>
+      <button type="button" onClick={() => onCropComplete(new Blob(['cropped'], { type: 'image/png' }))}>
+        Mock Recadrer
+      </button>
+      <button type="button" onClick={onCancel}>
+        Mock Annuler
+      </button>
+    </div>
+  ),
+}))
+
+let originalFileReader: typeof FileReader
+function mockFileReader(result: string) {
+  class MockReader {
+    public onload: (() => void) | null = null
+    public result: string | null = null
+    readAsDataURL() {
+      this.result = result
+      queueMicrotask(() => this.onload?.())
+    }
+  }
+  globalThis.FileReader = MockReader as unknown as typeof FileReader
+}
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -48,9 +74,11 @@ const draftEvent = { ...existingEvent, status: 'DRAFT' }
 
 beforeEach(() => {
   vi.useRealTimers()
+  originalFileReader = globalThis.FileReader
 })
 
 afterEach(() => {
+  globalThis.FileReader = originalFileReader
   cleanup()
   vi.clearAllTimers()
   vi.restoreAllMocks()
@@ -128,6 +156,7 @@ describe('EditEventPage', () => {
   })
 
   it('uploads a new banner during update', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockGetById.mockResolvedValue(existingEvent)
     mockUpdateEvent.mockResolvedValue(existingEvent)
     mockUploadEventImage.mockResolvedValue({ ...existingEvent, bannerUrl: 'https://example.com/banner.png' })
@@ -143,12 +172,19 @@ describe('EditEventPage', () => {
       throw new Error('Missing banner input')
     }
     const file = new File(['img'], 'banner.png', { type: 'image/png' })
-    fireEvent.change(fileInput, { target: { files: [file] } })
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+    fireEvent.click(screen.getByText('Mock Recadrer'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     await screen.findByText('Événement mis à jour avec succès.')
-    expect(mockUploadEventImage).toHaveBeenCalledWith(42, file)
+    const uploaded = mockUploadEventImage.mock.calls[0]
+    expect(uploaded[0]).toBe(42)
+    expect(uploaded[1]).toBeInstanceOf(File)
+    expect((uploaded[1] as File).name).toBe('banner.png')
   })
 
   it('shows an invalid id message for malformed routes', async () => {
@@ -179,6 +215,7 @@ describe('EditEventPage', () => {
   })
 
   it('stores the banner error in sessionStorage when image upload fails after update', async () => {
+    mockFileReader('data:image/png;base64,abc')
     mockGetById.mockResolvedValue(existingEvent)
     mockUpdateEvent.mockResolvedValue(existingEvent)
     mockUploadEventImage.mockRejectedValue(new Error('upload failed'))
@@ -193,7 +230,11 @@ describe('EditEventPage', () => {
 
     const fileInput = document.querySelector<HTMLInputElement>('#event-banner')
     if (!fileInput) throw new Error('Missing banner input')
-    fireEvent.change(fileInput, { target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } })
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [new File(['img'], 'banner.png', { type: 'image/png' })] } })
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+    fireEvent.click(screen.getByText('Mock Recadrer'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
