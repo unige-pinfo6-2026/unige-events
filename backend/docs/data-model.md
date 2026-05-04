@@ -232,7 +232,7 @@ du JWT — pas de spoofing).
 ### Report
 
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
-enrichie par la migration `V9__add_report_reason_and_review_fields.sql` en SCRUM-94).
+enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|

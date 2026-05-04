@@ -213,7 +213,7 @@ Fix :
 - [x] **SCRUM-94** — Modération : enrichissement de l'entité `Report` (livrée par
       SCRUM-103) avec l'enum `ReportReason` (SPAM/INAPPROPRIATE/FAKE/OTHER), `description`
       (renommée depuis l'ancienne colonne `reason` libre), `moderationNote`, `reviewedAt`,
-      `reviewedBy`. Migration `V9__add_report_reason_and_review_fields.sql` (Hibernate en
+      `reviewedBy`. Migration `V10__add_report_reason_and_review_fields.sql` (Hibernate en
       `validate` : Flyway obligatoire — la mention « mode update » du libellé Jira est
       obsolète depuis SCRUM-164). 3 endpoints : `POST /api/events/{id}/report`
       (`@Authenticated`), `GET /api/admin/reports` (paginé, défaut `status=PENDING`,
