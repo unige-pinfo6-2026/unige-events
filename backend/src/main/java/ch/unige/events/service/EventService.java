@@ -57,6 +57,9 @@ public class EventService {
         if (status != null) {
             conditions.add("e.status = :status");
             params.put("status", status);
+        } else {
+            conditions.add("e.status <> :notExpired");
+            params.put("notExpired", EventStatus.EXPIRED);
         }
         if (category != null) {
             conditions.add("e.category = :category");
@@ -125,6 +128,9 @@ public class EventService {
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
         event.creator = creator;
+        if (request.getStatus() == EventStatus.EXPIRED) {
+            throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+        }
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
         }
@@ -185,6 +191,9 @@ public class EventService {
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
         if (request.status != null) {
+            if (request.status == EventStatus.EXPIRED) {
+                throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+            }
             event.status = request.status;
         }
 

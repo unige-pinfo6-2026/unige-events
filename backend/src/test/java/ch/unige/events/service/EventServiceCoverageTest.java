@@ -62,6 +62,19 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void getAll_noFilters_excludesExpiredEvents() {
+        User user = persistUser("auth0|exp-excl", "exp-excl@example.com");
+        persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Expired", EventCategory.ACADEMIC, EventStatus.EXPIRED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Published", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
     void getAll_withStatusFilter_returnsFiltered() {
         User user = persistUser("auth0|b", "b@example.com");
         persistEvent("Draft", EventCategory.ACADEMIC, EventStatus.DRAFT, user);
@@ -318,6 +331,28 @@ class EventServiceCoverageTest {
         req.setStatus(EventStatus.CANCELLED);
 
         assertThrows(BadRequestException.class, () -> eventService.create("auth0|cancelled", req));
+    }
+
+    @Test
+    @TestTransaction
+    void create_withExpiredStatus_throwsBadRequest() {
+        persistUser("auth0|expired-create", "expired-create@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.EXPIRED);
+
+        assertThrows(BadRequestException.class, () -> eventService.create("auth0|expired-create", req));
+    }
+
+    @Test
+    @TestTransaction
+    void update_withExpiredStatus_throwsBadRequest() {
+        User user = persistUser("auth0|expired-upd", "expired-upd@example.com");
+        Event event = persistEvent("Active", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        UpdateEventRequest req = validUpdateRequest("Active", EventCategory.ACADEMIC, EventStatus.EXPIRED);
+
+        assertThrows(BadRequestException.class, () -> eventService.update(event.id, "auth0|expired-upd", req));
     }
 
     // --- getById ---
