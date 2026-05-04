@@ -58,7 +58,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Deploy
         env:
@@ -116,7 +116,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Deploy
         run: |
