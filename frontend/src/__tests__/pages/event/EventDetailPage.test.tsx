@@ -843,6 +843,50 @@ describe('EventDetailPage', () => {
     })
   })
 
+  describe('DRAFT redirect (Fix 6)', () => {
+    const draftEvent = { ...mockEvent, status: 'DRAFT' as const }
+
+    it('redirects the creator from /events/:id to /events/:id/edit when status is DRAFT', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: false } })
+      mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockNavigate).toHaveBeenCalledWith(`/events/${draftEvent.id}/edit`, { replace: true })
+    })
+
+    it('does not redirect the creator when the event is PUBLISHED', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: false } })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('does not redirect an admin viewing a DRAFT they created', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: true } })
+      mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('does not redirect a non-creator non-admin viewing a DRAFT', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'user-2', admin: false } })
+      mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+  })
+
   // --- View tracking (Copilot review) ---
 
   describe('view tracking', () => {

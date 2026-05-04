@@ -29,20 +29,24 @@ function EventDetailFixture() {
     <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
       {/* Main column (order-2 on mobile) */}
       <div className="flex flex-col gap-5 max-lg:order-2">
+        {/* Banner h-72 mobile / h-80 desktop */}
         <div className="h-72 lg:h-80 rounded-3xl" />
+        {/* Description card (h-40) */}
         <div className="h-40 rounded-3xl" />
-        <div className="flex flex-col gap-3">
-          <div className="h-20 rounded-2xl" />
-          <div className="h-20 rounded-2xl" />
-          <div className="h-20 rounded-2xl" />
-          <div className="h-20 rounded-2xl" />
-        </div>
+        {/* AttendeesList compact card (90px = 2 border + 32 py-4 + 28 h2+mb + 28 summary row) */}
+        <div className="h-[90px] rounded-3xl" />
+        {/* "Informations complémentaires" SCRUM-117 (h-44) */}
+        <div className="h-44 rounded-3xl" />
       </div>
       {/* Sidebar column (order-1 on mobile) */}
       <div className="flex flex-col gap-4 max-lg:order-1">
+        {/* Card infos clés (h-72) */}
         <div className="h-72 rounded-3xl" />
+        {/* Favoris/Share + AttendanceButtons card (h-44) */}
         <div className="h-44 rounded-3xl" />
+        {/* IcsExportButton card (~236px = p-6 + header + 3 stacked option buttons) */}
         <div className="h-[236px] rounded-3xl" />
+        {/* EventStatsPanel public card (172px = p-5 + header + 3 mini-tiles rounded-2xl) */}
         <div className="h-[172px] rounded-3xl" />
       </div>
     </div>
@@ -240,6 +244,14 @@ export default function EventDetailPage() {
     return () => { active = false }
   }, [event])
 
+  useEffect(() => {
+    if (!event || !user) return
+    if (event.status !== 'DRAFT') return
+    if (user.admin) return
+    if (user.id !== event.creatorId) return
+    navigate(`/events/${event.id}/edit`, { replace: true })
+  }, [event, user, navigate])
+
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 
   // Only the very first fetch shows the full-page skeleton. Subsequent
@@ -388,7 +400,7 @@ export default function EventDetailPage() {
                           href={safeHref}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-foreground hover:underline break-all"
+                          className="text-link hover:underline break-all"
                         >
                           {event.websiteUrl}
                         </a>
@@ -403,7 +415,7 @@ export default function EventDetailPage() {
                   <InfoRow icon={Mail} color={category.color}>
                     <a
                       href={`mailto:${event.contactEmail}`}
-                      className="text-foreground hover:underline break-all"
+                      className="text-link hover:underline break-all"
                     >
                       {event.contactEmail}
                     </a>
