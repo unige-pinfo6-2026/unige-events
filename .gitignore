@@ -31,5 +31,8 @@ nb-configuration.xml
 .claude
 .codex
 
+# Superpowers plans (local planning docs — not part of source history)
+docs/superpowers/
+
 # Figma
 .figma

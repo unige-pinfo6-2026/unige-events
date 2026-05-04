@@ -73,7 +73,8 @@ class CoOrganizerDTOTest {
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2),
                 EventCategory.ACADEMIC, null, null,
                 UUID.randomUUID(), EventStatus.PUBLISHED, null, false,
-                false, 0L, null, 0L,
+                false, null, 0L, null, 0L,
+                null, null,
                 null, null, null, List.of(),
                 LocalDateTime.now(), LocalDateTime.now()
         );

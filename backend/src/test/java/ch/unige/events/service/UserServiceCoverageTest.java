@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.InvalidFileTypeException;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -550,12 +551,12 @@ class UserServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void uploadImage_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
+    void uploadImage_validJpeg_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
         deleteAllUsers();
         persistUser("auth0|photo", "photo@example.com", false);
 
         Path fakeFile = tempDir.resolve("avatar.jpg");
-        Files.write(fakeFile, "fake-jpeg".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("avatar.jpg", "image/jpeg", fakeFile);
 
         User result = userService.uploadImage("auth0|photo", upload);
@@ -567,32 +568,121 @@ class UserServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void uploadImage_noExtension_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_validPng_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
         deleteAllUsers();
-        persistUser("auth0|noext", "noext@example.com", false);
+        persistUser("auth0|png", "png@example.com", false);
 
-        Path fakeFile = tempDir.resolve("avatar");
-        Files.write(fakeFile, "data".getBytes());
-        FileUpload upload = new StubFileUpload("avatar", "image/jpeg", fakeFile);
+        Path fakeFile = tempDir.resolve("avatar.png");
+        Files.write(fakeFile, pngHeader());
+        FileUpload upload = new StubFileUpload("avatar.png", "image/png", fakeFile);
 
-        User result = userService.uploadImage("auth0|noext", upload);
+        User result = userService.uploadImage("auth0|png", upload);
 
-        assertTrue(result.avatarUrl.endsWith(".bin"));
+        assertTrue(result.avatarUrl.endsWith(".png"));
     }
 
     @Test
     @TestTransaction
-    void uploadImage_nullFileName_usesBinExtension(@TempDir Path tempDir) throws IOException {
+    void uploadImage_validWebp_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|webp", "webp@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar.webp");
+        Files.write(fakeFile, webpHeader());
+        FileUpload upload = new StubFileUpload("avatar.webp", "image/webp", fakeFile);
+
+        User result = userService.uploadImage("auth0|webp", upload);
+
+        assertTrue(result.avatarUrl.endsWith(".webp"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_validGif_updatesAvatarUrl(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|gif", "gif@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar.gif");
+        Files.write(fakeFile, gifHeader());
+        FileUpload upload = new StubFileUpload("avatar.gif", "image/gif", fakeFile);
+
+        User result = userService.uploadImage("auth0|gif", upload);
+
+        assertTrue(result.avatarUrl.endsWith(".gif"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_extensionDerivedFromMime_notFromFileName(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|noext", "noext@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar");
+        Files.write(fakeFile, jpegHeader());
+        FileUpload upload = new StubFileUpload("avatar", "image/jpeg", fakeFile);
+
+        User result = userService.uploadImage("auth0|noext", upload);
+
+        // Extension comes from the validated MIME type, not from the client filename.
+        assertTrue(result.avatarUrl.endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_nullFileName_extensionFromMime(@TempDir Path tempDir) throws IOException {
         deleteAllUsers();
         persistUser("auth0|nullname", "nullname@example.com", false);
 
         Path fakeFile = tempDir.resolve("file");
-        Files.write(fakeFile, "data".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload(null, "image/jpeg", fakeFile);
 
         User result = userService.uploadImage("auth0|nullname", upload);
 
-        assertTrue(result.avatarUrl.endsWith(".bin"));
+        assertTrue(result.avatarUrl.endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_svgMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|svg", "svg@example.com", false);
+
+        Path fakeFile = tempDir.resolve("xss.svg");
+        Files.write(fakeFile, svgContent());
+        FileUpload upload = new StubFileUpload("xss.svg", "image/svg+xml", fakeFile);
+
+        assertThrows(InvalidFileTypeException.class,
+            () -> userService.uploadImage("auth0|svg", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_svgDisguisedAsPng_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        // Finding 4.18: SVG sent with Content-Type image/png must be rejected by magic-byte check.
+        deleteAllUsers();
+        persistUser("auth0|svg-png", "svg-png@example.com", false);
+
+        Path fakeFile = tempDir.resolve("xss.png");
+        Files.write(fakeFile, svgContent());
+        FileUpload upload = new StubFileUpload("xss.png", "image/png", fakeFile);
+
+        assertThrows(InvalidFileTypeException.class,
+            () -> userService.uploadImage("auth0|svg-png", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_binaryDisguisedAsPng_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|bin-png", "bin-png@example.com", false);
+
+        Path fakeFile = tempDir.resolve("bad.png");
+        Files.write(fakeFile, new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08});
+        FileUpload upload = new StubFileUpload("bad.png", "image/png", fakeFile);
+
+        assertThrows(InvalidFileTypeException.class,
+            () -> userService.uploadImage("auth0|bin-png", upload));
     }
 
     @Test
@@ -605,7 +695,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|mime", upload));
     }
 
@@ -619,7 +709,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, new byte[0]);
         FileUpload upload = new StubFileUpload("file.bin", null, fakeFile);
 
-        assertThrows(BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadImage("auth0|nullmime", upload));
     }
 
@@ -629,7 +719,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
 
         Path fakeFile = tempDir.resolve("f.jpg");
-        Files.write(fakeFile, new byte[0]);
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("f.jpg", "image/jpeg", fakeFile);
 
         assertThrows(NotFoundException.class,
@@ -645,7 +735,7 @@ class UserServiceCoverageTest {
         persistUser("auth0|banner", "banner@example.com", false);
 
         Path fakeFile = tempDir.resolve("banner.jpg");
-        Files.write(fakeFile, "fake-jpeg".getBytes());
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("banner.jpg", "image/jpeg", fakeFile);
 
         User result = userService.uploadBanner("auth0|banner", upload);
@@ -653,6 +743,34 @@ class UserServiceCoverageTest {
         assertNotNull(result.bannerUrl);
         assertTrue(result.bannerUrl.startsWith("http"));
         assertTrue(result.bannerUrl.endsWith(".jpg"));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadBanner_svgMime_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|banner-svg", "banner-svg@example.com", false);
+
+        Path fakeFile = tempDir.resolve("xss.svg");
+        Files.write(fakeFile, svgContent());
+        FileUpload upload = new StubFileUpload("xss.svg", "image/svg+xml", fakeFile);
+
+        assertThrows(InvalidFileTypeException.class,
+            () -> userService.uploadBanner("auth0|banner-svg", upload));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadBanner_svgDisguisedAsPng_throwsBadRequest(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|banner-svg-png", "banner-svg-png@example.com", false);
+
+        Path fakeFile = tempDir.resolve("xss.png");
+        Files.write(fakeFile, svgContent());
+        FileUpload upload = new StubFileUpload("xss.png", "image/png", fakeFile);
+
+        assertThrows(InvalidFileTypeException.class,
+            () -> userService.uploadBanner("auth0|banner-svg-png", upload));
     }
 
     @Test
@@ -665,7 +783,7 @@ class UserServiceCoverageTest {
         Files.write(fakeFile, "#!/bin/bash".getBytes());
         FileUpload upload = new StubFileUpload("script.sh", "text/plain", fakeFile);
 
-        assertThrows(jakarta.ws.rs.BadRequestException.class,
+        assertThrows(InvalidFileTypeException.class,
             () -> userService.uploadBanner("auth0|bannermime", upload));
     }
 
@@ -675,7 +793,7 @@ class UserServiceCoverageTest {
         deleteAllUsers();
 
         Path fakeFile = tempDir.resolve("b.jpg");
-        Files.write(fakeFile, new byte[0]);
+        Files.write(fakeFile, jpegHeader());
         FileUpload upload = new StubFileUpload("b.jpg", "image/jpeg", fakeFile);
 
         assertThrows(NotFoundException.class,
@@ -704,6 +822,26 @@ class UserServiceCoverageTest {
 
         assertThrows(NotFoundException.class,
             () -> userService.deleteBanner("auth0|unknown"));
+    }
+
+    static byte[] jpegHeader() {
+        return new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0, 0, 0};
+    }
+
+    static byte[] pngHeader() {
+        return new byte[]{(byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A};
+    }
+
+    static byte[] webpHeader() {
+        return new byte[]{'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
+    }
+
+    static byte[] gifHeader() {
+        return new byte[]{'G', 'I', 'F', '8', '9', 'a', 0, 0, 0, 0};
+    }
+
+    static byte[] svgContent() {
+        return "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>".getBytes();
     }
 
     static class StubFileUpload implements FileUpload {

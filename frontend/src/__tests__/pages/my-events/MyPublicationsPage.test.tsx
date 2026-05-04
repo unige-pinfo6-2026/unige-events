@@ -53,7 +53,10 @@ function renderWithProviders(component: ReactNode) {
 
 afterEach(() => {
   cleanup()
-  vi.resetAllMocks()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  // Remove any <footer> added by FAB tests
+  document.querySelectorAll('footer').forEach(f => f.remove())
 })
 
 describe('MyPublicationsPage', () => {
@@ -652,6 +655,154 @@ describe('MyPublicationsPage', () => {
     fireEvent.click(screen.getByText('Publier'))
     await waitFor(() => expect(publish).toHaveBeenCalledWith(1))
     expect(screen.queryByText('Impossible de publier cet événement')).toBeFalsy()
+  })
+
+  it('FAB adjusts bottom offset when footer is in view', async () => {
+    // Add a <footer> so the useEffect doesn't early-return
+    const footer = document.createElement('footer')
+    document.body.appendChild(footer)
+
+    // Mock ResizeObserver
+    const observeSpy = vi.fn()
+    const disconnectSpy = vi.fn()
+    class MockResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        setTimeout(() => cb([] as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver), 0)
+      }
+      observe = observeSpy
+      disconnect = disconnectSpy
+      unobserve = vi.fn()
+    }
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+
+    // Mock requestAnimationFrame / cancelAnimationFrame
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { cb(0); return 1 })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    // Mock footer position: footer top at 900, viewport height 1000 → overlap = 100
+    vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue({
+      top: 900, bottom: 1000, left: 0, right: 0, width: 0, height: 100, x: 0, y: 900, toJSON: () => {},
+    })
+    Object.defineProperty(window, 'innerHeight', { value: 1000, configurable: true })
+
+    mockUseMyEvents.mockReturnValue({
+      events: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+
+    await waitFor(() => {
+      const fab = document.querySelector('a[aria-label="Créer un événement"].fixed')
+      expect(fab).toBeTruthy()
+      // overlap = max(0, 1000 - 900) = 100, bottom = 100 + 24 = 124px
+      expect((fab as HTMLElement).style.bottom).toBe('124px')
+    })
+
+    expect(observeSpy).toHaveBeenCalledWith(document.body)
+
+    // Trigger scroll and resize to exercise those listeners
+    window.dispatchEvent(new Event('scroll'))
+    window.dispatchEvent(new Event('resize'))
+
+    cleanup()
+    // After cleanup, ResizeObserver should be disconnected and listeners removed
+    expect(disconnectSpy).toHaveBeenCalled()
+  })
+
+  it('FAB useEffect exits early when no footer is present', () => {
+    // Ensure no <footer> in DOM
+    document.querySelectorAll('footer').forEach(f => f.remove())
+
+    mockUseMyEvents.mockReturnValue({
+      events: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const fab = document.querySelector('a[aria-label="Créer un événement"].fixed')
+    // When no footer, the effect returns early → style.bottom is not set
+    expect((fab as HTMLElement).style.bottom).toBe('')
+  })
+
+  it('FAB handles footer fully above viewport (no overlap)', async () => {
+    const footer = document.createElement('footer')
+    document.body.appendChild(footer)
+
+    vi.stubGlobal('ResizeObserver', class { observe = vi.fn(); disconnect = vi.fn(); unobserve = vi.fn() })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { cb(0); return 1 })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    // Footer top at 1200, viewport height 1000 → no overlap
+    vi.spyOn(footer, 'getBoundingClientRect').mockReturnValue({
+      top: 1200, bottom: 1300, left: 0, right: 0, width: 0, height: 100, x: 0, y: 1200, toJSON: () => {},
+    })
+    Object.defineProperty(window, 'innerHeight', { value: 1000, configurable: true })
+
+    mockUseMyEvents.mockReturnValue({
+      events: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+
+    await waitFor(() => {
+      const fab = document.querySelector('a[aria-label="Créer un événement"].fixed')
+      // overlap = max(0, 1000 - 1200) = 0, bottom = 0 + 24 = 24px
+      expect((fab as HTMLElement).style.bottom).toBe('24px')
+    })
+  })
+
+  it('FAB works when ResizeObserver is not available', async () => {
+    const footer = document.createElement('footer')
+    document.body.appendChild(footer)
+
+    // Simulate env without ResizeObserver
+    const orig = globalThis.ResizeObserver
+    // @ts-expect-error - intentionally removing ResizeObserver
+    delete globalThis.ResizeObserver
+
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { cb(0); return 1 })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    mockUseMyEvents.mockReturnValue({
+      events: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+
+    await waitFor(() => {
+      const fab = document.querySelector('a[aria-label="Créer un événement"].fixed')
+      // The effect still runs (scroll/resize listeners) and sets bottom
+      expect((fab as HTMLElement).style.bottom).not.toBe('')
+    })
+
+    globalThis.ResizeObserver = orig
   })
 
   it('publish with validation errors opens error modal listing each error', async () => {

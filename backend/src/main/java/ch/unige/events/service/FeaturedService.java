@@ -79,7 +79,7 @@ public class FeaturedService {
     @Transactional
     public EventDTO feature(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
         if (!event.featured) {
             event.featured = true;
             event.featuredAt = LocalDateTime.now();
@@ -90,7 +90,7 @@ public class FeaturedService {
     @Transactional
     public EventDTO unfeature(Long id) {
         Event event = Event.<Event>findByIdOptional(id)
-                .orElseThrow(NotFoundException::new);
+                .orElseThrow(() -> new NotFoundException("Event not found"));
         event.featured = false;
         event.featuredAt = null;
         return toSingleEventDTO(event);
@@ -102,7 +102,7 @@ public class FeaturedService {
         long wait = Attendance.count("eventId = ?1 and status = ?2",
                 event.id, AttendanceStatus.WAITLISTED);
         return EventDTO.from(event, att,
-                EventService.computeAvailableSpots(event.capacity, att), wait);
+                EventService.computeAvailableSpots(event.capacity, att), wait, null, null);
     }
 
     private List<EventDTO> toEventDTOs(List<Event> events) {
@@ -115,7 +115,7 @@ public class FeaturedService {
         return events.stream().map(e -> {
             long att = attending.getOrDefault(e.id, 0L);
             long wait = waitlisted.getOrDefault(e.id, 0L);
-            return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait);
+            return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
         }).toList();
     }
 
@@ -127,7 +127,7 @@ public class FeaturedService {
         return events.stream().map(e -> {
             long att = attendingCounts.getOrDefault(e.id, 0L);
             long wait = waitlisted.getOrDefault(e.id, 0L);
-            return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait);
+            return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
         }).toList();
     }
 

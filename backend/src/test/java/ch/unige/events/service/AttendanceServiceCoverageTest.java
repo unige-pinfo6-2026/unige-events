@@ -477,6 +477,28 @@ class AttendanceServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void removeAttendance_onExpiredEvent_doesNotPromote() {
+        User organizer = persistUser("auth0|ex-org", "ex-org@example.com");
+        Event event = persistEvent("Expired Event", organizer, EventStatus.PUBLISHED, 1);
+
+        User u1 = persistUser("auth0|ex-u1", "ex-u1@example.com");
+        User u2 = persistUser("auth0|ex-u2", "ex-u2@example.com");
+
+        persistAttendance(u1.id, event.id, AttendanceStatus.ATTENDING);
+        persistAttendance(u2.id, event.id, AttendanceStatus.WAITLISTED);
+
+        event.status = EventStatus.EXPIRED;
+        entityManager.flush();
+        attendanceService.removeAttendance("auth0|ex-u1", event.id);
+        entityManager.flush();
+
+        Attendance u2After = Attendance.<Attendance>find(
+                "userId = ?1 and eventId = ?2", u2.id, event.id).firstResult();
+        assertEquals(AttendanceStatus.WAITLISTED, u2After.status);
+    }
+
+    @Test
+    @TestTransaction
     void getById_reflectsAvailableSpotsAndWaitlistedCount() {
         User organizer = persistUser("auth0|spots-org", "spots-org@example.com");
         Event event = persistEvent("Spots Event", organizer, EventStatus.PUBLISHED, 2);
@@ -536,13 +558,81 @@ class AttendanceServiceCoverageTest {
         a.status = AttendanceStatus.ATTENDING;
         a.createdAt = LocalDateTime.now();
 
-        AttendanceDTO dto = AttendanceDTO.from(a);
+        User user = new User();
+        user.id = a.userId;
+        user.displayName = "Alice";
+        user.avatarUrl = "https://cdn.example.com/alice.png";
+
+        AttendanceDTO dto = AttendanceDTO.from(a, user);
 
         assertEquals(1L, dto.id());
         assertEquals(a.userId, dto.userId());
         assertEquals(42L, dto.eventId());
         assertEquals(AttendanceStatus.ATTENDING, dto.status());
         assertEquals(a.createdAt, dto.createdAt());
+        assertEquals("Alice", dto.displayName());
+        assertEquals("https://cdn.example.com/alice.png", dto.avatarUrl());
+    }
+
+    @Test
+    void attendanceDTO_from_nullUser_yieldsNullProfileFields() {
+        Attendance a = new Attendance();
+        a.id = 7L;
+        a.userId = UUID.randomUUID();
+        a.eventId = 11L;
+        a.status = AttendanceStatus.WAITLISTED;
+        a.createdAt = LocalDateTime.now();
+
+        AttendanceDTO dto = AttendanceDTO.from(a, null);
+
+        assertEquals(7L, dto.id());
+        assertEquals(a.userId, dto.userId());
+        assertNull(dto.displayName());
+        assertNull(dto.avatarUrl());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_byCreator_exposesPrivateUserDisplayName() {
+        // Page stats organisateur : on doit voir le nom des participants même
+        // si leur profil est `profilePublic = false`. La route est restreinte
+        // au créateur / co-organisateur ACCEPTED, donc exposer ces champs ici
+        // est sûr (cf. SCRUM hotfix UUID).
+        User creator = persistUser("auth0|priv-c", "priv-c@example.com");
+        Event event = persistEvent("Stats with private", creator, EventStatus.PUBLISHED, null);
+
+        User privateUser = persistUser("auth0|priv-att", "priv-att@example.com");
+        privateUser.displayName = "Private Attendee";
+        privateUser.avatarUrl = "https://cdn.example.com/private.png";
+        privateUser.profilePublic = false;
+        entityManager.flush();
+        persistAttendance(privateUser.id, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees("auth0|priv-c", event.id, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Private Attendee", result.get(0).displayName());
+        assertEquals("https://cdn.example.com/private.png", result.get(0).avatarUrl());
+        assertEquals(privateUser.id, result.get(0).userId());
+    }
+
+    @Test
+    @TestTransaction
+    void getAttendees_orphanAttendance_yieldsNullDisplayName() {
+        // Pas de FK contrainte entre Attendance et User : si un user a été supprimé
+        // mais que sa ligne d'attendance survit, le DTO doit rester rendable
+        // (displayName = null) plutôt que de planter le batch entier.
+        User creator = persistUser("auth0|orph-c", "orph-c@example.com");
+        Event event = persistEvent("Stats orphan", creator, EventStatus.PUBLISHED, null);
+        UUID ghostUserId = UUID.randomUUID();
+        persistAttendance(ghostUserId, event.id, AttendanceStatus.ATTENDING);
+
+        List<AttendanceDTO> result = attendanceService.getAttendees("auth0|orph-c", event.id, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(ghostUserId, result.get(0).userId());
+        assertNull(result.get(0).displayName());
+        assertNull(result.get(0).avatarUrl());
     }
 
     // =========================================================

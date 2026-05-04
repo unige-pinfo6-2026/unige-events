@@ -24,9 +24,12 @@ public record EventDTO(
         Integer capacity,
         boolean allDay,
         boolean featured,
+        LocalDateTime featuredAt,
         long attendingCount,
         Long availableSpots,
         long waitlistedCount,
+        Long viewCount,
+        Long interestedCount,
         String websiteUrl,
         String contactEmail,
         LocalDateTime registrationDeadline,
@@ -38,7 +41,9 @@ public record EventDTO(
             Event event,
             long attendingCount,
             Long availableSpots,
-            long waitlistedCount
+            long waitlistedCount,
+            Long viewCount,
+            Long interestedCount
     ) {
         return new EventDTO(
                 event.id,
@@ -55,9 +60,12 @@ public record EventDTO(
                 event.capacity,
                 event.allDay,
                 event.featured,
+                event.featuredAt,
                 attendingCount,
                 availableSpots,
                 waitlistedCount,
+                viewCount,
+                interestedCount,
                 event.websiteUrl,
                 event.contactEmail,
                 event.registrationDeadline,

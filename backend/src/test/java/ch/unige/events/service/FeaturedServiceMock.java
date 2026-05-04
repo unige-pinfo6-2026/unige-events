@@ -52,27 +52,29 @@ public class FeaturedServiceMock extends FeaturedService {
         return store.values().stream()
                 .filter(e -> e.featured)
                 .limit(limit)
-                .map(e -> EventDTO.from(e, 0L, null, 0L))
+                .map(e -> EventDTO.from(e, 0L, null, 0L, null, null))
                 .toList();
     }
 
     @Override
     public EventDTO feature(Long id) {
-        if (forceNotFound) throw new NotFoundException();
+        if (forceNotFound) throw new NotFoundException("Event not found");
         Event e = store.get(id);
-        if (e == null) throw new NotFoundException();
-        e.featured = true;
-        e.featuredAt = LocalDateTime.now();
-        return EventDTO.from(e, 0L, null, 0L);
+        if (e == null) throw new NotFoundException("Event not found");
+        if (!e.featured) {
+            e.featured = true;
+            e.featuredAt = LocalDateTime.now();
+        }
+        return EventDTO.from(e, 0L, null, 0L, null, null);
     }
 
     @Override
     public EventDTO unfeature(Long id) {
-        if (forceNotFound) throw new NotFoundException();
+        if (forceNotFound) throw new NotFoundException("Event not found");
         Event e = store.get(id);
-        if (e == null) throw new NotFoundException();
+        if (e == null) throw new NotFoundException("Event not found");
         e.featured = false;
         e.featuredAt = null;
-        return EventDTO.from(e, 0L, null, 0L);
+        return EventDTO.from(e, 0L, null, 0L, null, null);
     }
 }

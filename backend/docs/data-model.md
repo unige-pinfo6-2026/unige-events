@@ -64,7 +64,7 @@ Table : `events`
 | `websiteUrl` | `websiteUrl` | `String` | `website_url` | nullable, `@URL` (Hibernate Validator), `@Column(length=500)` — SCRUM-126 |
 | `contactEmail` | `contactEmail` | `String` | `contact_email` | nullable, `@Email` (jakarta), `@Column(length=255)` — SCRUM-126 |
 | `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
-| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, tag `length=64`, max 20 — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
+| `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, colonne DB `tag VARCHAR(64)` (legacy compat), validation DTO `@Size(max=16)` sur les éléments depuis ISSUE-122, max 20 tags — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
@@ -142,6 +142,12 @@ Contrainte unique : `uq_attendance_user_event` sur `(user_id, event_id)`.
 Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upsert** : si l'utilisateur est déjà inscrit (`ATTENDING` ou `WAITLISTED`), l'inscription existante est renvoyée telle quelle, sans modification. La promotion `WAITLISTED → ATTENDING` n'est jamais déclenchée par un appel client — uniquement par la libération d'un slot dans `removeAttendance()`, sous verrou pessimiste.
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
+
+#### `AttendanceDTO` — projection du nom du participant
+
+`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
+
+`AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
 
 ---
 
@@ -225,20 +231,57 @@ du JWT — pas de spoofing).
 
 ### Report
 
-Table : `reports`
+Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
+enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
 | `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
 | `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
 | `reporter` | — | `User` | `reporter_id` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
+| `reason` | `reason` | `ReportReason` | `reason` | `@Enumerated(STRING)`, not null, `length=32`, CHECK constraint — SCRUM-94 |
+| `description` | `description` | `String` | `description` | nullable, `@Column(columnDefinition="TEXT")` — texte libre saisi en complément du motif catégoriel. Renommé depuis `reason` (TEXT libre) en SCRUM-94. |
 | `status` | `status` | `ReportStatus` | `status` | `@Enumerated(STRING)`, not null, défaut `PENDING` |
-| `reason` | `reason` | `String` | `reason` | nullable, `@Column(columnDefinition="TEXT")` |
+| `moderationNote` | `moderationNote` | `String` | `moderation_note` | nullable, `@Column(columnDefinition="TEXT")` — note saisie par l'admin au moment du PATCH |
+| `reviewedAt` | `reviewedAt` | `LocalDateTime` | `reviewed_at` | nullable — posé par `ReportService.handle()` au moment de la transition |
+| `reviewedBy` | — | `User` | `reviewed_by` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 
 Index DB : `idx_report_event` (event_id), `idx_report_status` (status).
 
-Utilisée par `ModerationCleanupService` pour calculer le nombre de signalements `PENDING` par événement (job quotidien 03h00).
+Contrainte unique : `uk_report_reporter_event` sur `(reporter_id, event_id)` — empêche
+le double signalement et sert de filet de sécurité au check applicatif `409 already_reported`.
+
+CHECK constraints :
+- `reports_status_check` (posée par V7) : `status IN ('PENDING', 'REVIEWED', 'DISMISSED')`.
+- `reports_reason_check` (posée par V9) : `reason IN ('SPAM', 'INAPPROPRIATE', 'FAKE', 'OTHER')`.
+
+#### Sémantique des champs
+
+- **`reason`** : motif catégoriel choisi par l'utilisateur dans la modale frontend
+  (SCRUM-96). Enum `ReportReason` : `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER`. Obligatoire.
+- **`description`** : texte libre optionnel (max 2000 chars). Vit **à côté** de `reason`.
+- **`reviewedAt`** + **`reviewedBy`** : posés ensemble par `ReportService.handle()` au
+  moment où l'admin transitionne le report (`PENDING → REVIEWED|DISMISSED`). L'invariant
+  *« reviewedAt non-null ↔ reviewedBy non-null ↔ status != PENDING »* est garanti côté service,
+  pas par une CHECK DB.
+- **`moderationNote`** : note libre saisie par l'admin au moment du PATCH (max 2000 chars).
+
+#### Consommation par `ModerationCleanupService`
+
+Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/ModerationCleanupService.java)
+(cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
+lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
+
+#### Consommation par `ReportService`
+
+- `ReportService.create(eventId, auth0Id, CreateReportRequest)` — vérifie l'existence
+  de l'event, son statut PUBLISHED, l'absence de self-report (cascade SCRUM-136 :
+  créateur OU co-organisateur ACCEPTED → 422), l'absence de doublon ; persiste avec status PENDING.
+- `ReportService.listByStatus(status, page, size)` — listing paginé pour le dashboard
+  admin (SCRUM-97), tri `createdAt DESC, id DESC`.
+- `ReportService.handle(reportId, adminAuth0Id, HandleReportRequest)` — transition
+  `PENDING → REVIEWED|DISMISSED` + audit (`reviewedAt`, `reviewedBy`, `moderationNote`).
 
 ---
 
@@ -376,6 +419,7 @@ attendingCount, interestedCount, viewCount
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
+| `ReportReason` | `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER` | Sprint 7 | ✅ Implémenté (SCRUM-94 — CHECK constraint posée par V9) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 

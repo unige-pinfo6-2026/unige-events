@@ -23,7 +23,7 @@ class EventDTOTest {
         Event event = new Event();
         event.creator = organizer;
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertEquals(organizer.id, dto.creatorId());
     }
@@ -33,7 +33,7 @@ class EventDTOTest {
         Event event = new Event();
         event.creator = null;
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertNull(dto.creatorId());
     }
@@ -43,7 +43,7 @@ class EventDTOTest {
         Event event = new Event();
         event.faculty = Faculty.SCIENCES;
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertEquals(Faculty.SCIENCES, dto.faculty());
     }
@@ -52,7 +52,7 @@ class EventDTOTest {
     void from_withNullFaculty_returnsNullFaculty() {
         Event event = new Event();
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertNull(dto.faculty());
     }
@@ -62,7 +62,7 @@ class EventDTOTest {
         Event event = new Event();
         event.allDay = true;
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertTrue(dto.allDay());
     }
@@ -71,7 +71,7 @@ class EventDTOTest {
     void from_withAllDayFalse_mapsAllDay() {
         Event event = new Event();
 
-        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertFalse(dto.allDay());
     }
@@ -80,7 +80,7 @@ class EventDTOTest {
     void from_withAttendingCount_mapsAttendingCount() {
         Event event = new Event();
 
-        EventDTO dto = EventDTO.from(event, 42L, event.capacity == null ? null : (long) event.capacity, 0L);
+        EventDTO dto = EventDTO.from(event, 42L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
 
         assertEquals(42L, dto.attendingCount());
     }
@@ -96,7 +96,7 @@ class EventDTOTest {
         event.registrationDeadline = deadline;
         event.tags = new ArrayList<>(Arrays.asList("cinema", "plein-air"));
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
 
         assertEquals("https://example.com/e/42", dto.websiteUrl());
         assertEquals("orga@example.com", dto.contactEmail());
@@ -111,7 +111,7 @@ class EventDTOTest {
         Event event = new Event();
         event.tags = null;
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
 
         assertNotNull(dto.tags());
         assertTrue(dto.tags().isEmpty());
@@ -122,7 +122,7 @@ class EventDTOTest {
         Event event = new Event();
         event.tags = new ArrayList<>(Arrays.asList("a", "b"));
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
         event.tags.add("c");
 
         assertEquals(2, dto.tags().size());
@@ -136,7 +136,7 @@ class EventDTOTest {
         Event event = new Event();
         event.featured = true;
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
 
         assertTrue(dto.featured());
     }
@@ -146,7 +146,7 @@ class EventDTOTest {
         Event event = new Event();
         event.featured = false;
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
 
         assertFalse(dto.featured());
     }
@@ -158,7 +158,7 @@ class EventDTOTest {
         Event event = new Event();
         event.capacity = null;
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 0L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
 
         assertNull(dto.availableSpots());
     }
@@ -168,7 +168,7 @@ class EventDTOTest {
         Event event = new Event();
         event.capacity = 10;
 
-        EventDTO dto = EventDTO.from(event, 3L, 7L, 0L);
+        EventDTO dto = EventDTO.from(event, 3L, 7L, 0L, null, null);
 
         assertEquals(7L, dto.availableSpots());
     }
@@ -177,7 +177,7 @@ class EventDTOTest {
     void from_withWaitlistedCount_mapsValue() {
         Event event = new Event();
 
-        EventDTO dto = EventDTO.from(event, 0L, null, 5L);
+        EventDTO dto = EventDTO.from(event, 0L, null, 5L, null, null);
 
         assertEquals(5L, dto.waitlistedCount());
     }
@@ -187,9 +187,31 @@ class EventDTOTest {
         Event event = new Event();
         event.capacity = 3;
 
-        EventDTO dto = EventDTO.from(event, 3L, 0L, 2L);
+        EventDTO dto = EventDTO.from(event, 3L, 0L, 2L, null, null);
 
         assertEquals(0L, dto.availableSpots());
         assertEquals(2L, dto.waitlistedCount());
+    }
+
+    // --- review #90 — public stats counters (only filled on getById) ---
+
+    @Test
+    void from_withNullViewAndInterestedCounts_returnsNull() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertNull(dto.viewCount());
+        assertNull(dto.interestedCount());
+    }
+
+    @Test
+    void from_withViewAndInterestedCounts_mapsValues() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, 12L, 5L);
+
+        assertEquals(12L, dto.viewCount());
+        assertEquals(5L, dto.interestedCount());
     }
 }

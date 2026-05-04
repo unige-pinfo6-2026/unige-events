@@ -12,6 +12,7 @@ import _user_identity_inline from './user-identity-inline.bones.json'
 import _user_identity_card from './user-identity-card.bones.json'
 import _my_publications from './my-publications.bones.json'
 import _drafts_resume_strip from './drafts-resume-strip.bones.json'
+import _event_stats from './event-stats.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -23,5 +24,6 @@ registerBones({
   "user-identity-inline": _user_identity_inline,
   "user-identity-card": _user_identity_card,
   "my-publications": _my_publications,
-  "drafts-resume-strip": _drafts_resume_strip
+  "drafts-resume-strip": _drafts_resume_strip,
+  "event-stats": _event_stats,
 })

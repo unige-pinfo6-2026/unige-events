@@ -92,7 +92,7 @@ public class EventServiceMock extends EventService {
                     return faculty == null || e.faculty == faculty;
                 })
                 .filter(e -> !Boolean.TRUE.equals(featured) || e.featured)
-                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L))
+                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null))
                 .toList();
     }
 
@@ -123,7 +123,7 @@ public class EventServiceMock extends EventService {
         event.updatedAt = LocalDateTime.now();
 
         eventsById.put(event.id, event);
-        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
     }
 
     @Override
@@ -139,7 +139,7 @@ public class EventServiceMock extends EventService {
         if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreator) {
             throw new NotFoundException();
         }
-        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
     }
 
     @Override
@@ -182,7 +182,7 @@ public class EventServiceMock extends EventService {
         }
         event.updatedAt = LocalDateTime.now();
 
-        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
     }
 
     @Override
@@ -228,7 +228,7 @@ public class EventServiceMock extends EventService {
                             .build());
         }
         event.status = EventStatus.CANCELLED;
-        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
     }
 
     @Override
@@ -250,7 +250,7 @@ public class EventServiceMock extends EventService {
                             .build());
         }
         event.status = EventStatus.DRAFT;
-        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L);
+        return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
     }
 
     @Override
@@ -265,7 +265,7 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.status = EventStatus.PUBLISHED;
-        return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L);
+        return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null);
     }
 
     @Override
@@ -284,7 +284,7 @@ public class EventServiceMock extends EventService {
                     if (cmp != 0) return cmp;
                     return Long.compare(b.id, a.id);
                 })
-                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L))
+                .map(e -> EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null))
                 .toList();
     }
 
@@ -297,6 +297,6 @@ public class EventServiceMock extends EventService {
         if (e == null) throw new NotFoundException();
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.bannerUrl = "/uploads/test-banner.jpg";
-        return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L);
+        return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null);
     }
 }

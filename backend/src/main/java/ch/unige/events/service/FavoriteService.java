@@ -67,7 +67,7 @@ public class FavoriteService {
                 .map(e -> {
                     long att = attendingCounts.getOrDefault(e.id, 0L);
                     long wait = waitlistedCounts.getOrDefault(e.id, 0L);
-                    return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait);
+                    return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }

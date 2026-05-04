@@ -1,0 +1,44 @@
+cloudflared:
+  enabled: false
+
+db:
+  storageSize: 256Mi
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+minio:
+  storageSize: 512Mi
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+api:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+web:
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "32Mi"
+      ephemeral-storage: "64Mi"
+    limits:
+      memory: "64Mi"
+      ephemeral-storage: "128Mi"
