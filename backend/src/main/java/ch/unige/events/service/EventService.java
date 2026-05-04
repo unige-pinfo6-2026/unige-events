@@ -9,7 +9,9 @@ import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventCoOrganizer;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.Faculty;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -55,6 +57,9 @@ public class EventService {
         if (status != null) {
             conditions.add("e.status = :status");
             params.put("status", status);
+        } else {
+            conditions.add("e.status <> :notExpired");
+            params.put("notExpired", EventStatus.EXPIRED);
         }
         if (category != null) {
             conditions.add("e.category = :category");
@@ -123,12 +128,15 @@ public class EventService {
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
         event.creator = creator;
+        if (request.getStatus() == EventStatus.EXPIRED) {
+            throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+        }
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L);
+        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L, null, null);
     }
 
     @Transactional
@@ -145,7 +153,14 @@ public class EventService {
         }
 
         long att = countAttending(id);
-        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
+        return EventDTO.from(
+                event,
+                att,
+                computeAvailableSpots(event.capacity, att),
+                countWaitlisted(id),
+                countViews(id),
+                countInterested(id)
+        );
     }
 
     @Transactional
@@ -176,11 +191,14 @@ public class EventService {
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
         if (request.status != null) {
+            if (request.status == EventStatus.EXPIRED) {
+                throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+            }
             event.status = request.status;
         }
 
         long att = countAttending(id);
-        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id));
+        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id), null, null);
     }
 
     @Transactional
@@ -214,7 +232,7 @@ public class EventService {
 
         event.status = EventStatus.CANCELLED;
         long attCancel = countAttending(id);
-        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id));
+        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id), null, null);
     }
 
     @Transactional
@@ -232,7 +250,7 @@ public class EventService {
 
         event.status = EventStatus.DRAFT;
         long attRestore = countAttending(id);
-        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), countWaitlisted(id));
+        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), countWaitlisted(id), null, null);
     }
 
     private static WebApplicationException conflict(String message) {
@@ -267,7 +285,7 @@ public class EventService {
 
         event.status = EventStatus.PUBLISHED;
         long attPublish = countAttending(id);
-        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id));
+        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id), null, null);
     }
 
     private static List<String> collectPublishValidationErrors(Event event) {
@@ -302,7 +320,7 @@ public class EventService {
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
         long attUpload = countAttending(id);
-        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id));
+        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id), null, null);
     }
 
     private List<EventDTO> toEventDTOs(List<Event> events) {
@@ -315,7 +333,7 @@ public class EventService {
                 .map(e -> {
                     long att = attendingCounts.getOrDefault(e.id, 0L);
                     long wait = waitlistedCounts.getOrDefault(e.id, 0L);
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait);
+                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }
@@ -326,6 +344,14 @@ public class EventService {
 
     private static long countWaitlisted(Long eventId) {
         return Attendance.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.WAITLISTED);
+    }
+
+    private static long countViews(Long eventId) {
+        return EventView.count("eventId = ?1", eventId);
+    }
+
+    private static long countInterested(Long eventId) {
+        return Favorite.count("eventId = ?1", eventId);
     }
 
     static Long computeAvailableSpots(Integer capacity, long attendingCount) {

@@ -78,9 +78,10 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | capacity        | number        | non    |
 | availableSpots  | number \| null | non   |
 | waitlistedCount | number        | non    |
+| viewCount       | number \| null | non   |
+| interestedCount | number \| null | non   |
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
-| interestedCount | number        | non    |
 | websiteUrl              | string \| null | non |
 | contactEmail            | string \| null | non |
 | registrationDeadline    | string ISO 8601 \| null | non |
@@ -93,6 +94,12 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 - `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
 - `EVENT_TAG_MAX_LENGTH = 16` — longueur max d'un tag individuel
 - `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
+
+**Compteurs publics `viewCount` / `interestedCount`** : renseignés uniquement
+sur `GET /events/{id}` (page détail). Les endpoints de liste/recherche
+retournent `null` pour ces champs afin d'éviter des requêtes N+1. Le
+composant `EventStatsPanel` affiche `—` quand la valeur est `null` /
+`undefined`.
 
 ### CreateEventRequest
 
@@ -187,15 +194,17 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 
 ### Attendance
 
-| Champ     | Type   | Requis |
-|-----------|--------|--------|
-| id        | number | oui    |
-| userId    | string | oui    |
-| eventId   | number | oui    |
-| status    | AttendanceStatus | oui |
-| createdAt | string | oui    |
+| Champ       | Type             | Requis | Notes |
+|-------------|------------------|--------|-------|
+| id          | number           | oui    | |
+| userId      | string           | oui    | |
+| eventId     | number           | oui    | |
+| status      | AttendanceStatus | oui    | |
+| createdAt   | string           | oui    | |
+| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
+| avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
 
-Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend`).
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
 
 ### AttendanceRequest
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import * as Collapsible from '@radix-ui/react-collapsible'
 import { useAuth } from '@/hooks/useAuth'
 import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
@@ -49,7 +50,6 @@ const visibleUserMenu = (user: UserType) => userMenuItems.filter(i => !i.adminOn
 // ─── Styles partagés ──────────────────────────────────────────────────────────
 
 const dropdownItemClass = 'flex items-center gap-3 px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors'
-const dropdownSubItemClass = 'flex items-center gap-3 pl-10 pr-4 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors'
 
 const sidebarItemClass = (isActive = false) =>
   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
@@ -61,44 +61,52 @@ const logoutVariants = {
   sidebar:  { item: 'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-error hover:bg-error/5 transition-colors cursor-pointer bg-transparent border-0', icon: 'size-5' },
 } as const
 
-function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
-  const [expanded, setExpanded] = useState(false)
+function UserDropdownExpandable({ item }: Readonly<{ item: NavItem }>) {
   const Icon = item.icon
-  if (!item.subLinks) {
-    return (
-      <Link to={item.to} className={dropdownItemClass}>
-        <Icon className="size-4 shrink-0" />
-        {item.label}
-      </Link>
-    )
+  const subLinks = item.subLinks ?? []
+
+  return (
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger
+        className={`group ${dropdownItemClass} w-full justify-between cursor-pointer bg-transparent border-0 text-left`}
+      >
+        <span className="flex items-center gap-3">
+          <Icon className="size-4 shrink-0" />
+          {item.label}
+        </span>
+        <ChevronDown
+          className="size-4 text-foreground/50 transition-transform duration-200 group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+          aria-hidden
+        />
+      </Collapsible.Trigger>
+      <Collapsible.Content
+        className="overflow-hidden motion-safe:data-[state=open]:animate-collapsible-open motion-safe:data-[state=closed]:animate-collapsible-close"
+      >
+        {subLinks.map(({ to, icon: SubIcon, label }) => (
+          <Link
+            key={to}
+            to={to}
+            className="flex items-center gap-3 pl-10 pr-4 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors"
+          >
+            <SubIcon className="size-4 shrink-0" />
+            {label}
+          </Link>
+        ))}
+      </Collapsible.Content>
+    </Collapsible.Root>
+  )
+}
+
+function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
+  const Icon = item.icon
+  if (item.subLinks) {
+    return <UserDropdownExpandable item={item} />
   }
   return (
-    <div
-      className="group/nested"
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded(p => !p)}
-        aria-expanded={expanded}
-        className={`${dropdownItemClass} w-full text-left cursor-pointer select-none bg-transparent border-0`}
-      >
-        <Icon className="size-4 shrink-0" />
-        <span className="flex-1">{item.label}</span>
-        <ChevronDown className={`size-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
-      </button>
-      <div className="grid transition-[grid-template-rows] duration-200" style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}>
-        <div className="overflow-hidden">
-          {item.subLinks.map(({ to, icon: SubIcon, label }) => (
-            <Link key={to} to={to} className={dropdownSubItemClass} onClick={() => setExpanded(false)}>
-              <SubIcon className="size-4 shrink-0" />
-              {label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
+    <Link to={item.to} className={dropdownItemClass}>
+      <Icon className="size-4 shrink-0" />
+      {item.label}
+    </Link>
   )
 }
 

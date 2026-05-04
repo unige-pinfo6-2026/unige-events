@@ -30,6 +30,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set kubectl context
         uses: azure/k8s-set-context@v5
@@ -58,7 +60,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Deploy
         env:
@@ -70,11 +72,12 @@ jobs:
             --set image.api.tag="${HEAD_SHA}" \
             --set image.web.tag="${HEAD_SHA}" \
             --timeout 3m \
+            --atomic \
             --wait
 
   # ─── Preview ──────────────────────────────────────────────────────────────
   deploy-preview:
-    name: Deploy Preview
+    name: Deploy to Preview
     if: |
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -88,6 +91,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set kubectl context
         uses: azure/k8s-set-context@v5
@@ -116,7 +121,7 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Deploy
         run: |
@@ -128,6 +133,7 @@ jobs:
             --set image.api.tag="pr-${{ env.PR_NUMBER }}" \
             --set image.web.tag="pr-${{ env.PR_NUMBER }}" \
             --timeout 3m \
+            --atomic \
             --wait
 
       - name: Set PR context
@@ -135,7 +141,7 @@ jobs:
           echo "TIME=$(TZ=Europe/Zurich date '+%b %d, %Y %H:%M %Z')" >> $GITHUB_ENV
 
       - name: Comment PR
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           number: ${{ env.PR_NUMBER }}
           message: |
@@ -149,8 +155,8 @@ jobs:
             ---
 
             ✅ Deployed from PR #${{ env.PR_NUMBER }}
-            🌿 Branch: `${{ github.head_ref }}`
-            🔖 Commit: `${{ github.sha }}`
+            🌿 Branch: `${{ github.event.workflow_run.head_branch }}`
+            🔖 Commit: ${{ github.event.workflow_run.head_sha }}
             🕒 Updated: ${{ env.TIME }}
 
   # ─── Cleanup Preview ──────────────────────────────────────────────────────

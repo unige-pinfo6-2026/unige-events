@@ -8,7 +8,9 @@ import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.Faculty;
+import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
 import ch.unige.events.exception.InvalidFileTypeException;
 
@@ -56,6 +58,19 @@ class EventServiceCoverageTest {
         List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
 
         assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_noFilters_excludesExpiredEvents() {
+        User user = persistUser("auth0|exp-excl", "exp-excl@example.com");
+        persistEvent("Published", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Expired", EventCategory.ACADEMIC, EventStatus.EXPIRED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Published", result.get(0).title());
     }
 
     @Test
@@ -316,6 +331,28 @@ class EventServiceCoverageTest {
         req.setStatus(EventStatus.CANCELLED);
 
         assertThrows(BadRequestException.class, () -> eventService.create("auth0|cancelled", req));
+    }
+
+    @Test
+    @TestTransaction
+    void create_withExpiredStatus_throwsBadRequest() {
+        persistUser("auth0|expired-create", "expired-create@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.EXPIRED);
+
+        assertThrows(BadRequestException.class, () -> eventService.create("auth0|expired-create", req));
+    }
+
+    @Test
+    @TestTransaction
+    void update_withExpiredStatus_throwsBadRequest() {
+        User user = persistUser("auth0|expired-upd", "expired-upd@example.com");
+        Event event = persistEvent("Active", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        UpdateEventRequest req = validUpdateRequest("Active", EventCategory.ACADEMIC, EventStatus.EXPIRED);
+
+        assertThrows(BadRequestException.class, () -> eventService.update(event.id, "auth0|expired-upd", req));
     }
 
     // --- getById ---
@@ -1279,6 +1316,56 @@ class EventServiceCoverageTest {
         a.eventId = eventId;
         a.status = status;
         entityManager.persist(a);
+    }
+
+    private void persistEventViewFor(Long eventId, UUID userId) {
+        EventView v = new EventView();
+        v.eventId = eventId;
+        v.userId = userId;
+        entityManager.persist(v);
+    }
+
+    private void persistFavoriteFor(Long eventId, UUID userId) {
+        Favorite f = new Favorite();
+        f.eventId = eventId;
+        f.userId = userId;
+        entityManager.persist(f);
+    }
+
+    // --- review #90 — public stats counters on getById ---
+
+    @Test
+    @TestTransaction
+    void getById_exposesViewCountAndInterestedCount() {
+        User user = persistUser("auth0|stats-pub", "stats-pub@example.com");
+        Event event = persistEvent("Public stats", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        entityManager.flush();
+
+        User v1 = persistUser("auth0|stats-v1", "v1@example.com");
+        User v2 = persistUser("auth0|stats-v2", "v2@example.com");
+        User f1 = persistUser("auth0|stats-f1", "f1@example.com");
+        persistEventViewFor(event.id, v1.id);
+        persistEventViewFor(event.id, v2.id);
+        persistFavoriteFor(event.id, f1.id);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id, null, false);
+
+        assertEquals(2L, dto.viewCount());
+        assertEquals(1L, dto.interestedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_withNoViewsOrFavorites_returnsZeroCounters() {
+        User user = persistUser("auth0|stats-empty", "stats-empty@example.com");
+        Event event = persistEvent("Empty stats", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        entityManager.flush();
+
+        EventDTO dto = eventService.getById(event.id, null, false);
+
+        assertEquals(0L, dto.viewCount());
+        assertEquals(0L, dto.interestedCount());
     }
 
     // =========================================================

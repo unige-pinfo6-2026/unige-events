@@ -3,6 +3,7 @@ package ch.unige.events.service;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Report;
+import ch.unige.events.entity.ReportReason;
 import ch.unige.events.entity.User;
 import ch.unige.events.scheduler.ModerationCleanupJob;
 import io.quarkus.test.TestTransaction;
@@ -96,6 +97,7 @@ class ModerationCleanupCoverageTest {
     private void persistReport(Event event) {
         Report report = new Report();
         report.event = event;
+        report.reason = ReportReason.OTHER;
         em.persist(report);
         em.flush();
     }

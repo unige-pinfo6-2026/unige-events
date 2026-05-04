@@ -1,5 +1,7 @@
 .PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
 
+MODE=development
+
 # Installations
 install-backend:
 	cd backend && ./mvnw clean dependency:resolve
@@ -14,7 +16,7 @@ backend:
 	cd backend && ./mvnw clean quarkus:dev
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && npm run dev -- --mode $(MODE)
 
 dev:
 	$(MAKE) -j2 frontend backend
@@ -33,6 +35,6 @@ build-backend:
 	cd backend && ./mvnw clean package -B
 
 build-frontend:
-	cd backend && npm run build
+	cd frontend && npm run build -- --mode $(MODE)
 
 .DEFAULT_GOAL := install

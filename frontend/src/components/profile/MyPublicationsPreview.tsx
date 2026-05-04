@@ -10,6 +10,7 @@ const TAB_LABELS: Record<EventStatus, string> = {
   PUBLISHED: 'Publiés',
   DRAFT:     'Brouillons',
   CANCELLED: 'Annulés',
+  EXPIRED:   'Terminés',
 }
 
 const TAB_KEYS = Object.keys(TAB_LABELS) as EventStatus[]
@@ -18,6 +19,7 @@ const EMPTY_COPY: Record<EventStatus, string> = {
   PUBLISHED: 'Aucune publication.',
   DRAFT:     'Aucun brouillon.',
   CANCELLED: 'Aucun événement annulé.',
+  EXPIRED:   'Aucun événement terminé.',
 }
 
 const PREVIEW_LIMIT = 3

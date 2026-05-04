@@ -43,6 +43,7 @@ frontend/
 | `event-detail` | `event-detail.bones.json` | `EventDetailPage` | `genEventDetail()` dans generate.mjs |
 | `event-edit` | `event-edit.bones.json` | `EventEditPage` | `genEventEdit()` dans generate.mjs |
 | `my-publications` | `my-publications.bones.json` | `MyPublicationsPage` | `genPublications()` dans generate.mjs |
+| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | `genEventStats()` dans generate.mjs |
 | `profile` | `profile.bones.json` | `ProfilePage` | manuel |
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (variant inline) | manuel |

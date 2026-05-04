@@ -72,8 +72,18 @@ Détail d'un événement.
 **Paramètre :** `id` — ID numérique de l'événement (`Long` séquentiel).
 
 **Réponses :**
-- `200 OK` — `EventDTO` complet (mêmes champs que `GET /events`)
+- `200 OK` — `EventDTO` complet (mêmes champs que `GET /events`, **plus** `viewCount` et `interestedCount` renseignés — voir ci-dessous)
 - `404 Not Found` — événement introuvable, OU événement non-PUBLISHED demandé par un appelant non autorisé
+
+**Compteurs publics `viewCount` et `interestedCount`** (review #90, SCRUM-92) : `EventDTO`
+expose ces deux champs `Long` nullable (vues uniques + favoris) à **tous les utilisateurs**
+(pas seulement à l'organisateur). Stratégie volontairement asymétrique pour éviter les
+requêtes N+1 sur les listes : seul `EventService.getById` les calcule. Tous les autres
+endpoints qui retournent un `EventDTO` (`POST/PUT/PATCH /events`, `GET /events`,
+`GET /events/search`, `GET /users/me/favorites`, etc.) renvoient `null` pour ces deux
+champs. Le frontend les consomme uniquement sur la page détail (`EventStatsPanel`). La
+page dashboard `/events/{id}/stats` reste **réservée à l'organisateur** et expose les
+mêmes compteurs au sein de `EventStatsDTO` (anciens noms gardés pour compatibilité).
 
 ---
 
@@ -266,9 +276,9 @@ opérations suivantes :
 | `DELETE` | `/events/{id}/favorite` | Sprint 4 | Retirer des favoris |
 | `GET` | `/users/me/favorites` | Sprint 4 | Favoris de l'utilisateur connecté |
 | `GET` | `/events/{id}/stats` | Sprint 5 | Stats organisateur (vues, inscriptions) |
-| `POST` | `/events/{id}/report` | Sprint 6 | Signaler un événement |
-| `GET` | `/admin/reports` | Sprint 6 | Liste des signalements (admin) |
-| `PUT` | `/admin/reports/{id}` | Sprint 6 | Modérer un signalement (admin) |
+| `POST` | `/events/{id}/report` | Sprint 7 (SCRUM-94) | Signaler un événement (`@Authenticated`) — 201 / 400 (`cannot_report_draft`, `cannot_report_cancelled`) / 401 / 404 / 409 (`already_reported`) / 422 (`cannot_report_own_event`) |
+| `GET` | `/admin/reports` | Sprint 7 (SCRUM-94) | Liste paginée des signalements (`@RolesAllowed("ADMIN")`, défaut `status=PENDING`) — 200 / 401 / 403 |
+| `PATCH` | `/admin/reports/{id}` | Sprint 7 (SCRUM-94) | Traiter un signalement (`PENDING → REVIEWED\|DISMISSED`, `@RolesAllowed("ADMIN")`) — 200 / 400 (`invalid_status`) / 401 / 403 / 404 / 409 (`invalid_transition`) |
 | `PUT` | `/admin/events/{id}/feature` | Sprint 6 | Mettre en avant (admin) |
 | `POST` | `/events/{id}/duplicate` | Sprint 7 | Dupliquer un événement (créateur) |
 | `GET` | `/notifications` | Sprint 7 | Notifications de l'utilisateur |

@@ -144,4 +144,52 @@ describe('useFavorite', () => {
     expect(success!).toBe(false)
     expect(mockAddFavorite).toHaveBeenCalledTimes(1)
   })
+
+  it('invokes onAfterSuccess after a successful add', async () => {
+    setupContext([])
+    mockAddFavorite.mockResolvedValue(undefined)
+    const onAfterSuccess = vi.fn().mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useFavorite(1, false, { onAfterSuccess }))
+    await act(async () => { await result.current.toggle() })
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('invokes onAfterSuccess after a successful remove', async () => {
+    setupContext([1])
+    mockRemoveFavorite.mockResolvedValue(undefined)
+    const onAfterSuccess = vi.fn().mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useFavorite(1, false, { onAfterSuccess }))
+    await act(async () => { await result.current.toggle() })
+
+    expect(onAfterSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not invoke onAfterSuccess on API error', async () => {
+    setupContext([])
+    mockAddFavorite.mockRejectedValue(new Error('Network error'))
+    const onAfterSuccess = vi.fn()
+
+    const { result } = renderHook(() => useFavorite(1, false, { onAfterSuccess }))
+    await act(async () => { await result.current.toggle() })
+
+    expect(onAfterSuccess).not.toHaveBeenCalled()
+  })
+
+  it('does not roll back if onAfterSuccess rejects', async () => {
+    setupContext([])
+    mockAddFavorite.mockResolvedValue(undefined)
+    const onAfterSuccess = vi.fn().mockRejectedValue(new Error('refetch failed'))
+
+    const { result } = renderHook(() => useFavorite(1, false, { onAfterSuccess }))
+    let success: boolean
+    await act(async () => { success = await result.current.toggle() })
+
+    expect(success!).toBe(true)
+    // markUnfavorited called only once (the optimistic mark in the catch branch
+    // is not executed because the mutation itself succeeded).
+    expect(markUnfavorited).not.toHaveBeenCalled()
+  })
 })

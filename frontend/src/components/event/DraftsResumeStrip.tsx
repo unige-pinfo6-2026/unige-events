@@ -12,14 +12,18 @@ import DraftResumeCard from './DraftResumeCard'
 
 const PANEL_ID = 'drafts-resume-panel'
 
+// Mirrors the closed-state Collapsible.Root + Trigger of the real banner so the
+// boneyard wrapper measures exactly h-14 (56px). Margins (mt-6 mb-8) live on the
+// <Skeleton> wrapper itself so the BFC introduced by the flex parent does not
+// prevent margin collapse and inflate the measured height.
 function DraftsHeaderFixture() {
   return (
-    <div className="mt-6 mb-8 h-14 rounded-2xl flex items-center justify-between gap-4 px-4">
+    <div className="h-14 w-full rounded-2xl border border-border/60 flex items-center justify-between gap-4 px-4">
       <div className="flex items-center gap-2">
-        <div className="size-4 rounded-full" />
-        <div className="h-4 w-32 rounded" />
+        <div className="size-4" />
+        <div className="h-4 w-[110px]" />
       </div>
-      <div className="size-4 rounded-full" />
+      <div className="size-4" />
     </div>
   )
 }
@@ -69,7 +73,13 @@ export default function DraftsResumeStrip() {
   if (loading) {
     const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
     return (
-      <Skeleton name="drafts-resume-strip" loading={true} animate="pulse" color={skeletonColor}>
+      <Skeleton
+        name="drafts-resume-strip"
+        loading={true}
+        animate="pulse"
+        color={skeletonColor}
+        className="mt-6 mb-8 block"
+      >
         <DraftsHeaderFixture />
       </Skeleton>
     )

@@ -15,6 +15,8 @@ export type Event = {
   capacity?: number
   availableSpots?: number | null
   waitlistedCount?: number
+  viewCount?: number | null
+  interestedCount?: number | null
   allDay: boolean
   attendingCount: number
   websiteUrl?: string | null
@@ -45,6 +47,7 @@ export const EVENT_STATUSES = {
   DRAFT: { name: 'Brouillon' },
   PUBLISHED: { name: 'Publié' },
   CANCELLED: { name: 'Annulé' },
+  EXPIRED: { name: 'Terminé' },
 } as const
 
 export type EventStatus = keyof typeof EVENT_STATUSES
