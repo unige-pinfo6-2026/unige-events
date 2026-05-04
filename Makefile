@@ -1,6 +1,6 @@
 .PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
 
-MODE=dev
+MODE=development
 
 # Installations
 install-backend:
