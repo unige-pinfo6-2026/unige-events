@@ -16,7 +16,7 @@ backend:
 	cd backend && ./mvnw clean quarkus:dev
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && npm run dev -- --mode $(MODE)
 
 dev:
 	$(MAKE) -j2 frontend backend
