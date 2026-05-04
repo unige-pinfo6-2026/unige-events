@@ -168,22 +168,15 @@ describe('Navbar', () => {
     expect(screen.getByText('Mes événements')).toBeTruthy()
   })
 
-  it('clicking "Mes événements" expands sub-links', () => {
+  it('renders "Mes événements" sub-links visible by default (banner-card open)', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
       logout: vi.fn(),
     })
     renderNavbar()
 
-    // Click the "Mes événements" button to expand
-    const mesevenementsBtn = Array.from(screen.getAllByText('Mes événements')).find(
-      el => el.closest('button'),
-    )
-    if (mesevenementsBtn?.closest('button')) {
-      fireEvent.click(mesevenementsBtn.closest('button')!)
-    }
-
-    // Sub-links should be visible after click
+    // The Collapsible-based banner-card defaults to open, so sub-links are visible
+    // immediately when the dropdown is rendered.
     expect(screen.getByText('Mes Favoris')).toBeTruthy()
     expect(screen.getByText('Mes Participations')).toBeTruthy()
     expect(screen.getByText('Mes Publications')).toBeTruthy()
@@ -205,42 +198,30 @@ describe('Navbar', () => {
     expect(publicationsLink?.getAttribute('href')).toBe('/my-events/publications')
   })
 
-  it('sets aria-expanded on "Mes événements" button', () => {
+  it('sets aria-expanded on the "Mes événements" banner-card trigger and toggles on click', () => {
     mockUseAuth.mockReturnValue({
       user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
       logout: vi.fn(),
     })
     renderNavbar()
 
-    const mesevenementsBtn = Array.from(screen.getAllByText('Mes événements')).find(
-      el => el.closest('button'),
-    )?.closest('button')
+    // Find the desktop Collapsible.Trigger button — distinct from the mobile sidebar
+    // version by its banner-card wrapper class.
+    const desktopBtn = Array.from(screen.getAllByText('Mes événements'))
+      .map(el => el.closest('button'))
+      .find(btn => btn?.closest('[data-state]')) as HTMLButtonElement | undefined
 
-    expect(mesevenementsBtn?.getAttribute('aria-expanded')).toBe('false')
+    // Default open: aria-expanded === 'true'
+    expect(desktopBtn?.getAttribute('aria-expanded')).toBe('true')
 
-    if (mesevenementsBtn) {
-      fireEvent.click(mesevenementsBtn)
-      expect(mesevenementsBtn.getAttribute('aria-expanded')).toBe('true')
+    if (desktopBtn) {
+      // Click → close
+      fireEvent.click(desktopBtn)
+      expect(desktopBtn.getAttribute('aria-expanded')).toBe('false')
+      // Click → reopen
+      fireEvent.click(desktopBtn)
+      expect(desktopBtn.getAttribute('aria-expanded')).toBe('true')
     }
-  })
-
-  it('opens "Mes événements" submenu on mouse enter and closes on mouse leave', () => {
-    mockUseAuth.mockReturnValue({
-      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
-      logout: vi.fn(),
-    })
-    renderNavbar()
-
-    const btn = Array.from(screen.getAllByText('Mes événements'))
-      .find(el => el.closest('button'))!
-      .closest('button')!
-    const wrapper = btn.parentElement!
-
-    fireEvent.mouseEnter(wrapper)
-    expect(btn.getAttribute('aria-expanded')).toBe('true')
-
-    fireEvent.mouseLeave(wrapper)
-    expect(btn.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('expands mobile "Mes événements" submenu with click toggle', () => {

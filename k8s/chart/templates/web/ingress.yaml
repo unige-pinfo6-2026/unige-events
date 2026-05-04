@@ -2,12 +2,12 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: web
-  namespace: unige-events
+  namespace: {{ .Release.Namespace }}
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "5m"
 spec:
   rules:
-    - host: pinfo6.p-info.net
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
           - path: /api
@@ -29,7 +29,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: s3
-  namespace: unige-events
+  namespace: {{ .Release.Namespace }}
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
@@ -37,7 +37,7 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   rules:
-    - host: pinfo6.p-info.net
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
           - path: /s3(/|$)(.*)

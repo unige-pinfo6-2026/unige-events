@@ -32,6 +32,8 @@ const a1 = {
   eventId: 42,
   status: 'ATTENDING' as const,
   createdAt: '2026-04-08T10:00:00.000Z',
+  displayName: 'Alice',
+  avatarUrl: null,
 }
 
 const a2 = {
@@ -40,6 +42,8 @@ const a2 = {
   eventId: 42,
   status: 'WAITLISTED' as const,
   createdAt: '2026-04-08T10:00:00.000Z',
+  displayName: 'Bob',
+  avatarUrl: null,
 }
 
 const profile1 = {

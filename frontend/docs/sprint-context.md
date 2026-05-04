@@ -1,6 +1,42 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-01
+Dernière mise à jour : 2026-05-03
+
+## Sprint 7 — Fix nom des participants privés sur la page stats organisateur — 2026-05-03
+
+Livré.
+
+Sur `/events/:id/stats`, la collapsable "Voir les participants" affichait l'UUID brut au lieu du nom pour les attendees `profilePublic = false`. La cause : `AttendeesSection` faisait un N+1 sur `GET /users/{id}` qui renvoie 404 pour les profils privés (hotfix pentest 4.1), donc `userMap` contenait `null` et la cascade `user?.displayName ?? user?.email ?? attendance.userId` tombait sur l'UUID.
+
+Fix : le backend enrichit `AttendanceDTO` avec `displayName` et `avatarUrl`, et le front lit ces champs directement depuis `attendance.*`. La route `GET /events/{id}/attendees` étant déjà restreinte au créateur / co-organisateur ACCEPTED, exposer le nom y est sûr y compris pour les profils privés. Le N+1 frontend disparaît (drop de l'import `getUserById`, du `userMap`, des `try/catch` par row).
+
+La page détail publique `/events/:id` reste inchangée — elle continue d'afficher "Utilisateur anonyme" pour les profils privés via le flux séparé `useAttendees` → `getPublicUser`. Type `Attendance` (frontend) reçoit `displayName: string | null` et `avatarUrl: string | null` ; les tests qui construisent des `Attendance` littéraux (`AttendeeCard.test`, `AttendeesList.test`, `useAttendees.test`) ont été ajustés.
+
+Tests : `EventStatsPage.test.tsx` réécrit (drop des mocks `getUserById`, ajout d'un test "private user shows displayName, never UUID" et d'un test fallback "Utilisateur supprimé" pour les inscriptions orphelines).
+
+## Sprint 6 — Bloc stats publiques sur EventDetailPage (review #90 — SCRUM-92) — 2026-05-03
+
+Livré.
+
+Fonctionnalités livrées :
+- **`EventStatsPanel`** (`src/components/event/EventStatsPanel.tsx`) : card publique "Statistiques de participation" insérée dans la sidebar d'`EventDetailPage` après `IcsExportButton`, **visible pour tous** (pas seulement l'organisateur). 3 mini-cards Vues / Inscrits / Intéressés, pattern KPI compact réutilisé d'`EventStatsPage`. Affiche `—` quand la valeur est `null`/`undefined`.
+- **Backend — `EventDTO` étendu** : ajout des champs `viewCount` et `interestedCount` (Long nullable). Stratégie volontairement asymétrique pour éviter les requêtes N+1 sur les listes : seul `EventService.getById(...)` calcule ces compteurs (`countViews` / `countInterested`). Tous les autres call sites (`create`, `update`, `cancel`, `restore`, `publish`, `uploadImage`, `toEventDTOs` pour les listes, `FavoriteService.getFavorites`, `EventSearchService.search`) passent `null, null`.
+- **OpenAPI** : `viewCount` et `interestedCount` ajoutés au schéma `Event` avec `nullable: true` et description précisant qu'ils ne sont remplis que sur `GET /events/{id}`.
+- **Type frontend `Event`** : `viewCount?: number | null` et `interestedCount?: number | null`.
+- **La page dashboard `/events/:id/stats` reste réservée à l'organisateur** (créateur ou co-organisateur ACCEPTED) — même autorisation, mêmes données enrichies (chart + capacity bar + liste des participants).
+- Skeleton `event-detail` mis à jour : `STATS_CARD_H` passe de 104 à 172, builder `pushStatsCard` réécrit pour matcher le nouveau composant (titre + 3 mini-cards verticales avec icône container + valeur + label centrés). Fixture `EventDetailFixture` alignée sur la nouvelle hauteur.
+- **Tests** : `EventStatsPanel.test.tsx` (5 cas — titre, libellés, formatage fr-CH avec séparateur U+202F, `—` pour null/undefined). 2 tests ajoutés dans `EventDetailPage.test.tsx` (panel rendu pour utilisateur non-organisateur, dashes affichés quand stats absentes). Côté backend : `EventDTOTest` enrichi de 2 cas (`null/null` et valeurs renseignées) ; `EventServiceCoverageTest` enrichi de 2 cas (`getById` expose les compteurs depuis `EventView`/`Favorite`, ou retourne `0` quand vide). Tous les call sites de `EventDTO.from` mis à jour.
+
+## Sprint 7 — Polish UX S7 — 2026-05-01
+
+Terminé. PR `chore` sans ticket Jira (`chore(frontend): polish navbar, skeletons, sticky FAB, link styling and draft redirect`) regroupant 6 frottements UX repérés au fil du sprint :
+
+1. **Navbar dropdown profil** : l'item `Mes événements` (3 sous-liens favoris/participations/publications) est désormais rendu via le composant local `UserDropdownExpandable` à base de `Collapsible.Root` Radix, stylé en **ligne inline** (réutilise `dropdownItemClass` avec un chevron à droite, sub-links indentés à `pl-10`) et **ouvert par défaut**. Plus de "menu dans menu" ni de banner-card séparé. Sidebar mobile (`MobileNavItem`) inchangée.
+2. **Skeleton `drafts-resume-strip`** étendu à 4 breakpoints (320 / 480 / 720 / 960). Bones sans flag container (sinon boneyard 1.7.7 les filtre), circle trick `r="50%"` sur les icônes Library + Chevron pour qu'elles restent à 16x16 quelle que soit la largeur du container. Marges externes `mt-6 mb-8` déplacées du fixture vers la `className` du `<Skeleton>` pour éviter le doublement de hauteur via BFC.
+3. **Bouton FAB `Créer un événement`** sur `MyPublicationsPage` : retour à `position: fixed bottom-6 right-6` avec un listener `scroll`+`resize`+`ResizeObserver(document.body)` batché en `requestAnimationFrame` qui ré-ajuste le `bottom` en fonction de `footer.getBoundingClientRect().top`. Ne recouvre plus jamais le footer.
+4. **Skeletons `event-edit` et `event-detail`** régénérés via `generate.mjs` pour matcher les layouts actuels — incl. la section groupée Date & heure, le champ Faculté, les champs additionnels SCRUM-117 (websiteUrl/contactEmail/registrationDeadline/tags) et la carte "Informations complémentaires" sur la page détail. Tous les flags `c=true` retirés (boneyard 1.7.7 les filtre au render) ; hiérarchie visuelle via alpha compounding. Helpers `rect()` / `circle()` ajoutés en tête de section.
+5. **Liens `websiteUrl` et `contactEmail`** sur `EventDetailPage` rendus en bleu via la nouvelle CSS variable `--color-link` (sky-600 light / sky-400 dark) + classe `text-link`. Chips tags et lien organisateur sidebar volontairement laissés inchangés (cohérence visuelle).
+6. **Redirect automatique** `/events/:id` → `/events/:id/edit` sur DRAFT pour le créateur (admin exclu — il doit pouvoir modérer ; co-organisateur ACCEPTED suit en follow-up SCRUM-137 frontend). 4 tests automatisés ajoutés à `EventDetailPage.test.tsx`.
 
 ## Sprint 7 — Fix overflow visuel des tags dans `EventForm` (ISSUE-122) — 2026-05-01
 
@@ -79,6 +115,21 @@ Fonctionnalités livrées :
 - **`AttendanceButtons` — gestion liste d'attente** : nouvelle prop `availableSpots` transmise au hook. Quand l'événement est complet (`isFull`) et l'utilisateur n'est pas inscrit, le bouton affiche "Rejoindre la liste d'attente". Quand `currentStatus === 'WAITLISTED'`, affiche "En liste d'attente" (style warning). Suppression du tooltip disabled au profit d'un bouton toujours cliquable.
 - **`useAttendance` — support WAITLISTED** : nouvelle signature `initialAvailableSpots?: number | null` pour initialiser `isFull`. Toggle unifié : si `currentStatus !== null` (ATTENDING ou WAITLISTED) → `unattend()`; sinon → `attend()`. Après succès d'`attend()`, `currentStatus` est mis à jour depuis la réponse serveur ; si WAITLISTED, `attendingCount` n'est pas incrémenté.
 - **Tests** : 831 tests passing. `useAttendance.test.ts` enrichi (WAITLISTED unattend sans décrément, réponse serveur WAITLISTED, initialAvailableSpots). `AttendanceButtons.test.tsx` refondu pour le nouveau comportement.
+
+## Sprint 6 — Dashboard statistiques organisateur (SCRUM-92) — 2026-04-30
+
+Terminé le 2026-04-30.
+
+Fonctionnalités livrées :
+- **`EventStatsPage`** (`/events/:id/stats`, PrivateRoute) : page réservée à l'organisateur de l'événement. Vérifie `user.id === event.creatorId` avant de charger les stats.
+- **KPI cards** : 👁 Vues totales (`stats.viewCount`), ✅ Inscrits (`stats.attendingCount`), ⭐ Intéressés (`stats.interestedCount`).
+- **`StatsChart`** : BarChart vertical recharts (Vues / Intéressés / Inscrits). Thème adapté aux tokens CSS (`--color-background`, `--color-border`).
+- **Barre de remplissage** : `attendingCount / capacity * 100` avec couleur progressive (vert → orange → rouge).
+- **Section participants** : bouton collapsible "Voir les participants" → `GET /events/{id}/attendees` → fetch users en parallèle via `getUserById`, affichage avatar + nom.
+- **`statsApi.ts`** : `getEventStats()`, `getEventAttendees()` et `recordEventView()`. `EventDetailPage` enregistre une vue au montage (`POST /events/{id}/view`).
+- **`useEventStats`** : auto-refresh toutes les 60 s avec `setInterval`, nettoyage à l'unmount.
+- **Skeleton `event-stats`** : 2 breakpoints (300 px mobile / 600 px desktop), transition single-col → 3-col sur les KPI cards.
+- Dépendance `recharts` ajoutée.
 
 ## Sprint 6 — ImageCropper réutilisable (S6) — 2026-04-18
 

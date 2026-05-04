@@ -61,8 +61,18 @@ Les changements de schéma passent par des migrations Flyway dans `backend/src/m
 
 Les champs `faculty` et `studyLevel` de `User` sont actuellement des `String` libres. Les valeurs attendues sont documentées dans `docs/data-model.md` et doivent correspondre aux enums définis dans le frontend (`Faculty`, `StudyLevel`). Ne pas introduire de valeurs hors de ce référentiel.
 
-### Champ `admin` sur User
-Le champ `admin` (boolean) est **planifié Sprint 6** et n'existe pas encore dans l'entité. Le frontend l'attend déjà dans le contrat API — l'ajouter à l'entité et à `UserProfileResponse` au Sprint 6 (sans préfixe `is`).
+### Rôle ADMIN — claim Auth0, pas de champ DB
+Le rôle ADMIN est porté **exclusivement** par la claim Auth0
+(`https://quarkus-security.com/roles`, configurée via `quarkus.oidc.roles.role-claim-path`)
+et consommé côté backend via :
+- `@RolesAllowed("ADMIN")` (Quarkus Security) sur les classes/endpoints sensibles ;
+- `identity.hasRole("ADMIN")` quand un check programmatique est nécessaire (ex. élévation
+  conditionnelle d'un endpoint mixte créateur/admin).
+
+**Pas de champ `admin: boolean` sur l'entité `User`** — décision SCRUM-94. Une seule
+source de vérité (Auth0). Le frontend qui souhaite afficher un badge « Admin » lit la
+claim depuis le token Auth0 (`auth.user['https://quarkus-security.com/roles']`), pas
+depuis le payload profil.
 
 ## Contrat API
 `openapi/openapi.yaml` est la **source de vérité** (monorepo — fichier unique partagé entre frontend et backend). Avant d'implémenter un endpoint :

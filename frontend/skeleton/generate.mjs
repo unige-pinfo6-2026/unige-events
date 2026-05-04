@@ -277,175 +277,224 @@ function genCalendar() {
 //   - 960  → desktop, 2 cols (banner h-80=320)
 // ============================================================
 
-// Heights — must match what the fixture produces so scaleY=1
-const BANNER_H_MOBILE = 288  // h-72
-const BANNER_H_DESKTOP = 320 // h-80
-const DESC_H = 160
-const S5_SHELL_H = 80
-const S5_SHELL_GAP = 12
-const MAIN_GAP = 20          // gap-5
-const INFOS_CARD_H = 288
-const ATTENDANCE_CARD_H = 176
-const ICS_CARD_H = 236       // IcsExportButton is a full card: header + 3 option buttons
-const STATS_CARD_H = 104     // ComingSoonBlock with 3 stat boxes in grid-cols-3
-const SIDEBAR_GAP = 16       // gap-4
-const GRID_GAP = 24          // gap-6
+// Heights — must match what the fixture produces so scaleY=1.
+// IMPORTANT: boneyard 1.7.7 filters bones flagged as containers (`c=true`,
+// the 6th array element) at render time. We therefore never set that flag
+// on bones we want visible, and instead rely on alpha compounding (each
+// overlapping bone adds ~0.06 alpha) to create the lighter/darker hierarchy.
+const BANNER_H_MOBILE = 288    // h-72
+const BANNER_H_DESKTOP = 320   // h-80
+const DESC_H = 160             // "À propos" card (h-40)
+const ATTENDEES_COMPACT_H = 90 // <AttendeesList> compact variant: 2 (border) + 32 (py-4) + 28 (h2+mb-3) + 28 (summary row)
+const INFO_EXTRA_H = 176       // SCRUM-117 "Informations complémentaires" card (h-44)
+const MAIN_GAP = 20            // gap-5 between main-col children
+const INFOS_CARD_H = 288       // sidebar "Infos clés" card (h-72)
+const ATTENDANCE_CARD_H = 176  // sidebar "Favoris + share + AttendanceButtons" card (h-44)
+const ICS_CARD_H = 236         // <IcsExportButton> card: 24+20+16+(40+16+40+16+40)+24+2 ≈ 236
+const STATS_CARD_H = 172       // <EventStatsPanel> public stats card (SCRUM-92): header + 3 mini-tiles
+const SIDEBAR_GAP = 16         // gap-4 between sidebar children
+const GRID_GAP = 24            // grid gap-6
 
 function mainColH(bannerH) {
-  const s5Block = 4 * S5_SHELL_H + 3 * S5_SHELL_GAP // 356
-  return bannerH + MAIN_GAP + DESC_H + MAIN_GAP + s5Block
+  return bannerH + MAIN_GAP
+       + DESC_H + MAIN_GAP
+       + ATTENDEES_COMPACT_H + MAIN_GAP
+       + INFO_EXTRA_H
 }
 function sidebarColH() {
-  return INFOS_CARD_H + SIDEBAR_GAP + ATTENDANCE_CARD_H + SIDEBAR_GAP + ICS_CARD_H + SIDEBAR_GAP + STATS_CARD_H
+  return INFOS_CARD_H + SIDEBAR_GAP
+       + ATTENDANCE_CARD_H + SIDEBAR_GAP
+       + ICS_CARD_H + SIDEBAR_GAP
+       + STATS_CARD_H
 }
 
-// Builder for a Banner bone group (leaf rect + badge + 2 title lines on top)
+// Bone helpers. The rendered colour is the same for every bone (no container
+// vs leaf shading in boneyard 1.7.7), so visual hierarchy comes from alpha
+// compounding when bones overlap.
+const BONE_RADIUS_LG = 24       // rounded-3xl card
+const BONE_RADIUS_MD = 16       // rounded-2xl card
+const BONE_PILL = 9999          // fully rounded pill (used for badges)
+
+// Leaf rect bone: rendered as `${w}%` of container width.
+function rect(x, y, w, h, r = 4) { return [x, y, w, h, r] }
+// Circle bone: boneyard locks width to `b.h * scaleY` (absolute pixels) when
+// `r === '50%'` AND `(w/100) * BP_width ≈ h`. Used for fixed-size icons/avatars.
+function circle(xPct, y, sizePct, sizePx) {
+  return [xPct, y, sizePct, sizePx, '50%']
+}
+
+// Builder for the banner zone (image + category badge top-left + event title).
 function pushBanner(bones, pct, colX, colW, y0, bannerH) {
-  // Banner = leaf (darker) → represents the image zone
-  bones.push([pct.x(colX), y0, pct.w(colW), bannerH, 24])
-  // Category badge pill (container, lighter)
-  bones.push([pct.x(colX + 16), y0 + 16, pct.w(110), 24, 9999, true])
-  // Title line 1 (container, lighter) — anchored near banner bottom (p-6)
+  // Banner image surface (full-width)
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), bannerH, BONE_RADIUS_LG))
+  // Category badge pill, top-left (~110px wide, 24h)
+  bones.push(rect(pct.x(colX + 16), y0 + 16, pct.w(110), 24, BONE_PILL))
+  // Event title (2 lines anchored near the bottom — p-6 = 24px bottom padding)
   const titleBottomPad = 24
   const t1H = 28
   const t2H = 22
   const t2Y = y0 + bannerH - titleBottomPad - t2H
   const t1Y = t2Y - 8 - t1H
-  bones.push([pct.x(colX + 24), t1Y, pct.w(Math.round(colW * 0.75)), t1H, 6, true])
-  bones.push([pct.x(colX + 24), t2Y, pct.w(Math.round(colW * 0.55)), t2H, 6, true])
+  bones.push(rect(pct.x(colX + 24), t1Y, pct.w(Math.round(colW * 0.7)), t1H, 6))
+  bones.push(rect(pct.x(colX + 24), t2Y, pct.w(Math.round(colW * 0.5)), t2H, 6))
 }
 
-// Builder for the Description card
+// Builder for the "À propos" description card.
 function pushDescriptionCard(bones, pct, colX, colW, y0) {
-  // Card surface (container, lighter)
-  bones.push([pct.x(colX), y0, pct.w(colW), DESC_H, 24, true])
-  // "À propos" header (leaf)
-  bones.push([pct.x(colX + 24), y0 + 24, pct.w(48), 12, 4])
-  // 4 description lines (leaves)
-  const lineWs = [1.0, 0.95, 0.88, 0.72]
+  // Card surface
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), DESC_H, BONE_RADIUS_LG))
+  // "À propos" small uppercase header
+  bones.push(rect(pct.x(colX + 24), y0 + 24, pct.w(56), 10, 4))
+  // 4 description lines, decreasing widths
+  const lineWs = [0.96, 0.92, 0.85, 0.62]
   const innerW = colW - 48
   for (let i = 0; i < 4; i++) {
-    bones.push([pct.x(colX + 24), y0 + 56 + i * 20, pct.w(Math.round(innerW * lineWs[i])), 12, 4])
+    bones.push(rect(pct.x(colX + 24), y0 + 56 + i * 20, pct.w(Math.round(innerW * lineWs[i])), 12, 4))
   }
 }
 
-// Builder for a ComingSoon shell (S5 style — dashed border, faded content)
-function pushComingSoonShell(bones, pct, colX, colW, y0) {
-  // Shell surface (container, lighter — but subtle: dashed bg/[0.018] in reality)
-  bones.push([pct.x(colX), y0, pct.w(colW), S5_SHELL_H, 16, true])
-  // Header row: icon + label on left, sprint badge on right
-  bones.push([pct.x(colX + 16), y0 + 16, pct.w(16), 16, 4])                      // icon
-  bones.push([pct.x(colX + 40), y0 + 18, pct.w(Math.round(colW * 0.45)), 12, 4]) // label
-  bones.push([pct.x(colX + colW - 46), y0 + 16, pct.w(30), 16, 9999])            // sprint badge
-  // Body (faded content)
-  bones.push([pct.x(colX + 16), y0 + 48, pct.w(Math.round((colW - 32) * 0.6)), 12, 4])
+// Builder for the <AttendeesList> compact (non-organizer) card.
+// One short card with a "Participants" header and a summary row of avatars +
+// "X personnes participent" label.
+function pushAttendeesCard(bones, pct, colX, colW, y0) {
+  // Card surface
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), ATTENDEES_COMPACT_H, BONE_RADIUS_LG))
+  // "Participants" header
+  bones.push(rect(pct.x(colX + 24), y0 + 18, pct.w(78), 10, 4))
+  // 4 overlapping avatar circles (28x28 each, -space-x-2 → 6px overlap)
+  const avSize = 28
+  const avOverlap = 22
+  for (let i = 0; i < 4; i++) {
+    bones.push(circle(pct.x(colX + 24 + i * avOverlap), y0 + 50, pct.w(avSize), avSize))
+  }
+  // Summary text after avatars
+  bones.push(rect(pct.x(colX + 24 + 4 * avOverlap + 12), y0 + 56, pct.w(Math.round((colW - 24 - 4 * avOverlap - 12 - 24) * 0.6)), 14, 4))
 }
 
-// Builder for the Infos clés sidebar card
+// Builder for the SCRUM-117 "Informations complémentaires" main-col card.
+function pushInfoExtraCard(bones, pct, colX, colW, y0) {
+  // Card surface
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), INFO_EXTRA_H, BONE_RADIUS_LG))
+  // "Informations complémentaires" header
+  bones.push(rect(pct.x(colX + 24), y0 + 24, pct.w(168), 10, 4))
+  // 4 InfoRow placeholders: 16x16 icon (circle) + text line
+  const lineWs = [0.7, 0.55, 0.62, 0.46]
+  const innerW = colW - 48 - 24 // minus padding + icon column
+  for (let i = 0; i < 4; i++) {
+    const ry = y0 + 60 + i * 24
+    bones.push(circle(pct.x(colX + 24), ry, pct.w(16), 16))
+    bones.push(rect(pct.x(colX + 48), ry + 2, pct.w(Math.round(innerW * lineWs[i])), 12, 4))
+  }
+}
+
+// Builder for the sidebar "Infos clés" card (date / location / capacity rows
+// + organizer + capacity indicator).
 function pushInfosClesCard(bones, pct, colX, colW, y0) {
-  bones.push([pct.x(colX), y0, pct.w(colW), INFOS_CARD_H, 24, true])
-  // 3 info rows (icon + text)
+  // Card surface (p-5 = 20px padding)
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), INFOS_CARD_H, BONE_RADIUS_LG))
+  // 3 InfoRows (icon 16x16 + text line)
+  const rowWs = [0.82, 0.62, 0.5]
   for (let i = 0; i < 3; i++) {
     const ry = y0 + 24 + i * 28
-    bones.push([pct.x(colX + 20), ry, pct.w(16), 16, 4])
-    const textW = Math.round((colW - 64) * [0.82, 0.62, 0.5][i])
-    bones.push([pct.x(colX + 44), ry + 2, pct.w(textW), 12, 4])
+    bones.push(circle(pct.x(colX + 20), ry, pct.w(16), 16))
+    bones.push(rect(pct.x(colX + 44), ry + 2, pct.w(Math.round((colW - 64) * rowWs[i])), 12, 4))
   }
-  // Separator 1
-  bones.push([pct.x(colX + 20), y0 + 120, pct.w(colW - 40), 1, 0])
-  // Organizer row: avatar + 2 text lines
-  bones.push([pct.x(colX + 20), y0 + 136, pct.w(36), 36, 9999])                // avatar
-  bones.push([pct.x(colX + 68), y0 + 140, pct.w(60), 10, 4])                   // "Organisé par"
-  bones.push([pct.x(colX + 68), y0 + 156, pct.w(Math.round((colW - 88) * 0.6)), 14, 4]) // name
-  // Separator 2
-  bones.push([pct.x(colX + 20), y0 + 188, pct.w(colW - 40), 1, 0])
-  // Coming soon "Places dispo" header
-  bones.push([pct.x(colX + 20), y0 + 204, pct.w(16), 16, 4])
-  bones.push([pct.x(colX + 44), y0 + 206, pct.w(Math.round((colW - 64) * 0.5)), 12, 4])
-  bones.push([pct.x(colX + colW - 46), y0 + 204, pct.w(30), 16, 9999])
-  // Body pills (available / waitlist)
-  bones.push([pct.x(colX + 20), y0 + 236, pct.w(Math.round((colW - 40) * 0.48)), 24, 8, true])
-  bones.push([pct.x(colX + 20 + Math.round((colW - 40) * 0.48) + 8), y0 + 236, pct.w(Math.round((colW - 40) * 0.38)), 24, 8, true])
-}
-
-// Builder for the Attendance + Participants sidebar card
-function pushAttendanceCard(bones, pct, colX, colW, y0) {
-  bones.push([pct.x(colX), y0, pct.w(colW), ATTENDANCE_CARD_H, 24, true])
-  // Buttons row: 3 attendance circles + favoris button
-  // AttendanceButtons — group of 3 circular buttons
-  for (let i = 0; i < 3; i++) {
-    bones.push([pct.x(colX + 20 + i * 44), y0 + 20, pct.w(36), 36, 9999, true])
-  }
-  // Favoris button (flex-1)
-  const favX = colX + 20 + 3 * 44 + 8
-  const favW = colW - 20 - (favX - colX)
-  bones.push([pct.x(favX), y0 + 22, pct.w(favW), 32, 12, true])
   // Separator
-  bones.push([pct.x(colX + 20), y0 + 76, pct.w(colW - 40), 1, 0])
-  // Coming soon "Participants" header
-  bones.push([pct.x(colX + 20), y0 + 92, pct.w(16), 16, 4])
-  bones.push([pct.x(colX + 44), y0 + 94, pct.w(Math.round((colW - 64) * 0.55)), 12, 4])
-  bones.push([pct.x(colX + colW - 46), y0 + 92, pct.w(30), 16, 9999])
-  // Avatars stack (3 overlapping circles) + counter text
-  for (let i = 0; i < 3; i++) {
-    bones.push([pct.x(colX + 20 + i * 20), y0 + 124, pct.w(32), 32, 9999, true])
-  }
-  bones.push([pct.x(colX + 90), y0 + 134, pct.w(Math.round((colW - 110) * 0.7)), 12, 4])
+  bones.push(rect(pct.x(colX + 20), y0 + 116, pct.w(colW - 40), 1, 0))
+  // Organizer row: avatar 36x36 (circle) + 2 text lines
+  bones.push(circle(pct.x(colX + 20), y0 + 132, pct.w(36), 36))
+  bones.push(rect(pct.x(colX + 68), y0 + 138, pct.w(70), 10, 4))
+  bones.push(rect(pct.x(colX + 68), y0 + 156, pct.w(Math.round((colW - 88) * 0.6)), 14, 4))
+  // Separator
+  bones.push(rect(pct.x(colX + 20), y0 + 184, pct.w(colW - 40), 1, 0))
+  // Capacity indicator header (icon + label)
+  bones.push(circle(pct.x(colX + 20), y0 + 200, pct.w(16), 16))
+  bones.push(rect(pct.x(colX + 44), y0 + 202, pct.w(Math.round((colW - 64) * 0.5)), 12, 4))
+  // 2 capacity pills (available + waitlist)
+  const pill1W = Math.round((colW - 40) * 0.45)
+  const pill2W = Math.round((colW - 40) * 0.35)
+  bones.push(rect(pct.x(colX + 20), y0 + 232, pct.w(pill1W), 24, 8))
+  bones.push(rect(pct.x(colX + 20 + pill1W + 8), y0 + 232, pct.w(pill2W), 24, 8))
 }
 
-// Builder for the "Ajouter au calendrier" card (IcsExportButton — full card with 3 options)
+// Builder for the sidebar Attendance + Favoris card.
+function pushAttendanceCard(bones, pct, colX, colW, y0) {
+  // Card surface (px-5 py-4)
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), ATTENDANCE_CARD_H, BONE_RADIUS_LG))
+  // Top row: 2 buttons side-by-side (Favoris | Partager)
+  const btnH = 36
+  const btnGap = 12
+  const btnW = Math.round((colW - 40 - btnGap) / 2)
+  bones.push(rect(pct.x(colX + 20), y0 + 16, pct.w(btnW), btnH, 12))
+  bones.push(rect(pct.x(colX + 20 + btnW + btnGap), y0 + 16, pct.w(btnW), btnH, 12))
+  // 3 attendance buttons (rounded-xl pills, 2 visible variants — Inscrit / Intéressé / Liste)
+  const aH = 40
+  const aGap = 8
+  const aW = Math.round((colW - 40 - aGap * 2) / 3)
+  for (let i = 0; i < 3; i++) {
+    bones.push(rect(pct.x(colX + 20 + i * (aW + aGap)), y0 + 76, pct.w(aW), aH, 12))
+  }
+  // Counter text under buttons
+  bones.push(rect(pct.x(colX + 20), y0 + 132, pct.w(Math.round((colW - 40) * 0.7)), 12, 4))
+}
+
+// Builder for the <IcsExportButton> "Ajouter au calendrier" card. p-6 padding,
+// header (icon + label), then 3 stacked option buttons.
 function pushIcsCard(bones, pct, colX, colW, y0) {
-  // Card surface (container, lighter)
-  bones.push([pct.x(colX), y0, pct.w(colW), ICS_CARD_H, 24, true])
-  // Header row: calendar icon + "Ajouter au calendrier" label
-  bones.push([pct.x(colX + 24), y0 + 26, pct.w(16), 16, 4])                               // icon (leaf)
-  bones.push([pct.x(colX + 44), y0 + 28, pct.w(Math.round((colW - 68) * 0.55)), 14, 4])   // label (leaf)
-  // 3 option buttons (containers = bordered button surfaces)
-  // y=24 (p-6 top) + 20 (header) + 16 (gap-4) = y0+60, each button 40 tall + 16 gap = 56 step
+  // Card surface
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), ICS_CARD_H, BONE_RADIUS_LG))
+  // Header row: 16x16 calendar icon + label
+  bones.push(circle(pct.x(colX + 24), y0 + 26, pct.w(16), 16))
+  bones.push(rect(pct.x(colX + 48), y0 + 28, pct.w(Math.round((colW - 72) * 0.5)), 14, 4))
+  // 3 option buttons (gap-4 between)
+  const btnH = 40
+  const btnGap = 16
   for (let i = 0; i < 3; i++) {
-    const btnY = y0 + 60 + i * 56
-    bones.push([pct.x(colX + 24), btnY, pct.w(colW - 48), 40, 12, true])
-    // Icon + label inside the button (leaves for contrast on the lighter button surface)
-    bones.push([pct.x(colX + 40), btnY + 12, pct.w(16), 16, 4])
-    bones.push([pct.x(colX + 64), btnY + 14, pct.w(Math.round((colW - 88) * 0.5)), 12, 4])
+    const by = y0 + 24 + 36 + i * (btnH + btnGap)
+    bones.push(rect(pct.x(colX + 24), by, pct.w(colW - 48), btnH, 12))
   }
 }
 
-// Builder for the Main column (banner + description + 4 S5 shells)
+// Builder for the Main column (banner + description + attendees compact + info-extra card).
 function pushMainCol(bones, pct, colX, colW, y0, bannerH) {
   let y = y0
-  pushBanner(bones, pct, colX, colW, y, bannerH); y += bannerH + MAIN_GAP
-  pushDescriptionCard(bones, pct, colX, colW, y);  y += DESC_H + MAIN_GAP
-  for (let i = 0; i < 4; i++) {
-    pushComingSoonShell(bones, pct, colX, colW, y)
-    y += S5_SHELL_H + (i < 3 ? S5_SHELL_GAP : 0)
-  }
+  pushBanner(bones, pct, colX, colW, y, bannerH);   y += bannerH + MAIN_GAP
+  pushDescriptionCard(bones, pct, colX, colW, y);   y += DESC_H + MAIN_GAP
+  pushAttendeesCard(bones, pct, colX, colW, y);     y += ATTENDEES_COMPACT_H + MAIN_GAP
+  pushInfoExtraCard(bones, pct, colX, colW, y)
 }
 
-// Builder for the "Statistiques de participation" coming soon card (S6)
-// ComingSoonBlock shell with 3 stat boxes in grid-cols-3
+// Builder for the public "Statistiques de participation" card (SCRUM-92).
+// EventStatsPanel: glass card with a header row (BarChart icon + label) and
+// a 3-column grid of vertical mini-tiles (icon container + value + label).
+// All bones are leaves (no container flag) — the lighter/darker hierarchy
+// comes from alpha compounding on overlapping bones.
 function pushStatsCard(bones, pct, colX, colW, y0) {
-  // Shell (container, lighter — dashed border in reality)
-  bones.push([pct.x(colX), y0, pct.w(colW), STATS_CARD_H, 16, true])
-  // Header row: icon + label + sprint badge
-  bones.push([pct.x(colX + 16), y0 + 14, pct.w(16), 16, 4])                                    // icon
-  bones.push([pct.x(colX + 40), y0 + 16, pct.w(Math.round((colW - 88) * 0.8)), 12, 4])         // label
-  bones.push([pct.x(colX + colW - 46), y0 + 14, pct.w(30), 16, 9999])                          // sprint badge
-  // 3 stat boxes (containers — each a bordered mini-card with value + label)
-  const bodyY = y0 + 42
+  // Card surface (rounded-3xl, p-5)
+  bones.push(rect(pct.x(colX), y0, pct.w(colW), STATS_CARD_H, BONE_RADIUS_LG))
+  // Header row: 16x16 BarChart icon + label
+  bones.push(circle(pct.x(colX + 20), y0 + 22, pct.w(16), 16))
+  bones.push(rect(pct.x(colX + 44), y0 + 24, pct.w(Math.round((colW - 64) * 0.55)), 12, 4))
+  // 3 vertical mini-tiles (rounded-2xl): icon container + value + label, centered
+  const bodyY = y0 + 56
+  const tileH = 96
   const gapX = 8
-  const innerX = colX + 16
-  const innerW = colW - 32
+  const innerX = colX + 20
+  const innerW = colW - 40
   const boxW = (innerW - 2 * gapX) / 3
   for (let i = 0; i < 3; i++) {
     const bx = innerX + i * (boxW + gapX)
-    bones.push([pct.x(bx), bodyY, pct.w(boxW), 44, 12, true])                                  // box surface
-    bones.push([pct.x(bx + (boxW - 16) / 2), bodyY + 10, pct.w(16), 14, 4])                    // value (centered)
-    bones.push([pct.x(bx + (boxW - 28) / 2), bodyY + 28, pct.w(28), 10, 4])                    // label (centered)
+    bones.push(rect(pct.x(bx), bodyY, pct.w(boxW), tileH, BONE_RADIUS_MD))            // tile surface
+    bones.push(rect(pct.x(bx + (boxW - 32) / 2), bodyY + 12, pct.w(32), 32, 8))       // icon container (32x32 rounded-lg)
+    bones.push(rect(pct.x(bx + (boxW - 24) / 2), bodyY + 52, pct.w(24), 16, 4))       // value
+    bones.push(rect(pct.x(bx + (boxW - 36) / 2), bodyY + 76, pct.w(36), 10, 4))       // label
   }
 }
 
-// Builder for the Sidebar column (infos + attendance + ICS card + stats card)
+// Builder for the Sidebar column (infos clés + attendance + ICS export + public stats card).
+// We model the public variant (no organizer-only actions), since the skeleton
+// renders before we know whether the user is the organizer. The stats panel
+// is shown to everyone (SCRUM-92 — viewCount/interestedCount are public).
 function pushSidebarCol(bones, pct, colX, colW, y0) {
   let y = y0
   pushInfosClesCard(bones, pct, colX, colW, y);  y += INFOS_CARD_H + SIDEBAR_GAP
@@ -501,18 +550,27 @@ function genEventDetail() {
 }
 
 // ============================================================
-// EVENT EDIT FORM — new skeleton for EventEditPage
-// Mirrors EventForm.tsx exactly (5 bands separated by gap-8):
+// EVENT EDIT FORM — skeleton for EventEditPage
+// Mirrors EventForm.tsx (gap-8 between bands):
 //   Band 1: Banner (2fr) | Title + Description (3fr) — max-lg:1col
-//   Band 2: Lieu (2fr) | Début (1fr) | Fin (1fr) — max-sm:1col
-//   Band 3: Catégorie (w-48) | Capacité (w-24) | CTA (ml-auto, max-sm:w-full)
-//   Band 4: 4 ComingSoon shells (site/email 2-col row + deadline + tags + border + attach)
+//   Band 2a: Lieu (FormField with leading icon)
+//   Band 2b: Date & heure section (rounded-2xl border with header + allDay toggle,
+//            then 2 datetime fields side-by-side, max-sm:stacked)
+//   Band 3: Catégorie (w-48) | Faculté (w-56) | Capacité (w-24) — flex-wrap
+//   Band 4: Champs additionnels —
+//             websiteUrl + contactEmail (grid 2 cols max-sm:1col)
+//             + registrationDeadline (datetime field)
+//             + tags (FormField + counter)
+//             + separator
+//             + ComingSoon attachments
 //   Band 5: Co-organisateurs shell (edit mode only)
+//   CTA bar: ml-auto, 3 buttons (delete/cancel/submit)
 //
 // Three responsive states matching our 3 bps (container widths):
-//   320 → State A (<sm): all stacked
-//   592 → State B (sm..lg): band 1 stacked, bands 2/3/4-row1 multi-col
-//   960 → State C (lg+): all bands in default multi-col layout
+//   320 → State A (<sm): everything stacked, datetime + websiteUrl/email stacked,
+//                        cat/fac/cap wrap onto multiple rows, CTA full-width
+//   592 → State B (sm..lg): band 1 stacked, band 2b/3/4-row1 multi-col
+//   960 → State C (lg+): full multi-col, band 1 in 2 columns
 // ============================================================
 
 const FORM_GAP = 32
@@ -523,30 +581,44 @@ const DESC_FIELD_H = 192    // label + textarea + counter
 const FIELD_GAP_4 = 16
 const BAND1_RIGHT_H = TITLE_FIELD_H + FIELD_GAP_4 + DESC_FIELD_H // 300
 const FIELD_72 = 72         // standard FormField (label + input, no counter, ~28+44)
-const CTA_H = 68            // submit button + annuler text
-const CS_STD = 92
-const CS_TAGS = 88
-const CS_ATTACH = 124
-const CS_GAP = 12
+const TAGS_FIELD_H = 88     // FormField + TagInput + counter row
+const SECTION_PADDING_Y = 32   // px-4 py-4 = 16+16
+const SECTION_HEADER_H = 22    // header row (~h-5)
+const SECTION_INNER_GAP = 12   // gap-3 inside section
+const CS_ATTACH = 92
 const BAND5_H = 141
 const BORDER_LINE = 1
+const CTA_BUTTON_H = 44     // h-11 button row
 
 function band1H(state) {
   if (state === 'C') return Math.max(BANNER_PT + BANNER_H, BAND1_RIGHT_H) // max(236, 300) = 300
   return BANNER_H + 24 + BAND1_RIGHT_H                                    // 208 + 24 + 300 = 532
 }
-function band2H(state) {
-  if (state === 'A') return FIELD_72 * 3 + FIELD_GAP_4 * 2 // 248
-  return FIELD_72                                          // 72
+
+function band2aH() { return FIELD_72 }
+
+function band2bH(state) {
+  // rounded-2xl px-4 py-4 with header row + 2 datetime fields
+  const fieldsH = state === 'A'
+    ? FIELD_72 * 2 + FIELD_GAP_4
+    : FIELD_72
+  return SECTION_PADDING_Y + SECTION_HEADER_H + SECTION_INNER_GAP + fieldsH
 }
+
 function band3H(state) {
-  if (state === 'A') return FIELD_72 + FIELD_GAP_4 + CTA_H // 72 + 16 + 68 = 156
-  return FIELD_72                                          // 72
+  // Cat (192) + Fac (224) + Cap (96) with gap-x-6 (24) → total ~560 single row
+  if (state === 'A') return FIELD_72 * 3 + FIELD_GAP_4 * 2 // 248 — wraps to 3 rows
+  return FIELD_72                                          // 72 single row
 }
+
 function band4H(state) {
-  const row1 = state === 'A' ? (CS_STD + CS_GAP + CS_STD) : CS_STD // 196 or 92
-  // parent flex flex-col gap-3 with 5 children: row1, row2, row3, border, row4
-  return row1 + CS_GAP + CS_STD + CS_GAP + CS_TAGS + CS_GAP + BORDER_LINE + CS_GAP + CS_ATTACH
+  const row1 = state === 'A' ? (FIELD_72 + FIELD_GAP_4 + FIELD_72) : FIELD_72 // 160 or 72
+  // gap-4 between children
+  return row1 + FIELD_GAP_4
+       + FIELD_72 + FIELD_GAP_4
+       + TAGS_FIELD_H + FIELD_GAP_4
+       + BORDER_LINE + FIELD_GAP_4
+       + CS_ATTACH
 }
 
 function stateForContainer(cw) {
@@ -555,138 +627,140 @@ function stateForContainer(cw) {
   return 'A'
 }
 
+function ctaH(state) {
+  // State A: flex-wrap pushes the longest button to a second row (~2 rows of 44 + gap-3).
+  // Otherwise single right-aligned row.
+  if (state === 'A') return CTA_BUTTON_H * 2 + 12
+  return CTA_BUTTON_H
+}
+
 function formTotalH(state) {
-  return band1H(state) + FORM_GAP
-       + band2H(state) + FORM_GAP
-       + band3H(state) + FORM_GAP
-       + band4H(state) + FORM_GAP
-       + BAND5_H
+  return band1H(state)  + FORM_GAP
+       + band2aH()      + FORM_GAP
+       + band2bH(state) + FORM_GAP
+       + band3H(state)  + FORM_GAP
+       + band4H(state)  + FORM_GAP
+       + BAND5_H        + FORM_GAP
+       + ctaH(state)
 }
 
 // ── Bone builders per band ─────────────────────────────────
+// All bones are leaves (no container flag) so they actually render at runtime;
+// alpha compounding gives the lighter/darker hierarchy on overlapping bones.
 
+// Banner upload zone (h-52, dashed border in the real form). Centered icon
+// badge + 2 text lines underneath.
 function pushUploadBanner(bones, pct, x, y, w) {
-  // Dashed upload zone (container, lighter — simulates the dashed border surface)
-  bones.push([pct.x(x), y, pct.w(w), BANNER_H, 16, true])
-  // Centered icon badge (container)
+  bones.push(rect(pct.x(x), y, pct.w(w), BANNER_H, BONE_RADIUS_MD))
   const iconSize = 48
   const iconX = x + (w - iconSize) / 2
   const iconY = y + (BANNER_H - iconSize - 44) / 2
-  bones.push([pct.x(iconX), iconY, pct.w(iconSize), iconSize, 16, true])
-  // Main text (leaf)
-  bones.push([pct.x(x + (w - 160) / 2), iconY + 60, pct.w(160), 12, 4])
-  // Sub text (leaf)
-  bones.push([pct.x(x + (w - 120) / 2), iconY + 80, pct.w(120), 10, 4])
+  bones.push(rect(pct.x(iconX), iconY, pct.w(iconSize), iconSize, 12))
+  bones.push(rect(pct.x(x + (w - 160) / 2), iconY + 60, pct.w(160), 12, 4))
+  bones.push(rect(pct.x(x + (w - 120) / 2), iconY + 80, pct.w(120), 10, 4))
 }
 
+// Title field: label + input + counter underneath.
 function pushShortField(bones, pct, x, w, y) {
-  // Label (leaf)
-  bones.push([pct.x(x), y + 4, pct.w(40), 12, 4])
-  // Input (container)
-  bones.push([pct.x(x), y + 28, pct.w(w), 44, 12, true])
-  // Counter right-aligned (leaf)
-  bones.push([pct.x(x + w - 50), y + 76, pct.w(50), 12, 4])
+  bones.push(rect(pct.x(x), y + 4, pct.w(40), 12, 4))                       // label
+  bones.push(rect(pct.x(x), y + 28, pct.w(w), 44, 12))                      // input surface
+  bones.push(rect(pct.x(x + w - 50), y + 76, pct.w(50), 12, 4))             // counter (right)
 }
 
+// Description field: label + textarea + counter.
 function pushTextareaField(bones, pct, x, w, y) {
-  // Label
-  bones.push([pct.x(x), y + 4, pct.w(70), 12, 4])
-  // Textarea (container)
-  bones.push([pct.x(x), y + 28, pct.w(w), 144, 12, true])
-  // Counter
-  bones.push([pct.x(x + w - 60), y + 176, pct.w(60), 12, 4])
+  bones.push(rect(pct.x(x), y + 4, pct.w(70), 12, 4))
+  bones.push(rect(pct.x(x), y + 28, pct.w(w), 144, 12))
+  bones.push(rect(pct.x(x + w - 60), y + 176, pct.w(60), 12, 4))
 }
 
+// Standard FormField with label + input (no counter).
 function pushNoCounterField(bones, pct, x, w, y, labelW = 40) {
-  bones.push([pct.x(x), y + 4, pct.w(labelW), 12, 4])
-  bones.push([pct.x(x), y + 28, pct.w(w), 44, 12, true])
+  bones.push(rect(pct.x(x), y + 4, pct.w(labelW), 12, 4))
+  bones.push(rect(pct.x(x), y + 28, pct.w(w), 44, 12))
 }
 
-// Location field with left icon inside input
-function pushLocationField(bones, pct, x, w, y) {
-  bones.push([pct.x(x), y + 4, pct.w(40), 12, 4])                // label
-  bones.push([pct.x(x), y + 28, pct.w(w), 44, 12, true])          // input surface
-  bones.push([pct.x(x + 14), y + 42, pct.w(16), 16, 4])           // left icon inside
+// Field with a leading icon inside the input (Lieu / websiteUrl / contactEmail).
+function pushIconField(bones, pct, x, w, y, labelW = 40) {
+  bones.push(rect(pct.x(x), y + 4, pct.w(labelW), 12, 4))                   // label
+  bones.push(rect(pct.x(x), y + 28, pct.w(w), 44, 12))                       // input surface
+  bones.push(circle(pct.x(x + 12), y + 42, pct.w(16), 16))                   // 16x16 icon
 }
 
-// Date/time input row (date 1fr + HH + MM)
+// Date/time input row (date 1fr + HH select + : + MM select).
 function pushDateTimeInputs(bones, pct, x, w, y) {
-  const selW = 50
-  const hhmmW = selW + 8 + selW // 2 selects with ':' gap
+  const selW = 56
+  const hhmmW = selW + 8 + selW
   const dateW = w - hhmmW - 12
-  bones.push([pct.x(x), y, pct.w(dateW), 44, 12, true])
-  bones.push([pct.x(x + dateW + 12), y, pct.w(selW), 44, 12, true])
-  bones.push([pct.x(x + dateW + 12 + selW + 8), y, pct.w(selW), 44, 12, true])
+  bones.push(rect(pct.x(x), y, pct.w(dateW), 44, 12))
+  bones.push(rect(pct.x(x + dateW + 12), y, pct.w(selW), 44, 12))
+  bones.push(rect(pct.x(x + dateW + 12 + selW + 8), y, pct.w(selW), 44, 12))
 }
 
-function pushDebutField(bones, pct, x, w, y) {
-  // Label row: "Début *" on left
-  bones.push([pct.x(x), y + 4, pct.w(40), 12, 4])
-  // All-day shell on the right (checkbox + text + S5 badge → simplified as a pill)
-  const shellW = 140
-  bones.push([pct.x(x + w - shellW), y + 2, pct.w(shellW), 16, 9999, true])
-  // Input row at y=28
+// Standalone datetime FormField (label + datetime row).
+function pushDateTimeField(bones, pct, x, w, y) {
+  bones.push(rect(pct.x(x), y + 4, pct.w(40), 12, 4))
   pushDateTimeInputs(bones, pct, x, w, y + 28)
 }
 
-function pushFinField(bones, pct, x, w, y) {
-  bones.push([pct.x(x), y + 4, pct.w(40), 12, 4])
-  pushDateTimeInputs(bones, pct, x, w, y + 28)
+// Tags FormField — label + tag input row + counter line.
+function pushTagsField(bones, pct, x, w, y) {
+  bones.push(rect(pct.x(x), y + 4, pct.w(60), 12, 4))
+  bones.push(rect(pct.x(x), y + 28, pct.w(w), 44, 12))
+  bones.push(rect(pct.x(x + w - 100), y + 76, pct.w(100), 10, 4))
 }
 
-// CTA zone: submit button + "Annuler" text
-function pushCtaZone(bones, pct, x, w, y, rightAligned) {
-  const btnW = Math.min(140, w)
-  const btnX = rightAligned ? x + w - btnW : x
-  bones.push([pct.x(btnX), y, pct.w(btnW), 44, 12, true])        // submit button
-  // "Annuler" text below, right-aligned
-  bones.push([pct.x(btnX + btnW - 60), y + 52, pct.w(60), 10, 4])
-}
-
-// ── ComingSoon shell builders ──────────────────────────────
-
-function pushCsHeader(bones, pct, x, w, y, labelW, sprintLabel = true) {
-  // Icon + label on left, sprint badge on right
-  bones.push([pct.x(x + 16), y + 14, pct.w(16), 16, 4])
-  bones.push([pct.x(x + 40), y + 16, pct.w(labelW), 12, 4])
-  if (sprintLabel) {
-    bones.push([pct.x(x + w - 46), y + 14, pct.w(30), 16, 9999])
+// CTA bar — ml-auto right aligned. State A: flex-wrap drops the wider button
+// to a 2nd row.
+function pushCtaBar(bones, pct, x, w, y, state) {
+  const widths = [96, 96, 128]
+  const gap = 12
+  if (state === 'A') {
+    bones.push(rect(pct.x(x),                   y, pct.w(widths[0]), CTA_BUTTON_H, 12))
+    bones.push(rect(pct.x(x + widths[0] + gap), y, pct.w(widths[1]), CTA_BUTTON_H, 12))
+    bones.push(rect(pct.x(x), y + CTA_BUTTON_H + gap, pct.w(widths[2]), CTA_BUTTON_H, 12))
+    return
+  }
+  const totalW = widths.reduce((a, b) => a + b, 0) + gap * 2
+  let cur = x + w - totalW
+  for (const bw of widths) {
+    bones.push(rect(pct.x(cur), y, pct.w(bw), CTA_BUTTON_H, 12))
+    cur += bw + gap
   }
 }
 
-function pushCsStd(bones, pct, x, w, y) {
-  // Shell (container, lighter — subtle dashed)
-  bones.push([pct.x(x), y, pct.w(w), CS_STD, 16, true])
-  pushCsHeader(bones, pct, x, w, y, Math.round(w * 0.42))
-  // Body: icon + input-like box (for site/email/deadline)
-  bones.push([pct.x(x + 16), y + 52, pct.w(16), 16, 4])
-  bones.push([pct.x(x + 40), y + 50, pct.w(w - 56), 28, 12, true])
-}
-
-function pushCsTags(bones, pct, x, w, y) {
-  bones.push([pct.x(x), y, pct.w(w), CS_TAGS, 16, true])
-  pushCsHeader(bones, pct, x, w, y, 80)
-  // Body: 3 tag pills inside a dashed border box
-  const tagsY = y + 48
-  let tx = x + 24
-  for (const tagW of [80, 64, 60]) {
-    bones.push([pct.x(tx), tagsY, pct.w(tagW), 20, 9999, true])
-    tx += tagW + 8
-  }
-}
-
+// "Pièces jointes" coming-soon shell — header row + dropzone helper line.
 function pushCsAttach(bones, pct, x, w, y) {
-  bones.push([pct.x(x), y, pct.w(w), CS_ATTACH, 16, true])
-  pushCsHeader(bones, pct, x, w, y, Math.round(w * 0.55))
-  // Body: dropzone rectangle with centered icon + text
-  const dzY = y + 46
-  const dzH = 64
-  bones.push([pct.x(x + 16), dzY, pct.w(w - 32), dzH, 12, true])
-  // Centered icon
-  const cx = x + w / 2
-  bones.push([pct.x(cx - 10), dzY + 14, pct.w(20), 20, 4])
-  // Centered text
-  bones.push([pct.x(cx - 90), dzY + 40, pct.w(180), 12, 4])
+  bones.push(rect(pct.x(x), y, pct.w(w), CS_ATTACH, BONE_RADIUS_MD))
+  bones.push(circle(pct.x(x + 16), y + 14, pct.w(16), 16))
+  bones.push(rect(pct.x(x + 40), y + 16, pct.w(Math.round(w * 0.55)), 12, 4))
+  bones.push(rect(pct.x(x + w - 46), y + 14, pct.w(30), 16, BONE_PILL))
+  bones.push(rect(pct.x(x + 16), y + 52, pct.w(Math.round((w - 32) * 0.6)), 12, 4))
+}
+
+// Date & heure section — rounded card with header row + 2 datetime fields.
+function pushDateTimeSection(bones, pct, x, w, y, state) {
+  const fieldsH = state === 'A'
+    ? FIELD_72 * 2 + FIELD_GAP_4
+    : FIELD_72
+  const sectionH = SECTION_PADDING_Y + SECTION_HEADER_H + SECTION_INNER_GAP + fieldsH
+  // Section card surface
+  bones.push(rect(pct.x(x), y, pct.w(w), sectionH, BONE_RADIUS_MD))
+  // Header: "Date & heure" label (left) + "Toute la journée" toggle pill (right)
+  bones.push(rect(pct.x(x + 16), y + 18, pct.w(96), 14, 4))
+  const togglePillW = 120
+  bones.push(rect(pct.x(x + w - 16 - togglePillW), y + 18, pct.w(togglePillW), 22, BONE_PILL))
+  // Datetime fields row
+  const fieldsY = y + 16 + SECTION_HEADER_H + SECTION_INNER_GAP
+  if (state === 'A') {
+    pushDateTimeField(bones, pct, x + 16, w - 32, fieldsY)
+    pushDateTimeField(bones, pct, x + 16, w - 32, fieldsY + FIELD_72 + FIELD_GAP_4)
+  } else {
+    const gap = 16
+    const halfW = Math.round((w - 32 - gap) / 2)
+    pushDateTimeField(bones, pct, x + 16, halfW, fieldsY)
+    pushDateTimeField(bones, pct, x + 16 + halfW + gap, halfW, fieldsY)
+  }
 }
 
 // ── Band builders ──────────────────────────────────────────
@@ -712,82 +786,73 @@ function pushBand1(bones, pct, cw, y0, state) {
   }
 }
 
-function pushBand2(bones, pct, cw, y0, state) {
-  if (state === 'A') {
-    // Stacked 1 col
-    pushLocationField(bones, pct, 0, cw, y0)
-    pushDebutField   (bones, pct, 0, cw, y0 + FIELD_72 + FIELD_GAP_4)
-    pushFinField     (bones, pct, 0, cw, y0 + (FIELD_72 + FIELD_GAP_4) * 2)
-  } else {
-    // 3 cols: 2fr 1fr 1fr, gap-4
-    const gap = 16
-    const avail = cw - gap * 2
-    const locationW = Math.round(avail * 2 / 4)
-    const colW = Math.round(avail * 1 / 4)
-    pushLocationField(bones, pct, 0, locationW, y0)
-    pushDebutField   (bones, pct, locationW + gap, colW, y0)
-    pushFinField     (bones, pct, locationW + gap + colW + gap, colW, y0)
-  }
+// Band 2a — Lieu (FormField with leading MapPin icon)
+function pushBand2a(bones, pct, cw, y0) {
+  pushIconField(bones, pct, 0, cw, y0)
+}
+
+// Band 2b — Date & heure section (rounded card)
+function pushBand2b(bones, pct, cw, y0, state) {
+  pushDateTimeSection(bones, pct, 0, cw, y0, state)
 }
 
 function pushBand3(bones, pct, cw, y0, state) {
   const catW = 192 // w-48
+  const facW = 224 // w-56
   const capW = 96  // w-24
   const gapX = 24  // gap-x-6
   if (state === 'A') {
-    // Wrap: cat+cap row 1, CTA full-width row 2
+    // Wraps to 3 rows on narrow viewports
     pushNoCounterField(bones, pct, 0, catW, y0)
-    pushNoCounterField(bones, pct, catW + gapX, capW, y0)
-    pushCtaZone(bones, pct, 0, cw, y0 + FIELD_72 + FIELD_GAP_4, false)
+    pushNoCounterField(bones, pct, 0, facW, y0 + FIELD_72 + FIELD_GAP_4)
+    pushNoCounterField(bones, pct, 0, capW, y0 + (FIELD_72 + FIELD_GAP_4) * 2)
   } else {
-    // One row: cat + cap + CTA (right-aligned via ml-auto)
+    // Single row, wrap-friendly
     pushNoCounterField(bones, pct, 0, catW, y0)
-    pushNoCounterField(bones, pct, catW + gapX, capW, y0)
-    pushCtaZone(bones, pct, 0, cw, y0 + 4, true)
+    pushNoCounterField(bones, pct, catW + gapX, facW, y0)
+    pushNoCounterField(bones, pct, catW + gapX + facW + gapX, capW, y0)
   }
 }
 
 function pushBand4(bones, pct, cw, y0, state) {
   let y = y0
+  // Row 1: websiteUrl (Globe icon) + contactEmail (Mail icon)
   if (state === 'A') {
-    // Row 1 stacked
-    pushCsStd(bones, pct, 0, cw, y); y += CS_STD + CS_GAP
-    pushCsStd(bones, pct, 0, cw, y); y += CS_STD + CS_GAP
+    pushIconField(bones, pct, 0, cw, y, 80); y += FIELD_72 + FIELD_GAP_4
+    pushIconField(bones, pct, 0, cw, y, 80); y += FIELD_72 + FIELD_GAP_4
   } else {
-    // Row 1 in 2 cols
-    const gap = CS_GAP
+    const gap = 16
     const halfW = Math.round((cw - gap) / 2)
-    pushCsStd(bones, pct, 0, halfW, y)
-    pushCsStd(bones, pct, halfW + gap, cw - halfW - gap, y)
-    y += CS_STD + CS_GAP
+    pushIconField(bones, pct, 0, halfW, y, 80)
+    pushIconField(bones, pct, halfW + gap, cw - halfW - gap, y, 80)
+    y += FIELD_72 + FIELD_GAP_4
   }
-  // Row 2: deadline (full width)
-  pushCsStd(bones, pct, 0, cw, y); y += CS_STD + CS_GAP
-  // Row 3: tags (full width)
-  pushCsTags(bones, pct, 0, cw, y); y += CS_TAGS + CS_GAP
-  // Border-t line (thin leaf)
-  bones.push([0, y, 100, 1, 0]); y += BORDER_LINE + CS_GAP
-  // Row 4: attachments (full width)
+  // Row 2: registrationDeadline (full width datetime field)
+  pushDateTimeField(bones, pct, 0, cw, y); y += FIELD_72 + FIELD_GAP_4
+  // Row 3: tags
+  pushTagsField(bones, pct, 0, cw, y); y += TAGS_FIELD_H + FIELD_GAP_4
+  // Border-t separator
+  bones.push(rect(0, y, 100, 1, 0)); y += BORDER_LINE + FIELD_GAP_4
+  // Row 4: ComingSoon Pièces jointes
   pushCsAttach(bones, pct, 0, cw, y)
 }
 
 function pushBand5(bones, pct, cw, y0) {
-  // Top border
-  bones.push([0, y0, 100, 1, 0])
+  // Top border separator
+  bones.push(rect(0, y0, 100, 1, 0))
   const y = y0 + 1 + 24 // border + pt-6
-  // Header row: icon + label on left, S8 badge on right
-  bones.push([pct.x(0),  y,      pct.w(16), 16, 4])
-  bones.push([pct.x(24), y + 2,  pct.w(120), 12, 4])
-  bones.push([pct.x(cw - 30), y, pct.w(30), 16, 9999])
+  // Header row: 16x16 icon + label on left, S8 badge on right
+  bones.push(circle(pct.x(0), y, pct.w(16), 16))
+  bones.push(rect(pct.x(24), y + 2, pct.w(120), 12, 4))
+  bones.push(rect(pct.x(cw - 30), y, pct.w(30), 16, BONE_PILL))
   // Search input mock (max-w-sm = 384)
   const searchW = Math.min(384, cw)
-  bones.push([pct.x(0), y + 32, pct.w(searchW), 40, 12, true])
-  // Icon inside search input
-  bones.push([pct.x(12), y + 44, pct.w(16), 16, 4])
+  bones.push(rect(pct.x(0), y + 32, pct.w(searchW), 40, 12))
+  bones.push(circle(pct.x(12), y + 44, pct.w(16), 16))
   // Chips row
   const chipsY = y + 32 + 40 + 12
-  bones.push([pct.x(0),   chipsY, pct.w(140), 28, 12, true])
-  bones.push([pct.x(152), chipsY, pct.w(120), 28, 12, true])
+  bones.push(rect(pct.x(0),   chipsY, pct.w(140), 28, 12))
+  bones.push(rect(pct.x(152), chipsY, pct.w(120), 28, 12))
 }
 
 function buildEventEdit(containerW) {
@@ -798,11 +863,13 @@ function buildEventEdit(containerW) {
   }
   const bones = []
   let y = 0
-  pushBand1(bones, pct, containerW, y, state); y += band1H(state) + FORM_GAP
-  pushBand2(bones, pct, containerW, y, state); y += band2H(state) + FORM_GAP
-  pushBand3(bones, pct, containerW, y, state); y += band3H(state) + FORM_GAP
-  pushBand4(bones, pct, containerW, y, state); y += band4H(state) + FORM_GAP
-  pushBand5(bones, pct, containerW, y)
+  pushBand1 (bones, pct, containerW, y, state); y += band1H(state)  + FORM_GAP
+  pushBand2a(bones, pct, containerW, y);        y += band2aH()      + FORM_GAP
+  pushBand2b(bones, pct, containerW, y, state); y += band2bH(state) + FORM_GAP
+  pushBand3 (bones, pct, containerW, y, state); y += band3H(state)  + FORM_GAP
+  pushBand4 (bones, pct, containerW, y, state); y += band4H(state)  + FORM_GAP
+  pushBand5 (bones, pct, containerW, y);        y += BAND5_H        + FORM_GAP
+  pushCtaBar(bones, pct, 0, containerW, y, state)
   return bones
 }
 
@@ -923,9 +990,183 @@ function genPublications() {
   writeBones('my-publications.bones.json', out)
 }
 
+// ============================================================
+// EVENT STATS — organizer dashboard (/events/:id/stats)
+// Layout (from EventStatsPage.tsx → EventStatsFixture):
+//   SectionWrapper size="lg" (max-w-5xl, container ≤ 960 desktop) wraps
+//   `<div className="flex flex-col gap-6">` containing:
+//     - Refresh button row (justify-end)
+//     - KPI grid (3 cols on ≥sm, stacked on mobile)
+//     - Chart card (h-[260px])
+//     - Capacity bar card (h-[100px])
+//     - Attendees toggle button (h-12)
+// 2-shade hierarchy:
+//   - Card surfaces, KPI icon containers, refresh button, attendees button
+//     → containers (lighter)
+//   - Heading lines, bar shapes inside the chart, capacity bar fill,
+//     icon/text inside cards → leaves (darker)
+// ============================================================
+
+const ES_REFRESH_H = 36       // h-9 (px-3 py-1.5 + text-sm)
+const ES_REFRESH_W = 130      // ~width of "Rafraîchir" + icon + padding
+const ES_KPI_H = 88           // h-[88px]
+const ES_CHART_H = 260        // h-[260px]
+const ES_CAPACITY_H = 100     // h-[100px]
+const ES_ATTENDEES_H = 48     // h-12
+const ES_GAP = 24             // gap-6
+const ES_KPI_GAP = 16         // gap-4
+
+// "max-sm:grid-cols-1" → stacked when viewport < 640. Tailwind sm = 640px viewport;
+// the SectionWrapper subtracts horizontal padding so the corresponding container
+// width is roughly 608px. Below that, KPI cards stack.
+const ES_KPI_STACK_THRESHOLD = 608
+
+function pushEsRefreshButton(bones, pct, colW, y0) {
+  const x_px = colW - ES_REFRESH_W
+  // Button surface (container, lighter)
+  bones.push([pct.x(x_px), y0, pct.w(ES_REFRESH_W), ES_REFRESH_H, 12, true])
+  // Icon (leaf, darker — 16x16 centered vertically)
+  bones.push([pct.x(x_px + 14), y0 + (ES_REFRESH_H - 16) / 2, pct.w(16), 16, 4])
+  // Label (leaf, darker — text-sm = 14px tall, ~72px wide)
+  bones.push([pct.x(x_px + 38), y0 + (ES_REFRESH_H - 14) / 2, pct.w(72), 14, 4])
+}
+
+function pushEsKpiCard(bones, pct, x_px, w_px, y0) {
+  // p-4 = 16, items-center vertically. Inner = 88 - 32 = 56.
+  // Icon container is 40x40, centered vertically: y = y0 + (88-40)/2 = y0 + 24.
+  // Card surface (container, lighter)
+  bones.push([pct.x(x_px), y0, pct.w(w_px), ES_KPI_H, 16, true])
+  // Icon container (container, lighter — gradient pill 40x40)
+  bones.push([pct.x(x_px + 16), y0 + 24, pct.w(40), 40, 12, true])
+  // Label (leaf — text-xs = 12, mb-1)
+  bones.push([pct.x(x_px + 72), y0 + 30, pct.w(Math.min(80, w_px - 96)), 12, 4])
+  // Value (leaf — text-2xl = 24, leading-none)
+  bones.push([pct.x(x_px + 72), y0 + 48, pct.w(Math.min(48, w_px - 96)), 22, 4])
+}
+
+function pushEsChartCard(bones, pct, colW, y0) {
+  // p-6 = 24 padding. Heading text-xs (12) + mb-4 (16). Chart area below.
+  // Card surface (container)
+  bones.push([pct.x(0), y0, 100, ES_CHART_H, 24, true])
+  // Heading "Répartition" (leaf)
+  bones.push([pct.x(24), y0 + 28, pct.w(80), 12, 4])
+  // Y-axis ticks (4 short leaves on the left)
+  for (let i = 0; i < 4; i++) {
+    const ty = y0 + 70 + i * 40
+    bones.push([pct.x(28), ty, pct.w(8), 10, 4])
+  }
+  // 3 vertical bars centered in the plot area, varied heights
+  const plotX = 60
+  const plotW = colW - 60 - 24
+  const plotBaseline = y0 + ES_CHART_H - 36 // leave room for x-axis labels
+  const barW = 56
+  const slotW = plotW / 3
+  const heights = [120, 80, 100]
+  for (let i = 0; i < 3; i++) {
+    const cx = plotX + slotW * (i + 0.5)
+    const bx = cx - barW / 2
+    const bh = heights[i]
+    // Bar (leaf — colored at runtime; skeleton just renders the shape)
+    bones.push([pct.x(bx), plotBaseline - bh, pct.w(barW), bh, 6])
+    // X-axis label (leaf)
+    bones.push([pct.x(cx - 28), plotBaseline + 12, pct.w(56), 10, 4])
+  }
+}
+
+function pushEsCapacityBar(bones, pct, colW, y0) {
+  // p-5 = 20, gap-3 = 12. Heading row + bar + sublabel.
+  // Card surface (container)
+  bones.push([pct.x(0), y0, 100, ES_CAPACITY_H, 24, true])
+  // Heading label (leaf, left) "Taux de remplissage"
+  bones.push([pct.x(20), y0 + 22, pct.w(140), 12, 4])
+  // Pct value (leaf, right) "33%"
+  bones.push([pct.x(colW - 20 - 32), y0 + 22, pct.w(32), 14, 4])
+  // Bar background (leaf — darker rail)
+  bones.push([pct.x(20), y0 + 48, pct.w(colW - 40), 16, 9999])
+  // Bar fill (container, lighter — partial width)
+  bones.push([pct.x(20), y0 + 48, pct.w(Math.round((colW - 40) * 0.33)), 16, 9999, true])
+  // Sublabel (leaf) "X / Y places"
+  bones.push([pct.x(20), y0 + 78, pct.w(80), 10, 4])
+}
+
+function pushEsAttendeesToggle(bones, pct, colW, y0) {
+  // h-12 = 48. button px-5 py-3.5 with icon + label + chevron.
+  // Surface (container)
+  bones.push([pct.x(0), y0, 100, ES_ATTENDEES_H, 16, true])
+  // Users icon (leaf)
+  bones.push([pct.x(20), y0 + 16, pct.w(16), 16, 4])
+  // Label (leaf) "Voir les participants"
+  bones.push([pct.x(44), y0 + 18, pct.w(160), 12, 4])
+  // Chevron (leaf)
+  bones.push([pct.x(colW - 20 - 16), y0 + 16, pct.w(16), 16, 4])
+}
+
+function buildEventStats(containerW) {
+  const pct = {
+    x: px => round(px * 100 / containerW),
+    w: px => round(px * 100 / containerW),
+  }
+  const bones = []
+  let y = 0
+
+  // Refresh button row (always justify-end)
+  pushEsRefreshButton(bones, pct, containerW, y)
+  y += ES_REFRESH_H + ES_GAP
+
+  // KPI grid
+  const stacked = containerW < ES_KPI_STACK_THRESHOLD
+  if (stacked) {
+    for (let i = 0; i < 3; i++) {
+      pushEsKpiCard(bones, pct, 0, containerW, y)
+      y += ES_KPI_H
+      if (i < 2) y += ES_KPI_GAP
+    }
+  } else {
+    const cardW = (containerW - 2 * ES_KPI_GAP) / 3
+    for (let i = 0; i < 3; i++) {
+      const cx = i * (cardW + ES_KPI_GAP)
+      pushEsKpiCard(bones, pct, cx, cardW, y)
+    }
+    y += ES_KPI_H
+  }
+  y += ES_GAP
+
+  // Chart card
+  pushEsChartCard(bones, pct, containerW, y)
+  y += ES_CHART_H + ES_GAP
+
+  // Capacity bar
+  pushEsCapacityBar(bones, pct, containerW, y)
+  y += ES_CAPACITY_H + ES_GAP
+
+  // Attendees toggle
+  pushEsAttendeesToggle(bones, pct, containerW, y)
+  y += ES_ATTENDEES_H
+
+  return { bones, height: y }
+}
+
+const STATS_CONTAINERS = [343, 720, 960]
+
+function genEventStats() {
+  const out = { breakpoints: {} }
+  for (const cw of STATS_CONTAINERS) {
+    const { bones, height } = buildEventStats(cw)
+    out.breakpoints[String(cw)] = {
+      name: 'event-stats',
+      viewportWidth: cw,
+      width: cw,
+      height,
+      bones,
+    }
+  }
+  writeBones('event-stats.bones.json', out)
+}
+
 genCards()
 genSearch()
 genCalendar()
 genEventDetail()
 genEventEdit()
 genPublications()
+genEventStats()

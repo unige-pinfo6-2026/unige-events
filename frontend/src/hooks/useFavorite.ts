@@ -4,13 +4,28 @@ import { addFavorite, removeFavorite } from '@/services/favoriteApi'
 import { useFavoritesContext } from '@/contexts/FavoritesContext'
 import { useAuth } from '@/hooks/useAuth'
 
+export interface UseFavoriteOptions {
+  /**
+   * Invoked after a successful add/remove. The hook awaits the returned
+   * promise before clearing `loading`, so a parent refetch (e.g. event
+   * stats counters that depend on `interestedCount`) completes before the
+   * button settles.
+   */
+  onAfterSuccess?: () => void | Promise<void>
+}
+
 interface UseFavoriteResult {
   favorited: boolean
   loading: boolean
   toggle: () => Promise<boolean>
 }
 
-export function useFavorite(eventId: number, initialFavorited = false): UseFavoriteResult {
+export function useFavorite(
+  eventId: number,
+  initialFavorited = false,
+  options: UseFavoriteOptions = {},
+): UseFavoriteResult {
+  const { onAfterSuccess } = options
   const { favoritedIds, isLoaded, markFavorited, markUnfavorited } = useFavoritesContext()
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
@@ -32,6 +47,11 @@ export function useFavorite(eventId: number, initialFavorited = false): UseFavor
         await addFavorite(eventId)
       } else {
         await removeFavorite(eventId)
+      }
+      try {
+        await onAfterSuccess?.()
+      } catch {
+        // A refetch failure must not roll back the successful mutation.
       }
       return true
     } catch {

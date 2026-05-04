@@ -17,6 +17,7 @@
 | /my-events/favorites | MyFavoritesPage | fait |
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
+| /events/:id/stats | EventStatsPage | fait (S6) |
 | /legal/privacy | PrivacyPage | fait |
 | /legal/terms | TermsPage | fait |
 
@@ -37,10 +38,11 @@
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
 - **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
-  - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute.
-  - `contactEmail` → ancre `mailto:` avec icône `Mail`.
+  - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute, rendue via la classe `text-link` (token CSS `--color-link`, sky-600 light / sky-400 dark).
+  - `contactEmail` → ancre `mailto:` avec icône `Mail`, mêmes styles `text-link`.
   - `registrationDeadline` → libellé "Inscriptions jusqu'au" + valeur formatée via `formatEventDateTime` avec icône `CalendarClock`.
-  - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags.
+  - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags. Les chips ne sont **pas** stylées en `text-link` — elles conservent leur look "pill discrète".
+- **Redirect créateur sur DRAFT** — la page détail d'un brouillon n'a pas de surface fonctionnelle pour son créateur (aucun bouton participer, aucun inscrit à voir). Un `useEffect` qui dépend de `event` et `user` redirige automatiquement vers `/events/:id/edit` avec `{ replace: true }` quand `event.status === 'DRAFT'` et `user.id === event.creatorId`. L'admin (`user.admin === true`) reste sur la page détail (cas modération). Co-organisateur ACCEPTED non couvert dans cette PR — follow-up SCRUM-137 frontend.
 
 ### FavoritesPage
 
@@ -79,8 +81,19 @@
 - **Layout cards sur tous les breakpoints** (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5`) — pas de table.
 - `PublicationCard` local non-exporté : bannière de l'événement (ou gradient fallback basé sur la couleur de catégorie), badge catégorie en top-left, badge statut en top-right (via const map `statusVariants`), titre `line-clamp-1` avec tooltip `title`, date + participants, actions en footer (Modifier, Publier si DRAFT, Annuler).
 - Actions : Modifier (`/events/:id/edit`), Publier (DRAFT → `PATCH /events/{id}/publish`), Annuler (`DELETE /events/{id}` avec `ConfirmModal` local). Tri par `startDate` décroissante.
-- Bouton flottant "Créer un événement" en bas-droite.
+- Bouton "Créer un événement" en `position: sticky bottom-6 self-end` à la fin du `SectionWrapper` : reste visible en bas-droite tant qu'on scrolle dans la page mais s'arrête à la fin du contenu, sans recouvrir le footer (vs l'ancien `position: fixed` qui flottait par-dessus le footer en bas de page).
 - Skeleton `my-events`.
+
+### EventStatsPage
+
+- Route `/events/:id/stats`, protégée par PrivateRoute — réservé à l'organisateur de l'événement.
+- Charge l'événement via `useEvent(id)`, puis les stats via `useEventStats(id)` (auto-refresh toutes les 60 s).
+- Vérifie que `user.id === event.creatorId` avant de charger les stats (évite le 403).
+- KPI cards : 👁 Vues totales (`stats.viewCount`), ⭐ Intéressés (`stats.interestedCount`), ✅ Inscrits (`stats.attendingCount`).
+- `StatsChart` : BarChart vertical recharts (Vues / Intéressés / Inscrits).
+- Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
+- Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
+- Skeleton `event-stats` généré par `skeleton/generate.mjs` (3 breakpoints container width : 343 / 720 / 960). Le fixture reflète exactement le layout : bouton "Rafraîchir" en haut, grille KPI (3 cols ≥sm, stackée mobile), card chart `h-[260px]`, capacity bar `h-[100px]`, attendees toggle `h-12`.
 
 ### PrivacyPage
 
@@ -90,6 +103,7 @@
 - Sections : cadre légal, responsable du traitement, données collectées, finalités, base légale, principes, partage, cookies, durée de conservation, droits, sécurité, contact.
 - Lien interne vers `/profile/me/edit` pour l'exercice du droit de rectification.
 - Mention explicite du caractère académique (projet PINFO).
+- Composé via les helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` partagés (`@/components/legal/`) — chaque rubrique = un `<LegalSection title="...">` avec son contenu typé.
 
 ### TermsPage
 
@@ -99,6 +113,7 @@
 - Sections : objet, description de la plateforme, inscription, contenu utilisateur, modération, propriété intellectuelle, disponibilité, limitation de responsabilité, données personnelles (renvoi vers `/legal/privacy`), modification des conditions, droit applicable, contact.
 - Lien externe vers le dépôt GitHub (open source).
 - Mention explicite du caractère académique (projet PINFO).
+- Réutilise les mêmes helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` que `PrivacyPage`.
 
 ### CreateEventPage
 
@@ -122,6 +137,7 @@
 - **Mode brouillon (resume)** : si l'event chargé a `status === 'DRAFT'`, la page bascule automatiquement en mode "terminer le brouillon" — titre "Terminer votre brouillon", bouton principal "Créer l'événement" qui force `status=PUBLISHED` via `form.triggerPublish()`, bouton secondaire renommé **"Enregistrer"** (via la prop `saveDraftLabel` de `EventForm` — l'event est déjà en brouillon, on ne "sauvegarde pas en brouillon", on l'enregistre tel quel pour plus tard), et "Annuler" renvoie vers `/`. La publication redirige vers `/events/:id` ; un re-save en brouillon redirige vers `/`.
 - Pendant un clic sur "Enregistrer", le bouton principal "Créer l'événement" reste **inchangé** (ni disabled, ni label "Enregistrement...") — seul le bouton secondaire passe en état de progression. Grâce au flag `draftSaving` séparé de `submitting` (voir `useEventForm`).
 - **Bouton "Supprimer le brouillon"** (uniquement en mode draft) : ouvre une modale de confirmation inline (même pattern visuel que la suppression sur `EventDetailPage`, sans composant partagé pour l'instant). Après confirmation → appel `deleteEvent(id)` → toast "Brouillon supprimé." → navigation vers `/`. En cas d'échec réseau → toast "Impossible de supprimer ce brouillon.", on reste sur la page. Le state `deleting` local garantit que le bouton principal "Créer l'événement" reste inerte pendant l'appel (même principe que `draftSaving`).
+- Skeleton `event-edit` réaligné avec les 5 bandes actuelles d'`EventForm` (Banner+Titre/Description, Lieu, section Date & heure, Catégorie/Faculté/Capacité, Champs additionnels SCRUM-117, Co-organisateurs SCRUM-137 shell, CTA bar) — voir `skeleton/generate.mjs:genEventEdit`.
 
 ### EventsSearchPage
 
@@ -270,6 +286,14 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Props : `trigger` (ReactNode affiché en permanence), `children` (contenu du panel), `align` (`keyof typeof aligns`, défaut `'left'`).
 - Utilisé dans `Navbar` : `UserDropdownMenu` (`align="right"`), `NavItem` (`align` par défaut).
 
+### Navbar
+
+- Barre de navigation principale du site (`src/components/Navbar.tsx`), exporte également `MobileMenu` pour la sidebar tactile.
+- Les listes `navLinks`, `actionButtons`, `myEventsSubLinks` et `userMenuItems` sont déclarées une seule fois en const arrays typées et partagées entre desktop et mobile (DRY).
+- **Dropdown profil desktop — pattern banner-card pour "Mes événements"** : l'item `userMenuItems` qui possède des `subLinks` est rendu via le composant local `UserDropdownBanner` à base de `Collapsible.Root` (Radix UI). Le banner-card (`rounded-2xl border border-border/40 bg-foreground/[0.02]`) regroupe les 3 sous-liens (favoris / participations / publications) sous un header cliquable avec chevron pivotant. **Ouvert par défaut** (`defaultOpen`) pour réduire les clics — l'utilisateur vient juste d'ouvrir son profil. L'animation utilise les keyframes `collapsible-open` / `collapsible-close` (200 ms, ease) déclarées dans `index.css` et désactivées sous `motion-reduce`. Pattern source : `DraftsResumeStrip`.
+- **Sidebar mobile (`MobileNavItem`)** inchangée : la version tactile a son propre expand/collapse en colonne et n'a pas le défaut "menu dans menu" du dropdown desktop.
+- L'item plat `Administration` (visible si `user.admin`) reste un simple `<Link>` dans le dropdown — il n'a pas de `subLinks` et donc pas de banner-card.
+
 ### AttendanceButtons
 
 - Affiche les boutons "Je suis intéressé(e)" et "Je participe" sur la page détail événement.
@@ -300,6 +324,14 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 ### WaitlistBadge
 
 - Petit badge `"Liste d'attente"` réutilisable (`src/components/attendees/WaitlistBadge.tsx`), basé sur `bg-warning/10 border-warning/40 text-warning` pour rester cohérent avec `AttendanceButtons`.
+
+### EventStatsPanel
+
+- Card publique "Statistiques de participation" (`src/components/event/EventStatsPanel.tsx`) insérée dans la **sidebar** de `EventDetailPage`, après `IcsExportButton` et avant les actions organisateur. Visible pour **tous** les utilisateurs (pas seulement l'organisateur) — la page `/events/:id/stats` reste réservée à l'organisateur pour les visualisations avancées (chart + capacity bar + liste des participants).
+- Props : `viewCount: number | null | undefined`, `interestedCount: number | null | undefined`, `attendingCount: number`.
+- Layout : titre avec icône `BarChart2` puis `grid grid-cols-3 gap-2` de 3 mini-cards (icône + valeur + label). Pattern KPI compact réutilisé d'`EventStatsPage` : gradient `blue` pour Vues, `green` pour Inscrits, `purple` pour Intéressés.
+- Affiche `'—'` quand `viewCount`/`interestedCount` sont `null` ou `undefined` (cas des endpoints de liste/recherche qui ne calculent pas ces compteurs). `attendingCount` est toujours présent dans le DTO Event public.
+- Formatage `toLocaleString('fr-CH')` (séparateur U+202F entre milliers).
 
 ### CalendarSubscribeButton
 
@@ -345,7 +377,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - **État initial : collapsed.** L'utilisateur doit cliquer pour voir ses brouillons. Pas de persistance `sessionStorage`/`localStorage` — à chaque montage, le panneau repart fermé.
 - **Animation** ~250 ms à l'ouverture, ~200 ms à la fermeture, via les keyframes `drafts-panel-open` / `drafts-panel-close` déclarées dans `index.css`. Elles consomment la variable CSS `--radix-collapsible-content-height` fournie par Radix. Désactivées si `prefers-reduced-motion: reduce` (via les préfixes `motion-safe:`). Le chevron utilise `motion-reduce:transition-none`.
 - **États** :
-  - `loading` → skeleton `drafts-resume-strip` systématiquement rendu (fichier bones manuel, même hauteur 56 px et même layout que le header collapsed : icône gauche + texte + chevron droit). Fixture interne `DraftsHeaderFixture`.
+  - `loading` → skeleton `drafts-resume-strip` systématiquement rendu (fichier bones manuel, hauteur 56 px alignée sur la fixture, déclaré sur 3 container-width breakpoints `320 / 720 / 1216` pour scaler proprement de mobile à desktop). Fixture interne `DraftsHeaderFixture`.
   - `error` → retour `null`. Pas de header fantôme en cas d'échec réseau.
   - `drafts.length === 0` → la bannière s'affiche quand même avec son header "Mes brouillons" cliquable ; le panneau déplié affiche un message centré **"Aucun brouillon"** (italique, `text-foreground/50`) au lieu des cartes. L'utilisateur voit toujours le même emplacement, sans CLS entre l'état vide et l'état peuplé.
   - `drafts.length >= 1` → bannière collapsed, panneau contenant les cartes + bouton "Voir tout" conditionnel.
@@ -387,6 +419,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `user-identity-inline` | `user-identity-inline.bones.json` | `UserIdentity` (inline) | manuel |
 | `user-identity-card` | `user-identity-card.bones.json` | `UserIdentity` (card) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
+| `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
