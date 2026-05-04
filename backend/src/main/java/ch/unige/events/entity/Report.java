@@ -27,11 +27,25 @@ public class Report extends PanacheEntity {
     public User reporter;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    public ReportReason reason;
+
+    @Column(columnDefinition = "TEXT")
+    public String description;
+
+    @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "varchar(255)", nullable = false)
     public ReportStatus status = ReportStatus.PENDING;
 
-    @Column(columnDefinition = "TEXT")
-    public String reason;
+    @Column(name = "moderation_note", columnDefinition = "TEXT")
+    public String moderationNote;
+
+    @Column(name = "reviewed_at")
+    public LocalDateTime reviewedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by")
+    public User reviewedBy;
 
     @Column(updatable = false)
     public LocalDateTime createdAt;
