@@ -135,7 +135,7 @@ jobs:
           echo "TIME=$(TZ=Europe/Zurich date '+%b %d, %Y %H:%M %Z')" >> $GITHUB_ENV
 
       - name: Comment PR
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           number: ${{ env.PR_NUMBER }}
           message: |
