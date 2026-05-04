@@ -1,5 +1,7 @@
 .PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
 
+MODE=development
+
 # Installations
 install-backend:
 	cd backend && ./mvnw clean dependency:resolve
@@ -33,6 +35,6 @@ build-backend:
 	cd backend && ./mvnw clean package -B
 
 build-frontend:
-	cd backend && npm run build
+	cd frontend && npm run build -- --mode $(MODE)
 
 .DEFAULT_GOAL := install

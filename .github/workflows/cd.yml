@@ -74,7 +74,7 @@ jobs:
 
   # ─── Preview ──────────────────────────────────────────────────────────────
   deploy-preview:
-    name: Deploy Preview
+    name: Deploy to Preview
     if: |
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -149,8 +149,8 @@ jobs:
             ---
 
             ✅ Deployed from PR #${{ env.PR_NUMBER }}
-            🌿 Branch: `${{ github.head_ref }}`
-            🔖 Commit: `${{ github.sha }}`
+            🌿 Branch: ${{ github.event.workflow_run.head_branch }}
+            🔖 Commit: ${{ github.event.workflow_run.head_sha }}
             🕒 Updated: ${{ env.TIME }}
 
   # ─── Cleanup Preview ──────────────────────────────────────────────────────
