@@ -72,6 +72,7 @@ jobs:
             --set image.api.tag="${HEAD_SHA}" \
             --set image.web.tag="${HEAD_SHA}" \
             --timeout 3m \
+            --atomic \
             --wait
 
   # ─── Preview ──────────────────────────────────────────────────────────────
@@ -132,6 +133,7 @@ jobs:
             --set image.api.tag="pr-${{ env.PR_NUMBER }}" \
             --set image.web.tag="pr-${{ env.PR_NUMBER }}" \
             --timeout 3m \
+            --atomic \
             --wait
 
       - name: Set PR context
