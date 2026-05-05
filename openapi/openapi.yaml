@@ -212,6 +212,20 @@ components:
           type: boolean
           default: false
           description: Indicates whether the event spans the entire day
+        featured:
+          type: boolean
+          default: false
+          description: Whether this event has been manually boosted by an admin via PATCH /admin/events/{id}/feature.
+        featuredAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: |
+            Timestamp set when an admin features the event via PATCH /admin/events/{id}/feature.
+            Idempotent — calling /feature again on an already-featured event preserves the original timestamp.
+            Cleared (set to null) by /unfeature. Used internally to sort phase-1 results (featuredAt DESC)
+            in GET /events/featured — not exposed as a sort key in the public API.
         attendingCount:
           type: integer
           format: int64
@@ -1356,6 +1370,11 @@ paths:
             paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
           schema:
             type: boolean
+        - name: featured
+          in: query
+          description: Si true, retourne uniquement les événements actuellement mis en avant (featured=true). Utile pour le dashboard admin.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -1883,6 +1902,95 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/featured:
+    get:
+      summary: Événements mis en avant et populaires
+      description: |
+        Retourne jusqu'à `limit` événements via une logique deux phases.
+        Phase 1 : événements avec `featured=true`, statut PUBLISHED et `endDate >= now()`, triés par `featuredAt DESC` (critère interne — `featuredAt` est exposé dans le schéma Event en lecture seule).
+        Phase 2 : complète les slots restants avec les événements non-featured PUBLISHED à venir,
+        triés par score de popularité (`attendingCount + favoriteCount`) DESC. Les IDs de la phase 1
+        sont exclus de la phase 2.
+      operationId: getFeaturedEvents
+      tags: [events]
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          description: Nombre maximum d'événements retournés (min 1, max 12).
+          schema:
+            type: integer
+            default: 6
+            minimum: 1
+            maximum: 12
+      responses:
+        '200':
+          description: Liste des événements mis en avant / populaires
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Paramètre limit hors bornes (< 1 ou > 12)
+
+  /admin/events/{id}/feature:
+    patch:
+      summary: Mettre en avant un événement (admin uniquement)
+      operationId: featureEvent
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement mis à jour avec featured=true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+        '403':
+          description: Rôle ADMIN requis
+        '404':
+          description: Événement introuvable
+
+  /admin/events/{id}/unfeature:
+    patch:
+      summary: Retirer la mise en avant d'un événement (admin uniquement)
+      operationId: unfeatureEvent
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement mis à jour avec featured=false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+        '403':
+          description: Rôle ADMIN requis
+        '404':
+          description: Événement introuvable
 
   /events/{id}/attend:
     post:
@@ -2769,31 +2877,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  /admin/events/{id}/feature:
-    put:
-      summary: Mettre en avant un événement — admin uniquement
-      operationId: featureEvent
-      tags: [admin]
-      security:
-        - BearerAuth: []
-      # TODO: Sprint 6
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Événement mis en avant
-        '403':
-          description: Non autorisé
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-
-  # TODO: Sprint 7
+  # TODO: Sprint 7 (notifications)
   /notifications:
     get:
       summary: Notifications de l'utilisateur connecté

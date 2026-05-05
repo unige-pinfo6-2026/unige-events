@@ -129,6 +129,28 @@ class EventDTOTest {
         assertThrows(UnsupportedOperationException.class, () -> dto.tags().add("x"));
     }
 
+    // --- featured field ---
+
+    @Test
+    void from_withFeaturedTrue_mapsFeaturedTrue() {
+        Event event = new Event();
+        event.featured = true;
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertTrue(dto.featured());
+    }
+
+    @Test
+    void from_withFeaturedFalse_mapsFeaturedFalse() {
+        Event event = new Event();
+        event.featured = false;
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertFalse(dto.featured());
+    }
+
     // --- SCRUM-129 — availableSpots & waitlistedCount ---
 
     @Test
