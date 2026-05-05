@@ -6,6 +6,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Timeframe;
 import ch.unige.events.entity.User;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -247,6 +248,184 @@ class AttendanceServiceCoverageTest {
     void getMyAttendances_unknownUser_throwsNotFound() {
         assertThrows(NotFoundException.class,
                 () -> attendanceService.getMyAttendances("auth0|nobody"));
+    }
+
+    // =========================================================
+    // getMyParticipationEvents — SCRUM-73 (status × timeframe filter)
+    // =========================================================
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_noAttendances_returnsEmpty() {
+        persistUser("auth0|mpe-empty", "mpe-empty@example.com");
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-empty", null, null);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_unknownUser_throwsNotFound() {
+        assertThrows(NotFoundException.class, () -> attendanceService.getMyParticipationEvents(
+                "auth0|mpe-nobody", null, null));
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_noFilters_returnsBothStatuses() {
+        User user = persistUser("auth0|mpe-all", "mpe-all@example.com");
+        Event a = persistEvent("Att A", user, EventStatus.PUBLISHED, null);
+        Event w = persistEvent("Wait W", user, EventStatus.PUBLISHED, null);
+        persistAttendance(user.id, a.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, w.id, AttendanceStatus.WAITLISTED);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-all", null, null);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_statusAttending_filtersOutWaitlisted() {
+        User user = persistUser("auth0|mpe-att", "mpe-att@example.com");
+        Event a = persistEvent("Att", user, EventStatus.PUBLISHED, null);
+        Event w = persistEvent("Wait", user, EventStatus.PUBLISHED, null);
+        persistAttendance(user.id, a.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, w.id, AttendanceStatus.WAITLISTED);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-att", AttendanceStatus.ATTENDING, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Att", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_statusWaitlisted_filtersOutAttending() {
+        User user = persistUser("auth0|mpe-wait", "mpe-wait@example.com");
+        Event a = persistEvent("Att", user, EventStatus.PUBLISHED, null);
+        Event w = persistEvent("Wait", user, EventStatus.PUBLISHED, null);
+        persistAttendance(user.id, a.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, w.id, AttendanceStatus.WAITLISTED);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-wait", AttendanceStatus.WAITLISTED, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Wait", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_filterEmptiesEverything_returnsEmpty() {
+        // Exercise the early-return when the post-status filter leaves no eventIds.
+        User user = persistUser("auth0|mpe-none", "mpe-none@example.com");
+        Event a = persistEvent("Att only", user, EventStatus.PUBLISHED, null);
+        persistAttendance(user.id, a.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-none", AttendanceStatus.WAITLISTED, null);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_timeframeUpcoming_excludesPastEvents() {
+        User user = persistUser("auth0|mpe-up", "mpe-up@example.com");
+        Event upcoming = persistEvent("Upcoming", user, EventStatus.PUBLISHED, null);
+        Event past = persistEvent("Past", user, EventStatus.PUBLISHED, null);
+        past.endDate = LocalDateTime.now().minusDays(2);
+        entityManager.flush();
+        persistAttendance(user.id, upcoming.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, past.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-up", null, Timeframe.UPCOMING);
+
+        assertEquals(1, result.size());
+        assertEquals("Upcoming", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_timeframePast_excludesUpcomingEvents() {
+        User user = persistUser("auth0|mpe-past", "mpe-past@example.com");
+        Event upcoming = persistEvent("Upcoming", user, EventStatus.PUBLISHED, null);
+        Event past = persistEvent("Past", user, EventStatus.PUBLISHED, null);
+        past.endDate = LocalDateTime.now().minusDays(2);
+        entityManager.flush();
+        persistAttendance(user.id, upcoming.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, past.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-past", null, Timeframe.PAST);
+
+        assertEquals(1, result.size());
+        assertEquals("Past", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_inProgressEvent_classifiedAsUpcoming() {
+        User user = persistUser("auth0|mpe-inprog", "mpe-inprog@example.com");
+        Event inProgress = persistEvent("In Progress", user, EventStatus.PUBLISHED, null);
+        inProgress.startDate = LocalDateTime.now().minusHours(1);
+        inProgress.endDate = LocalDateTime.now().plusHours(2);
+        entityManager.flush();
+        persistAttendance(user.id, inProgress.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> upcoming = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-inprog", null, Timeframe.UPCOMING);
+        List<EventDTO> past = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-inprog", null, Timeframe.PAST);
+
+        assertEquals(1, upcoming.size());
+        assertEquals("In Progress", upcoming.get(0).title());
+        assertTrue(past.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_combinedAttendingAndPast_returnsIntersection() {
+        User user = persistUser("auth0|mpe-comb", "mpe-comb@example.com");
+        Event upAtt = persistEvent("Up Att", user, EventStatus.PUBLISHED, null);
+        Event pastAtt = persistEvent("Past Att", user, EventStatus.PUBLISHED, null);
+        Event pastWait = persistEvent("Past Wait", user, EventStatus.PUBLISHED, null);
+        pastAtt.endDate = LocalDateTime.now().minusDays(2);
+        pastWait.endDate = LocalDateTime.now().minusDays(2);
+        entityManager.flush();
+        persistAttendance(user.id, upAtt.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, pastAtt.id, AttendanceStatus.ATTENDING);
+        persistAttendance(user.id, pastWait.id, AttendanceStatus.WAITLISTED);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-comb", AttendanceStatus.ATTENDING, Timeframe.PAST);
+
+        assertEquals(1, result.size());
+        assertEquals("Past Att", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyParticipationEvents_eventWithCapacity_carriesAvailableSpotsAndCounts() {
+        User organizer = persistUser("auth0|mpe-org", "mpe-org@example.com");
+        Event e = persistEvent("Counted", organizer, EventStatus.PUBLISHED, 10);
+        User attendee = persistUser("auth0|mpe-cnt", "mpe-cnt@example.com");
+        persistAttendance(attendee.id, e.id, AttendanceStatus.ATTENDING);
+
+        List<EventDTO> result = attendanceService.getMyParticipationEvents(
+                "auth0|mpe-cnt", null, null);
+
+        assertEquals(1, result.size());
+        EventDTO dto = result.get(0);
+        assertEquals(1L, dto.attendingCount());
+        assertEquals(9L, dto.availableSpots());
+        assertEquals(0L, dto.waitlistedCount());
     }
 
     // =========================================================
