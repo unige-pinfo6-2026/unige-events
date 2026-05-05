@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
+import AdminRoute from '@/components/AdminRoute'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoadingPage from '@/pages/LoadingPage'
 import SearchPage from '@/pages/event/EventsSearchPage'
@@ -22,6 +23,8 @@ const MyParticipationsPage = lazy(() => import('@/pages/my-events/MyParticipatio
 const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPage'))
 const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'))
+const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 
 const AppRouter = () => {
   return (
@@ -64,8 +67,13 @@ const AppRouter = () => {
                 <Route path="participations" element={<MyParticipationsPage />} />
                 <Route path="publications" element={<MyPublicationsPage />} />
               </Route>
+
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminPage />} />
+              </Route>
             </Route>
 
+          <Route path="/403" element={<ForbiddenPage />} />
           <Route path="*" element={<NotFoundPage/>} />
         </Route>
       </Routes>

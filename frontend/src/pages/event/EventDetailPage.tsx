@@ -532,7 +532,7 @@ export default function EventDetailPage() {
             </div>
 
             {/* Signalement — visible pour tout utilisateur connecté sauf l'organisateur */}
-            {user !== null && !isOrganizer && (
+            {user !== null && (
               <button
                 type="button"
                 onClick={reportHook.open}

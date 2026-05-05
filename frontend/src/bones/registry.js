@@ -13,6 +13,8 @@ import _user_identity_card from './user-identity-card.bones.json'
 import _my_publications from './my-publications.bones.json'
 import _drafts_resume_strip from './drafts-resume-strip.bones.json'
 import _event_stats from './event-stats.bones.json'
+import _admin_reports from './admin-reports.bones.json'
+import _admin_featured from './admin-featured.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -26,4 +28,6 @@ registerBones({
   "my-publications": _my_publications,
   "drafts-resume-strip": _drafts_resume_strip,
   "event-stats": _event_stats,
+  "admin-reports": _admin_reports,
+  "admin-featured": _admin_featured,
 })

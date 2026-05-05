@@ -34,7 +34,7 @@ class UserProfileResponseTest {
         user.profilePublic = true;
         user.createdAt = createdAt;
 
-        UserProfileResponse response = UserProfileResponse.from(user);
+        UserProfileResponse response = UserProfileResponse.from(user, true);
 
         assertEquals(id, response.id());
         assertEquals("auth0|alice", response.auth0Id());
@@ -46,6 +46,7 @@ class UserProfileResponseTest {
         assertEquals(List.of("AI, football"), response.interests());
         assertEquals("https://cdn.example.com/avatar.png", response.avatarUrl());
         assertTrue(response.profilePublic());
+        assertTrue(response.admin());
         assertEquals(createdAt, response.createdAt());
     }
 }
