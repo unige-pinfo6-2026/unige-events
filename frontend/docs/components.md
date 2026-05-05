@@ -21,8 +21,8 @@
 
 ### LandingPage
 
-- Page publique d'accueil avec Hero, section Events, Features, FAQ et GetStarted.
-- Affiche les événements publiés via EventCards (composant réutilisable).
+- Page publique d'accueil avec Hero, section "À la une", Features, FAQ et GetStarted.
+- Section "À la une" rendue par `FeaturedEventsSection` (jusqu'à 6 événements curated par le backend).
 - Structure SectionWrapper/SectionHeader partagée entre toutes les sections.
 
 ### EventDetailPage
@@ -214,7 +214,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Composant réutilisable qui orchestre `useEvents()` et affiche la grille d'`EventCard`.
 - Gère les états loading, error et empty de façon autonome.
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
-- Utilisé dans `LandingPage` (section Events).
+- Utilisé dans `EventsPage` (route `/events`). N'est plus consommé par `LandingPage` depuis SCRUM-73 — la section Events de la landing utilise désormais `FeaturedEventsSection`.
+
+### FeaturedEventsSection
+
+- Section "À la une" de la `LandingPage` (SCRUM-73). Source : `useFeaturedEvents()` → `GET /api/events/featured?limit=6`.
+- Backend (SCRUM-95) renvoie une liste **curated** : phase 1 = événements `featured=true` PUBLISHED triés par `featuredAt DESC`, phase 2 = remplit les slots restants avec les PUBLISHED à venir triés par popularité (`attendingCount + favoriteCount` DESC). La liste est déjà ordonnée et capée à 6 — pas de pagination, pas de "Charger plus".
+- Réutilise `EventCard` et la même grille `auto-fit` que l'ancienne section (`grid-cols-[repeat(auto-fit,minmax(280px,320px))]`) → 3 colonnes × 2 lignes en desktop.
+- Badge "✨ À la une" (gradient accent → pink) overlayé en `top-center` uniquement sur les cards où `event.featured === true`. Pattern wrapper `relative` + `absolute` (cohérent avec le badge "Inscrit" de `MyParticipationsPage`).
+- États : skeleton `event-cards` (déjà calibré pour 6 bones via `autoFitLayout(cw, 6)` dans `skeleton/generate.mjs`) en loading ; `InfoMessage type="error"` en cas d'erreur ; **section entièrement masquée (return null)** si la liste est vide — pas de header, pas d'espace résiduel.
 
 ### CategorySelect
 
@@ -420,6 +428,12 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Charge les événements publiés par pages de 12.
 - Retourne events, loading, error, hasMore et loadMore.
 
+### useFeaturedEvents
+
+- Charge les événements "À la une" via `GET /api/events/featured?limit=6` (SCRUM-73).
+- Liste curated par le backend (featured admin + popularité). Pas de pagination, pas de loadMore.
+- Retourne `{ events, loading, error }`. Consommé par `FeaturedEventsSection`.
+
 ### useEvent
 
 - Charge un événement unique à partir de son identifiant.
@@ -531,6 +545,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - uploadEventImage(id, file) : upload de bannière et retour de l'événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d'un événement.
 - getMyDrafts(organizerId, limit = 5) : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
+- getFeatured(limit) : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
 - getAll(params) : liste paginée d’événements.
 - getById(id) : détail d’un événement.
 - createEvent(data) : création d’événement.

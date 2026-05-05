@@ -18,6 +18,11 @@ export async function getAll(params: EventsParams = {}): Promise<Event[]> {
   return response.data
 }
 
+export async function getFeatured(limit: number): Promise<Event[]> {
+  const response = await api.get<Event[]>('/events/featured', { params: { limit } })
+  return response.data
+}
+
 export interface MyEventsParams {
   status?: EventStatus
   page?: number
