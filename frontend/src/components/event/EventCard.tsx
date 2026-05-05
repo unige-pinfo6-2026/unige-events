@@ -44,7 +44,7 @@ export default function EventCard({
 
           {/* Title overlaid on banner */}
           <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm">
+            <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm wrap-anywhere">
               {event.title}
             </h3>
             <FacultyBadge id={event.faculty as Faculty} />
@@ -73,7 +73,7 @@ export default function EventCard({
           {event.description && (
             <>
               <div className="border-t border-border" />
-              <p className="text-sm text-foreground/45 line-clamp-2 leading-relaxed">
+              <p className="text-sm text-foreground/45 line-clamp-2 leading-relaxed wrap-anywhere">
                 {event.description}
               </p>
             </>
