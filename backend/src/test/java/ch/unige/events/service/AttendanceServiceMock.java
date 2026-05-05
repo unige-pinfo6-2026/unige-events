@@ -6,6 +6,7 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
+import ch.unige.events.entity.Timeframe;
 import ch.unige.events.entity.User;
 import io.quarkus.test.Mock;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -122,13 +123,26 @@ public class AttendanceServiceMock extends AttendanceService {
     }
 
     @Override
-    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter) {
+    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter, Timeframe timeframeFilter) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return attendances.entrySet().stream()
                 .filter(e -> statusFilter == null || e.getValue() == statusFilter)
                 .map(e -> eventsById.get(e.getKey()))
                 .filter(Objects::nonNull)
+                .filter(e -> matchesTimeframeMock(e, timeframeFilter, now))
                 .map(e -> EventDTO.from(e, 0L, null, 0L, null, null))
                 .toList();
+    }
+
+    private static boolean matchesTimeframeMock(Event event, Timeframe filter, java.time.LocalDateTime now) {
+        if (filter == null) {
+            return true;
+        }
+        if (event.endDate == null) {
+            return false;
+        }
+        boolean isPast = event.endDate.isBefore(now);
+        return filter == Timeframe.PAST ? isPast : !isPast;
     }
 
     private Attendance buildAttendance(Long eventId, AttendanceStatus status) {

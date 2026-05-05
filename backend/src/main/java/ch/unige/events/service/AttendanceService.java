@@ -7,6 +7,7 @@ import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Timeframe;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -173,16 +174,22 @@ public class AttendanceService {
 
     /**
      * Returns the events the current user is registered to, optionally filtered by
-     * attendance status (ATTENDING / WAITLISTED). Each event is enriched with the
-     * same counts/availableSpots projection used by other "/users/me/..." event
-     * lists so the frontend can render EventCards without N+1 fetches.
+     * attendance status (ATTENDING / WAITLISTED) and timeframe (UPCOMING / PAST).
+     * Each event is enriched with the same counts/availableSpots projection used
+     * by other "/users/me/..." event lists so the frontend can render EventCards
+     * without N+1 fetches.
      *
-     * @param auth0Id  the Auth0 subject of the current user
-     * @param statusFilter optional status filter; null = all of the user's
-     *                     attendances regardless of status
+     * <p>Timeframe is computed against the event's {@code endDate} relative to
+     * {@link LocalDateTime#now()}. {@link Timeframe#UPCOMING} matches events whose
+     * end date is &gt;= now (an event in progress is upcoming), {@link Timeframe#PAST}
+     * matches events whose end date is &lt; now.
+     *
+     * @param auth0Id         the Auth0 subject of the current user
+     * @param statusFilter    optional status filter; null = all statuses
+     * @param timeframeFilter optional timeframe filter; null = all timeframes
      */
     @Transactional
-    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter) {
+    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter, Timeframe timeframeFilter) {
         User user = resolveUser(auth0Id);
         List<Attendance> rows = Attendance.findAllByUser(user.id);
         List<Long> eventIds = rows.stream()
@@ -194,15 +201,30 @@ public class AttendanceService {
         }
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
         Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.WAITLISTED, entityManager);
+        LocalDateTime now = LocalDateTime.now();
         return eventIds.stream()
                 .map(id -> Event.<Event>findByIdOptional(id))
                 .flatMap(java.util.Optional::stream)
+                .filter(e -> matchesTimeframe(e, timeframeFilter, now))
                 .map(e -> {
                     long att = attendingCounts.getOrDefault(e.id, 0L);
                     long wait = waitlistedCounts.getOrDefault(e.id, 0L);
                     return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
+    }
+
+    private static boolean matchesTimeframe(Event event, Timeframe filter, LocalDateTime now) {
+        if (filter == null) {
+            return true;
+        }
+        if (event.endDate == null) {
+            // Defensive: events without an endDate cannot be classified — exclude them
+            // from any explicit timeframe filter so we never lie to the caller.
+            return false;
+        }
+        boolean isPast = event.endDate.isBefore(now);
+        return filter == Timeframe.PAST ? isPast : !isPast;
     }
 
     private User resolveUser(String auth0Id) {

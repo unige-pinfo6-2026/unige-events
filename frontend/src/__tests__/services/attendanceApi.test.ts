@@ -152,7 +152,7 @@ describe('attendanceApi', () => {
       attendingCount: 0,
     }
 
-    it('calls GET /users/me/participations without status when not provided', async () => {
+    it('calls GET /users/me/participations with no params when called bare', async () => {
       mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
 
       const result = await getMyParticipations()
@@ -161,7 +161,7 @@ describe('attendanceApi', () => {
       expect(result).toEqual([sampleEvent])
     })
 
-    it('passes ATTENDING as a query param when requested', async () => {
+    it('passes status only when timeframe is omitted', async () => {
       mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
 
       await getMyParticipations('ATTENDING')
@@ -169,18 +169,38 @@ describe('attendanceApi', () => {
       expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { status: 'ATTENDING' } })
     })
 
-    it('passes WAITLISTED as a query param when requested', async () => {
+    it('passes timeframe only when status is omitted', async () => {
       mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
 
-      await getMyParticipations('WAITLISTED')
+      await getMyParticipations(undefined, 'upcoming')
 
-      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { status: 'WAITLISTED' } })
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { timeframe: 'upcoming' } })
+    })
+
+    it('combines status and timeframe in the same query string', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING', 'upcoming')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', {
+        params: { status: 'ATTENDING', timeframe: 'upcoming' },
+      })
+    })
+
+    it('serialises timeframe=past correctly', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING', 'past')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', {
+        params: { status: 'ATTENDING', timeframe: 'past' },
+      })
     })
 
     it('propagates API errors', async () => {
       mockApiGet.mockRejectedValue(new Error('Server error'))
 
-      await expect(getMyParticipations('ATTENDING')).rejects.toThrow('Server error')
+      await expect(getMyParticipations('ATTENDING', 'upcoming')).rejects.toThrow('Server error')
     })
   })
 })

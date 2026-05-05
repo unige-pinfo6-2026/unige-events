@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Hourglass, type LucideIcon } from 'lucide-react'
+import { Calendar, History, Hourglass, type LucideIcon } from 'lucide-react'
 import EventCard from '@/components/event/EventCard'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -14,8 +14,9 @@ import { EventGridFixture } from './shared'
 // ─── Const map des sous-tabs ──────────────────────────────────────────────────
 
 const PARTICIPATION_TABS = {
-  ATTENDING:  { label: "J'y participe",   emptyTitle: 'Vous ne participez à aucun événement pour le moment.' },
-  WAITLISTED: { label: "Liste d'attente", emptyTitle: "Vous n'êtes sur aucune liste d'attente." },
+  ATTENDING: { label: "J'y participe",          emptyTitle: 'Vous ne participez à aucun événement pour le moment.', icon: Calendar  },
+  WAITLISTED:{ label: "Liste d'attente",        emptyTitle: "Vous n'êtes sur aucune liste d'attente.",              icon: Hourglass },
+  PAST:      { label: 'Anciennes participations', emptyTitle: "Vous n'avez pas encore participé à un événement passé.", icon: History },
 } as const
 
 type ParticipationTab = keyof typeof PARTICIPATION_TABS
@@ -76,20 +77,27 @@ function ParticipationGrid({ events, favoritedIds }: Readonly<{ events: Event[];
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function MyParticipationsPage() {
-  const { attending, waitlisted, loading, error } = useMyParticipations()
+  const { attending, waitlisted, pastAttending, loading, error } = useMyParticipations()
   const { favoritedIds } = useFavoritesContext()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   const [active, setActive] = useState<ParticipationTab>('ATTENDING')
-  const events = active === 'ATTENDING' ? attending : waitlisted
+  const eventsByTab: Record<ParticipationTab, Event[]> = {
+    ATTENDING:  attending,
+    WAITLISTED: waitlisted,
+    PAST:       pastAttending,
+  }
+  const events = eventsByTab[active]
   const counts: Record<ParticipationTab, number> = {
     ATTENDING:  attending.length,
     WAITLISTED: waitlisted.length,
+    PAST:       pastAttending.length,
   }
   const tabIcon: Record<ParticipationTab, LucideIcon> = {
-    ATTENDING:  Calendar,
-    WAITLISTED: Hourglass,
+    ATTENDING:  PARTICIPATION_TABS.ATTENDING.icon,
+    WAITLISTED: PARTICIPATION_TABS.WAITLISTED.icon,
+    PAST:       PARTICIPATION_TABS.PAST.icon,
   }
 
   return (

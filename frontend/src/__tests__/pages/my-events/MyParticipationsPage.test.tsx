@@ -61,6 +61,7 @@ afterEach(() => {
 const baseHook = {
   attending: [] as ReturnType<typeof makeMockEvent>[],
   waitlisted: [] as ReturnType<typeof makeMockEvent>[],
+  pastAttending: [] as ReturnType<typeof makeMockEvent>[],
   loading: false,
   error: null as string | null,
   refresh: vi.fn(),
@@ -71,19 +72,32 @@ describe('MyParticipationsPage', () => {
     mockUseMyParticipations.mockReturnValue({ ...baseHook })
     renderWithProviders(<MyParticipationsPage />)
     expect(screen.getByText('Participations')).toBeTruthy()
-    // <mark> wrapping is what styles the gradient — sanity check the element exists
     expect(document.querySelector('mark')?.textContent).toBe('Participations')
   })
 
-  it('renders both tabs with labels and counts', () => {
+  it('renders the three tabs in order with their counts', () => {
     mockUseMyParticipations.mockReturnValue({
       ...baseHook,
       attending: [makeMockEvent(1), makeMockEvent(2)],
       waitlisted: [makeMockEvent(3)],
+      pastAttending: [makeMockEvent(4), makeMockEvent(5), makeMockEvent(6), makeMockEvent(7)],
     })
     renderWithProviders(<MyParticipationsPage />)
+
+    const tabs = screen.getAllByRole('button')
+    // Filter to the participation tabs (ignore other buttons that may exist)
+    const labels = tabs.map(t => t.textContent ?? '')
+    const idxAttending  = labels.findIndex(l => l.startsWith("J'y participe"))
+    const idxWaitlisted = labels.findIndex(l => l.startsWith("Liste d'attente"))
+    const idxPast       = labels.findIndex(l => l.startsWith('Anciennes participations'))
+
+    expect(idxAttending).toBeGreaterThanOrEqual(0)
+    expect(idxWaitlisted).toBeGreaterThan(idxAttending)
+    expect(idxPast).toBeGreaterThan(idxWaitlisted)
+
     expect(screen.getByRole('button', { name: "J'y participe (2)" })).toBeTruthy()
     expect(screen.getByRole('button', { name: "Liste d'attente (1)" })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Anciennes participations (4)' })).toBeTruthy()
   })
 
   it("defaults to the J'y participe tab", () => {
@@ -91,17 +105,20 @@ describe('MyParticipationsPage', () => {
       ...baseHook,
       attending: [makeMockEvent(1, 'Confirmed')],
       waitlisted: [makeMockEvent(2, 'Waiting')],
+      pastAttending: [makeMockEvent(3, 'OldOne')],
     })
     renderWithProviders(<MyParticipationsPage />)
     expect(screen.getByText('Confirmed')).toBeTruthy()
     expect(screen.queryByText('Waiting')).toBeNull()
+    expect(screen.queryByText('OldOne')).toBeNull()
   })
 
-  it('switches to the waitlist tab on click and renders only that list', () => {
+  it("switches to the Liste d'attente tab and renders only that list", () => {
     mockUseMyParticipations.mockReturnValue({
       ...baseHook,
       attending: [makeMockEvent(1, 'Confirmed')],
       waitlisted: [makeMockEvent(2, 'Waiting')],
+      pastAttending: [makeMockEvent(3, 'OldOne')],
     })
     renderWithProviders(<MyParticipationsPage />)
 
@@ -109,6 +126,23 @@ describe('MyParticipationsPage', () => {
 
     expect(screen.getByText('Waiting')).toBeTruthy()
     expect(screen.queryByText('Confirmed')).toBeNull()
+    expect(screen.queryByText('OldOne')).toBeNull()
+  })
+
+  it('switches to the Anciennes participations tab and renders only that list', () => {
+    mockUseMyParticipations.mockReturnValue({
+      ...baseHook,
+      attending: [makeMockEvent(1, 'Confirmed')],
+      waitlisted: [makeMockEvent(2, 'Waiting')],
+      pastAttending: [makeMockEvent(3, 'OldOne')],
+    })
+    renderWithProviders(<MyParticipationsPage />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Anciennes participations/ }))
+
+    expect(screen.getByText('OldOne')).toBeTruthy()
+    expect(screen.queryByText('Confirmed')).toBeNull()
+    expect(screen.queryByText('Waiting')).toBeNull()
   })
 
   it('shows the loading skeleton', () => {
@@ -126,17 +160,24 @@ describe('MyParticipationsPage', () => {
     expect(screen.getByText('Impossible de charger vos participations.')).toBeTruthy()
   })
 
-  it('shows the attending-empty copy on the J\'y participe tab', () => {
+  it("shows the empty copy on the J'y participe tab", () => {
     mockUseMyParticipations.mockReturnValue({ ...baseHook })
     renderWithProviders(<MyParticipationsPage />)
     expect(screen.getByText('Vous ne participez à aucun événement pour le moment.')).toBeTruthy()
   })
 
-  it("shows the waitlist-empty copy on the Liste d'attente tab", () => {
+  it("shows the empty copy on the Liste d'attente tab", () => {
     mockUseMyParticipations.mockReturnValue({ ...baseHook })
     renderWithProviders(<MyParticipationsPage />)
     fireEvent.click(screen.getByRole('button', { name: /Liste d'attente/ }))
     expect(screen.getByText("Vous n'êtes sur aucune liste d'attente.")).toBeTruthy()
+  })
+
+  it('shows the empty copy on the Anciennes participations tab', () => {
+    mockUseMyParticipations.mockReturnValue({ ...baseHook })
+    renderWithProviders(<MyParticipationsPage />)
+    fireEvent.click(screen.getByRole('button', { name: /Anciennes participations/ }))
+    expect(screen.getByText("Vous n'avez pas encore participé à un événement passé.")).toBeTruthy()
   })
 
   it('renders EventCards on the active tab', async () => {
@@ -151,14 +192,30 @@ describe('MyParticipationsPage', () => {
     })
   })
 
-  it('does not render organizer-only actions (Modifier / Annuler)', () => {
+  it('does not render organizer-only actions on any tab', () => {
     mockUseMyParticipations.mockReturnValue({
       ...baseHook,
       attending: [makeMockEvent(1)],
+      waitlisted: [makeMockEvent(2)],
+      pastAttending: [makeMockEvent(3)],
     })
     renderWithProviders(<MyParticipationsPage />)
-    expect(screen.queryByRole('button', { name: /Modifier/ })).toBeNull()
+
+    // Default (attending)
+    expect(screen.queryByRole('button', { name: /^Modifier$/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Annuler$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Publier$/ })).toBeNull()
+
+    // Waitlist
+    fireEvent.click(screen.getByRole('button', { name: /Liste d'attente/ }))
+    expect(screen.queryByRole('button', { name: /^Modifier$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Annuler$/ })).toBeNull()
+
+    // Past attending — task explicitly states past events are read-only
+    fireEvent.click(screen.getByRole('button', { name: /Anciennes participations/ }))
+    expect(screen.queryByRole('button', { name: /^Modifier$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Annuler$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Publier$/ })).toBeNull()
   })
 
   it('does not render the obsolete placeholder copy', () => {
