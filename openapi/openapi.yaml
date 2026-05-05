@@ -22,6 +22,35 @@ components:
       scheme: bearer
       bearerFormat: JWT   # Auth0 / OIDC — validé par quarkus-oidc
 
+  headers:
+    RetryAfter:
+      description: |
+        Nombre de secondes à attendre avant de retenter la requête (cf. RFC 6585 §4).
+        Présent sur les réponses 429 émises par les endpoints de mutation rate-limités
+        (voir ticket SECURITY-pentest 4.14).
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+      example: 45
+
+  responses:
+    RateLimited:
+      description: |
+        Trop de requêtes — la limite par utilisateur sur cet endpoint a été dépassée
+        (cf. pentest 2026-04-17 finding 4.14, ticket #98). L'en-tête `Retry-After`
+        indique le nombre de secondes à attendre avant de retenter.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          example:
+            error: rate_limited
+            message: "Too many requests. Retry in 45 seconds."
+
   schemas:
     # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
 
@@ -924,6 +953,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/image:
     post:
@@ -966,6 +997,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/banner:
     post:
@@ -1013,6 +1046,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       summary: Suppression de la bannière de profil
       description: Remet bannerUrl à null et retourne le profil complet mis à jour.
@@ -1431,6 +1466,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/search:
     get:
@@ -1618,6 +1655,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Supprimer définitivement un événement annulé (hard-delete)
@@ -1720,6 +1759,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/restore:
     patch:
@@ -1770,6 +1811,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/publish:
     patch:
@@ -1842,6 +1885,8 @@ paths:
                     example:
                       - La date de l'événement doit être dans le futur
                       - Le titre est obligatoire
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/image:
     post:
@@ -1902,6 +1947,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/featured:
     get:
@@ -2065,6 +2112,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Se désinscrire d'un événement
@@ -2478,6 +2527,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Retirer un événement des favoris

@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.*;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
@@ -217,6 +218,7 @@ public class UserResource {
             )
         )
     })
+    @PerUserRateLimit(name = "users.updateMe", max = 10)
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
@@ -231,6 +233,7 @@ public class UserResource {
     @Path("/me/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadImage", max = 5)
     public Response uploadImage(@RestForm("file") FileUpload file) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
@@ -245,6 +248,7 @@ public class UserResource {
     @Path("/me/banner")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadBanner", max = 5)
     public Response uploadBanner(@RestForm("file") FileUpload file) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadBanner(auth0Id, file);

@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.attendance.AttendanceRequest;
 import ch.unige.events.service.AttendanceService;
@@ -35,6 +36,7 @@ public class AttendanceResource {
     @POST
     @Path("/{id}/attend")
     @Authenticated
+    @PerUserRateLimit(name = "events.attend", max = 30)
     public Response attend(@PathParam("id") Long id,
                            @NotNull @Valid AttendanceRequest request) {
         String auth0Id = identity.getPrincipal().getName();
