@@ -8,6 +8,12 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
 
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(() => ({ user: { id: 'user-1' } })),
 }))
@@ -20,7 +26,7 @@ import { useMyEvents } from '@/hooks/useMyEvents'
 
 const mockUseMyEvents = useMyEvents as ReturnType<typeof vi.fn>
 
-const makeMockEvent = (id: number, status: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' = 'PUBLISHED') => ({
+const makeMockEvent = (id: number, status: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'EXPIRED' = 'PUBLISHED') => ({
   id,
   title: `Publication ${id}`,
   description: 'Description',
@@ -55,6 +61,7 @@ afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  mockNavigate.mockClear()
   // Remove any <footer> added by FAB tests
   document.querySelectorAll('footer').forEach(f => f.remove())
 })
@@ -803,6 +810,63 @@ describe('MyPublicationsPage', () => {
     })
 
     globalThis.ResizeObserver = orig
+  })
+
+  describe('Recréer cet événement (template)', () => {
+    it('EXPIRED event shows only "Recréer cet événement" (no Modifier, no Annuler)', () => {
+      mockUseMyEvents.mockReturnValue({
+        events: [makeMockEvent(5, 'EXPIRED')],
+        loading: false, error: null,
+        refresh: vi.fn(), publish: vi.fn(), cancel: vi.fn(), restore: vi.fn(), permanentlyDelete: vi.fn(),
+      })
+
+      renderWithProviders(<MyPublicationsPage />)
+
+      expect(screen.getByText('Recréer cet événement')).toBeTruthy()
+      expect(screen.queryByText('Modifier')).toBeFalsy()
+      expect(screen.queryByText('Annuler')).toBeFalsy()
+    })
+
+    it('clicking "Recréer cet événement" on EXPIRED navigates to /events/new with template state', () => {
+      const expiredEvent = makeMockEvent(5, 'EXPIRED')
+      mockUseMyEvents.mockReturnValue({
+        events: [expiredEvent],
+        loading: false, error: null,
+        refresh: vi.fn(), publish: vi.fn(), cancel: vi.fn(), restore: vi.fn(), permanentlyDelete: vi.fn(),
+      })
+
+      renderWithProviders(<MyPublicationsPage />)
+      fireEvent.click(screen.getByText('Recréer cet événement'))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/events/new', { state: { template: expiredEvent } })
+    })
+
+    it('CANCELLED event shows "Recréer" button alongside "Remettre en brouillon"', () => {
+      mockUseMyEvents.mockReturnValue({
+        events: [makeMockEvent(3, 'CANCELLED')],
+        loading: false, error: null,
+        refresh: vi.fn(), publish: vi.fn(), cancel: vi.fn(), restore: vi.fn(), permanentlyDelete: vi.fn(),
+      })
+
+      renderWithProviders(<MyPublicationsPage />)
+
+      expect(screen.getByText('Recréer')).toBeTruthy()
+      expect(screen.getByText('Remettre en brouillon')).toBeTruthy()
+    })
+
+    it('clicking "Recréer" on CANCELLED navigates to /events/new with template state', () => {
+      const cancelledEvent = makeMockEvent(3, 'CANCELLED')
+      mockUseMyEvents.mockReturnValue({
+        events: [cancelledEvent],
+        loading: false, error: null,
+        refresh: vi.fn(), publish: vi.fn(), cancel: vi.fn(), restore: vi.fn(), permanentlyDelete: vi.fn(),
+      })
+
+      renderWithProviders(<MyPublicationsPage />)
+      fireEvent.click(screen.getByText('Recréer'))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/events/new', { state: { template: cancelledEvent } })
+    })
   })
 
   it('publish with validation errors opens error modal listing each error', async () => {

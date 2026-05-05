@@ -85,11 +85,34 @@ afterEach(() => {
   sessionStorage.removeItem('unige:event-create-draft')
 })
 
-function renderPage() {
+const templateEvent = {
+  id: 99,
+  title: 'Conférence IA',
+  description: 'Présentation des dernières avancées en IA.',
+  location: 'Uni Bastions',
+  startDate: '2025-01-15T09:00:00.000Z',
+  endDate: '2025-01-15T11:00:00.000Z',
+  category: 'CONFERENCE' as const,
+  faculty: null,
+  creatorId: 'abc',
+  status: 'EXPIRED' as const,
+  allDay: false,
+  capacity: 80,
+  attendingCount: 75,
+  websiteUrl: 'https://conf.example.com',
+  contactEmail: 'conf@unige.ch',
+  tags: ['IA'],
+  createdAt: '2025-01-01T00:00:00.000Z',
+}
+
+function renderPage(locationState?: Record<string, unknown>) {
+  const initialEntries = locationState
+    ? [{ pathname: '/events/new', state: locationState }]
+    : ['/events/new']
   return render(
     <ToastProvider>
       <ToastsWrapper />
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <EventCreatePage />
       </MemoryRouter>
     </ToastProvider>,
@@ -320,5 +343,52 @@ describe('CreateEventPage', () => {
     unmount()
 
     expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  describe('template pre-fill (location.state.template)', () => {
+    it('shows the info banner with the template title', () => {
+      renderPage({ template: templateEvent })
+
+      expect(screen.getByText(/Pré-rempli depuis l'événement/)).toBeTruthy()
+      expect(screen.getByText(/"Conférence IA"/)).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Effacer le template/i })).toBeTruthy()
+    })
+
+    it('pre-fills form fields from the template but leaves dates empty', () => {
+      renderPage({ template: templateEvent })
+
+      expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).value).toBe('Conférence IA')
+      expect((screen.getByLabelText(/Lieu/i) as HTMLInputElement).value).toBe('Uni Bastions')
+      // Dates must be empty
+      expect((screen.getByLabelText(/Début/i, { selector: 'input' }) as HTMLInputElement).value).toBe('')
+      expect((screen.getByLabelText(/Fin/i, { selector: 'input' }) as HTMLInputElement).value).toBe('')
+    })
+
+    it('"Effacer le template" hides the banner and resets the form', async () => {
+      renderPage({ template: templateEvent })
+
+      expect(screen.getByText(/Pré-rempli depuis l'événement/)).toBeTruthy()
+      expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).value).toBe('Conférence IA')
+
+      fireEvent.click(screen.getByRole('button', { name: /Effacer le template/i }))
+
+      expect(screen.queryByText(/Pré-rempli depuis l'événement/)).toBeFalsy()
+      expect((screen.getByLabelText(/Titre/i) as HTMLInputElement).value).toBe('')
+    })
+
+    it('"Effacer le template" calls navigate with replace to clear the router state', () => {
+      renderPage({ template: templateEvent })
+
+      fireEvent.click(screen.getByRole('button', { name: /Effacer le template/i }))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/events/new', { replace: true })
+    })
+
+    it('does not show the banner when no template is in location state', () => {
+      renderPage()
+
+      expect(screen.queryByText(/Pré-rempli depuis l'événement/)).toBeFalsy()
+      expect(screen.queryByRole('button', { name: /Effacer le template/i })).toBeFalsy()
+    })
   })
 })
