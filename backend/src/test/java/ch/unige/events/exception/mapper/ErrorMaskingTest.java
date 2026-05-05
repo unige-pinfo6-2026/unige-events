@@ -7,8 +7,15 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
+import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.util.Set;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
@@ -20,6 +27,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Pentest 2026-04-17 finding 4.20 — error responses must not leak the JAX-RS
@@ -38,7 +46,7 @@ class ErrorMaskingTest {
     }
 
     @Test
-    @TestSecurity(user = "auth0|alice")
+    @TestSecurity(user = "auth0|err-mask-test")
     void validatorError_fieldIsLastSegmentOnly() {
         // CreateEventRequest with a blank title fails @NotBlank — before 9.C
         // the field came back as something like "create.request.title", leaking
@@ -95,6 +103,50 @@ class ErrorMaskingTest {
         org.junit.jupiter.api.Assertions.assertFalse(
                 lower.contains("co-organizer") || lower.contains("organizer"),
                 "403 body must not mention organizer roles — found in: " + body);
+    }
+
+    // -------------------------------------------------------------------------
+    // ConstraintViolationExceptionMapper unit tests — defensive branches that
+    // the HTTP-driven test above can't easily reach.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void constraintMapper_pathWithoutDots_keepsTheSegment() {
+        // A bare property name (no dots) must pass through unchanged — the
+        // "strip everything before the last dot" logic must handle the
+        // no-dot case correctly.
+        ConstraintViolationExceptionMapper mapper = new ConstraintViolationExceptionMapper();
+
+        ConstraintViolation<?> violation = Mockito.mock(ConstraintViolation.class);
+        Path path = Mockito.mock(Path.class);
+        Mockito.when(path.toString()).thenReturn("bareField");
+        Mockito.when(violation.getPropertyPath()).thenReturn(path);
+        Mockito.when(violation.getMessage()).thenReturn("must not be null");
+
+        Response response = mapper.toResponse(
+                new ConstraintViolationException(Set.of(violation)));
+        assertEquals(400, response.getStatus());
+        ch.unige.events.dto.ValidationErrorResponse body =
+                (ch.unige.events.dto.ValidationErrorResponse) response.getEntity();
+        assertEquals("bareField", body.details().get(0).field());
+    }
+
+    @Test
+    void constraintMapper_dottedPath_stripsToLastSegment() {
+        ConstraintViolationExceptionMapper mapper = new ConstraintViolationExceptionMapper();
+
+        ConstraintViolation<?> violation = Mockito.mock(ConstraintViolation.class);
+        Path path = Mockito.mock(Path.class);
+        Mockito.when(path.toString()).thenReturn("create.request.websiteUrl");
+        Mockito.when(violation.getPropertyPath()).thenReturn(path);
+        Mockito.when(violation.getMessage()).thenReturn("must be a valid URL");
+
+        Response response = mapper.toResponse(
+                new ConstraintViolationException(Set.of(violation)));
+        ch.unige.events.dto.ValidationErrorResponse body =
+                (ch.unige.events.dto.ValidationErrorResponse) response.getEntity();
+        assertEquals("websiteUrl", body.details().get(0).field(),
+                "leading segments (handler/parameter names) must be stripped — finding 4.20");
     }
 
     private static ch.unige.events.dto.event.UpdateEventRequest buildUpdate() {

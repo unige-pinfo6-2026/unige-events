@@ -235,6 +235,12 @@ public class UserResource {
     @Authenticated
     @PerUserRateLimit(name = "users.uploadImage", max = 5)
     public Response uploadImage(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            // Pentest 2026-04-17 finding 4.22 — clients sending the wrong
+            // multipart field name (e.g. "wrong" instead of "file") must get
+            // a structured 400, not a 500 from a downstream NPE.
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
@@ -250,6 +256,9 @@ public class UserResource {
     @Authenticated
     @PerUserRateLimit(name = "users.uploadBanner", max = 5)
     public Response uploadBanner(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadBanner(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();

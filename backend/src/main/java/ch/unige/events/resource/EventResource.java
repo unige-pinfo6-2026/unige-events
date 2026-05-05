@@ -162,6 +162,11 @@ public class EventResource {
     @Authenticated
     @PerUserRateLimit(name = "events.uploadImage", max = 5)
     public Response uploadImage(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
+        if (file == null) {
+            // Pentest 2026-04-17 finding 4.22 — wrong multipart field name
+            // would otherwise fall through to a 500 from a downstream NPE.
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");
         EventDTO updated = eventService.uploadImage(id, auth0Id, file, isAdmin);
