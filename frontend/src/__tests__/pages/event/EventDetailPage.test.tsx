@@ -619,7 +619,7 @@ describe('EventDetailPage', () => {
       renderPage()
 
       expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: true })
-      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('onAfterSuccess refetches event AND attendees for the organizer', () => {
@@ -691,7 +691,7 @@ describe('EventDetailPage', () => {
       renderPage()
 
       // Tabs render → confirms OrganizerView received the lifted hook.
-      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('renders Participants section in the same column as "À propos", after it', () => {

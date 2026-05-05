@@ -286,7 +286,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Props : `eventId`, `initialAttendingCount`, `initialInterestedCount`, `initialStatus`.
 - Gère les mises à jour optimistes via `useAttendance` : clic → état local mis à jour immédiatement, rollback en cas d'erreur.
 - Bouton ATTENDING désactivé avec tooltip "Événement complet" quand `isFull === true` et l'utilisateur n'est pas déjà ATTENDING.
-- Affiche un compteur live : "X personnes participent · Y intéressées".
+- Affiche un compteur live : "X participants · Y intéressé(e)s".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
 ### AttendeesList

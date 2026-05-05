@@ -65,7 +65,7 @@ export default function EventCard({
             {event.capacity != null && (
               <div className="flex items-center gap-2.5 text-sm text-foreground/55">
                 <Users className="w-4 h-4 shrink-0" style={{ color: category.color }} />
-                <span>{event.capacity} places</span>
+                <span>{event.capacity} {event.capacity === 1 ? 'place' : 'places'}</span>
               </div>
             )}
           </div>

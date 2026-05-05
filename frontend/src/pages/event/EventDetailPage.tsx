@@ -106,7 +106,7 @@ type CapacityVariant = keyof typeof capacityBadgeVariants
 function getCapacityBadge(availableSpots: number, capacity: number): { variant: CapacityVariant; label: string } {
   if (availableSpots === 0) return { variant: 'full', label: 'Complet' }
   if (availableSpots <= capacity * 0.1) return { variant: 'low', label: 'Presque complet' }
-  return { variant: 'available', label: `${availableSpots} places disponibles` }
+  return { variant: 'available', label: `${availableSpots} ${availableSpots === 1 ? 'place disponible' : 'places disponibles'}` }
 }
 
 interface CapacityIndicatorProps {
@@ -473,7 +473,7 @@ export default function EventDetailPage() {
 
               {event.capacity !== undefined && (
                 <InfoRow icon={Users} color={category.color}>
-                  {event.capacity} places au total
+                  {event.capacity} {event.capacity === 1 ? 'place' : 'places'} au total
                 </InfoRow>
               )}
             </div>
