@@ -38,12 +38,12 @@ describe('ReportModal — rendering', () => {
 
   it('renders description textarea', () => {
     renderModal()
-    expect(screen.getByLabelText('Description')).toBeTruthy()
+    expect(screen.getByLabelText(/Détails/i)).toBeTruthy()
   })
 
   it('submit button is disabled when no reason selected', () => {
     renderModal()
-    const submitBtn = screen.getByRole('button', { name: 'Signaler' })
+    const submitBtn = screen.getByRole('button', { name: /Envoyer le signalement/i })
     expect((submitBtn as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -51,13 +51,13 @@ describe('ReportModal — rendering', () => {
     renderModal()
     const select = screen.getByLabelText(/Motif/i)
     fireEvent.change(select, { target: { value: 'Spam' } })
-    const submitBtn = screen.getByRole('button', { name: 'Signaler' })
+    const submitBtn = screen.getByRole('button', { name: /Envoyer le signalement/i })
     expect((submitBtn as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('shows "Envoi..." label when submitting', () => {
+  it('shows "Envoi en cours…" label when submitting', () => {
     renderModal({ submitting: true })
-    expect(screen.getByText('Envoi...')).toBeTruthy()
+    expect(screen.getByText('Envoi en cours…')).toBeTruthy()
   })
 
   it('disables buttons when submitting', () => {
@@ -85,29 +85,29 @@ describe('ReportModal — interactions', () => {
   it('calls onSubmit with reason only when description is empty', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'Spam' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
+    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Spam', undefined))
   })
 
   it('calls onSubmit with reason and description when both filled', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'Autre' } })
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Précisions' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
+    fireEvent.change(screen.getByLabelText(/Détails/i), { target: { value: 'Précisions' } })
+    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Autre', 'Précisions'))
   })
 
   it('passes undefined description when description is blank whitespace', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'Faux événement' } })
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
+    fireEvent.change(screen.getByLabelText(/Détails/i), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Faux événement', undefined))
   })
 
   it('does not call onSubmit when no reason is selected', () => {
     const { onSubmit } = renderModal()
-    const form = screen.getByRole('button', { name: 'Signaler' }).closest('form')!
+    const form = screen.getByRole('button', { name: /Envoyer le signalement/i }).closest('form')!
     fireEvent.submit(form)
     expect(onSubmit).not.toHaveBeenCalled()
   })

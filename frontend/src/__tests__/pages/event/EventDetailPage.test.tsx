@@ -879,14 +879,14 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('button', { name: /Signaler cet événement/ })).toBeTruthy()
     })
 
-    it('hides "Signaler cet événement" button for the organizer', () => {
+    it('shows "Signaler cet événement" button for the organizer', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
       mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
 
-      expect(screen.queryByRole('button', { name: /Signaler cet événement/ })).toBeNull()
+      expect(screen.getByRole('button', { name: /Signaler cet événement/ })).toBeTruthy()
     })
 
     it('hides "Signaler cet événement" button when user is not logged in', () => {
