@@ -137,11 +137,50 @@ describe('attendanceApi', () => {
   })
 
   describe('getMyParticipations', () => {
-    it('returns an empty array (stub)', async () => {
+    const sampleEvent = {
+      id: 7,
+      title: 'Tech talk',
+      location: 'Uni Mail',
+      startDate: '2026-04-10T14:00:00',
+      endDate: '2026-04-10T17:00:00',
+      category: 'CONFERENCE',
+      faculty: null,
+      status: 'PUBLISHED',
+      creatorId: 'u-1',
+      createdAt: '2026-03-01T10:00:00',
+      capacity: 100,
+      attendingCount: 0,
+    }
+
+    it('calls GET /users/me/participations without status when not provided', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
       const result = await getMyParticipations()
 
-      expect(result).toEqual([])
-      expect(Array.isArray(result)).toBe(true)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: undefined })
+      expect(result).toEqual([sampleEvent])
+    })
+
+    it('passes ATTENDING as a query param when requested', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { status: 'ATTENDING' } })
+    })
+
+    it('passes WAITLISTED as a query param when requested', async () => {
+      mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('WAITLISTED')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { status: 'WAITLISTED' } })
+    })
+
+    it('propagates API errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('Server error'))
+
+      await expect(getMyParticipations('ATTENDING')).rejects.toThrow('Server error')
     })
   })
 })

@@ -600,6 +600,77 @@ class UserResourceTest {
             .statusCode(401);
     }
 
+    // --- GET /users/me/participations ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_empty_returnsEmptyArray() {
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_returnsAllStatuses_whenStatusOmitted() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(2));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_filteredByAttending_returnsOnlyAttending() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=ATTENDING")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Confirmed Event"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_filteredByWaitlisted_returnsOnlyWaitlisted() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=WAITLISTED")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Waitlist Event"));
+    }
+
+    @Test
+    void getMyParticipations_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(401);
+    }
+
     // --- GET /users/me/events ---
 
     @Test

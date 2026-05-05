@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.attendance.AttendanceDTO;
+import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
@@ -167,6 +168,40 @@ public class AttendanceService {
         User user = resolveUser(auth0Id);
         return Attendance.findAllByUser(user.id).stream()
                 .map(a -> AttendanceDTO.from(a, user))
+                .toList();
+    }
+
+    /**
+     * Returns the events the current user is registered to, optionally filtered by
+     * attendance status (ATTENDING / WAITLISTED). Each event is enriched with the
+     * same counts/availableSpots projection used by other "/users/me/..." event
+     * lists so the frontend can render EventCards without N+1 fetches.
+     *
+     * @param auth0Id  the Auth0 subject of the current user
+     * @param statusFilter optional status filter; null = all of the user's
+     *                     attendances regardless of status
+     */
+    @Transactional
+    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter) {
+        User user = resolveUser(auth0Id);
+        List<Attendance> rows = Attendance.findAllByUser(user.id);
+        List<Long> eventIds = rows.stream()
+                .filter(a -> statusFilter == null || a.status == statusFilter)
+                .map(a -> a.eventId)
+                .toList();
+        if (eventIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.WAITLISTED, entityManager);
+        return eventIds.stream()
+                .map(id -> Event.<Event>findByIdOptional(id))
+                .flatMap(java.util.Optional::stream)
+                .map(e -> {
+                    long att = attendingCounts.getOrDefault(e.id, 0L);
+                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
+                })
                 .toList();
     }
 

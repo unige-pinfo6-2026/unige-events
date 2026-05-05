@@ -3,14 +3,16 @@ import { getMyParticipations } from '@/services/attendanceApi'
 import type { Event } from '@/types/event'
 
 interface UseMyParticipationsResult {
-  events: Event[]
+  attending: Event[]
+  waitlisted: Event[]
   loading: boolean
   error: string | null
   refresh: () => void
 }
 
 export function useMyParticipations(): UseMyParticipationsResult {
-  const [events, setEvents] = useState<Event[]>([])
+  const [attending, setAttending] = useState<Event[]>([])
+  const [waitlisted, setWaitlisted] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,8 +20,12 @@ export function useMyParticipations(): UseMyParticipationsResult {
     setLoading(true)
     setError(null)
     try {
-      const data = await getMyParticipations()
-      setEvents(data)
+      const [attendingData, waitlistedData] = await Promise.all([
+        getMyParticipations('ATTENDING'),
+        getMyParticipations('WAITLISTED'),
+      ])
+      setAttending(attendingData)
+      setWaitlisted(waitlistedData)
     } catch {
       setError('Impossible de charger vos participations.')
     } finally {
@@ -31,5 +37,5 @@ export function useMyParticipations(): UseMyParticipationsResult {
     fetch()
   }, [fetch])
 
-  return { events, loading, error, refresh: fetch }
+  return { attending, waitlisted, loading, error, refresh: fetch }
 }

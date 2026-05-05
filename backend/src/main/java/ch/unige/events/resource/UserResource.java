@@ -8,6 +8,7 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.CoOrganizerStatus;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.User;
@@ -295,6 +296,14 @@ public class UserResource {
     @Authenticated
     public List<AttendanceDTO> getMyAttendances() {
         return attendanceService.getMyAttendances(identity.getPrincipal().getName());
+    }
+
+    @GET
+    @Path("/me/participations")
+    @Authenticated
+    public List<EventDTO> getMyParticipationEvents(
+            @QueryParam("status") AttendanceStatus status) {
+        return attendanceService.getMyParticipationEvents(identity.getPrincipal().getName(), status);
     }
 
     @GET

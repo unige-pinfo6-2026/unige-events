@@ -13,16 +13,17 @@ export async function unattend(eventId: number): Promise<void> {
 }
 
 /**
- * Stub — returns an empty list until the backend delivers a dedicated endpoint
- * to fetch the current user's attended events (with full Event payloads, not
- * just the Attendance rows returned by /users/me/attendances).
- *
- * TODO: replace with GET /api/users/me/attendances when backend delivers
- * (enriched with event data so /my-events "Mes Participations" tab can render
- * EventCards without N+1 calls to /events/{id}).
+ * Returns the events the authenticated user is registered to, optionally filtered
+ * by attendance status. Calls GET /users/me/participations[?status=...] which
+ * returns enriched Event payloads (counts, availableSpots) — same projection
+ * used by /users/me/favorites — so the frontend can render EventCards without
+ * N+1 calls to /events/{id}.
  */
-export async function getMyParticipations(): Promise<Event[]> {
-  return []
+export async function getMyParticipations(status?: AttendanceStatus): Promise<Event[]> {
+  const response = await api.get<Event[]>('/users/me/participations', {
+    params: status ? { status } : undefined,
+  })
+  return response.data
 }
 
 /**

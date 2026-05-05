@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.MockEventFactory;
 import ch.unige.events.dto.attendance.AttendanceDTO;
+import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.Event;
@@ -117,6 +118,16 @@ public class AttendanceServiceMock extends AttendanceService {
                     Attendance a = buildAttendance(e.getKey(), e.getValue());
                     return AttendanceDTO.from(a, stubUser(a.userId));
                 })
+                .toList();
+    }
+
+    @Override
+    public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter) {
+        return attendances.entrySet().stream()
+                .filter(e -> statusFilter == null || e.getValue() == statusFilter)
+                .map(e -> eventsById.get(e.getKey()))
+                .filter(Objects::nonNull)
+                .map(e -> EventDTO.from(e, 0L, null, 0L, null, null))
                 .toList();
     }
 
