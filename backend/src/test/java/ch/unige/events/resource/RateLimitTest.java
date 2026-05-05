@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ul>
  *
  * <p>The fake clock is plugged in via
- * {@link RateLimitInterceptor#setNowMillisSupplier} so window-reset tests don't
+ * {@link RateLimitState#setNowMillisSupplier} so window-reset tests don't
  * need {@code Thread.sleep} — fast and deterministic.
  */
 @QuarkusTest

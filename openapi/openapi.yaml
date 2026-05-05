@@ -27,11 +27,13 @@ components:
       description: |
         Nombre de secondes à attendre avant de retenter la requête (cf. RFC 6585 §4).
         Présent sur les réponses 429 émises par les endpoints de mutation rate-limités
-        (voir ticket SECURITY-pentest 4.14).
+        (voir ticket SECURITY-pentest 4.14). La valeur est toujours **>= 1** :
+        l'implémentation arrondit le reste de la fenêtre vers le haut au moins à 1
+        seconde — un client qui retente immédiatement n'a aucune chance d'être admis.
       required: true
       schema:
         type: integer
-        minimum: 0
+        minimum: 1
       example: 45
 
   responses:
