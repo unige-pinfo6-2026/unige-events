@@ -49,9 +49,9 @@ function FeaturedEventsFixture() {
   )
 }
 
-// Featured badge overlay: established overlay pattern from MyParticipationsPage
-// (relative wrapper + absolute span). Avoids coupling the badge into EventCard
-// since it is only rendered in this section.
+// Featured badge overlay: relative wrapper + absolute span around EventCard.
+// Kept local to this section — badge is only rendered here, so no need to
+// thread a featured prop through EventCard.
 function FeaturedCard({ event }: Readonly<{ event: Event }>) {
   return (
     <div className="relative">

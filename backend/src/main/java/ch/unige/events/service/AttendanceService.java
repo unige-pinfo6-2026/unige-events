@@ -201,10 +201,15 @@ public class AttendanceService {
         }
         Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
         Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(eventIds, AttendanceStatus.WAITLISTED, entityManager);
+        // Bulk-load every Event in one query (avoids the N+1 that a per-id
+        // findByIdOptional() loop would produce). Preserves the order of the
+        // attendance rows by re-indexing client-side.
+        Map<Long, Event> eventsById = Event.<Event>list("id in ?1", eventIds).stream()
+                .collect(Collectors.toMap(e -> e.id, e -> e));
         LocalDateTime now = LocalDateTime.now();
         return eventIds.stream()
-                .map(id -> Event.<Event>findByIdOptional(id))
-                .flatMap(java.util.Optional::stream)
+                .map(eventsById::get)
+                .filter(java.util.Objects::nonNull)
                 .filter(e -> matchesTimeframe(e, timeframeFilter, now))
                 .map(e -> {
                     long att = attendingCounts.getOrDefault(e.id, 0L);

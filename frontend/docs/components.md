@@ -221,7 +221,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Section "À la une" de la `LandingPage` (SCRUM-73). Source : `useFeaturedEvents()` → `GET /api/events/featured?limit=6`.
 - Backend (SCRUM-95) renvoie une liste **curated** : phase 1 = événements `featured=true` PUBLISHED triés par `featuredAt DESC`, phase 2 = remplit les slots restants avec les PUBLISHED à venir triés par popularité (`attendingCount + favoriteCount` DESC). La liste est déjà ordonnée et capée à 6 — pas de pagination, pas de "Charger plus".
 - Réutilise `EventCard` et la même grille `auto-fit` que l'ancienne section (`grid-cols-[repeat(auto-fit,minmax(280px,320px))]`) → 3 colonnes × 2 lignes en desktop.
-- Badge "✨ À la une" (gradient accent → pink) overlayé en `top-center` uniquement sur les cards où `event.featured === true`. Pattern wrapper `relative` + `absolute` (cohérent avec le badge "Inscrit" de `MyParticipationsPage`).
+- Badge "✨ À la une" (gradient accent → pink) overlayé en `top-center` uniquement sur les cards où `event.featured === true`. Pattern wrapper `relative` + `<span absolute>` autour de `EventCard` — n'introduit pas de prop sur `EventCard` puisque le badge ne sert qu'ici.
 - États : skeleton `event-cards` (déjà calibré pour 6 bones via `autoFitLayout(cw, 6)` dans `skeleton/generate.mjs`) en loading ; `InfoMessage type="error"` en cas d'erreur ; **section entièrement masquée (return null)** si la liste est vide — pas de header, pas d'espace résiduel.
 
 ### CategorySelect

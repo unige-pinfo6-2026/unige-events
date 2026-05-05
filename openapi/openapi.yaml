@@ -1999,6 +1999,10 @@ paths:
                   $ref: '#/components/schemas/Event'
         '400':
           description: Paramètre limit hors bornes (< 1 ou > 12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/feature:
     patch:
@@ -2023,10 +2027,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/unfeature:
     patch:
@@ -2051,10 +2067,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /events/{id}/attend:
     post:
