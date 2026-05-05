@@ -189,7 +189,7 @@ public class UserResource {
                 schema = @Schema(implementation = ApiErrorResponse.class),
                 examples = @ExampleObject(
                     name = "forbidden",
-                    value = "{\"error\":\"forbidden\",\"message\":\"Cannot modify another user's profile\"}"
+                    value = "{\"error\":\"forbidden\",\"message\":\"You are not allowed to perform this action.\"}"
                 )
             )
         ),
