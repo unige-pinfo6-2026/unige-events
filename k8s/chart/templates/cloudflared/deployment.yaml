@@ -33,7 +33,7 @@ spec:
             - --loglevel
             - info
             - --metrics
-            - 127.0.0.1:2000
+            - 0.0.0.0:2000
             - run
           env:
             - name: TUNNEL_TOKEN
@@ -70,9 +70,6 @@ spec:
             httpGet:
               path: /ready
               port: 2000
-              {{- if eq .Values.cloudflared.mode "named" }}
-              host: 127.0.0.1
-              {{- end }}
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
@@ -80,9 +77,6 @@ spec:
             httpGet:
               path: /healthcheck
               port: 2000
-              {{- if eq .Values.cloudflared.mode "named" }}
-              host: 127.0.0.1
-              {{- end }}
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 3
