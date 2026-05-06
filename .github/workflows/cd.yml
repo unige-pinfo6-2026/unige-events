@@ -63,7 +63,6 @@ jobs:
             --set image.api.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
             --timeout 3m \
-            --atomic \
             --wait
 
   # ─── Preview ──────────────────────────────────────────────────────────────
@@ -119,7 +118,6 @@ jobs:
             --set image.api.tag="pr-${{ env.PR_NUMBER }}" \
             --set image.web.tag="pr-${{ env.PR_NUMBER }}" \
             --timeout 3m \
-            --atomic \
             --wait
 
       - name: Set preview context
