@@ -1,5 +1,6 @@
 cloudflared:
   enabled: false
+  mode: quick
 
 db:
   storageSize: 256Mi
