@@ -15,6 +15,7 @@ import _drafts_resume_strip from './drafts-resume-strip.bones.json'
 import _event_stats from './event-stats.bones.json'
 import _admin_reports from './admin-reports.bones.json'
 import _admin_featured from './admin-featured.bones.json'
+import _notification_panel from './notification-panel.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -30,4 +31,5 @@ registerBones({
   "event-stats": _event_stats,
   "admin-reports": _admin_reports,
   "admin-featured": _admin_featured,
+  "notification-panel": _notification_panel,
 })
