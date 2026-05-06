@@ -18,6 +18,8 @@
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
 | /events/:id/stats | EventStatsPage | fait (S6) |
+| /legal/privacy | PrivacyPage | fait |
+| /legal/terms | TermsPage | fait |
 
 ### LandingPage
 
@@ -93,6 +95,26 @@
 - Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
 - Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
 - Skeleton `event-stats` généré par `skeleton/generate.mjs` (3 breakpoints container width : 343 / 720 / 960). Le fixture reflète exactement le layout : bouton "Rafraîchir" en haut, grille KPI (3 cols ≥sm, stackée mobile), card chart `h-[260px]`, capacity bar `h-[100px]`, attendees toggle `h-12`.
+
+### PrivacyPage
+
+- Route `/legal/privacy`, publique.
+- Page statique de lecture (SectionWrapper size `md` = `max-w-3xl`, BlobsSubtle).
+- Contenu : politique de confidentialité inspirée du cadre légal UNIGE (LIPAD, RIPAD, RGPD).
+- Sections : cadre légal, responsable du traitement, données collectées, finalités, base légale, principes, partage, cookies, durée de conservation, droits, sécurité, contact.
+- Lien interne vers `/profile/me/edit` pour l'exercice du droit de rectification.
+- Mention explicite du caractère académique (projet PINFO).
+- Composé via les helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` partagés (`@/components/legal/`) — chaque rubrique = un `<LegalSection title="...">` avec son contenu typé.
+
+### TermsPage
+
+- Route `/legal/terms`, publique.
+- Page statique de lecture (même layout que PrivacyPage).
+- Contenu : conditions générales d'utilisation de la plateforme.
+- Sections : objet, description de la plateforme, inscription, contenu utilisateur, modération, propriété intellectuelle, disponibilité, limitation de responsabilité, données personnelles (renvoi vers `/legal/privacy`), modification des conditions, droit applicable, contact.
+- Lien externe vers le dépôt GitHub (open source).
+- Mention explicite du caractère académique (projet PINFO).
+- Réutilise les mêmes helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` que `PrivacyPage`.
 
 ### CreateEventPage
 

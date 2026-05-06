@@ -37,4 +37,16 @@ class EventTest {
         Event event = new Event();
         assertEquals(EventStatus.DRAFT, event.status);
     }
+
+    @Test
+    void featured_defaultIsFalse() {
+        Event event = new Event();
+        assertFalse(event.featured);
+    }
+
+    @Test
+    void featuredAt_defaultIsNull() {
+        Event event = new Event();
+        assertNull(event.featuredAt);
+    }
 }

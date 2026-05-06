@@ -1,4 +1,5 @@
 import { Mail, MapPin } from "lucide-react";
+import { Link } from 'react-router-dom'
 import { Banner } from "../assets/Banner";
 import { ContactLink, IconLink, TextLink } from "./utils/Links";
 import { FaInstagram, FaTwitter, FaGithub } from 'react-icons/fa'
@@ -86,8 +87,12 @@ export default function Footer() {
                     <p className="text-sm text-overlay">© {year} UNIGE Events. Tous droits réservés.</p>
                     
                     <div className="flex gap-8">
-                        <TextLink href="/privacy">Politique de confidentialité</TextLink>
-                        <TextLink href="/terms">Conditions générales</TextLink>
+                        <Link to="/legal/privacy" onClick={() => window.scrollTo({ top: 0 })} className="text-sm text-overlay hover:text-foreground transition-colors">
+                            Politique de confidentialité
+                        </Link>
+                        <Link to="/legal/terms" onClick={() => window.scrollTo({ top: 0 })} className="text-sm text-overlay hover:text-foreground transition-colors">
+                            Conditions générales
+                        </Link>
                     </div>
                 </div>
             </div>
