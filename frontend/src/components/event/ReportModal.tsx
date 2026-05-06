@@ -22,8 +22,10 @@ export default function ReportModal({ onClose, onSubmit, submitting }: Readonly<
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center z-50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose() }}
+      onKeyDown={(e) => { if (e.key === 'Escape' && !submitting) onClose() }}
     >
       <div className="bg-background border border-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
 

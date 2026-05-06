@@ -21,8 +21,8 @@ function AdminReportsFixture() {
       </div>
       <div className="rounded-2xl border border-border overflow-hidden">
         <div className="h-11" />
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-[68px]" />
+        {Array.from({length: 5}).map((_, i) => (
+          <div key={`skeleton-report-${i}`} className="h-[68px]" />
         ))}
       </div>
     </div>
@@ -34,8 +34,8 @@ function AdminFeaturedFixture() {
     <div className="flex flex-col gap-4">
       <div className="h-11 rounded-xl" />
       <div className="flex flex-col gap-3">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-[72px] rounded-2xl" />
+        {Array.from({length: 3}).map((_, i) => (
+          <div key={`skeleton-featured-${i}`} className="h-[72px] rounded-2xl" />
         ))}
       </div>
     </div>
@@ -224,7 +224,7 @@ function FeaturedEventCard({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
         <p className="text-xs text-foreground/50 truncate">
-          {formatEventDateTime(event.startDate, event.endDate, event.allDay)}
+          {formatEventDateTime(event.startDate, event.allDay)}
         </p>
       </div>
 

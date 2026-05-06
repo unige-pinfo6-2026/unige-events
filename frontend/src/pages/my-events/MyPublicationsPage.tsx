@@ -152,6 +152,83 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
+  function renderActions() {
+    if (event.status === 'CANCELLED') {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onRestore(event.id) }}
+            disabled={restoring}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold cursor-pointer bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <Undo2 className="size-3.5" />
+            Remettre en brouillon
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onRecreate(event) }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
+          >
+            <RefreshCw className="size-3.5" />
+            Recréer
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onDelete(event) }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
+          >
+            <Trash2 className="size-3.5" />
+            Supprimer
+          </button>
+        </>
+      )
+    }
+    if (event.status === 'EXPIRED') {
+      return (
+        <button
+          type="button"
+          onClick={(e) => { stop(e); onRecreate(event) }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
+        >
+          <RefreshCw className="size-3.5" />
+          Recréer cet événement
+        </button>
+      )
+    }
+    return (
+      <>
+        <Link
+          to={`/events/${event.id}/edit`}
+          onClick={stop}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
+        >
+          <Pencil className="size-3.5" />
+          Modifier
+        </Link>
+        {event.status === 'DRAFT' && (
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onPublish(event.id) }}
+            disabled={publishing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+          >
+            <Send className="size-3.5" />
+            Publier
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => { stop(e); onCancel(event) }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
+        >
+          <Ban className="size-3.5" />
+          Annuler
+        </button>
+      </>
+    )
+  }
+
   return (
     <article className="group flex flex-col rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 hover:-translate-y-0.5">
       <Link to={`/events/${event.id}`} className="flex flex-col flex-1 no-underline text-inherit" aria-label={event.title}>
@@ -204,76 +281,7 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 p-3 border-t border-border">
-        {event.status === 'CANCELLED' ? (
-          <>
-            <button
-              type="button"
-              onClick={(e) => { stop(e); onRestore(event.id) }}
-              disabled={restoring}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold cursor-pointer bg-transparent hover:border-foreground/30 hover:text-foreground transition-colors disabled:opacity-50"
-            >
-              <Undo2 className="size-3.5" />
-              Remettre en brouillon
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { stop(e); onRecreate(event) }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
-            >
-              <RefreshCw className="size-3.5" />
-              Recréer
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { stop(e); onDelete(event) }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
-            >
-              <Trash2 className="size-3.5" />
-              Supprimer
-            </button>
-          </>
-        ) : event.status === 'EXPIRED' ? (
-          <>
-            <button
-              type="button"
-              onClick={(e) => { stop(e); onRecreate(event) }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
-            >
-              <RefreshCw className="size-3.5" />
-              Recréer cet événement
-            </button>
-          </>
-        ) : (
-          <>
-            <Link
-              to={`/events/${event.id}/edit`}
-              onClick={stop}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground/70 text-xs font-semibold no-underline hover:border-foreground/30 hover:text-foreground transition-colors"
-            >
-              <Pencil className="size-3.5" />
-              Modifier
-            </Link>
-            {event.status === 'DRAFT' && (
-              <button
-                type="button"
-                onClick={(e) => { stop(e); onPublish(event.id) }}
-                disabled={publishing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold cursor-pointer hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-              >
-                <Send className="size-3.5" />
-                Publier
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={(e) => { stop(e); onCancel(event) }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
-            >
-              <Ban className="size-3.5" />
-              Annuler
-            </button>
-          </>
-        )}
+        {renderActions()}
       </div>
     </article>
   )
