@@ -25,7 +25,6 @@ spec:
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
-          {{- if eq .Values.cloudflared.mode "named" }}
           args:
             - tunnel
             - --no-autoupdate
@@ -38,22 +37,10 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: CLOUDFLARE_TUNNEL_TOKEN
-          {{- else }}
-          args:
-            - tunnel
-            - --no-autoupdate
-            - --metrics
-            - 127.0.0.1:2000
-            - --url
-            - http://localhost:80
-            - --http-host-header
-            - {{ .Values.ingress.host }}
-          {{- end }}
           resources:
             requests:
               cpu: "50m"
               memory: "32Mi"
-              ephemeral-storage: "64Mi"
             limits:
               cpu: "200m"
               memory: "128Mi"

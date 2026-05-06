@@ -58,4 +58,3 @@ web:
 
 cloudflared:
   enabled: true
-  mode: named
