@@ -1,9 +1,7 @@
-name: CD Pipeline
+name: Deploy
 
 on:
   workflow_call:
-  pull_request:
-    types: [closed]
 
 permissions:
   contents: read
@@ -150,24 +148,3 @@ jobs:
             🌿 Branch: `${{ github.head_ref }}`
             🔖 Commit: ${{ github.sha }}
             🕒 Updated: ${{ steps.preview.outputs.last_update }}
-
-  # ─── Cleanup Preview ──────────────────────────────────────────────────────
-  cleanup-preview:
-    name: Cleanup Preview
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: deployments
-    environment: preview
-    env:
-      PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
-
-    steps:
-      - name: Set kubectl context
-        uses: azure/k8s-set-context@v5
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
-
-      - name: Cleanup
-        run: |
-          helm uninstall ${{ env.PR_NAMESPACE }} --namespace ${{ env.PR_NAMESPACE }} --ignore-not-found || true
-          kubectl delete namespace ${{ env.PR_NAMESPACE }} --ignore-not-found
