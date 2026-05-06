@@ -27,7 +27,6 @@ spec:
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
-          {{- if eq .Values.cloudflared.mode "named" }}
           args:
             - tunnel
             - --no-autoupdate
@@ -64,7 +63,6 @@ spec:
             requests:
               cpu: "50m"
               memory: "32Mi"
-              ephemeral-storage: "64Mi"
             limits:
               cpu: "200m"
               memory: "128Mi"

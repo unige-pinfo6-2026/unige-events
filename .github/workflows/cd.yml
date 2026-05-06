@@ -136,17 +136,9 @@ jobs:
             --atomic \
             --wait
 
-      - name: Set preview context
-        id: preview
+      - name: Set PR context
         run: |
-          POD=$(kubectl get pod -l app=cloudflared -n "${{ env.PR_NAMESPACE }}" \
-            -o jsonpath='{.items[0].metadata.name}')
-
-          TUNNEL_URL=$(kubectl logs "$POD" -n "${{ env.PR_NAMESPACE }}" -c cloudflared \
-            | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1)
-
-          echo "last_update=$(TZ=Europe/Zurich date '+%b %d, %Y %H:%M %Z')" >> $GITHUB_OUTPUT
-          echo "url=$TUNNEL_URL" >> $GITHUB_OUTPUT
+          echo "TIME=$(TZ=Europe/Zurich date '+%b %d, %Y %H:%M %Z')" >> $GITHUB_ENV
 
       - name: Comment PR
         uses: marocchino/sticky-pull-request-comment@v3
@@ -157,15 +149,15 @@ jobs:
 
             | Service | URL |
             |--------|-----|
-            | 🌐 Frontend | ${{ steps.preview.outputs.url }} |
-            | 🔗 API | ${{ steps.preview.outputs.url }}/api |
-            | 📦 S3 | ${{ steps.preview.outputs.url }}/s3 |
+            | 🌐 Frontend | https://${{ env.PR_HOST }} |
+            | 🔗 API | https://${{ env.PR_HOST }}/api |
+            | 📦 S3 | https://${{ env.PR_HOST }}/s3 |
             ---
 
             ✅ Deployed from PR #${{ env.PR_NUMBER }}
             🌿 Branch: `${{ github.event.workflow_run.head_branch }}`
             🔖 Commit: ${{ github.event.workflow_run.head_sha }}
-            🕒 Updated: ${{ steps.preview.outputs.last_update }}
+            🕒 Updated: ${{ env.TIME }}
 
   # ─── Cleanup Preview ──────────────────────────────────────────────────────
   cleanup-preview:
