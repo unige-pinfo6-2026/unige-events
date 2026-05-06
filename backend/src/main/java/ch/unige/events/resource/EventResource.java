@@ -8,6 +8,7 @@ import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventService;
+import ch.unige.events.service.FeaturedService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -35,9 +36,20 @@ public class EventResource {
     private final SecurityIdentity identity;
 
     @Inject
+    FeaturedService featuredService;
+
+    @Inject
     public EventResource(EventService eventService, SecurityIdentity identity) {
         this.eventService = eventService;
         this.identity = identity;
+    }
+
+    @GET
+    @Path("/featured")
+    @PermitAll
+    public List<EventDTO> getFeatured(
+            @QueryParam("limit") @DefaultValue("6") @Min(1) @Max(12) int limit) {
+        return featuredService.getFeatured(limit);
     }
 
     @GET
@@ -51,7 +63,8 @@ public class EventResource {
             @QueryParam("organizerId") UUID organizerId,
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
             @QueryParam("faculty") Faculty faculty,
-            @QueryParam("facultyNone") Boolean facultyNone) {
+            @QueryParam("facultyNone") Boolean facultyNone,
+            @QueryParam("featured") Boolean featured) {
         EventStatus effectiveStatus = status;
         if (organizerId != null) {
             if (effectiveStatus == null) {
@@ -66,7 +79,7 @@ public class EventResource {
                         .build());
             }
         }
-        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone);
+        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone, featured);
     }
 
     @POST

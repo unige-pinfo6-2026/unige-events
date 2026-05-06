@@ -25,6 +25,8 @@ const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
+const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
+const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
 
 const AppRouter = () => {
   return (
@@ -45,6 +47,12 @@ const AppRouter = () => {
 
             <Route path="/calendar">
               <Route index element={<CalendarPage />} />
+            </Route>
+
+            <Route path="/legal">
+              <Route index element={<Navigate to="/legal/privacy" replace />} />
+              <Route path="privacy" element={<PrivacyPage />} />
+              <Route path="terms" element={<TermsPage />} />
             </Route>
 
             <Route element={<PrivateRoute/>}>

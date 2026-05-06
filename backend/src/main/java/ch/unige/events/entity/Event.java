@@ -15,7 +15,8 @@ import java.util.Optional;
 @Table(name = "events", indexes = {
         @Index(name = "idx_event_creator", columnList = "creator_id"),
         @Index(name = "idx_event_start_date", columnList = "start_date"),
-        @Index(name = "idx_event_faculty", columnList = "faculty")
+        @Index(name = "idx_event_faculty", columnList = "faculty"),
+        @Index(name = "idx_event_featured_status_end", columnList = "featured, status, end_date")
 })
 public class Event extends PanacheEntity {
 
@@ -50,6 +51,12 @@ public class Event extends PanacheEntity {
     @Column(nullable = false)
     @ColumnDefault("false")
     public boolean allDay = false;
+
+    @Column(nullable = false)
+    @ColumnDefault("false")
+    public boolean featured = false;
+
+    public LocalDateTime featuredAt;
 
     @URL
     @Column(length = 500)
