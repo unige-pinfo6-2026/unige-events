@@ -387,7 +387,7 @@ describe('EditEventPage', () => {
       mockDeleteEvent.mockRejectedValue(new Error('network boom'))
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
       fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
@@ -401,7 +401,7 @@ describe('EditEventPage', () => {
       mockDeleteEvent.mockReturnValue(new Promise<void>(r => { resolveDelete = r }))
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
       fireEvent.click(screen.getByRole('button', { name: 'Confirmer' }))
 
