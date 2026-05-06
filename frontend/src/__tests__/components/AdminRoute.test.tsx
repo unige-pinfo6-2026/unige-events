@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import type { ReactNode } from 'react'
 import AdminRoute from '@/components/AdminRoute'
 
 vi.mock('@/hooks/useAuth', () => ({
