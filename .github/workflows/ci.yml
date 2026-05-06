@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
+  pull-requests: write
 
 env:
   REGISTRY: ghcr.io
@@ -141,3 +142,9 @@ jobs:
         run: |
           docker volume prune -f
           docker image prune -f
+
+  deploy:
+    name: Deploy
+    needs: [build-backend, build-frontend]
+    uses: ./.github/workflows/cd.yml
+    secrets: inherit
