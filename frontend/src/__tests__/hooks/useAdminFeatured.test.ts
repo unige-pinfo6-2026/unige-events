@@ -34,9 +34,9 @@ const makeEvent = (id: number): Event => ({
   creatorId: 'user-1',
   createdAt: '2026-05-01T10:00:00',
   description: '',
-  capacity: null,
+  capacity: undefined,
   attendingCount: 0,
-  bannerUrl: null,
+  bannerUrl: undefined,
 })
 
 afterEach(() => {

@@ -41,9 +41,9 @@ const makeEvent = (id: number): Event => ({
   creatorId: 'user-1',
   createdAt: '2026-05-01T10:00:00',
   description: '',
-  capacity: null,
+  capacity: undefined,
   attendingCount: 0,
-  bannerUrl: null,
+  bannerUrl: undefined,
 })
 
 const defaultReports = {
@@ -315,7 +315,7 @@ describe('AdminPage — loading skeletons', () => {
     renderPage()
     // Skeleton renders its children (the fixture divs) via the mock
     // Fixture contains 2 tab placeholder divs and 5 row placeholder divs
-    const placeholders = document.querySelectorAll('.h-\\[68px\\]')
+    const placeholders = document.querySelectorAll(String.raw`.h-\[68px\]`)
     expect(placeholders.length).toBe(5)
   })
 
@@ -324,7 +324,7 @@ describe('AdminPage — loading skeletons', () => {
     mockUseAdminFeatured.mockReturnValue({ ...defaultFeatured, loading: true })
     renderPage()
     // Fixture contains 3 card placeholder divs
-    const placeholders = document.querySelectorAll('.h-\\[72px\\]')
+    const placeholders = document.querySelectorAll(String.raw`.h-\[72px\]`)
     expect(placeholders.length).toBe(3)
   })
 })
