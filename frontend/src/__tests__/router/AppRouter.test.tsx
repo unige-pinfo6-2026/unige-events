@@ -27,6 +27,16 @@ vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
 }))
 
+vi.mock('@/hooks/useNotifications', () => ({
+  useNotifications: () => ({
+    notifications: [],
+    unreadCount: 0,
+    loading: false,
+    error: null,
+    markAllAsRead: vi.fn(),
+  }),
+}))
+
 // Stub all lazy-loaded pages so route coverage doesn't require full page deps
 vi.mock('@/pages/LandingPage', () => ({ default: () => <div>LandingPage</div> }))
 vi.mock('@/pages/login/LoginPage', () => ({ default: () => <div>LoginPage</div> }))

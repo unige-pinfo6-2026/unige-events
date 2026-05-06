@@ -15,6 +15,16 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
+vi.mock('@/hooks/useNotifications', () => ({
+  useNotifications: () => ({
+    notifications: [],
+    unreadCount: 0,
+    loading: false,
+    error: null,
+    markAllAsRead: vi.fn(),
+  }),
+}))
+
 import { useAuth } from '@/hooks/useAuth'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
