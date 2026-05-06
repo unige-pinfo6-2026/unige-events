@@ -1,5 +1,5 @@
 cloudflared:
-  enabled: false
+  enabled: true
   mode: quick
 
 db:
