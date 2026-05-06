@@ -12,19 +12,14 @@ env:
   IMAGE_TAG: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
   IMAGE_ADDITIONAL_TAGS: ${{ github.ref_name == 'main' && 'latest' || '' }}
 
-  # Backend
-  JAVA_VERSION: 21
-  JAVA_DISTRIBUTION: "temurin"
-  BACKEND_IMAGE: unige-events-api
-
-  # Frontend
-  NODE_VERSION: 24
-  FRONTEND_IMAGE: unige-events-web
-
 jobs:
   build-backend:
     name: Build Backend
     runs-on: builds
+    env:
+      JAVA_VERSION: 21
+      JAVA_DISTRIBUTION: "temurin"
+      BACKEND_IMAGE: unige-events-api
 
     defaults:
       run:
@@ -70,6 +65,8 @@ jobs:
     name: Build Frontend
     runs-on: builds
     env:
+      NODE_VERSION: 24
+      FRONTEND_IMAGE: unige-events-web
       MODE: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
 
     defaults:
