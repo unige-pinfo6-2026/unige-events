@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -800,6 +801,24 @@ class UserServiceCoverageTest {
             () -> userService.uploadBanner("auth0|unknown", upload));
     }
 
+    // --- uploadImage: size limit ---
+
+    @Test
+    @TestTransaction
+    void uploadImage_fileTooLarge_throwsFileTooLarge(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|toolarge", "toolarge@example.com", false);
+
+        Path fakeFile = tempDir.resolve("big.jpg");
+        Files.write(fakeFile, jpegHeader());
+        FileUpload upload = new StubFileUpload("big.jpg", "image/jpeg", fakeFile) {
+            @Override public long size() { return FileStorageService.MAX_AVATAR_BYTES + 1; }
+        };
+
+        assertThrows(FileTooLargeException.class,
+            () -> userService.uploadImage("auth0|toolarge", upload));
+    }
+
     // --- deleteBanner ---
 
     @Test
@@ -822,6 +841,30 @@ class UserServiceCoverageTest {
 
         assertThrows(NotFoundException.class,
             () -> userService.deleteBanner("auth0|unknown"));
+    }
+
+    // --- deleteAvatar ---
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_setsAvatarUrlToNull() {
+        deleteAllUsers();
+        User user = persistUser("auth0|delavatar", "delavatar@example.com", false);
+        user.avatarUrl = "https://cdn.example.com/avatar.jpg";
+        entityManager.flush();
+
+        User result = userService.deleteAvatar("auth0|delavatar");
+
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_unknownUser_throwsNotFound() {
+        deleteAllUsers();
+
+        assertThrows(NotFoundException.class,
+            () -> userService.deleteAvatar("auth0|unknown"));
     }
 
     static byte[] jpegHeader() {

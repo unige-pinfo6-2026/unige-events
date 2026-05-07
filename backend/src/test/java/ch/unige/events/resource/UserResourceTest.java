@@ -490,6 +490,54 @@ class UserResourceTest {
             .body("error", equalTo("not_found"));
     }
 
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void uploadImageFileTooLargeReturns413() {
+        userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        UserServiceMock.forceFileTooLargeOnUpload = true;
+
+        given()
+            .contentType("multipart/form-data")
+            .multiPart("file", "big.jpg", "fake".getBytes(), "image/jpeg")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(413);
+    }
+
+    // --- DELETE /users/me/image ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void deleteImageSuccess() {
+        var user = userServiceMock.seedUser("auth0|alice", "alice@example.com");
+        user.avatarUrl = "/api/uploads/test-photo.jpg";
+
+        given()
+            .when().delete("/users/me/image")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("avatarUrl", nullValue());
+    }
+
+    @Test
+    void deleteImageUnauthenticatedReturns401() {
+        given()
+            .when().delete("/users/me/image")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void deleteImageUserNotFoundReturns404() {
+        given()
+            .when().delete("/users/me/image")
+            .then()
+            .statusCode(404)
+            .body("error", equalTo("not_found"));
+    }
+
     // --- DELETE /users/me/banner ---
 
     @Test
