@@ -13,14 +13,19 @@ import type { Report } from '@/types/admin'
 const mockGetReports = getReports as ReturnType<typeof vi.fn>
 const mockUpdateReportStatus = updateReportStatus as ReturnType<typeof vi.fn>
 
-const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report => ({
+const makeReport = (id: number, status: Report['status'] = 'PENDING', createdAt = '2026-05-01T10:00:00'): Report => ({
   id,
   eventId: 100 + id,
   eventTitle: `Event ${id}`,
-  reason: 'Spam',
-  reportedByDisplayName: 'Alice',
-  createdAt: '2026-05-01T10:00:00',
+  reporterId: `reporter-${id}`,
+  reporterDisplayName: 'Alice',
+  reason: 'SPAM',
+  description: null,
+  createdAt,
   status,
+  moderationNote: null,
+  reviewedAt: null,
+  reviewedBy: null,
 })
 
 afterEach(() => vi.resetAllMocks())
@@ -57,16 +62,39 @@ describe('useAdminReports — initial load', () => {
 })
 
 describe('useAdminReports — tab switching', () => {
-  it('fetches without status filter when switching to PROCESSED tab', async () => {
+  it('fetches REVIEWED and DISMISSED in parallel when switching to PROCESSED tab', async () => {
     mockGetReports.mockResolvedValue([])
+    const { result } = renderHook(() => useAdminReports())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    mockGetReports.mockClear()
+
+    act(() => result.current.setActiveTab('PROCESSED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(mockGetReports).toHaveBeenCalledWith('REVIEWED')
+    expect(mockGetReports).toHaveBeenCalledWith('DISMISSED')
+    expect(mockGetReports).toHaveBeenCalledTimes(2)
+    expect(result.current.activeTab).toBe('PROCESSED')
+  })
+
+  it('merges and sorts REVIEWED+DISMISSED results by createdAt desc on PROCESSED tab', async () => {
+    const reviewed = makeReport(1, 'REVIEWED', '2026-05-03T10:00:00')
+    const dismissed = makeReport(2, 'DISMISSED', '2026-05-05T10:00:00')
+    const olderDismissed = makeReport(3, 'DISMISSED', '2026-05-01T10:00:00')
+
+    mockGetReports.mockImplementation((status: string) => {
+      if (status === 'REVIEWED') return Promise.resolve([reviewed])
+      if (status === 'DISMISSED') return Promise.resolve([dismissed, olderDismissed])
+      return Promise.resolve([])
+    })
+
     const { result } = renderHook(() => useAdminReports())
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     act(() => result.current.setActiveTab('PROCESSED'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(mockGetReports).toHaveBeenLastCalledWith(undefined)
-    expect(result.current.activeTab).toBe('PROCESSED')
+    expect(result.current.reports.map(r => r.id)).toEqual([2, 1, 3])
   })
 
   it('fetches with PENDING status when switching back to PENDING tab', async () => {
@@ -81,6 +109,19 @@ describe('useAdminReports — tab switching', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     expect(mockGetReports).toHaveBeenLastCalledWith('PENDING')
+  })
+
+  it('reports an error if one of the processed fetches fails', async () => {
+    mockGetReports.mockResolvedValueOnce([])
+    const { result } = renderHook(() => useAdminReports())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockGetReports.mockRejectedValue(new Error('Network down'))
+    act(() => result.current.setActiveTab('PROCESSED'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.error).toBe('Impossible de charger les signalements.')
+    expect(result.current.reports).toEqual([])
   })
 })
 

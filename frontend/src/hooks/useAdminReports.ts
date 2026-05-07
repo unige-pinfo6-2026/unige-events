@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getReports, updateReportStatus } from '@/services/adminApi'
-import type { Report, ReportStatus } from '@/types/admin'
+import type { Report } from '@/types/admin'
 
 type TabType = 'PENDING' | 'PROCESSED'
 
@@ -25,9 +25,19 @@ export function useAdminReports(): UseAdminReportsResult {
     setLoading(true)
     setError(null)
     try {
-      const status: ReportStatus | undefined = activeTab === 'PENDING' ? 'PENDING' : undefined
-      const data = await getReports(status)
-      setReports(data)
+      if (activeTab === 'PENDING') {
+        const data = await getReports('PENDING')
+        setReports(data)
+      } else {
+        // Le back interprète `?status=` omis comme PENDING, donc l'onglet "Traités"
+        // doit explicitement demander REVIEWED et DISMISSED puis fusionner.
+        const [reviewed, dismissed] = await Promise.all([
+          getReports('REVIEWED'),
+          getReports('DISMISSED'),
+        ])
+        const merged = [...reviewed, ...dismissed].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        setReports(merged)
+      }
     } catch {
       setError('Impossible de charger les signalements.')
     } finally {
