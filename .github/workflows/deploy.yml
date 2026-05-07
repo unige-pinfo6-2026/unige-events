@@ -113,8 +113,8 @@ jobs:
             --create-namespace \
             -f k8s/chart/values-preview.yaml \
             --set ingress.host="${{ env.PR_HOST }}" \
-            --set image.api.tag="pr-${{ env.PR_NUMBER }}" \
-            --set image.web.tag="pr-${{ env.PR_NUMBER }}" \
+            --set image.api.tag="${{ github.sha }}" \
+            --set image.web.tag="${{ github.sha }}" \
             --timeout 3m \
             --wait
 
