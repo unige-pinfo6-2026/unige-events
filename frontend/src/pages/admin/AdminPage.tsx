@@ -104,13 +104,15 @@ function ReportRow({
             </button>
           </div>
         ) : (
-          <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg ${
-            report.status === 'REVIEWED'
-              ? 'bg-error/10 text-error'
-              : 'bg-foreground/5 text-foreground/50'
-          }`}>
-            {report.status === 'REVIEWED' ? 'Banni' : 'Ignoré'}
-          </span>
+          <div className="flex justify-end">
+            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg ${
+              report.status === 'REVIEWED'
+                ? 'bg-error/10 text-error'
+                : 'bg-foreground/5 text-foreground/50'
+            }`}>
+              {report.status === 'REVIEWED' ? 'Banni' : 'Ignoré'}
+            </span>
+          </div>
         )}
       </td>
     </tr>
