@@ -19,7 +19,6 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -34,7 +33,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-@Path("/")
+/**
+ * Follow endpoints rooted under {@code /users}. The complementary
+ * {@code /follow-requests/...} accept/reject endpoints live in
+ * {@link FollowRequestResource} so each Resource keeps a single, unambiguous
+ * class-level @Path.
+ */
+@Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class FollowResource {
@@ -43,10 +48,8 @@ public class FollowResource {
     @Inject FollowService followService;
     @Inject UserService userService;
 
-    // ── POST /users/{id}/follow ────────────────────────────────────────────────
-
     @POST
-    @Path("/users/{id}/follow")
+    @Path("/{id}/follow")
     @Authenticated
     @Consumes(MediaType.WILDCARD)
     @PerUserRateLimit(name = "follows.follow", max = 30)
@@ -59,7 +62,7 @@ public class FollowResource {
     }
 
     @DELETE
-    @Path("/users/{id}/follow")
+    @Path("/{id}/follow")
     @Authenticated
     @Consumes(MediaType.WILDCARD)
     public Response unfollow(@PathParam("id") UUID followedId) {
@@ -68,10 +71,8 @@ public class FollowResource {
         return Response.noContent().build();
     }
 
-    // ── GET /users/{id}/followers | /following ─────────────────────────────────
-
     @GET
-    @Path("/users/{id}/followers")
+    @Path("/{id}/followers")
     @Authenticated
     public List<UserPublicResponse> getFollowers(
             @PathParam("id") UUID userId,
@@ -86,7 +87,7 @@ public class FollowResource {
     }
 
     @GET
-    @Path("/users/{id}/following")
+    @Path("/{id}/following")
     @Authenticated
     public List<UserPublicResponse> getFollowing(
             @PathParam("id") UUID userId,
@@ -99,10 +100,8 @@ public class FollowResource {
         return resolveUsers(rows.stream().map(f -> f.followedId).toList());
     }
 
-    // ── GET /users/me/follow-requests ──────────────────────────────────────────
-
     @GET
-    @Path("/users/me/follow-requests")
+    @Path("/me/follow-requests")
     @Authenticated
     public List<FollowDTO> getMyFollowRequests(
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
@@ -112,30 +111,6 @@ public class FollowResource {
                 .map(FollowDTO::from)
                 .toList();
     }
-
-    // ── PATCH /follow-requests/{followId}/accept | /reject ─────────────────────
-
-    @PATCH
-    @Path("/follow-requests/{followId}/accept")
-    @Authenticated
-    @Consumes(MediaType.WILDCARD)
-    public FollowDTO acceptFollowRequest(@PathParam("followId") Long followId) {
-        String auth0Id = identity.getPrincipal().getName();
-        Follow row = followService.acceptRequest(auth0Id, followId);
-        return FollowDTO.from(row);
-    }
-
-    @PATCH
-    @Path("/follow-requests/{followId}/reject")
-    @Authenticated
-    @Consumes(MediaType.WILDCARD)
-    public Response rejectFollowRequest(@PathParam("followId") Long followId) {
-        String auth0Id = identity.getPrincipal().getName();
-        followService.rejectRequest(auth0Id, followId);
-        return Response.noContent().build();
-    }
-
-    // ── Helper interne ─────────────────────────────────────────────────────────
 
     /**
      * Résout en bulk les `User` correspondant aux UUIDs reçus (1 seule requête DB),
