@@ -249,6 +249,20 @@ public class UserResource {
     }
 
     /**
+     * DELETE /api/users/me/image
+     * Supprime la photo de profil — remet avatarUrl à null et supprime l'objet S3.
+     */
+    @DELETE
+    @Path("/me/image")
+    @Authenticated
+    @Consumes(MediaType.WILDCARD)
+    public Response deleteImage() {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.deleteAvatar(auth0Id);
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
+    /**
      * POST /api/users/me/banner
      * Upload de la bannière de profil — met à jour bannerUrl avec le chemin /api/uploads/...
      */

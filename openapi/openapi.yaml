@@ -1004,8 +1004,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 2 MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '429':
           $ref: '#/components/responses/RateLimited'
+    delete:
+      summary: Suppression de la photo de profil
+      description: Remet avatarUrl à null, supprime l'objet S3, et retourne le profil complet mis à jour.
+      operationId: deleteProfilePhoto
+      tags: [users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil mis à jour — avatarUrl est null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /users/me/banner:
     post:
@@ -1054,6 +1086,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Utilisateur introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 5 MB
           content:
             application/json:
               schema:
@@ -2024,6 +2062,12 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 5 MB
           content:
             application/json:
               schema:

@@ -1,8 +1,10 @@
 package ch.unige.events.service;
 
 import ch.unige.events.config.AppConfig;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import ch.unige.events.util.ImageFormat;
+import io.quarkus.logging.Log;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -14,6 +16,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -23,6 +26,9 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class FileStorageService {
+
+    public static final long MAX_AVATAR_BYTES = 2L * 1024 * 1024;
+    public static final long MAX_BANNER_BYTES = 5L * 1024 * 1024;
 
     private static final String INVALID_FILE_MESSAGE =
             "File must be a JPEG, PNG, WebP or GIF image";
@@ -61,7 +67,16 @@ public class FileStorageService {
             .build());
     }
 
-    public String saveImage(FileUpload fileUpload, String folder) {
+    /**
+     * Validates, size-checks, uploads a new image, and deletes the previous one if present.
+     *
+     * @param fileUpload the uploaded file
+     * @param folder     S3 folder prefix (e.g. "users/avatars")
+     * @param maxBytes   maximum allowed file size in bytes
+     * @param oldUrl     full URL of the previous object to delete, or null to skip deletion
+     * @return public URL of the newly uploaded object
+     */
+    public String saveImage(FileUpload fileUpload, String folder, long maxBytes, String oldUrl) {
         String contentType = fileUpload.contentType();
         if (contentType == null) {
             throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
@@ -69,6 +84,11 @@ public class FileStorageService {
         contentType = contentType.split(";")[0].strip().toLowerCase(Locale.ROOT);
         if (!ImageFormat.MIME_TO_EXTENSION.containsKey(contentType)) {
             throw new InvalidFileTypeException(INVALID_FILE_MESSAGE);
+        }
+
+        if (fileUpload.size() > maxBytes) {
+            long limitMb = maxBytes / (1024 * 1024);
+            throw new FileTooLargeException("File exceeds " + limitMb + " MB limit");
         }
 
         try {
@@ -81,6 +101,8 @@ public class FileStorageService {
 
         String extension = ImageFormat.MIME_TO_EXTENSION.get(contentType);
         String key = folder + "/" + UUID.randomUUID() + extension;
+
+        tryDeleteObject(oldUrl);
 
         try {
             s3.putObject(
@@ -96,5 +118,32 @@ public class FileStorageService {
         }
 
         return config.s3Url() + "/" + config.s3Bucket() + "/" + key;
+    }
+
+    /**
+     * Deletes the S3 object identified by its full public URL.
+     * Logs a warning on failure without propagating the exception.
+     */
+    public void deleteObject(String url) {
+        tryDeleteObject(url);
+    }
+
+    private void tryDeleteObject(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        String prefix = config.s3Url() + "/" + config.s3Bucket() + "/";
+        if (!url.startsWith(prefix)) {
+            return;
+        }
+        String key = url.substring(prefix.length());
+        try {
+            s3.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(config.s3Bucket())
+                    .key(key)
+                    .build());
+        } catch (Exception e) {
+            Log.warnf("Failed to delete S3 object '%s': %s", key, e.getMessage());
+        }
     }
 }

@@ -1,12 +1,14 @@
 package ch.unige.events.service;
 
 import ch.unige.events.config.AppConfig;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import jakarta.ws.rs.InternalServerErrorException;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.core.sync.RequestBody;
 
@@ -36,7 +38,7 @@ class FileStorageServiceTest {
         FileStorageService svc = service(mock(S3Client.class));
 
         assertThrows(InvalidFileTypeException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     @Test
@@ -46,7 +48,7 @@ class FileStorageServiceTest {
         FileStorageService svc = service(mock(S3Client.class));
 
         assertThrows(InvalidFileTypeException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     // --- saveImage: MIME normalization (case + parameters) ---
@@ -59,9 +61,10 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("IMAGE/JPEG");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
-        String url = service(s3).saveImage(upload, "folder");
+        String url = service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null);
 
         assertTrue(url.endsWith(".jpg"));
     }
@@ -74,9 +77,10 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("Image/PNG");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
-        String url = service(s3).saveImage(upload, "folder");
+        String url = service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null);
 
         assertTrue(url.endsWith(".png"));
     }
@@ -89,9 +93,10 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("image/jpeg; charset=utf-8");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
-        String url = service(s3).saveImage(upload, "folder");
+        String url = service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null);
 
         assertTrue(url.endsWith(".jpg"));
     }
@@ -103,7 +108,7 @@ class FileStorageServiceTest {
         FileStorageService svc = service(mock(S3Client.class));
 
         assertThrows(InvalidFileTypeException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     @Test
@@ -114,9 +119,10 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("  image/gif  ");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
-        String url = service(s3).saveImage(upload, "folder");
+        String url = service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null);
 
         assertTrue(url.endsWith(".gif"));
     }
@@ -131,10 +137,11 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("image/png");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
         FileStorageService svc = service(mock(S3Client.class));
 
         assertThrows(InvalidFileTypeException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     // --- saveImage: IOException when reading file ---
@@ -144,10 +151,11 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("image/jpeg");
         when(upload.uploadedFile()).thenReturn(Path.of("/nonexistent/missing.jpg"));
+        when(upload.size()).thenReturn(12L);
         FileStorageService svc = service(mock(S3Client.class));
 
         assertThrows(InternalServerErrorException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     // --- saveImage: S3 putObject failure ---
@@ -160,6 +168,7 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("image/jpeg");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
         when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
@@ -167,7 +176,7 @@ class FileStorageServiceTest {
         FileStorageService svc = service(s3);
 
         assertThrows(InternalServerErrorException.class,
-                () -> svc.saveImage(upload, "folder"));
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
     }
 
     // --- saveImage: happy path ---
@@ -180,12 +189,148 @@ class FileStorageServiceTest {
         FileUpload upload = mock(FileUpload.class);
         when(upload.contentType()).thenReturn("image/jpeg");
         when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
-        String url = service(s3).saveImage(upload, "events");
+        String url = service(s3).saveImage(upload, "events", FileStorageService.MAX_BANNER_BYTES, null);
 
         assertTrue(url.startsWith("http://s3/bucket/events/"));
         assertTrue(url.endsWith(".jpg"));
         verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    // --- saveImage: size limit (pentest findings 4.13/4.19) ---
+
+    @Test
+    void saveImage_fileTooLarge_throwsFileTooLarge() {
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.size()).thenReturn(3L * 1024 * 1024); // 3 MB > 2 MB limit
+        FileStorageService svc = service(mock(S3Client.class));
+
+        assertThrows(FileTooLargeException.class,
+                () -> svc.saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
+    }
+
+    @Test
+    void saveImage_fileSizeAtLimit_accepted(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(FileStorageService.MAX_AVATAR_BYTES);
+
+        S3Client s3 = mock(S3Client.class);
+        // Exactly at limit — must not throw
+        assertDoesNotThrow(() -> service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null));
+    }
+
+    // --- saveImage: GC of previous S3 object ---
+
+    @Test
+    void saveImage_withOldUrl_deletesOldObject(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
+
+        S3Client s3 = mock(S3Client.class);
+        FileStorageService svc = service(s3);
+        String oldUrl = "http://s3/bucket/users/avatars/old-key.jpg";
+
+        svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
+
+        verify(s3).deleteObject(any(DeleteObjectRequest.class));
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void saveImage_withNullOldUrl_skipsDelete(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
+
+        S3Client s3 = mock(S3Client.class);
+        service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES, null);
+
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void saveImage_withExternalOldUrl_skipsDelete(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
+
+        S3Client s3 = mock(S3Client.class);
+        // URL from Auth0 or another provider — must not attempt delete
+        service(s3).saveImage(upload, "folder", FileStorageService.MAX_AVATAR_BYTES,
+                "https://cdn.auth0.com/avatars/alice.png");
+
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void saveImage_deleteOldFails_uploadSucceeds(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
+
+        S3Client s3 = mock(S3Client.class);
+        when(s3.deleteObject(any(DeleteObjectRequest.class)))
+                .thenThrow(new RuntimeException("S3 delete unavailable"));
+
+        FileStorageService svc = service(s3);
+        String oldUrl = "http://s3/bucket/users/avatars/old-key.jpg";
+
+        // delete failure must not prevent the upload
+        String newUrl = assertDoesNotThrow(() ->
+                svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl));
+
+        assertNotNull(newUrl);
+        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    // --- deleteObject ---
+
+    @Test
+    void deleteObject_validUrl_callsS3Delete() {
+        S3Client s3 = mock(S3Client.class);
+        FileStorageService svc = service(s3);
+
+        svc.deleteObject("http://s3/bucket/users/avatars/some-key.jpg");
+
+        verify(s3).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void deleteObject_nullUrl_noOp() {
+        S3Client s3 = mock(S3Client.class);
+        service(s3).deleteObject(null);
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
+    void deleteObject_externalUrl_noOp() {
+        S3Client s3 = mock(S3Client.class);
+        service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png");
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 }
