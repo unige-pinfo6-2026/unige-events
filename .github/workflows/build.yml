@@ -1,10 +1,7 @@
-name: CI Pipeline
+name: Build
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
@@ -13,21 +10,16 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_TAG: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
-  IMAGE_ADDITIONAL_TAGS: ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
-
-  # Backend
-  JAVA_VERSION: 21
-  JAVA_DISTRIBUTION: "temurin"
-  BACKEND_IMAGE: unige-events-api
-
-  # Frontend
-  NODE_VERSION: 24
-  FRONTEND_IMAGE: unige-events-web
+  IMAGE_ADDITIONAL_TAGS: ${{ github.ref_name == 'main' && 'latest' || '' }}
 
 jobs:
   build-backend:
     name: Build Backend
     runs-on: builds
+    env:
+      JAVA_VERSION: 21
+      JAVA_DISTRIBUTION: "temurin"
+      BACKEND_IMAGE: unige-events-api
 
     defaults:
       run:
@@ -73,6 +65,8 @@ jobs:
     name: Build Frontend
     runs-on: builds
     env:
+      NODE_VERSION: 24
+      FRONTEND_IMAGE: unige-events-web
       MODE: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
 
     defaults:
@@ -126,7 +120,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.FRONTEND_IMAGE }}
           tags: |
             type=raw,value=${{ env.IMAGE_TAG }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
 
       - name: Build & Push Docker image
         uses: docker/build-push-action@v7

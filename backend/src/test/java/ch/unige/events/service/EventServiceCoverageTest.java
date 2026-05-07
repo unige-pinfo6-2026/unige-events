@@ -140,6 +140,34 @@ class EventServiceCoverageTest {
         assertEquals(1, page1.size());
     }
 
+    @Test
+    @TestTransaction
+    void getAll_withFeaturedTrue_returnsOnlyFeatured() {
+        User user = persistUser("auth0|feat", "feat@example.com");
+        Event featured = persistEvent("Featured", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        featured.featured = true;
+        persistEvent("Plain", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null, true);
+
+        assertEquals(1, result.size());
+        assertEquals("Featured", result.get(0).title());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_withFeaturedFalse_isANoop_returnsAll() {
+        // Boolean.TRUE.equals(false) → false, so the featured branch must not engage.
+        User user = persistUser("auth0|featf", "featf@example.com");
+        Event featured = persistEvent("Featured", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        featured.featured = true;
+        persistEvent("Plain", EventCategory.SPORTS, EventStatus.PUBLISHED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 20, null, null, null, null, null, null, false);
+
+        assertEquals(2, result.size());
+    }
+
     // --- getMyEvents (SCRUM-133) ---
 
     @Test

@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.*;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
@@ -8,8 +9,10 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.CoOrganizerStatus;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Timeframe;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.AttendanceService;
 import ch.unige.events.service.CalendarService;
@@ -188,7 +191,7 @@ public class UserResource {
                 schema = @Schema(implementation = ApiErrorResponse.class),
                 examples = @ExampleObject(
                     name = "forbidden",
-                    value = "{\"error\":\"forbidden\",\"message\":\"Cannot modify another user's profile\"}"
+                    value = "{\"error\":\"forbidden\",\"message\":\"You are not allowed to perform this action.\"}"
                 )
             )
         ),
@@ -217,6 +220,7 @@ public class UserResource {
             )
         )
     })
+    @PerUserRateLimit(name = "users.updateMe", max = 10)
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
@@ -231,7 +235,14 @@ public class UserResource {
     @Path("/me/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadImage", max = 5)
     public Response uploadImage(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            // Pentest 2026-04-17 finding 4.22 — clients sending the wrong
+            // multipart field name (e.g. "wrong" instead of "file") must get
+            // a structured 400, not a 500 from a downstream NPE.
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
@@ -245,7 +256,11 @@ public class UserResource {
     @Path("/me/banner")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadBanner", max = 5)
     public Response uploadBanner(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadBanner(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
@@ -295,6 +310,34 @@ public class UserResource {
     @Authenticated
     public List<AttendanceDTO> getMyAttendances() {
         return attendanceService.getMyAttendances(identity.getPrincipal().getName());
+    }
+
+    @GET
+    @Path("/me/participations")
+    @Authenticated
+    public List<EventDTO> getMyParticipationEvents(
+            @QueryParam("status") AttendanceStatus status,
+            @QueryParam("timeframe") String timeframeParam) {
+        Timeframe timeframe = parseTimeframe(timeframeParam);
+        return attendanceService.getMyParticipationEvents(identity.getPrincipal().getName(), status, timeframe);
+    }
+
+    /**
+     * Parses the optional case-insensitive {@code timeframe} query parameter.
+     * Returns {@code null} for an absent or blank value (no filter), throws a
+     * clean {@link BadRequestException} for any other value — JAX-RS' default
+     * enum-binding produces a 404, which is misleading for an invalid query
+     * parameter.
+     */
+    private static Timeframe parseTimeframe(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Timeframe.valueOf(raw.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid timeframe value: " + raw + " (expected upcoming or past)");
+        }
     }
 
     @GET

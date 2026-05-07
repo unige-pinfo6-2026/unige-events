@@ -12,17 +12,29 @@ export async function unattend(eventId: number): Promise<void> {
   await api.delete(`/events/${eventId}/attend`)
 }
 
+export type ParticipationTimeframe = 'upcoming' | 'past'
+
 /**
- * Stub — returns an empty list until the backend delivers a dedicated endpoint
- * to fetch the current user's attended events (with full Event payloads, not
- * just the Attendance rows returned by /users/me/attendances).
+ * Returns the events the authenticated user is registered to, optionally filtered
+ * by attendance status and timeframe. Calls GET /users/me/participations which
+ * returns enriched Event payloads (counts, availableSpots) — same projection
+ * used by /users/me/favorites — so the frontend can render EventCards without
+ * N+1 calls to /events/{id}.
  *
- * TODO: replace with GET /api/users/me/attendances when backend delivers
- * (enriched with event data so /my-events "Mes Participations" tab can render
- * EventCards without N+1 calls to /events/{id}).
+ * `timeframe=upcoming` matches events whose endDate >= now (events in progress
+ * are upcoming). `timeframe=past` matches events whose endDate < now.
  */
-export async function getMyParticipations(): Promise<Event[]> {
-  return []
+export async function getMyParticipations(
+  status?: AttendanceStatus,
+  timeframe?: ParticipationTimeframe,
+): Promise<Event[]> {
+  const params: Record<string, string> = {}
+  if (status) params.status = status
+  if (timeframe) params.timeframe = timeframe
+  const response = await api.get<Event[]>('/users/me/participations', {
+    params: Object.keys(params).length === 0 ? undefined : params,
+  })
+  return response.data
 }
 
 /**
