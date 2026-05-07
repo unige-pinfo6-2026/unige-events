@@ -1,7 +1,9 @@
 import api from './api'
+import type { ReportReason } from '@/types/admin'
 
 export interface ReportEventRequest {
-  reason: string
+  reason: ReportReason
+  description?: string | null
 }
 
 export async function reportEvent(eventId: number, body: ReportEventRequest): Promise<void> {

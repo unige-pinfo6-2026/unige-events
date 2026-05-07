@@ -13,7 +13,6 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { reportEvent } from '@/services/reportApi'
 import { useReport } from '@/hooks/useReport'
-import type { ReportReason } from '@/hooks/useReport'
 
 const mockReportEvent = reportEvent as ReturnType<typeof vi.fn>
 
@@ -45,40 +44,55 @@ describe('useReport — open / close', () => {
 })
 
 describe('useReport — submit success', () => {
-  it('calls reportEvent with reason only when no description', async () => {
+  it('sends reason enum with description=null when no description', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(42))
     act(() => result.current.open())
 
     await act(async () => {
-      await result.current.submit('Spam' as ReportReason)
+      await result.current.submit('SPAM')
     })
 
-    expect(mockReportEvent).toHaveBeenCalledWith(42, { reason: 'Spam' })
+    expect(mockReportEvent).toHaveBeenCalledWith(42, { reason: 'SPAM', description: null })
   })
 
-  it('combines reason and description when description is provided', async () => {
+  it('sends reason enum and description as separate fields when both provided', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(7))
 
     await act(async () => {
-      await result.current.submit('Autre' as ReportReason, 'Détails supplémentaires')
+      await result.current.submit('OTHER', 'Détails supplémentaires')
     })
 
     expect(mockReportEvent).toHaveBeenCalledWith(7, {
-      reason: 'Autre\n\nDétails supplémentaires',
+      reason: 'OTHER',
+      description: 'Détails supplémentaires',
     })
   })
 
-  it('ignores blank description (whitespace only)', async () => {
+  it('trims the description before sending', async () => {
+    mockReportEvent.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useReport(7))
+
+    await act(async () => {
+      await result.current.submit('FAKE', '   spam everywhere   ')
+    })
+
+    expect(mockReportEvent).toHaveBeenCalledWith(7, {
+      reason: 'FAKE',
+      description: 'spam everywhere',
+    })
+  })
+
+  it('sends description=null when description is whitespace-only', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(1))
 
     await act(async () => {
-      await result.current.submit('Spam' as ReportReason, '   ')
+      await result.current.submit('SPAM', '   ')
     })
 
-    expect(mockReportEvent).toHaveBeenCalledWith(1, { reason: 'Spam' })
+    expect(mockReportEvent).toHaveBeenCalledWith(1, { reason: 'SPAM', description: null })
   })
 
   it('shows success toast and closes modal on success', async () => {
@@ -87,7 +101,7 @@ describe('useReport — submit success', () => {
     act(() => result.current.open())
 
     await act(async () => {
-      await result.current.submit('Spam' as ReportReason)
+      await result.current.submit('SPAM')
     })
 
     expect(mockShowToast).toHaveBeenCalledWith('success', 'Merci pour votre signalement.')
@@ -106,7 +120,7 @@ describe('useReport — submit error', () => {
     act(() => result.current.open())
 
     await act(async () => {
-      await result.current.submit('Spam' as ReportReason)
+      await result.current.submit('SPAM')
     })
 
     expect(mockShowToast).toHaveBeenCalledWith('error', 'Vous avez déjà signalé cet événement.')
@@ -119,7 +133,7 @@ describe('useReport — submit error', () => {
     const { result } = renderHook(() => useReport(42))
 
     await act(async () => {
-      await result.current.submit('Contenu inapproprié' as ReportReason)
+      await result.current.submit('INAPPROPRIATE')
     })
 
     expect(mockShowToast).toHaveBeenCalledWith('error', 'Impossible d\'envoyer le signalement.')
@@ -132,7 +146,7 @@ describe('useReport — submit error', () => {
     act(() => result.current.open())
 
     await act(async () => {
-      await result.current.submit('Spam' as ReportReason)
+      await result.current.submit('SPAM')
     })
 
     expect(result.current.isOpen).toBe(true)
@@ -143,7 +157,7 @@ describe('useReport — submit error', () => {
     mockReportEvent.mockReturnValue(new Promise<void>((r) => { resolve = r }))
     const { result } = renderHook(() => useReport(42))
 
-    act(() => { void result.current.submit('Spam' as ReportReason) })
+    act(() => { void result.current.submit('SPAM') })
     expect(result.current.submitting).toBe(true)
 
     await act(async () => { resolve() })

@@ -20,35 +20,36 @@ afterEach(() => {
 })
 
 describe('reportApi', () => {
-  it('posts to the correct endpoint with reason', async () => {
+  it('posts the reason enum to the correct endpoint with description omitted/null', async () => {
     mockApiPost.mockResolvedValue({ data: undefined })
 
-    await reportEvent(42, { reason: 'Spam' })
+    await reportEvent(42, { reason: 'SPAM' })
 
-    expect(mockApiPost).toHaveBeenCalledWith('/events/42/report', { reason: 'Spam' })
+    expect(mockApiPost).toHaveBeenCalledWith('/events/42/report', { reason: 'SPAM' })
   })
 
-  it('posts reason with description when both provided', async () => {
+  it('posts reason and description as separate fields when description is provided', async () => {
     mockApiPost.mockResolvedValue({ data: undefined })
 
-    await reportEvent(7, { reason: 'Faux événement\n\nCe n\'est pas un vrai événement.' })
+    await reportEvent(7, { reason: 'FAKE', description: "Ce n'est pas un vrai événement." })
 
     expect(mockApiPost).toHaveBeenCalledWith('/events/7/report', {
-      reason: 'Faux événement\n\nCe n\'est pas un vrai événement.',
+      reason: 'FAKE',
+      description: "Ce n'est pas un vrai événement.",
     })
   })
 
   it('throws when the API call fails', async () => {
     mockApiPost.mockRejectedValue(new Error('Network error'))
 
-    await expect(reportEvent(1, { reason: 'Spam' })).rejects.toThrow('Network error')
+    await expect(reportEvent(1, { reason: 'SPAM' })).rejects.toThrow('Network error')
   })
 
   it('throws on 409 conflict', async () => {
     const error = Object.assign(new Error('Conflict'), { response: { status: 409 } })
     mockApiPost.mockRejectedValue(error)
 
-    await expect(reportEvent(1, { reason: 'Spam' })).rejects.toMatchObject({
+    await expect(reportEvent(1, { reason: 'SPAM' })).rejects.toMatchObject({
       response: { status: 409 },
     })
   })

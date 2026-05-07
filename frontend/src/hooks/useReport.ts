@@ -2,15 +2,11 @@ import { useState } from 'react'
 import axios from 'axios'
 import { reportEvent } from '@/services/reportApi'
 import { useToast } from '@/hooks/useToast'
+import type { ReportReason } from '@/types/admin'
 
-export type ReportReason = 'Spam' | 'Contenu inapproprié' | 'Faux événement' | 'Autre'
-
-export const REPORT_REASONS: readonly ReportReason[] = [
-  'Spam',
-  'Contenu inapproprié',
-  'Faux événement',
-  'Autre',
-] as const
+// Re-export so existing import sites (modal, tests) keep working without churn.
+export type { ReportReason } from '@/types/admin'
+export { REPORT_REASONS } from '@/types/admin'
 
 export interface UseReportReturn {
   isOpen: boolean
@@ -31,10 +27,11 @@ export function useReport(eventId: number): UseReportReturn {
   async function submit(reason: ReportReason, description?: string): Promise<void> {
     setSubmitting(true)
     try {
-      const fullReason = description?.trim()
-        ? `${reason}\n\n${description.trim()}`
-        : reason
-      await reportEvent(eventId, { reason: fullReason })
+      const trimmed = description?.trim()
+      await reportEvent(eventId, {
+        reason,
+        description: trimmed ? trimmed : null,
+      })
       toast.showToast('success', 'Merci pour votre signalement.')
       setIsOpen(false)
     } catch (err: unknown) {
