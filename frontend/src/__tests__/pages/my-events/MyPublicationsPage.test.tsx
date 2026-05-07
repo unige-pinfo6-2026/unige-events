@@ -26,7 +26,7 @@ import { useMyEvents } from '@/hooks/useMyEvents'
 
 const mockUseMyEvents = useMyEvents as ReturnType<typeof vi.fn>
 
-const makeMockEvent = (id: number, status: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'EXPIRED' = 'PUBLISHED') => ({
+const makeMockEvent = (id: number, status: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'EXPIRED' | 'BANNED' = 'PUBLISHED') => ({
   id,
   title: `Publication ${id}`,
   description: 'Description',
@@ -896,6 +896,61 @@ describe('MyPublicationsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fermer' }))
     await waitFor(() => {
       expect(screen.queryByText('Impossible de publier cet événement')).toBeFalsy()
+    })
+  })
+
+  describe('Bannis tab (SCRUM-97)', () => {
+    it('exposes a "Bannis" tab in the status filter', () => {
+      mockUseMyEvents.mockReturnValue({
+        events: [],
+        loading: false,
+        error: null,
+        publish: vi.fn(),
+        cancel: vi.fn(),
+        restore: vi.fn(),
+        permanentlyDelete: vi.fn(),
+      })
+      renderWithProviders(<MyPublicationsPage />)
+      expect(screen.getByRole('button', { name: 'Bannis' })).toBeTruthy()
+    })
+
+    it('renders a BANNED event with the "Banni par modération" badge and no creator actions', () => {
+      mockUseMyEvents.mockReturnValue({
+        events: [makeMockEvent(7, 'BANNED')],
+        loading: false,
+        error: null,
+        publish: vi.fn(),
+        cancel: vi.fn(),
+        restore: vi.fn(),
+        permanentlyDelete: vi.fn(),
+      })
+      renderWithProviders(<MyPublicationsPage />)
+      expect(screen.getByText('Banni par modération')).toBeTruthy()
+      // Aucune action n'est offerte au créateur — état terminal.
+      expect(screen.queryByRole('button', { name: /Modifier/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Publier/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Annuler/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Remettre en brouillon/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Supprimer/ })).toBeNull()
+    })
+
+    it('does not wrap a BANNED event card in a clickable Link to /events/{id}', () => {
+      // Anti-leak — l'URL renverrait 404 et serait inutile, donc la card est
+      // affichée sans navigation.
+      mockUseMyEvents.mockReturnValue({
+        events: [makeMockEvent(8, 'BANNED')],
+        loading: false,
+        error: null,
+        publish: vi.fn(),
+        cancel: vi.fn(),
+        restore: vi.fn(),
+        permanentlyDelete: vi.fn(),
+      })
+      renderWithProviders(<MyPublicationsPage />)
+      // No anchor (<a>) wrapping the title for a BANNED event.
+      const title = screen.getByText('Publication 8')
+      const anchor = title.closest('a')
+      expect(anchor).toBeNull()
     })
   })
 })

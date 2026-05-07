@@ -127,7 +127,8 @@ public class AttendanceService {
                 || event == null
                 || event.capacity == null
                 || event.status == EventStatus.CANCELLED
-                || event.status == EventStatus.EXPIRED) {
+                || event.status == EventStatus.EXPIRED
+                || event.status == EventStatus.BANNED) {
             return;
         }
 

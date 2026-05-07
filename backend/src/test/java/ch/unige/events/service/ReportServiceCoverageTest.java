@@ -90,6 +90,19 @@ class ReportServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void create_eventBanned_throwsBadRequest() {
+        User creator = persistUser("auth0|cb-creator", "cb-creator@example.com");
+        User reporter = persistUser("auth0|cb-reporter", "cb-reporter@example.com");
+        Event event = persistEvent("cb-event", creator, EventStatus.BANNED);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> reportService.create(event.id, reporter.auth0Id,
+                        new CreateReportRequest(ReportReason.SPAM, null)));
+        assertEquals(400, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
     void create_ownEventByCreator_throws422() {
         User creator = persistUser("auth0|own-creator", "own-creator@example.com");
         Event event = persistEvent("own-event", creator, EventStatus.PUBLISHED);
@@ -270,37 +283,69 @@ class ReportServiceCoverageTest {
 
     @Test
     @TestTransaction
-    void handle_pendingToReviewed_persists() {
+    void handle_pendingToReviewed_bansEventAndCascadesSiblings() {
         User creator = persistUser("auth0|hr-creator", "hr-creator@example.com");
-        User reporter = persistUser("auth0|hr-reporter", "hr-reporter@example.com");
+        User reporterA = persistUser("auth0|hr-reporter-a", "hr-reporter-a@example.com");
+        User reporterB = persistUser("auth0|hr-reporter-b", "hr-reporter-b@example.com");
+        User reporterC = persistUser("auth0|hr-reporter-c", "hr-reporter-c@example.com");
         User admin = persistUser("auth0|hr-admin", "hr-admin@example.com");
         Event event = persistEvent("hr-event", creator, EventStatus.PUBLISHED);
-        Report report = persistReport(event, reporter, ReportStatus.PENDING);
+        Report reportA = persistReport(event, reporterA, ReportStatus.PENDING);
+        Report reportB = persistReport(event, reporterB, ReportStatus.PENDING);
+        Report reportC = persistReport(event, reporterC, ReportStatus.PENDING);
 
-        ReportDTO dto = reportService.handle(report.id, admin.auth0Id,
+        ReportDTO dto = reportService.handle(reportA.id, admin.auth0Id,
                 new HandleReportRequest(ReportStatus.REVIEWED, "OK validated"));
 
+        // The validated report carries the admin note and gets the explicit decision.
         assertEquals(ReportStatus.REVIEWED, dto.status());
         assertEquals("OK validated", dto.moderationNote());
         assertEquals(admin.id, dto.reviewedBy());
         assertNotNull(dto.reviewedAt());
+
+        // The event itself is banned — definitive removal from the radar.
+        Event refreshed = Event.findById(event.id);
+        assertEquals(EventStatus.BANNED, refreshed.status);
+
+        // Sibling PENDING reports are auto-closed with the same admin attribution
+        // but no inherited moderation note (only the explicit decision carries one).
+        Report cascadedB = Report.findById(reportB.id);
+        Report cascadedC = Report.findById(reportC.id);
+        assertEquals(ReportStatus.REVIEWED, cascadedB.status);
+        assertEquals(ReportStatus.REVIEWED, cascadedC.status);
+        assertEquals(admin.id, cascadedB.reviewedBy.id);
+        assertEquals(admin.id, cascadedC.reviewedBy.id);
+        assertNotNull(cascadedB.reviewedAt);
+        assertNotNull(cascadedC.reviewedAt);
+        assertNull(cascadedB.moderationNote);
+        assertNull(cascadedC.moderationNote);
     }
 
     @Test
     @TestTransaction
-    void handle_pendingToDismissed_persists() {
+    void handle_pendingToDismissed_persistsAndDoesNotBanOrCascade() {
         User creator = persistUser("auth0|hd-creator", "hd-creator@example.com");
-        User reporter = persistUser("auth0|hd-reporter", "hd-reporter@example.com");
+        User reporterA = persistUser("auth0|hd-reporter-a", "hd-reporter-a@example.com");
+        User reporterB = persistUser("auth0|hd-reporter-b", "hd-reporter-b@example.com");
         User admin = persistUser("auth0|hd-admin", "hd-admin@example.com");
         Event event = persistEvent("hd-event", creator, EventStatus.PUBLISHED);
-        Report report = persistReport(event, reporter, ReportStatus.PENDING);
+        Report reportA = persistReport(event, reporterA, ReportStatus.PENDING);
+        Report reportB = persistReport(event, reporterB, ReportStatus.PENDING);
 
-        ReportDTO dto = reportService.handle(report.id, admin.auth0Id,
+        ReportDTO dto = reportService.handle(reportA.id, admin.auth0Id,
                 new HandleReportRequest(ReportStatus.DISMISSED, null));
 
         assertEquals(ReportStatus.DISMISSED, dto.status());
         assertNull(dto.moderationNote());
         assertEquals(admin.id, dto.reviewedBy());
+
+        // Dismiss is neutral: event stays PUBLISHED, sibling reports stay PENDING.
+        Event refreshed = Event.findById(event.id);
+        assertEquals(EventStatus.PUBLISHED, refreshed.status);
+        Report stillPending = Report.findById(reportB.id);
+        assertEquals(ReportStatus.PENDING, stillPending.status);
+        assertNull(stillPending.reviewedBy);
+        assertNull(stillPending.reviewedAt);
     }
 
     @Test

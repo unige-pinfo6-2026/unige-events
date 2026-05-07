@@ -6,6 +6,11 @@ vi.mock('@/services/adminApi', () => ({
   updateReportStatus: vi.fn(),
 }))
 
+const mockShowToast = vi.fn()
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}))
+
 import { getReports, updateReportStatus } from '@/services/adminApi'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import type { Report } from '@/types/admin'
@@ -126,7 +131,7 @@ describe('useAdminReports — tab switching', () => {
 })
 
 describe('useAdminReports — reviewReport', () => {
-  it('calls updateReportStatus with REVIEWED and removes report from list', async () => {
+  it('calls updateReportStatus with REVIEWED, removes report, and toasts the cascade', async () => {
     mockGetReports.mockResolvedValue([makeReport(1), makeReport(2)])
     mockUpdateReportStatus.mockResolvedValue({})
 
@@ -141,9 +146,11 @@ describe('useAdminReports — reviewReport', () => {
     expect(result.current.reports).toHaveLength(1)
     expect(result.current.reports[0].id).toBe(2)
     expect(ok).toBe(true)
+    // SCRUM-97 — toast reflects the cascading effect (event banned + sibling reports closed)
+    expect(mockShowToast).toHaveBeenCalledWith('success', 'Événement banni, signalements clôturés.')
   })
 
-  it('returns false and keeps list intact when reviewReport fails', async () => {
+  it('returns false, keeps list intact, and toasts an error when reviewReport fails', async () => {
     mockGetReports.mockResolvedValue([makeReport(1)])
     mockUpdateReportStatus.mockRejectedValue(new Error('Forbidden'))
 
@@ -155,11 +162,12 @@ describe('useAdminReports — reviewReport', () => {
 
     expect(ok).toBe(false)
     expect(result.current.reports).toHaveLength(1)
+    expect(mockShowToast).toHaveBeenCalledWith('error', "Impossible de bannir l'événement.")
   })
 })
 
 describe('useAdminReports — dismissReport', () => {
-  it('calls updateReportStatus with DISMISSED and removes report from list', async () => {
+  it('calls updateReportStatus with DISMISSED, removes report, and toasts dismiss', async () => {
     mockGetReports.mockResolvedValue([makeReport(1), makeReport(2)])
     mockUpdateReportStatus.mockResolvedValue({})
 
@@ -173,9 +181,10 @@ describe('useAdminReports — dismissReport', () => {
     expect(result.current.reports).toHaveLength(1)
     expect(result.current.reports[0].id).toBe(1)
     expect(ok).toBe(true)
+    expect(mockShowToast).toHaveBeenCalledWith('success', 'Signalement ignoré.')
   })
 
-  it('returns false and keeps list intact when dismissReport fails', async () => {
+  it('returns false, keeps list intact, and toasts an error when dismissReport fails', async () => {
     mockGetReports.mockResolvedValue([makeReport(1)])
     mockUpdateReportStatus.mockRejectedValue(new Error('Server error'))
 
@@ -187,6 +196,7 @@ describe('useAdminReports — dismissReport', () => {
 
     expect(ok).toBe(false)
     expect(result.current.reports).toHaveLength(1)
+    expect(mockShowToast).toHaveBeenCalledWith('error', 'Impossible de traiter le signalement.')
   })
 })
 

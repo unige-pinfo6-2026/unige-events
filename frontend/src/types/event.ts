@@ -50,6 +50,7 @@ export const EVENT_STATUSES = {
   PUBLISHED: { name: 'Publié' },
   CANCELLED: { name: 'Annulé' },
   EXPIRED: { name: 'Terminé' },
+  BANNED: { name: 'Banni' },
 } as const
 
 export type EventStatus = keyof typeof EVENT_STATUSES

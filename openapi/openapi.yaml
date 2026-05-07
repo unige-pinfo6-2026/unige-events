@@ -722,10 +722,18 @@ components:
       type: string
       description: |
         Statut d'un événement.
-        DRAFT/PUBLISHED/CANCELLED sont définis par l'organisateur ; EXPIRED est
-        attribué automatiquement par le job d'expiration quand un PUBLISHED voit
-        sa endDate passer dans le passé. EXPIRED ne peut pas être posé via l'API.
-      enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED]
+
+        - `DRAFT`/`PUBLISHED`/`CANCELLED` sont définis par l'organisateur (un
+          `CANCELLED` reste réversible vers `DRAFT` via `PATCH /events/{id}/restore`).
+        - `EXPIRED` est attribué automatiquement par le job d'expiration quand un
+          PUBLISHED voit sa `endDate` passer dans le passé. Ne peut pas être posé
+          via l'API.
+        - `BANNED` (SCRUM-97) est attribué par modération — soit manuellement par
+          un admin via `PATCH /admin/reports/{id}` (status=REVIEWED), soit
+          automatiquement par `ModerationCleanupService` au seuil de reports
+          PENDING. État terminal côté créateur : pas de republish possible. Ne
+          peut pas être posé via l'API utilisateur.
+      enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED, BANNED]
 
     AttendanceStatus:
       type: string
@@ -1658,6 +1666,12 @@ paths:
         appelant authentifié dont le profil n'est pas provisionné — le serveur renvoie
         `404 not_found`, envelope identique à celle pour un ID inexistant (évite un
         oracle d'existence — cf. pentest 2026-04-17 findings 4.12 + 4.15).
+
+        **SCRUM-97 — events `BANNED`** : invisibles via cet endpoint pour TOUT LE MONDE,
+        anonyme, créateur et admin compris. Le drill-down sur un event banni passe
+        exclusivement par la table de modération (`/admin/reports`). La réponse 404
+        utilise la même envelope que pour un ID inexistant — pas de leak du fait que
+        l'event a été banni.
       operationId: getEventById
       tags: [events]
       security:
@@ -2836,6 +2850,8 @@ paths:
         Codes d'erreur :
         - `400 cannot_report_draft` : l'événement est en statut DRAFT (non public).
         - `400 cannot_report_cancelled` : l'événement est en statut CANCELLED.
+        - `400 cannot_report_banned` : l'événement a déjà été retiré par modération
+          (`EventStatus.BANNED`, SCRUM-97). Pas la peine de re-signaler.
         - `404 not_found` : événement introuvable, ou profil utilisateur non provisionné.
         - `409 already_reported` : l'utilisateur a déjà signalé cet événement (unique
           constraint sur `(reporter_id, event_id)`).
@@ -2866,7 +2882,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Report'
         '400':
-          description: Body invalide, ou `cannot_report_draft`, ou `cannot_report_cancelled`
+          description: Body invalide, ou `cannot_report_draft`, ou `cannot_report_cancelled`, ou `cannot_report_banned`
           content:
             application/json:
               schema:
@@ -2988,9 +3004,18 @@ paths:
       description: |
         Transitionne un signalement de `PENDING` vers `REVIEWED` ou `DISMISSED`. Pose
         `reviewedAt = now()` et `reviewedBy = caller.id`. Optionnellement persiste une
-        `moderationNote`. Aucune action implicite n'est déclenchée sur l'événement
-        signalé (cf. décision 13 de `specs_scrum-94.md` — la suppression d'un event
-        reste une action manuelle séparée via `PATCH /events/{id}/cancel`).
+        `moderationNote`.
+
+        **SCRUM-97 — effet de cascade lorsque `status=REVIEWED`** :
+        - L'événement lié passe en `EventStatus.BANNED` (état terminal côté
+          créateur — pas de republish ni de modification possibles).
+        - Tous les autres signalements en statut `PENDING` sur le même événement
+          sont automatiquement clôturés en `REVIEWED` avec `reviewedBy = admin
+          courant` et `reviewedAt = now()`. Leur `moderationNote` reste `null`
+          (seul le signalement explicitement traité porte la note de l'admin).
+
+        `status=DISMISSED` est neutre : le signalement est fermé, mais l'événement
+        et les signalements frères ne sont pas touchés.
 
         Codes d'erreur :
         - `400 invalid_status` : `status` du body n'est ni REVIEWED ni DISMISSED.

@@ -58,8 +58,11 @@ public class EventService {
             conditions.add("e.status = :status");
             params.put("status", status);
         } else {
-            conditions.add("e.status <> :notExpired");
-            params.put("notExpired", EventStatus.EXPIRED);
+            // SCRUM-97 + SCRUM-98 : par défaut on exclut les events sortis du circuit
+            // public (EXPIRED par auto-expiration, BANNED par modération). Un client
+            // qui veut explicitement les voir doit passer status= en query param.
+            conditions.add("e.status NOT IN (:hiddenStatuses)");
+            params.put("hiddenStatuses", List.of(EventStatus.EXPIRED, EventStatus.BANNED));
         }
         if (category != null) {
             conditions.add("e.category = :category");
@@ -137,6 +140,9 @@ public class EventService {
         if (request.getStatus() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
         }
+        if (request.getStatus() == EventStatus.BANNED) {
+            throw new BadRequestException("BANNED is a moderation-only status and cannot be set manually");
+        }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
         return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L, null, null);
@@ -146,6 +152,14 @@ public class EventService {
     public EventDTO getById(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
+
+        // SCRUM-97 : un event BANNED est invisible pour TOUT LE MONDE, admin compris.
+        // Le drill-down sur un event banni passe par la table de modération
+        // (`/admin/reports`), pas par l'URL publique. Même envelope qu'un 404 d'ID
+        // inexistant pour ne pas leak l'existence du ban.
+        if (event.status == EventStatus.BANNED) {
+            throw new NotFoundException();
+        }
 
         // Hotfix pentest 4.12 : hide DRAFT / CANCELLED events from non-owners / non-admins.
         // 404 (not 403) is intentional — same envelope as "does not exist" to close the
@@ -178,6 +192,9 @@ public class EventService {
         if (event.status == EventStatus.CANCELLED) {
             throw conflict("Cancelled events cannot be modified. Restore the event first.");
         }
+        if (event.status == EventStatus.BANNED) {
+            throw conflict("Banned events cannot be modified.");
+        }
 
         event.title = request.title;
         event.description = request.description;
@@ -196,6 +213,9 @@ public class EventService {
         if (request.status != null) {
             if (request.status == EventStatus.EXPIRED) {
                 throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
+            }
+            if (request.status == EventStatus.BANNED) {
+                throw new BadRequestException("BANNED is a moderation-only status and cannot be set manually");
             }
             event.status = request.status;
         }
@@ -231,6 +251,9 @@ public class EventService {
 
         if (event.status == EventStatus.CANCELLED) {
             throw conflict("Event is already cancelled");
+        }
+        if (event.status == EventStatus.BANNED) {
+            throw conflict("Banned events cannot be cancelled by their creator.");
         }
 
         event.status = EventStatus.CANCELLED;

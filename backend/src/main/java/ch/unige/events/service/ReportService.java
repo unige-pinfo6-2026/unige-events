@@ -39,6 +39,10 @@ public class ReportService {
             throw badRequest("cannot_report_cancelled",
                     "Cannot report an event in CANCELLED status.");
         }
+        if (event.status == EventStatus.BANNED) {
+            throw badRequest("cannot_report_banned",
+                    "Cannot report an event that has already been banned by moderation.");
+        }
 
         User reporter = User.findByAuth0Id(reporterAuth0Id)
                 .orElseThrow(() -> new NotFoundException(
@@ -100,12 +104,36 @@ public class ReportService {
                 .orElseThrow(() -> new NotFoundException(
                         "Admin profile not found — call GET /users/me first"));
 
+        LocalDateTime now = LocalDateTime.now();
         report.status = request.status();
         report.moderationNote = request.moderationNote();
-        report.reviewedAt = LocalDateTime.now();
+        report.reviewedAt = now;
         report.reviewedBy = admin;
 
+        // SCRUM-97: validating a report bans the underlying event and cascades
+        // the decision to all sibling PENDING reports on the same event so the
+        // moderation queue is cleared in one click. Dismiss is neutral — no ban,
+        // no cascade — for cases where the report was bogus.
+        if (request.status() == ReportStatus.REVIEWED && report.event != null) {
+            report.event.status = EventStatus.BANNED;
+            cascadeSiblingReports(report, admin, now);
+        }
+
         return ReportDTO.from(report);
+    }
+
+    private void cascadeSiblingReports(Report validatedReport, User admin, LocalDateTime now) {
+        List<Report> siblings = Report.<Report>find(
+                "event.id = ?1 and status = ?2 and id <> ?3",
+                validatedReport.event.id, ReportStatus.PENDING, validatedReport.id
+        ).list();
+        for (Report sibling : siblings) {
+            sibling.status = ReportStatus.REVIEWED;
+            sibling.reviewedAt = now;
+            sibling.reviewedBy = admin;
+            // moderationNote left null — only the explicit handle() call carries
+            // the admin's note; cascaded siblings inherit the decision, not the prose.
+        }
     }
 
     static WebApplicationException badRequest(String error, String message) {

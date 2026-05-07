@@ -1,6 +1,6 @@
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
-import { CheckCircle, Search, Star, XCircle } from 'lucide-react'
+import { Ban, Search, Star, XCircle } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
@@ -88,10 +88,11 @@ function ReportRow({
             <button
               type="button"
               onClick={() => onReview(report.id)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors cursor-pointer border-0"
+              title="Confirme le signalement et bannit l'événement (action destructive : irréversible côté créateur)."
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-error/10 text-error hover:bg-error/20 transition-colors cursor-pointer border-0"
             >
-              <CheckCircle className="size-3.5 shrink-0" />
-              Valider
+              <Ban className="size-3.5 shrink-0" />
+              Bannir l'événement
             </button>
             <button
               type="button"
@@ -105,10 +106,10 @@ function ReportRow({
         ) : (
           <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg ${
             report.status === 'REVIEWED'
-              ? 'bg-success/10 text-success'
+              ? 'bg-error/10 text-error'
               : 'bg-foreground/5 text-foreground/50'
           }`}>
-            {report.status === 'REVIEWED' ? 'Validé' : 'Ignoré'}
+            {report.status === 'REVIEWED' ? 'Banni' : 'Ignoré'}
           </span>
         )}
       </td>

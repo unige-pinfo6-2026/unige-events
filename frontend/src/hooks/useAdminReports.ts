@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getReports, updateReportStatus } from '@/services/adminApi'
+import { useToast } from '@/hooks/useToast'
 import type { Report } from '@/types/admin'
 
 type TabType = 'PENDING' | 'PROCESSED'
@@ -20,6 +21,7 @@ export function useAdminReports(): UseAdminReportsResult {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('PENDING')
+  const { showToast } = useToast()
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -53,21 +55,28 @@ export function useAdminReports(): UseAdminReportsResult {
     try {
       await updateReportStatus(id, 'REVIEWED')
       setReports(prev => prev.filter(r => r.id !== id))
+      // Côté back, valider un report bannit l'event et clôt en cascade tous les
+      // autres signalements PENDING sur ce même event (SCRUM-97). Le toast
+      // reflète ces deux effets pour ne pas surprendre l'admin.
+      showToast('success', 'Événement banni, signalements clôturés.')
       return true
     } catch {
+      showToast('error', 'Impossible de bannir l\'événement.')
       return false
     }
-  }, [])
+  }, [showToast])
 
   const dismissReport = useCallback(async (id: number) => {
     try {
       await updateReportStatus(id, 'DISMISSED')
       setReports(prev => prev.filter(r => r.id !== id))
+      showToast('success', 'Signalement ignoré.')
       return true
     } catch {
+      showToast('error', 'Impossible de traiter le signalement.')
       return false
     }
-  }, [])
+  }, [showToast])
 
   return {
     reports,

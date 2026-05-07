@@ -4,5 +4,6 @@ public enum EventStatus {
     DRAFT,
     PUBLISHED,
     CANCELLED,
-    EXPIRED
+    EXPIRED,
+    BANNED
 }
