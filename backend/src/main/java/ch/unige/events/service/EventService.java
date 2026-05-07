@@ -217,6 +217,9 @@ public class EventService {
             throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
         }
 
+        Attendance.delete("eventId", id);
+        Favorite.delete("eventId", id);
+        EventView.delete("eventId", id);
         event.delete();
     }
 
