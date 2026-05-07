@@ -50,9 +50,20 @@ const visibleUserMenu = (isAdmin: boolean) => userMenuItems.filter(i => !i.admin
 
 const dropdownItemClass = 'flex items-center gap-3 px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors'
 
+// SCRUM-97 (review interne d'Agon) — l'entrée Administration doit ressortir
+// visuellement en orange/warning pour ne pas se confondre avec les items
+// neutres du menu utilisateur. Le token --color-warning (amber) est celui déjà
+// utilisé pour le badge "Brouillon" sur EventCard, donc cohérent côté design.
+const adminDropdownItemClass = 'flex items-center gap-3 px-4 py-3 text-sm font-semibold text-warning hover:bg-warning/10 transition-colors'
+
 const sidebarItemClass = (isActive = false) =>
   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
     isActive ? 'bg-accent/10 text-accent' : 'text-foreground/60 hover:text-foreground hover:bg-foreground/5'
+  }`
+
+const adminSidebarItemClass = (isActive = false) =>
+  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+    isActive ? 'bg-warning/15 text-warning' : 'text-warning hover:bg-warning/10'
   }`
 
 const logoutVariants = {
@@ -101,8 +112,9 @@ function UserDropdownItem({ item }: Readonly<{ item: NavItem }>) {
   if (item.subLinks) {
     return <UserDropdownExpandable item={item} />
   }
+  const className = item.adminOnly ? adminDropdownItemClass : dropdownItemClass
   return (
-    <Link to={item.to} className={dropdownItemClass}>
+    <Link to={item.to} className={className}>
       <Icon className="size-4 shrink-0" />
       {item.label}
     </Link>
@@ -183,8 +195,9 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
   const Icon = link.icon
 
   if (!link.subLinks) {
+    const classFn = link.adminOnly ? adminSidebarItemClass : sidebarItemClass
     return (
-      <NavLink to={link.to} onClick={onClose} className={({ isActive }) => sidebarItemClass(isActive)}>
+      <NavLink to={link.to} onClick={onClose} className={({ isActive }) => classFn(isActive)}>
         <Icon className="size-5 shrink-0" />
         {link.label}
       </NavLink>

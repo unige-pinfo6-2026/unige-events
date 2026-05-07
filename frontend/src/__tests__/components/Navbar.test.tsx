@@ -101,6 +101,31 @@ describe('Navbar', () => {
     expect(screen.getByText('Mon profil')).toBeTruthy()
   })
 
+  it('shows Administration link in orange (text-warning) for admin users — review interne d\'Agon', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      isAdmin: true,
+      logout: vi.fn(),
+    })
+    renderNavbar()
+    // The desktop dropdown link uses the warning-styled className. We don't lock
+    // the full class string, just assert the warning token is present so future
+    // refactors stay sane.
+    const link = screen.getAllByText('Administration')[0].closest('a')
+    expect(link).not.toBeNull()
+    expect(link!.className).toContain('text-warning')
+  })
+
+  it('does not show Administration link to non-admin users', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '2', auth0Id: 'auth0|2', email: 'b@b.com', displayName: 'Bob Martin', profilePublic: true, createdAt: '2024-01-01' },
+      isAdmin: false,
+      logout: vi.fn(),
+    })
+    renderNavbar()
+    expect(screen.queryByText('Administration')).toBeNull()
+  })
+
   it('opens mobile menu on hamburger click', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
     renderNavbar()
