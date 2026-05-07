@@ -37,6 +37,7 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
+- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté qui n'est pas l'organisateur (`user.id !== event.creatorId`). Ouvre `ReportModal` via `useReport`. Non affiché pour les utilisateurs non connectés ni pour l'organisateur.
 - **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
   - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute, rendue via la classe `text-link` (token CSS `--color-link`, sky-600 light / sky-400 dark).
   - `contactEmail` → ancre `mailto:` avec icône `Mail`, mêmes styles `text-link`.
@@ -153,6 +154,15 @@
 - Filtre par mots-clés : section `<TagInput>` dans la sidebar (SCRUM-132), multi-tags, persistés dans l'URL via `?tags=foo&tags=bar`.
 
 ## Composants réutilisables
+
+### ReportModal
+
+- `src/components/event/ReportModal.tsx` — modale de signalement d'un événement.
+- Props : `onClose: () => void`, `onSubmit: (reason: ReportReason, description?: string) => Promise<void>`, `submitting: boolean`.
+- Champs : select `Motif` (obligatoire : Spam / Contenu inapproprié / Faux événement / Autre) + textarea `Description` (optionnelle).
+- Bouton "Signaler" désactivé tant qu'aucun motif n'est sélectionné ou que `submitting` est `true`.
+- Fermeture via bouton ✕, bouton "Annuler", ou automatiquement après succès (géré par `useReport`).
+- Utilise `FormField`, `Select`, `Textarea` depuis `@/components/utils/FormField`.
 
 ### ImageCropper
 
@@ -436,6 +446,13 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 ## Hooks
 
+### useReport
+
+- `src/hooks/useReport.ts` — gère l'état de la modale de signalement et l'appel API.
+- Retourne : `{ isOpen, submitting, open, close, submit }`.
+- `submit(reason, description?)` : appelle `POST /events/{id}/report` avec un body `{ reason, description? }` (les deux champs sont envoyés séparément, conformément à `CreateReportRequest` dans `openapi.yaml`). `description` est trimée et omise si vide. Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
+- Le type `ReportReason` et la map `REPORT_REASONS` (clés = constantes backend `SPAM | INAPPROPRIATE | FAKE | OTHER`, valeurs = libellés français) vivent dans `src/types/report.ts` — pattern `as const` + `keyof typeof` (cf. `src/types/faculty.ts`).
+
 ### useImageCropFlow
 
 Hook utilitaire qui encapsule le flux complet « sélection fichier → validation → FileReader → ouverture du cropper → conversion Blob → File ». Utilisé par `ProfileEditPage` (×2 : avatar + bannière) et `useEventForm` (×1 : bannière événement).
@@ -552,6 +569,10 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `unattend(eventId)` : `DELETE /api/events/{id}/attend`.
 - `getMyAttendance(eventId)` : filtre `GET /api/users/me/attendances` pour retourner le statut de l'utilisateur sur un événement.
 - `getMyParticipations()` : **stub** retournant `[]`. TODO : remplacer par l'appel réel quand le backend exposera un endpoint d'événements participés enrichis.
+
+### reportApi.ts
+
+- `reportEvent(eventId, { reason, description? })` : `POST /api/events/{id}/report` — signale un événement avec un motif catégoriel obligatoire (`reason: ReportReason` = `SPAM | INAPPROPRIATE | FAKE | OTHER`) et un texte libre optionnel (`description: string`, max 2000 chars). Conforme au schéma `CreateReportRequest` d'`openapi.yaml`. Le backend répond `201` avec un `Report` complet ; le service ignore intentionnellement le corps (`Promise<void>`) car aucun consommateur n'en a besoin pour l'instant. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement, 422 si l'utilisateur en est l'organisateur, 400 si le motif est invalide.
 
 ### icsGenerator.ts
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite } from '@/hooks'
 import { useAttendees } from '@/hooks/useAttendees'
+import { useReport } from '@/hooks/useReport'
 import { useToast } from '@/hooks/useToast'
 import { getUserById } from '@/services/userService'
 import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
@@ -16,13 +17,14 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import AttendeesList from '@/components/attendees/AttendeesList'
+import ReportModal from '@/components/event/ReportModal'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Ban, BarChart2, Calendar, CalendarClock, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
+import { Ban, BarChart2, Calendar, CalendarClock, Flag, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -202,6 +204,7 @@ export default function EventDetailPage() {
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
   const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const reportHook = useReport(eventId ?? 0)
   const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
   const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
@@ -368,6 +371,20 @@ export default function EventDetailPage() {
             >
               {category.name}
             </span>
+            {user !== null && !isOrganizer && (
+              <button
+                type="button"
+                onClick={reportHook.open}
+                aria-label="Signaler cet événement"
+                title="Signaler cet événement"
+                className="group absolute top-4 right-4 inline-flex items-center justify-center h-8 px-2 rounded-full bg-black/30 backdrop-blur-sm text-white border-0 cursor-pointer overflow-hidden whitespace-nowrap transition-all duration-200 hover:bg-black/50 hover:text-error hover:px-3"
+              >
+                <Flag className="w-4 h-4 shrink-0" />
+                <span className="max-w-0 opacity-0 ml-0 text-xs font-medium transition-all duration-200 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1">
+                  Signaler
+                </span>
+              </button>
+            )}
             <div className="absolute bottom-0 left-0 right-0 p-6">
               <h1 className="text-white text-2xl lg:text-3xl font-extrabold leading-snug drop-shadow-sm wrap-anywhere">
                 {event.title}
@@ -655,6 +672,14 @@ export default function EventDetailPage() {
           pending={cancelling}
           onConfirm={handleCancelEvent}
           onClose={() => setShowCancelConfirm(false)}
+        />
+      )}
+
+      {reportHook.isOpen && (
+        <ReportModal
+          onClose={reportHook.close}
+          onSubmit={reportHook.submit}
+          submitting={reportHook.submitting}
         />
       )}
 
