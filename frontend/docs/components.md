@@ -37,7 +37,7 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
-- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté, organisateur compris (cf. SCRUM-97 — la modale de signalement est ouverte à tous les rôles authentifiés pour aligner le flux côté admin). Ouvre `ReportModal` via `useReport`. Non affiché aux utilisateurs anonymes.
+- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté qui n'est PAS l'organisateur de l'event (`user !== null && !isOrganizer`). Ouvre `ReportModal` via `useReport`. Non affiché aux utilisateurs anonymes ni au créateur/co-organisateur ACCEPTED de l'event. Le hook gère un toast 422 défensif `cannot_report_own_event` au cas où le statut organisateur changerait pendant le flow.
 - **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
   - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute, rendue via la classe `text-link` (token CSS `--color-link`, sky-600 light / sky-400 dark).
   - `contactEmail` → ancre `mailto:` avec icône `Mail`, mêmes styles `text-link`.
