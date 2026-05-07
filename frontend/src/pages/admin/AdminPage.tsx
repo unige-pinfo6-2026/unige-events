@@ -1,4 +1,5 @@
 import { Skeleton } from 'boneyard-js/react'
+import { Link } from 'react-router-dom'
 import { CheckCircle, Search, Shield, Star, XCircle } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
@@ -6,7 +7,7 @@ import { useAdminFeatured } from '@/hooks/useAdminFeatured'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ButtonDestructive, ButtonNeutral } from '@/components/utils/Buttons'
-import { formatEventDateTime } from '@/utils/dateTime'
+import { formatEventDateTime, parseApiUtcDateTime } from '@/utils/dateTime'
 import { REPORT_REASONS } from '@/types/admin'
 import type { Report } from '@/types/admin'
 import type { Event } from '@/types/event'
@@ -59,12 +60,12 @@ function ReportRow({
     <tr className="border-t border-border hover:bg-foreground/2 transition-colors align-top">
       <td className="px-4 py-4">
         {report.eventId !== null ? (
-          <a
-            href={`/events/${report.eventId}`}
+          <Link
+            to={`/events/${report.eventId}`}
             className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
           >
             {eventTitle}
-          </a>
+          </Link>
         ) : (
           <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
         )}
@@ -79,7 +80,7 @@ function ReportRow({
         {reporterLabel}
       </td>
       <td className="px-4 py-4 text-sm text-foreground/50 whitespace-nowrap">
-        {new Date(report.createdAt).toLocaleDateString('fr-FR')}
+        {parseApiUtcDateTime(report.createdAt).toLocaleDateString('fr-FR')}
       </td>
       <td className="px-4 py-4">
         {report.status === 'PENDING' ? (

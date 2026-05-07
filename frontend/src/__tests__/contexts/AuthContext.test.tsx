@@ -225,11 +225,13 @@ describe('AuthContext', () => {
   })
 
   // SCRUM-94 — la claim Auth0 est l'unique source de vérité pour le rôle ADMIN.
+  // Le namespace doit matcher VITE_AUTH0_ROLES_CLAIM, qui est aligné sur OIDC_ROLE_NAMESPACE
+  // côté backend (default partagé : https://unige-events/roles).
   it('exposes isAdmin=true when the Auth0 user has the ADMIN role claim', async () => {
     mockUseAuth0.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
-      user: { sub: 'auth0|admin', 'https://quarkus-security.com/roles': ['ADMIN'] },
+      user: { sub: 'auth0|admin', 'https://unige-events/roles': ['ADMIN'] },
       loginWithRedirect: vi.fn(),
       logout: vi.fn(),
       getAccessTokenSilently: vi.fn().mockResolvedValue('token'),
@@ -258,7 +260,7 @@ describe('AuthContext', () => {
     mockUseAuth0.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
-      user: { sub: 'auth0|user', 'https://quarkus-security.com/roles': 'ADMIN' },
+      user: { sub: 'auth0|user', 'https://unige-events/roles': 'ADMIN' },
       loginWithRedirect: vi.fn(),
       logout: vi.fn(),
       getAccessTokenSilently: vi.fn().mockResolvedValue('token'),

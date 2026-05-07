@@ -19,7 +19,9 @@ export interface AuthContextValue {
 }
 
 // SCRUM-94: le rôle ADMIN vit uniquement dans la claim Auth0, pas dans le payload profil.
-const ROLES_CLAIM = 'https://quarkus-security.com/roles'
+// La clé du namespace doit correspondre à `OIDC_ROLE_NAMESPACE` côté backend
+// (cf. application.properties). Default aligné sur la valeur backend par défaut.
+const ROLES_CLAIM = import.meta.env.VITE_AUTH0_ROLES_CLAIM ?? 'https://unige-events/roles'
 
 function readRolesFromAuth0User(auth0User: unknown): string[] {
   if (!auth0User || typeof auth0User !== 'object') return []

@@ -37,7 +37,7 @@
 - Affiche Modifier et Supprimer uniquement pour l'organisateur.
 - Ouvre une confirmation avant deleteEvent(id) puis redirige vers /.
 - Utilise une UI localisée en français.
-- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté qui n'est pas l'organisateur (`user.id !== event.creatorId`). Ouvre `ReportModal` via `useReport`. Non affiché pour les utilisateurs non connectés ni pour l'organisateur.
+- **Bouton "Signaler cet événement"** — visible pour tout utilisateur connecté, organisateur compris (cf. SCRUM-97 — la modale de signalement est ouverte à tous les rôles authentifiés pour aligner le flux côté admin). Ouvre `ReportModal` via `useReport`. Non affiché aux utilisateurs anonymes.
 - **Bloc "Informations complémentaires" (SCRUM-117)** — affiché conditionnellement uniquement quand au moins un des 4 champs optionnels est présent :
   - `websiteUrl` → ancre `target="_blank" rel="noopener noreferrer"` avec icône `Globe` ; texte cliquable = l'URL brute, rendue via la classe `text-link` (token CSS `--color-link`, sky-600 light / sky-400 dark).
   - `contactEmail` → ancre `mailto:` avec icône `Mail`, mêmes styles `text-link`.

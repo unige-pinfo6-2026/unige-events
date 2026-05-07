@@ -531,7 +531,7 @@ export default function EventDetailPage() {
               </button>
             </div>
 
-            {/* Signalement — visible pour tout utilisateur connecté sauf l'organisateur */}
+            {/* Signalement — visible pour tout utilisateur connecté, organisateur compris (cf. SCRUM-97). */}
             {user !== null && (
               <button
                 type="button"
