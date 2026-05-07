@@ -1,6 +1,8 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.user.PublicProfileView;
 import ch.unige.events.dto.user.UpdateProfileRequest;
+import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
 import ch.unige.events.exception.InvalidFileTypeException;
 import ch.unige.events.util.ImageFormat;
@@ -35,6 +37,9 @@ public class UserServiceMock extends UserService {
     public static volatile boolean forceConflictOnUpdate = false;
     public static volatile boolean forceBadMimeOnUpload = false;
     public static volatile boolean forceBadMimeOnBannerUpload = false;
+    public static volatile long mockFollowerCount = 0L;
+    public static volatile long mockFollowingCount = 0L;
+    public static volatile FollowStatus mockFollowStatus = null;
 
     public void reset() {
         usersByAuth0Id.clear();
@@ -43,6 +48,9 @@ public class UserServiceMock extends UserService {
         forceConflictOnUpdate = false;
         forceBadMimeOnUpload = false;
         forceBadMimeOnBannerUpload = false;
+        mockFollowerCount = 0L;
+        mockFollowingCount = 0L;
+        mockFollowStatus = null;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -76,7 +84,7 @@ public class UserServiceMock extends UserService {
     }
 
     @Override
-    public User getPublicProfile(UUID id, String auth0Id) {
+    public PublicProfileView getPublicProfile(UUID id, String auth0Id) {
         User user = usersById.get(id);
         if (user == null) {
             throw new NotFoundException();
@@ -86,7 +94,12 @@ public class UserServiceMock extends UserService {
         if (!user.profilePublic && !isOwner) {
             throw new NotFoundException();
         }
-        return user;
+        if (auth0Id == null) {
+            return PublicProfileView.anonymous(user);
+        }
+        // SCRUM-138: tests inject expected counters and follow status via static fields.
+        FollowStatus status = isOwner ? null : mockFollowStatus;
+        return new PublicProfileView(user, mockFollowerCount, mockFollowingCount, status);
     }
 
     @Override
