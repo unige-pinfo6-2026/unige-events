@@ -4,7 +4,6 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { InfoMessage } from '@/components/utils/InfoMessage'
-import type { Event } from '@/types/event'
 import EventCard from './EventCard'
 
 const MAX_FEATURED = 6
@@ -49,25 +48,6 @@ function FeaturedEventsFixture() {
   )
 }
 
-// Featured badge overlay: relative wrapper + absolute span around EventCard.
-// Kept local to this section — badge is only rendered here, so no need to
-// thread a featured prop through EventCard.
-function FeaturedCard({ event }: Readonly<{ event: Event }>) {
-  return (
-    <div className="relative">
-      {event.featured === true && (
-        <span
-          aria-label="Mis en avant"
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-10 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-linear-to-r from-accent to-pink-600 text-white shadow-md"
-        >
-          ✨ À la une
-        </span>
-      )}
-      <EventCard event={event} />
-    </div>
-  )
-}
-
 export default function FeaturedEventsSection() {
   const { events, loading, error } = useFeaturedEvents()
   const { theme } = useTheme()
@@ -96,7 +76,7 @@ export default function FeaturedEventsSection() {
       <SectionHeader heading="xl" title="À la une" />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-center gap-5">
         {events.slice(0, MAX_FEATURED).map(event => (
-          <FeaturedCard key={event.id} event={event} />
+          <EventCard key={event.id} event={event} />
         ))}
       </div>
     </SectionWrapper>

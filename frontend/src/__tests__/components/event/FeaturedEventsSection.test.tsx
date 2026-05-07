@@ -113,28 +113,23 @@ describe('FeaturedEventsSection', () => {
     expect(screen.getByText('À la une')).toBeTruthy()
   })
 
-  it('shows the "À la une" badge only on featured events', () => {
+  it('does not render a per-card "À la une" badge — the section heading is the only signal', () => {
+    // The badge was removed: the section title already conveys that the listed
+    // events are featured, the per-card pill was redundant and visually noisy.
     mockUseFeaturedEvents.mockReturnValue({
       events: [
         { ...baseEvent, id: 1, title: 'Featured one', featured: true },
         { ...baseEvent, id: 2, title: 'Featured two', featured: true },
-        { ...baseEvent, id: 3, title: 'Plain', featured: false },
-        { ...baseEvent, id: 4, title: 'Plain again', featured: undefined },
       ],
       loading: false,
       error: null,
     })
     renderSection()
-    const badges = screen.getAllByText(/À la une/i).filter((el) => el.tagName === 'SPAN')
-    expect(badges).toHaveLength(2)
-    badges.forEach((badge) => expect(badge.textContent).toContain('✨'))
-  })
-
-  it('does not render the badge on any card when no event is featured', () => {
-    mockUseFeaturedEvents.mockReturnValue({ events: makeEvents(3), loading: false, error: null })
-    renderSection()
-    const sparkleBadges = screen.queryAllByText(/✨/)
-    expect(sparkleBadges).toHaveLength(0)
+    expect(screen.queryAllByText(/✨/)).toHaveLength(0)
+    // The only "À la une" element is the section heading (h2/h3), not a span pill.
+    const aLaUneElements = screen.getAllByText('À la une')
+    expect(aLaUneElements).toHaveLength(1)
+    expect(aLaUneElements[0].tagName).not.toBe('SPAN')
   })
 
   it('renders the "À la une" section heading when events are present', () => {

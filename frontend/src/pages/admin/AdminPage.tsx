@@ -1,6 +1,6 @@
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
-import { CheckCircle, Search, Shield, Star, XCircle } from 'lucide-react'
+import { CheckCircle, Search, Star, XCircle } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
@@ -361,12 +361,7 @@ export default function AdminPage() {
   return (
     <SectionWrapper padding="sm">
       <SectionHeader
-        title={
-          <span className="flex items-center justify-center gap-3">
-            <Shield className="size-8 text-accent" />
-            Administration
-          </span>
-        }
+        title={<>Espace <mark>Administration</mark></>}
         subtitle="Modération des signalements et gestion des événements mis en avant"
         align="center"
       />
