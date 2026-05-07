@@ -304,6 +304,39 @@ class EventServiceCoverageTest {
         assertEquals(first.id, result.get(1).id());
     }
 
+    // Regression guard: PR #145 review (SCRUM-135) surfaced that the EXPIRED tab on
+    // MyPublicationsPage appeared empty. Root-cause investigation showed the JPQL
+    // correctly filters by creator — these tests pin that behavior so future changes
+    // can't silently regress it (PR #125, SCRUM-98 originally shipped without
+    // EXPIRED-path coverage).
+    @Test
+    @TestTransaction
+    void getMyEvents_filterExpired_returnsOnlyExpiredEventsForCreator() {
+        User user = persistUser("auth0|me-expired", "expired@example.com");
+        persistEvent("Published title", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Expired title",   EventCategory.ACADEMIC, EventStatus.EXPIRED,   user);
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-expired", EventStatus.EXPIRED, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Expired title", result.get(0).title());
+        assertEquals(EventStatus.EXPIRED, result.get(0).status());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyEvents_filterExpired_excludesOtherUsersExpiredEvents() {
+        User me    = persistUser("auth0|me-expired",    "me@example.com");
+        User other = persistUser("auth0|other-expired", "other@example.com");
+        persistEvent("Mine",   EventCategory.ACADEMIC, EventStatus.EXPIRED, me);
+        persistEvent("Theirs", EventCategory.ACADEMIC, EventStatus.EXPIRED, other);
+
+        List<EventDTO> result = eventService.getMyEvents("auth0|me-expired", EventStatus.EXPIRED, 0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals("Mine", result.get(0).title());
+    }
+
     // --- create ---
 
     @Test

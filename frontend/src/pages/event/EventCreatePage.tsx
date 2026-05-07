@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { useEventForm } from '@/hooks'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import EventForm from '@/components/event/EventForm'
@@ -6,13 +8,20 @@ import DraftsResumeStrip from '@/components/event/DraftsResumeStrip'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
+import type { Event } from '@/types/event'
 
 export default function EventCreatePage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showToast } = useToast()
+
+  const [template, setTemplate] = useState<Event | null>(
+    () => (location.state as { template?: Event } | null)?.template ?? null
+  )
 
   const form = useEventForm({
     mode: 'create',
+    templateEvent: template,
     onSuccess: (event) => {
       if (event.status === 'DRAFT') {
         showToast('success', 'Brouillon enregistré.')
@@ -26,6 +35,12 @@ export default function EventCreatePage() {
     onBannerError: (message) => sessionStorage.setItem(BANNER_UPLOAD_ERROR_KEY, message),
   })
 
+  function handleClearTemplate() {
+    form.resetForm()
+    setTemplate(null)
+    navigate('/events/new', { replace: true })
+  }
+
   return (
     <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
       <SectionHeader
@@ -34,7 +49,21 @@ export default function EventCreatePage() {
         title={<>Créer un <mark>événement</mark></>}
         subtitle="Renseignez les informations de votre événement pour le partager avec la communauté UNIGE."
       />
-      <DraftsResumeStrip />
+      {template ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          <span>Pré-rempli depuis l'événement <strong>"{template.title}"</strong></span>
+          <button
+            type="button"
+            onClick={handleClearTemplate}
+            className="flex items-center gap-1.5 shrink-0 px-3 py-1 rounded-lg border border-accent/40 text-accent text-xs font-semibold hover:bg-accent/20 transition-colors cursor-pointer bg-transparent"
+          >
+            <X className="size-3.5" />
+            Effacer le template
+          </button>
+        </div>
+      ) : (
+        <DraftsResumeStrip />
+      )}
       <EventForm
         mode="create"
         submitLabel="Créer l'événement"

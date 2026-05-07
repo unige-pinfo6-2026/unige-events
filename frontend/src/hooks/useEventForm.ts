@@ -52,6 +52,7 @@ export interface EventFormErrors {
 interface UseEventFormOptions {
   mode: 'create' | 'edit'
   initialEvent?: Event | null
+  templateEvent?: Event | null
   onSuccess?: (event: Event) => void
   onError?: (message: string) => void
   onBannerError?: (message: string) => void
@@ -74,6 +75,7 @@ interface UseEventFormResult {
   triggerDraftSave: () => Promise<void>
   triggerPublish: () => Promise<void>
   clearPersistedDraft: () => void
+  resetForm: () => void
 }
 
 // Local persistence for the in-progress form so an accidental refresh of the page
@@ -182,6 +184,23 @@ function toFormValues(event?: Event | null): EventFormValues {
     contactEmail: event.contactEmail ?? '',
     registrationDeadline: event.registrationDeadline ? toLocalDateTimeInputValue(event.registrationDeadline) : '',
     tags: event.tags ?? [],
+  }
+}
+
+function toTemplateValues(event: Event): EventFormValues {
+  return {
+    ...DEFAULT_VALUES,
+    title: event.title,
+    description: event.description ?? '',
+    location: event.location,
+    category: event.category,
+    faculty: event.faculty ?? null,
+    capacity: event.capacity?.toString() ?? '',
+    allDay: event.allDay ?? false,
+    websiteUrl: event.websiteUrl ?? '',
+    contactEmail: event.contactEmail ?? '',
+    tags: event.tags ?? [],
+    // startDate, endDate, registrationDeadline intentionally left empty
   }
 }
 
@@ -349,11 +368,13 @@ function getApiErrorMessage(error: unknown, mode: 'create' | 'edit'): string {
     : 'La mise à jour de l\'événement a échoué. Veuillez réessayer.'
 }
 
-export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerError }: UseEventFormOptions): UseEventFormResult {
+export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onError, onBannerError }: UseEventFormOptions): UseEventFormResult {
   const [values, setValues] = useState<EventFormValues>(() => {
-    // Create mode: try sessionStorage first. Edit mode hydration happens in the effect
-    // below once `initialEvent` is loaded (its id is required to compute the per-event key).
+    // Create mode: template takes priority (explicit user intent), then sessionStorage,
+    // then defaults. Edit mode hydration happens in the effect below once `initialEvent`
+    // is loaded (its id is required to compute the per-event key).
     if (mode === 'create') {
+      if (templateEvent) return toTemplateValues(templateEvent)
       const persisted = readPersistedForm(DRAFT_FORM_KEY)
       if (persisted) return persisted
     }
@@ -695,6 +716,14 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     if (key) clearPersistedForm(key)
   }
 
+  function resetForm() {
+    cancelPersist()
+    const key = currentPersistKey()
+    if (key) clearPersistedForm(key)
+    setValues({ ...DEFAULT_VALUES })
+    setErrors({})
+  }
+
   return {
     values,
     errors,
@@ -712,5 +741,6 @@ export function useEventForm({ mode, initialEvent, onSuccess, onError, onBannerE
     triggerDraftSave,
     triggerPublish,
     clearPersistedDraft,
+    resetForm,
   }
 }

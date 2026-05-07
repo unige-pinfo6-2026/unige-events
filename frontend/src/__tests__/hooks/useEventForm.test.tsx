@@ -1186,4 +1186,93 @@ describe('useEventForm', () => {
       expect(result.current.errors.websiteUrl).toBeUndefined()
     })
   })
+
+  describe('template mode (templateEvent)', () => {
+    const templateEvent = {
+      id: 99,
+      title: 'Conférence IA',
+      description: 'Présentation des dernières avancées en IA.',
+      location: 'Uni Bastions',
+      startDate: '2025-01-15T09:00:00.000Z',
+      endDate: '2025-01-15T11:00:00.000Z',
+      allDay: false,
+      category: 'CONFERENCE' as const,
+      faculty: null,
+      creatorId: 'abc',
+      status: 'EXPIRED' as const,
+      capacity: 80,
+      attendingCount: 75,
+      websiteUrl: 'https://conf.example.com',
+      contactEmail: 'conf@unige.ch',
+      tags: ['IA', 'machine-learning'],
+      createdAt: '2025-01-01T00:00:00.000Z',
+    }
+
+    it('initializes with template fields and leaves dates empty', () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent }))
+
+      expect(result.current.values.title).toBe('Conférence IA')
+      expect(result.current.values.description).toBe('Présentation des dernières avancées en IA.')
+      expect(result.current.values.location).toBe('Uni Bastions')
+      expect(result.current.values.category).toBe('CONFERENCE')
+      expect(result.current.values.websiteUrl).toBe('https://conf.example.com')
+      expect(result.current.values.contactEmail).toBe('conf@unige.ch')
+      expect(result.current.values.tags).toEqual(['IA', 'machine-learning'])
+      expect(result.current.values.capacity).toBe('80')
+      // Dates must be empty — user must supply new ones
+      expect(result.current.values.startDate).toBe('')
+      expect(result.current.values.endDate).toBe('')
+      expect(result.current.values.registrationDeadline).toBe('')
+      // Status resets to the default for new events
+      expect(result.current.values.status).toBe('PUBLISHED')
+    })
+
+    it('preserves allDay from the template event', () => {
+      const allDayTemplate = { ...templateEvent, allDay: true }
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent: allDayTemplate }))
+
+      expect(result.current.values.allDay).toBe(true)
+    })
+
+    it('takes priority over a persisted sessionStorage draft', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({
+        title: 'Brouillon persisté',
+        location: 'Autre lieu',
+        category: 'SOCIAL',
+      }))
+
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent }))
+
+      expect(result.current.values.title).toBe('Conférence IA')
+      expect(result.current.values.location).toBe('Uni Bastions')
+    })
+
+    it('resetForm clears all values to defaults and clears errors', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent }))
+
+      expect(result.current.values.title).toBe('Conférence IA')
+
+      // Trigger a validation error first
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.startDate).toBeDefined()
+
+      act(() => { result.current.resetForm() })
+
+      expect(result.current.values.title).toBe('')
+      expect(result.current.values.location).toBe('')
+      expect(result.current.values.category).toBe('')
+      expect(result.current.values.tags).toEqual([])
+      expect(result.current.errors).toEqual({})
+    })
+
+    it('resetForm clears the sessionStorage draft key', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Quelque chose' }))
+
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => { result.current.resetForm() })
+
+      expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+    })
+  })
 })

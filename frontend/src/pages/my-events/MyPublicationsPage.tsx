@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Ban, Calendar, LayoutDashboard, Pencil, Plus, Send, Trash2, Undo2, Users } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Ban, Calendar, LayoutDashboard, Pencil, Plus, RefreshCw, Send, Trash2, Undo2, Users } from 'lucide-react'
 import { useMyEvents } from '@/hooks/useMyEvents'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -140,9 +140,10 @@ interface PublicationCardProps {
   onCancel: (event: Event) => void
   onRestore: (id: number) => void
   onDelete: (event: Event) => void
+  onRecreate: (event: Event) => void
 }
 
-function PublicationCard({ event, publishing, restoring, onPublish, onCancel, onRestore, onDelete }: Readonly<PublicationCardProps>) {
+function PublicationCard({ event, publishing, restoring, onPublish, onCancel, onRestore, onDelete, onRecreate }: Readonly<PublicationCardProps>) {
   const category = EVENT_CATEGORIES[event.category]
   const statusClass = EVENT_STATUS_VARIANTS[event.status]
   const banner = event.bannerUrl
@@ -216,11 +217,30 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
             </button>
             <button
               type="button"
+              onClick={(e) => { stop(e); onRecreate(event) }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
+            >
+              <RefreshCw className="size-3.5" />
+              Recréer
+            </button>
+            <button
+              type="button"
               onClick={(e) => { stop(e); onDelete(event) }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/10 border border-error/30 text-error text-xs font-semibold cursor-pointer hover:bg-error/20 transition-colors ml-auto"
             >
               <Trash2 className="size-3.5" />
               Supprimer
+            </button>
+          </>
+        ) : event.status === 'EXPIRED' ? (
+          <>
+            <button
+              type="button"
+              onClick={(e) => { stop(e); onRecreate(event) }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/10 text-accent text-xs font-semibold cursor-pointer hover:bg-accent/20 transition-colors"
+            >
+              <RefreshCw className="size-3.5" />
+              Recréer cet événement
             </button>
           </>
         ) : (
@@ -263,6 +283,7 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
 
 export default function MyPublicationsPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const status = paramToStatus(searchParams.get('status'))
 
@@ -407,6 +428,7 @@ export default function MyPublicationsPage() {
               onCancel={setToCancel}
               onRestore={handleRestore}
               onDelete={setToDelete}
+              onRecreate={(e) => navigate('/events/new', { state: { template: e } })}
             />
           ))}
         </div>
