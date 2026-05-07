@@ -55,7 +55,9 @@ public class ReportServiceMock extends ReportService {
         return new ReportDTO(
                 1L,
                 eventId,
+                "Mock event " + eventId,
                 UUID.randomUUID(),
+                "Mock reporter",
                 request.reason() != null ? request.reason() : ReportReason.OTHER,
                 request.description(),
                 ReportStatus.PENDING,
@@ -78,7 +80,9 @@ public class ReportServiceMock extends ReportService {
         return new ReportDTO(
                 reportId,
                 1L,
+                "Mock event 1",
                 UUID.randomUUID(),
+                "Mock reporter",
                 ReportReason.SPAM,
                 null,
                 request.status(),

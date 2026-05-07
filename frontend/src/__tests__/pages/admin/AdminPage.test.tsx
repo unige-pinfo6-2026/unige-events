@@ -22,10 +22,15 @@ const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report =>
   id,
   eventId: 10 + id,
   eventTitle: `Event ${id}`,
-  reason: 'Spam',
-  reportedByDisplayName: 'Alice',
+  reporterId: `reporter-${id}`,
+  reporterDisplayName: 'Alice',
+  reason: 'SPAM',
+  description: null,
   createdAt: '2026-05-01T10:00:00',
   status,
+  moderationNote: null,
+  reviewedAt: null,
+  reviewedBy: null,
 })
 
 const makeEvent = (id: number): Event => ({
@@ -203,6 +208,46 @@ describe('AdminPage — reports section', () => {
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
     expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('renders the human-readable French label for the reason enum', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeReport(1)],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Spam')).toBeTruthy()
+    expect(screen.queryByText('SPAM')).toBeNull()
+  })
+
+  it('renders the report description as a secondary line under the reason', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [{ ...makeReport(1), description: 'Looks like an obvious scam' }],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Looks like an obvious scam')).toBeTruthy()
+  })
+
+  it('falls back to placeholder labels when event and reporter are deleted', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [{
+        ...makeReport(1),
+        eventId: null,
+        eventTitle: null,
+        reporterId: null,
+        reporterDisplayName: null,
+      }],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Événement supprimé')).toBeTruthy()
+    expect(screen.getByText('Compte supprimé')).toBeTruthy()
+    // No anchor tag when event is gone
+    expect(screen.queryByRole('link', { name: 'Événement supprimé' })).toBeNull()
   })
 })
 

@@ -31,8 +31,9 @@ class AdminReportResourceTest {
 
     private ReportDTO seedFixture(Long id) {
         ReportDTO dto = new ReportDTO(
-                id, 10L, UUID.randomUUID(), ReportReason.SPAM, "desc",
-                ReportStatus.PENDING, null, LocalDateTime.now(), null, null);
+                id, 10L, "Event " + id, UUID.randomUUID(), "Reporter " + id,
+                ReportReason.SPAM, "desc", ReportStatus.PENDING, null,
+                LocalDateTime.now(), null, null);
         reportServiceMock.seedReport(dto);
         return dto;
     }
@@ -49,7 +50,9 @@ class AdminReportResourceTest {
                 .when().get("/admin/reports")
                 .then()
                 .statusCode(200)
-                .body("size()", equalTo(2));
+                .body("size()", equalTo(2))
+                .body("[0].eventTitle", equalTo("Event 1"))
+                .body("[0].reporterDisplayName", equalTo("Reporter 1"));
     }
 
     @Test

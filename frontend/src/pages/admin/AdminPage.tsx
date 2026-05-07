@@ -7,6 +7,7 @@ import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ButtonDestructive, ButtonNeutral } from '@/components/utils/Buttons'
 import { formatEventDateTime } from '@/utils/dateTime'
+import { REPORT_REASONS } from '@/types/admin'
 import type { Report } from '@/types/admin'
 import type { Event } from '@/types/event'
 
@@ -49,21 +50,33 @@ function ReportRow({
   onReview,
   onDismiss,
 }: Readonly<{ report: Report; onReview: (id: number) => void; onDismiss: (id: number) => void }>) {
+  const eventTitle = report.eventTitle ?? 'Événement supprimé'
+  const reporterLabel = report.reporterDisplayName ?? 'Compte supprimé'
+  const reasonLabel = REPORT_REASONS[report.reason].label
+  const description = report.description?.trim()
+
   return (
-    <tr className="border-t border-border hover:bg-foreground/2 transition-colors">
+    <tr className="border-t border-border hover:bg-foreground/2 transition-colors align-top">
       <td className="px-4 py-4">
-        <a
-          href={`/events/${report.eventId}`}
-          className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
-        >
-          {report.eventTitle}
-        </a>
+        {report.eventId !== null ? (
+          <a
+            href={`/events/${report.eventId}`}
+            className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
+          >
+            {eventTitle}
+          </a>
+        ) : (
+          <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
+        )}
       </td>
-      <td className="px-4 py-4 text-sm text-foreground/70 max-w-[200px]">
-        <span className="line-clamp-2">{report.reason}</span>
+      <td className="px-4 py-4 text-sm max-w-[280px]">
+        <span className="block font-medium text-foreground/80">{reasonLabel}</span>
+        {description && (
+          <span className="block mt-1 text-xs text-foreground/50 line-clamp-2">{description}</span>
+        )}
       </td>
       <td className="px-4 py-4 text-sm text-foreground/60 whitespace-nowrap">
-        {report.reportedByDisplayName}
+        {reporterLabel}
       </td>
       <td className="px-4 py-4 text-sm text-foreground/50 whitespace-nowrap">
         {new Date(report.createdAt).toLocaleDateString('fr-FR')}

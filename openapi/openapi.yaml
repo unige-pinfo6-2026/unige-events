@@ -531,9 +531,11 @@ components:
       type: object
       description: |
         Représentation d'un signalement, retournée par `POST /api/events/{id}/report`,
-        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. `reporterId` et
-        `reviewedBy` sont des UUID nus (privacy + minimalisme — le frontend admin
-        drill-down via `GET /users/{id}` si besoin).
+        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. Les libellés
+        `eventTitle` et `reporterDisplayName` sont projetés depuis l'event et le user
+        liés afin d'éviter au dashboard admin un round-trip supplémentaire par ligne ;
+        les UUID restent disponibles pour drill-down via `GET /events/{id}` ou
+        `GET /users/{id}`.
       properties:
         id:
           type: integer
@@ -541,6 +543,12 @@ components:
         eventId:
           type: integer
           format: int64
+          nullable: true
+          description: ID de l'événement signalé. Nullable seulement par défense, en pratique l'event est NOT NULL en base.
+        eventTitle:
+          type: string
+          nullable: true
+          description: Titre de l'événement signalé, projeté pour l'affichage dans la table de modération.
         reporterId:
           type: string
           format: uuid
@@ -548,6 +556,13 @@ components:
           description: |
             UUID de l'utilisateur ayant signalé. Nullable si le compte a été supprimé
             (préservation de la trace).
+        reporterDisplayName:
+          type: string
+          nullable: true
+          description: |
+            Nom affichable du signalant : `displayName` si renseigné, sinon
+            `firstName lastName` trimmé, sinon `email`. Null si le compte a été
+            supprimé (`reporterId` null).
         reason:
           $ref: '#/components/schemas/ReportReason'
         description:
@@ -575,7 +590,7 @@ components:
           format: uuid
           nullable: true
           description: UUID de l'admin qui a tranché. Null tant que PENDING.
-      required: [id, eventId, reason, status, createdAt]
+      required: [id, reason, status, createdAt]
 
     CreateReportRequest:
       type: object
