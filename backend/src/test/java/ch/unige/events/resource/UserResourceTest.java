@@ -600,6 +600,210 @@ class UserResourceTest {
             .statusCode(401);
     }
 
+    // --- GET /users/me/participations ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_empty_returnsEmptyArray() {
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_returnsAllStatuses_whenStatusOmitted() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(2));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_filteredByAttending_returnsOnlyAttending() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=ATTENDING")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Confirmed Event"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_filteredByWaitlisted_returnsOnlyWaitlisted() {
+        var attEvent = attendanceServiceMock.seedEvent("Confirmed Event");
+        var waitEvent = attendanceServiceMock.seedEvent("Waitlist Event");
+        attendanceServiceMock.seedAttendance(attEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(waitEvent.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=WAITLISTED")
+            .then()
+            .statusCode(200)
+            .contentType(ContentType.JSON)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Waitlist Event"));
+    }
+
+    @Test
+    void getMyParticipations_unauthenticated_returns401() {
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframeUpcoming_returnsOnlyEventsWithEndDateInFuture() {
+        var upcomingEvent = attendanceServiceMock.seedEvent("Upcoming");
+        var pastEvent = attendanceServiceMock.seedEvent("Past");
+        pastEvent.endDate = LocalDateTime.now().minusDays(2);
+        attendanceServiceMock.seedAttendance(upcomingEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(pastEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+
+        given()
+            .when().get("/users/me/participations?timeframe=upcoming")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Upcoming"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframePast_returnsOnlyEventsWithEndDateInPast() {
+        var upcomingEvent = attendanceServiceMock.seedEvent("Upcoming");
+        var pastEvent = attendanceServiceMock.seedEvent("Past");
+        pastEvent.endDate = LocalDateTime.now().minusDays(2);
+        attendanceServiceMock.seedAttendance(upcomingEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(pastEvent.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+
+        given()
+            .when().get("/users/me/participations?timeframe=past")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Past"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframeUpcomingAndStatusWaitlisted_returnsIntersection() {
+        var upcomingAttending = attendanceServiceMock.seedEvent("Upcoming Attending");
+        var upcomingWait = attendanceServiceMock.seedEvent("Upcoming Wait");
+        var pastWait = attendanceServiceMock.seedEvent("Past Wait");
+        pastWait.endDate = LocalDateTime.now().minusDays(2);
+        attendanceServiceMock.seedAttendance(upcomingAttending.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(upcomingWait.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+        attendanceServiceMock.seedAttendance(pastWait.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=WAITLISTED&timeframe=upcoming")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Upcoming Wait"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframePastAndStatusAttending_returnsOnlyPastAttended() {
+        var upcomingAttending = attendanceServiceMock.seedEvent("Upcoming Attending");
+        var pastAttending = attendanceServiceMock.seedEvent("Past Attending");
+        var pastWait = attendanceServiceMock.seedEvent("Past Wait");
+        pastAttending.endDate = LocalDateTime.now().minusDays(2);
+        pastWait.endDate = LocalDateTime.now().minusDays(2);
+        attendanceServiceMock.seedAttendance(upcomingAttending.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(pastAttending.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(pastWait.id, ch.unige.events.entity.AttendanceStatus.WAITLISTED);
+
+        given()
+            .when().get("/users/me/participations?status=ATTENDING&timeframe=past")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("Past Attending"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframeOmitted_returnsAll_regression() {
+        var upcoming = attendanceServiceMock.seedEvent("Upcoming");
+        var past = attendanceServiceMock.seedEvent("Past");
+        past.endDate = LocalDateTime.now().minusDays(2);
+        attendanceServiceMock.seedAttendance(upcoming.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+        attendanceServiceMock.seedAttendance(past.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+
+        given()
+            .when().get("/users/me/participations")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(2));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_eventCurrentlyHappening_isUpcoming_notPast() {
+        // endDate exactly 2 hours in the future, startDate 1 hour in the past — event is in progress.
+        var inProgress = attendanceServiceMock.seedEvent("In Progress");
+        inProgress.startDate = LocalDateTime.now().minusHours(1);
+        inProgress.endDate = LocalDateTime.now().plusHours(2);
+        attendanceServiceMock.seedAttendance(inProgress.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+
+        given()
+            .when().get("/users/me/participations?timeframe=upcoming")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].title", equalTo("In Progress"));
+
+        given()
+            .when().get("/users/me/participations?timeframe=past")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(0));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_timeframeAcceptsLowercase_andUppercase() {
+        var upcoming = attendanceServiceMock.seedEvent("Upcoming");
+        attendanceServiceMock.seedAttendance(upcoming.id, ch.unige.events.entity.AttendanceStatus.ATTENDING);
+
+        given().when().get("/users/me/participations?timeframe=UPCOMING")
+            .then().statusCode(200).body("$", hasSize(1));
+        given().when().get("/users/me/participations?timeframe=Upcoming")
+            .then().statusCode(200).body("$", hasSize(1));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getMyParticipations_invalidTimeframe_returns400() {
+        given()
+            .when().get("/users/me/participations?timeframe=tomorrow")
+            .then()
+            .statusCode(400);
+    }
+
     // --- GET /users/me/events ---
 
     @Test

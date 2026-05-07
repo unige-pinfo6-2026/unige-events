@@ -39,6 +39,10 @@ public class FeaturedService {
             int remaining = effectiveLimit - result.size();
             Set<Long> phase1Ids = phase1.stream().map(e -> e.id).collect(Collectors.toSet());
 
+            // Phase 2: in-memory popularity sort over all upcoming PUBLISHED non-featured
+            // events. Acceptable for current scale (10²–10³ upcoming events at peak); if
+            // the catalog grows past that, push the popularity ranking + LIMIT down to the
+            // database (window function over the join with Attendance/Favorite counts).
             StringBuilder jpql = new StringBuilder(
                     "SELECT e FROM Event e WHERE e.featured = false " +
                     "AND e.status = :status AND e.endDate >= :now");

@@ -164,8 +164,11 @@ export default function ProfilePage() {
             <div className="relative shrink-0">
               <UserAvatar user={profile} className="size-28 relative ring-4 ring-background shadow-2xl" />
             </div>
-            <div className="pb-2">
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+            {/* min-w-0 lets the heading shrink below its min-content (the
+                longest unbroken token in the displayName) so wrap-anywhere
+                can actually break long sequences in flex layout. */}
+            <div className="pb-2 min-w-0">
+              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
                 {profile.displayName}
               </h1>
               {profileSubtitle && (
@@ -184,13 +187,15 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Content: about card (left) + calendar card (right on desktop) */}
-        <div className={`grid grid-cols-1 gap-6 ${isOwnProfile ? 'lg:grid-cols-2' : ''}`}>
+        {/* Content: about card (left) + calendar card (right on desktop).
+            items-start prevents the calendar card from stretching to match
+            the (taller) left column when publications grow the page. */}
+        <div className={`grid grid-cols-1 items-start gap-6 ${isOwnProfile ? 'lg:grid-cols-2' : ''}`}>
 
           {/* Left column: bio + about + interests */}
           <div className="flex flex-col gap-6">
             {profile.bio && (
-              <p className="text-foreground/60 leading-relaxed whitespace-pre-wrap">
+              <p className="text-foreground/60 leading-relaxed whitespace-pre-wrap wrap-anywhere">
                 {profile.bio}
               </p>
             )}

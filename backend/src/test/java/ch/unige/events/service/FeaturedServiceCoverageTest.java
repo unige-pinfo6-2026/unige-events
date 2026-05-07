@@ -203,6 +203,25 @@ class FeaturedServiceCoverageTest {
         assertNull(reloaded.featuredAt);
     }
 
+    @Test
+    @TestTransaction
+    void testFeatureEvent_alreadyFeatured_isIdempotentAndPreservesFeaturedAt() {
+        User user = persistUser("auth0|feat-idem", "featidem@test.com");
+        LocalDateTime original = LocalDateTime.now().minusHours(3);
+        Event event = persistFeaturedEvent("AlreadyFeatured", user, original);
+        entityManager.flush();
+
+        EventDTO result = featuredService.feature(event.id);
+
+        assertTrue(result.featured());
+        entityManager.flush();
+        entityManager.clear();
+        Event reloaded = Event.findById(event.id);
+        assertTrue(reloaded.featured);
+        // Idempotent: featuredAt timestamp preserved (no overwrite on a re-feature).
+        assertEquals(original.withNano(0), reloaded.featuredAt.withNano(0));
+    }
+
     // --- testFeatureEvent_notFound ---
 
     @Test

@@ -134,4 +134,23 @@ describe('EventCard', () => {
     renderCard({ ...mockEvent, description: 'Une conférence passionnante.' })
     expect(screen.getByText('Une conférence passionnante.')).toBeTruthy()
   })
+
+  describe('user-content overflow wrapping', () => {
+    const LONG = 'a'.repeat(200)
+
+    it('applies wrap-anywhere on the title so a long unbroken word breaks instead of overflowing', () => {
+      renderCard({ ...mockEvent, title: LONG })
+      const heading = screen.getByRole('heading', { level: 3 })
+      expect(heading.textContent).toBe(LONG)
+      expect(heading.className).toContain('wrap-anywhere')
+      expect(heading.className).not.toContain('break-all')
+    })
+
+    it('applies wrap-anywhere on the description', () => {
+      renderCard({ ...mockEvent, description: LONG })
+      const p = screen.getByText(LONG)
+      expect(p.className).toContain('wrap-anywhere')
+      expect(p.className).not.toContain('break-all')
+    })
+  })
 })

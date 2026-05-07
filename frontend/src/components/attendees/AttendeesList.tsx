@@ -18,7 +18,7 @@ const tabVariants = {
 } as const
 
 const TABS = [
-  { key: 'ATTENDING' as const, label: 'Participent' },
+  { key: 'ATTENDING' as const, label: 'Participants' },
   { key: 'WAITLISTED' as const, label: "Liste d'attente" },
 ]
 
@@ -37,8 +37,8 @@ const headingClass = 'text-xs font-bold uppercase tracking-widest text-foregroun
 
 function buildSummaryLabel(attendingCount: number): string {
   if (attendingCount === 0) return 'Aucun participant pour le moment.'
-  const verb = attendingCount === 1 ? 'personne participe' : 'personnes participent'
-  return `${attendingCount} ${verb}`
+  const noun = attendingCount === 1 ? 'participant' : 'participants'
+  return `${attendingCount} ${noun}`
 }
 
 function NonOrganizerSummary({ attendingCount }: Readonly<{ attendingCount: number }>) {

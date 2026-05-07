@@ -8,8 +8,10 @@ import ch.unige.events.dto.event.EventDTO;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
+import ch.unige.events.entity.AttendanceStatus;
 import ch.unige.events.entity.CoOrganizerStatus;
 import ch.unige.events.entity.EventStatus;
+import ch.unige.events.entity.Timeframe;
 import ch.unige.events.entity.User;
 import ch.unige.events.service.AttendanceService;
 import ch.unige.events.service.CalendarService;
@@ -295,6 +297,34 @@ public class UserResource {
     @Authenticated
     public List<AttendanceDTO> getMyAttendances() {
         return attendanceService.getMyAttendances(identity.getPrincipal().getName());
+    }
+
+    @GET
+    @Path("/me/participations")
+    @Authenticated
+    public List<EventDTO> getMyParticipationEvents(
+            @QueryParam("status") AttendanceStatus status,
+            @QueryParam("timeframe") String timeframeParam) {
+        Timeframe timeframe = parseTimeframe(timeframeParam);
+        return attendanceService.getMyParticipationEvents(identity.getPrincipal().getName(), status, timeframe);
+    }
+
+    /**
+     * Parses the optional case-insensitive {@code timeframe} query parameter.
+     * Returns {@code null} for an absent or blank value (no filter), throws a
+     * clean {@link BadRequestException} for any other value — JAX-RS' default
+     * enum-binding produces a 404, which is misleading for an invalid query
+     * parameter.
+     */
+    private static Timeframe parseTimeframe(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Timeframe.valueOf(raw.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid timeframe value: " + raw + " (expected upcoming or past)");
+        }
     }
 
     @GET
