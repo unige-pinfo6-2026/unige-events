@@ -132,6 +132,11 @@ public class EventServiceMock extends EventService {
         if (event == null) {
             throw new NotFoundException();
         }
+        // SCRUM-97 — un event BANNED est invisible pour tout le monde, admin
+        // et créateur compris. Drill-down via la table de modération uniquement.
+        if (event.status == EventStatus.BANNED) {
+            throw new NotFoundException();
+        }
         // Même règle qu'en prod — hotfix pentest 4.12.
         boolean isCreator = event.creator != null
                 && event.creator.auth0Id != null

@@ -354,6 +354,67 @@ class EventResourceTest {
                 .body("status", is("CANCELLED"));
     }
 
+    // --- BANNED events: 404 across the board (anti-leak, SCRUM-97). ---
+    // The drill-down on a banned event happens through the moderation table
+    // (`/admin/reports`), never through the public URL. The 404 envelope is
+    // the same one used for "event does not exist" so the response can't be
+    // used as an existence oracle.
+
+    @Test
+    void getById_bannedEvent_anon_returns404() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Banni anon", EventStatus.BANNED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void getById_bannedEvent_otherUser_returns404() {
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Banni vu par Bob", EventStatus.BANNED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void getById_bannedEvent_creator_returns404() {
+        // Even the creator cannot retrieve a banned event by id — the only
+        // surface is the moderation queue, accessible to admins.
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Mon event banni", EventStatus.BANNED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|admin", roles = {"ADMIN"})
+    void getById_bannedEvent_admin_returns404() {
+        // Admin sees DRAFT/CANCELLED but not BANNED — the moderation table is
+        // the canonical surface, the public URL stays opaque.
+        var event = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Banni vu par admin", EventStatus.BANNED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + event.id)
+                .then()
+                .statusCode(404)
+                .body("error", equalTo("not_found"));
+    }
+
     // --- PUT /events/{id} ---
 
     @Test

@@ -92,6 +92,19 @@ class ReportResourceTest {
 
     @Test
     @TestSecurity(user = "auth0|alice")
+    void report_eventBanned_returns400_cannotReportBanned() {
+        ReportServiceMock.forceCannotReportBanned = true;
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"reason\":\"SPAM\"}")
+                .when().post("/events/{id}/report", 1L)
+                .then()
+                .statusCode(400)
+                .body("error", equalTo("cannot_report_banned"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
     void report_ownEvent_returns422_cannotReportOwn() {
         ReportServiceMock.forceCannotReportOwn = true;
         given()

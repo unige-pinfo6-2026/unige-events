@@ -273,6 +273,25 @@ Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/Mod
 (cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
 lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
 
+**SCRUM-97** — quand le seuil est atteint, l'event passe en `EventStatus.BANNED` (au lieu de
+`CANCELLED` historiquement). Cohérent avec le ban manuel via `ReportService.handle()` :
+toute modération produit le même état terminal, distinct de l'annulation par le créateur
+(`CANCELLED` reste réversible vers `DRAFT` via `PATCH /events/{id}/restore`).
+
+#### Cascade de validation d'un signalement (SCRUM-97)
+
+Quand `ReportService.handle()` reçoit `status=REVIEWED` :
+1. Le signalement passe REVIEWED avec `reviewedBy` = admin courant et `moderationNote`
+   éventuelle (saisie par l'admin).
+2. L'événement lié passe en `EventStatus.BANNED` — état terminal côté créateur, invisible
+   sur `GET /events/{id}` (404 pour TOUT LE MONDE, anti-leak — cf. règle d'autorisation
+   d'`EventService.getById()`).
+3. Tous les autres signalements PENDING sur le même event sont auto-clôturés (REVIEWED,
+   `reviewedBy` admin, `moderationNote` null — seul le signalement explicitement traité
+   porte la note).
+
+`status=DISMISSED` est neutre — ne touche ni l'event ni les signalements frères.
+
 #### Consommation par `ReportService`
 
 - `ReportService.create(eventId, auth0Id, CreateReportRequest)` — vérifie l'existence
@@ -414,7 +433,7 @@ attendingCount, interestedCount, viewCount
 | Enum Java | Valeurs | Sprint | État |
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
-| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
+| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupService`) |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |

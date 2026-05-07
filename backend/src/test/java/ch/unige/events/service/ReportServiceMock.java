@@ -21,6 +21,7 @@ public class ReportServiceMock extends ReportService {
     public static volatile boolean forceNotFoundOnCreate = false;
     public static volatile boolean forceCannotReportDraft = false;
     public static volatile boolean forceCannotReportCancelled = false;
+    public static volatile boolean forceCannotReportBanned = false;
     public static volatile boolean forceCannotReportOwn = false;
     public static volatile boolean forceAlreadyReported = false;
     public static volatile boolean forceNotFoundOnHandle = false;
@@ -33,6 +34,7 @@ public class ReportServiceMock extends ReportService {
         forceNotFoundOnCreate = false;
         forceCannotReportDraft = false;
         forceCannotReportCancelled = false;
+        forceCannotReportBanned = false;
         forceCannotReportOwn = false;
         forceAlreadyReported = false;
         forceNotFoundOnHandle = false;
@@ -50,12 +52,15 @@ public class ReportServiceMock extends ReportService {
         if (forceNotFoundOnCreate) throw new NotFoundException();
         if (forceCannotReportDraft) throw badRequest("cannot_report_draft", "Cannot report DRAFT");
         if (forceCannotReportCancelled) throw badRequest("cannot_report_cancelled", "Cannot report CANCELLED");
+        if (forceCannotReportBanned) throw badRequest("cannot_report_banned", "Cannot report BANNED");
         if (forceCannotReportOwn) throw unprocessable("cannot_report_own_event", "Cannot report own event");
         if (forceAlreadyReported) throw conflict("already_reported", "Already reported");
         return new ReportDTO(
                 1L,
                 eventId,
+                "Mock event " + eventId,
                 UUID.randomUUID(),
+                "Mock reporter",
                 request.reason() != null ? request.reason() : ReportReason.OTHER,
                 request.description(),
                 ReportStatus.PENDING,
@@ -78,7 +83,9 @@ public class ReportServiceMock extends ReportService {
         return new ReportDTO(
                 reportId,
                 1L,
+                "Mock event 1",
                 UUID.randomUUID(),
+                "Mock reporter",
                 ReportReason.SPAM,
                 null,
                 request.status(),

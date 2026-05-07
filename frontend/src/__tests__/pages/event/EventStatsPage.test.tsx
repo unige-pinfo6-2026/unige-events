@@ -40,7 +40,7 @@ const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseEventStats = useEventStats as ReturnType<typeof vi.fn>
 const mockGetEventAttendees = getEventAttendees as ReturnType<typeof vi.fn>
 
-const mockUser = { id: 'user-1', email: 'org@test.com', profilePublic: true, admin: false, createdAt: '' }
+const mockUser = { id: 'user-1', email: 'org@test.com', profilePublic: true, createdAt: '' }
 
 const mockEvent = {
   id: 42,

@@ -18,7 +18,6 @@ const user: User = {
   displayName: 'Bob Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',
-  admin: false,
 }
 
 function renderUserIdentity(props: Parameters<typeof UserIdentity>[0]) {

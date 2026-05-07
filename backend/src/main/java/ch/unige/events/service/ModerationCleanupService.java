@@ -61,7 +61,7 @@ public class ModerationCleanupService {
     }
 
     void hide(Event event) {
-        event.status = EventStatus.CANCELLED;
+        event.status = EventStatus.BANNED;
         // TODO: create a Notification of type EVENT_AUTO_REMOVED for event.creator once the Notification entity exists
     }
 }

@@ -43,7 +43,7 @@ class ModerationCleanupCoverageTest {
 
         moderationCleanupService.runCleanup();
 
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertEquals(EventStatus.BANNED, event.status);
     }
 
     @Test
@@ -76,7 +76,7 @@ class ModerationCleanupCoverageTest {
 
         moderationCleanupJob.run();
 
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertEquals(EventStatus.BANNED, event.status);
     }
 
     private User persistUser(String auth0Id, String email) {

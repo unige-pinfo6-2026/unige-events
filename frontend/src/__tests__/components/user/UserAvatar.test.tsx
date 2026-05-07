@@ -13,7 +13,6 @@ const baseUser: User = {
   displayName: 'Alice Martin',
   profilePublic: true,
   createdAt: '2024-01-01',
-  admin: false,
 }
 
 describe('UserAvatar', () => {

@@ -79,14 +79,14 @@ class ModerationCleanupServiceTest {
     // ── hide ───────────────────────────────────────────────────────────────
 
     @Test
-    void hide_setsStatusToCancelled() {
+    void hide_setsStatusToBanned() {
         Event event = new Event();
         event.status = EventStatus.PUBLISHED;
 
         ModerationCleanupService service = new ModerationCleanupService();
         service.hide(event);
 
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertEquals(EventStatus.BANNED, event.status);
     }
 
     // ── runCleanup (via spy) ────────────────────────────────────────────────
@@ -114,7 +114,7 @@ class ModerationCleanupServiceTest {
         doReturn(Map.of(event, 3L)).when(spy).fetchPendingReportCounts();
         spy.runCleanup();
 
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertEquals(EventStatus.BANNED, event.status);
     }
 
     @Test
@@ -127,7 +127,7 @@ class ModerationCleanupServiceTest {
         doReturn(Map.of(event, 5L)).when(spy).fetchPendingReportCounts();
         spy.runCleanup();
 
-        assertEquals(EventStatus.CANCELLED, event.status);
+        assertEquals(EventStatus.BANNED, event.status);
     }
 
     @Test

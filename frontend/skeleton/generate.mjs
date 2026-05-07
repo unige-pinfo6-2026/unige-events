@@ -1163,6 +1163,175 @@ function genEventStats() {
   writeBones('event-stats.bones.json', out)
 }
 
+// ============================================================
+// ADMIN REPORTS — Moderation table
+// Fixture: 2 tabs (h-9) + gap-3 + table (h-11 header + 5×h-[68px] rows)
+// Total height = 36 + 12 + 44 + 5×68 = 432
+// ============================================================
+const RPTS_TAB_H = 36
+const RPTS_TAB_GAP = 12
+const RPTS_HDR_H = 44
+const RPTS_ROW_H = 68
+const RPTS_ROWS = 5
+const RPTS_TABLE_H = RPTS_HDR_H + RPTS_ROWS * RPTS_ROW_H   // 384
+const RPTS_TOTAL_H = RPTS_TAB_H + RPTS_TAB_GAP + RPTS_TABLE_H  // 432
+
+function buildAdminReports(containerW) {
+  const pct = {
+    x: px => round(px * 100 / containerW),
+    w: px => round(px * 100 / containerW),
+  }
+  const bones = []
+
+  // 2 tabs side by side (gap-2 = 8px between)
+  const tabW = Math.round((containerW - 8) / 2)
+  bones.push([0, 0, pct.w(tabW), RPTS_TAB_H, 8, true])
+  bones.push([pct.x(tabW + 8), 0, pct.w(tabW), RPTS_TAB_H, 8, true])
+
+  // Table bg card (container, lighter)
+  const tableY = RPTS_TAB_H + RPTS_TAB_GAP  // 48
+  bones.push([0, tableY, 100, RPTS_TABLE_H, 12, true])
+
+  const desktop = containerW >= 600
+
+  if (desktop) {
+    const availW = containerW - 32
+    const eventW  = Math.round(availW * 0.30)
+    const reasonW = Math.round(availW * 0.22)
+    const repW    = Math.round(availW * 0.15)
+    const dateW   = Math.round(availW * 0.12)
+    const colGap  = 16
+    const eventX    = 16
+    const reasonX   = eventX   + eventW  + colGap
+    const repX      = reasonX  + reasonW + colGap
+    const dateX     = repX     + repW    + colGap
+
+    // Header labels (leaf, darker)
+    bones.push([pct.x(eventX),   tableY + 14, pct.w(Math.round(eventW  * 0.55)), 12, 4])
+    bones.push([pct.x(reasonX),  tableY + 14, pct.w(Math.round(reasonW * 0.60)), 12, 4])
+    bones.push([pct.x(repX),     tableY + 14, pct.w(Math.round(repW    * 0.65)), 12, 4])
+    bones.push([pct.x(dateX),    tableY + 14, pct.w(Math.round(dateW   * 0.70)), 12, 4])
+
+    for (let i = 0; i < RPTS_ROWS; i++) {
+      const rowY     = tableY + RPTS_HDR_H + i * RPTS_ROW_H
+      const contentY = rowY + Math.round((RPTS_ROW_H - 14) / 2)
+      bones.push([0, rowY, 100, 1, 0])  // horizontal divider
+      bones.push([pct.x(eventX),  contentY,     pct.w(eventW),             14, 4])
+      bones.push([pct.x(reasonX), contentY + 1, pct.w(Math.round(reasonW * 0.80)), 12, 4])
+      bones.push([pct.x(repX),    contentY + 1, pct.w(Math.round(repW    * 0.80)), 12, 4])
+      bones.push([pct.x(dateX),   contentY + 2, pct.w(Math.round(dateW   * 0.80)), 10, 4])
+      // Action buttons right-aligned (2×56px, gap 8)
+      const btn2X = containerW - 16 - 56
+      const btn1X = btn2X - 8 - 56
+      bones.push([pct.x(btn1X), rowY + 20, pct.w(56), 28, 8, true])
+      bones.push([pct.x(btn2X), rowY + 20, pct.w(56), 28, 8, true])
+    }
+  } else {
+    // Mobile: 2 col header labels
+    bones.push([pct.x(12), tableY + 14, pct.w(Math.round(containerW * 0.30)), 12, 4])
+    bones.push([pct.x(Math.round(containerW * 0.42)), tableY + 14, pct.w(Math.round(containerW * 0.22)), 12, 4])
+
+    for (let i = 0; i < RPTS_ROWS; i++) {
+      const rowY = tableY + RPTS_HDR_H + i * RPTS_ROW_H
+      const py   = rowY + 10
+      bones.push([0, rowY, 100, 1, 0])
+      bones.push([pct.x(12), py,      pct.w(Math.round(containerW * 0.55)), 14, 4])
+      bones.push([pct.x(12), py + 20, pct.w(Math.round(containerW * 0.40)), 12, 4])
+      bones.push([pct.x(12), py + 38, pct.w(Math.round(containerW * 0.28)), 10, 4])
+      const btnW  = Math.round(containerW * 0.16)
+      const btn1X = Math.round(containerW * 0.62)
+      const btn2X = Math.round(containerW * 0.80)
+      bones.push([pct.x(btn1X), rowY + 20, pct.w(btnW), 28, 8, true])
+      bones.push([pct.x(btn2X), rowY + 20, pct.w(btnW), 28, 8, true])
+    }
+  }
+
+  return bones
+}
+
+function genAdminReports() {
+  const out = { breakpoints: {} }
+  for (const cw of [320, 720, 1216]) {
+    out.breakpoints[String(cw)] = {
+      name: 'admin-reports',
+      viewportWidth: cw,
+      width: cw,
+      height: RPTS_TOTAL_H,
+      bones: buildAdminReports(cw),
+    }
+  }
+  writeBones('admin-reports.bones.json', out)
+}
+
+// ============================================================
+// ADMIN FEATURED — Featured events list
+// Fixture: search bar (h-11) + gap-4 + 3×card (h-[72px]) gap-3
+// Total height = 44 + 16 + 3×72 + 2×12 = 300
+// ============================================================
+const FEAT_SEARCH_H = 44
+const FEAT_SEARCH_GAP = 16
+const FEAT_CARD_H = 72
+const FEAT_CARD_GAP = 12
+const FEAT_CARDS = 3
+const FEAT_TOTAL_H = FEAT_SEARCH_H + FEAT_SEARCH_GAP
+  + FEAT_CARDS * FEAT_CARD_H + (FEAT_CARDS - 1) * FEAT_CARD_GAP  // 300
+
+function buildAdminFeatured(containerW) {
+  const pct = {
+    x: px => round(px * 100 / containerW),
+    w: px => round(px * 100 / containerW),
+  }
+  const bones = []
+
+  // Search bar (container, lighter)
+  bones.push([0, 0, 100, FEAT_SEARCH_H, 12, true])
+  // Search icon inside bar (leaf, darker)
+  bones.push([pct.x(12), Math.round((FEAT_SEARCH_H - 16) / 2), pct.w(16), 16, 4])
+  // Placeholder text (leaf)
+  bones.push([pct.x(36), Math.round((FEAT_SEARCH_H - 12) / 2), pct.w(Math.round(containerW * 0.30)), 12, 4])
+
+  const cardsY = FEAT_SEARCH_H + FEAT_SEARCH_GAP  // 60
+  for (let i = 0; i < FEAT_CARDS; i++) {
+    const y = cardsY + i * (FEAT_CARD_H + FEAT_CARD_GAP)
+
+    // Card bg (container, lighter)
+    bones.push([0, y, 100, FEAT_CARD_H, 16, true])
+
+    // Thumbnail 40×40 (leaf, darker)
+    const thumbX = 16
+    const thumbY = y + Math.round((FEAT_CARD_H - 40) / 2)
+    bones.push([pct.x(thumbX), thumbY, pct.w(40), 40, 8])
+
+    // Title & subtitle (leaf)
+    const textX = thumbX + 40 + 12  // 68
+    const btnW  = containerW >= 600 ? 100 : 80
+    const btnX  = containerW - 16 - btnW
+    const textW = btnX - textX - 12
+    bones.push([pct.x(textX), y + 18, pct.w(Math.min(Math.round(textW * 0.70), 260)), 14, 4])
+    bones.push([pct.x(textX), y + 38, pct.w(Math.min(Math.round(textW * 0.50), 180)), 12, 4])
+
+    // Unfeature button (container, lighter)
+    const btnY = y + Math.round((FEAT_CARD_H - 28) / 2)
+    bones.push([pct.x(btnX), btnY, pct.w(btnW), 28, 8, true])
+  }
+
+  return bones
+}
+
+function genAdminFeatured() {
+  const out = { breakpoints: {} }
+  for (const cw of [320, 720, 1216]) {
+    out.breakpoints[String(cw)] = {
+      name: 'admin-featured',
+      viewportWidth: cw,
+      width: cw,
+      height: FEAT_TOTAL_H,
+      bones: buildAdminFeatured(cw),
+    }
+  }
+  writeBones('admin-featured.bones.json', out)
+}
+
 genCards()
 genSearch()
 genCalendar()
@@ -1170,3 +1339,5 @@ genEventDetail()
 genEventEdit()
 genPublications()
 genEventStats()
+genAdminReports()
+genAdminFeatured()
