@@ -1,6 +1,26 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-03
+Dernière mise à jour : 2026-05-07
+
+---
+
+## Sprint 6 — Entité `Follow` + 7 endpoints follow / unfollow / demandes / listes (SCRUM-138) — 2026-05-07
+
+Livré.
+
+Socle backend du graphe social qui débloque SCRUM-141 / 142 / 143 (front S7 — page profil public, FollowButton, modales listes) et anticipe SCRUM-168 (filtre `followedOnly` du feed S9).
+
+- Migration `V14__create_follows.sql` : table de jointure UUID/UUID `(follower_id, followed_id)` avec contrainte unique, FK vers `users(id)` (sans cascade — pattern défensif identique à `Report.reporter`), CHECK constraint sur `status`, index sur `follower_id` et `followed_id`.
+- Entité `Follow` (PanacheEntity, Long PK) avec finders statiques dont **`findAcceptedFollowedIds(UUID)`** livré dès maintenant pour éviter à SCRUM-168 (S9) de re-réfléchir à la requête JPQL plus tard.
+- Enum `FollowStatus` à 2 valeurs : `PENDING`, `ACCEPTED`. Un reject = DELETE physique de la row (mirror `EventCoOrganizer.DECLINE`) — re-tentative possible sans 409.
+- `FollowService` (@ApplicationScoped, @Transactional sur les mutations seulement) avec règles métier : auto-accept si profil cible public, PENDING sinon, 422 `cannot_follow_self`, 409 `already_following` (check applicatif + filet de sécurité unique constraint), 403 sur accept/reject par non-target, 409 `invalid_transition` sur transition non-PENDING, DELETE idempotent.
+- `FollowResource` (`/users`) et `FollowRequestResource` (`/follow-requests`) — split en deux Resources pour qu'aucune ne partage son `@Path` racine avec une autre.
+- `UserPublicResponse` enrichi : `followerCount`, `followingCount` (long, toujours présents), `followStatus` (nullable, null pour anonymes/self/no-relation). Trois factories : `from(User)` legacy / `from(User, fc, fwc, fs)` enrichie / `fromAnonymous(User)` (zero-init).
+- `UserService.getPublicProfile` retourne désormais un `PublicProfileView` (record agrégé `User + 3 compteurs`). Les anonymes prennent un court-circuit qui économise 2 requêtes DB. La règle anti-oracle 404 ISSUE-93 reste inchangée.
+- Rate limit `@PerUserRateLimit(name="follows.follow", max=30)` sur `POST /users/{id}/follow` uniquement.
+- Notifications de follow (`NEW_FOLLOWER`, `FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`) explicitement hors scope — déléguées à SCRUM-140 / S7 une fois SCRUM-99 (infra Notification) livré.
+
+Tests : 932 verts. JaCoCo 100% lignes sur `Follow`, `FollowStatus`, `FollowDTO`, `PublicProfileView`, `FollowService`, `FollowResource`, `FollowRequestResource`. Sentinels nommément verts : `findAcceptedFollowedIds_returnsOnlyAcceptedUuids` (SCRUM-168), `rejectRequest_followerCanReFollowAfterReject`, `follow_selfFollow_throwsUnprocessable`, `getFollowers_privateProfileNonOwner_returns404_antiOracle`, `getPublicProfile_self_followStatusIsNull`, `getPublicProfile_authNonOwnerWithPending_followStatusIsPending`.
 
 ---
 
