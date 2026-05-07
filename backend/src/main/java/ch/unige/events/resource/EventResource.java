@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
@@ -8,6 +9,7 @@ import ch.unige.events.entity.EventCategory;
 import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.service.EventService;
+import ch.unige.events.service.FeaturedService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -35,9 +37,20 @@ public class EventResource {
     private final SecurityIdentity identity;
 
     @Inject
+    FeaturedService featuredService;
+
+    @Inject
     public EventResource(EventService eventService, SecurityIdentity identity) {
         this.eventService = eventService;
         this.identity = identity;
+    }
+
+    @GET
+    @Path("/featured")
+    @PermitAll
+    public List<EventDTO> getFeatured(
+            @QueryParam("limit") @DefaultValue("6") @Min(1) @Max(12) int limit) {
+        return featuredService.getFeatured(limit);
     }
 
     @GET
@@ -51,7 +64,8 @@ public class EventResource {
             @QueryParam("organizerId") UUID organizerId,
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
             @QueryParam("faculty") Faculty faculty,
-            @QueryParam("facultyNone") Boolean facultyNone) {
+            @QueryParam("facultyNone") Boolean facultyNone,
+            @QueryParam("featured") Boolean featured) {
         EventStatus effectiveStatus = status;
         if (organizerId != null) {
             if (effectiveStatus == null) {
@@ -66,11 +80,12 @@ public class EventResource {
                         .build());
             }
         }
-        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone);
+        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone, featured);
     }
 
     @POST
     @Authenticated
+    @PerUserRateLimit(name = "events.create", max = 10)
     public Response create(@Valid CreateEventRequest request) {
         String auth0Id = identity.getPrincipal().getName();
         EventDTO created = eventService.create(auth0Id, request);
@@ -90,6 +105,7 @@ public class EventResource {
     @PUT
     @Path("/{id}")
     @Authenticated
+    @PerUserRateLimit(name = "events.update", max = 10)
     public Response update(@PathParam("id") Long id, @Valid UpdateEventRequest request) {
         String auth0Id = identity.getPrincipal().getName();
         EventDTO updated = eventService.update(id, auth0Id, request);
@@ -108,6 +124,7 @@ public class EventResource {
     @PATCH
     @Path("/{id}/cancel")
     @Authenticated
+    @PerUserRateLimit(name = "events.cancel", max = 10)
     public Response cancel(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         EventDTO cancelled = eventService.cancel(id, auth0Id);
@@ -117,6 +134,7 @@ public class EventResource {
     @PATCH
     @Path("/{id}/restore")
     @Authenticated
+    @PerUserRateLimit(name = "events.restore", max = 10)
     public Response restore(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         EventDTO restored = eventService.restore(id, auth0Id);
@@ -130,6 +148,7 @@ public class EventResource {
     @PATCH
     @Path("/{id}/publish")
     @Authenticated
+    @PerUserRateLimit(name = "events.publish", max = 10)
     public Response publish(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");
@@ -141,7 +160,13 @@ public class EventResource {
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "events.uploadImage", max = 5)
     public Response uploadImage(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
+        if (file == null) {
+            // Pentest 2026-04-17 finding 4.22 — wrong multipart field name
+            // would otherwise fall through to a 500 from a downstream NPE.
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         boolean isAdmin = identity.hasRole("ADMIN");
         EventDTO updated = eventService.uploadImage(id, auth0Id, file, isAdmin);

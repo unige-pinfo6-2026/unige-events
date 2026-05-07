@@ -135,25 +135,33 @@ class ResourceMappersCoverageTest {
     }
 
     @Test
-    void forbiddenMapperCoversFallbackAndProvidedMessage() {
+    void forbiddenMapperEmitsSanitizedMessageRegardlessOfInput() {
+        // Pentest 2026-04-17 finding 4.20 — the mapper now hard-codes a generic
+        // public message so service-layer details never leak in the response.
         ForbiddenExceptionMapper mapper = new ForbiddenExceptionMapper();
 
         Response fallback = mapper.toResponse(new ForbiddenException((String) null));
-        Response provided = mapper.toResponse(new ForbiddenException("Forbidden details"));
+        Response leakyDetails = mapper.toResponse(
+                new ForbiddenException("Only the event creator or an admin can publish this event"));
         Response blank = mapper.toResponse(new ForbiddenException("   "));
 
         ApiErrorResponse fallbackPayload = (ApiErrorResponse) fallback.getEntity();
-        ApiErrorResponse providedPayload = (ApiErrorResponse) provided.getEntity();
+        ApiErrorResponse leakyPayload = (ApiErrorResponse) leakyDetails.getEntity();
         ApiErrorResponse blankPayload = (ApiErrorResponse) blank.getEntity();
         assertEquals(403, fallback.getStatus());
-        assertEquals(403, provided.getStatus());
+        assertEquals(403, leakyDetails.getStatus());
         assertEquals(403, blank.getStatus());
         assertEquals("forbidden", fallbackPayload.error());
-        assertEquals("forbidden", providedPayload.error());
+        assertEquals("forbidden", leakyPayload.error());
         assertEquals("forbidden", blankPayload.error());
-        assertEquals("Forbidden", fallbackPayload.message());
-        assertEquals("Forbidden details", providedPayload.message());
-        assertEquals("Forbidden", blankPayload.message());
+        assertEquals("You are not allowed to perform this action.", fallbackPayload.message());
+        assertEquals("You are not allowed to perform this action.", leakyPayload.message());
+        assertEquals("You are not allowed to perform this action.", blankPayload.message());
+        // Specifically: nothing in the response mentions creator/admin/role.
+        org.junit.jupiter.api.Assertions.assertFalse(
+                leakyPayload.message().toLowerCase(java.util.Locale.ROOT).contains("creator"));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                leakyPayload.message().toLowerCase(java.util.Locale.ROOT).contains("admin"));
     }
 
     @Test

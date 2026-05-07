@@ -77,6 +77,17 @@ function renderProfilePage(id: string) {
   )
 }
 
+function findContentGrid(container: HTMLElement): HTMLElement | null {
+  const candidates = container.querySelectorAll('div')
+  for (const el of Array.from(candidates)) {
+    const cls = el.className
+    if (typeof cls === 'string' && cls.includes('grid-cols-1') && cls.includes('lg:grid-cols-2')) {
+      return el
+    }
+  }
+  return null
+}
+
 describe('ProfilePage', () => {
   it('renders own profile when id is "me"', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
@@ -247,5 +258,92 @@ describe('ProfilePage', () => {
     renderProfilePage('auth0|456')
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
     expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
+  })
+
+  // Layout regression — the right-column calendar card must not stretch to match
+  // the (potentially much taller) left column on desktop. We assert on the grid
+  // wrapper className since jsdom doesn't perform actual layout.
+  describe('content grid layout', () => {
+    it('applies items-start to the content grid so the calendar card sizes to its content', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      const { container } = renderProfilePage('me')
+      await screen.findByRole('heading', { level: 1, name: 'Test User' })
+
+      const grid = findContentGrid(container)
+      expect(grid).not.toBeNull()
+      expect(grid!.className).toContain('items-start')
+      expect(grid!.className).not.toContain('items-stretch')
+    })
+
+    it('keeps items-start regardless of MyPublicationsPreview rendering (varying left-column height)', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      const { container } = renderProfilePage('me')
+      await screen.findByRole('heading', { level: 2, name: 'Mes publications' })
+
+      const grid = findContentGrid(container)
+      expect(grid?.className).toContain('items-start')
+    })
+
+    it('does not apply a fixed pixel/max height to the calendar card wrapper', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      const { container } = renderProfilePage('me')
+      await screen.findByRole('heading', { level: 1, name: 'Test User' })
+
+      const grid = findContentGrid(container)
+      expect(grid).not.toBeNull()
+      // No hard-coded height (h-[…]) or max-h-[…] sneaked in as a workaround.
+      expect(grid!.className).not.toMatch(/\bh-\[/)
+      expect(grid!.className).not.toMatch(/\bmax-h-\[/)
+    })
+  })
+
+  // Long-unbroken-word overflow guard — biography and displayName must wrap
+  // even when the user pastes a single 200-char token. jsdom doesn't paint,
+  // so we assert on the wrap utility class instead of pixel widths.
+  describe('user-content overflow wrapping', () => {
+    const LONG_WORD = 'a'.repeat(200)
+    const LONG_BIO = `cxgmgggg${'g'.repeat(192)}`
+
+    it('renders a 200-char single-word bio without throwing and applies wrap-anywhere', async () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: LONG_BIO } })
+      renderProfilePage('me')
+
+      const bio = await screen.findByText(LONG_BIO)
+      expect(bio.className).toContain('wrap-anywhere')
+      expect(bio.className).not.toContain('break-all')
+    })
+
+    it('applies wrap-anywhere on the displayName heading and min-w-0 on its flex parent', async () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, displayName: LONG_WORD } })
+      const { container } = renderProfilePage('me')
+
+      const heading = await screen.findByRole('heading', { level: 1, name: LONG_WORD })
+      expect(heading.className).toContain('wrap-anywhere')
+
+      // Parent (the flex item next to the avatar) must allow shrinking below
+      // the heading's min-content for wrap-anywhere to be effective.
+      const parent = heading.parentElement
+      expect(parent?.className).toContain('min-w-0')
+      expect(container).toBeTruthy()
+    })
+
+    it('still wraps mixed content (short words + long unbroken token) without breaking on every char', async () => {
+      const mixed = `Some intro words then ${LONG_WORD}`
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: mixed } })
+      renderProfilePage('me')
+
+      const bio = await screen.findByText(mixed)
+      expect(bio.className).toContain('wrap-anywhere')
+      expect(bio.className).not.toContain('break-all')
+    })
+
+    it('does not crash with an empty bio (no element rendered, no shift)', async () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: '' } })
+      renderProfilePage('me')
+
+      // bio paragraph is guarded by `profile.bio &&` so it is absent when empty
+      await screen.findByRole('heading', { level: 1, name: 'Test User' })
+      expect(screen.queryByText(/^cxgm/)).toBeNull()
+    })
   })
 })

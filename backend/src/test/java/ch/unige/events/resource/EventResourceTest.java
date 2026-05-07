@@ -1074,4 +1074,52 @@ class EventResourceTest {
                 .body("availableSpots", equalTo(10))
                 .body("waitlistedCount", equalTo(0));
     }
+
+    @Test
+    void getAll_withFeaturedFilter_returnsOk() {
+        given()
+                .queryParam("featured", "true")
+                .when().get("/events")
+                .then()
+                .statusCode(200)
+                .body("", instanceOf(java.util.List.class));
+    }
+
+    // --- GET /events/featured ---
+
+    @Test
+    void getFeatured_returnsOk() {
+        given()
+                .when().get("/events/featured")
+                .then()
+                .statusCode(200)
+                .body("", instanceOf(java.util.List.class));
+    }
+
+    @Test
+    void getFeatured_withLimit_returnsOk() {
+        given()
+                .queryParam("limit", "3")
+                .when().get("/events/featured")
+                .then()
+                .statusCode(200);
+    }
+
+    @Test
+    void getFeatured_limitAbove12_returns400() {
+        given()
+                .queryParam("limit", "99")
+                .when().get("/events/featured")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void getFeatured_limitBelow1_returns400() {
+        given()
+                .queryParam("limit", "0")
+                .when().get("/events/featured")
+                .then()
+                .statusCode(400);
+    }
 }

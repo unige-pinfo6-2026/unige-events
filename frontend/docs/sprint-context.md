@@ -1,17 +1,22 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-03
+Dernière mise à jour : 2026-05-07
 
-## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03
+## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03 (corrigé 2026-05-07)
 
 Terminé.
 
 Fonctionnalités livrées :
-- **`reportApi.ts`** (`src/services/reportApi.ts`) : `reportEvent(eventId, { reason })` → `POST /api/events/{id}/report`. Contrat OpenAPI aligné (`ReportRequest.reason: string`).
-- **`useReport`** (`src/hooks/useReport.ts`) : hook gérant l'état `isOpen / submitting` de la modale + appel API. Combine `reason` (select) et `description` (textarea optionnelle) dans le champ `reason` de l'API. Toast succès "Merci pour votre signalement." + fermeture auto. Toast 409 "Vous avez déjà signalé cet événement." Toast générique sur toute autre erreur. Exporte `ReportReason` et `REPORT_REASONS`.
-- **`ReportModal`** (`src/components/event/ReportModal.tsx`) : modale de signalement avec select Motif (obligatoire) et textarea Description (optionnelle). Pattern `FormField` / `Select` / `Textarea` depuis `@/components/utils/FormField`. Bouton "Signaler" désactivé sans motif.
+- **`reportApi.ts`** (`src/services/reportApi.ts`) : `reportEvent(eventId, { reason, description? })` → `POST /api/events/{id}/report`. Contrat OpenAPI aligné (`CreateReportRequest { reason: ReportReason, description?: string ≤ 2000 }`). Le 201 retourne un `Report` complet — la signature reste `Promise<void>` car aucun consommateur n'utilise le corps.
+- **`useReport`** (`src/hooks/useReport.ts`) : hook gérant l'état `isOpen / submitting` de la modale + appel API. Envoie `reason` (constante `SPAM | INAPPROPRIATE | FAKE | OTHER`) et `description` (textarea optionnelle, trimée et omise si vide) **dans des champs séparés**. Toast succès "Merci pour votre signalement." + fermeture auto. Toast 409 "Vous avez déjà signalé cet événement." Toast générique sur toute autre erreur.
+- **`src/types/report.ts`** : map `as const` `REPORT_REASONS` (`{ SPAM: 'Spam', INAPPROPRIATE: 'Contenu inapproprié', FAKE: 'Faux événement', OTHER: 'Autre' }`) + type `ReportReason = keyof typeof REPORT_REASONS`. Single source of truth partagée entre service, hook et modal.
+- **`ReportModal`** (`src/components/event/ReportModal.tsx`) : modale de signalement avec select Motif (obligatoire) et textarea Description (optionnelle). `<option value="SPAM">Spam</option>` etc. : la valeur sur le wire est la constante backend, le label visible reste en français. Pattern `FormField` / `Select` / `Textarea` depuis `@/components/utils/FormField`. Bouton "Signaler" désactivé sans motif.
 - **`EventDetailPage`** : bouton "Signaler cet événement" (icône `Flag`) dans la sidebar, conditionnel `user !== null && !isOrganizer`. `ReportModal` monté conditionnellement via `reportHook.isOpen`.
-- **Tests** : 81 tests verts sur les 4 fichiers touchés (`reportApi.test.ts`, `useReport.test.tsx`, `ReportModal.test.tsx`, `EventDetailPage.test.tsx`). Lint propre.
+- **Tests** : suite frontend 1198/1198 verte (cf. `reportApi.test.ts`, `useReport.test.tsx`, `ReportModal.test.tsx`, `EventDetailPage.test.tsx` — couverture 100% sur les 4 fichiers touchés). Lint propre.
+
+### Correctif 2026-05-07 — contrat backend & fuite de description
+
+L'implémentation initiale envoyait des labels français (`"Spam"`, `"Contenu inapproprié"`…) sur le wire et concaténait la `description` dans le champ `reason` (séparateur `\n\n`), parce que le contrat OpenAPI réel (`CreateReportRequest { reason, description }` avec `ReportReason: enum [SPAM, INAPPROPRIATE, FAKE, OTHER]`) n'avait pas été consulté lors de l'écriture du frontend. Conséquence : `POST /api/events/{id}/report` répondait `400` (Jackson échouait à mapper `"Spam"` vers l'enum) et la `description` saisie par l'utilisateur n'arrivait jamais en base. Le frontend a été aligné sur l'OpenAPI ; les tests qui asseyaient le bug ont été réécrits.
 
 ## Sprint 7 — Fix nom des participants privés sur la page stats organisateur — 2026-05-03
 

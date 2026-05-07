@@ -73,13 +73,13 @@ describe('AttendeesList', () => {
     it('renders summary with the count', () => {
       renderList({ isOrganizer: false, attendingCount: 12, attendeesHook: makeHook() })
 
-      expect(screen.getByText('12 personnes participent')).toBeTruthy()
+      expect(screen.getByText('12 participants')).toBeTruthy()
     })
 
     it('uses singular form for one participant', () => {
       renderList({ isOrganizer: false, attendingCount: 1, attendeesHook: makeHook() })
 
-      expect(screen.getByText('1 personne participe')).toBeTruthy()
+      expect(screen.getByText('1 participant')).toBeTruthy()
     })
 
     it('shows empty placeholder text when attendingCount is 0', () => {
@@ -91,7 +91,7 @@ describe('AttendeesList', () => {
     it('renders avatars and counter as a single inline row (compact)', () => {
       renderList({ isOrganizer: false, attendingCount: 3, attendeesHook: makeHook() })
 
-      const counter = screen.getByText('3 personnes participent')
+      const counter = screen.getByText('3 participants')
       const row = counter.parentElement
       expect(row).not.toBeNull()
       const avatars = row?.querySelector('[aria-hidden="true"]')
@@ -109,7 +109,7 @@ describe('AttendeesList', () => {
         attendeesHook: makeHook({ attendees: [a1, a2] }),
       })
 
-      const attendingTab = screen.getByRole('tab', { name: /Participent/ })
+      const attendingTab = screen.getByRole('tab', { name: /Participants/ })
       const waitTab = screen.getByRole('tab', { name: /Liste d'attente/ })
       expect(attendingTab.textContent).toContain('(1)')
       expect(waitTab.textContent).toContain('(1)')
@@ -218,7 +218,7 @@ describe('AttendeesList', () => {
       })
 
       expect(screen.queryByRole('tab')).toBeNull()
-      expect(screen.getByText('7 personnes participent')).toBeTruthy()
+      expect(screen.getByText('7 participants')).toBeTruthy()
     })
   })
 })

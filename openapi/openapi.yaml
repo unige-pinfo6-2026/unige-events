@@ -22,6 +22,37 @@ components:
       scheme: bearer
       bearerFormat: JWT   # Auth0 / OIDC — validé par quarkus-oidc
 
+  headers:
+    RetryAfter:
+      description: |
+        Nombre de secondes à attendre avant de retenter la requête (cf. RFC 6585 §4).
+        Présent sur les réponses 429 émises par les endpoints de mutation rate-limités
+        (voir ticket SECURITY-pentest 4.14). La valeur est toujours **>= 1** :
+        l'implémentation arrondit le reste de la fenêtre vers le haut au moins à 1
+        seconde — un client qui retente immédiatement n'a aucune chance d'être admis.
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 45
+
+  responses:
+    RateLimited:
+      description: |
+        Trop de requêtes — la limite par utilisateur sur cet endpoint a été dépassée
+        (cf. pentest 2026-04-17 finding 4.14, ticket #98). L'en-tête `Retry-After`
+        indique le nombre de secondes à attendre avant de retenter.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          example:
+            error: rate_limited
+            message: "Too many requests. Retry in 45 seconds."
+
   schemas:
     # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
 
@@ -212,6 +243,20 @@ components:
           type: boolean
           default: false
           description: Indicates whether the event spans the entire day
+        featured:
+          type: boolean
+          default: false
+          description: Whether this event has been manually boosted by an admin via PATCH /admin/events/{id}/feature.
+        featuredAt:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+          description: |
+            Timestamp set when an admin features the event via PATCH /admin/events/{id}/feature.
+            Idempotent — calling /feature again on an already-featured event preserves the original timestamp.
+            Cleared (set to null) by /unfeature. Used internally to sort phase-1 results (featuredAt DESC)
+            in GET /events/featured — not exposed as a sort key in the public API.
         attendingCount:
           type: integer
           format: int64
@@ -910,6 +955,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/image:
     post:
@@ -941,17 +988,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/banner:
     post:
@@ -982,11 +1036,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -999,6 +1058,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       summary: Suppression de la bannière de profil
       description: Remet bannerUrl à null et retourne le profil complet mis à jour.
@@ -1204,6 +1265,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /users/me/participations:
+    get:
+      summary: Mes événements (côté participant)
+      description: |
+        Retourne les événements auxquels l'utilisateur connecté est inscrit, enrichis
+        comme les autres listes (counts, availableSpots) pour permettre au frontend de
+        rendre des EventCards sans N+1.
+
+        Filtres optionnels :
+        - `status` : statut de l'inscription (`ATTENDING` ou `WAITLISTED`).
+        - `timeframe` : position temporelle de l'événement par rapport à `now()`.
+          `upcoming` retourne les événements dont `endDate >= now` (un événement en
+          cours est `upcoming`), `past` retourne les événements dont `endDate < now`.
+          Comparaison **insensible à la casse** (`upcoming`, `UPCOMING`, `Upcoming`).
+
+        Sans filtre, retourne toutes les inscriptions du caller, tous statuts et
+        toutes périodes confondus.
+      operationId: getMyParticipationEvents
+      tags: [users, attendance, events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filtre optionnel sur le statut de l'inscription. Omettre pour récupérer toutes les inscriptions.
+          schema:
+            $ref: '#/components/schemas/AttendanceStatus'
+        - name: timeframe
+          in: query
+          description: |
+            Filtre optionnel sur la période. `upcoming` = événements en cours ou à
+            venir (`endDate >= now`). `past` = événements terminés (`endDate < now`).
+            Insensible à la casse. Omettre pour ne pas filtrer.
+          schema:
+            type: string
+            enum: [upcoming, past]
+      responses:
+        '200':
+          description: Liste des événements (tableau vide si aucun — jamais 404)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Valeur de `timeframe` invalide (n'est ni `upcoming` ni `past`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /users/me/events:
     get:
       summary: Mes événements créés (tous statuts)
@@ -1356,6 +1481,11 @@ paths:
             paramètre `faculty` — si les deux sont fournis, `facultyNone` a priorité.
           schema:
             type: boolean
+        - name: featured
+          in: query
+          description: Si true, retourne uniquement les événements actuellement mis en avant (featured=true). Utile pour le dashboard admin.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -1412,6 +1542,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/search:
     get:
@@ -1599,6 +1731,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Supprimer définitivement un événement annulé (hard-delete)
@@ -1701,6 +1835,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/restore:
     patch:
@@ -1751,6 +1887,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/publish:
     patch:
@@ -1823,6 +1961,8 @@ paths:
                     example:
                       - La date de l'événement doit être dans le futur
                       - Le titre est obligatoire
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/image:
     post:
@@ -1860,11 +2000,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: Fichier invalide (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1873,6 +2018,125 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Appelant ni créateur, ni co-organisateur ACCEPTED, ni ADMIN (cf. SCRUM-136 cascade)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /events/featured:
+    get:
+      summary: Événements mis en avant et populaires
+      description: |
+        Retourne jusqu'à `limit` événements via une logique deux phases.
+        Phase 1 : événements avec `featured=true`, statut PUBLISHED et `endDate >= now()`, triés par `featuredAt DESC` (critère interne — `featuredAt` est exposé dans le schéma Event en lecture seule).
+        Phase 2 : complète les slots restants avec les événements non-featured PUBLISHED à venir,
+        triés par score de popularité (`attendingCount + favoriteCount`) DESC. Les IDs de la phase 1
+        sont exclus de la phase 2.
+      operationId: getFeaturedEvents
+      tags: [events]
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          description: Nombre maximum d'événements retournés (min 1, max 12).
+          schema:
+            type: integer
+            default: 6
+            minimum: 1
+            maximum: 12
+      responses:
+        '200':
+          description: Liste des événements mis en avant / populaires
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Paramètre limit hors bornes (< 1 ou > 12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/events/{id}/feature:
+    patch:
+      summary: Mettre en avant un événement (admin uniquement)
+      operationId: featureEvent
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement mis à jour avec featured=true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /admin/events/{id}/unfeature:
+    patch:
+      summary: Retirer la mise en avant d'un événement (admin uniquement)
+      operationId: unfeatureEvent
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Événement mis à jour avec featured=false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Rôle ADMIN requis
           content:
             application/json:
               schema:
@@ -1957,6 +2221,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Se désinscrire d'un événement
@@ -2370,6 +2636,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Retirer un événement des favoris
@@ -2769,31 +3037,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  /admin/events/{id}/feature:
-    put:
-      summary: Mettre en avant un événement — admin uniquement
-      operationId: featureEvent
-      tags: [admin]
-      security:
-        - BearerAuth: []
-      # TODO: Sprint 6
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Événement mis en avant
-        '403':
-          description: Non autorisé
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-
-  # TODO: Sprint 7
+  # TODO: Sprint 7 (notifications)
   /notifications:
     get:
       summary: Notifications de l'utilisateur connecté

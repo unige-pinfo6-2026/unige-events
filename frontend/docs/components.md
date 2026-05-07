@@ -18,11 +18,13 @@
 | /my-events/participations | MyParticipationsPage | fait (stub backend) |
 | /my-events/publications | MyPublicationsPage | fait |
 | /events/:id/stats | EventStatsPage | fait (S6) |
+| /legal/privacy | PrivacyPage | fait |
+| /legal/terms | TermsPage | fait |
 
 ### LandingPage
 
-- Page publique d'accueil avec Hero, section Events, Features, FAQ et GetStarted.
-- Affiche les événements publiés via EventCards (composant réutilisable).
+- Page publique d'accueil avec Hero, section "À la une", Features, FAQ et GetStarted.
+- Section "À la une" rendue par `FeaturedEventsSection` (jusqu'à 6 événements curated par le backend).
 - Structure SectionWrapper/SectionHeader partagée entre toutes les sections.
 
 ### EventDetailPage
@@ -93,6 +95,26 @@
 - Barre de progression taux de remplissage : `attendingCount / capacity * 100`.
 - Section collapsible "Voir les participants" : `GET /events/{id}/attendees` → liste avec avatars et noms (fetch users en parallèle via `getUserById`).
 - Skeleton `event-stats` généré par `skeleton/generate.mjs` (3 breakpoints container width : 343 / 720 / 960). Le fixture reflète exactement le layout : bouton "Rafraîchir" en haut, grille KPI (3 cols ≥sm, stackée mobile), card chart `h-[260px]`, capacity bar `h-[100px]`, attendees toggle `h-12`.
+
+### PrivacyPage
+
+- Route `/legal/privacy`, publique.
+- Page statique de lecture (SectionWrapper size `md` = `max-w-3xl`, BlobsSubtle).
+- Contenu : politique de confidentialité inspirée du cadre légal UNIGE (LIPAD, RIPAD, RGPD).
+- Sections : cadre légal, responsable du traitement, données collectées, finalités, base légale, principes, partage, cookies, durée de conservation, droits, sécurité, contact.
+- Lien interne vers `/profile/me/edit` pour l'exercice du droit de rectification.
+- Mention explicite du caractère académique (projet PINFO).
+- Composé via les helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` partagés (`@/components/legal/`) — chaque rubrique = un `<LegalSection title="...">` avec son contenu typé.
+
+### TermsPage
+
+- Route `/legal/terms`, publique.
+- Page statique de lecture (même layout que PrivacyPage).
+- Contenu : conditions générales d'utilisation de la plateforme.
+- Sections : objet, description de la plateforme, inscription, contenu utilisateur, modération, propriété intellectuelle, disponibilité, limitation de responsabilité, données personnelles (renvoi vers `/legal/privacy`), modification des conditions, droit applicable, contact.
+- Lien externe vers le dépôt GitHub (open source).
+- Mention explicite du caractère académique (projet PINFO).
+- Réutilise les mêmes helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` que `PrivacyPage`.
 
 ### CreateEventPage
 
@@ -224,7 +246,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Composant réutilisable qui orchestre `useEvents()` et affiche la grille d'`EventCard`.
 - Gère les états loading, error et empty de façon autonome.
 - Inclut un bouton "Charger plus" quand `hasMore` est vrai.
-- Utilisé dans `LandingPage` (section Events).
+- Utilisé dans `EventsPage` (route `/events`). N'est plus consommé par `LandingPage` depuis SCRUM-73 — la section Events de la landing utilise désormais `FeaturedEventsSection`.
+
+### FeaturedEventsSection
+
+- Section "À la une" de la `LandingPage` (SCRUM-73). Source : `useFeaturedEvents()` → `GET /api/events/featured?limit=6`.
+- Backend (SCRUM-95) renvoie une liste **curated** : phase 1 = événements `featured=true` PUBLISHED triés par `featuredAt DESC`, phase 2 = remplit les slots restants avec les PUBLISHED à venir triés par popularité (`attendingCount + favoriteCount` DESC). La liste est déjà ordonnée et capée à 6 — pas de pagination, pas de "Charger plus".
+- Réutilise `EventCard` et la même grille `auto-fit` que l'ancienne section (`grid-cols-[repeat(auto-fit,minmax(280px,320px))]`) → 3 colonnes × 2 lignes en desktop.
+- Badge "✨ À la une" (gradient accent → pink) overlayé en `top-center` uniquement sur les cards où `event.featured === true`. Pattern wrapper `relative` + `<span absolute>` autour de `EventCard` — n'introduit pas de prop sur `EventCard` puisque le badge ne sert qu'ici.
+- États : skeleton `event-cards` (déjà calibré pour 6 bones via `autoFitLayout(cw, 6)` dans `skeleton/generate.mjs`) en loading ; `InfoMessage type="error"` en cas d'erreur ; **section entièrement masquée (return null)** si la liste est vide — pas de header, pas d'espace résiduel.
 
 ### CategorySelect
 
@@ -288,7 +318,7 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Props : `eventId`, `initialAttendingCount`, `initialInterestedCount`, `initialStatus`.
 - Gère les mises à jour optimistes via `useAttendance` : clic → état local mis à jour immédiatement, rollback en cas d'erreur.
 - Bouton ATTENDING désactivé avec tooltip "Événement complet" quand `isFull === true` et l'utilisateur n'est pas déjà ATTENDING.
-- Affiche un compteur live : "X personnes participent · Y intéressées".
+- Affiche un compteur live : "X participants · Y intéressé(e)s".
 - Affiche un message d'erreur inline en cas d'erreur non-409.
 
 ### AttendeesList
@@ -420,8 +450,8 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 - `src/hooks/useReport.ts` — gère l'état de la modale de signalement et l'appel API.
 - Retourne : `{ isOpen, submitting, open, close, submit }`.
-- `submit(reason, description?)` : appelle `POST /events/{id}/report`. Si description fournie, la combine dans le champ `reason` (séparateur `\n\n`). Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
-- Exporte aussi `ReportReason` (union type) et `REPORT_REASONS` (tableau readonly).
+- `submit(reason, description?)` : appelle `POST /events/{id}/report` avec un body `{ reason, description? }` (les deux champs sont envoyés séparément, conformément à `CreateReportRequest` dans `openapi.yaml`). `description` est trimée et omise si vide. Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
+- Le type `ReportReason` et la map `REPORT_REASONS` (clés = constantes backend `SPAM | INAPPROPRIATE | FAKE | OTHER`, valeurs = libellés français) vivent dans `src/types/report.ts` — pattern `as const` + `keyof typeof` (cf. `src/types/faculty.ts`).
 
 ### useImageCropFlow
 
@@ -436,6 +466,12 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 - Charge les événements publiés par pages de 12.
 - Retourne events, loading, error, hasMore et loadMore.
+
+### useFeaturedEvents
+
+- Charge les événements "À la une" via `GET /api/events/featured?limit=6` (SCRUM-73).
+- Liste curated par le backend (featured admin + popularité). Pas de pagination, pas de loadMore.
+- Retourne `{ events, loading, error }`. Consommé par `FeaturedEventsSection`.
 
 ### useEvent
 
@@ -536,7 +572,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### reportApi.ts
 
-- `reportEvent(eventId, { reason })` : `POST /api/events/{id}/report` — signale un événement. Retourne `void`. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement.
+- `reportEvent(eventId, { reason, description? })` : `POST /api/events/{id}/report` — signale un événement avec un motif catégoriel obligatoire (`reason: ReportReason` = `SPAM | INAPPROPRIATE | FAKE | OTHER`) et un texte libre optionnel (`description: string`, max 2000 chars). Conforme au schéma `CreateReportRequest` d'`openapi.yaml`. Le backend répond `201` avec un `Report` complet ; le service ignore intentionnellement le corps (`Promise<void>`) car aucun consommateur n'en a besoin pour l'instant. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement, 422 si l'utilisateur en est l'organisateur, 400 si le motif est invalide.
 
 ### icsGenerator.ts
 
@@ -552,6 +588,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - uploadEventImage(id, file) : upload de bannière et retour de l'événement mis à jour.
 - deleteEvent(id) : annulation soft-delete d'un événement.
 - getMyDrafts(organizerId, limit = 5) : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
+- getFeatured(limit) : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
 - getAll(params) : liste paginée d’événements.
 - getById(id) : détail d’un événement.
 - createEvent(data) : création d’événement.

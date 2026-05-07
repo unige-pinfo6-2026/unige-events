@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Flag, X } from 'lucide-react'
 import FormField, { Select, Textarea } from '@/components/utils/FormField'
-import { REPORT_REASONS } from '@/hooks/useReport'
-import type { ReportReason } from '@/hooks/useReport'
+import { REPORT_REASONS } from '@/types/report'
+import type { ReportReason } from '@/types/report'
 
 interface ReportModalProps {
   onClose: () => void
@@ -50,8 +50,8 @@ export default function ReportModal({ onClose, onSubmit, submitting }: Readonly<
               disabled={submitting}
             >
               <option value="">Sélectionner un motif</option>
-              {REPORT_REASONS.map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {Object.entries(REPORT_REASONS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
               ))}
             </Select>
           </FormField>
