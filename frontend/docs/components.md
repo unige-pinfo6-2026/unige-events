@@ -450,8 +450,8 @@ Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : édit
 
 - `src/hooks/useReport.ts` — gère l'état de la modale de signalement et l'appel API.
 - Retourne : `{ isOpen, submitting, open, close, submit }`.
-- `submit(reason, description?)` : appelle `POST /events/{id}/report`. Si description fournie, la combine dans le champ `reason` (séparateur `\n\n`). Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
-- Exporte aussi `ReportReason` (union type) et `REPORT_REASONS` (tableau readonly).
+- `submit(reason, description?)` : appelle `POST /events/{id}/report` avec un body `{ reason, description? }` (les deux champs sont envoyés séparément, conformément à `CreateReportRequest` dans `openapi.yaml`). `description` est trimée et omise si vide. Toast succès "Merci pour votre signalement." + fermeture auto. Toast erreur "Vous avez déjà signalé cet événement." sur 409, toast générique sinon.
+- Le type `ReportReason` et la map `REPORT_REASONS` (clés = constantes backend `SPAM | INAPPROPRIATE | FAKE | OTHER`, valeurs = libellés français) vivent dans `src/types/report.ts` — pattern `as const` + `keyof typeof` (cf. `src/types/faculty.ts`).
 
 ### useImageCropFlow
 
@@ -572,7 +572,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### reportApi.ts
 
-- `reportEvent(eventId, { reason })` : `POST /api/events/{id}/report` — signale un événement. Retourne `void`. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement.
+- `reportEvent(eventId, { reason, description? })` : `POST /api/events/{id}/report` — signale un événement avec un motif catégoriel obligatoire (`reason: ReportReason` = `SPAM | INAPPROPRIATE | FAKE | OTHER`) et un texte libre optionnel (`description: string`, max 2000 chars). Conforme au schéma `CreateReportRequest` d'`openapi.yaml`. Le backend répond `201` avec un `Report` complet ; le service ignore intentionnellement le corps (`Promise<void>`) car aucun consommateur n'en a besoin pour l'instant. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement, 422 si l'utilisateur en est l'organisateur, 400 si le motif est invalide.
 
 ### icsGenerator.ts
 
