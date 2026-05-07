@@ -8,6 +8,7 @@ import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -78,9 +79,33 @@ public class FollowService {
         row.followerId = followerId;
         row.followedId = followedId;
         row.status = followed.profilePublic ? FollowStatus.ACCEPTED : FollowStatus.PENDING;
-        row.persist();
-        entityManager.flush();
+        try {
+            row.persist();
+            entityManager.flush();
+        } catch (PersistenceException exception) {
+            // Race-case: another concurrent request inserted the same (followerId,
+            // followedId) row between our pre-check and our flush, tripping the
+            // uq_follow_follower_followed unique constraint. Translate to 409
+            // already_following so the caller sees a coherent envelope rather than
+            // a generic 500 internal_error.
+            if (isUniqueFollowConflict(exception)) {
+                throw conflict("already_following", "You are already following this user.");
+            }
+            throw exception;
+        }
         return row;
+    }
+
+    private static boolean isUniqueFollowConflict(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains("uq_follow_follower_followed")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @Transactional

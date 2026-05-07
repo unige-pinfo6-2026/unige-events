@@ -83,7 +83,7 @@ public class FollowResource {
         userService.getPublicProfile(userId, auth0Id);
 
         List<Follow> rows = followService.getFollowers(userId, page, size);
-        return resolveUsers(rows.stream().map(f -> f.followerId).toList());
+        return resolveUsers(rows.stream().map(f -> f.followerId).toList(), auth0Id);
     }
 
     @GET
@@ -97,7 +97,7 @@ public class FollowResource {
         userService.getPublicProfile(userId, auth0Id);
 
         List<Follow> rows = followService.getFollowing(userId, page, size);
-        return resolveUsers(rows.stream().map(f -> f.followedId).toList());
+        return resolveUsers(rows.stream().map(f -> f.followedId).toList(), auth0Id);
     }
 
     @GET
@@ -113,11 +113,20 @@ public class FollowResource {
     }
 
     /**
-     * Résout en bulk les `User` correspondant aux UUIDs reçus (1 seule requête DB),
-     * puis projette via {@code UserPublicResponse.from(User)} en préservant l'ordre
-     * d'arrivée. Pattern aligné sur AttendanceService.getAttendees.
+     * Résout en bulk les `User` correspondant aux UUIDs reçus (1 seule requête DB)
+     * et les projette en préservant l'ordre d'arrivée. Chaque item respecte la même
+     * règle de visibilité que `GET /users/{id}` (ISSUE-93) : un user listé avec
+     * {@code profilePublic = false} est projeté via {@code fromAnonymous(...)} pour
+     * un caller non-propriétaire — empêche un attaquant d'extraire les champs
+     * sensibles (bio, faculty, bannerUrl…) d'un profil privé via le listing public
+     * des followers d'un tiers.
+     *
+     * <p>Le caller (s'il apparaît dans la liste) voit toujours son propre profil
+     * complet — symétrique avec le self-case de UserService.getPublicProfile.
+     *
+     * <p>Pattern aligné sur AttendanceService.getAttendees.
      */
-    private List<UserPublicResponse> resolveUsers(List<UUID> ids) {
+    private List<UserPublicResponse> resolveUsers(List<UUID> ids, String callerAuth0Id) {
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -127,7 +136,15 @@ public class FollowResource {
         return ids.stream()
                 .map(byId::get)
                 .filter(Objects::nonNull)
-                .map(UserPublicResponse::from)
+                .map(u -> projectListItem(u, callerAuth0Id))
                 .toList();
+    }
+
+    private UserPublicResponse projectListItem(User user, String callerAuth0Id) {
+        boolean isSelf = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
+        if (user.profilePublic || isSelf) {
+            return UserPublicResponse.from(user);
+        }
+        return UserPublicResponse.fromAnonymous(user);
     }
 }

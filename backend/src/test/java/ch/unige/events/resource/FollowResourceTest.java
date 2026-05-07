@@ -151,7 +151,7 @@ class FollowResourceTest {
     @Test
     @TestSecurity(user = "auth0|bob")
     void getFollowers_publicProfile_returns200WithList() {
-        // Note: the projected list is empty here because UserResource.resolveUsers
+        // Note: the projected list is empty here because FollowResource.resolveUsers
         // calls the real User.list("id in ?1", ids) which doesn't see in-memory mock
         // seeds. Full content projection is covered by FollowServiceCoverageTest
         // against a real DevServices PostgreSQL instance.

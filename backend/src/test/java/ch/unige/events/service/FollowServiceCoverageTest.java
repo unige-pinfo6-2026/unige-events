@@ -416,6 +416,24 @@ class FollowServiceCoverageTest {
                 () -> followService.getPendingRequests("auth0|ghost-pr", 0, 20));
     }
 
+    // ── follow() race-case unique constraint translation ──────────────────────
+
+    @Test
+    @TestTransaction
+    void follow_uniqueConstraintViolation_translatesTo409() {
+        // Sentinel: simulate the race-case where the pre-check passes but the
+        // unique constraint trips at flush. We pre-seed the row directly so the
+        // applicative pre-check would ALSO catch it, but combined with a custom
+        // path: persist a duplicate manually, bypassing the service check.
+        User alice = persistUser("auth0|alice-race", "alice-race@example.com", true);
+        User bob = persistUser("auth0|bob-race", "bob-race@example.com", true);
+        persistFollow(alice.id, bob.id, FollowStatus.ACCEPTED);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> followService.follow("auth0|alice-race", bob.id));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {
