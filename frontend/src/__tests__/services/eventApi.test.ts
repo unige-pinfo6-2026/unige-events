@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, getMyDrafts, getMyEvents, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -175,5 +175,14 @@ describe('eventApi', () => {
 
     expect(mockApiGet).toHaveBeenCalledWith('/users/me/events', { params: { page: 0, size: 50 } })
     expect(response).toEqual(events)
+  })
+
+  it('getFeatured calls /events/featured with limit param', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+    const response = await getFeatured(6)
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events/featured', { params: { limit: 6 } })
+    expect(response).toEqual([sampleEvent])
   })
 })

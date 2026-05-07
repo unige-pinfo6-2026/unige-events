@@ -19,6 +19,8 @@ export type Event = {
   interestedCount?: number | null
   allDay: boolean
   attendingCount: number
+  featured?: boolean
+  featuredAt?: string | null
   websiteUrl?: string | null
   contactEmail?: string | null
   registrationDeadline?: string | null

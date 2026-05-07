@@ -7,7 +7,7 @@ import FacultyMarquee from '@/components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
 import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
-import EventCards from '@/components/event/EventCards'
+import FeaturedEventsSection from '@/components/event/FeaturedEventsSection'
 
 const Hero = () => {
   return (
@@ -29,19 +29,6 @@ const Hero = () => {
         <ButtonPrimary size="lg"><Link to="/events">Explorer les derniers évènements</Link></ButtonPrimary>
         <ButtonSecondary size="lg"><Link to="/events/new">Créer un évènement</Link></ButtonSecondary>
       </ButtonsWrapper>
-    </SectionWrapper>
-  )
-}
-
-function Events() {
-  return (
-    <SectionWrapper id="events" background={<BlobsSubtle />}>
-      <SectionHeader heading="xl"
-        title="Événements à venir"
-        subtitle="Découvrez ce qui se passe sur le campus : conférences, soirées, sports et bien plus."
-      />
-
-      <EventCards />
     </SectionWrapper>
   )
 }
@@ -179,7 +166,7 @@ export default function LandingPage() {
   return (
     <div>
       <Hero />
-      <Events />
+      <FeaturedEventsSection />
       <Features />
       <Faq />
       <GetStarted />

@@ -1265,6 +1265,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /users/me/participations:
+    get:
+      summary: Mes événements (côté participant)
+      description: |
+        Retourne les événements auxquels l'utilisateur connecté est inscrit, enrichis
+        comme les autres listes (counts, availableSpots) pour permettre au frontend de
+        rendre des EventCards sans N+1.
+
+        Filtres optionnels :
+        - `status` : statut de l'inscription (`ATTENDING` ou `WAITLISTED`).
+        - `timeframe` : position temporelle de l'événement par rapport à `now()`.
+          `upcoming` retourne les événements dont `endDate >= now` (un événement en
+          cours est `upcoming`), `past` retourne les événements dont `endDate < now`.
+          Comparaison **insensible à la casse** (`upcoming`, `UPCOMING`, `Upcoming`).
+
+        Sans filtre, retourne toutes les inscriptions du caller, tous statuts et
+        toutes périodes confondus.
+      operationId: getMyParticipationEvents
+      tags: [users, attendance, events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filtre optionnel sur le statut de l'inscription. Omettre pour récupérer toutes les inscriptions.
+          schema:
+            $ref: '#/components/schemas/AttendanceStatus'
+        - name: timeframe
+          in: query
+          description: |
+            Filtre optionnel sur la période. `upcoming` = événements en cours ou à
+            venir (`endDate >= now`). `past` = événements terminés (`endDate < now`).
+            Insensible à la casse. Omettre pour ne pas filtrer.
+          schema:
+            type: string
+            enum: [upcoming, past]
+      responses:
+        '200':
+          description: Liste des événements (tableau vide si aucun — jamais 404)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Valeur de `timeframe` invalide (n'est ni `upcoming` ni `past`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /users/me/events:
     get:
       summary: Mes événements créés (tous statuts)
@@ -1999,6 +2063,10 @@ paths:
                   $ref: '#/components/schemas/Event'
         '400':
           description: Paramètre limit hors bornes (< 1 ou > 12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/feature:
     patch:
@@ -2023,10 +2091,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/unfeature:
     patch:
@@ -2051,10 +2131,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /events/{id}/attend:
     post:
