@@ -1,16 +1,9 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { reportEvent } from '@/services/reportApi'
+import type { ReportEventRequest } from '@/services/reportApi'
+import type { ReportReason } from '@/types/report'
 import { useToast } from '@/hooks/useToast'
-
-export type ReportReason = 'Spam' | 'Contenu inapproprié' | 'Faux événement' | 'Autre'
-
-export const REPORT_REASONS: readonly ReportReason[] = [
-  'Spam',
-  'Contenu inapproprié',
-  'Faux événement',
-  'Autre',
-] as const
 
 export interface UseReportReturn {
   isOpen: boolean
@@ -31,10 +24,9 @@ export function useReport(eventId: number): UseReportReturn {
   async function submit(reason: ReportReason, description?: string): Promise<void> {
     setSubmitting(true)
     try {
-      const fullReason = description?.trim()
-        ? `${reason}\n\n${description.trim()}`
-        : reason
-      await reportEvent(eventId, { reason: fullReason })
+      const trimmed = description?.trim()
+      const body: ReportEventRequest = trimmed ? { reason, description: trimmed } : { reason }
+      await reportEvent(eventId, body)
       toast.showToast('success', 'Merci pour votre signalement.')
       setIsOpen(false)
     } catch (err: unknown) {
