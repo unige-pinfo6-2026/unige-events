@@ -198,7 +198,7 @@ function safeExternalHref(value: string): string | null {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
@@ -250,10 +250,10 @@ export default function EventDetailPage() {
   useEffect(() => {
     if (!event || !user) return
     if (event.status !== 'DRAFT') return
-    if (user.admin) return
+    if (isAdmin) return
     if (user.id !== event.creatorId) return
     navigate(`/events/${event.id}/edit`, { replace: true })
-  }, [event, user, navigate])
+  }, [event, user, isAdmin, navigate])
 
   if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
 

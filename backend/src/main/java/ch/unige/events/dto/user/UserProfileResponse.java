@@ -20,10 +20,9 @@ public record UserProfileResponse(
     String avatarUrl,
     String bannerUrl,
     boolean profilePublic,
-    @Schema(readOnly = true) boolean admin,
     @Schema(readOnly = true) LocalDateTime createdAt
 ) {
-    public static UserProfileResponse from(User user, boolean admin) {
+    public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
                 user.id,
                 user.auth0Id,
@@ -36,7 +35,6 @@ public record UserProfileResponse(
                 user.avatarUrl,
                 user.bannerUrl,
                 user.profilePublic,
-                admin,
                 user.createdAt
         );
     }

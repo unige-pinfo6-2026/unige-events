@@ -936,7 +936,7 @@ describe('EventDetailPage', () => {
     const draftEvent = { ...mockEvent, status: 'DRAFT' as const }
 
     it('redirects the creator from /events/:id to /events/:id/edit when status is DRAFT', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: false } })
+      mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: false })
       mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 
@@ -946,7 +946,7 @@ describe('EventDetailPage', () => {
     })
 
     it('does not redirect the creator when the event is PUBLISHED', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: false } })
+      mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: false })
       mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 
@@ -956,7 +956,7 @@ describe('EventDetailPage', () => {
     })
 
     it('does not redirect an admin viewing a DRAFT they created', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, admin: true } })
+      mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: true })
       mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 
@@ -966,7 +966,7 @@ describe('EventDetailPage', () => {
     })
 
     it('does not redirect a non-creator non-admin viewing a DRAFT', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'user-2', admin: false } })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'user-2' }, isAdmin: false })
       mockUseEvent.mockReturnValue({ event: draftEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 

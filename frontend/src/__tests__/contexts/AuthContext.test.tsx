@@ -25,7 +25,6 @@ const mockUser = {
   displayName: 'Jean Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',
-  admin: false,
 }
 
 function TestConsumer({ loginReturnTo }: { loginReturnTo?: string } = {}) {
@@ -34,6 +33,7 @@ function TestConsumer({ loginReturnTo }: { loginReturnTo?: string } = {}) {
     <div>
       <span data-testid="user">{ctx?.user?.displayName ?? 'null'}</span>
       <span data-testid="loading">{String(ctx?.isLoading)}</span>
+      <span data-testid="isAdmin">{String(ctx?.isAdmin)}</span>
       <button onClick={() => ctx?.login(loginReturnTo)}>login</button>
       <button onClick={() => ctx?.logout()}>logout</button>
       <button onClick={() => ctx?.updateUser({ ...mockUser, displayName: 'Updated' })}>update</button>
@@ -222,5 +222,50 @@ describe('AuthContext', () => {
     renderProvider()
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
     expect(screen.getByTestId('user').textContent).toBe('null')
+  })
+
+  // SCRUM-94 — la claim Auth0 est l'unique source de vérité pour le rôle ADMIN.
+  it('exposes isAdmin=true when the Auth0 user has the ADMIN role claim', async () => {
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { sub: 'auth0|admin', 'https://quarkus-security.com/roles': ['ADMIN'] },
+      loginWithRedirect: vi.fn(),
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn().mockResolvedValue('token'),
+    })
+    mockGetMe.mockResolvedValue(mockUser)
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('isAdmin').textContent).toBe('true'))
+  })
+
+  it('exposes isAdmin=false when the claim is missing or empty', async () => {
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { sub: 'auth0|user' },
+      loginWithRedirect: vi.fn(),
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn().mockResolvedValue('token'),
+    })
+    mockGetMe.mockResolvedValue(mockUser)
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('Jean Dupont'))
+    expect(screen.getByTestId('isAdmin').textContent).toBe('false')
+  })
+
+  it('exposes isAdmin=false when the claim is not an array (defensive)', async () => {
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { sub: 'auth0|user', 'https://quarkus-security.com/roles': 'ADMIN' },
+      loginWithRedirect: vi.fn(),
+      logout: vi.fn(),
+      getAccessTokenSilently: vi.fn().mockResolvedValue('token'),
+    })
+    mockGetMe.mockResolvedValue(mockUser)
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('Jean Dupont'))
+    expect(screen.getByTestId('isAdmin').textContent).toBe('false')
   })
 })

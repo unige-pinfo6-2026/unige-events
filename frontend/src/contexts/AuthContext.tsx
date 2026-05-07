@@ -10,11 +10,21 @@ import { useToast } from '@/hooks/useToast'
 export interface AuthContextValue {
   user: User | null
   isAuthenticated: boolean
+  isAdmin: boolean
   isLoading: boolean
   error: string | null
   login: (returnTo?: string) => void
   logout: () => void
   updateUser: (updated: User) => void
+}
+
+// SCRUM-94: le rôle ADMIN vit uniquement dans la claim Auth0, pas dans le payload profil.
+const ROLES_CLAIM = 'https://quarkus-security.com/roles'
+
+function readRolesFromAuth0User(auth0User: unknown): string[] {
+  if (!auth0User || typeof auth0User !== 'object') return []
+  const claim = (auth0User as Record<string, unknown>)[ROLES_CLAIM]
+  return Array.isArray(claim) ? claim.filter((r): r is string => typeof r === 'string') : []
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -91,9 +101,14 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       .finally(() => setLoading(false))
   }, [isAuthenticated, auth0IsLoading, auth0User, getAccessTokenSilently, auth0Logout, showToast])
 
+  const isAdmin = useMemo(
+    () => readRolesFromAuth0User(auth0User).includes('ADMIN'),
+    [auth0User],
+  )
+
   const value = useMemo(
-    () => ({ user, isAuthenticated, isLoading: auth0IsLoading || loading, error, login, logout, updateUser }),
-    [user, isAuthenticated, auth0IsLoading, loading, error, login, logout, updateUser],
+    () => ({ user, isAuthenticated, isAdmin, isLoading: auth0IsLoading || loading, error, login, logout, updateUser }),
+    [user, isAuthenticated, isAdmin, auth0IsLoading, loading, error, login, logout, updateUser],
   )
 
   return (

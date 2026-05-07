@@ -24,7 +24,6 @@ export type User = {
   bannerUrl?: string | null
   username?: string
   profilePublic: boolean
-  admin: boolean
   createdAt: string
 }
 

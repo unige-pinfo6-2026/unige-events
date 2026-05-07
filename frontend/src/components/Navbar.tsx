@@ -12,7 +12,6 @@ import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
 import { Calendar, ChevronDown, LayoutDashboard, LayoutGrid, LogOut, Menu, Search, Shield, SquarePlus, Star, Ticket, User, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { User as UserType } from '@/types/user'
 
 // ─── Types & données ──────────────────────────────────────────────────────────
 
@@ -45,7 +44,7 @@ const userMenuItems: NavItem[] = [
   { label: 'Administration', to: '/admin',      icon: Shield, adminOnly: true },
 ]
 
-const visibleUserMenu = (user: UserType) => userMenuItems.filter(i => !i.adminOnly || user.admin)
+const visibleUserMenu = (isAdmin: boolean) => userMenuItems.filter(i => !i.adminOnly || isAdmin)
 
 // ─── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -149,7 +148,7 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
 }
 
 function DesktopNav() {
-  const { user, login, logout, isLoading } = useAuth()
+  const { user, isAdmin, login, logout, isLoading } = useAuth()
 
   return (
     <div className="hidden lg:flex items-center gap-3">
@@ -164,7 +163,7 @@ function DesktopNav() {
       {!isLoading && (user
         ? (
           <Dropdown align="right" trigger={<UserIdentity user={user} />}>
-            {visibleUserMenu(user).map(item => (
+            {visibleUserMenu(isAdmin).map(item => (
               <UserDropdownItem key={item.to} item={item} />
             ))}
             <div className="border-t border-border" />
@@ -223,7 +222,7 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
 }
 
 function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
-  const { user, login, logout, isLoading } = useAuth()
+  const { user, isAdmin, login, logout, isLoading } = useAuth()
 
   return createPortal(
     <div className="relative lg:hidden">
@@ -258,7 +257,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
         <div className="flex flex-col gap-0.5 p-4 shrink-0">
           {user ? (
             <>
-              {visibleUserMenu(user).map(item => (
+              {visibleUserMenu(isAdmin).map(item => (
                 <MobileNavItem key={item.to} link={item} onClose={onClose} />
               ))}
               <LogoutButton onClick={() => { onClose(); logout() }} variant="sidebar" />

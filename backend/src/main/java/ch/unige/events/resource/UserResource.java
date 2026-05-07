@@ -117,7 +117,7 @@ public class UserResource {
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
         User user = userService.getOrCreateUser(auth0Id, jwt);
-        return UserProfileResponse.from(user, identity.hasRole("ADMIN"));
+        return UserProfileResponse.from(user);
     }
 
     /**
@@ -220,7 +220,7 @@ public class UserResource {
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
-        return Response.ok(UserProfileResponse.from(updated, identity.hasRole("ADMIN"))).build();
+        return Response.ok(UserProfileResponse.from(updated)).build();
     }
 
     /**
@@ -234,7 +234,7 @@ public class UserResource {
     public Response uploadImage(@RestForm("file") FileUpload file) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
-        return Response.ok(UserProfileResponse.from(updated, identity.hasRole("ADMIN"))).build();
+        return Response.ok(UserProfileResponse.from(updated)).build();
     }
 
     /**
@@ -248,7 +248,7 @@ public class UserResource {
     public Response uploadBanner(@RestForm("file") FileUpload file) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadBanner(auth0Id, file);
-        return Response.ok(UserProfileResponse.from(updated, identity.hasRole("ADMIN"))).build();
+        return Response.ok(UserProfileResponse.from(updated)).build();
     }
 
     /**
@@ -262,7 +262,7 @@ public class UserResource {
     public Response deleteBanner() {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.deleteBanner(auth0Id);
-        return Response.ok(UserProfileResponse.from(updated, identity.hasRole("ADMIN"))).build();
+        return Response.ok(UserProfileResponse.from(updated)).build();
     }
 
     @GET

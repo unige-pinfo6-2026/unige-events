@@ -36,21 +36,21 @@ afterEach(() => {
 
 describe('AdminRoute', () => {
   it('shows spinner while loading', () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: true })
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isAdmin: false, isLoading: true })
     renderInRouter()
     expect(screen.getByTestId('spinner')).toBeTruthy()
     expect(screen.queryByText('Admin Dashboard')).toBeNull()
   })
 
   it('redirects to /login when not authenticated', async () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false })
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isAdmin: false, isLoading: false })
     renderInRouter()
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeTruthy()
     expect(screen.queryByText('Admin Dashboard')).toBeNull()
   })
 
   it('passes returnTo state with current path when redirecting to /login', async () => {
-    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isLoading: false })
+    mockUseAuth.mockReturnValue({ user: null, isAuthenticated: false, isAdmin: false, isLoading: false })
 
     const { unmount } = render(
       <MemoryRouter initialEntries={['/admin']}>
@@ -67,10 +67,11 @@ describe('AdminRoute', () => {
     unmount()
   })
 
-  it('redirects to /403 when authenticated but not admin', async () => {
+  it('redirects to /403 when authenticated but Auth0 claim does not include ADMIN', async () => {
     mockUseAuth.mockReturnValue({
-      user: { admin: false },
+      user: { id: 'u1' },
       isAuthenticated: true,
+      isAdmin: false,
       isLoading: false,
     })
     renderInRouter()
@@ -78,10 +79,11 @@ describe('AdminRoute', () => {
     expect(screen.queryByText('Admin Dashboard')).toBeNull()
   })
 
-  it('renders children when authenticated and admin', async () => {
+  it('renders children when authenticated and Auth0 claim includes ADMIN', async () => {
     mockUseAuth.mockReturnValue({
-      user: { admin: true },
+      user: { id: 'u1' },
       isAuthenticated: true,
+      isAdmin: true,
       isLoading: false,
     })
     renderInRouter()
