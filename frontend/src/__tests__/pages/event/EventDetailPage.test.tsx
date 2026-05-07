@@ -873,7 +873,8 @@ describe('EventDetailPage', () => {
     })
   })
 
-  // Regression: report button moved from right action column to banner top-right (feature/s6-report-modal)
+  // Regression: report button moved from right action column to banner top-right (feature/s6-report-modal).
+  // Visual revision: round dark-backdrop pill matching the favoris star button, expanding to icon+label on hover.
   describe('Report button and modal', () => {
     function setupNonOrganizer() {
       mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })

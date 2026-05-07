@@ -377,9 +377,12 @@ export default function EventDetailPage() {
                 onClick={reportHook.open}
                 aria-label="Signaler cet événement"
                 title="Signaler cet événement"
-                className="absolute top-4 right-4 p-2 rounded-full text-error transition-colors cursor-pointer border-0 bg-transparent hover:bg-error/20"
+                className="group absolute top-4 right-4 inline-flex items-center justify-center h-8 px-2 rounded-full bg-black/30 backdrop-blur-sm text-white border-0 cursor-pointer overflow-hidden whitespace-nowrap transition-all duration-200 hover:bg-black/50 hover:text-error hover:px-3"
               >
-                <Flag className="w-5 h-5" />
+                <Flag className="w-4 h-4 shrink-0" />
+                <span className="max-w-0 opacity-0 ml-0 text-xs font-medium transition-all duration-200 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1">
+                  Signaler
+                </span>
               </button>
             )}
             <div className="absolute bottom-0 left-0 right-0 p-6">
