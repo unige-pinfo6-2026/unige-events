@@ -1,6 +1,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventDetailPage from '@/pages/event/EventDetailPage'
 
@@ -873,11 +873,16 @@ describe('EventDetailPage', () => {
     })
   })
 
+  // Regression: report button moved from right action column to banner top-right (feature/s6-report-modal)
   describe('Report button and modal', () => {
-    it('shows "Signaler cet événement" button for logged-in non-organizer', () => {
+    function setupNonOrganizer() {
       mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
       mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('shows "Signaler cet événement" button for logged-in non-organizer', () => {
+      setupNonOrganizer()
 
       renderPage()
 
@@ -905,9 +910,7 @@ describe('EventDetailPage', () => {
     })
 
     it('clicking "Signaler cet événement" calls reportHook.open', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
       fireEvent.click(screen.getByRole('button', { name: /Signaler cet événement/ }))
@@ -917,9 +920,7 @@ describe('EventDetailPage', () => {
 
     it('renders ReportModal when isOpen is true', () => {
       mockUseReport.mockReturnValue({ ...defaultReportState, isOpen: true })
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
 
@@ -927,13 +928,46 @@ describe('EventDetailPage', () => {
     })
 
     it('does not render ReportModal when isOpen is false', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
 
       expect(screen.queryByTestId('report-modal')).toBeNull()
+    })
+
+    it('flag button has aria-label and title attributes for a11y and tooltip', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      const flagBtn = screen.getByRole('button', { name: /Signaler cet événement/ })
+      expect(flagBtn.getAttribute('aria-label')).toBe('Signaler cet événement')
+      expect(flagBtn.getAttribute('title')).toBe('Signaler cet événement')
+    })
+
+    it('flag button lives inside the banner element (not the right action column)', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      // EventBanner renders with `relative overflow-hidden`; the title <h1> is inside it.
+      const titleHeading = screen.getByRole('heading', { name: 'Conférence IA', level: 1 })
+      const bannerEl = titleHeading.closest('div.relative.overflow-hidden')
+      expect(bannerEl).toBeTruthy()
+      const flagBtn = within(bannerEl as HTMLElement).getByRole('button', { name: /Signaler cet événement/ })
+      expect(flagBtn).toBeTruthy()
+    })
+
+    it('right action column no longer contains a "Signaler" button', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      // Anchor on "Partager" (right column), walk up to its action card, scope query inside.
+      const partagerBtn = screen.getByRole('button', { name: /Partager/ })
+      const actionCard = partagerBtn.closest('div.flex.flex-col.gap-4')
+      expect(actionCard).toBeTruthy()
+      expect(within(actionCard as HTMLElement).queryByRole('button', { name: /Signaler/ })).toBeNull()
     })
   })
 

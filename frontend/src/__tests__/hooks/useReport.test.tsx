@@ -131,6 +131,26 @@ describe('useReport — submit error', () => {
     expect(result.current.submitting).toBe(false)
   })
 
+  it('shows 422 toast when reporter is the organizer (cannot_report_own_event)', async () => {
+    const error = Object.assign(new axios.AxiosError('Unprocessable'), {
+      response: { status: 422 },
+    })
+    mockReportEvent.mockRejectedValue(error)
+    const { result } = renderHook(() => useReport(42))
+    act(() => result.current.open())
+
+    await act(async () => {
+      await result.current.submit('SPAM')
+    })
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'error',
+      'Vous ne pouvez pas signaler un événement que vous organisez.',
+    )
+    expect(result.current.isOpen).toBe(true)
+    expect(result.current.submitting).toBe(false)
+  })
+
   it('shows generic error toast on 400 and other failures', async () => {
     const error = Object.assign(new axios.AxiosError('Bad Request'), {
       response: { status: 400 },

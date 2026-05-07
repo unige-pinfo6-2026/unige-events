@@ -32,6 +32,8 @@ export function useReport(eventId: number): UseReportReturn {
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         toast.showToast('error', 'Vous avez déjà signalé cet événement.')
+      } else if (axios.isAxiosError(err) && err.response?.status === 422) {
+        toast.showToast('error', 'Vous ne pouvez pas signaler un événement que vous organisez.')
       } else {
         toast.showToast('error', 'Impossible d\'envoyer le signalement.')
       }

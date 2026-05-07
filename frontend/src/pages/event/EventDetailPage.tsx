@@ -371,6 +371,17 @@ export default function EventDetailPage() {
             >
               {category.name}
             </span>
+            {user !== null && !isOrganizer && (
+              <button
+                type="button"
+                onClick={reportHook.open}
+                aria-label="Signaler cet événement"
+                title="Signaler cet événement"
+                className="absolute top-4 right-4 p-2 rounded-full text-error transition-colors cursor-pointer border-0 bg-transparent hover:bg-error/20"
+              >
+                <Flag className="w-5 h-5" />
+              </button>
+            )}
             <div className="absolute bottom-0 left-0 right-0 p-6">
               <h1 className="text-white text-2xl lg:text-3xl font-extrabold leading-snug drop-shadow-sm wrap-anywhere">
                 {event.title}
@@ -542,18 +553,6 @@ export default function EventDetailPage() {
                 Partager
               </button>
             </div>
-
-            {/* Signalement — visible pour tout utilisateur connecté sauf l'organisateur */}
-            {user !== null && !isOrganizer && (
-              <button
-                type="button"
-                onClick={reportHook.open}
-                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border text-foreground/50 text-sm cursor-pointer bg-transparent hover:border-error/40 hover:text-error transition-colors"
-              >
-                <Flag className="w-4 h-4 shrink-0" />
-                Signaler cet événement
-              </button>
-            )}
 
             {/* Boutons participation */}
             <AttendanceButtons
