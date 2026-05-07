@@ -82,6 +82,8 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | interestedCount | number \| null | non   |
 | allDay          | boolean       | non    |
 | attendingCount  | number        | non    |
+| featured        | boolean       | non    |
+| featuredAt      | string ISO 8601 \| null | non |
 | websiteUrl              | string \| null | non |
 | contactEmail            | string \| null | non |
 | registrationDeadline    | string ISO 8601 \| null | non |

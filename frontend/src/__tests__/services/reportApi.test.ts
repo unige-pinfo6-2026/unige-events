@@ -1,3 +1,5 @@
+// Regression: frontend was sending French labels ("Spam") instead of enum constants
+// ("SPAM"), causing a 400 — see PR for feature/s6-report-modal.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/services/api', () => ({
@@ -20,7 +22,7 @@ afterEach(() => {
 })
 
 describe('reportApi', () => {
-  it('posts the reason enum to the correct endpoint with description omitted/null', async () => {
+  it('posts to the correct endpoint with reason only', async () => {
     mockApiPost.mockResolvedValue({ data: undefined })
 
     await reportEvent(42, { reason: 'SPAM' })
@@ -28,7 +30,7 @@ describe('reportApi', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/events/42/report', { reason: 'SPAM' })
   })
 
-  it('posts reason and description as separate fields when description is provided', async () => {
+  it('posts reason and description as separate fields', async () => {
     mockApiPost.mockResolvedValue({ data: undefined })
 
     await reportEvent(7, { reason: 'FAKE', description: "Ce n'est pas un vrai événement." })

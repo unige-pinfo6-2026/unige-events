@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.event.ShareResponse;
 import ch.unige.events.service.FavoriteService;
 import ch.unige.events.service.ShareService;
@@ -30,6 +31,7 @@ public class FavoriteResource {
     @POST
     @Path("/{id}/favorite")
     @Authenticated
+    @PerUserRateLimit(name = "events.favorite", max = 30)
     public Response addFavorite(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         favoriteService.addFavorite(auth0Id, id);

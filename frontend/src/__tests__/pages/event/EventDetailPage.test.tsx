@@ -1,6 +1,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventDetailPage from '@/pages/event/EventDetailPage'
 
@@ -644,7 +644,7 @@ describe('EventDetailPage', () => {
       renderPage()
 
       expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: true })
-      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('onAfterSuccess refetches event AND attendees for the organizer', () => {
@@ -716,7 +716,7 @@ describe('EventDetailPage', () => {
       renderPage()
 
       // Tabs render → confirms OrganizerView received the lifted hook.
-      expect(screen.getByRole('tab', { name: /Participent/ })).toBeTruthy()
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('renders Participants section in the same column as "À propos", after it', () => {
@@ -740,10 +740,15 @@ describe('EventDetailPage', () => {
       const position = aboutHeading.compareDocumentPosition(participantsHeading)
       expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-      // Both live under the same left-column container (same parent flex column)
+      // Both live under the same left-column wrapper (which uses display:contents on
+      // mobile to flatten its children into the parent grid). Walk up to the column
+      // ancestor instead of asserting a direct parent — ordering wrappers may sit in
+      // between for the mobile reordering pass.
       const aboutCard = aboutHeading.closest('div.bg-linear-to-br')
       const participantsSection = participantsHeading.closest('section')
-      expect(aboutCard?.parentElement).toBe(participantsSection?.parentElement)
+      const mainColumnSelector = '.flex.flex-col.gap-5'
+      expect(aboutCard?.closest(mainColumnSelector)).toBe(participantsSection?.closest(mainColumnSelector))
+      expect(aboutCard?.closest(mainColumnSelector)).not.toBeNull()
     })
   })
 
@@ -868,25 +873,35 @@ describe('EventDetailPage', () => {
     })
   })
 
+  // Regression: report button moved from right action column to banner top-right (feature/s6-report-modal).
+  // Visual revision: round dark-backdrop pill matching the favoris star button, expanding to icon+label on hover.
   describe('Report button and modal', () => {
-    it('shows "Signaler cet événement" button for logged-in non-organizer', () => {
+    function setupNonOrganizer() {
       mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
       mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('shows "Signaler cet événement" button for logged-in non-organizer', () => {
+      setupNonOrganizer()
 
       renderPage()
 
       expect(screen.getByRole('button', { name: /Signaler cet événement/ })).toBeTruthy()
     })
 
-    it('shows "Signaler cet événement" button for the organizer', () => {
+    it('hides "Signaler cet événement" button for the organizer', () => {
+      // Aligned on main (PR #140): the report button is hidden for the
+      // creator/organizer; only authenticated non-organizers see it. The hook
+      // still handles 422 cannot_report_own_event defensively in case the
+      // organiser status changes mid-flow.
       mockUseAuth.mockReturnValue({ user: mockUser })
       mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
       mockGetUserById.mockResolvedValue(null)
 
       renderPage()
 
-      expect(screen.getByRole('button', { name: /Signaler cet événement/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /Signaler cet événement/ })).toBeNull()
     })
 
     it('hides "Signaler cet événement" button when user is not logged in', () => {
@@ -900,9 +915,7 @@ describe('EventDetailPage', () => {
     })
 
     it('clicking "Signaler cet événement" calls reportHook.open', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
       fireEvent.click(screen.getByRole('button', { name: /Signaler cet événement/ }))
@@ -912,9 +925,7 @@ describe('EventDetailPage', () => {
 
     it('renders ReportModal when isOpen is true', () => {
       mockUseReport.mockReturnValue({ ...defaultReportState, isOpen: true })
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
 
@@ -922,13 +933,46 @@ describe('EventDetailPage', () => {
     })
 
     it('does not render ReportModal when isOpen is false', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
-      mockGetUserById.mockResolvedValue(null)
+      setupNonOrganizer()
 
       renderPage()
 
       expect(screen.queryByTestId('report-modal')).toBeNull()
+    })
+
+    it('flag button has aria-label and title attributes for a11y and tooltip', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      const flagBtn = screen.getByRole('button', { name: /Signaler cet événement/ })
+      expect(flagBtn.getAttribute('aria-label')).toBe('Signaler cet événement')
+      expect(flagBtn.getAttribute('title')).toBe('Signaler cet événement')
+    })
+
+    it('flag button lives inside the banner element (not the right action column)', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      // EventBanner renders with `relative overflow-hidden`; the title <h1> is inside it.
+      const titleHeading = screen.getByRole('heading', { name: 'Conférence IA', level: 1 })
+      const bannerEl = titleHeading.closest('div.relative.overflow-hidden')
+      expect(bannerEl).toBeTruthy()
+      const flagBtn = within(bannerEl as HTMLElement).getByRole('button', { name: /Signaler cet événement/ })
+      expect(flagBtn).toBeTruthy()
+    })
+
+    it('right action column no longer contains a "Signaler" button', () => {
+      setupNonOrganizer()
+
+      renderPage()
+
+      // Anchor on "Partager" (right column), walk up to its action card, scope query inside.
+      const partagerBtn = screen.getByRole('button', { name: /Partager/ })
+      const actionCard = partagerBtn.closest('div.flex.flex-col.gap-4')
+      expect(actionCard).toBeTruthy()
+      expect(within(actionCard as HTMLElement).queryByRole('button', { name: /Signaler/ })).toBeNull()
     })
   })
 
@@ -1054,6 +1098,170 @@ describe('EventDetailPage', () => {
       const onAfterSuccess = favoriteCallWithOptions![2].onAfterSuccess as () => Promise<void>
       await onAfterSuccess()
       expect(refetchEvent).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  // The mobile reorder is implemented purely in CSS — column wrappers switch
+  // to display:contents on mobile and each section carries a max-lg:order-N
+  // class. DOM order is unchanged on every viewport, so we assert on the
+  // markup (classes) rather than visual layout (jsdom doesn't paint).
+  describe('responsive layout (Bug 2 — mobile section order)', () => {
+    function setupOrganizer() {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, websiteUrl: 'https://example.com', attendingCount: 1 },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('flattens both column wrappers on mobile via display: contents', () => {
+      setupOrganizer()
+      const { container } = renderPage()
+
+      const columns = container.querySelectorAll('.max-lg\\:contents')
+      // Main + sidebar wrappers
+      expect(columns.length).toBe(2)
+    })
+
+    it('keeps the desktop two-column grid container untouched', () => {
+      setupOrganizer()
+      const { container } = renderPage()
+
+      const grid = container.querySelector('.grid.grid-cols-\\[3fr_2fr\\]')
+      expect(grid).not.toBeNull()
+      expect(grid!.className).toContain('items-start')
+      expect(grid!.className).toContain('max-lg:grid-cols-1')
+    })
+
+    it('assigns interleaved mobile orders so reading flow goes banner → key info → description → actions → attendees → extras → ICS → stats → organizer actions → stats link', () => {
+      setupOrganizer()
+      const { container } = renderPage()
+
+      // banner (order 1)
+      expect(container.querySelector('.max-lg\\:order-1')).not.toBeNull()
+      // infos clés (order 2)
+      expect(container.querySelector('.max-lg\\:order-2')).not.toBeNull()
+      // description (order 3)
+      expect(container.querySelector('.max-lg\\:order-3')).not.toBeNull()
+      // attendance + favoris card (order 4)
+      expect(container.querySelector('.max-lg\\:order-4')).not.toBeNull()
+      // attendees wrapper (order 5)
+      expect(container.querySelector('.max-lg\\:order-5')).not.toBeNull()
+      // informations complémentaires (order 6)
+      expect(container.querySelector('.max-lg\\:order-6')).not.toBeNull()
+      // ICS export wrapper (order 7)
+      expect(container.querySelector('.max-lg\\:order-7')).not.toBeNull()
+      // stats panel wrapper (order 8)
+      expect(container.querySelector('.max-lg\\:order-8')).not.toBeNull()
+      // organizer actions (order 9)
+      expect(container.querySelector('.max-lg\\:order-9')).not.toBeNull()
+      // organizer stats link (order 10)
+      expect(container.querySelector('.max-lg\\:order-10')).not.toBeNull()
+    })
+
+    it('does not apply legacy whole-column orders that would lump the sidebar above the main column', () => {
+      setupOrganizer()
+      const { container } = renderPage()
+
+      // Pre-fix layout used max-lg:order-1 / max-lg:order-2 on the column
+      // wrappers themselves. The fix moves ordering down to individual
+      // sections, so the wrappers must not carry order classes anymore.
+      const wrappers = container.querySelectorAll('.max-lg\\:contents')
+      wrappers.forEach((w) => {
+        expect(w.className).not.toMatch(/\bmax-lg:order-1\b(?!\d)/)
+        expect(w.className).not.toMatch(/\bmax-lg:order-2\b(?!\d)/)
+      })
+    })
+
+    it('regression — every section that existed before the reorder still renders', () => {
+      setupOrganizer()
+      const { container } = renderPage()
+
+      // Banner + title (banner contains the title h1)
+      expect(screen.getByRole('heading', { level: 1, name: 'Conférence IA' })).toBeTruthy()
+      // Description card heading
+      expect(screen.getByRole('heading', { name: 'À propos' })).toBeTruthy()
+      // Attendees section heading
+      expect(screen.getByRole('heading', { name: 'Participants' })).toBeTruthy()
+      // Informations complémentaires heading
+      expect(screen.getByRole('heading', { name: 'Informations complémentaires' })).toBeTruthy()
+      // Public stats panel
+      expect(screen.getByText('Statistiques de participation')).toBeTruthy()
+      // Organizer actions still wired (Modifier link present for organizer)
+      expect(screen.getByText("Modifier l'événement")).toBeTruthy()
+      // Stats link present for organizer
+      expect(screen.getByText('Voir les statistiques')).toBeTruthy()
+      // Sticky sidebar still applied at lg+ (regression on the desktop layout)
+      const stickyCol = container.querySelector('.lg\\:sticky')
+      expect(stickyCol).not.toBeNull()
+    })
+  })
+
+  // Long-unbroken-word overflow guard for the event title (banner) and the
+  // description body. jsdom doesn't paint, so we assert on the wrap utility
+  // class. break-all is explicitly forbidden by the spec.
+  describe('user-content overflow wrapping', () => {
+    const LONG = 'a'.repeat(200)
+
+    it('applies wrap-anywhere on the banner title h1', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, title: LONG },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const h1 = screen.getByRole('heading', { level: 1, name: LONG })
+      expect(h1.className).toContain('wrap-anywhere')
+      expect(h1.className).not.toContain('break-all')
+    })
+
+    it('applies wrap-anywhere on the description paragraph', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, description: LONG },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const p = screen.getByText(LONG)
+      expect(p.className).toContain('wrap-anywhere')
+      expect(p.className).not.toContain('break-all')
+    })
+
+    it('does not crash with an empty description (paragraph absent)', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, description: undefined },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      // Description card is conditional on event.description being truthy
+      expect(screen.queryByRole('heading', { name: 'À propos' })).toBeNull()
     })
   })
 })

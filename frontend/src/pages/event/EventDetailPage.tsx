@@ -108,7 +108,7 @@ type CapacityVariant = keyof typeof capacityBadgeVariants
 function getCapacityBadge(availableSpots: number, capacity: number): { variant: CapacityVariant; label: string } {
   if (availableSpots === 0) return { variant: 'full', label: 'Complet' }
   if (availableSpots <= capacity * 0.1) return { variant: 'low', label: 'Presque complet' }
-  return { variant: 'available', label: `${availableSpots} places disponibles` }
+  return { variant: 'available', label: `${availableSpots} ${availableSpots === 1 ? 'place disponible' : 'places disponibles'}` }
 }
 
 interface CapacityIndicatorProps {
@@ -345,14 +345,24 @@ export default function EventDetailPage() {
         align="left"
       />
 
-      {/* Grille deux colonnes */}
+      {/* Grille deux colonnes.
+          Sur mobile (max-lg), les wrappers de colonne passent en `display: contents`
+          afin que leurs enfants deviennent des items directs de la grille parent ;
+          chaque section reçoit alors un `max-lg:order-N` pour produire l'ordre de
+          lecture mobile suivant : bannière → infos clés → description → actions
+          (favoris/partage/inscription) → liste des participants → infos
+          complémentaires → export ICS → stats publiques → actions organisateur →
+          lien vers les statistiques. Raison : sur mobile l'utilisateur a besoin
+          de l'identité de l'événement et des informations clés avant la
+          description, suivi de l'action immédiate (s'inscrire) avant les
+          contenus secondaires. Le layout desktop reste identique. */}
       <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
 
-        {/* Colonne principale — order-2 sur mobile */}
-        <div className="flex flex-col gap-5 max-lg:order-2">
+        {/* Colonne principale */}
+        <div className="flex flex-col gap-5 max-lg:contents">
 
           {/* Bannière */}
-          <EventBanner event={event} className="rounded-3xl h-72 lg:h-80">
+          <EventBanner event={event} className="rounded-3xl h-72 lg:h-80 max-lg:order-1">
             <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
             <span
@@ -361,8 +371,22 @@ export default function EventDetailPage() {
             >
               {category.name}
             </span>
+            {user !== null && !isOrganizer && (
+              <button
+                type="button"
+                onClick={reportHook.open}
+                aria-label="Signaler cet événement"
+                title="Signaler cet événement"
+                className="group absolute top-4 right-4 inline-flex items-center justify-center h-8 px-2 rounded-full bg-black/30 backdrop-blur-sm text-white border-0 cursor-pointer overflow-hidden whitespace-nowrap transition-all duration-200 hover:bg-black/50 hover:text-error hover:px-3"
+              >
+                <Flag className="w-4 h-4 shrink-0" />
+                <span className="max-w-0 opacity-0 ml-0 text-xs font-medium transition-all duration-200 group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1">
+                  Signaler
+                </span>
+              </button>
+            )}
             <div className="absolute bottom-0 left-0 right-0 p-6">
-              <h1 className="text-white text-2xl lg:text-3xl font-extrabold leading-snug drop-shadow-sm">
+              <h1 className="text-white text-2xl lg:text-3xl font-extrabold leading-snug drop-shadow-sm wrap-anywhere">
                 {event.title}
               </h1>
             </div>
@@ -370,25 +394,27 @@ export default function EventDetailPage() {
 
           {/* Card description */}
           {event.description && (
-            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border">
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border max-lg:order-3">
               <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30 mb-3">
                 À propos
               </h2>
-              <p className="text-foreground/70 leading-relaxed whitespace-pre-wrap text-sm">
+              <p className="text-foreground/70 leading-relaxed whitespace-pre-wrap text-sm wrap-anywhere">
                 {event.description}
               </p>
             </div>
           )}
 
-          <AttendeesList
-            isOrganizer={isOrganizer}
-            attendingCount={event.attendingCount}
-            attendeesHook={attendeesHook}
-          />
+          <div className="max-lg:order-5">
+            <AttendeesList
+              isOrganizer={isOrganizer}
+              attendingCount={event.attendingCount}
+              attendeesHook={attendeesHook}
+            />
+          </div>
 
           {/* Champs additionnels (SCRUM-117) */}
           {(event.websiteUrl || event.contactEmail || event.registrationDeadline || (event.tags && event.tags.length > 0)) && (
-            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border flex flex-col gap-4">
+            <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border flex flex-col gap-4 max-lg:order-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/30">
                 Informations complémentaires
               </h2>
@@ -455,11 +481,11 @@ export default function EventDetailPage() {
 
         </div>
 
-        {/* Sidebar — order-1 sur mobile (remonte au-dessus) */}
-        <div className="flex flex-col gap-4 lg:sticky lg:top-6 max-lg:order-1">
+        {/* Sidebar — éclatée dans la grille parent sur mobile via display: contents. */}
+        <div className="flex flex-col gap-4 lg:sticky lg:top-6 max-lg:contents">
 
           {/* Card infos clés */}
-          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-5 border border-border flex flex-col gap-4">
+          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-5 border border-border flex flex-col gap-4 max-lg:order-2">
 
             <div className="flex flex-col gap-3">
               <InfoRow icon={Calendar} color={category.color}>
@@ -476,7 +502,7 @@ export default function EventDetailPage() {
 
               {event.capacity !== undefined && (
                 <InfoRow icon={Users} color={category.color}>
-                  {event.capacity} places au total
+                  {event.capacity} {event.capacity === 1 ? 'place' : 'places'} au total
                 </InfoRow>
               )}
             </div>
@@ -515,7 +541,7 @@ export default function EventDetailPage() {
           </div>
 
           {/* Card AttendanceButtons + Favoris + Participants */}
-          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-5 py-4 border border-border flex flex-col gap-4">
+          <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-5 py-4 border border-border flex flex-col gap-4 max-lg:order-4">
 
             {/* Favoris + partager */}
             <div className="grid grid-cols-2 gap-3">
@@ -531,18 +557,6 @@ export default function EventDetailPage() {
               </button>
             </div>
 
-            {/* Signalement — visible pour tout utilisateur connecté, organisateur compris (cf. SCRUM-97). */}
-            {user !== null && (
-              <button
-                type="button"
-                onClick={reportHook.open}
-                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-border text-foreground/50 text-sm cursor-pointer bg-transparent hover:border-error/40 hover:text-error transition-colors"
-              >
-                <Flag className="w-4 h-4 shrink-0" />
-                Signaler cet événement
-              </button>
-            )}
-
             {/* Boutons participation */}
             <AttendanceButtons
               key={event.id}
@@ -556,18 +570,22 @@ export default function EventDetailPage() {
           </div>
 
           {/* IcsExportButton */}
-          <IcsExportButton event={event} />
+          <div className="max-lg:order-7">
+            <IcsExportButton event={event} />
+          </div>
 
           {/* Stats publiques (review #90) — visible pour tous, pas seulement l'organisateur */}
-          <EventStatsPanel
-            viewCount={event.viewCount}
-            interestedCount={event.interestedCount}
-            attendingCount={event.attendingCount}
-          />
+          <div className="max-lg:order-8">
+            <EventStatsPanel
+              viewCount={event.viewCount}
+              interestedCount={event.interestedCount}
+              attendingCount={event.attendingCount}
+            />
+          </div>
 
           {/* Actions organisateur */}
           {isOrganizer && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 max-lg:order-9">
               {event.status !== 'CANCELLED' && (
                 <>
                   <Link
@@ -618,13 +636,15 @@ export default function EventDetailPage() {
               integration yet, so they currently lack an in-app entry point
               to /events/:id/stats. Same dette as in EventStatsPage. */}
           {isOrganizer && (
-            <Link
-              to={`/events/${event.id}/stats`}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
-            >
-              <BarChart2 className="w-4 h-4 shrink-0" />
-              Voir les statistiques
-            </Link>
+            <div className="max-lg:order-10">
+              <Link
+                to={`/events/${event.id}/stats`}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-border text-foreground text-sm font-semibold no-underline hover:border-foreground/30 transition-colors"
+              >
+                <BarChart2 className="w-4 h-4 shrink-0" />
+                Voir les statistiques
+              </Link>
+            </div>
           )}
 
         </div>

@@ -33,13 +33,13 @@ class EventViewResourceTest {
     @Test
     @TestSecurity(user = "auth0|alice")
     void recordView_secondTime_returns204Idempotent() {
-        // First view
+        // Regression: duplicate key on uq_event_view_user_event when re-viewing event
+        // (commit 2837585 reverted prior fix 3591f37). Repeat POST must stay 204.
         given()
                 .when().post("/events/{id}/view", 1L)
                 .then()
                 .statusCode(204);
 
-        // Second view on same event — idempotent, still 204
         given()
                 .when().post("/events/{id}/view", 1L)
                 .then()

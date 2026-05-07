@@ -8,7 +8,7 @@ import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ButtonDestructive, ButtonNeutral } from '@/components/utils/Buttons'
 import { formatEventDateTime, parseApiUtcDateTime } from '@/utils/dateTime'
-import { REPORT_REASONS } from '@/types/admin'
+import { REPORT_REASONS } from '@/types/report'
 import type { Report } from '@/types/admin'
 import type { Event } from '@/types/event'
 
@@ -53,7 +53,7 @@ function ReportRow({
 }: Readonly<{ report: Report; onReview: (id: number) => void; onDismiss: (id: number) => void }>) {
   const eventTitle = report.eventTitle ?? 'Événement supprimé'
   const reporterLabel = report.reporterDisplayName ?? 'Compte supprimé'
-  const reasonLabel = REPORT_REASONS[report.reason].label
+  const reasonLabel = REPORT_REASONS[report.reason]
   const description = report.description?.trim()
 
   return (

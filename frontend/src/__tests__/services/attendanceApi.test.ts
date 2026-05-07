@@ -137,11 +137,70 @@ describe('attendanceApi', () => {
   })
 
   describe('getMyParticipations', () => {
-    it('returns an empty array (stub)', async () => {
+    const sampleEvent = {
+      id: 7,
+      title: 'Tech talk',
+      location: 'Uni Mail',
+      startDate: '2026-04-10T14:00:00',
+      endDate: '2026-04-10T17:00:00',
+      category: 'CONFERENCE',
+      faculty: null,
+      status: 'PUBLISHED',
+      creatorId: 'u-1',
+      createdAt: '2026-03-01T10:00:00',
+      capacity: 100,
+      attendingCount: 0,
+    }
+
+    it('calls GET /users/me/participations with no params when called bare', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
       const result = await getMyParticipations()
 
-      expect(result).toEqual([])
-      expect(Array.isArray(result)).toBe(true)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: undefined })
+      expect(result).toEqual([sampleEvent])
+    })
+
+    it('passes status only when timeframe is omitted', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { status: 'ATTENDING' } })
+    })
+
+    it('passes timeframe only when status is omitted', async () => {
+      mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations(undefined, 'upcoming')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', { params: { timeframe: 'upcoming' } })
+    })
+
+    it('combines status and timeframe in the same query string', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING', 'upcoming')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', {
+        params: { status: 'ATTENDING', timeframe: 'upcoming' },
+      })
+    })
+
+    it('serialises timeframe=past correctly', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getMyParticipations('ATTENDING', 'past')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/me/participations', {
+        params: { status: 'ATTENDING', timeframe: 'past' },
+      })
+    })
+
+    it('propagates API errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('Server error'))
+
+      await expect(getMyParticipations('ATTENDING', 'upcoming')).rejects.toThrow('Server error')
     })
   })
 })

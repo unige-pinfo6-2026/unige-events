@@ -26,6 +26,8 @@ class ReportResourceTest {
     @Test
     @TestSecurity(user = "auth0|alice")
     void report_validBody_returns201() {
+        // Regression: frontend was sending French labels ("Spam") instead of enum
+        // constants ("SPAM"), causing 400 — see PR for feature/s6-report-modal.
         given()
                 .contentType(ContentType.JSON)
                 .body("{\"reason\":\"SPAM\",\"description\":\"Faux event\"}")
@@ -138,6 +140,8 @@ class ReportResourceTest {
     @Test
     @TestSecurity(user = "auth0|alice")
     void report_invalidReason_returns400() {
+        // Regression: frontend was sending French labels ("Spam") instead of enum
+        // constants ("SPAM"), causing 400 — see PR for feature/s6-report-modal.
         given()
                 .contentType(ContentType.JSON)
                 .body("{\"reason\":\"FOO\"}")

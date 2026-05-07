@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { reportEvent } from '@/services/reportApi'
+import type { ReportEventRequest } from '@/services/reportApi'
+import type { ReportReason } from '@/types/report'
 import { useToast } from '@/hooks/useToast'
-import type { ReportReason } from '@/types/admin'
-
-// Re-export so existing import sites (modal, tests) keep working without churn.
-export type { ReportReason } from '@/types/admin'
-export { REPORT_REASONS } from '@/types/admin'
 
 export interface UseReportReturn {
   isOpen: boolean
@@ -28,15 +25,15 @@ export function useReport(eventId: number): UseReportReturn {
     setSubmitting(true)
     try {
       const trimmed = description?.trim()
-      await reportEvent(eventId, {
-        reason,
-        description: trimmed ? trimmed : null,
-      })
+      const body: ReportEventRequest = trimmed ? { reason, description: trimmed } : { reason }
+      await reportEvent(eventId, body)
       toast.showToast('success', 'Merci pour votre signalement.')
       setIsOpen(false)
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         toast.showToast('error', 'Vous avez déjà signalé cet événement.')
+      } else if (axios.isAxiosError(err) && err.response?.status === 422) {
+        toast.showToast('error', 'Vous ne pouvez pas signaler un événement que vous organisez.')
       } else {
         toast.showToast('error', 'Impossible d\'envoyer le signalement.')
       }

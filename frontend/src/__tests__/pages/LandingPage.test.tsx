@@ -4,21 +4,25 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LandingPage from '@/pages/LandingPage'
 
-vi.mock('@/hooks/useEvents', () => ({
-  useEvents: vi.fn(),
+vi.mock('@/hooks/useFeaturedEvents', () => ({
+  useFeaturedEvents: vi.fn(),
 }))
 
 vi.mock('@/components/faculty/FacultyMarquee', () => ({
   default: () => <div>FacultyMarquee</div>,
 }))
 
+vi.mock('@/components/event/FeaturedEventsSection', () => ({
+  default: () => <div data-testid="featured-events-section">FeaturedEventsSection</div>,
+}))
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(() => ({ user: null, login: vi.fn() })),
 }))
 
-import { useEvents } from '@/hooks/useEvents'
+import { useFeaturedEvents } from '@/hooks/useFeaturedEvents'
 
-const mockUseEvents = useEvents as ReturnType<typeof vi.fn>
+const mockUseFeaturedEvents = useFeaturedEvents as ReturnType<typeof vi.fn>
 
 afterEach(() => {
   cleanup()
@@ -26,6 +30,7 @@ afterEach(() => {
 })
 
 function renderPage() {
+  mockUseFeaturedEvents.mockReturnValue({ events: [], loading: false, error: null })
   return render(
     <MemoryRouter>
       <LandingPage />
@@ -35,13 +40,22 @@ function renderPage() {
 
 describe('LandingPage', () => {
   it('renders without crashing', () => {
-    mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
     const { container } = renderPage()
     expect(container).toBeTruthy()
   })
 
+  it('renders FeaturedEventsSection', () => {
+    renderPage()
+    expect(screen.getByTestId('featured-events-section')).toBeTruthy()
+  })
+
+  it('does not render the legacy "Événements à venir" heading', () => {
+    renderPage()
+    expect(screen.queryByText('Événements à venir')).toBeNull()
+  })
+
   it('scrolls to hash section with navbar offset', () => {
-    mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
+    mockUseFeaturedEvents.mockReturnValue({ events: [], loading: false, error: null })
     vi.useFakeTimers()
     const mockScrollTo = vi.fn()
     globalThis.scrollTo = mockScrollTo
@@ -58,14 +72,13 @@ describe('LandingPage', () => {
     act(() => { vi.runAllTimers() })
 
     expect(document.getElementById).toHaveBeenCalledWith('features')
-    // top = getBoundingClientRect().top (300) + scrollY (100) = 400 (no navbar offset)
     expect(mockScrollTo).toHaveBeenCalledWith({ top: 400, behavior: 'smooth' })
 
     vi.useRealTimers()
   })
 
   it('does not scroll when no hash', () => {
-    mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
+    mockUseFeaturedEvents.mockReturnValue({ events: [], loading: false, error: null })
     vi.useFakeTimers()
     const mockScrollTo = vi.fn()
     globalThis.scrollTo = mockScrollTo
@@ -84,13 +97,12 @@ describe('LandingPage', () => {
   })
 
   it('toggles FAQ answer on click', () => {
-    mockUseEvents.mockReturnValue({ events: [], loading: false, error: null, hasMore: false, loadMore: vi.fn() })
     renderPage()
 
     const allButtons = screen.getAllByRole('button')
     const faqBtn = allButtons.find(btn => {
       const span = btn.querySelector('span')
-      return span && span.textContent && span.textContent.length > 10
+      return (span?.textContent?.length ?? 0) > 10
     })
 
     expect(faqBtn).toBeTruthy()

@@ -22,6 +22,37 @@ components:
       scheme: bearer
       bearerFormat: JWT   # Auth0 / OIDC — validé par quarkus-oidc
 
+  headers:
+    RetryAfter:
+      description: |
+        Nombre de secondes à attendre avant de retenter la requête (cf. RFC 6585 §4).
+        Présent sur les réponses 429 émises par les endpoints de mutation rate-limités
+        (voir ticket SECURITY-pentest 4.14). La valeur est toujours **>= 1** :
+        l'implémentation arrondit le reste de la fenêtre vers le haut au moins à 1
+        seconde — un client qui retente immédiatement n'a aucune chance d'être admis.
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 45
+
+  responses:
+    RateLimited:
+      description: |
+        Trop de requêtes — la limite par utilisateur sur cet endpoint a été dépassée
+        (cf. pentest 2026-04-17 finding 4.14, ticket #98). L'en-tête `Retry-After`
+        indique le nombre de secondes à attendre avant de retenter.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          example:
+            error: rate_limited
+            message: "Too many requests. Retry in 45 seconds."
+
   schemas:
     # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
 
@@ -939,6 +970,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/image:
     post:
@@ -970,17 +1003,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/banner:
     post:
@@ -1011,11 +1051,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1028,6 +1073,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       summary: Suppression de la bannière de profil
       description: Remet bannerUrl à null et retourne le profil complet mis à jour.
@@ -1228,6 +1275,70 @@ paths:
                   $ref: '#/components/schemas/Attendance'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/participations:
+    get:
+      summary: Mes événements (côté participant)
+      description: |
+        Retourne les événements auxquels l'utilisateur connecté est inscrit, enrichis
+        comme les autres listes (counts, availableSpots) pour permettre au frontend de
+        rendre des EventCards sans N+1.
+
+        Filtres optionnels :
+        - `status` : statut de l'inscription (`ATTENDING` ou `WAITLISTED`).
+        - `timeframe` : position temporelle de l'événement par rapport à `now()`.
+          `upcoming` retourne les événements dont `endDate >= now` (un événement en
+          cours est `upcoming`), `past` retourne les événements dont `endDate < now`.
+          Comparaison **insensible à la casse** (`upcoming`, `UPCOMING`, `Upcoming`).
+
+        Sans filtre, retourne toutes les inscriptions du caller, tous statuts et
+        toutes périodes confondus.
+      operationId: getMyParticipationEvents
+      tags: [users, attendance, events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filtre optionnel sur le statut de l'inscription. Omettre pour récupérer toutes les inscriptions.
+          schema:
+            $ref: '#/components/schemas/AttendanceStatus'
+        - name: timeframe
+          in: query
+          description: |
+            Filtre optionnel sur la période. `upcoming` = événements en cours ou à
+            venir (`endDate >= now`). `past` = événements terminés (`endDate < now`).
+            Insensible à la casse. Omettre pour ne pas filtrer.
+          schema:
+            type: string
+            enum: [upcoming, past]
+      responses:
+        '200':
+          description: Liste des événements (tableau vide si aucun — jamais 404)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Valeur de `timeframe` invalide (n'est ni `upcoming` ni `past`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
           content:
             application/json:
               schema:
@@ -1446,6 +1557,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/search:
     get:
@@ -1633,6 +1746,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Supprimer définitivement un événement annulé (hard-delete)
@@ -1735,6 +1850,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/restore:
     patch:
@@ -1785,6 +1902,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/publish:
     patch:
@@ -1857,6 +1976,8 @@ paths:
                     example:
                       - La date de l'événement doit être dans le futur
                       - Le titre est obligatoire
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/image:
     post:
@@ -1894,11 +2015,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: Fichier invalide (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1917,6 +2043,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/featured:
     get:
@@ -1950,6 +2078,10 @@ paths:
                   $ref: '#/components/schemas/Event'
         '400':
           description: Paramètre limit hors bornes (< 1 ou > 12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/feature:
     patch:
@@ -1974,10 +2106,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/unfeature:
     patch:
@@ -2002,10 +2146,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /events/{id}/attend:
     post:
@@ -2080,6 +2236,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Se désinscrire d'un événement
@@ -2493,6 +2651,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Retirer un événement des favoris

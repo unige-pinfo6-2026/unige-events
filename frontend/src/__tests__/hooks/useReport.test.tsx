@@ -1,3 +1,6 @@
+// Regression: frontend was sending French labels ("Spam") concatenated with the
+// description into the `reason` field, causing a 400 and silently dropping the
+// description — see PR for feature/s6-report-modal.
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import axios from 'axios'
@@ -44,7 +47,7 @@ describe('useReport — open / close', () => {
 })
 
 describe('useReport — submit success', () => {
-  it('sends reason enum with description=null when no description', async () => {
+  it('sends only { reason } when description is omitted', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(42))
     act(() => result.current.open())
@@ -53,10 +56,10 @@ describe('useReport — submit success', () => {
       await result.current.submit('SPAM')
     })
 
-    expect(mockReportEvent).toHaveBeenCalledWith(42, { reason: 'SPAM', description: null })
+    expect(mockReportEvent).toHaveBeenCalledWith(42, { reason: 'SPAM' })
   })
 
-  it('sends reason enum and description as separate fields when both provided', async () => {
+  it('sends { reason, description } when description is provided', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(7))
 
@@ -70,21 +73,7 @@ describe('useReport — submit success', () => {
     })
   })
 
-  it('trims the description before sending', async () => {
-    mockReportEvent.mockResolvedValue(undefined)
-    const { result } = renderHook(() => useReport(7))
-
-    await act(async () => {
-      await result.current.submit('FAKE', '   spam everywhere   ')
-    })
-
-    expect(mockReportEvent).toHaveBeenCalledWith(7, {
-      reason: 'FAKE',
-      description: 'spam everywhere',
-    })
-  })
-
-  it('sends description=null when description is whitespace-only', async () => {
+  it('omits description when only whitespace was typed', async () => {
     mockReportEvent.mockResolvedValue(undefined)
     const { result } = renderHook(() => useReport(1))
 
@@ -92,7 +81,21 @@ describe('useReport — submit success', () => {
       await result.current.submit('SPAM', '   ')
     })
 
-    expect(mockReportEvent).toHaveBeenCalledWith(1, { reason: 'SPAM', description: null })
+    expect(mockReportEvent).toHaveBeenCalledWith(1, { reason: 'SPAM' })
+  })
+
+  it('trims surrounding whitespace from description', async () => {
+    mockReportEvent.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useReport(2))
+
+    await act(async () => {
+      await result.current.submit('FAKE', '  faux profil  ')
+    })
+
+    expect(mockReportEvent).toHaveBeenCalledWith(2, {
+      reason: 'FAKE',
+      description: 'faux profil',
+    })
   })
 
   it('shows success toast and closes modal on success', async () => {
@@ -128,7 +131,42 @@ describe('useReport — submit error', () => {
     expect(result.current.submitting).toBe(false)
   })
 
-  it('shows generic error toast on other errors', async () => {
+  it('shows 422 toast when reporter is the organizer (cannot_report_own_event)', async () => {
+    const error = Object.assign(new axios.AxiosError('Unprocessable'), {
+      response: { status: 422 },
+    })
+    mockReportEvent.mockRejectedValue(error)
+    const { result } = renderHook(() => useReport(42))
+    act(() => result.current.open())
+
+    await act(async () => {
+      await result.current.submit('SPAM')
+    })
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'error',
+      'Vous ne pouvez pas signaler un événement que vous organisez.',
+    )
+    expect(result.current.isOpen).toBe(true)
+    expect(result.current.submitting).toBe(false)
+  })
+
+  it('shows generic error toast on 400 and other failures', async () => {
+    const error = Object.assign(new axios.AxiosError('Bad Request'), {
+      response: { status: 400 },
+    })
+    mockReportEvent.mockRejectedValue(error)
+    const { result } = renderHook(() => useReport(42))
+
+    await act(async () => {
+      await result.current.submit('INAPPROPRIATE')
+    })
+
+    expect(mockShowToast).toHaveBeenCalledWith('error', "Impossible d'envoyer le signalement.")
+    expect(result.current.submitting).toBe(false)
+  })
+
+  it('shows generic error toast on non-axios errors', async () => {
     mockReportEvent.mockRejectedValue(new Error('Network error'))
     const { result } = renderHook(() => useReport(42))
 
@@ -136,7 +174,7 @@ describe('useReport — submit error', () => {
       await result.current.submit('INAPPROPRIATE')
     })
 
-    expect(mockShowToast).toHaveBeenCalledWith('error', 'Impossible d\'envoyer le signalement.')
+    expect(mockShowToast).toHaveBeenCalledWith('error', "Impossible d'envoyer le signalement.")
     expect(result.current.submitting).toBe(false)
   })
 

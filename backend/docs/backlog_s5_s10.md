@@ -288,7 +288,7 @@ Afficher la liste des inscrits avec leurs profils publics sur la page détail or
 * Pagination : "Charger plus" (load more) ou pagination numérotée
 * Clic sur un profil public → `/users/:id` (page profil, si elle existe)
 * `useAttendees.ts` : hook avec pagination
-* Pour les non-organisateurs : la section n'affiche qu'un résumé (avatars empilés + compteur "X personnes participent")
+* Pour les non-organisateurs : la section n'affiche qu'un résumé (avatars empilés + compteur "X participants")
 
 **US couverte :** US-07 — Je veux voir les profils publics des participants qui choisissent de les partager
 

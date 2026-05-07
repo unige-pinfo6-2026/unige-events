@@ -21,7 +21,11 @@ public class EventView extends PanacheEntity {
     @Column(name = "user_id", nullable = false)
     public UUID userId;
 
-    @Column(name = "viewed_at", updatable = false)
+    /**
+     * Timestamp of the most recent view of this event by this user. Refreshed on every
+     * re-view via the atomic native upsert in {@link ch.unige.events.service.EventViewService}.
+     */
+    @Column(name = "viewed_at")
     public LocalDateTime viewedAt;
 
     @PrePersist

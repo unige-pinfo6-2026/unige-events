@@ -1,8 +1,11 @@
+// Regression: dropdown values must be the backend enum constants
+// (SPAM | INAPPROPRIATE | FAKE | OTHER) — not the French labels — and the typed
+// description must reach the submit handler unchanged. See PR for feature/s6-report-modal.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ReportModal from '@/components/event/ReportModal'
-import { REPORT_REASONS } from '@/types/admin'
-import type { ReportReason } from '@/types/admin'
+import { REPORT_REASONS } from '@/types/report'
+import type { ReportReason } from '@/types/report'
 
 afterEach(() => {
   cleanup()
@@ -29,31 +32,22 @@ describe('ReportModal — rendering', () => {
     expect(screen.getByText('Signaler cet événement')).toBeTruthy()
   })
 
-  it('renders the human-readable French label for each reason option', () => {
+  it('renders one option per enum constant with French label visible', () => {
     renderModal()
-    for (const { label } of Object.values(REPORT_REASONS)) {
-      expect(screen.getByText(label)).toBeTruthy()
+    for (const [key, label] of Object.entries(REPORT_REASONS)) {
+      const option = screen.getByRole('option', { name: label }) as HTMLOptionElement
+      expect(option.value).toBe(key)
     }
-  })
-
-  it('uses the enum keys as <option value> so the form submits the backend-valid reason', () => {
-    renderModal()
-    const select = screen.getByLabelText(/Motif/i) as HTMLSelectElement
-    const values = Array.from(select.options).map(o => o.value)
-    expect(values).toContain('SPAM')
-    expect(values).toContain('INAPPROPRIATE')
-    expect(values).toContain('FAKE')
-    expect(values).toContain('OTHER')
   })
 
   it('renders description textarea', () => {
     renderModal()
-    expect(screen.getByLabelText(/Détails/i)).toBeTruthy()
+    expect(screen.getByLabelText('Description')).toBeTruthy()
   })
 
   it('submit button is disabled when no reason selected', () => {
     renderModal()
-    const submitBtn = screen.getByRole('button', { name: /Envoyer le signalement/i })
+    const submitBtn = screen.getByRole('button', { name: 'Signaler' })
     expect((submitBtn as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -61,13 +55,13 @@ describe('ReportModal — rendering', () => {
     renderModal()
     const select = screen.getByLabelText(/Motif/i)
     fireEvent.change(select, { target: { value: 'SPAM' } })
-    const submitBtn = screen.getByRole('button', { name: /Envoyer le signalement/i })
+    const submitBtn = screen.getByRole('button', { name: 'Signaler' })
     expect((submitBtn as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('shows "Envoi en cours…" label when submitting', () => {
+  it('shows "Envoi..." label when submitting', () => {
     renderModal({ submitting: true })
-    expect(screen.getByText('Envoi en cours…')).toBeTruthy()
+    expect(screen.getByText('Envoi...')).toBeTruthy()
   })
 
   it('disables buttons when submitting', () => {
@@ -92,32 +86,39 @@ describe('ReportModal — interactions', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('calls onSubmit with the enum key and undefined description when none typed', async () => {
+  it('calls onSubmit with reason only when description is empty', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'SPAM' } })
-    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('SPAM', undefined))
   })
 
-  it('calls onSubmit with reason and description when both filled', async () => {
+  // Plumbing-bug guard: drives the textarea via fireEvent and asserts that the
+  // value the user actually typed reaches the submit handler intact.
+  it('passes the typed description string from textarea state to onSubmit', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'OTHER' } })
-    fireEvent.change(screen.getByLabelText(/Détails/i), { target: { value: 'Précisions' } })
-    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('OTHER', 'Précisions'))
+
+    const typedDescription = 'gvjhgj — un commentaire arbitraire saisi par l’utilisateur'
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: typedDescription },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('OTHER', typedDescription))
   })
 
   it('passes undefined description when description is blank whitespace', async () => {
     const { onSubmit } = renderModal()
     fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'FAKE' } })
-    fireEvent.change(screen.getByLabelText(/Détails/i), { target: { value: '   ' } })
-    fireEvent.click(screen.getByRole('button', { name: /Envoyer le signalement/i }))
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Signaler' }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('FAKE', undefined))
   })
 
   it('does not call onSubmit when no reason is selected', () => {
     const { onSubmit } = renderModal()
-    const form = screen.getByRole('button', { name: /Envoyer le signalement/i }).closest('form')!
+    const form = screen.getByRole('button', { name: 'Signaler' }).closest('form')!
     fireEvent.submit(form)
     expect(onSubmit).not.toHaveBeenCalled()
   })
