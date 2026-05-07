@@ -1,5 +1,6 @@
 package ch.unige.events.resource;
 
+import ch.unige.events.config.PerUserRateLimit;
 import ch.unige.events.dto.*;
 import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
@@ -190,7 +191,7 @@ public class UserResource {
                 schema = @Schema(implementation = ApiErrorResponse.class),
                 examples = @ExampleObject(
                     name = "forbidden",
-                    value = "{\"error\":\"forbidden\",\"message\":\"Cannot modify another user's profile\"}"
+                    value = "{\"error\":\"forbidden\",\"message\":\"You are not allowed to perform this action.\"}"
                 )
             )
         ),
@@ -219,6 +220,7 @@ public class UserResource {
             )
         )
     })
+    @PerUserRateLimit(name = "users.updateMe", max = 10)
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
@@ -233,7 +235,14 @@ public class UserResource {
     @Path("/me/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadImage", max = 5)
     public Response uploadImage(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            // Pentest 2026-04-17 finding 4.22 — clients sending the wrong
+            // multipart field name (e.g. "wrong" instead of "file") must get
+            // a structured 400, not a 500 from a downstream NPE.
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
@@ -247,7 +256,11 @@ public class UserResource {
     @Path("/me/banner")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadBanner", max = 5)
     public Response uploadBanner(@RestForm("file") FileUpload file) {
+        if (file == null) {
+            throw new BadRequestException("Missing required form field: file");
+        }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadBanner(auth0Id, file);
         return Response.ok(UserProfileResponse.from(updated)).build();
