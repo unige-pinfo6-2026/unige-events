@@ -1,3 +1,7 @@
+cloudflared:
+  enabled: true
+  mode: named
+
 image:
   registry: ghcr.io
   org: unige-pinfo6-2026
@@ -55,6 +59,3 @@ web:
     limits:
       memory: "128Mi"
       ephemeral-storage: "256Mi"
-
-cloudflared:
-  enabled: true
