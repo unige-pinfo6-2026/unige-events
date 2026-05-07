@@ -836,6 +836,75 @@ class EventServiceCoverageTest {
         assertThrows(ForbiddenException.class, () -> eventService.delete(event.id, "auth0|intruder"));
     }
 
+    // --- delete cascade (pentest finding 4.21) ---
+
+    @Test
+    @TestTransaction
+    void delete_cancelledEvent_removesLinkedAttendances() {
+        User creator = persistUser("auth0|del-cas-c", "del-cas-c@example.com");
+        User attendee = persistUser("auth0|del-cas-a", "del-cas-a@example.com");
+        Event event = persistEvent("Cascade Del", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        persistAttendanceForEvent(event.id, attendee.id, AttendanceStatus.ATTENDING);
+        entityManager.flush();
+        long before = Attendance.count("eventId = ?1", event.id);
+        assertEquals(1, before);
+
+        eventService.delete(event.id, "auth0|del-cas-c");
+        entityManager.flush();
+
+        assertEquals(0, Attendance.count("eventId = ?1", event.id));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_cancelledEvent_removesLinkedFavorites() {
+        User creator = persistUser("auth0|del-fav-c", "del-fav-c@example.com");
+        User fan = persistUser("auth0|del-fav-f", "del-fav-f@example.com");
+        Event event = persistEvent("Fav Del", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        persistFavoriteFor(event.id, fan.id);
+        entityManager.flush();
+        assertEquals(1, Favorite.count("eventId = ?1", event.id));
+
+        eventService.delete(event.id, "auth0|del-fav-c");
+        entityManager.flush();
+
+        assertEquals(0, Favorite.count("eventId = ?1", event.id));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_cancelledEvent_removesLinkedEventViews() {
+        User creator = persistUser("auth0|del-view-c", "del-view-c@example.com");
+        User viewer = persistUser("auth0|del-view-v", "del-view-v@example.com");
+        Event event = persistEvent("View Del", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        persistEventViewFor(event.id, viewer.id);
+        entityManager.flush();
+        assertEquals(1, EventView.count("eventId = ?1", event.id));
+
+        eventService.delete(event.id, "auth0|del-view-c");
+        entityManager.flush();
+
+        assertEquals(0, EventView.count("eventId = ?1", event.id));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_doesNotAffectOtherEventsAttendances() {
+        User creator = persistUser("auth0|del-nr-c", "del-nr-c@example.com");
+        User attendee = persistUser("auth0|del-nr-a", "del-nr-a@example.com");
+        Event toDelete = persistEvent("Delete This", EventCategory.ACADEMIC, EventStatus.CANCELLED, creator);
+        Event keeper = persistEvent("Keep This", EventCategory.ACADEMIC, EventStatus.PUBLISHED, creator);
+        persistAttendanceForEvent(toDelete.id, attendee.id, AttendanceStatus.ATTENDING);
+        persistAttendanceForEvent(keeper.id, attendee.id, AttendanceStatus.ATTENDING);
+        entityManager.flush();
+
+        eventService.delete(toDelete.id, "auth0|del-nr-c");
+        entityManager.flush();
+
+        assertEquals(0, Attendance.count("eventId = ?1", toDelete.id));
+        assertEquals(1, Attendance.count("eventId = ?1", keeper.id));
+    }
+
     // --- publish ---
 
     @Test
