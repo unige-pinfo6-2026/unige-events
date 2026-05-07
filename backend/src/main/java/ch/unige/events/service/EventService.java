@@ -217,9 +217,9 @@ public class EventService {
             throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
         }
 
-        Attendance.delete("eventId", id);
-        Favorite.delete("eventId", id);
-        EventView.delete("eventId", id);
+        entityManager.createQuery("DELETE FROM Attendance a WHERE a.eventId = :id").setParameter("id", id).executeUpdate();
+        entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id").setParameter("id", id).executeUpdate();
+        entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id").setParameter("id", id).executeUpdate();
         event.delete();
     }
 
