@@ -15,7 +15,7 @@ env:
 jobs:
   build-backend:
     name: Build Backend
-    runs-on: builds
+    runs-on: ubuntu-latest
     env:
       JAVA_VERSION: 21
       JAVA_DISTRIBUTION: "temurin"
@@ -63,7 +63,7 @@ jobs:
 
   build-frontend:
     name: Build Frontend
-    runs-on: builds
+    runs-on: ubuntu-latest
     env:
       NODE_VERSION: 24
       FRONTEND_IMAGE: unige-events-web
