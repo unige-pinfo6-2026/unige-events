@@ -383,6 +383,97 @@ class EventServiceCoverageTest {
         assertThrows(BadRequestException.class, () -> eventService.update(event.id, "auth0|expired-upd", req));
     }
 
+    // --- SCRUM-97: BANNED is moderation-only and terminal for the creator ---
+
+    @Test
+    @TestTransaction
+    void create_withBannedStatus_throwsBadRequest() {
+        persistUser("auth0|banned-create", "banned-create@example.com");
+
+        CreateEventRequest req = validCreateRequest();
+        req.setStatus(EventStatus.BANNED);
+
+        assertThrows(BadRequestException.class, () -> eventService.create("auth0|banned-create", req));
+    }
+
+    @Test
+    @TestTransaction
+    void update_withBannedStatus_throwsBadRequest() {
+        User user = persistUser("auth0|banned-upd-target", "banned-upd-target@example.com");
+        Event event = persistEvent("Active", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        UpdateEventRequest req = validUpdateRequest("Active", EventCategory.ACADEMIC, EventStatus.BANNED);
+
+        assertThrows(BadRequestException.class, () -> eventService.update(event.id, "auth0|banned-upd-target", req));
+    }
+
+    @Test
+    @TestTransaction
+    void update_bannedEvent_throwsConflict() {
+        User user = persistUser("auth0|banned-evt-upd", "banned-evt-upd@example.com");
+        Event event = persistEvent("Already banned", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        UpdateEventRequest req = validUpdateRequest("Tentative de modif", EventCategory.ACADEMIC, EventStatus.PUBLISHED);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.update(event.id, "auth0|banned-evt-upd", req));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_bannedEvent_throwsConflict() {
+        User user = persistUser("auth0|banned-cancel", "banned-cancel@example.com");
+        Event event = persistEvent("Banni", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> eventService.cancel(event.id, "auth0|banned-cancel"));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getById_bannedEvent_anon_throwsNotFound() {
+        User user = persistUser("auth0|banned-anon", "banned-anon@example.com");
+        Event event = persistEvent("Banni", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_bannedEvent_creator_throwsNotFound() {
+        // Anti-leak: even the creator cannot retrieve a banned event by id.
+        User user = persistUser("auth0|banned-creator", "banned-creator@example.com");
+        Event event = persistEvent("Banni", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getById(event.id, "auth0|banned-creator", false));
+    }
+
+    @Test
+    @TestTransaction
+    void getById_bannedEvent_admin_throwsNotFound() {
+        // Even an admin gets 404 — drill-down must happen via /admin/reports.
+        User user = persistUser("auth0|banned-admin-target", "banned-admin-target@example.com");
+        Event event = persistEvent("Banni", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        assertThrows(NotFoundException.class, () -> eventService.getById(event.id, "auth0|admin", true));
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_defaultListing_excludesBannedEvents() {
+        User user = persistUser("auth0|listing-banned", "listing-banned@example.com");
+        persistEvent("Visible", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+        persistEvent("Hidden by ban", EventCategory.ACADEMIC, EventStatus.BANNED, user);
+
+        List<EventDTO> result = eventService.getAll(0, 50, null, null, null, null, null, null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("Visible", result.get(0).title());
+    }
+
     // --- getById ---
 
     @Test

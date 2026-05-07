@@ -114,7 +114,9 @@ public class ReportService {
         // the decision to all sibling PENDING reports on the same event so the
         // moderation queue is cleared in one click. Dismiss is neutral — no ban,
         // no cascade — for cases where the report was bogus.
-        if (request.status() == ReportStatus.REVIEWED && report.event != null) {
+        // `report.event` is NOT NULL by FK constraint (cf. Report.java
+        // @JoinColumn(nullable = false)), so no defensive null check is needed.
+        if (request.status() == ReportStatus.REVIEWED) {
             report.event.status = EventStatus.BANNED;
             cascadeSiblingReports(report, admin, now);
         }
