@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReportDTOTest {
 
@@ -213,5 +216,91 @@ class ReportDTOTest {
         ReportDTO dto = ReportDTO.from(report);
 
         assertEquals("Eve", dto.reporterDisplayName());
+    }
+
+    // ── Record contract (Sonar new-code coverage gate) ─────────────────────
+    // Java records auto-generate equals/hashCode/toString with one branch per
+    // field, which JaCoCo counts toward conditional coverage. The from() tests
+    // above only exercise the projection, not the equality, so without these
+    // assertions the file lands at ~68% on Sonar new-code (under the 80%
+    // threshold). Two instances with all 12 fields populated identically and
+    // a few mutations are enough to cover the full equals/hashCode chain.
+
+    private static ReportDTO sampleDTO(UUID reporterId, UUID reviewerId, LocalDateTime ts) {
+        return new ReportDTO(
+                7L,
+                42L,
+                "Soirée d'intégration",
+                reporterId,
+                "Alice Reporter",
+                ReportReason.SPAM,
+                "Looks like spam",
+                ReportStatus.REVIEWED,
+                "Confirmed spam",
+                ts,
+                ts,
+                reviewerId);
+    }
+
+    @Test
+    void equals_andHashCode_followRecordContract() {
+        UUID reporterId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+        LocalDateTime ts = LocalDateTime.of(2026, 5, 7, 10, 0);
+
+        ReportDTO a = sampleDTO(reporterId, reviewerId, ts);
+        ReportDTO b = sampleDTO(reporterId, reviewerId, ts);
+
+        assertEquals(a, b);
+        assertEquals(a.hashCode(), b.hashCode());
+
+        // Reflexive + null + foreign type
+        assertEquals(a, a);
+        assertNotEquals(null, a);
+        assertNotEquals("not a ReportDTO", a);
+    }
+
+    @Test
+    void equals_distinguishesEachField() {
+        UUID reporterId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+        LocalDateTime ts = LocalDateTime.of(2026, 5, 7, 10, 0);
+        ReportDTO base = sampleDTO(reporterId, reviewerId, ts);
+
+        // Each mutation must produce a non-equal instance — exercises every
+        // field's branch in the auto-generated equals().
+        assertNotEquals(base, new ReportDTO(99L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 99L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Other", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", UUID.randomUUID(), "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Bob Other",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.OTHER, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Different", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.DISMISSED, "Confirmed spam", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Different note", ts, ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts.plusDays(1), ts, reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts.plusDays(1), reviewerId));
+        assertNotEquals(base, new ReportDTO(7L, 42L, "Soirée d'intégration", reporterId, "Alice Reporter",
+                ReportReason.SPAM, "Looks like spam", ReportStatus.REVIEWED, "Confirmed spam", ts, ts, UUID.randomUUID()));
+    }
+
+    @Test
+    void toString_containsClassNameAndKeyFields() {
+        ReportDTO dto = sampleDTO(UUID.randomUUID(), UUID.randomUUID(), LocalDateTime.of(2026, 5, 7, 10, 0));
+        String s = dto.toString();
+        assertNotNull(s);
+        assertTrue(s.contains("ReportDTO"));
+        assertTrue(s.contains("SPAM"));
     }
 }
