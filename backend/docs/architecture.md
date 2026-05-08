@@ -1,24 +1,58 @@
 # Architecture — unige-events-api
 
-## Vue d'ensemble microservices
+> **Sprint 8 — migration vers microservices en cours.** Cette doc décrit l'état
+> **actuel** (monolithe + briques infra Kong/Kafka). La cible et le plan
+> d'extraction par service vivent dans
+> [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+> L'état est mis à jour incrémentalement à mesure que les services sont extraits.
 
-UNIGE Events est décomposé en **3 services** déployés indépendamment dans Kubernetes (namespace `unige-events`) :
+## Vue d'ensemble (S8 état courant — strangler-fig)
 
-| Service | Repo | Image | Tech |
+UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
+`unige-events-pr-N` en preview). Topologie courante :
+
+| Composant | Type | Image | Rôle |
 |---|---|---|---|
-| **web** | `unige-events-web` | `ghcr.io/.../web:latest` | React 19 / Nginx |
-| **api** | `unige-events-api` | `ghcr.io/.../api:latest` | Java 21 / Quarkus 3.32 |
-| **db** | défini dans `api/k8s/db.yml` | `postgres:16` | PostgreSQL 16 |
+| **web** | Deployment | `ghcr.io/.../unige-events-web:<sha>` | React 19 SPA, servie par Nginx |
+| **kong** | Deployment | `kong:3.7.0` | API Gateway DB-less, route 100 % de `/api/*` vers `api:8080` (catch-all en attendant les flips) |
+| **api** | Deployment | `ghcr.io/.../unige-events-api:<sha>` | Quarkus monolith — encore propriétaire de tout le code applicatif |
+| **kafka** | StatefulSet | `apache/kafka:3.7.0` | Broker KRaft single-node, 10 topics provisionnés, **pas encore de producteur ni consommateur** |
+| **db** | StatefulSet | `postgres:16` | Schéma `public` — partagé tant que les services ne sont pas extraits ; futur découpage en schémas par service (cf. spec décision 8) |
+| **minio** | StatefulSet | `minio/minio` | Stockage S3 compatible (uploads bannières / avatars) |
+| **cloudflared** | Deployment | `cloudflare/cloudflared` | Tunnel preview (mode quick) |
+| **`<svc>`-service × 14** | Deployment (`replicas: 0`) | `ghcr.io/.../unige-events-<svc>:<sha>` (futur) | Squelettes scaffoldés par étape 2..14 — **idle**, ne consomment rien tant que le carve-out n'est pas livré |
 
 Flux de trafic :
 ```
 Utilisateur → HTTPS → Ingress Nginx
-                        ├─ /        → Pod web (Nginx + SPA React)
-                        └─ /api/*   → Pod api (Quarkus JVM, port 8080)
-                                          └─ JDBC → Pod db (PostgreSQL 16)
+                        ├─ /        → Service web (Nginx + SPA React)
+                        ├─ /api/*   → Service kong-proxy:8000 ─┐
+                        └─ /s3/*    → Service minio:9000        │
+                                                                ▼
+                                                Kong route catch-all `/api → api:8080`
+                                                ▼
+                                                Service api:8080 (Quarkus monolith)
+                                                ▼
+                                                Service db:5432 (PostgreSQL 16)
 ```
 
-Auth0 (externe) émet les JWT — le backend les valide via OIDC Discovery sans appel inter-service.
+Tous les services sont déployés via le chart Helm umbrella unique (`k8s/chart/`),
+versioné via `Chart.yaml`. Les sous-templates `templates/<svc>/` sont
+provisionnés à `replicas: 0` — leur bascule à `replicas: 1` est ce que la PR
+d'extraction par service livrera.
+
+Auth0 (externe) émet les JWT — le backend les valide via OIDC Discovery sans
+appel inter-service. Kong **ne valide pas** le JWT (cf. spec décision 7) : il
+forwarde simplement le header `Authorization: Bearer <jwt>` vers le service
+amont, qui le revalide localement via `quarkus-oidc`. Cette propriété tient
+aujourd'hui (un seul service amont = `api`) et continuera de tenir une fois
+les services extraits.
+
+## Briques d'infrastructure ajoutées au S8
+
+* **Kong** ([`k8s/chart/templates/kong/`](../../k8s/chart/templates/kong/)) — DB-less, 2 replicas en prod / 1 en preview, ConfigMap `kong-config` porte la table de routes déclarative (catch-all aujourd'hui ; blocs commentés pour le découpage cible). Plugins globaux : `cors`, `correlation-id` (X-Request-ID propagé), `prometheus`.
+* **Kafka** ([`k8s/chart/templates/kafka/`](../../k8s/chart/templates/kafka/)) — KRaft single-broker, PVC sized via values, `clusterId` immutable. Job `kafka-topics-init` post-install/upgrade crée les 10 topics figés par la spec § 4.5 (`events.published`, `events.cancelled`, `events.banned`, `events.expired`, `users.followed`, `users.follow-requested`, `users.follow-accepted`, `comments.created`, `co-organizers.invited`, `co-organizers.accepted`).
+* **Multi-module Maven** ([`backend/pom.xml`](../pom.xml)) — parent agrégateur, 15 modules enfants. Cf. [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven ».
 
 ---
 

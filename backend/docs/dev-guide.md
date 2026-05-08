@@ -9,6 +9,26 @@
 
 ---
 
+## Layout Maven (multi-module post Sprint 8)
+
+Depuis 2026-05-08, `backend/` est un projet **multi-module** avec parent POM
+agrégateur à la racine et 15 modules enfants sous `backend/services/` :
+1 monolith Quarkus (`legacy-monolith`) qui porte 100 % du code aujourd'hui,
+et 14 squelettes de microservices (`<X>-service`) en cours d'extraction
+progressive. Voir [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven »
+et [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+
+**Conséquences pratiques pour le dev local** :
+- `cd backend && ./mvnw verify` build TOUS les modules.
+- `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par module.
+  Pour le monolithe : `cd backend/services/legacy-monolith && ../../mvnw quarkus:dev`.
+- Les 14 squelettes sont jar-packagés (pas `quarkus`) — `quarkus:dev` n'y
+  fonctionne pas tant qu'ils n'ont pas été enrichis par leur PR d'extraction.
+  Ils ont juste un endpoint `/api/__service` (identité du module) pour permettre
+  à Kong / curl de vérifier qui répond pendant la coexistence.
+
+---
+
 ## Lancement en développement local
 
 ```bash
@@ -16,8 +36,9 @@
 cp .env.example .env
 # Éditer .env avec les vraies valeurs Auth0 (OIDC_AUTH_SERVER_URL, OIDC_CLIENT_ID, etc.)
 
-# Lancer l'API en mode dev (hot reload + PostgreSQL auto via DevServices)
-./mvnw quarkus:dev
+# Lancer le monolithe en mode dev (hot reload + PostgreSQL auto via DevServices)
+cd backend/services/legacy-monolith
+../../mvnw quarkus:dev
 ```
 
 L'API est accessible sur `http://localhost:8080/api`.
