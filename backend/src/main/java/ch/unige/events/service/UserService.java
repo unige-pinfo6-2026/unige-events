@@ -1,6 +1,8 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.user.PublicProfileView;
 import ch.unige.events.dto.user.UpdateProfileRequest;
+import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -24,6 +26,7 @@ public class UserService {
 
     @Inject FileStorageService fileStorageService;
     @Inject Instance<EntityManager> entityManager;
+    @Inject FollowService followService;
 
     /**
      * Appelé à chaque requête authentifiée.
@@ -75,18 +78,34 @@ public class UserService {
         }
     }
 
-    public User getPublicProfile(UUID id, String auth0Id) {
+    public PublicProfileView getPublicProfile(UUID id, String auth0Id) {
         User user = (User) User.findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        // Hotfix pentest 4.1: hide private profiles with 404 (not 403) to close the
-        // existence oracle — identical envelope as "user does not exist". The owner
-        // (self-case) can always read their own profile regardless of profilePublic.
+        // Hotfix pentest 4.1 (ISSUE-93): hide private profiles with 404 (not 403) to
+        // close the existence oracle — identical envelope as "user does not exist".
+        // The owner (self-case) can always read their own profile regardless of
+        // profilePublic.
         boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
         if (!user.profilePublic && !isOwner) {
             throw new NotFoundException();
         }
 
-        return user;
+        // SCRUM-138 — anonymes : court-circuit, pas d'appel FollowService.
+        if (auth0Id == null) {
+            return PublicProfileView.anonymous(user);
+        }
+
+        long followerCount = followService.countFollowers(user.id);
+        long followingCount = followService.countFollowing(user.id);
+
+        FollowStatus followStatus = null;
+        if (!isOwner) {
+            UUID callerId = User.findByAuth0Id(auth0Id).map(u -> u.id).orElse(null);
+            if (callerId != null) {
+                followStatus = followService.getStatusBetween(callerId, user.id);
+            }
+        }
+        return new PublicProfileView(user, followerCount, followingCount, followStatus);
     }
 
     @Transactional
@@ -131,7 +150,8 @@ public class UserService {
     @Transactional
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars");
+        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars",
+                FileStorageService.MAX_AVATAR_BYTES, user.avatarUrl);
         flushEntityManager();
         return user;
     }
@@ -139,7 +159,17 @@ public class UserService {
     @Transactional
     public User uploadBanner(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners");
+        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners",
+                FileStorageService.MAX_BANNER_BYTES, user.bannerUrl);
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User deleteAvatar(String auth0Id) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        fileStorageService.deleteObject(user.avatarUrl, "users/avatars");
+        user.avatarUrl = null;
         flushEntityManager();
         return user;
     }

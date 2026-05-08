@@ -1,5 +1,6 @@
 package ch.unige.events.dto.user;
 
+import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
 
 import java.util.List;
@@ -13,8 +14,17 @@ public record UserPublicResponse(
     String bio,
     List<String> interests,
     String avatarUrl,
-    String bannerUrl
+    String bannerUrl,
+    long followerCount,
+    long followingCount,
+    FollowStatus followStatus
 ) {
+
+    /**
+     * Factory legacy (compteurs = 0, followStatus = null).
+     * Utilisée pour les items des listes followers / following (cf. SCRUM-138 décision 11)
+     * et par les tests qui n'ont pas besoin du contexte follow.
+     */
     public static UserPublicResponse from(User user) {
         return new UserPublicResponse(
                 user.id,
@@ -24,25 +34,55 @@ public record UserPublicResponse(
                 user.bio,
                 user.interests,
                 user.avatarUrl,
-                user.bannerUrl
+                user.bannerUrl,
+                0L,
+                0L,
+                null
         );
     }
 
     /**
-     * Factory for anonymous callers — projects only id, displayName and avatarUrl;
-     * other fields are null. Hotfix pentest 2026-04-17 finding 4.1b (limit anonymous
-     * harvest of opt-in public profiles).
+     * Factory enrichie utilisée par {@link ch.unige.events.service.UserService#getPublicProfile}
+     * pour les appelants authentifiés. Compteurs et followStatus calculés par le Service.
+     */
+    public static UserPublicResponse from(
+            User user,
+            long followerCount,
+            long followingCount,
+            FollowStatus followStatus) {
+        return new UserPublicResponse(
+                user.id,
+                user.displayName,
+                user.faculty,
+                user.studyLevel,
+                user.bio,
+                user.interests,
+                user.avatarUrl,
+                user.bannerUrl,
+                followerCount,
+                followingCount,
+                followStatus
+        );
+    }
+
+    /**
+     * Factory pour les appelants anonymes — projet uniquement id, displayName et avatarUrl.
+     * Compteurs à 0, followStatus null. Hotfix pentest 2026-04-17 finding 4.1b
+     * (limit anonymous harvest of opt-in public profiles).
      */
     public static UserPublicResponse fromAnonymous(User user) {
         return new UserPublicResponse(
                 user.id,
                 user.displayName,
-                null, // faculty
-                null, // studyLevel
-                null, // bio
-                null, // interests
+                null,
+                null,
+                null,
+                null,
                 user.avatarUrl,
-                null  // bannerUrl
+                null,
+                0L,
+                0L,
+                null
         );
     }
 }

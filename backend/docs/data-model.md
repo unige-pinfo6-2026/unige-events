@@ -250,6 +250,91 @@ du JWT — pas de spoofing).
 
 ---
 
+### Follow
+
+Table : `follows` (créée par la migration `V14__create_follows.sql` en SCRUM-138).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity`, sequence `follows_seq` |
+| `followerId` | `followerId` | `UUID` | `follower_id` | not null — FK `fk_follows_follower` → `users(id)` |
+| `followedId` | `followedId` | `UUID` | `followed_id` | not null — FK `fk_follows_followed` → `users(id)` |
+| `status` | `status` | `FollowStatus` | `status` | `@Enumerated(STRING)`, not null, `length=16`, CHECK constraint |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_follow_follower_followed` sur `(follower_id, followed_id)` —
+empêche le double suivi et sert de filet de sécurité au check applicatif `409 already_following`.
+
+CHECK constraints :
+- `follows_status_check` (V14) : `status IN ('PENDING', 'ACCEPTED')`.
+
+Index : `idx_follow_followed` (followed_id), `idx_follow_follower` (follower_id) —
+support des compteurs `countFollowers` / `countFollowing` et des listings paginés
+(SCRUM-138).
+
+**Pas de cascade FK** — un user supprimé laisse des rows orphelines (pattern défensif
+identique à `Report.reporter`, à nettoyer par job ultérieur si nécessaire).
+
+#### Sémantique du `REJECT`
+
+`PATCH /follow-requests/{id}/reject` **supprime physiquement** la row au lieu de la
+marquer `REJECTED`. La valeur `REJECTED` n'existe pas dans l'enum `FollowStatus`. Cette
+décision permet au follower de re-tenter une demande après refus, sans 409 (la
+contrainte unique étant strictement basée sur la présence d'une row, pas sur son
+statut). Pattern aligné sur `EventCoOrganizer.DECLINE`.
+
+#### Helpers statiques
+
+- `Follow.findByFollowerAndFollowed(UUID, UUID)` — résolution unitaire pour
+  follow/unfollow/cancel.
+- `Follow.findFollowersOf(UUID, int, int)` — listing paginé ACCEPTED, tri
+  `createdAt DESC, id DESC`.
+- `Follow.findFollowingOf(UUID, int, int)` — idem côté following.
+- `Follow.findPendingRequestsFor(UUID, int, int)` — inbox des demandes PENDING.
+- `Follow.findAcceptedFollowedIds(UUID followerId): List<UUID>` — projection JPQL
+  directe. **Anticipation SCRUM-168** (filtre `followedOnly` du feed S9) : consommé
+  par `EventService` pour filtrer les events sur les UUIDs suivis. Couvert par un
+  test sentinel dédié dans `FollowServiceCoverageTest`.
+- `Follow.countFollowersOf(UUID)`, `Follow.countFollowingOf(UUID)` — compteurs
+  ACCEPTED uniquement (PENDING ne compte pas).
+
+#### Consommation par `UserService.getPublicProfile`
+
+`UserService.getPublicProfile(UUID id, String auth0Id)` retourne désormais un
+`PublicProfileView` (record `(User user, long followerCount, long followingCount,
+FollowStatus followStatus)`) :
+
+- Pour un appelant **anonyme** : `PublicProfileView.anonymous(user)` — court-circuit
+  (compteurs 0, followStatus null), pas d'appel `FollowService` (économie 2 requêtes
+  DB par hit anonyme).
+- Pour un appelant **authentifié** : compteurs réels via
+  `FollowService.countFollowers/Following`, `followStatus` calculé via
+  `FollowService.getStatusBetween(callerId, targetId)`.
+- Sur son **propre profil** (auth0Id matche `user.auth0Id`) : `followStatus` reste
+  `null` (un user ne peut pas se suivre — cf. SCRUM-138 décision 6, 422 sur self-follow).
+
+La règle anti-oracle 404 ISSUE-93 reste inchangée : un profil privé non-owner jette
+`NotFoundException` avant tout calcul de follow.
+
+#### Consommation par `FollowResource` et `FollowRequestResource`
+
+7 endpoints exposés :
+- `POST /users/{id}/follow` (201, 401, 404, 409 `already_following`, 422
+  `cannot_follow_self`, 429 — `@PerUserRateLimit(name="follows.follow", max=30)`)
+- `DELETE /users/{id}/follow` (204 idempotent, 401)
+- `GET /users/{id}/followers`, `GET /users/{id}/following` (200, 401, 404
+  anti-oracle si profil privé non-owner)
+- `GET /users/me/follow-requests` (200, 401, 404)
+- `PATCH /follow-requests/{followId}/accept` (200, 401, 403, 404, 409
+  `invalid_transition`)
+- `PATCH /follow-requests/{followId}/reject` (204, 401, 403, 404, 409)
+
+La règle anti-oracle 404 sur les listings followers/following est portée par un appel
+préalable à `userService.getPublicProfile(...)` qui jette si non visible (alignement
+ISSUE-93).
+
+---
+
 ### Report
 
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
@@ -325,6 +410,103 @@ Quand `ReportService.handle()` reçoit `status=REVIEWED` :
 
 ---
 
+### Comment
+
+Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM-139).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` (sequence `comments_seq`, increment 50) |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `author` | — | `User` | `author_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `users.id` |
+| `parentComment` | — | `Comment` | `parent_comment_id` | `@ManyToOne(LAZY)`, nullable — auto-référence vers `comments.id` (1 niveau de profondeur max) |
+| `content` | `content` | `String` | `content` | `@Column(columnDefinition="TEXT", nullable=false)`, `@NotBlank`, `@Size(max=2000)`, trimmé côté service avant persist |
+| `likeCount` | `likeCount` | `int` | `like_count` | `@Column(nullable=false)`, default `0`. **Lecture seule en S6** — la mutation est livrée par SCRUM-144 (S7) |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false, nullable=false)`, initialisé via `@PrePersist` (null-guard) |
+
+Index DB : `idx_comment_event` (event_id), `idx_comment_parent` (parent_comment_id),
+`idx_comment_event_created` (event_id, created_at DESC) — composite descendant pour
+servir le `ORDER BY createdAt DESC, id DESC` du listing top-level sans scan séquentiel.
+
+Pas de contrainte unique métier sur la table — un user peut poster N commentaires sur
+un event.
+
+#### Sémantique du threading (1 niveau de profondeur max)
+
+- `parentComment IS NULL` : commentaire **top-level**, sérialisé avec
+  `parentCommentId: null` côté DTO et accompagné de ses replies dans `replies[]` quand
+  il sort de `getByEvent`.
+- `parentComment NOT NULL` : **reply** à un commentaire top-level. Le service vérifie
+  que `parentComment.parentComment IS NULL` au moment du POST — sinon `422 replies_too_deep`.
+- Si le commentaire pointé par `parentCommentId` appartient à un autre event que `eventId`,
+  le service rejette avec `422 parent_comment_not_in_event`.
+- DELETE physique d'un parent : les replies survivent grâce à la clause
+  `ON DELETE SET NULL` portée par la FK `fk_comments_parent`. Le `parent_comment_id`
+  des replies passe à `NULL` côté DB, et chacune d'elles remonte en **top-level**
+  dans `GET /events/{id}/comments` (le DTO expose alors `parentCommentId: null`).
+  Pas de cascade `ON DELETE CASCADE` — décision tranchée (SCRUM-139 décision 17)
+  pour préserver l'historique conversationnel sans modal mass-delete.
+
+#### Visibilité héritée de `Event`
+
+`CommentService.post(...)` et `CommentService.getByEvent(...)` délèguent **systématiquement**
+la garde anti-oracle ISSUE-92 à `EventService.getById(eventId, callerAuth0Id, isAdmin)` —
+event invisible (DRAFT/CANCELLED/BANNED non-créateur) → `404 not_found`. Au-delà de cette
+garde :
+
+| `event.status` | Caller | Réponse `POST /comments` |
+|---|---|---|
+| `PUBLISHED` | tout authentifié | `201 Created` |
+| `DRAFT` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_draft_event` |
+| `DRAFT` | autre user | `404 not_found` (anti-oracle) |
+| `CANCELLED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_cancelled_event` |
+| `CANCELLED` | autre user | `404 not_found` (anti-oracle) |
+| `EXPIRED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_expired_event` |
+| `EXPIRED` | autre user | `404 not_found` (anti-oracle) |
+| `BANNED` | tout monde, admin compris | `404 not_found` (cf. SCRUM-97) |
+
+#### Cascade d'autorisation pour `DELETE`
+
+`CommentService.delete(...)` autorise (cf. décision 16) :
+
+1. l'**auteur** du commentaire (`comment.author.auth0Id == caller.auth0Id`),
+2. le **créateur** de l'event (via `EventService.isCreatorOrAcceptedCoOrganizerPublic`),
+3. un **co-organisateur ACCEPTED** de l'event (cascade SCRUM-136),
+4. un utilisateur **ADMIN** (claim Auth0).
+
+Sinon → `403 forbidden`. `commentId` inexistant → `404 comment_not_found` (envelope
+distincte du 404 anti-oracle event, car l'existence d'un commentId n'est pas un secret —
+le listing `GET /events/{id}/comments` est `@PermitAll` et liste déjà tout).
+
+#### Calcul de `authorIsOrganizer` (DTO)
+
+`CommentDTO.authorIsOrganizer` est `true` quand l'auteur est créateur de l'event OU
+co-organisateur ACCEPTED. Pour `getByEvent`, le calcul est fait en **bulk** via un
+`Set<UUID>` mémoïsant `{event.creator.id} ∪ {co-orgs ACCEPTED}` — testé en O(1) pour
+chaque commentaire de la page (cf. décision 27, évite le N+1).
+
+#### Consommation par `CommentService`
+
+- `CommentService.post(auth0Id, eventId, CreateCommentRequest)` (`@Transactional`) —
+  visibilité event, vérification du parent (existence, appartenance, profondeur),
+  trim du content, persist, projection DTO.
+- `CommentService.getByEvent(eventId, auth0Id, page, size)` — non-transactional ;
+  paginé sur top-level (`createdAt DESC, id DESC`), batch-load des replies en
+  **2 requêtes SQL** (top-level page + WHERE parent_comment_id IN (...)).
+- `CommentService.delete(auth0Id, commentId)` (`@Transactional`) — DELETE physique
+  conditionné par la cascade d'autorisation ci-dessus.
+
+#### Anticipation S7 — likes & report-comment (hors scope SCRUM-139)
+
+- `likeCount` (int, default `0`) et `likedByMe` (boolean, toujours `false` dans le DTO
+  S6) sont exposés dès maintenant pour figer le contrat consommé par SCRUM-146 (front S7) ;
+  la mutation viendra avec SCRUM-144 (entité `CommentLike`, `POST/DELETE /comments/{id}/like`).
+- `POST /comments/{id}/report` (et l'extension `Report.commentId`) sont également SCRUM-144 — hors scope ici.
+- Notifications (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) sont SCRUM-145 (S7+),
+  dépendantes de l'infra `Notification` SCRUM-99.
+
+---
+
 ## Conventions de nommage
 
 ### camelCase obligatoire
@@ -370,13 +552,24 @@ id, auth0Id, email, displayName, faculty, studyLevel, bio, interests, avatarUrl,
 Factory : `UserProfileResponse.from(User user)`
 
 ### UserPublicResponse (record)
-Profil public — retourné via `GET /users/{id}` si `profilePublic = true`.
+Profil public — retourné via `GET /users/{id}`. Format :
 
 ```
-id, displayName, faculty, studyLevel, bio, interests, avatarUrl
+id, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl,
+followerCount (long), followingCount (long), followStatus (FollowStatus | null)
 ```
 
-Factory : `UserPublicResponse.from(User u)`
+Trois factories (cf. SCRUM-138) :
+
+- `UserPublicResponse.from(User u)` — legacy. Compteurs à 0, followStatus null.
+  Utilisée par les items des listes followers / following (les compteurs ne font sens
+  que sur le profil cible, pas sur les items de la liste).
+- `UserPublicResponse.from(User u, long followerCount, long followingCount, FollowStatus followStatus)`
+  — factory enrichie utilisée par `UserResource.getProfile` pour les appelants
+  authentifiés.
+- `UserPublicResponse.fromAnonymous(User u)` — factory anonyme (ISSUE-93 finding 4.1b).
+  Tous les champs sensibles `null`, compteurs à 0, followStatus null. Court-circuit
+  servi sans appel à `FollowService`.
 
 ### EventDTO
 Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
@@ -460,6 +653,7 @@ attendingCount, interestedCount, viewCount
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 | `ReportReason` | `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER` | Sprint 7 | ✅ Implémenté (SCRUM-94 — CHECK constraint posée par V9) |
+| `FollowStatus` | `PENDING`, `ACCEPTED` | Sprint 6 | ✅ Implémenté (SCRUM-138 — un reject = DELETE physique de la row, `REJECTED` n'est pas un statut stocké) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 

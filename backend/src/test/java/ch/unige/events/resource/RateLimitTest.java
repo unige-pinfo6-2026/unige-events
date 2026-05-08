@@ -11,6 +11,7 @@ import ch.unige.events.entity.EventCategory;
 import ch.unige.events.exception.RateLimitExceededException;
 import ch.unige.events.exception.mapper.RateLimitExceptionMapper;
 import ch.unige.events.service.AttendanceServiceMock;
+import ch.unige.events.service.CommentServiceMock;
 import ch.unige.events.service.EventServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
 import ch.unige.events.service.UserServiceMock;
@@ -84,6 +85,9 @@ class RateLimitTest {
     @Inject
     FavoriteServiceMock favoriteServiceMock;
 
+    @Inject
+    CommentServiceMock commentServiceMock;
+
     private final AtomicLong fakeNow = new AtomicLong();
 
     @BeforeEach
@@ -92,6 +96,7 @@ class RateLimitTest {
         userServiceMock.reset();
         attendanceServiceMock.reset();
         favoriteServiceMock.reset();
+        commentServiceMock.reset();
         rateLimitState.clearBuckets();
         fakeNow.set(1_000_000_000L);
         rateLimitState.setNowMillisSupplier(fakeNow::get);
@@ -465,6 +470,26 @@ class RateLimitTest {
                     .then().statusCode(200);
         }
         assert429(given().when().post("/events/{id}/favorite", event.id));
+    }
+
+    @Test
+    @TestSecurity(user = ALICE)
+    void post_events_id_comments_eleventhCallReturns429() {
+        // SCRUM-139 — verrouille @PerUserRateLimit(name="comments.post", max=10,
+        // windowSeconds=60) sur POST /events/{eventId}/comments. Sentinel demandée
+        // par la review Copilot (PR #156, comment 3207926365) — protège contre une
+        // régression future (mauvais name, annotation supprimée, max/window modifiés).
+        for (int i = 0; i < 10; i++) {
+            given()
+                    .contentType(ContentType.JSON)
+                    .body("{\"content\":\"comment #" + i + "\"}")
+                    .when().post("/events/{eventId}/comments", 1L)
+                    .then().statusCode(201);
+        }
+        assert429(given()
+                .contentType(ContentType.JSON)
+                .body("{\"content\":\"comment overflow\"}")
+                .when().post("/events/{eventId}/comments", 1L));
     }
 
     @Test

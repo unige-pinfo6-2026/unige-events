@@ -6,6 +6,7 @@ import ch.unige.events.dto.attendance.AttendanceDTO;
 import ch.unige.events.dto.calendar.CalendarTokenResponse;
 import ch.unige.events.dto.coorganizer.CoOrganizerInvitationDTO;
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.dto.user.PublicProfileView;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.dto.user.UserProfileResponse;
 import ch.unige.events.dto.user.UserPublicResponse;
@@ -76,10 +77,15 @@ public class UserResource {
     public Response getProfile(@PathParam("id") UUID id) {
         boolean anonymous = identity.isAnonymous();
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
-        User user = userService.getPublicProfile(id, auth0Id);
+        PublicProfileView view = userService.getPublicProfile(id, auth0Id);
         UserPublicResponse body = anonymous
-                ? UserPublicResponse.fromAnonymous(user)
-                : UserPublicResponse.from(user);
+                ? UserPublicResponse.fromAnonymous(view.user())
+                : UserPublicResponse.from(
+                        view.user(),
+                        view.followerCount(),
+                        view.followingCount(),
+                        view.followStatus()
+                  );
         return Response.ok(body).build();
     }
 
@@ -245,6 +251,20 @@ public class UserResource {
         }
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.uploadImage(auth0Id, file);
+        return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
+    /**
+     * DELETE /api/users/me/image
+     * Supprime la photo de profil — remet avatarUrl à null et supprime l'objet S3.
+     */
+    @DELETE
+    @Path("/me/image")
+    @Authenticated
+    @Consumes(MediaType.WILDCARD)
+    public Response deleteImage() {
+        String auth0Id = identity.getPrincipal().getName();
+        User updated = userService.deleteAvatar(auth0Id);
         return Response.ok(UserProfileResponse.from(updated)).build();
     }
 

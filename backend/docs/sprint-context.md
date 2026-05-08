@@ -32,6 +32,99 @@ Hors scope explicitement : skip d'occurrence individuelle (RFC 5545 EXDATE — S
 
 ---
 
+## Sprint 6 — Entité `Comment` + 3 endpoints CRUD commentaires événements (SCRUM-139) — 2026-05-08
+
+Livré.
+
+Socle backend des commentaires d'événements (US-22, épic SCRUM-16) qui débloque
+SCRUM-146 (front S7 — `CommentSection.tsx` dans `EventDetailPage`) et SCRUM-144
+(likes / report-comment S7, l'entité `Comment` étant référencée par
+`CommentLike.commentId` et l'extension `Report.commentId`).
+
+- Migration `V15__create_comments.sql` : table `comments` (BIGINT PK via
+  `comments_seq` increment 50, FK NOT NULL vers `events.id` et `users.id`,
+  FK nullable auto-référente vers `comments.id` avec `ON DELETE SET NULL` —
+  un DELETE physique d'un parent fait remonter ses replies en top-level
+  côté DB sans rejet RESTRICT, `content TEXT NOT NULL`,
+  `like_count INTEGER NOT NULL DEFAULT 0`, `created_at TIMESTAMP NOT NULL`).
+  3 indexes : `idx_comment_event`, `idx_comment_parent`,
+  `idx_comment_event_created` (composite descendant pour le tri du listing).
+- Entité `Comment` (PanacheEntity, Long PK) avec 3 `@ManyToOne(LAZY)` —
+  `event`, `author`, `parentComment`. `content` mappé en TEXT via
+  `@Column(columnDefinition="TEXT")` + `@NotBlank @Size(max=2000)`.
+  `likeCount` int default 0 — **lecture seule en S6** (mutation déléguée à
+  SCRUM-144). `@PrePersist` avec null-guard (pattern aligné sur les autres
+  entités du projet).
+- DTOs : `CommentDTO` (record, 11 champs) avec deux factories
+  `from(Comment, boolean)` et `fromTopLevelWithReplies(...)`.
+  `CreateCommentRequest` (record) avec `content @NotBlank @Size(max=2000)` et
+  `parentCommentId` nullable.
+- `CommentService` (`@ApplicationScoped`, `@Transactional` sur `post`/`delete`,
+  non-transactional sur `getByEvent`) : visibilité event déléguée à
+  `EventService.getById(...)` (anti-oracle ISSUE-92), branchement par statut
+  (PUBLISHED → 201, DRAFT/CANCELLED/EXPIRED créateur → 400, autre → 404),
+  vérification du parent (existence + appartenance event + profondeur 1 niveau
+  max — sinon 404/422), trim côté service. DELETE cascade
+  auteur/créateur/co-org ACCEPTED (réutilise SCRUM-136
+  `isCreatorOrAcceptedCoOrganizerPublic`)/admin → 204, sinon 403. Batch-load
+  des replies en 2 requêtes SQL (top-level page + WHERE parent_comment_id IN)
+  avec calcul bulk de `authorIsOrganizer` via un `Set<UUID>` mémoïsant
+  creator + co-orgs ACCEPTED.
+- `CommentResource` (`@Path("/events")`) avec POST + GET ; `CommentDirectResource`
+  (`@Path("/comments")`) avec DELETE — split en deux Resources pour respecter
+  l'unicité du `@Path` racine. Constructor injection (Sonar S6813). `POST`
+  rate-limité via `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)`.
+  GET `@PermitAll` (visibilité déléguée à getById).
+
+Tests : 918 verts au total dont 58 nouveaux SCRUM-139 (4 entity + 30 service
+coverage + 20 resource + 4 direct-resource). JaCoCo **100 % lignes** sur
+`Comment`, `CommentDTO`, `CreateCommentRequest`, `CommentService`,
+`CommentResource`, `CommentDirectResource`. Sentinels nommément verts :
+`prePersist_setsCreatedAt`,
+`post_eventDraftByNonCreator_returns404_antiOracle`,
+`post_eventBanned_returns404_antiOracle`,
+`post_replyToReply_returns422_repliesTooDeep`,
+`post_parentInOtherEvent_returns422_parentNotInEvent`,
+`post_unknownParent_returns404_parentNotFound`,
+`get_anonymousOnPublished_returnsList`,
+`getByEvent_draftByNonCreator_returns404_antiOracle`,
+`delete_byAuthor_removesRow`, `delete_byEventCreator_removesRow`,
+`delete_byAcceptedCoOrganizer_removesRow`,
+`delete_byPendingCoOrganizer_returns403`,
+`delete_byThirdParty_returns403`,
+`delete_unknownComment_returns404_commentNotFound`,
+`delete_byAdmin_removesRow`. `RateLimitState.clearBuckets()` en `@BeforeEach`
+de `CommentResourceTest` pour isoler le bucket `comments.post` entre tests.
+`CommentServiceMock` ajouté à la liste d'exclusion de
+`ShareServiceCoverageProfile`.
+
+Hors scope explicitement : likes (SCRUM-144 S7), signalement de commentaires
+(SCRUM-144 S7), notifications NEW_COMMENT/COMMENT_MENTION (SCRUM-145 S7+,
+dépend de SCRUM-99 infra Notification), édition de commentaires (UX =
+supprimer + reposter), front (SCRUM-146 S7).
+
+---
+
+## Sprint 6 — Entité `Follow` + 7 endpoints follow / unfollow / demandes / listes (SCRUM-138) — 2026-05-07
+
+Livré.
+
+Socle backend du graphe social qui débloque SCRUM-141 / 142 / 143 (front S7 — page profil public, FollowButton, modales listes) et anticipe SCRUM-168 (filtre `followedOnly` du feed S9).
+
+- Migration `V14__create_follows.sql` : table de jointure UUID/UUID `(follower_id, followed_id)` avec contrainte unique, FK vers `users(id)` (sans cascade — pattern défensif identique à `Report.reporter`), CHECK constraint sur `status`, index sur `follower_id` et `followed_id`.
+- Entité `Follow` (PanacheEntity, Long PK) avec finders statiques dont **`findAcceptedFollowedIds(UUID)`** livré dès maintenant pour éviter à SCRUM-168 (S9) de re-réfléchir à la requête JPQL plus tard.
+- Enum `FollowStatus` à 2 valeurs : `PENDING`, `ACCEPTED`. Un reject = DELETE physique de la row (mirror `EventCoOrganizer.DECLINE`) — re-tentative possible sans 409.
+- `FollowService` (@ApplicationScoped, @Transactional sur les mutations seulement) avec règles métier : auto-accept si profil cible public, PENDING sinon, 422 `cannot_follow_self`, 409 `already_following` (check applicatif + filet de sécurité unique constraint), 403 sur accept/reject par non-target, 409 `invalid_transition` sur transition non-PENDING, DELETE idempotent.
+- `FollowResource` (`/users`) et `FollowRequestResource` (`/follow-requests`) — split en deux Resources pour qu'aucune ne partage son `@Path` racine avec une autre.
+- `UserPublicResponse` enrichi : `followerCount`, `followingCount` (long, toujours présents), `followStatus` (nullable, null pour anonymes/self/no-relation). Trois factories : `from(User)` legacy / `from(User, fc, fwc, fs)` enrichie / `fromAnonymous(User)` (zero-init).
+- `UserService.getPublicProfile` retourne désormais un `PublicProfileView` (record agrégé `User + 3 compteurs`). Les anonymes prennent un court-circuit qui économise 2 requêtes DB. La règle anti-oracle 404 ISSUE-93 reste inchangée.
+- Rate limit `@PerUserRateLimit(name="follows.follow", max=30)` sur `POST /users/{id}/follow` uniquement.
+- Notifications de follow (`NEW_FOLLOWER`, `FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`) explicitement hors scope — déléguées à SCRUM-140 / S7 une fois SCRUM-99 (infra Notification) livré.
+
+Tests : 932 verts. JaCoCo 100% lignes sur `Follow`, `FollowStatus`, `FollowDTO`, `PublicProfileView`, `FollowService`, `FollowResource`, `FollowRequestResource`. Sentinels nommément verts : `findAcceptedFollowedIds_returnsOnlyAcceptedUuids` (SCRUM-168), `rejectRequest_followerCanReFollowAfterReject`, `follow_selfFollow_throwsUnprocessable`, `getFollowers_privateProfileNonOwner_returns404_antiOracle`, `getPublicProfile_self_followStatusIsNull`, `getPublicProfile_authNonOwnerWithPending_followStatusIsPending`.
+
+---
+
 ## Sprint 7 — `AttendanceDTO` projette `displayName` / `avatarUrl` (fix UUID stats organisateur) — 2026-05-03
 
 Livré.
