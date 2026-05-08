@@ -9,7 +9,7 @@ interface InfoBannerProps {
 
 export default function InfoBanner({ type, message }: Readonly<InfoBannerProps>) {
     return (
-        <div className={`flex flex-col justify-center items-center py-2 text-sm font-medium ${variants[type]}`}>
+        <div className={`flex flex-col justify-center items-center px-2 py-2 text-sm font-medium ${variants[type]}`}>
             <p>{message}</p>
         </div>
     )

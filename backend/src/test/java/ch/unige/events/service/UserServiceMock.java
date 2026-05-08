@@ -4,6 +4,7 @@ import ch.unige.events.dto.user.PublicProfileView;
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import ch.unige.events.util.ImageFormat;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -37,6 +38,7 @@ public class UserServiceMock extends UserService {
     public static volatile boolean forceConflictOnUpdate = false;
     public static volatile boolean forceBadMimeOnUpload = false;
     public static volatile boolean forceBadMimeOnBannerUpload = false;
+    public static volatile boolean forceFileTooLargeOnUpload = false;
     public static volatile long mockFollowerCount = 0L;
     public static volatile long mockFollowingCount = 0L;
     public static volatile FollowStatus mockFollowStatus = null;
@@ -48,6 +50,7 @@ public class UserServiceMock extends UserService {
         forceConflictOnUpdate = false;
         forceBadMimeOnUpload = false;
         forceBadMimeOnBannerUpload = false;
+        forceFileTooLargeOnUpload = false;
         mockFollowerCount = 0L;
         mockFollowingCount = 0L;
         mockFollowStatus = null;
@@ -144,6 +147,9 @@ public class UserServiceMock extends UserService {
 
     @Override
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        if (forceFileTooLargeOnUpload) {
+            throw new FileTooLargeException("File exceeds 2 MB limit");
+        }
         if (forceBadMimeOnUpload) {
             throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
         }
@@ -173,6 +179,16 @@ public class UserServiceMock extends UserService {
             throw new NotFoundException();
         }
         user.bannerUrl = "/api/uploads/test-banner.jpg";
+        return user;
+    }
+
+    @Override
+    public User deleteAvatar(String auth0Id) {
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        user.avatarUrl = null;
         return user;
     }
 

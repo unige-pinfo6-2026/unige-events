@@ -5,6 +5,7 @@ import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.Follow;
 import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -912,6 +913,24 @@ class UserServiceCoverageTest {
             () -> userService.uploadBanner("auth0|unknown", upload));
     }
 
+    // --- uploadImage: size limit ---
+
+    @Test
+    @TestTransaction
+    void uploadImage_fileTooLarge_throwsFileTooLarge(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|toolarge", "toolarge@example.com", false);
+
+        Path fakeFile = tempDir.resolve("big.jpg");
+        Files.write(fakeFile, jpegHeader());
+        FileUpload upload = new StubFileUpload("big.jpg", "image/jpeg", fakeFile) {
+            @Override public long size() { return FileStorageService.MAX_AVATAR_BYTES + 1; }
+        };
+
+        assertThrows(FileTooLargeException.class,
+            () -> userService.uploadImage("auth0|toolarge", upload));
+    }
+
     // --- deleteBanner ---
 
     @Test
@@ -934,6 +953,62 @@ class UserServiceCoverageTest {
 
         assertThrows(NotFoundException.class,
             () -> userService.deleteBanner("auth0|unknown"));
+    }
+
+    // --- deleteAvatar ---
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_withCrossFolderS3Url_skipsS3Delete() {
+        deleteAllUsers();
+        User user = persistUser("auth0|crossfolder", "crossfolder@example.com", false);
+        // Simulate avatarUrl pointing to a different folder in the same bucket —
+        // tryDeleteObject must skip deletion to prevent cross-resource GC.
+        user.avatarUrl = "http://localhost:9000/unige-events-dev/events/banners/some-event.jpg";
+        entityManager.flush();
+
+        User result = userService.deleteAvatar("auth0|crossfolder");
+
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_withExistingS3Url_deletesS3Object(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|s3del", "s3del@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar.jpg");
+        Files.write(fakeFile, jpegHeader());
+        FileUpload upload = new StubFileUpload("avatar.jpg", "image/jpeg", fakeFile);
+
+        User afterUpload = userService.uploadImage("auth0|s3del", upload);
+        assertNotNull(afterUpload.avatarUrl);
+
+        User result = userService.deleteAvatar("auth0|s3del");
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_setsAvatarUrlToNull() {
+        deleteAllUsers();
+        User user = persistUser("auth0|delavatar", "delavatar@example.com", false);
+        user.avatarUrl = "https://cdn.example.com/avatar.jpg";
+        entityManager.flush();
+
+        User result = userService.deleteAvatar("auth0|delavatar");
+
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
+    void deleteAvatar_unknownUser_throwsNotFound() {
+        deleteAllUsers();
+
+        assertThrows(NotFoundException.class,
+            () -> userService.deleteAvatar("auth0|unknown"));
     }
 
     static byte[] jpegHeader() {
