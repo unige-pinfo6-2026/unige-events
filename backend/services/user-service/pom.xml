@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <!--
+      Placeholder module for the microservices migration (step 1, cf.
+      specs_archives/specs_claude/specs_microservices_migration.md decision 4).
+
+      No <build> section: pom-packaged shells contribute nothing to the parent
+      build. Subsequent extraction PRs (steps 2..14) will replace this skeleton
+      with full Quarkus modules (src/, dependencies, plugins) as resources are
+      moved out of legacy-monolith.
+
+      Until then, leaving the module declared keeps the parent <modules> list
+      stable so the matrix CI pipeline (step 17) doesn't have to grow alongside
+      each extraction PR.
+    -->
+
+    <artifactId>user-service</artifactId>
+    <packaging>pom</packaging>
+    <name>UNIGE Events — user-service (placeholder)</name>
+</project>
