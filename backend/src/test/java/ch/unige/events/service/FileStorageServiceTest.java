@@ -230,7 +230,7 @@ class FileStorageServiceTest {
     // --- saveImage: GC of previous S3 object ---
 
     @Test
-    void saveImage_withOldUrl_deletesOldObject(@TempDir Path tmp) throws IOException {
+    void saveImage_withOldUrl_uploadsBeforeDeletingOldObject(@TempDir Path tmp) throws IOException {
         Path file = tmp.resolve("img.jpg");
         Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
 
@@ -245,8 +245,9 @@ class FileStorageServiceTest {
 
         svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
 
-        verify(s3).deleteObject(any(DeleteObjectRequest.class));
-        verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        var order = inOrder(s3);
+        order.verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        order.verify(s3).deleteObject(any(DeleteObjectRequest.class));
     }
 
     @Test
@@ -284,6 +285,25 @@ class FileStorageServiceTest {
     }
 
     @Test
+    void saveImage_withOldUrlFromDifferentFolder_skipsDelete(@TempDir Path tmp) throws IOException {
+        // Security: oldUrl pointing to a different bucket folder must not be deleted.
+        Path file = tmp.resolve("img.jpg");
+        Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+
+        FileUpload upload = mock(FileUpload.class);
+        when(upload.contentType()).thenReturn("image/jpeg");
+        when(upload.uploadedFile()).thenReturn(file);
+        when(upload.size()).thenReturn(12L);
+
+        S3Client s3 = mock(S3Client.class);
+        String crossFolderUrl = "http://s3/bucket/events/banners/event-key.jpg";
+
+        service(s3).saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, crossFolderUrl);
+
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
     void saveImage_deleteOldFails_uploadSucceeds(@TempDir Path tmp) throws IOException {
         Path file = tmp.resolve("img.jpg");
         Files.write(file, new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0});
@@ -315,22 +335,32 @@ class FileStorageServiceTest {
         S3Client s3 = mock(S3Client.class);
         FileStorageService svc = service(s3);
 
-        svc.deleteObject("http://s3/bucket/users/avatars/some-key.jpg");
+        svc.deleteObject("http://s3/bucket/users/avatars/some-key.jpg", "users/avatars");
 
         verify(s3).deleteObject(any(DeleteObjectRequest.class));
     }
 
     @Test
+    void deleteObject_wrongFolder_noOp() {
+        // Security: a URL in the bucket but under a different folder must not be deleted.
+        S3Client s3 = mock(S3Client.class);
+
+        service(s3).deleteObject("http://s3/bucket/events/banners/event.jpg", "users/avatars");
+
+        verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    @Test
     void deleteObject_nullUrl_noOp() {
         S3Client s3 = mock(S3Client.class);
-        service(s3).deleteObject(null);
+        service(s3).deleteObject(null, "users/avatars");
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
     @Test
     void deleteObject_externalUrl_noOp() {
         S3Client s3 = mock(S3Client.class);
-        service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png");
+        service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png", "users/avatars");
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 }

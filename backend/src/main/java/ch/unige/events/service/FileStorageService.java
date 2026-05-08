@@ -102,8 +102,6 @@ public class FileStorageService {
         String extension = ImageFormat.MIME_TO_EXTENSION.get(contentType);
         String key = folder + "/" + UUID.randomUUID() + extension;
 
-        tryDeleteObject(oldUrl);
-
         try {
             s3.putObject(
                     PutObjectRequest.builder()
@@ -117,18 +115,21 @@ public class FileStorageService {
             throw new InternalServerErrorException("Failed to save image: " + e.getMessage());
         }
 
+        tryDeleteObject(oldUrl, folder);
+
         return config.s3Url() + "/" + config.s3Bucket() + "/" + key;
     }
 
     /**
-     * Deletes the S3 object identified by its full public URL.
-     * Logs a warning on failure without propagating the exception.
+     * Deletes the S3 object identified by its full public URL, scoped to {@code expectedFolder}.
+     * Keys outside that folder are silently ignored to prevent cross-resource deletion via
+     * user-controlled URL fields. Logs a warning on failure without propagating the exception.
      */
-    public void deleteObject(String url) {
-        tryDeleteObject(url);
+    public void deleteObject(String url, String expectedFolder) {
+        tryDeleteObject(url, expectedFolder);
     }
 
-    private void tryDeleteObject(String url) {
+    private void tryDeleteObject(String url, String expectedFolder) {
         if (url == null || url.isBlank()) {
             return;
         }
@@ -137,6 +138,9 @@ public class FileStorageService {
             return;
         }
         String key = url.substring(prefix.length());
+        if (!key.startsWith(expectedFolder + "/")) {
+            return;
+        }
         try {
             s3.deleteObject(DeleteObjectRequest.builder()
                     .bucket(config.s3Bucket())

@@ -149,7 +149,7 @@ public class UserService {
     @Transactional
     public User deleteAvatar(String auth0Id) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        fileStorageService.deleteObject(user.avatarUrl);
+        fileStorageService.deleteObject(user.avatarUrl, "users/avatars");
         user.avatarUrl = null;
         flushEntityManager();
         return user;
