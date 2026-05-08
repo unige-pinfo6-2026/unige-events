@@ -46,18 +46,33 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — Scaffolding livré, extraction réelle DEFERRED.** Chaque
-service possède désormais sous `services/<svc>-service/` un module Quarkus
-jar-packagé minimal (POM, application.properties, `ServiceIdentityResource @
-/api/__service`, sentinel test) + un sous-template Helm `Deployment` à
-`replicas: 0` + un `Service` ClusterIP. **Aucun code applicatif n'a été
-déplacé hors du monolithe** — les vraies extractions sont 13 PR follow-up
-détaillées dans
-[`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
-avec ordre strict, fichiers à toucher, deps Quarkus à ajouter, route Kong
-à flipper, message de commit. Ordre figé : share → view → favorite →
-calendar → follow → comment → co-organizer → attendance → report → stats
-→ me-aggregator → user → event.
+**Étapes 2..14 — 2 services réellement extraits, 11 restants DEFERRED.**
+
+* ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
+  probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
+  OIDC, Hibernate, container-image-jib), Helm `replicas: 1`, image GHCR
+  `unige-events-share-service:<sha>` publiée, Kong routes `/api/events/(?:\d+)/share$`
+  + `/api/s/[^/]+$` → `share-service:8080`. Owns aucun schéma (lit
+  `events.share_code` via stub Event entity, partage la table avec legacy
+  jusqu'à PR 13). Code dans monolith pas encore retiré (cleanup en step 15).
+  CI Deploy to Preview vert, share-service pod Ready.
+* ✅ **PR 2 — `view-service` extrait** (commit `b75d680`). Owns
+  `event_views` table. Stubs read-only Event + User pour vérifier event
+  existence + résoudre auth0Id → userId. Kong route `/api/events/(?:\d+)/view$`
+  → `view-service:8080`. Image `unige-events-view-service:<sha>`. Helm
+  `replicas: 1`. CI Deploy to Preview vert.
+* ⏳ **PR 3..13 — 11 extractions restantes** (favorite, calendar, follow,
+  comment, co-organizer, attendance, report, stats, me-aggregator, user,
+  event) suivent le même pattern : POM jar→quarkus, copy resources/services/
+  entities depuis legacy avec adaptations (stubs read-only pour les tables
+  cross-domaine), Helm replicas:1, Kong route flip. Documentées dans
+  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
+  avec file inventory exact + commit message template par PR.
+
+Les services restants sont **déjà scaffoldés** (POM placeholder
+`<packaging>jar</packaging>` avec endpoint `/api/__service` debug, Helm
+`replicas: 0`) — les follow-up PRs n'ont qu'à upgrader chaque scaffold
+vers une vraie extraction.
 
 **Étape 15 — Suppression `legacy-monolith` (DEFERRED).** Une fois les 13
 extractions mergées. PR template dans le roadmap.
@@ -82,9 +97,9 @@ mandate **mais qui n'est pas livré dans PR #158** :
 
 | Critère de done (spec) | État | Commentaire |
 |---|---|---|
-| 14 microservices créés sous `backend/services/<service>/` avec POM, code Java, migration Flyway V1, application.properties, tests | **Partiel** | POM jar-packagé + app.properties minimal + 1 Resource + 1 test. Migration Flyway V1 NON. Code applicatif NON déplacé. |
-| Helm chart enrichi : 14 sous-templates `<service>/` + `kong/` + `kafka/` ; `templates/api/` supprimé ; `Chart.yaml` version bumpée | **Partiel** | 14 sous-templates `<svc>-service/` créés à `replicas: 0`. `kong/` + `kafka/` créés. `templates/api/` **toujours présent** (le monolithe sert encore). Chart bumpé `0.1.0 → 0.2.0` ✅ |
-| Kong DB-less avec table de routes complète ; plugins activés | **Partiel** | DB-less ✅, plugins activés ✅. Table de routes = catch-all `→api:8080` aujourd'hui ; les 14 blocs cible sont **commentés** dans la ConfigMap, prêts à uncomment par les PRs d'extraction. |
+| 14 microservices créés sous `backend/services/<service>/` avec POM, code Java, migration Flyway V1, application.properties, tests | **Partiel** | 2 services réellement extraits (share, view) avec POM `<packaging>quarkus</packaging>` + Hibernate + OIDC + image jib. 12 services en scaffold POM jar-packagé. Migration Flyway V1 NON (services partagent schéma `public` avec monolith). |
+| Helm chart enrichi : 14 sous-templates `<service>/` + `kong/` + `kafka/` ; `templates/api/` supprimé ; `Chart.yaml` version bumpée | **Partiel** | 14 sous-templates créés. share + view à `replicas: 1` (en service). 12 autres à `replicas: 0` (idle). `kong/` + `kafka/` créés. `templates/api/` **toujours présent** (le monolithe sert encore). Chart bumpé `0.1.0 → 0.2.0` ✅ |
+| Kong DB-less avec table de routes complète ; plugins activés | **Partiel** | DB-less ✅, plugins activés ✅. Table de routes : catch-all → api:8080 + share-service routes + view-service routes actifs. 11 autres blocs cible **commentés** dans la ConfigMap, prêts à uncomment par les PRs d'extraction. |
 | Kafka KRaft + 10 topics ; producteurs/consommateurs branchés | **Partiel** | KRaft + 10 topics provisionnés ✅. **Aucun producteur ni consommateur** câblé — viendra avec follow-service / comment-service / co-organizer-service / report-service / event-service au fil des extractions. |
 | Auth0/OIDC fonctionnelle sur chaque service (`quarkus-oidc`, `@RolesAllowed`, `quarkus.oidc.enabled=false` en `%test`) | **Partiel** | `quarkus-oidc` activé sur **legacy-monolith uniquement** (= status quo). Les 14 scaffolds n'ont pas la dep OIDC car ils ne servent pas de trafic réel ; ils l'embarqueront via leur PR d'extraction. |
 | Migrations Flyway tracées : V1..V17 historiques inchangées ; `V1__extract_<service>_schema.sql` par service | **Partiel** | V1..V17 strictement inchangées ✅. **Aucune `V1__extract_*` n'existe** — chaque PR d'extraction la crée pour son service. |
