@@ -19,6 +19,10 @@ spec:
         checksum/routes: {{ include (print $.Template.BasePath "/kong/configmap-routes.yaml") . | sha256sum }}
     spec:
       automountServiceAccountToken: false
+      # Fast termination on failed deploys — if a previous helm upgrade left
+      # a partially-started Kong pod, we want it gone within seconds so the
+      # next upgrade can converge inside its --timeout budget.
+      terminationGracePeriodSeconds: 5
       containers:
         - name: kong
           image: {{ .Values.kong.image }}

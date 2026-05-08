@@ -15,6 +15,16 @@ spec:
         app: kafka
     spec:
       automountServiceAccountToken: false
+      # apache/kafka:3.7.0 runs as the non-root user `appuser` (UID 1000).
+      # Without fsGroup, the PVC is mounted root:root and the broker
+      # crashes with "Permission denied" on /var/lib/kafka/data — exactly
+      # the failure mode of PR #158 retry 2 (StatefulSet status: Failed,
+      # 1 pods have failed). Setting fsGroup=1000 makes the volume
+      # group-writable for the kafka user.
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
       containers:
         - name: kafka
           image: {{ .Values.kafka.image }}
