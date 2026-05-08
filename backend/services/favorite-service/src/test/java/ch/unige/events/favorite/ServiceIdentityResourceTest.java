@@ -12,7 +12,7 @@ class ServiceIdentityResourceTest {
     @Test
     void identity_returns200_withServiceName() {
         given()
-            .when().get("/api/__service")
+            .when().get("/__service")
             .then()
             .statusCode(200)
             .body("service", equalTo("favorite-service"))
