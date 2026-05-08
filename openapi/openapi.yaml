@@ -336,6 +336,28 @@ components:
           type: string
           format: date-time
           nullable: true
+        parentEventId:
+          type: integer
+          format: int64
+          nullable: true
+          readOnly: true
+          description: |
+            ID de l'événement parent (template récurrent) si cet event est une occurrence
+            d'une récurrence (SCRUM-147). `null` pour un parent récurrent ou pour un
+            événement standalone non-récurrent. La FK `fk_events_parent` côté DB est
+            `ON DELETE SET NULL` : si le parent est supprimé, ce champ devient `null` et
+            l'occurrence devient un standalone orphelin (préserve inscriptions/favoris).
+        recurrenceRule:
+          type: string
+          maxLength: 500
+          nullable: true
+          readOnly: true
+          description: |
+            Règle de récurrence au format RFC 5545 RRULE simplifié (SCRUM-147), portée
+            UNIQUEMENT par le **parent** récurrent. Format autorisé :
+            `FREQ=WEEKLY;UNTIL=YYYYMMDD`, `FREQ=BIWEEKLY;COUNT=N`,
+            `FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=N`. `null` sur les occurrences enfants et
+            sur les standalones non-récurrents. PAS de support BYDAY/EXDATE/INTERVAL en S7.
 
     CreateEventRequest:
       type: object
@@ -410,6 +432,15 @@ components:
           description: |
             Mots-clés associés à l'événement. Le backend normalise (trim + lowercase +
             dédup ordonnée) ; `null` ou liste vide = aucun tag.
+        recurrence:
+          allOf:
+            - $ref: '#/components/schemas/RecurrenceRequest'
+          nullable: true
+          description: |
+            Bloc optionnel SCRUM-147. Si renseigné, `POST /events` matérialise un parent
+            (avec `recurrenceRule` calculée) + jusqu'à 51 occurrences. Statut hérité du
+            parent (DRAFT par défaut, ou `request.status` si fourni). Voir
+            `RecurrenceRequest` pour la sémantique.
 
     UpdateEventRequest:
       type: object
@@ -734,6 +765,50 @@ components:
           PENDING. État terminal côté créateur : pas de republish possible. Ne
           peut pas être posé via l'API utilisateur.
       enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED, BANNED]
+
+    RecurrenceFrequency:
+      type: string
+      description: |
+        Fréquence de récurrence d'un événement (SCRUM-147).
+        - `WEEKLY` : occurrences espacées de 7 jours.
+        - `BIWEEKLY` : occurrences espacées de 14 jours.
+        - `MONTHLY` : occurrences espacées de 1 mois calendaire (`Period.ofMonths(1)`,
+          gère 31→28 février naturellement via `LocalDateTime.plus(Period)`).
+        Ne supporte pas DAILY ni YEARLY en S7.
+      enum: [WEEKLY, BIWEEKLY, MONTHLY]
+
+    RecurrenceRequest:
+      type: object
+      description: |
+        Bloc optionnel de `CreateEventRequest` qui matérialise une récurrence
+        (SCRUM-147). Si présent, `EventService.create` délègue à `createRecurring`
+        qui crée le parent + jusqu'à 51 occurrences en une seule transaction
+        atomique (limite hard 52 rows total).
+
+        Au moins un de `endDate` ou `maxOccurrences` doit être fourni — sinon
+        `400 recurrence_unbounded`. Si les deux sont présents, le générateur
+        s'arrête au plus restrictif des deux.
+      required: [frequency]
+      properties:
+        frequency:
+          $ref: '#/components/schemas/RecurrenceFrequency'
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: |
+            Date inclusive jusqu'à laquelle générer des occurrences. Une occurrence dont
+            `startDate.toLocalDate() > endDate` n'est pas générée. Doit être ≥ à
+            `startDate.toLocalDate()` du parent — sinon `400 recurrence_end_before_start`.
+        maxOccurrences:
+          type: integer
+          minimum: 1
+          maximum: 52
+          nullable: true
+          description: |
+            Nombre maximal d'occurrences (parent inclus). Borné à 52 par Bean Validation
+            — au-delà, `400` Bean Validation. Le générateur s'arrête au minimum entre ce
+            seuil et la borne `endDate` (si fournie).
 
     AttendanceStatus:
       type: string
@@ -1548,11 +1623,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: Validation échouée
+          description: |
+            Validation échouée. Pour la récurrence (SCRUM-147) :
+            - Bean Validation generic : `frequency` manquant, `maxOccurrences` hors [1,52], `startDate` non-future.
+            - `error: "recurrence_unbounded"` : `recurrence` présent mais ni `endDate` ni `maxOccurrences` renseignés.
+            - `error: "recurrence_end_before_start"` : `recurrence.endDate < startDate.toLocalDate()`.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValidationErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1561,6 +1642,15 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            Combinaison incohérente sur la récurrence (SCRUM-147) — `error: "recurrence_too_many"`
+            quand `endDate` ET `maxOccurrences` sont tous deux fournis avec des valeurs
+            qui forceraient strictement plus de 52 occurrences générées.
           content:
             application/json:
               schema:
@@ -1810,6 +1900,68 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '409':
           description: Conflit — l'événement n'est pas en statut CANCELLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/occurrences:
+    get:
+      summary: Lister les occurrences d'un événement parent récurrent (SCRUM-147)
+      description: |
+        Retourne la liste des événements dont `parentEventId` matche `{id}`, triés par
+        `startDate ASC, id ASC`. Si l'event ciblé n'est pas un parent récurrent
+        (occurrence elle-même, standalone non-récurrent, ou parent sans occurrences
+        encore générées), retourne `200 OK` + `[]` — pas de `404`. Le client lit
+        `event.recurrenceRule != null` sur `GET /events/{id}` pour distinguer un parent.
+
+        **Visibilité** : passe par `EventService.getById(id, callerAuth0Id, isAdmin)`.
+        Un event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id
+        inconnu) retourne `404 not_found` (anti-oracle ISSUE-92).
+      operationId: getEventOccurrences
+      tags: [events]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 52
+            default: 52
+      responses:
+        '200':
+          description: Liste des occurrences (vide si pas de parent récurrent)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Pagination invalide (`size > 52`, `page < 0`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
           content:
             application/json:
               schema:
