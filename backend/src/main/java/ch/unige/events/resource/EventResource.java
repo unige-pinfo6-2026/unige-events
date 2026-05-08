@@ -102,6 +102,18 @@ public class EventResource {
         return Response.ok(event).build();
     }
 
+    @GET
+    @Path("/{id}/occurrences")
+    @PermitAll
+    public List<EventDTO> getOccurrences(
+            @PathParam("id") Long id,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("52") @Positive @Max(52) int size) {
+        String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
+        boolean isAdmin = !identity.isAnonymous() && identity.hasRole("ADMIN");
+        return eventService.getOccurrences(id, auth0Id, isAdmin, page, size);
+    }
+
     @PUT
     @Path("/{id}")
     @Authenticated
