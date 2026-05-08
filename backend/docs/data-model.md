@@ -334,11 +334,12 @@ un event.
   que `parentComment.parentComment IS NULL` au moment du POST — sinon `422 replies_too_deep`.
 - Si le commentaire pointé par `parentCommentId` appartient à un autre event que `eventId`,
   le service rejette avec `422 parent_comment_not_in_event`.
-- DELETE physique d'un parent laisse ses replies orphelines (FK `parent_comment_id`
-  pointant vers une row inexistante). Pas de cascade `ON DELETE` — décision tranchée
-  (SCRUM-139 décision 17) pour préserver l'historique conversationnel sans modal mass-delete.
-  Le frontend (SCRUM-146) affiche un placeholder « Commentaire supprimé » à la place du
-  parent absent.
+- DELETE physique d'un parent : les replies survivent grâce à la clause
+  `ON DELETE SET NULL` portée par la FK `fk_comments_parent`. Le `parent_comment_id`
+  des replies passe à `NULL` côté DB, et chacune d'elles remonte en **top-level**
+  dans `GET /events/{id}/comments` (le DTO expose alors `parentCommentId: null`).
+  Pas de cascade `ON DELETE CASCADE` — décision tranchée (SCRUM-139 décision 17)
+  pour préserver l'historique conversationnel sans modal mass-delete.
 
 #### Visibilité héritée de `Event`
 

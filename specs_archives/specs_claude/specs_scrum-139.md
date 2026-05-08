@@ -299,11 +299,11 @@ Sinon → `403 Forbidden` envelope `{ "error": "forbidden", "message": "..." }`.
 
 | Option | Avantages | Inconvénients | Verdict |
 |---|---|---|---|
-| (a) DELETE physique | Cohérent avec `Follow` (reject = DELETE row, SCRUM-138 décision 5), `EventCoOrganizer.decline` (DELETE row), `Favorite` (DELETE row) ; simplicité backend ; aucune logique de filtrage côté `getByEvent` | Replies orphelines (FK `parent_comment_id` pointe vers id supprimé) — front affichera un fallback `[Commentaire supprimé]` si nécessaire | ✅ retenu |
+| (a) DELETE physique avec FK `ON DELETE SET NULL` | Cohérent avec `Follow` (reject = DELETE row, SCRUM-138 décision 5), `EventCoOrganizer.decline` (DELETE row), `Favorite` (DELETE row) ; simplicité backend. Replies survivent et remontent automatiquement en top-level (`parent_comment_id` → NULL) — visibles dans le listing sans logique de filtrage spéciale. **Correction post-Copilot review** : la version initiale supposait une FK sans cascade, ce qui aurait fait échouer le DELETE côté DB (RESTRICT par défaut) ; `ON DELETE SET NULL` est la clause qui matérialise réellement la décision « DELETE physique avec replies préservées ». | ✅ retenu |
 | (b) Soft-delete (`deletedAt: LocalDateTime`) | Permet l'audit + l'undelete | Sur-ingénierie pour MVP ; aucune exigence métier d'audit S6 ; force un filtre `WHERE deleted_at IS NULL` partout | ❌ |
 | (c) DELETE physique + cascade `ON DELETE` sur les replies | Pas d'orphelins | Casse l'historique conversationnel (un mod supprime un thread entier en supprimant la racine — UX brutale) | ❌ |
 
-**Comportement front** (SCRUM-146 — informatif, pas dans le scope SCRUM-139) : si une reply référence un `parentCommentId` absent du payload `getByEvent`, le front affichera un placeholder « Commentaire supprimé » en lieu et place du parent. Ce comportement n'impacte pas le contrat backend.
+**Comportement front** (SCRUM-146 — informatif, pas dans le scope SCRUM-139) : avec `ON DELETE SET NULL`, une reply dont le parent est supprimé arrive avec `parentCommentId: null` dans le payload `getByEvent` et est rendue comme un commentaire top-level normal. Le contexte conversationnel est perdu mais le contenu reste visible. Si SCRUM-146 souhaite afficher un indicateur explicite « ↳ commentaire orphelin », il pourra ajouter un champ DTO dans une PR séparée — pas dans le scope SCRUM-139.
 
 ### 18. DTO sortant `CommentDTO` (record) — projection complète + replies imbriquées
 
@@ -846,8 +846,10 @@ Puis on construit un `Set<UUID> organizerUserIds = {creator.id} ∪ {coOrgs}` te
       description: |
         Supprime physiquement le commentaire (`commentId`). DELETE physique — la row part
         définitivement. Si le commentaire avait des replies, celles-ci restent (le front
-        affichera un placeholder « Commentaire supprimé » à leur place — comportement géré
-        en SCRUM-146).
+        sont conservées avec leur `parent_comment_id` mis à NULL via la clause
+        `ON DELETE SET NULL` de la FK `fk_comments_parent` ; au prochain
+        `GET /events/{eventId}/comments` elles apparaissent en top-level avec
+        `parentCommentId: null`).
 
         **Autorisé pour** :
         1. l'auteur du commentaire (`comment.author.id == caller.id`),
@@ -1903,7 +1905,7 @@ Toutes les décisions sont consignées dans [`specs_archives/specs_claude/specs_
 - Profondeur replies max 1 niveau → 422 `replies_too_deep`.
 - Visibilité POST/GET déléguée à `EventService.getById` (anti-oracle ISSUE-92).
 - DELETE autorisé pour auteur / créateur / co-org ACCEPTED / ADMIN. Tiers → 403.
-- DELETE physique (pas de soft-delete). Replies orphelines tolérées (front affichera placeholder).
+- DELETE physique (pas de soft-delete). FK `ON DELETE SET NULL` : replies survivent et remontent en top-level (`parentCommentId: null`).
 - 2 Resources avec `@Path` racines disjoints (pattern SCRUM-138 `FollowResource` + `FollowRequestResource`).
 - `likeCount` exposé en lecture mais **jamais muté** ici — mutation déléguée à SCRUM-144.
 - Notifications hors scope — déléguées à SCRUM-145.

@@ -15,11 +15,12 @@ SCRUM-146 (front S7 — `CommentSection.tsx` dans `EventDetailPage`) et SCRUM-14
 
 - Migration `V14__create_comments.sql` : table `comments` (BIGINT PK via
   `comments_seq` increment 50, FK NOT NULL vers `events.id` et `users.id`,
-  FK nullable auto-référente vers `comments.id`, `content TEXT NOT NULL`,
+  FK nullable auto-référente vers `comments.id` avec `ON DELETE SET NULL` —
+  un DELETE physique d'un parent fait remonter ses replies en top-level
+  côté DB sans rejet RESTRICT, `content TEXT NOT NULL`,
   `like_count INTEGER NOT NULL DEFAULT 0`, `created_at TIMESTAMP NOT NULL`).
   3 indexes : `idx_comment_event`, `idx_comment_parent`,
   `idx_comment_event_created` (composite descendant pour le tri du listing).
-  Pas de cascade `ON DELETE` — pattern défensif assumé.
 - Entité `Comment` (PanacheEntity, Long PK) avec 3 `@ManyToOne(LAZY)` —
   `event`, `author`, `parentComment`. `content` mappé en TEXT via
   `@Column(columnDefinition="TEXT")` + `@NotBlank @Size(max=2000)`.

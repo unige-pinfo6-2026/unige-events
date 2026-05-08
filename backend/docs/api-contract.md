@@ -307,7 +307,9 @@ sous chaque parent). Profondeur max 1 niveau.
 4. un utilisateur **ADMIN** (claim Auth0).
 
 DELETE physique — la row part définitivement. Si le commentaire avait des replies, elles
-restent (FK orphelines tolérées — front affichera un placeholder).
+sont conservées et leur `parent_comment_id` passe à `NULL` (`ON DELETE SET NULL` côté DB) ;
+au prochain `GET /events/{id}/comments` elles apparaissent en top-level
+(`parentCommentId: null`).
 
 | Code | `error` | Quand |
 |---|---|---|

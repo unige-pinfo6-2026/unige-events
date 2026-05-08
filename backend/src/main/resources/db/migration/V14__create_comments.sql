@@ -21,7 +21,12 @@ CREATE TABLE IF NOT EXISTS comments (
     CONSTRAINT pk_comments         PRIMARY KEY (id),
     CONSTRAINT fk_comments_event   FOREIGN KEY (event_id)          REFERENCES events(id),
     CONSTRAINT fk_comments_author  FOREIGN KEY (author_id)         REFERENCES users(id),
-    CONSTRAINT fk_comments_parent  FOREIGN KEY (parent_comment_id) REFERENCES comments(id)
+    -- ON DELETE SET NULL : la spec (décision 17) impose un DELETE physique d'un
+    -- commentaire top-level même quand il porte des replies. Sans cette clause,
+    -- la FK par défaut RESTRICT bloque le DELETE côté DB. Les replies orphelines
+    -- conservent leur row (content + author + createdAt) mais reviennent en
+    -- top-level (parent_comment_id = NULL), donc visibles dans le listing.
+    CONSTRAINT fk_comments_parent  FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE SET NULL
 );
 
 -- Indexes — cf. spec SCRUM-139 décision 11.

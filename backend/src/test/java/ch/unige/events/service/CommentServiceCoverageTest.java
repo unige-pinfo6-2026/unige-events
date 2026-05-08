@@ -513,6 +513,53 @@ class CommentServiceCoverageTest {
         assertNull(Comment.findById(c.id));
     }
 
+    @Test
+    @TestTransaction
+    @TestSecurity(user = "auth0|dpr-author")
+    void delete_topLevelWithReplies_repliesSurviveAsTopLevel() {
+        // Sentinel pour la FK ON DELETE SET NULL (cf. spec décision 17 + Copilot
+        // review #1) : un DELETE physique d'un parent qui porte des replies doit
+        // réussir, et les replies doivent rester visibles côté listing en passant
+        // top-level (parent_comment_id = NULL après le SET NULL).
+        User creator = persistUser("auth0|dpr-creator", "dpr-creator@example.com");
+        User author = persistUser("auth0|dpr-author", "dpr-author@example.com");
+        Event event = persistEvent("dpr-event", creator, EventStatus.PUBLISHED);
+        Comment top = persistCommentAt(event, author, null, "Top", LocalDateTime.now());
+        Comment reply = persistCommentAt(
+                event, author, top, "Reply", LocalDateTime.now().plusSeconds(1));
+
+        Long topId = top.id;
+        Long replyId = reply.id;
+        Long eventId = event.id;
+        String authorAuth0 = author.auth0Id;
+
+        // Vide le persistence context avant le DELETE pour que Hibernate ne tienne
+        // plus de référence Java reply.parentComment → top — sinon la phase
+        // pre-flush jette TransientPropertyValueException avant que la requête
+        // SQL DELETE ait pu déclencher le ON DELETE SET NULL côté PostgreSQL.
+        entityManager.flush();
+        entityManager.clear();
+
+        commentService.delete(authorAuth0, topId);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertNull(Comment.findById(topId),
+                "the parent comment must be physically removed");
+        Comment reloaded = Comment.findById(replyId);
+        assertNotNull(reloaded,
+                "the reply must survive the parent's deletion");
+        assertNull(reloaded.parentComment,
+                "ON DELETE SET NULL should null out parent_comment_id");
+
+        List<CommentDTO> listing = commentService.getByEvent(eventId, authorAuth0, 0, 20);
+        assertEquals(1, listing.size(),
+                "the surviving reply should now appear as a top-level comment");
+        assertEquals(replyId, listing.get(0).id());
+        assertNull(listing.get(0).parentCommentId(),
+                "the surviving reply's DTO should expose parentCommentId = null");
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

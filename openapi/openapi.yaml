@@ -3148,9 +3148,11 @@ paths:
       summary: Supprimer un commentaire (SCRUM-139)
       description: |
         Supprime physiquement le commentaire (`commentId`). DELETE physique — la row part
-        définitivement. Si le commentaire avait des replies, celles-ci restent (le front
-        affichera un placeholder « Commentaire supprimé » à leur place — comportement géré
-        en SCRUM-146).
+        définitivement. Si le commentaire avait des replies, celles-ci sont conservées
+        et leur `parent_comment_id` est mis à `NULL` côté DB via la clause `ON DELETE
+        SET NULL` de la FK `fk_comments_parent`. Conséquence : ces replies remontent en
+        **top-level** dans `GET /events/{eventId}/comments` et apparaissent au prochain
+        appel comme des commentaires de premier niveau (`parentCommentId: null` côté DTO).
 
         **Autorisé pour** :
         1. l'auteur du commentaire (`comment.author.id == caller.id`),
