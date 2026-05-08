@@ -847,6 +847,23 @@ class UserServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void deleteAvatar_withExistingS3Url_deletesS3Object(@TempDir Path tempDir) throws IOException {
+        deleteAllUsers();
+        persistUser("auth0|s3del", "s3del@example.com", false);
+
+        Path fakeFile = tempDir.resolve("avatar.jpg");
+        Files.write(fakeFile, jpegHeader());
+        FileUpload upload = new StubFileUpload("avatar.jpg", "image/jpeg", fakeFile);
+
+        User afterUpload = userService.uploadImage("auth0|s3del", upload);
+        assertNotNull(afterUpload.avatarUrl);
+
+        User result = userService.deleteAvatar("auth0|s3del");
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
     void deleteAvatar_setsAvatarUrlToNull() {
         deleteAllUsers();
         User user = persistUser("auth0|delavatar", "delavatar@example.com", false);

@@ -10,6 +10,7 @@ import ch.unige.events.service.CalendarServiceMock;
 import ch.unige.events.service.EventCoOrganizerServiceMock;
 import ch.unige.events.service.EventServiceMock;
 import ch.unige.events.service.FavoriteServiceMock;
+import ch.unige.events.config.RateLimitState;
 import ch.unige.events.service.UserServiceMock;
 
 import java.time.LocalDateTime;
@@ -38,6 +39,7 @@ class UserResourceTest {
     @Inject AttendanceServiceMock attendanceServiceMock;
     @Inject EventServiceMock eventServiceMock;
     @Inject EventCoOrganizerServiceMock coOrganizerServiceMock;
+    @Inject RateLimitState rateLimitState;
 
     @BeforeEach
     void setUp() {
@@ -46,6 +48,7 @@ class UserResourceTest {
         attendanceServiceMock.reset();
         eventServiceMock.reset();
         coOrganizerServiceMock.reset();
+        rateLimitState.clearBuckets();
     }
 
     // --- GET /users/{id} — ISSUE-93 (pentest 4.1 + 4.1b) ---
