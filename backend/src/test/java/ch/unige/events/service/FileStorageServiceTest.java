@@ -299,8 +299,9 @@ class FileStorageServiceTest {
         S3Client s3 = mock(S3Client.class);
         String crossFolderUrl = "http://s3/bucket/events/banners/event-key.jpg";
 
-        service(s3).saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, crossFolderUrl);
+        String newUrl = service(s3).saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, crossFolderUrl);
 
+        assertNotNull(newUrl);
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
