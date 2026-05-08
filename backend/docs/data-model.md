@@ -304,6 +304,102 @@ Quand `ReportService.handle()` reçoit `status=REVIEWED` :
 
 ---
 
+### Comment
+
+Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM-139).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` (sequence `comments_seq`, increment 50) |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `author` | — | `User` | `author_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `users.id` |
+| `parentComment` | — | `Comment` | `parent_comment_id` | `@ManyToOne(LAZY)`, nullable — auto-référence vers `comments.id` (1 niveau de profondeur max) |
+| `content` | `content` | `String` | `content` | `@Column(columnDefinition="TEXT", nullable=false)`, `@NotBlank`, `@Size(max=2000)`, trimmé côté service avant persist |
+| `likeCount` | `likeCount` | `int` | `like_count` | `@Column(nullable=false)`, default `0`. **Lecture seule en S6** — la mutation est livrée par SCRUM-144 (S7) |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false, nullable=false)`, initialisé via `@PrePersist` (null-guard) |
+
+Index DB : `idx_comment_event` (event_id), `idx_comment_parent` (parent_comment_id),
+`idx_comment_event_created` (event_id, created_at DESC) — composite descendant pour
+servir le `ORDER BY createdAt DESC, id DESC` du listing top-level sans scan séquentiel.
+
+Pas de contrainte unique métier sur la table — un user peut poster N commentaires sur
+un event.
+
+#### Sémantique du threading (1 niveau de profondeur max)
+
+- `parentComment IS NULL` : commentaire **top-level**, sérialisé avec
+  `parentCommentId: null` côté DTO et accompagné de ses replies dans `replies[]` quand
+  il sort de `getByEvent`.
+- `parentComment NOT NULL` : **reply** à un commentaire top-level. Le service vérifie
+  que `parentComment.parentComment IS NULL` au moment du POST — sinon `422 replies_too_deep`.
+- Si le commentaire pointé par `parentCommentId` appartient à un autre event que `eventId`,
+  le service rejette avec `422 parent_comment_not_in_event`.
+- DELETE physique d'un parent laisse ses replies orphelines (FK `parent_comment_id`
+  pointant vers une row inexistante). Pas de cascade `ON DELETE` — décision tranchée
+  (SCRUM-139 décision 17) pour préserver l'historique conversationnel sans modal mass-delete.
+  Le frontend (SCRUM-146) affiche un placeholder « Commentaire supprimé » à la place du
+  parent absent.
+
+#### Visibilité héritée de `Event`
+
+`CommentService.post(...)` et `CommentService.getByEvent(...)` délèguent **systématiquement**
+la garde anti-oracle ISSUE-92 à `EventService.getById(eventId, callerAuth0Id, isAdmin)` —
+event invisible (DRAFT/CANCELLED/BANNED non-créateur) → `404 not_found`. Au-delà de cette
+garde :
+
+| `event.status` | Caller | Réponse `POST /comments` |
+|---|---|---|
+| `PUBLISHED` | tout authentifié | `201 Created` |
+| `DRAFT` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_draft_event` |
+| `DRAFT` | autre user | `404 not_found` (anti-oracle) |
+| `CANCELLED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_cancelled_event` |
+| `CANCELLED` | autre user | `404 not_found` (anti-oracle) |
+| `EXPIRED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_expired_event` |
+| `EXPIRED` | autre user | `404 not_found` (anti-oracle) |
+| `BANNED` | tout monde, admin compris | `404 not_found` (cf. SCRUM-97) |
+
+#### Cascade d'autorisation pour `DELETE`
+
+`CommentService.delete(...)` autorise (cf. décision 16) :
+
+1. l'**auteur** du commentaire (`comment.author.auth0Id == caller.auth0Id`),
+2. le **créateur** de l'event (via `EventService.isCreatorOrAcceptedCoOrganizerPublic`),
+3. un **co-organisateur ACCEPTED** de l'event (cascade SCRUM-136),
+4. un utilisateur **ADMIN** (claim Auth0).
+
+Sinon → `403 forbidden`. `commentId` inexistant → `404 comment_not_found` (envelope
+distincte du 404 anti-oracle event, car l'existence d'un commentId n'est pas un secret —
+le listing `GET /events/{id}/comments` est `@PermitAll` et liste déjà tout).
+
+#### Calcul de `authorIsOrganizer` (DTO)
+
+`CommentDTO.authorIsOrganizer` est `true` quand l'auteur est créateur de l'event OU
+co-organisateur ACCEPTED. Pour `getByEvent`, le calcul est fait en **bulk** via un
+`Set<UUID>` mémoïsant `{event.creator.id} ∪ {co-orgs ACCEPTED}` — testé en O(1) pour
+chaque commentaire de la page (cf. décision 27, évite le N+1).
+
+#### Consommation par `CommentService`
+
+- `CommentService.post(auth0Id, eventId, CreateCommentRequest)` (`@Transactional`) —
+  visibilité event, vérification du parent (existence, appartenance, profondeur),
+  trim du content, persist, projection DTO.
+- `CommentService.getByEvent(eventId, auth0Id, page, size)` — non-transactional ;
+  paginé sur top-level (`createdAt DESC, id DESC`), batch-load des replies en
+  **2 requêtes SQL** (top-level page + WHERE parent_comment_id IN (...)).
+- `CommentService.delete(auth0Id, commentId)` (`@Transactional`) — DELETE physique
+  conditionné par la cascade d'autorisation ci-dessus.
+
+#### Anticipation S7 — likes & report-comment (hors scope SCRUM-139)
+
+- `likeCount` (int, default `0`) et `likedByMe` (boolean, toujours `false` dans le DTO
+  S6) sont exposés dès maintenant pour figer le contrat consommé par SCRUM-146 (front S7) ;
+  la mutation viendra avec SCRUM-144 (entité `CommentLike`, `POST/DELETE /comments/{id}/like`).
+- `POST /comments/{id}/report` (et l'extension `Report.commentId`) sont également SCRUM-144 — hors scope ici.
+- Notifications (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) sont SCRUM-145 (S7+),
+  dépendantes de l'infra `Notification` SCRUM-99.
+
+---
+
 ## Conventions de nommage
 
 ### camelCase obligatoire
