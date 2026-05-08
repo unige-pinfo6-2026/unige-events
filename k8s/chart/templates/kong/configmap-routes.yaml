@@ -31,6 +31,28 @@ data:
               - http
               - https
 
+      # ───── PR 1 — share-service (extracted) ─────────────────────────────
+      # Routes /api/events/{id}/share + /api/s/{shortCode} to share-service.
+      # Kong route matching: regex paths outrank prefix paths, so even
+      # though /api still matches via api-catchall, Kong picks these
+      # specific regexes first.
+      - name: share-service
+        url: http://share-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: event-share
+            paths:
+              - ~/api/events/(?:\d+)/share$
+            strip_path: false
+            preserve_host: true
+          - name: shortlink
+            paths:
+              - ~/api/s/[^/]+$
+            strip_path: false
+            preserve_host: true
+
       # ───────────────────────────────────────────────────────────────────────
       # Target topology — commented out, ready to flip per extraction PR
       # ───────────────────────────────────────────────────────────────────────

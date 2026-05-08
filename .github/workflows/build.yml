@@ -41,12 +41,16 @@ jobs:
           QUARKUS_CONTAINER_IMAGE_USERNAME: ${{ github.actor }}
           QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # NB: -Dquarkus.container-image.name was previously hardcoded to
+          # `unige-events-api` here. Now that backend/ is multi-module and
+          # multiple services emit images, each module pins its own image
+          # name in its application.properties. Removing the CLI override
+          # so per-module names take effect.
           ./mvnw verify -B \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
             -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
             -Dquarkus.container-image.group=${{ github.repository_owner }} \
-            -Dquarkus.container-image.name=${{ env.BACKEND_IMAGE }} \
             -Dquarkus.container-image.tag=${{ env.IMAGE_TAG }} \
             -Dquarkus.container-image.additional-tags=${{ env.IMAGE_ADDITIONAL_TAGS }} \
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
