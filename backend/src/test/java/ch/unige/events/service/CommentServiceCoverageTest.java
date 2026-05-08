@@ -1,5 +1,6 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.comment.CommentDTO;
 import ch.unige.events.dto.comment.CreateCommentRequest;
 import ch.unige.events.entity.CoOrganizerStatus;
@@ -101,10 +102,10 @@ class CommentServiceCoverageTest {
         User creator = persistUser("auth0|cd-creator", "cd-creator@example.com");
         User author = persistUser("auth0|cd-author", "cd-author@example.com");
         Event event = persistEvent("cd-event", creator, EventStatus.DRAFT);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         assertThrows(NotFoundException.class,
-                () -> commentService.post(author.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
+                () -> commentService.post(author.auth0Id, event.id, req));
     }
 
     @Test
@@ -113,34 +114,29 @@ class CommentServiceCoverageTest {
     void post_eventDraftByCreator_returns400_cannotCommentDraft() {
         User creator = persistUser("auth0|cdc-creator", "cdc-creator@example.com");
         Event event = persistEvent("cdc-event", creator, EventStatus.DRAFT);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(creator.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
-        assertEquals(400, ex.getResponse().getStatus());
+                () -> commentService.post(creator.auth0Id, event.id, req));
+        assertApiError(ex, 400, "cannot_comment_draft_event");
     }
 
     @Test
     @TestTransaction
     @TestSecurity(user = "auth0|cc-author")
-    void post_eventCancelled_returns400_cannotCommentCancelled() {
+    void post_eventCancelledByNonCreator_returns404_antiOracle() {
+        // Renommé suite review Copilot (PR #156, comment 3207926432) — l'ancien nom
+        // suggérait un 400 alors que le test vérifie le 404 anti-oracle hérité de
+        // EventService.getById pour un caller non-créateur sur un event CANCELLED.
+        // Simplifié : event créé directement en CANCELLED (plus besoin du double
+        // persist + mutation status).
         User creator = persistUser("auth0|cc-creator", "cc-creator@example.com");
         User author = persistUser("auth0|cc-author", "cc-author@example.com");
-        Event event = persistEvent("cc-event", creator, EventStatus.PUBLISHED);
-        // Need to bypass the EventService.getById visibility check first — the
-        // event must be PUBLISHED to be visible. We then mutate to CANCELLED
-        // *after* persistence so getById still resolves; but the runtime branch
-        // is on the live row, so we set CANCELLED directly via persist.
-        event.status = EventStatus.CANCELLED;
-        entityManager.persist(event);
-        entityManager.flush();
+        Event event = persistEvent("cc-event", creator, EventStatus.CANCELLED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
-        // CANCELLED non-créateur ⇒ 404 anti-oracle (cf. EventService.getById).
-        // Pour atteindre la branche cannot_comment_cancelled, le caller doit être
-        // créateur (visibilité héritée). On utilise donc le creator comme caller.
         assertThrows(NotFoundException.class,
-                () -> commentService.post(author.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
+                () -> commentService.post(author.auth0Id, event.id, req));
     }
 
     @Test
@@ -149,12 +145,11 @@ class CommentServiceCoverageTest {
     void post_eventCancelledByCreator_returns400_cannotCommentCancelled() {
         User creator = persistUser("auth0|cco-creator", "cco-creator@example.com");
         Event event = persistEvent("cco-event", creator, EventStatus.CANCELLED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(creator.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
-        assertEquals(400, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("cannot_comment_cancelled_event"));
+                () -> commentService.post(creator.auth0Id, event.id, req));
+        assertApiError(ex, 400, "cannot_comment_cancelled_event");
     }
 
     @Test
@@ -166,12 +161,11 @@ class CommentServiceCoverageTest {
         // créateur (visibilité héritée). Cf. spec décision 14 + 15.
         User creator = persistUser("auth0|ce-creator", "ce-creator@example.com");
         Event event = persistEvent("ce-event", creator, EventStatus.EXPIRED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(creator.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
-        assertEquals(400, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("cannot_comment_expired_event"));
+                () -> commentService.post(creator.auth0Id, event.id, req));
+        assertApiError(ex, 400, "cannot_comment_expired_event");
     }
 
     @Test
@@ -181,10 +175,10 @@ class CommentServiceCoverageTest {
         User creator = persistUser("auth0|cea-creator", "cea-creator@example.com");
         User other = persistUser("auth0|ce-other", "ce-other@example.com");
         Event event = persistEvent("cea-event", creator, EventStatus.EXPIRED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         assertThrows(NotFoundException.class,
-                () -> commentService.post(other.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
+                () -> commentService.post(other.auth0Id, event.id, req));
     }
 
     @Test
@@ -194,11 +188,11 @@ class CommentServiceCoverageTest {
         User creator = persistUser("auth0|cb-creator", "cb-creator@example.com");
         User author = persistUser("auth0|cb-author", "cb-author@example.com");
         Event event = persistEvent("cb-event", creator, EventStatus.BANNED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         // BANNED event invisible for everyone (cf. SCRUM-97) → 404 anti-oracle.
         assertThrows(NotFoundException.class,
-                () -> commentService.post(author.auth0Id, event.id,
-                        new CreateCommentRequest("Hello", null)));
+                () -> commentService.post(author.auth0Id, event.id, req));
     }
 
     @Test
@@ -226,12 +220,11 @@ class CommentServiceCoverageTest {
         Event event = persistEvent("crr-event", creator, EventStatus.PUBLISHED);
         Comment top = persistComment(event, author, null, "Top-level");
         Comment reply = persistComment(event, author, top, "Level 1 reply");
+        CreateCommentRequest req = new CreateCommentRequest("Too deep", reply.id);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(author.auth0Id, event.id,
-                        new CreateCommentRequest("Too deep", reply.id)));
-        assertEquals(422, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("replies_too_deep"));
+                () -> commentService.post(author.auth0Id, event.id, req));
+        assertApiError(ex, 422, "replies_too_deep");
     }
 
     @Test
@@ -243,12 +236,11 @@ class CommentServiceCoverageTest {
         Event eventA = persistEvent("cpne-event-a", creator, EventStatus.PUBLISHED);
         Event eventB = persistEvent("cpne-event-b", creator, EventStatus.PUBLISHED);
         Comment topInA = persistComment(eventA, author, null, "Top in A");
+        CreateCommentRequest req = new CreateCommentRequest("Cross-event", topInA.id);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(author.auth0Id, eventB.id,
-                        new CreateCommentRequest("Cross-event", topInA.id)));
-        assertEquals(422, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("parent_comment_not_in_event"));
+                () -> commentService.post(author.auth0Id, eventB.id, req));
+        assertApiError(ex, 422, "parent_comment_not_in_event");
     }
 
     @Test
@@ -258,12 +250,11 @@ class CommentServiceCoverageTest {
         User creator = persistUser("auth0|cpu-creator", "cpu-creator@example.com");
         User author = persistUser("auth0|cpu-author", "cpu-author@example.com");
         Event event = persistEvent("cpu-event", creator, EventStatus.PUBLISHED);
+        CreateCommentRequest req = new CreateCommentRequest("Orphan", 99999L);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> commentService.post(author.auth0Id, event.id,
-                        new CreateCommentRequest("Orphan", 99999L)));
-        assertEquals(404, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("parent_comment_not_found"));
+                () -> commentService.post(author.auth0Id, event.id, req));
+        assertApiError(ex, 404, "parent_comment_not_found");
     }
 
     @Test
@@ -272,10 +263,10 @@ class CommentServiceCoverageTest {
     void post_authorNotProvisioned_throws404() {
         User creator = persistUser("auth0|cnp-creator", "cnp-creator@example.com");
         Event event = persistEvent("cnp-event", creator, EventStatus.PUBLISHED);
+        CreateCommentRequest req = new CreateCommentRequest("Hello", null);
 
         assertThrows(NotFoundException.class,
-                () -> commentService.post("auth0|cnp-ghost", event.id,
-                        new CreateCommentRequest("Hello", null)));
+                () -> commentService.post("auth0|cnp-ghost", event.id, req));
     }
 
     // -------------------------------------------------------------------------
@@ -469,7 +460,7 @@ class CommentServiceCoverageTest {
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> commentService.delete(coOrg.auth0Id, c.id));
-        assertEquals(403, ex.getResponse().getStatus());
+        assertApiError(ex, 403, "forbidden");
         assertNotNull(Comment.findById(c.id));
     }
 
@@ -485,8 +476,7 @@ class CommentServiceCoverageTest {
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> commentService.delete(third.auth0Id, c.id));
-        assertEquals(403, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("forbidden"));
+        assertApiError(ex, 403, "forbidden");
     }
 
     @Test
@@ -495,8 +485,7 @@ class CommentServiceCoverageTest {
     void delete_unknownComment_returns404_commentNotFound() {
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> commentService.delete("auth0|du-someone", 99999L));
-        assertEquals(404, ex.getResponse().getStatus());
-        assertTrue(ex.getResponse().getEntity().toString().contains("comment_not_found"));
+        assertApiError(ex, 404, "comment_not_found");
     }
 
     @Test
@@ -587,6 +576,22 @@ class CommentServiceCoverageTest {
         entityManager.persist(event);
         entityManager.flush();
         return event;
+    }
+
+    /**
+     * Asserts that the given {@link WebApplicationException} carries the expected
+     * HTTP status and {@code error} code in its {@link ApiErrorResponse} envelope.
+     * Cohérent avec la review Copilot (PR #156, comment 3207926460) — préférable au
+     * pattern fragile {@code getEntity().toString().contains(...)}.
+     */
+    private static void assertApiError(WebApplicationException ex, int expectedStatus, String expectedErrorCode) {
+        assertEquals(expectedStatus, ex.getResponse().getStatus(),
+                "expected HTTP status " + expectedStatus);
+        Object entity = ex.getResponse().getEntity();
+        assertInstanceOf(ApiErrorResponse.class, entity,
+                "expected envelope to be ApiErrorResponse");
+        assertEquals(expectedErrorCode, ((ApiErrorResponse) entity).error(),
+                "expected error code " + expectedErrorCode);
     }
 
     private Comment persistComment(Event event, User author, Comment parent, String content) {
