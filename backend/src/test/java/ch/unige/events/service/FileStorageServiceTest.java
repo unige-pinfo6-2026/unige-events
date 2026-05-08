@@ -15,6 +15,8 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -240,15 +242,19 @@ class FileStorageServiceTest {
         when(upload.size()).thenReturn(12L);
 
         S3Client s3 = mock(S3Client.class);
+        List<String> callLog = new ArrayList<>();
+        doAnswer(inv -> { callLog.add("put"); return null; })
+                .when(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+        doAnswer(inv -> { callLog.add("delete"); return null; })
+                .when(s3).deleteObject(any(DeleteObjectRequest.class));
+
         FileStorageService svc = service(s3);
         String oldUrl = "http://s3/bucket/users/avatars/old-key.jpg";
 
         String newUrl = svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
 
         assertNotNull(newUrl);
-        var order = inOrder(s3);
-        order.verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
-        order.verify(s3).deleteObject(any(DeleteObjectRequest.class));
+        assertEquals(List.of("put", "delete"), callLog, "putObject must be called before deleteObject");
     }
 
     @Test
