@@ -24,5 +24,5 @@ jobs:
 
       - name: Cleanup
         run: |
-          helm uninstall ${{ env.PR_NAMESPACE }} --namespace ${{ env.PR_NAMESPACE }} --ignore-not-found || true
+          helm uninstall ${{ env.PR_NAMESPACE }} --namespace ${{ env.PR_NAMESPACE }} --ignore-not-found --timeout 3m || true
           kubectl delete namespace ${{ env.PR_NAMESPACE }} --ignore-not-found
