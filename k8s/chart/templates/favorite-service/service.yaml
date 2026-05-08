@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: favorite-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: favorite-service
+spec:
+  type: ClusterIP
+  selector:
+    app: favorite-service
+  ports:
+    - port: 8080
+      targetPort: 8080

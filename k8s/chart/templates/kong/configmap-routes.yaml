@@ -31,6 +31,117 @@ data:
               - http
               - https
 
+      # ───────────────────────────────────────────────────────────────────────
+      # Target topology — commented out, ready to flip per extraction PR
+      # ───────────────────────────────────────────────────────────────────────
+      # The blocks below describe where each path SHOULD route once the
+      # corresponding microservice has been extracted from legacy-monolith
+      # (cf. specs_microservices_migration.md § "Routage Kong"). To activate
+      # one of them: uncomment the block, narrow the `paths` of api-catchall
+      # above so it no longer matches the same path (or remove specific
+      # paths from the catchall), redeploy via helm upgrade.
+      #
+      # Service Kubernetes DNS naming: <service>.<namespace>.svc.cluster.local
+      # — the chart already provisions Service objects with replicas: 0 for
+      # each of these (see k8s/chart/templates/<service>/service.yaml).
+      #
+      # - name: user-service
+      #   url: http://user-service:8080
+      #   routes:
+      #     - { name: user-me,             paths: [/api/users/me] }
+      #     - { name: user-by-id,          paths: [/api/users/(?:[^/]+)$], strip_path: false }
+      #     - { name: user-image-banner,   paths: [/api/users/me/image, /api/users/me/banner] }
+      #
+      # - name: event-service
+      #   url: http://event-service:8080
+      #   routes:
+      #     - { name: events-list,         paths: [/api/events],          strip_path: false }
+      #     - { name: events-by-id,        paths: [/api/events/(?:\\d+)], strip_path: false }
+      #     - { name: events-cancel,       paths: [/api/events/(?:\\d+)/cancel] }
+      #     - { name: events-restore,      paths: [/api/events/(?:\\d+)/restore] }
+      #     - { name: events-publish,      paths: [/api/events/(?:\\d+)/publish] }
+      #     - { name: events-image,        paths: [/api/events/(?:\\d+)/image] }
+      #     - { name: events-occurrences,  paths: [/api/events/(?:\\d+)/occurrences] }
+      #     - { name: events-featured,     paths: [/api/events/featured, /api/admin/events/(?:\\d+)/(?:un)?feature] }
+      #     - { name: events-search,       paths: [/api/events/search] }
+      #
+      # - name: attendance-service
+      #   url: http://attendance-service:8080
+      #   routes:
+      #     - { name: attend-actions,    paths: [/api/events/(?:\\d+)/attend, /api/events/(?:\\d+)/attendees] }
+      #     - { name: my-attendances,    paths: [/api/users/me/attendances, /api/users/me/participations] }
+      #
+      # - name: favorite-service
+      #   url: http://favorite-service:8080
+      #   routes:
+      #     - { name: favorite-actions,  paths: [/api/events/(?:\\d+)/favorite] }
+      #     - { name: my-favorites,      paths: [/api/users/me/favorites] }
+      #
+      # - name: view-service
+      #   url: http://view-service:8080
+      #   routes:
+      #     - { name: event-view,        paths: [/api/events/(?:\\d+)/view] }
+      #
+      # - name: co-organizer-service
+      #   url: http://co-organizer-service:8080
+      #   routes:
+      #     - { name: co-organizers,        paths: [/api/events/(?:\\d+)/co-organizers] }
+      #     - { name: co-organizer-userid,  paths: [/api/events/(?:\\d+)/co-organizers/[^/]+$] }
+      #     - { name: co-organizer-me,      paths: [/api/events/(?:\\d+)/co-organizers/me/(?:accept|decline)] }
+      #     - { name: my-co-org-invites,    paths: [/api/users/me/co-organizer-invitations] }
+      #
+      # - name: comment-service
+      #   url: http://comment-service:8080
+      #   routes:
+      #     - { name: event-comments,    paths: [/api/events/(?:\\d+)/comments] }
+      #     - { name: comment-direct,    paths: [/api/comments/(?:\\d+)] }
+      #
+      # - name: follow-service
+      #   url: http://follow-service:8080
+      #   routes:
+      #     - { name: follow-actions,    paths: [/api/users/[^/]+/follow] }
+      #     - { name: follow-listings,   paths: [/api/users/[^/]+/(?:followers|following)] }
+      #     - { name: follow-requests,   paths: [/api/follow-requests/(?:\\d+)/(?:accept|reject)] }
+      #     - { name: my-follow-reqs,    paths: [/api/users/me/follow-requests] }
+      #
+      # - name: report-service
+      #   url: http://report-service:8080
+      #   routes:
+      #     - { name: report-event,      paths: [/api/events/(?:\\d+)/report] }
+      #     - { name: admin-reports,     paths: [/api/admin/reports] }
+      #     - { name: admin-report-id,   paths: [/api/admin/reports/(?:\\d+)] }
+      #
+      # - name: stats-service
+      #   url: http://stats-service:8080
+      #   routes:
+      #     - { name: event-stats,       paths: [/api/events/(?:\\d+)/stats] }
+      #
+      # - name: share-service
+      #   url: http://share-service:8080
+      #   routes:
+      #     - { name: event-share,       paths: [/api/events/(?:\\d+)/share] }
+      #     - { name: shortlink,         paths: [/api/s/[^/]+$] }
+      #
+      # - name: calendar-service
+      #   url: http://calendar-service:8080
+      #   routes:
+      #     - { name: calendar-token,    paths: [/api/users/me/calendar-token] }
+      #     - { name: calendar-regen,    paths: [/api/users/me/calendar-token/regenerate] }
+      #     - { name: ics-feed,          paths: [/api/calendar/[^/]+\\.ics] }
+      #
+      # - name: notification-service
+      #   url: http://notification-service:8080
+      #   routes:
+      #     - { name: notifications,     paths: [/api/notifications] }
+      #     - { name: notification-read, paths: [/api/notifications/(?:\\d+)/read] }
+      #
+      # - name: me-aggregator-service
+      #   url: http://me-aggregator-service:8080
+      #   routes:
+      #     # NB: BFF — overlaps with /me paths above. Activate this LAST and
+      #     # remove the per-service /me routes from above when the BFF is wired.
+      #     - { name: my-events-bff, paths: [/api/users/me/events] }
+
     # ─────────────────────────────────────────────────────────────────────────
     # Global plugins (cf. spec decision 6)
     # ─────────────────────────────────────────────────────────────────────────

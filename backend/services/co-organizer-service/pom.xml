@@ -10,20 +10,64 @@
     </parent>
 
     <!--
-      Placeholder module for the microservices migration (step 1, cf.
-      specs_archives/specs_claude/specs_microservices_migration.md decision 4).
-
-      No <build> section: pom-packaged shells contribute nothing to the parent
-      build. Subsequent extraction PRs (steps 2..14) will replace this skeleton
-      with full Quarkus modules (src/, dependencies, plugins) as resources are
-      moved out of legacy-monolith.
-
-      Until then, leaving the module declared keeps the parent <modules> list
-      stable so the matrix CI pipeline (step 17) doesn't have to grow alongside
-      each extraction PR.
+      co-organizer-service — Quarkus skeleton scaffolded by step 2..14 of the migration
+      (cf. specs_archives/specs_claude/specs_microservices_migration.md
+      decision 4). jar-packaging on purpose: keeps the parent reactor build
+      fast (no Quarkus AOT, no container-image push), avoids any clash
+      with legacy-monolith's image name, but still lets @QuarkusTest
+      tests run because the Quarkus runtime classes are on classpath.
+      The follow-up extraction PR will:
+        1. switch <packaging> to quarkus,
+        2. add the missing extensions (jdbc-postgresql, hibernate-orm-panache,
+           flyway, rest-client-reactive, smallrye-reactive-messaging-kafka,
+           smallrye-fault-tolerance, micrometer-registry-prometheus),
+        3. add quarkus-container-image-jib + override container-image-name,
+        4. flip the matching Kong route from api:8080 to co-organizer-service:8080,
+        5. carve resources / services / entities out of services/legacy-monolith/.
     -->
 
     <artifactId>co-organizer-service</artifactId>
-    <packaging>pom</packaging>
-    <name>UNIGE Events — co-organizer-service (placeholder)</name>
+    <packaging>jar</packaging>
+    <name>UNIGE Events — co-organizer-service</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

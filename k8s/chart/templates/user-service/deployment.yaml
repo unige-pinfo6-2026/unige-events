@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: user-service
+    migration-step: scaffold
+spec:
+  # Scaffold lives at replicas: 0 until the follow-up extraction PR
+  # populates the Quarkus module under backend/services/user-service/ and flips
+  # the Kong route. Until then, no pod is scheduled, no image is pulled,
+  # and the Deployment costs nothing on the cluster — but the Service /
+  # DNS name user-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: user-service
+          image: {{ .Values.image.registry }}/{{ .Values.image.org }}/unige-events-user-service:{{ .Values.image.api.tag | default "latest" }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: db
+            - name: DB_PORT
+              value: "5432"
+            - name: KAFKA_BOOTSTRAP
+              value: kafka:9092
+            - name: S3_ENDPOINT
+              value: http://minio:9000
+          envFrom:
+            - secretRef:
+                name: app-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              memory: "256Mi"
+              ephemeral-storage: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/q/health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
