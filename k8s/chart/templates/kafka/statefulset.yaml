@@ -77,15 +77,19 @@ spec:
           resources:
             {{- toYaml .Values.kafka.resources | nindent 12 }}
           readinessProbe:
-            tcpSocket:
-              port: 9092
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            failureThreshold: 6
-          livenessProbe:
+            # First-time KRaft format on a fresh PVC + JVM startup typically
+            # takes 30-60s; binding 9092 only happens after that. Pre-PR #158
+            # deploy fail: probe started at 15s and went 6×10s = 75s ceiling,
+            # which was hit before Kafka was ready in some preview namespaces.
             tcpSocket:
               port: 9092
             initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 120
             periodSeconds: 30
             failureThreshold: 3
   volumeClaimTemplates:

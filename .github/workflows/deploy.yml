@@ -60,7 +60,7 @@ jobs:
             --create-namespace \
             --set image.api.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
-            --timeout 3m \
+            --timeout 6m \
             --wait
 
   # ─── Preview ──────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ jobs:
             --set ingress.host="${{ env.PR_HOST }}" \
             --set image.api.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
-            --timeout 3m \
+            --timeout 6m \
             --wait
 
       - name: Set preview context

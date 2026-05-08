@@ -6,7 +6,6 @@ metadata:
 data:
   kong.yml: |
     _format_version: "3.0"
-    _transform: true
 
     # ─────────────────────────────────────────────────────────────────────────
     # Routing table — strangler-fig step 0
