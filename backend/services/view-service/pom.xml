@@ -67,6 +67,17 @@
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                      Override the parent pluginManagement argLine: the parent
+                      uses @{argLine} which is substituted by jacoco-maven-plugin
+                      at runtime. The scaffolded modules don't have jacoco on the
+                      classpath, so the literal @{argLine} would be passed to the
+                      forked JVM and crash with "VM crash or System.exit called".
+                      Coverage is N/A on these scaffolds (one health endpoint).
+                    -->
+                    <argLine>-Djava.security.egd=file:/dev/./urandom</argLine>
+                </configuration>
             </plugin>
         </plugins>
     </build>
