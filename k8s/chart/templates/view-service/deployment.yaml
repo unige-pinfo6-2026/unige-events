@@ -5,14 +5,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: view-service
-    migration-step: scaffold
+    migration-step: extracted
 spec:
-  # Scaffold lives at replicas: 0 until the follow-up extraction PR
-  # populates the Quarkus module under backend/services/view-service/ and flips
-  # the Kong route. Until then, no pod is scheduled, no image is pulled,
-  # and the Deployment costs nothing on the cluster — but the Service /
-  # DNS name view-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
-  replicas: 0
+  # view-service is now active (PR 2 of the extraction roadmap). Kong
+  # routes /api/events/(?:\d+)/view here.
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: view-service

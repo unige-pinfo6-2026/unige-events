@@ -53,6 +53,19 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 2 — view-service (extracted) ──────────────────────────────
+      - name: view-service
+        url: http://view-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: event-view
+            paths:
+              - ~/api/events/(?:\d+)/view$
+            strip_path: false
+            preserve_host: true
+
       # ───────────────────────────────────────────────────────────────────────
       # Target topology — commented out, ready to flip per extraction PR
       # ───────────────────────────────────────────────────────────────────────
