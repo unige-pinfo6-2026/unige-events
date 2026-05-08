@@ -28,6 +28,24 @@
 > `fix(scrum-139): rebase V14 → V15` sera nécessaire au moment du rebase. Le commit
 > `feat(scrum-139): add V14 migration for comments table` documente ce choix dans son
 > message.
+>
+> **Leçon Flyway-immutabilité (post-Copilot review #1, 2026-05-08).** La review Copilot
+> a fait apparaître que la FK `fk_comments_parent` créée par V14 dans sa version
+> initiale (RESTRICT par défaut) empêchait le DELETE physique d'un parent qui porte
+> des replies. Le premier réflexe a été de **modifier V14 en place** pour ajouter
+> `ON DELETE SET NULL` — légitime sur le papier puisque la PR n'est pas mergée. **C'est
+> une erreur** : l'environnement de déploiement preview (`Deploy / Deploy to Preview`)
+> a une **DB PostgreSQL persistante** par namespace, qui avait déjà appliqué V14 lors
+> du premier déploiement réussi (commit `5848630`). Tout `helm upgrade` ultérieur
+> faisait échouer Flyway avec « checksum mismatch for migration version 14 » et
+> bloquait le startup de l'API. La règle [`backend/AGENTS.md`](backend/AGENTS.md)
+> (« Une migration committée est immutable ») couvre exactement ce cas — y compris
+> pour les PRs ouvertes dont le preview deploy a une DB persistante. **Fix correct
+> appliqué (commit `e77d3b7`)** : V14 restaurée à sa forme originale (FK RESTRICT) ; un
+> nouveau migrant `V15__alter_comments_parent_fk_set_null.sql` fait `DROP CONSTRAINT
+> fk_comments_parent` puis `ADD CONSTRAINT … ON DELETE SET NULL`. Cette leçon impacte
+> aussi la spec SCRUM-147 : son numéro de migration de départ est désormais `V16` (et
+> non `V15`), parce que SCRUM-139 livrera deux migrations au merge (V14_create + V15_alter).
 
 ---
 
