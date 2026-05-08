@@ -347,7 +347,8 @@ public class EventService {
             throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can upload a banner");
         }
 
-        event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners");
+        event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners",
+                FileStorageService.MAX_BANNER_BYTES, event.bannerUrl);
         long attUpload = countAttending(id);
         return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id), null, null);
     }

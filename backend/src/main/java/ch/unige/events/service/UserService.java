@@ -131,7 +131,8 @@ public class UserService {
     @Transactional
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars");
+        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars",
+                FileStorageService.MAX_AVATAR_BYTES, user.avatarUrl);
         flushEntityManager();
         return user;
     }
@@ -139,7 +140,17 @@ public class UserService {
     @Transactional
     public User uploadBanner(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
-        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners");
+        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners",
+                FileStorageService.MAX_BANNER_BYTES, user.bannerUrl);
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User deleteAvatar(String auth0Id) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        fileStorageService.deleteObject(user.avatarUrl, "users/avatars");
+        user.avatarUrl = null;
         flushEntityManager();
         return user;
     }

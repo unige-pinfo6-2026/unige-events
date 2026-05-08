@@ -2,6 +2,7 @@ package ch.unige.events.service;
 
 import ch.unige.events.dto.user.UpdateProfileRequest;
 import ch.unige.events.entity.User;
+import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
 import ch.unige.events.util.ImageFormat;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -35,6 +36,7 @@ public class UserServiceMock extends UserService {
     public static volatile boolean forceConflictOnUpdate = false;
     public static volatile boolean forceBadMimeOnUpload = false;
     public static volatile boolean forceBadMimeOnBannerUpload = false;
+    public static volatile boolean forceFileTooLargeOnUpload = false;
 
     public void reset() {
         usersByAuth0Id.clear();
@@ -43,6 +45,7 @@ public class UserServiceMock extends UserService {
         forceConflictOnUpdate = false;
         forceBadMimeOnUpload = false;
         forceBadMimeOnBannerUpload = false;
+        forceFileTooLargeOnUpload = false;
     }
 
     public User seedUser(String auth0Id, String email) {
@@ -131,6 +134,9 @@ public class UserServiceMock extends UserService {
 
     @Override
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        if (forceFileTooLargeOnUpload) {
+            throw new FileTooLargeException("File exceeds 2 MB limit");
+        }
         if (forceBadMimeOnUpload) {
             throw new InvalidFileTypeException("File must be a JPEG, PNG, WebP or GIF image");
         }
@@ -160,6 +166,16 @@ public class UserServiceMock extends UserService {
             throw new NotFoundException();
         }
         user.bannerUrl = "/api/uploads/test-banner.jpg";
+        return user;
+    }
+
+    @Override
+    public User deleteAvatar(String auth0Id) {
+        User user = usersByAuth0Id.get(auth0Id);
+        if (user == null) {
+            throw new NotFoundException();
+        }
+        user.avatarUrl = null;
         return user;
     }
 
