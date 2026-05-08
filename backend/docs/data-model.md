@@ -229,6 +229,91 @@ du JWT — pas de spoofing).
 
 ---
 
+### Follow
+
+Table : `follows` (créée par la migration `V14__create_follows.sql` en SCRUM-138).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity`, sequence `follows_seq` |
+| `followerId` | `followerId` | `UUID` | `follower_id` | not null — FK `fk_follows_follower` → `users(id)` |
+| `followedId` | `followedId` | `UUID` | `followed_id` | not null — FK `fk_follows_followed` → `users(id)` |
+| `status` | `status` | `FollowStatus` | `status` | `@Enumerated(STRING)`, not null, `length=16`, CHECK constraint |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_follow_follower_followed` sur `(follower_id, followed_id)` —
+empêche le double suivi et sert de filet de sécurité au check applicatif `409 already_following`.
+
+CHECK constraints :
+- `follows_status_check` (V14) : `status IN ('PENDING', 'ACCEPTED')`.
+
+Index : `idx_follow_followed` (followed_id), `idx_follow_follower` (follower_id) —
+support des compteurs `countFollowers` / `countFollowing` et des listings paginés
+(SCRUM-138).
+
+**Pas de cascade FK** — un user supprimé laisse des rows orphelines (pattern défensif
+identique à `Report.reporter`, à nettoyer par job ultérieur si nécessaire).
+
+#### Sémantique du `REJECT`
+
+`PATCH /follow-requests/{id}/reject` **supprime physiquement** la row au lieu de la
+marquer `REJECTED`. La valeur `REJECTED` n'existe pas dans l'enum `FollowStatus`. Cette
+décision permet au follower de re-tenter une demande après refus, sans 409 (la
+contrainte unique étant strictement basée sur la présence d'une row, pas sur son
+statut). Pattern aligné sur `EventCoOrganizer.DECLINE`.
+
+#### Helpers statiques
+
+- `Follow.findByFollowerAndFollowed(UUID, UUID)` — résolution unitaire pour
+  follow/unfollow/cancel.
+- `Follow.findFollowersOf(UUID, int, int)` — listing paginé ACCEPTED, tri
+  `createdAt DESC, id DESC`.
+- `Follow.findFollowingOf(UUID, int, int)` — idem côté following.
+- `Follow.findPendingRequestsFor(UUID, int, int)` — inbox des demandes PENDING.
+- `Follow.findAcceptedFollowedIds(UUID followerId): List<UUID>` — projection JPQL
+  directe. **Anticipation SCRUM-168** (filtre `followedOnly` du feed S9) : consommé
+  par `EventService` pour filtrer les events sur les UUIDs suivis. Couvert par un
+  test sentinel dédié dans `FollowServiceCoverageTest`.
+- `Follow.countFollowersOf(UUID)`, `Follow.countFollowingOf(UUID)` — compteurs
+  ACCEPTED uniquement (PENDING ne compte pas).
+
+#### Consommation par `UserService.getPublicProfile`
+
+`UserService.getPublicProfile(UUID id, String auth0Id)` retourne désormais un
+`PublicProfileView` (record `(User user, long followerCount, long followingCount,
+FollowStatus followStatus)`) :
+
+- Pour un appelant **anonyme** : `PublicProfileView.anonymous(user)` — court-circuit
+  (compteurs 0, followStatus null), pas d'appel `FollowService` (économie 2 requêtes
+  DB par hit anonyme).
+- Pour un appelant **authentifié** : compteurs réels via
+  `FollowService.countFollowers/Following`, `followStatus` calculé via
+  `FollowService.getStatusBetween(callerId, targetId)`.
+- Sur son **propre profil** (auth0Id matche `user.auth0Id`) : `followStatus` reste
+  `null` (un user ne peut pas se suivre — cf. SCRUM-138 décision 6, 422 sur self-follow).
+
+La règle anti-oracle 404 ISSUE-93 reste inchangée : un profil privé non-owner jette
+`NotFoundException` avant tout calcul de follow.
+
+#### Consommation par `FollowResource` et `FollowRequestResource`
+
+7 endpoints exposés :
+- `POST /users/{id}/follow` (201, 401, 404, 409 `already_following`, 422
+  `cannot_follow_self`, 429 — `@PerUserRateLimit(name="follows.follow", max=30)`)
+- `DELETE /users/{id}/follow` (204 idempotent, 401)
+- `GET /users/{id}/followers`, `GET /users/{id}/following` (200, 401, 404
+  anti-oracle si profil privé non-owner)
+- `GET /users/me/follow-requests` (200, 401, 404)
+- `PATCH /follow-requests/{followId}/accept` (200, 401, 403, 404, 409
+  `invalid_transition`)
+- `PATCH /follow-requests/{followId}/reject` (204, 401, 403, 404, 409)
+
+La règle anti-oracle 404 sur les listings followers/following est portée par un appel
+préalable à `userService.getPublicProfile(...)` qui jette si non visible (alignement
+ISSUE-93).
+
+---
+
 ### Report
 
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
@@ -446,13 +531,24 @@ id, auth0Id, email, displayName, faculty, studyLevel, bio, interests, avatarUrl,
 Factory : `UserProfileResponse.from(User user)`
 
 ### UserPublicResponse (record)
-Profil public — retourné via `GET /users/{id}` si `profilePublic = true`.
+Profil public — retourné via `GET /users/{id}`. Format :
 
 ```
-id, displayName, faculty, studyLevel, bio, interests, avatarUrl
+id, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl,
+followerCount (long), followingCount (long), followStatus (FollowStatus | null)
 ```
 
-Factory : `UserPublicResponse.from(User u)`
+Trois factories (cf. SCRUM-138) :
+
+- `UserPublicResponse.from(User u)` — legacy. Compteurs à 0, followStatus null.
+  Utilisée par les items des listes followers / following (les compteurs ne font sens
+  que sur le profil cible, pas sur les items de la liste).
+- `UserPublicResponse.from(User u, long followerCount, long followingCount, FollowStatus followStatus)`
+  — factory enrichie utilisée par `UserResource.getProfile` pour les appelants
+  authentifiés.
+- `UserPublicResponse.fromAnonymous(User u)` — factory anonyme (ISSUE-93 finding 4.1b).
+  Tous les champs sensibles `null`, compteurs à 0, followStatus null. Court-circuit
+  servi sans appel à `FollowService`.
 
 ### EventDTO
 Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
@@ -536,6 +632,7 @@ attendingCount, interestedCount, viewCount
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 | `ReportReason` | `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER` | Sprint 7 | ✅ Implémenté (SCRUM-94 — CHECK constraint posée par V9) |
+| `FollowStatus` | `PENDING`, `ACCEPTED` | Sprint 6 | ✅ Implémenté (SCRUM-138 — un reject = DELETE physique de la row, `REJECTED` n'est pas un statut stocké) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
