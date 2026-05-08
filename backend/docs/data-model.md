@@ -66,10 +66,12 @@ Table : `events`
 | `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
 | `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, colonne DB `tag VARCHAR(64)` (legacy compat), validation DTO `@Size(max=16)` sur les éléments depuis ISSUE-122, max 20 tags — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
+| `parentEventId` | `parentEventId` | `Long` | `parent_event_id` | nullable, FK auto-référente vers `events.id` avec `ON DELETE SET NULL` (FK `fk_events_parent`) — SCRUM-147. `null` sur un parent récurrent ou un standalone, renseigné sur les occurrences enfants. Pas de `@ManyToOne` — pointeur Long brut, cohérent avec Favorite/Attendance/Follow. |
+| `recurrenceRule` | `recurrenceRule` | `String` | `recurrence_rule` | nullable, `@Column(length=500)` — SCRUM-147. RFC 5545 RRULE simplifié (`FREQ=WEEKLY;UNTIL=YYYYMMDD;COUNT=N`), porté UNIQUEMENT par le parent récurrent. `null` sur les occurrences enfants et les standalones. |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
-Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty)
+Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty), `idx_event_featured_status_end` (featured, status, end_date), `idx_event_parent` (parent_event_id) — SCRUM-147.
 
 Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
 
@@ -84,6 +86,25 @@ Le statut `Event.status` détermine qui peut lire l'événement via `GET /api/ev
 | `CANCELLED` | Créateur ou rôle `ADMIN` uniquement |
 
 Un appelant non autorisé reçoit `404 not_found` — même envelope qu'un ID inexistant, pour fermer l'oracle d'existence (cf. findings 4.12 + 4.15 du rapport de pentest). La règle est appliquée dans `EventService.getById(Long, String, boolean)`, avec extraction de l'identité anonyme-safe côté Resource (`identity.isAnonymous()` + `identity.hasRole("ADMIN")`).
+
+#### Récurrence (SCRUM-147)
+
+La récurrence d'un événement est matérialisée par **rows** : chaque occurrence est une row `events` standalone, avec `parent_event_id` pointant vers le **template parent** et `recurrence_rule` portée UNIQUEMENT par le parent. Pas de table de jointure dédiée, pas d'event « virtuel » non-persisté — l'isolation par row préserve toutes les propriétés des services aval (Attendance, Favorite, EventView, EventStats, EventCoOrganizer, Comment, CalendarService) sans branchement spécial.
+
+| Aspect | Valeur |
+|---|---|
+| Fréquences supportées | `RecurrenceFrequency` ∈ {`WEEKLY`, `BIWEEKLY`, `MONTHLY`}. Pas de `DAILY` ni `YEARLY` en S7. |
+| Espacement | WEEKLY = `Period.ofDays(7)`, BIWEEKLY = `Period.ofDays(14)`, MONTHLY = `Period.ofMonths(1)` (rolling 31→28 février naturel via `LocalDateTime.plus(Period)`). |
+| Format `recurrence_rule` | RFC 5545 RRULE simplifié — `FREQ=WEEKLY;UNTIL=YYYYMMDD`, `FREQ=BIWEEKLY;COUNT=10`, `FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=12`. PAS de support `BYDAY`/`EXDATE`/`INTERVAL` en S7. |
+| Cap matérialisation | 52 rows total (parent inclus) — limite hard. `RecurrenceGenerator` retourne au plus 51 ranges. |
+| Statut hérité | Les occurrences héritent du `status` du parent à la création (DRAFT par défaut, ou `request.status` si fourni). Symétrie totale parent ↔ enfants. |
+| FK `fk_events_parent` | `ON DELETE SET NULL` — un DELETE physique du parent (après cancel) préserve les occurrences orphelines avec `parent_event_id = NULL`. Inscriptions, favoris, vues, comptages survivent. |
+| Modification globale (PUT) | **Pas de propagation** au PUT du parent vers les occurrences. Chaque occurrence reste indépendamment éditable (cf. décision spec 17). |
+| Cancel cascadé | **Pas de cascade** sur `PATCH /events/{parentId}/cancel`. Les occurrences restent indépendamment cancellables (décision spec 18). |
+| Co-organisateurs | **Pas d'héritage automatique**. Le co-org accepté sur le parent n'a aucun privilège sur les occurrences — il faut `POST /co-organizers` par occurrence (décision spec 12). |
+| ICS feed | Inchangé — chaque occurrence row génère son propre VEVENT autonome dans `CalendarService.generateIcsFeed`. Pas de RRULE compact dans l'ICS (décision spec 13). |
+| Atomicité création | `EventService.createRecurring(...)` est `@Transactional` — parent + occurrences persistés dans la même unité JTA, all-or-nothing. |
+| Anti-oracle GET | `GET /events/{id}/occurrences` délègue à `getById(...)` ; un parent invisible (DRAFT non-créateur, BANNED, id inconnu) renvoie 404. Un standalone non-récurrent renvoie 200 + liste vide (pas 404). |
 
 Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les statuts non publics correctement — voir SCRUM-133 pour le contexte.
 

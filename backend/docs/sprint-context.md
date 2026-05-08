@@ -1,6 +1,34 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-03
+Dernière mise à jour : 2026-05-08
+
+---
+
+## Sprint 7 — Récurrence sur Event + génération d'occurrences (SCRUM-147) — 2026-05-08
+
+Livré.
+
+Brique récurrence (US-27, épic SCRUM-14) qui permet à un organisateur de créer un événement
+hebdomadaire / bimensuel / mensuel sans saisir manuellement chaque session. Débloque
+SCRUM-XXX-front-recurrence (S8+) — formulaire `RecurrenceForm.tsx` + listing des occurrences
+dans `EventDetailPage`.
+
+- Migration `V17__add_event_recurrence.sql` : `ALTER TABLE events ADD COLUMN parent_event_id BIGINT, ADD COLUMN recurrence_rule VARCHAR(500); ADD CONSTRAINT fk_events_parent FOREIGN KEY (parent_event_id) REFERENCES events(id) ON DELETE SET NULL; CREATE INDEX idx_event_parent ON events(parent_event_id);`. **ON DELETE SET NULL** : un DELETE physique du parent (après cancel) préserve les occurrences orphelines avec `parent_event_id = NULL` — leurs inscriptions, favoris, vues et comptages restent intacts. Numérotation V17 fixée par l'utilisateur ; au checkout `origin/main` était à V13, l'ordre attendu en pré-merge étant V14 (follows, SCRUM-138 PR #154) → V15 (comments, SCRUM-139 PR #156) → V16 (PR concurrente) → V17.
+- Enum `RecurrenceFrequency` (`WEEKLY` / `BIWEEKLY` / `MONTHLY`) — pas DAILY ni YEARLY en S7.
+- Entité `Event` étendue de 2 champs publics : `parentEventId: Long` (`@Column(name="parent_event_id")`, pas `@ManyToOne` — pointeur Long brut cohérent avec Favorite/Attendance/Follow) et `recurrenceRule: String` (`@Column(length=500)`). Nouvel `@Index` `idx_event_parent` ajouté à `@Table(indexes={...})`.
+- DTOs : `RecurrenceRequest` (record, `frequency @NotNull`, `endDate` LocalDate nullable, `maxOccurrences` Integer `@Min(1) @Max(52)` nullable). `CreateEventRequest` enrichi d'un champ `@Valid recurrence` optionnel. `EventDTO` étendu de 2 champs `parentEventId` + `recurrenceRule` propagés via factory `from(Event, ...)`.
+- `RecurrenceGenerator` (utility class statique, fonction pure) : `generate(parentStart, parentEnd, frequency, untilDate, maxOccurrences) -> List<DateRange>`. Cap hard 52 (parent inclus, donc ≤51 children retournés). Spacing `Period.ofDays(7)` / `ofDays(14)` / `ofMonths(1)` (gère 31→28 février naturellement). Levée `IllegalArgumentException` si `untilDate == null && maxOccurrences == null`. Testable hors Quarkus (pur JUnit).
+- `EventService.create(...)` enrichi d'un branchement précoce : `if (request.recurrence != null) return createRecurring(...)`. Logique standalone strictement inchangée (extraite dans le helper privé `persistParent`).
+- `EventService.createRecurring(...)` (`@Transactional`, all-or-nothing) : valide `recurrence_unbounded` et `recurrence_end_before_start` via le helper `badRequestRecurrence(error, message)` → `WebApplicationException` + envelope `ApiErrorResponse`. Calcule la `recurrenceRule` du parent via `buildRecurrenceRule` (format `FREQ=...;UNTIL=YYYYMMDD;COUNT=N`). Génère et persiste chaque occurrence via `persistOccurrence` (copie du template parent, sauf `startDate`/`endDate` venant du range, `parentEventId = parent.id`, `recurrenceRule = null`). Statut hérité du parent.
+- `EventService.getOccurrences(parentId, auth0Id, isAdmin, page, size)` : délègue à `getById(...)` en première ligne pour l'anti-oracle ISSUE-92, puis `Event.find("parentEventId = ?1 order by startDate asc, id asc")`. 200 + liste vide pour un standalone (pas 404).
+- `EventResource` étendu d'un seul handler `@GET @Path("/{id}/occurrences") @PermitAll` (pas de nouvelle classe — un seul `@Path("/events")` racine). Pagination `defaults 0/52 @Max(52)`.
+- OpenAPI : 2 champs ajoutés au schéma `Event` (`parentEventId`, `recurrenceRule`, readOnly), 1 schéma `RecurrenceRequest` (frequency required, endDate + maxOccurrences optionnels avec contrainte at-least-one server-side), 1 enum `RecurrenceFrequency`, 1 champ `recurrence` sur `CreateEventRequest`, 1 path `/events/{id}/occurrences` (200/400/404). Codes d'erreur enrichis sur `POST /events` (400 `recurrence_unbounded`/`recurrence_end_before_start`, 422 `recurrence_too_many`).
+
+Tests : 903 verts au total, dont **42 nouveaux SCRUM-147** (13 RecurrenceGeneratorTest pur JUnit, 3 EventTest, 3 EventDTOTest, 16 EventServiceCoverageTest DB-backed, 7 EventResourceTest). Sentinels nommément verts : `weekly_4Occurrences_returns3DatesSpacedBy7Days`, `monthly_handlesShortFebruaryFromJanuary31`, `bothNull_throwsIllegalArgumentException`, `maxOccurrencesAbove52_cappedTo52`, `from_parentRecurringEvent_exposesRecurrenceRuleAndNullParentEventId`, `from_occurrenceEvent_exposesParentEventIdAndNullRecurrenceRule`, `createRecurring_weekly4Occurrences_persists1ParentAnd3Children`, `createRecurring_withoutEndDateOrMaxOccurrences_returns400_recurrenceUnbounded`, `createRecurring_endDateBeforeStart_returns400_recurrenceEndBeforeStart`, `createRecurring_inheritsParentStatusPublished`, `getOccurrences_parentRecurring_returnsChildrenSortedAsc`, `getOccurrences_standaloneEvent_returns200EmptyList`, `getOccurrences_draftByNonCreator_returns404_antiOracle`, `update_parentTitle_doesNotPropagateToOccurrences`, `cancel_parentDoesNotCascadeToOccurrences`, `delete_parent_setsOccurrencesParentEventIdToNull`, `post_validRecurrenceWeekly_returns201_recurrenceRuleSetOnParent`, `post_recurrenceMaxOccurrences53_returns400_beanValidation`, `getOccurrences_parentPublishedAnonymous_returns200`, `getOccurrences_sizeOver52_returns400`, `getOccurrences_draftByAnonymous_returns404_antiOracle`. `RateLimitState.clearBuckets()` ajouté en `@BeforeEach` de `EventResourceTest` pour isoler le bucket `events.create` entre tests.
+
+`EventServiceMock` étendu avec un `createRecurringMock` qui mirror les codes d'erreur 400 prod et un `getOccurrences` override qui délègue à `getById` (anti-oracle parity) puis renvoie liste vide. `ShareServiceCoverageProfile` **non modifié** (`EventServiceMock` y figurait déjà).
+
+Hors scope explicitement : skip d'occurrence individuelle (RFC 5545 EXDATE — S8+), modification globale propagée aux occurrences (S8+), cancel cascadé (S8+), héritage automatique des co-organisateurs (S8+), notifications par occurrence (SCRUM-99 S7+ — infra Notification), RRULE compact dans ICS (S9+), front (SCRUM-XXX-front-recurrence S8+).
 
 ---
 
