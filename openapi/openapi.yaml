@@ -826,6 +826,101 @@ components:
         (SCRUM-96). Persistée dans `reports.reason` avec une CHECK constraint côté DB.
       enum: [SPAM, INAPPROPRIATE, FAKE, OTHER]
 
+    CommentDTO:
+      type: object
+      description: |
+        Représentation d'un commentaire d'événement (SCRUM-139).
+        - `POST /events/{eventId}/comments` (201) → `CommentDTO` (replies vide).
+        - `GET /events/{eventId}/comments` (200) → `List<CommentDTO>` paginée sur les top-level,
+          replies imbriquées dans `replies[]` (max 1 niveau de profondeur).
+
+        `authorIsOrganizer` est `true` quand l'auteur est le créateur de l'event OU un
+        co-organisateur ACCEPTED (cascade SCRUM-136).
+
+        `likedByMe` est toujours `false` en S6 — sera enrichi par SCRUM-144 (S7) une fois
+        l'entité `CommentLike` livrée.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: PK séquentielle (Long, sequence `comments_seq`).
+        content:
+          type: string
+          maxLength: 2000
+          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service).
+        authorId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID du `User` auteur. Nullable seulement par défense (en pratique l'auteur est
+            NOT NULL en base — la nullabilité est conservée pour aligner sur le pattern
+            `Report.reporterId`).
+        authorDisplayName:
+          type: string
+          nullable: true
+          description: |
+            `displayName` de l'auteur — projeté pour éviter un round-trip
+            `GET /users/{id}` côté front.
+        authorAvatarUrl:
+          type: string
+          nullable: true
+          description: URL absolue de l'avatar de l'auteur.
+        authorIsOrganizer:
+          type: boolean
+          description: |
+            `true` si l'auteur est le créateur de l'event ou un co-organisateur ACCEPTED.
+            Front affiche un badge « Organisateur » (SCRUM-146).
+        likeCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Nombre de likes — toujours `0` en S6 (mutation livrée par SCRUM-144).
+        likedByMe:
+          type: boolean
+          description: |
+            Toujours `false` en S6. SCRUM-144 (S7) le remontera à `true` quand le
+            `CommentLike` existera pour le caller.
+        createdAt:
+          type: string
+          format: date-time
+        parentCommentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `null` pour un commentaire top-level. Renseigné pour les replies (max
+            1 niveau de profondeur).
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentDTO'
+          description: |
+            Vide pour les replies elles-mêmes (1 niveau max). Chargées en bulk côté backend
+            pour éviter le N+1 (cf. spec SCRUM-139 décision 27).
+      required: [id, content, authorIsOrganizer, likeCount, likedByMe, createdAt, replies]
+
+    CreateCommentRequest:
+      type: object
+      description: |
+        Body de `POST /api/events/{eventId}/comments` (SCRUM-139).
+        `parentCommentId` optionnel (null = commentaire top-level).
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Texte du commentaire. Trimmé côté service avant persistance.
+        parentCommentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            ID du commentaire parent (top-level). `null` pour un commentaire de premier niveau.
+            Si renseigné, le service vérifie que le parent existe ET appartient au même event ET
+            n'est pas lui-même une reply (max 1 niveau, cf. décision 7).
+
     ApiErrorResponse:
       type: object
       properties:
@@ -2909,6 +3004,192 @@ paths:
           description: |
             `cannot_report_own_event` — l'utilisateur est créateur ou co-organisateur
             ACCEPTED de l'événement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{eventId}/comments:
+    post:
+      summary: Poster un commentaire sur un événement (SCRUM-139)
+      description: |
+        Crée un commentaire (`Comment`) sur l'event ciblé (`eventId`), au nom du caller authentifié.
+
+        Si `parentCommentId` est renseigné, le commentaire est une **reply** au commentaire
+        identifié — celui-ci doit appartenir au même event ET être un top-level (profondeur max 1).
+
+        **Visibilité** : passe par `EventService.getById(eventId, callerAuth0Id, isAdmin)`.
+        Un event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
+        retourne `404 not_found` (anti-oracle ISSUE-92).
+
+        Codes d'erreur :
+        - `400 cannot_comment_draft_event` : POST par créateur/co-org/admin sur event DRAFT.
+        - `400 cannot_comment_cancelled_event` : event CANCELLED.
+        - `400 cannot_comment_expired_event` : event EXPIRED.
+        - `401 unauthorized` : token absent ou invalide.
+        - `404 not_found` : event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu).
+        - `404 parent_comment_not_found` : `parentCommentId` inexistant.
+        - `422 replies_too_deep` : `parentCommentId` réfère un commentaire qui a déjà un parent.
+        - `422 parent_comment_not_in_event` : `parentCommentId` réfère un commentaire d'un autre event.
+        - `429 rate_limited` : `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` dépassé.
+      operationId: postComment
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Commentaire créé (replies vide)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDTO'
+        '400':
+          description: Event non commentable (DRAFT/CANCELLED/EXPIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Event invisible OU `parentCommentId` inexistant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Profondeur de reply dépassée OU parent dans un autre event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    get:
+      summary: Lister les commentaires d'un événement (SCRUM-139)
+      description: |
+        Retourne une page paginée des commentaires top-level de l'event ciblé,
+        avec leurs replies imbriquées dans `replies[]` (max 1 niveau de profondeur).
+        Tri : `createdAt DESC, id DESC` (commentaires les plus récents en premier).
+
+        **Visibilité** : héritée de `EventService.getById` — événement invisible → `404`.
+        Endpoint `@PermitAll` : un anonyme reçoit la liste (l'event PUBLISHED est public).
+
+        **Pagination** : `page` (default 0, ≥ 0), `size` (default 20, > 0, ≤ 100).
+      operationId: getEventComments
+      tags: [comments]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Page de commentaires (top-level + replies imbriquées)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentDTO'
+        '400':
+          description: Pagination invalide (`size > 100`, `page < 0`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /comments/{commentId}:
+    delete:
+      summary: Supprimer un commentaire (SCRUM-139)
+      description: |
+        Supprime physiquement le commentaire (`commentId`). DELETE physique — la row part
+        définitivement. Si le commentaire avait des replies, celles-ci restent (le front
+        affichera un placeholder « Commentaire supprimé » à leur place — comportement géré
+        en SCRUM-146).
+
+        **Autorisé pour** :
+        1. l'auteur du commentaire (`comment.author.id == caller.id`),
+        2. le créateur de l'event (`comment.event.creator.id == caller.id`),
+        3. un co-organisateur ACCEPTED de l'event (cascade SCRUM-136),
+        4. un utilisateur ADMIN (claim Auth0).
+
+        Codes d'erreur :
+        - `401 unauthorized` : token absent ou invalide.
+        - `403 forbidden` : caller authentifié mais non autorisé.
+        - `404 comment_not_found` : `commentId` inexistant.
+      operationId: deleteComment
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Commentaire supprimé (no body)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Caller non autorisé (`error=forbidden`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Commentaire inexistant (`error=comment_not_found`)
           content:
             application/json:
               schema:
