@@ -98,6 +98,11 @@ public class EventServiceMock extends EventService {
 
     @Override
     public EventDTO create(String auth0Id, CreateEventRequest request) {
+        // SCRUM-147 — branche recurrence avec validation business minimale.
+        if (request.recurrence != null) {
+            return createRecurringMock(auth0Id, request);
+        }
+
         User creator = new User();
         creator.id = UUID.randomUUID();
         creator.auth0Id = auth0Id;
@@ -124,6 +129,59 @@ public class EventServiceMock extends EventService {
 
         eventsById.put(event.id, event);
         return EventDTO.from(event, 0L, event.capacity == null ? null : (long) event.capacity, 0L, null, null);
+    }
+
+    private EventDTO createRecurringMock(String auth0Id, CreateEventRequest request) {
+        ch.unige.events.dto.event.RecurrenceRequest r = request.recurrence;
+        if (r.endDate() == null && r.maxOccurrences() == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                            .entity(new ch.unige.events.dto.ApiErrorResponse(
+                                    "recurrence_unbounded", "At least one bound required"))
+                            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE)
+                            .build());
+        }
+        if (r.endDate() != null
+                && request.startDate != null
+                && r.endDate().isBefore(request.startDate.toLocalDate())) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                            .entity(new ch.unige.events.dto.ApiErrorResponse(
+                                    "recurrence_end_before_start",
+                                    "endDate must be >= startDate"))
+                            .type(jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE)
+                            .build());
+        }
+
+        User creator = new User();
+        creator.id = UUID.randomUUID();
+        creator.auth0Id = auth0Id;
+
+        Event parent = new Event();
+        parent.id = idSequence.getAndIncrement();
+        parent.title = request.title;
+        parent.location = request.location;
+        parent.startDate = request.startDate;
+        parent.endDate = request.endDate;
+        parent.category = request.category;
+        parent.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
+        parent.creator = creator;
+        parent.createdAt = LocalDateTime.now();
+        parent.updatedAt = LocalDateTime.now();
+        parent.recurrenceRule = "FREQ=" + r.frequency().name()
+                + (r.maxOccurrences() != null ? ";COUNT=" + r.maxOccurrences() : "");
+
+        eventsById.put(parent.id, parent);
+        // The mock doesn't matérialise actual children — only the parent payload
+        // is exercised by Resource tests; getOccurrences will return an empty list.
+        return EventDTO.from(parent, 0L, parent.capacity == null ? null : (long) parent.capacity, 0L, null, null);
+    }
+
+    @Override
+    public List<EventDTO> getOccurrences(Long parentId, String auth0Id, boolean isAdmin, int page, int size) {
+        // Anti-oracle delegated to getById — same envelope.
+        getById(parentId, auth0Id, isAdmin);
+        return List.of();
     }
 
     @Override

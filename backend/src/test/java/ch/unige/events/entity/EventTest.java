@@ -49,4 +49,25 @@ class EventTest {
         Event event = new Event();
         assertNull(event.featuredAt);
     }
+
+    @Test
+    void parentEventId_defaultIsNull() {
+        Event event = new Event();
+        assertNull(event.parentEventId);
+    }
+
+    @Test
+    void recurrenceRule_defaultIsNull() {
+        Event event = new Event();
+        assertNull(event.recurrenceRule);
+    }
+
+    @Test
+    void recurrenceFields_areAssignable() {
+        Event event = new Event();
+        event.parentEventId = 42L;
+        event.recurrenceRule = "FREQ=WEEKLY;UNTIL=20260601";
+        assertEquals(42L, event.parentEventId);
+        assertEquals("FREQ=WEEKLY;UNTIL=20260601", event.recurrenceRule);
+    }
 }

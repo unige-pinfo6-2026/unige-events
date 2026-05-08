@@ -76,7 +76,8 @@ class CoOrganizerDTOTest {
                 false, null, 0L, null, 0L,
                 null, null,
                 null, null, null, List.of(),
-                LocalDateTime.now(), LocalDateTime.now()
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null
         );
 
         CoOrganizerInvitationDTO dto = CoOrganizerInvitationDTO.from(entity, event);

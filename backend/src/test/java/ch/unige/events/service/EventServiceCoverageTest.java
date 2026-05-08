@@ -1868,4 +1868,285 @@ class EventServiceCoverageTest {
         @Override public String charSet() { return null; }
         @Override public jakarta.ws.rs.core.MultivaluedMap<String, String> getHeaders() { return new jakarta.ws.rs.core.MultivaluedHashMap<>(); }
     }
+
+    // --- SCRUM-147 — Recurrence (createRecurring + getOccurrences) ---
+
+    private CreateEventRequest validCreateRequestWithRecurrence(
+            ch.unige.events.entity.RecurrenceFrequency frequency,
+            java.time.LocalDate endDate,
+            Integer maxOccurrences) {
+        CreateEventRequest req = validCreateRequest();
+        req.recurrence = new ch.unige.events.dto.event.RecurrenceRequest(frequency, endDate, maxOccurrences);
+        return req;
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_weekly4Occurrences_persists1ParentAnd3Children() {
+        User user = persistUser("auth0|rec1", "rec1@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 4);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        assertEquals("FREQ=WEEKLY;COUNT=4", parent.recurrenceRule());
+        assertNull(parent.parentEventId());
+
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        assertEquals(3, children.size());
+        assertTrue(children.stream().allMatch(c -> c.recurrenceRule == null));
+        assertTrue(children.stream().allMatch(c -> c.parentEventId.equals(parent.id())));
+        // 7-day spacing
+        assertEquals(req.startDate.plusDays(7), children.get(0).startDate);
+        assertEquals(req.startDate.plusDays(14), children.get(1).startDate);
+        assertEquals(req.startDate.plusDays(21), children.get(2).startDate);
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_biweekly_persistsCorrectSpacing() {
+        User user = persistUser("auth0|rec-biw", "rec-biw@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.BIWEEKLY, null, 3);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        assertEquals(2, children.size());
+        assertEquals(req.startDate.plusDays(14), children.get(0).startDate);
+        assertEquals(req.startDate.plusDays(28), children.get(1).startDate);
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_monthly_persistsCorrectSpacing() {
+        User user = persistUser("auth0|rec-month", "rec-month@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.MONTHLY, null, 3);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        assertEquals(2, children.size());
+        assertEquals(req.startDate.plusMonths(1), children.get(0).startDate);
+        assertEquals(req.startDate.plusMonths(2), children.get(1).startDate);
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_withoutEndDateOrMaxOccurrences_returns400_recurrenceUnbounded() {
+        User user = persistUser("auth0|rec-unb", "rec-unb@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, null);
+
+        WebApplicationException ex = assertThrows(
+                WebApplicationException.class,
+                () -> eventService.create(user.auth0Id, req));
+        assertEquals(400, ex.getResponse().getStatus());
+        ch.unige.events.dto.ApiErrorResponse body =
+                (ch.unige.events.dto.ApiErrorResponse) ex.getResponse().getEntity();
+        assertEquals("recurrence_unbounded", body.error());
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_endDateBeforeStart_returns400_recurrenceEndBeforeStart() {
+        User user = persistUser("auth0|rec-ebs", "rec-ebs@example.com");
+        CreateEventRequest req = validCreateRequest();
+        req.startDate = LocalDateTime.now().plusDays(10);
+        req.endDate = LocalDateTime.now().plusDays(11);
+        req.recurrence = new ch.unige.events.dto.event.RecurrenceRequest(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY,
+                req.startDate.toLocalDate().minusDays(1),
+                null);
+
+        WebApplicationException ex = assertThrows(
+                WebApplicationException.class,
+                () -> eventService.create(user.auth0Id, req));
+        assertEquals(400, ex.getResponse().getStatus());
+        ch.unige.events.dto.ApiErrorResponse body =
+                (ch.unige.events.dto.ApiErrorResponse) ex.getResponse().getEntity();
+        assertEquals("recurrence_end_before_start", body.error());
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_inheritsParentStatusPublished() {
+        User user = persistUser("auth0|rec-pub", "rec-pub@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        req.setStatus(EventStatus.PUBLISHED);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        assertEquals(EventStatus.PUBLISHED, parent.status());
+        List<Event> children = Event.list("parentEventId = ?1", parent.id());
+        assertEquals(2, children.size());
+        assertTrue(children.stream().allMatch(c -> c.status == EventStatus.PUBLISHED));
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_defaultsToDraft() {
+        User user = persistUser("auth0|rec-draft", "rec-draft@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        assertEquals(EventStatus.DRAFT, parent.status());
+        List<Event> children = Event.list("parentEventId = ?1", parent.id());
+        assertTrue(children.stream().allMatch(c -> c.status == EventStatus.DRAFT));
+    }
+
+    @Test
+    @TestTransaction
+    void create_withoutRecurrence_legacyBehaviorUnchanged() {
+        User user = persistUser("auth0|legacy", "legacy@example.com");
+        CreateEventRequest req = validCreateRequest();
+
+        EventDTO standalone = eventService.create(user.auth0Id, req);
+
+        assertNull(standalone.parentEventId());
+        assertNull(standalone.recurrenceRule());
+        // No children persisted.
+        long childrenCount = Event.count("parentEventId = ?1", standalone.id());
+        assertEquals(0L, childrenCount);
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_recurrenceRuleEncodesUntilAndCount() {
+        User user = persistUser("auth0|rec-rule", "rec-rule@example.com");
+        java.time.LocalDate until = LocalDateTime.now().plusDays(30).toLocalDate();
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.MONTHLY, until, 3);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        // Format: FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=3
+        assertTrue(parent.recurrenceRule().startsWith("FREQ=MONTHLY;UNTIL="));
+        assertTrue(parent.recurrenceRule().endsWith(";COUNT=3"));
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_parentRecurring_returnsChildrenSortedAsc() {
+        User user = persistUser("auth0|occ-sort", "occ-sort@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 4);
+
+        EventDTO parent = eventService.create(user.auth0Id, req);
+        List<EventDTO> occurrences = eventService.getOccurrences(parent.id(), user.auth0Id, false, 0, 52);
+
+        assertEquals(3, occurrences.size());
+        assertTrue(occurrences.get(0).startDate().isBefore(occurrences.get(1).startDate()));
+        assertTrue(occurrences.get(1).startDate().isBefore(occurrences.get(2).startDate()));
+        assertTrue(occurrences.stream().allMatch(o -> o.parentEventId().equals(parent.id())));
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_standaloneEvent_returns200EmptyList() {
+        User user = persistUser("auth0|occ-stand", "occ-stand@example.com");
+        Event standalone = persistEvent("Lonely", EventCategory.ACADEMIC, EventStatus.PUBLISHED, user);
+
+        List<EventDTO> occurrences = eventService.getOccurrences(standalone.id, null, false, 0, 52);
+
+        assertNotNull(occurrences);
+        assertTrue(occurrences.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_draftByNonCreator_returns404_antiOracle() {
+        User creator = persistUser("auth0|occ-creator", "occ-creator@example.com");
+        Event draft = persistEvent("Hidden draft", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getOccurrences(draft.id, "auth0|stranger", false, 0, 52));
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_draftByCreator_returns200() {
+        User creator = persistUser("auth0|occ-self", "occ-self@example.com");
+        Event draft = persistEvent("Visible draft", EventCategory.ACADEMIC, EventStatus.DRAFT, creator);
+
+        List<EventDTO> occurrences = eventService.getOccurrences(draft.id, creator.auth0Id, false, 0, 52);
+
+        assertNotNull(occurrences);
+        assertTrue(occurrences.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_bannedEvent_returns404() {
+        User creator = persistUser("auth0|occ-ban", "occ-ban@example.com");
+        Event banned = persistEvent("Banned", EventCategory.ACADEMIC, EventStatus.BANNED, creator);
+
+        assertThrows(NotFoundException.class,
+                () -> eventService.getOccurrences(banned.id, creator.auth0Id, false, 0, 52));
+    }
+
+    @Test
+    @TestTransaction
+    void update_parentTitle_doesNotPropagateToOccurrences() {
+        User user = persistUser("auth0|upd-rec", "upd-rec@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        UpdateEventRequest upd = validUpdateRequest("Renamed", EventCategory.ACADEMIC, EventStatus.DRAFT);
+        upd.location = req.location;
+        upd.startDate = req.startDate;
+        upd.endDate = req.endDate;
+        eventService.update(parent.id(), user.auth0Id, upd);
+
+        Event refreshedParent = Event.findById(parent.id());
+        assertEquals("Renamed", refreshedParent.title);
+        // Children still carry the original title.
+        List<Event> children = Event.list("parentEventId = ?1", parent.id());
+        assertEquals(2, children.size());
+        assertTrue(children.stream().allMatch(c -> c.title.equals("Test Event")));
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_parentDoesNotCascadeToOccurrences() {
+        User user = persistUser("auth0|cancel-rec", "cancel-rec@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        req.setStatus(EventStatus.PUBLISHED);
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        eventService.cancel(parent.id(), user.auth0Id);
+
+        Event refreshedParent = Event.findById(parent.id());
+        assertEquals(EventStatus.CANCELLED, refreshedParent.status);
+        // Children remain PUBLISHED.
+        List<Event> children = Event.list("parentEventId = ?1", parent.id());
+        assertEquals(2, children.size());
+        assertTrue(children.stream().allMatch(c -> c.status == EventStatus.PUBLISHED));
+    }
+
+    @Test
+    @TestTransaction
+    void delete_parent_setsOccurrencesParentEventIdToNull() {
+        User user = persistUser("auth0|del-rec", "del-rec@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        // EventService.delete requires the event to be CANCELLED first.
+        eventService.cancel(parent.id(), user.auth0Id);
+        eventService.delete(parent.id(), user.auth0Id);
+        entityManager.flush();
+        entityManager.clear();
+
+        // Children survive with parent_event_id = NULL (FK ON DELETE SET NULL).
+        List<Event> survivors = Event.list("title = ?1", "Test Event");
+        assertEquals(2, survivors.size());
+        assertTrue(survivors.stream().allMatch(c -> c.parentEventId == null));
+    }
 }
