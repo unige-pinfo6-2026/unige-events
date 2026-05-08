@@ -243,8 +243,9 @@ class FileStorageServiceTest {
         FileStorageService svc = service(s3);
         String oldUrl = "http://s3/bucket/users/avatars/old-key.jpg";
 
-        svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
+        String newUrl = svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
 
+        assertNotNull(newUrl);
         var order = inOrder(s3);
         order.verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
         order.verify(s3).deleteObject(any(DeleteObjectRequest.class));

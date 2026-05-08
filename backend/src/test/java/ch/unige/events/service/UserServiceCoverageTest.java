@@ -847,6 +847,21 @@ class UserServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void deleteAvatar_withCrossFolderS3Url_skipsS3Delete() {
+        deleteAllUsers();
+        User user = persistUser("auth0|crossfolder", "crossfolder@example.com", false);
+        // Simulate avatarUrl pointing to a different folder in the same bucket —
+        // tryDeleteObject must skip deletion to prevent cross-resource GC.
+        user.avatarUrl = "http://localhost:9000/unige-events-dev/events/banners/some-event.jpg";
+        entityManager.flush();
+
+        User result = userService.deleteAvatar("auth0|crossfolder");
+
+        assertNull(result.avatarUrl);
+    }
+
+    @Test
+    @TestTransaction
     void deleteAvatar_withExistingS3Url_deletesS3Object(@TempDir Path tempDir) throws IOException {
         deleteAllUsers();
         persistUser("auth0|s3del", "s3del@example.com", false);
