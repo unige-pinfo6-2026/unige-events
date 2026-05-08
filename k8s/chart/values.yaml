@@ -61,7 +61,12 @@ web:
       ephemeral-storage: "256Mi"
 
 kong:
-  image: kong:3.7-alpine
+  # Pin to a concrete patch-level tag rather than the floating `3.7-alpine`
+  # alias — the floating alias intermittently failed to pull in the preview
+  # cluster (PR #158 retry 3: "trying and failing to pull image"). 3.7.0 is
+  # a stable OSS Kong release with an Alpine variant published as part of
+  # the official `kong` library on Docker Hub.
+  image: kong:3.7.0
   replicas: 2
   resources:
     requests:

@@ -55,7 +55,16 @@ spec:
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: "1@kafka-0.kafka:9093"
+              # Single-node KRaft with combined process roles (broker AND
+              # controller in the same JVM): the voter MUST be reachable
+              # before the headless service has a stable DNS record for the
+              # pod. Using `kafka-0.kafka` failed in PR #158 retry 3 with
+              # "fatal error while waiting for the controller to acknowledge"
+              # because the broker self-references a name that won't resolve
+              # until the StatefulSet pod is registered with the headless
+              # service (chicken-and-egg at first boot). localhost trivially
+              # resolves and is correct for a combined single-node setup.
+              value: "1@localhost:9093"
             - name: KAFKA_LOG_DIRS
               value: "/var/lib/kafka/data"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
