@@ -30,8 +30,14 @@ public class CommentServiceMock extends CommentService {
     public static volatile boolean forceRepliesTooDeep = false;
     public static volatile boolean forceCommentNotFound = false;
     public static volatile boolean forceForbiddenOnDelete = false;
-    public static volatile List<CommentDTO> nextGetByEventResponse = new ArrayList<>();
 
+    /**
+     * Fixtures for {@link #getByEvent} — instance field, cohérent avec les autres
+     * mocks du projet (ReportServiceMock.reportsFixture, FollowServiceMock.rowsById).
+     * Seuls les flags `force*` restent {@code static volatile} pour rester pilotables
+     * depuis les tests Resource. Cf. review Copilot (PR #156, comment 3207926394).
+     */
+    private final List<CommentDTO> getByEventFixture = new ArrayList<>();
     private final AtomicLong idSequence = new AtomicLong(1);
 
     public void reset() {
@@ -44,12 +50,12 @@ public class CommentServiceMock extends CommentService {
         forceRepliesTooDeep = false;
         forceCommentNotFound = false;
         forceForbiddenOnDelete = false;
-        nextGetByEventResponse = new ArrayList<>();
+        getByEventFixture.clear();
         idSequence.set(1);
     }
 
     public void seedTopLevel(CommentDTO dto) {
-        nextGetByEventResponse.add(dto);
+        getByEventFixture.add(dto);
     }
 
     @Override
@@ -85,7 +91,7 @@ public class CommentServiceMock extends CommentService {
     @Override
     public List<CommentDTO> getByEvent(Long eventId, String auth0Id, int page, int size) {
         if (forceNotFoundOnEvent) throw new NotFoundException();
-        return List.copyOf(nextGetByEventResponse);
+        return List.copyOf(getByEventFixture);
     }
 
     @Override
