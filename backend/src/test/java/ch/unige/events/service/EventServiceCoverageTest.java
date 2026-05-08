@@ -2132,6 +2132,73 @@ class EventServiceCoverageTest {
 
     @Test
     @TestTransaction
+    void getOccurrences_filtersBannedOccurrencesEvenForCreator() {
+        // SCRUM-147 fix(scrum-147) post-Copilot: per-occurrence visibility
+        // BANNED is invisible for everyone including creators (cf. SCRUM-97).
+        User user = persistUser("auth0|occ-ban-child", "occ-ban-child@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        req.setStatus(EventStatus.PUBLISHED);
+        EventDTO parent = eventService.create(user.auth0Id, req);
+
+        // Ban one of the children manually.
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        Event firstChild = children.get(0);
+        firstChild.status = EventStatus.BANNED;
+        entityManager.flush();
+
+        List<EventDTO> visible = eventService.getOccurrences(parent.id(), user.auth0Id, false, 0, 52);
+
+        // 2 children remain visible — the banned one is hidden even from the creator.
+        assertEquals(1, visible.size());
+        assertNotEquals(firstChild.id, visible.get(0).id());
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_filtersDraftOccurrencesForNonCreator() {
+        // Parent PUBLISHED but one child reverted to DRAFT post-creation: anonymous
+        // / non-creator caller must NOT see it (anti-oracle ISSUE-92 row-by-row).
+        User creator = persistUser("auth0|occ-draft-creator", "occ-draft-creator@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        req.setStatus(EventStatus.PUBLISHED);
+        EventDTO parent = eventService.create(creator.auth0Id, req);
+
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        children.get(0).status = EventStatus.DRAFT;
+        entityManager.flush();
+
+        // Anonymous caller — only PUBLISHED children visible.
+        List<EventDTO> anonView = eventService.getOccurrences(parent.id(), null, false, 0, 52);
+        assertEquals(1, anonView.size());
+
+        // Creator sees the draft child.
+        List<EventDTO> creatorView = eventService.getOccurrences(parent.id(), creator.auth0Id, false, 0, 52);
+        assertEquals(2, creatorView.size());
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_adminSeesDraftAndCancelledChildren() {
+        User creator = persistUser("auth0|occ-admin-test", "occ-admin-test@example.com");
+        CreateEventRequest req = validCreateRequestWithRecurrence(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 3);
+        req.setStatus(EventStatus.PUBLISHED);
+        EventDTO parent = eventService.create(creator.auth0Id, req);
+
+        List<Event> children = Event.list("parentEventId = ?1 order by startDate", parent.id());
+        children.get(0).status = EventStatus.DRAFT;
+        children.get(1).status = EventStatus.CANCELLED;
+        entityManager.flush();
+
+        // Admin caller (non-creator) sees both DRAFT and CANCELLED children.
+        List<EventDTO> adminView = eventService.getOccurrences(parent.id(), "auth0|admin", true, 0, 52);
+        assertEquals(2, adminView.size());
+    }
+
+    @Test
+    @TestTransaction
     void delete_parent_setsOccurrencesParentEventIdToNull() {
         User user = persistUser("auth0|del-rec", "del-rec@example.com");
         CreateEventRequest req = validCreateRequestWithRecurrence(

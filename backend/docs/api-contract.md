@@ -152,8 +152,9 @@ Crée un nouvel événement, ponctuel ou récurrent (SCRUM-147).
   - `ApiErrorResponse{ error: "recurrence_unbounded" }` — ni `endDate` ni `maxOccurrences` fournis
   - `ApiErrorResponse{ error: "recurrence_end_before_start" }` — `recurrence.endDate < startDate.toLocalDate()`
 - `401 Unauthorized` — token absent
-- `422 Unprocessable Entity` — `recurrence_too_many` (combinaison incohérente endDate + maxOccurrences)
 - `429 Too Many Requests` — rate limit `events.create` (max 10/min/utilisateur)
+
+> **Note** : si la combinaison `endDate × frequency` produirait plus de 52 occurrences, la récurrence est **silencieusement tronquée** à 52 (cap dur côté générateur). Pas d'erreur 422. La borne client `maxOccurrences > 52` est rejetée par Bean Validation (`@Max(52)`) en `400`.
 
 ---
 
@@ -180,7 +181,8 @@ Crée un nouvel événement, ponctuel ou récurrent (SCRUM-147).
 | `400` | `recurrence_unbounded` | `recurrence` présent, ni `endDate` ni `maxOccurrences` renseignés |
 | `400` | `recurrence_end_before_start` | `recurrence.endDate < startDate.toLocalDate()` |
 | `400` | (Bean Validation generic) | `frequency` null, `maxOccurrences` hors [1,52], etc. |
-| `422` | `recurrence_too_many` | Combinaison `endDate` + `maxOccurrences` qui forcerait > 52 occurrences générées (cas explicite incohérent) |
+
+Pas de 422 dédié — au-delà du cap matérialisé de 52 occurrences, le générateur tronque silencieusement (cf. spec décision 9). La seule borne stricte exposée client est `@Max(52)` sur `maxOccurrences` qui renvoie 400 Bean Validation.
 
 **FK `fk_events_parent`** est `ON DELETE SET NULL` côté DB : un `DELETE /events/{parentId}` (après cancel) préserve les occurrences orphelines avec `parent_event_id = NULL` — leurs inscriptions, favoris, vues et comptages restent intacts.
 

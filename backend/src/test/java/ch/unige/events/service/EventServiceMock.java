@@ -168,8 +168,7 @@ public class EventServiceMock extends EventService {
         parent.creator = creator;
         parent.createdAt = LocalDateTime.now();
         parent.updatedAt = LocalDateTime.now();
-        parent.recurrenceRule = "FREQ=" + r.frequency().name()
-                + (r.maxOccurrences() != null ? ";COUNT=" + r.maxOccurrences() : "");
+        parent.recurrenceRule = EventService.buildRecurrenceRule(r);
 
         eventsById.put(parent.id, parent);
         // The mock doesn't matérialise actual children — only the parent payload

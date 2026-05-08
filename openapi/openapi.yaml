@@ -1628,6 +1628,11 @@ paths:
             - Bean Validation generic : `frequency` manquant, `maxOccurrences` hors [1,52], `startDate` non-future.
             - `error: "recurrence_unbounded"` : `recurrence` présent mais ni `endDate` ni `maxOccurrences` renseignés.
             - `error: "recurrence_end_before_start"` : `recurrence.endDate < startDate.toLocalDate()`.
+
+            Note : un cap dur de 52 occurrences (parent inclus) s'applique côté générateur ;
+            si le calcul `endDate × frequency` produit plus de 52 occurrences, la récurrence
+            est silencieusement tronquée à 52 (pas d'erreur). La borne client `maxOccurrences > 52`
+            est en revanche rejetée par Bean Validation côté DTO (`@Max(52)`).
           content:
             application/json:
               schema:
@@ -1642,15 +1647,6 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-        '422':
-          description: |
-            Combinaison incohérente sur la récurrence (SCRUM-147) — `error: "recurrence_too_many"`
-            quand `endDate` ET `maxOccurrences` sont tous deux fournis avec des valeurs
-            qui forceraient strictement plus de 52 occurrences générées.
           content:
             application/json:
               schema:

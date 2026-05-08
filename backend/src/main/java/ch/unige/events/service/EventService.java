@@ -181,7 +181,29 @@ public class EventService {
                 parentId
         ).page(page, size).list();
 
-        return toEventDTOs(occurrences);
+        // SCRUM-147 — Apply per-occurrence visibility (Copilot review).
+        // Without this filter, a caller who can see a PUBLISHED parent could enumerate
+        // DRAFT/CANCELLED/BANNED children individually edited or moderated post-creation,
+        // breaking the anti-oracle ISSUE-92 guarantee that getById enforces row-by-row.
+        List<Event> visible = occurrences.stream()
+                .filter(o -> isOccurrenceVisible(o, auth0Id, isAdmin))
+                .toList();
+
+        return toEventDTOs(visible);
+    }
+
+    private boolean isOccurrenceVisible(Event occurrence, String auth0Id, boolean isAdmin) {
+        // BANNED is always invisible — even to admins and creators (cf. SCRUM-97 +
+        // EventService.getById line 160-162).
+        if (occurrence.status == EventStatus.BANNED) {
+            return false;
+        }
+        if (occurrence.status == EventStatus.PUBLISHED) {
+            return true;
+        }
+        // DRAFT / CANCELLED / EXPIRED — visible only to admin or to the creator (or
+        // an accepted co-organizer, cf. SCRUM-136 cascade).
+        return isAdmin || isCreatorOrAcceptedCoOrganizer(occurrence, auth0Id);
     }
 
     private Event persistParent(String auth0Id, CreateEventRequest request) {
@@ -241,7 +263,12 @@ public class EventService {
         occurrence.persist();
     }
 
-    private static String buildRecurrenceRule(RecurrenceRequest r) {
+    /**
+     * Package-private to allow {@code EventServiceMock} to share the same RRULE
+     * encoding (Copilot review on SCRUM-147 — keep mock and prod aligned to avoid
+     * contract drift on Resource tests).
+     */
+    static String buildRecurrenceRule(RecurrenceRequest r) {
         StringBuilder sb = new StringBuilder("FREQ=").append(r.frequency().name());
         if (r.endDate() != null) {
             sb.append(";UNTIL=").append(r.endDate().format(DateTimeFormatter.BASIC_ISO_DATE));
