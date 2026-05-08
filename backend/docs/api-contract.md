@@ -36,6 +36,13 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
 | `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
 | `GET` | `/users/me/co-organizer-invitations` | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
+| `POST` | `/users/{id}/follow` | `@Authenticated` + `@PerUserRateLimit(max=30)` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
+| `DELETE` | `/users/{id}/follow` | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
+| `GET` | `/users/{id}/followers` | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
+| `GET` | `/users/{id}/following` | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
+| `GET` | `/users/me/follow-requests` | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
+| `PATCH` | `/follow-requests/{followId}/accept` | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
+| `PATCH` | `/follow-requests/{followId}/reject` | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
 
 ---
 
@@ -249,6 +256,75 @@ opérations suivantes :
 | `GET /events/{id}/attendees` | ✅ |
 | `GET /events/{id}/stats` | ✅ |
 | `DELETE /events/{id}` (hard-delete) | ❌ — strict-creator (action irréversible) |
+
+---
+
+### Follow (SCRUM-138)
+
+Sept endpoints exposent la relation de suivi entre utilisateurs. Toutes les opérations
+sont sous `@Authenticated`. Pas de privilège `ADMIN` (un admin doit suivre / se
+désabonner explicitement). Aucune notification émise (déléguée à SCRUM-140 / S7).
+
+#### `POST /users/{id}/follow`
+
+Crée une row `Follow` entre l'appelant authentifié (`follower`) et l'utilisateur cible
+(`followed = {id}`). Auto-accept si `profilePublic=true` côté cible, sinon PENDING.
+
+**Réponses :**
+- `201 Created` — `FollowDTO` (status reflétant la cascade auto-accept)
+- `401 Unauthorized` — token absent
+- `404 Not Found` — UUID cible inexistant ou profil caller non provisionné
+- `409 Conflict` — `error=already_following` (le caller suit déjà la cible)
+- `422 Unprocessable Entity` — `error=cannot_follow_self`
+- `429 Too Many Requests` — `@PerUserRateLimit(name="follows.follow", max=30)` dépassé
+
+#### `DELETE /users/{id}/follow`
+
+Idempotent : supprime la row peu importe son statut, ne lève pas 404 sur l'absence.
+
+**Réponses :**
+- `204 No Content`
+- `401 Unauthorized`
+
+#### `GET /users/{id}/followers` & `GET /users/{id}/following`
+
+Listes paginées (`page`, `size` ; max 100). Items projetés via
+`UserPublicResponse.from(User)` (compteurs et followStatus à 0/null sur les items —
+ces champs ne font sens que sur le profil cible). Tri `Follow.createdAt DESC`.
+
+**Règle d'autorisation** (alignée ISSUE-93) :
+- Profil cible `profilePublic=true` → 200 + liste paginée.
+- Profil cible `profilePublic=false`, caller ≠ owner → `404 not_found` (envelope
+  identique à un UUID inexistant — anti-oracle).
+- Profil cible `profilePublic=false`, caller = owner → 200.
+
+#### `GET /users/me/follow-requests`
+
+Demandes PENDING reçues par l'utilisateur courant. `List<FollowDTO>` brut (le frontend
+résoudra `GET /users/{followerId}` à la demande pour enrichir le rendu).
+
+#### `PATCH /follow-requests/{followId}/accept`
+
+Bascule PENDING → ACCEPTED. Réservé au `followed`.
+
+**Réponses :**
+- `200 OK` — `FollowDTO` mis à jour
+- `401 Unauthorized`
+- `403 Forbidden` — caller ≠ `followed`
+- `404 Not Found` — `followId` inexistant
+- `409 Conflict` — `error=invalid_transition` (déjà ACCEPTED)
+
+#### `PATCH /follow-requests/{followId}/reject`
+
+Refuse la demande PENDING — **supprime physiquement la row** (cf. data-model.md). Le
+follower peut re-tenter ultérieurement sans 409. Réservé au `followed`.
+
+**Réponses :**
+- `204 No Content`
+- `401 Unauthorized`
+- `403 Forbidden`
+- `404 Not Found`
+- `409 Conflict` — `error=invalid_transition` (row déjà ACCEPTED)
 
 ---
 

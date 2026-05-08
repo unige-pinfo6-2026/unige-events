@@ -1,6 +1,9 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.user.PublicProfileView;
 import ch.unige.events.dto.user.UpdateProfileRequest;
+import ch.unige.events.entity.Follow;
+import ch.unige.events.entity.FollowStatus;
 import ch.unige.events.entity.User;
 import ch.unige.events.exception.FileTooLargeException;
 import ch.unige.events.exception.InvalidFileTypeException;
@@ -179,11 +182,16 @@ class UserServiceCoverageTest {
     @TestTransaction
     void getPublicProfileReturnsUserWhenPublic() {
         deleteAllUsers();
+        deleteAllFollows();
         User user = persistUser("auth0|public", "public@example.com", true);
 
-        User result = userService.getPublicProfile(user.id, null);
+        PublicProfileView view = userService.getPublicProfile(user.id, null);
 
-        assertEquals(user.id, result.id);
+        assertEquals(user.id, view.user().id);
+        // Anonymous caller : counters and followStatus zero-init.
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
     }
 
     @Test
@@ -191,11 +199,14 @@ class UserServiceCoverageTest {
     void getPublicProfileReturnsUserWhenPrivateAndOwner() {
         // Self-case: the owner can always read their own private profile.
         deleteAllUsers();
+        deleteAllFollows();
         User user = persistUser("auth0|self", "self@example.com", false);
 
-        User result = userService.getPublicProfile(user.id, "auth0|self");
+        PublicProfileView view = userService.getPublicProfile(user.id, "auth0|self");
 
-        assertEquals(user.id, result.id);
+        assertEquals(user.id, view.user().id);
+        // Self-case: followStatus is null (a user does not follow themselves).
+        assertNull(view.followStatus());
     }
 
     @Test
@@ -227,21 +238,106 @@ class UserServiceCoverageTest {
         deleteAllUsers();
         User user = persistUser("auth0|public-anon", "public-anon@example.com", true);
 
-        User result = userService.getPublicProfile(user.id, null);
+        PublicProfileView view = userService.getPublicProfile(user.id, null);
 
-        assertEquals(user.id, result.id);
+        assertEquals(user.id, view.user().id);
     }
 
     @Test
     @TestTransaction
     void getPublicProfileReturnsUserWhenPublicAndAuth() {
         deleteAllUsers();
+        deleteAllFollows();
         User user = persistUser("auth0|alice-pub", "alice-pub@example.com", true);
         persistUser("auth0|bob-pub", "bob-pub@example.com", true);
 
-        User result = userService.getPublicProfile(user.id, "auth0|bob-pub");
+        PublicProfileView view = userService.getPublicProfile(user.id, "auth0|bob-pub");
 
-        assertEquals(user.id, result.id);
+        assertEquals(user.id, view.user().id);
+        // No follow row yet between bob and alice.
+        assertNull(view.followStatus());
+    }
+
+    // ── SCRUM-138 — counters and followStatus on enriched profile view ─────────
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_authNonOwner_includesFollowerCount() {
+        // Sentinel: 2 ACCEPTED + 1 PENDING toward alice — only ACCEPTED contribute.
+        deleteAllUsers();
+        deleteAllFollows();
+        User alice = persistUser("auth0|alice-fcount", "alice-fcount@example.com", true);
+        User bob = persistUser("auth0|bob-fcount", "bob-fcount@example.com", true);
+        User carol = persistUser("auth0|carol-fcount", "carol-fcount@example.com", true);
+        User dave = persistUser("auth0|dave-fcount", "dave-fcount@example.com", true);
+        persistFollow(bob.id, alice.id, FollowStatus.ACCEPTED);
+        persistFollow(carol.id, alice.id, FollowStatus.ACCEPTED);
+        persistFollow(dave.id, alice.id, FollowStatus.PENDING);
+
+        PublicProfileView view = userService.getPublicProfile(alice.id, "auth0|bob-fcount");
+
+        assertEquals(2L, view.followerCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_self_followStatusIsNull() {
+        // Sentinel: even with rows in DB, a user reading their own profile
+        // never gets a non-null followStatus.
+        deleteAllUsers();
+        deleteAllFollows();
+        User alice = persistUser("auth0|alice-self-fs", "alice-self-fs@example.com", false);
+        User bob = persistUser("auth0|bob-self-fs", "bob-self-fs@example.com", true);
+        persistFollow(alice.id, bob.id, FollowStatus.ACCEPTED);
+
+        PublicProfileView view = userService.getPublicProfile(alice.id, "auth0|alice-self-fs");
+
+        assertNull(view.followStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_authNonOwnerNoRelation_followStatusIsNull() {
+        deleteAllUsers();
+        deleteAllFollows();
+        User alice = persistUser("auth0|alice-norel", "alice-norel@example.com", true);
+        persistUser("auth0|bob-norel", "bob-norel@example.com", true);
+
+        PublicProfileView view = userService.getPublicProfile(alice.id, "auth0|bob-norel");
+
+        assertNull(view.followStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_authNonOwnerWithPending_followStatusIsPending() {
+        // Sentinel: bob requested to follow private alice, request still PENDING.
+        deleteAllUsers();
+        deleteAllFollows();
+        User alice = persistUser("auth0|alice-pending", "alice-pending@example.com", false);
+        // Owner of alice's profile is allowed even when private — but here we test bob,
+        // who must satisfy profilePublic visibility. So flip alice public.
+        alice.profilePublic = true;
+        User bob = persistUser("auth0|bob-pending", "bob-pending@example.com", true);
+        persistFollow(bob.id, alice.id, FollowStatus.PENDING);
+
+        PublicProfileView view = userService.getPublicProfile(alice.id, "auth0|bob-pending");
+
+        assertEquals(FollowStatus.PENDING, view.followStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_authNonOwnerWithAccepted_followStatusIsAccepted() {
+        deleteAllUsers();
+        deleteAllFollows();
+        User alice = persistUser("auth0|alice-acc", "alice-acc@example.com", true);
+        User bob = persistUser("auth0|bob-acc", "bob-acc@example.com", true);
+        persistFollow(bob.id, alice.id, FollowStatus.ACCEPTED);
+
+        PublicProfileView view = userService.getPublicProfile(alice.id, "auth0|bob-acc");
+
+        assertEquals(FollowStatus.ACCEPTED, view.followStatus());
     }
 
     @Test
@@ -446,8 +542,13 @@ class UserServiceCoverageTest {
     }
 
     private void deleteAllUsers() {
+        deleteAllFollows();
         entityManager.createNativeQuery("delete from users").executeUpdate();
         entityManager.clear();
+    }
+
+    private void deleteAllFollows() {
+        entityManager.createNativeQuery("delete from follows").executeUpdate();
     }
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {
@@ -459,6 +560,17 @@ class UserServiceCoverageTest {
         entityManager.persist(user);
         entityManager.flush();
         return user;
+    }
+
+    private Follow persistFollow(UUID followerId, UUID followedId, FollowStatus status) {
+        Follow row = new Follow();
+        row.followerId = followerId;
+        row.followedId = followedId;
+        row.status = status;
+        row.createdAt = LocalDateTime.now();
+        entityManager.persist(row);
+        entityManager.flush();
+        return row;
     }
 
     private EntityManager flushThrowingProxy(RuntimeException flushException) {
