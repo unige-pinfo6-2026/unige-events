@@ -13,6 +13,17 @@ spec:
     metadata:
       labels:
         app: kafka
+      annotations:
+        # Force a pod-template-hash bump on every helm upgrade. Without
+        # this, a kafka-0 pod stuck in CrashLoopBackOff (e.g. PR #158
+        # retries 1-4 with the wrong KAFKA_CONTROLLER_QUORUM_VOTERS) is
+        # never replaced by the StatefulSet controller — RollingUpdate
+        # waits indefinitely for the old pod to become Ready, even though
+        # the spec has been patched to a working config. Tying the
+        # annotation to .Values.image.api.tag (= github.sha) guarantees
+        # a fresh hash on every PR commit, which forces deletion of the
+        # old pod and creation of a new one with the latest spec.
+        unige-events.io/release-sha: {{ .Values.image.api.tag | quote }}
     spec:
       automountServiceAccountToken: false
       # apache/kafka:3.7.0 runs as the non-root user `appuser` (UID 1000).
