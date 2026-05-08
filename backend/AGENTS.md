@@ -3,13 +3,40 @@
 ## Rôle
 Backend REST API de UNIGE Events. Java 21 · Quarkus 3.32.3 · Hibernate Panache · PostgreSQL 16 · Auth0/OIDC.
 
+## Layout Maven (post étape 1 migration microservices)
+
+`backend/` est un projet **multi-module** depuis 2026-05-08. Le parent POM
+agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare 15 modules
+sous `backend/services/` :
+
+| Module | Packaging | Statut |
+|---|---|---|
+| `services/legacy-monolith/` | `quarkus` | Quarkus monolith (= ex-`backend/{src,pom.xml}`). C'est ici que vit aujourd'hui 100 % du code applicatif. Steps 2..14 de la migration (cf. [`specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md)) extrairont resources / services / entités vers les modules sœurs. |
+| `services/<X>-service/` (×14) | `pom` | Placeholders shells pour user, event, attendance, favorite, view, co-organizer, comment, follow, report, stats, share, calendar, notification, me-aggregator. **Aucun ne porte de code aujourd'hui.** |
+
+Tant que les extractions ne sont pas livrées, **toutes les conventions ci-dessous
+s'appliquent à `services/legacy-monolith/`**. Quand un service sera extrait, ses
+conventions migreront avec lui (camelCase, pas de préfixe `is`, Resource → Service
+→ Entity, etc. — voir [`AGENTS.md` racine](../AGENTS.md)).
+
 ## Commandes
+Toutes les commandes Maven s'exécutent depuis `backend/` (la racine du
+multi-module). `./mvnw verify` traverse tous les modules, dont les 14
+placeholders en no-op et `legacy-monolith` avec son build Quarkus complet.
+
 ```bash
-./mvnw quarkus:dev          # dev local avec hot reload + DevServices PostgreSQL auto
-./mvnw verify               # build + tests complets (CI)
+./mvnw quarkus:dev          # dev local — depuis backend/services/legacy-monolith/ uniquement
+./mvnw verify               # build + tests complets (CI) — depuis backend/
 ./mvnw test                 # tests uniquement (nécessite Docker-in-Docker pour DevServices)
-./mvnw quarkus:dev -Ddebug  # debug port 5005
+./mvnw quarkus:dev -Ddebug  # debug port 5005 — depuis backend/services/legacy-monolith/
 ```
+
+**Quarkus dev mode (`quarkus:dev`)** ne fonctionne pas depuis le parent multi-module
+(c'est attendu : il s'exécute dans le contexte d'UN module Quarkus). Pour lancer
+le monolithe en hot-reload local : `cd backend/services/legacy-monolith && ../../mvnw quarkus:dev`.
+Une fois les services extraits, chaque module aura sa propre commande
+`quarkus:dev` à lancer dans son dossier.
+
 Les tests nécessitent Docker-in-Docker (configuré en CI) car Quarkus DevServices lance un PostgreSQL éphémère automatiquement.
 
 ## Architecture en couches

@@ -4,6 +4,80 @@ Dernière mise à jour : 2026-05-08
 
 ---
 
+## Sprint 8 — Migration vers microservices (étapes 0 + 1 livrées) — 2026-05-08
+
+En cours. Spec : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+PR active : [#158](https://github.com/unige-pinfo6-2026/unige-events/pull/158) sur la branche
+persistante `refactor(backend)--migrate-to-microservices` (NB : `--` substitué à `:` côté
+git ref pour compatibilité shell — déviation cosmétique).
+
+**Étape 0 — Fondations Kong + Kafka + Helm umbrella (livrée).** Chart Helm enrichi
+de deux sous-templates (`templates/kong/`, `templates/kafka/`) ; `templates/api/`
+et tous les autres templates existants intacts ; Ingress `/api/*` route vers
+`kong-proxy:8000` ; Kong en mode DB-less avec table de routes catch-all
+`/api → http://api:8080` (le monolithe sert encore 100 % du trafic) ; plugins
+globaux `cors`, `correlation-id`, `prometheus` activés ; Kafka KRaft single-broker
+avec `clusterId` stable, PVC, et un Job post-install/post-upgrade qui crée les
+**10 topics** figés par la spec (events.*, users.*, comments.*, co-organizers.*).
+La validation runtime (helm upgrade preview) a tourné en boucle sur des points
+infra (PVC fsGroup, Kafka KRaft voter en `localhost:9093`, image Kong pin
+`3.7.0`, reset PVC pré-deploy en preview, pod-template-hash bump par release-sha)
+— ces fixes sont de la responsabilité DevOps en suivi.
+
+**Étape 1 — Modularisation Maven multi-module (livrée).** `backend/` est désormais
+un projet multi-module avec parent POM à la racine et 15 modules enfants sous
+`backend/services/` :
+
+- `services/legacy-monolith/` — Quarkus monolith déplacé verbatim depuis
+  `backend/{src,pom.xml}` (rename `artifactId: api → legacy-monolith` ; le nom
+  d'image GHCR reste `unige-events-api` via override CI). C'est le seul module
+  qui porte du code à ce stade.
+- 14 modules placeholders pom-packaged (`user-service`, `event-service`,
+  `attendance-service`, `favorite-service`, `view-service`, `co-organizer-service`,
+  `comment-service`, `follow-service`, `report-service`, `stats-service`,
+  `share-service`, `calendar-service`, `notification-service`,
+  `me-aggregator-service`). Aucun de ces modules ne contribue au build aujourd'hui ;
+  ils sont déclarés dans `<modules>` du parent pour que les PRs d'extraction
+  ultérieures n'aient qu'à enrichir le squelette.
+
+Le pipeline `build.yml` continue de fonctionner sans modification : `cd backend &&
+./mvnw verify` traverse les modules, build les placeholders en quelques ms (no-op
+sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
+qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
+scope étape 1**.
+
+**Étapes 2..14 — Extractions service-par-service (DEFERRED).** Reportées à des PRs
+de suivi par le DevOps. La spec décrit l'ordre strict d'extraction
+(share → view → favorite → calendar → follow → comment → co-organizer →
+attendance → report → stats → me-aggregator → user → event), les invariants
+(contrat OpenAPI byte-pour-byte identique, frontend strictement vide,
+migrations Flyway distribuées via `ALTER TABLE SET SCHEMA`, cascade SCRUM-136 +
+ISSUE-92 préservées via REST sync), et les fichiers à toucher par PR.
+
+**Étape 15 — Suppression `legacy-monolith` (DEFERRED).** Une fois les 13
+extractions mergées.
+
+**Étape 16 — Documentation finale (DEFERRED).** Réécriture de `architecture.md`
++ enrichissement de `data-model.md` / `api-contract.md` / `dev-guide.md` quand
+la nouvelle topologie sera la réalité.
+
+### Bug subtil documenté
+
+[`pr-title-check.yml`](../../.github/workflows/pr-title-check.yml) (lignes 67-82)
+rejette **`refactor(<scope-non-jira>): ...`** : pour les types `feat` / `refactor`
+/ `perf`, le scope DOIT être un identifiant Jira `scrum-XXX` minuscule. La spec
+cite un titre PR final `refactor(backend): migrate to microservices...` qui ne
+passerait PAS ce check — à fixer avant l'ouverture de la PR de consolidation
+(soit créer un ticket Jira dédié `refactor(scrum-XXX): migrate...` soit
+transformer en `chore(backend): migrate to microservices...`). Les sous-PRs
+courantes utilisent `chore(infra): ...` / `fix(infra): ...` / `fix(ci): ...` /
+`refactor(backend): convert to multi-module maven layout` (laquelle violerait
+aussi le check si elle était poussée comme PR séparée — heureusement elle est
+un commit interne d'une branche persistante dont la PR est titrée
+`chore(infra): scaffold Kong and Kafka helm templates (CI deploy validates)`).
+
+---
+
 ## Sprint 7 — Récurrence sur Event + génération d'occurrences (SCRUM-147) — 2026-05-08
 
 Livré.
