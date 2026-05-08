@@ -112,7 +112,7 @@ public class FileStorageService {
                     RequestBody.fromFile(fileUpload.uploadedFile())
             );
         } catch (Exception e) {
-            throw new InternalServerErrorException("Failed to save image: " + e.getMessage());
+            throw new InternalServerErrorException("Failed to save image", e);
         }
 
         tryDeleteObject(oldUrl, folder);
@@ -147,7 +147,7 @@ public class FileStorageService {
                     .key(key)
                     .build());
         } catch (Exception e) {
-            Log.warnf("Failed to delete S3 object '%s': %s", key, e.getMessage());
+            Log.warnf(e, "Failed to delete S3 object '%s'", key);
         }
     }
 }
