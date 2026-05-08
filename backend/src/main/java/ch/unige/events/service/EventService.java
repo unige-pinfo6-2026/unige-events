@@ -1,7 +1,9 @@
 package ch.unige.events.service;
 
+import ch.unige.events.dto.ApiErrorResponse;
 import ch.unige.events.dto.event.CreateEventRequest;
 import ch.unige.events.dto.event.EventDTO;
+import ch.unige.events.dto.event.RecurrenceRequest;
 import ch.unige.events.dto.event.UpdateEventRequest;
 import ch.unige.events.entity.Attendance;
 import ch.unige.events.entity.AttendanceStatus;
@@ -13,6 +15,7 @@ import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.Favorite;
 import ch.unige.events.entity.User;
+import ch.unige.events.util.RecurrenceGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -21,10 +24,12 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -115,6 +120,93 @@ public class EventService {
 
     @Transactional
     public EventDTO create(String auth0Id, CreateEventRequest request) {
+        if (request.recurrence != null) {
+            return createRecurring(auth0Id, request);
+        }
+        Event event = persistParent(auth0Id, request);
+        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L, null, null);
+    }
+
+    /**
+     * SCRUM-147 — Création atomique d'un parent récurrent + jusqu'à 51 occurrences.
+     * Toutes les rows sont persistées dans la même transaction JTA : si l'INSERT
+     * d'une occurrence échoue, parent inclus rollback.
+     */
+    @Transactional
+    public EventDTO createRecurring(String auth0Id, CreateEventRequest request) {
+        RecurrenceRequest recurrence = request.recurrence;
+        if (recurrence.endDate() == null && recurrence.maxOccurrences() == null) {
+            throw badRequestRecurrence("recurrence_unbounded",
+                    "At least one of recurrence.endDate or recurrence.maxOccurrences must be provided.");
+        }
+        if (recurrence.endDate() != null
+                && request.startDate != null
+                && recurrence.endDate().isBefore(request.startDate.toLocalDate())) {
+            throw badRequestRecurrence("recurrence_end_before_start",
+                    "recurrence.endDate must be greater than or equal to startDate.");
+        }
+
+        Event parent = persistParent(auth0Id, request);
+        parent.recurrenceRule = buildRecurrenceRule(recurrence);
+
+        List<RecurrenceGenerator.DateRange> ranges = RecurrenceGenerator.generate(
+                parent.startDate,
+                parent.endDate,
+                recurrence.frequency(),
+                recurrence.endDate(),
+                recurrence.maxOccurrences());
+
+        for (RecurrenceGenerator.DateRange range : ranges) {
+            persistOccurrence(parent, range);
+        }
+
+        return EventDTO.from(parent, 0L, computeAvailableSpots(parent.capacity, 0L), 0L, null, null);
+    }
+
+    /**
+     * SCRUM-147 — Liste des occurrences d'un parent récurrent (parent_event_id = id).
+     * Délègue à {@link #getById} pour la garde anti-oracle ISSUE-92 — un event
+     * invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
+     * répond 404 sans révéler son existence.
+     * <p>
+     * Si l'event ciblé n'est pas un parent récurrent (occurrence elle-même,
+     * standalone, parent sans enfant), retourne 200 + liste vide — pas 404.
+     */
+    @Transactional
+    public List<EventDTO> getOccurrences(Long parentId, String auth0Id, boolean isAdmin, int page, int size) {
+        getById(parentId, auth0Id, isAdmin);
+
+        List<Event> occurrences = Event.<Event>find(
+                "parentEventId = ?1 order by startDate asc, id asc",
+                parentId
+        ).page(page, size).list();
+
+        // SCRUM-147 — Apply per-occurrence visibility (Copilot review).
+        // Without this filter, a caller who can see a PUBLISHED parent could enumerate
+        // DRAFT/CANCELLED/BANNED children individually edited or moderated post-creation,
+        // breaking the anti-oracle ISSUE-92 guarantee that getById enforces row-by-row.
+        List<Event> visible = occurrences.stream()
+                .filter(o -> isOccurrenceVisible(o, auth0Id, isAdmin))
+                .toList();
+
+        return toEventDTOs(visible);
+    }
+
+    private boolean isOccurrenceVisible(Event occurrence, String auth0Id, boolean isAdmin) {
+        // BANNED is always invisible — even to admins and creators (cf. SCRUM-97 +
+        // EventService.getById line 160-162).
+        if (occurrence.status == EventStatus.BANNED) {
+            return false;
+        }
+        if (occurrence.status == EventStatus.PUBLISHED) {
+            return true;
+        }
+        // DRAFT / CANCELLED / EXPIRED — visible only to admin or to the creator (or
+        // an accepted co-organizer, cf. SCRUM-136 cascade).
+        return isAdmin || isCreatorOrAcceptedCoOrganizer(occurrence, auth0Id);
+    }
+
+    private Event persistParent(String auth0Id, CreateEventRequest request) {
         User creator = User.findByAuth0Id(auth0Id)
                 .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
 
@@ -145,7 +237,54 @@ public class EventService {
         }
         event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
         event.persist();
-        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L, null, null);
+        return event;
+    }
+
+    private void persistOccurrence(Event parent, RecurrenceGenerator.DateRange range) {
+        Event occurrence = new Event();
+        occurrence.title = parent.title;
+        occurrence.description = parent.description;
+        occurrence.location = parent.location;
+        occurrence.startDate = range.start();
+        occurrence.endDate = range.end();
+        occurrence.category = parent.category;
+        occurrence.faculty = parent.faculty;
+        occurrence.bannerUrl = parent.bannerUrl;
+        occurrence.capacity = parent.capacity;
+        occurrence.allDay = parent.allDay;
+        occurrence.websiteUrl = parent.websiteUrl;
+        occurrence.contactEmail = parent.contactEmail;
+        occurrence.registrationDeadline = parent.registrationDeadline;
+        occurrence.tags = parent.tags == null ? new ArrayList<>() : new ArrayList<>(parent.tags);
+        occurrence.creator = parent.creator;
+        occurrence.status = parent.status;          // Hérite (cf. spec décision 11)
+        occurrence.parentEventId = parent.id;       // Pointeur vers le parent
+        occurrence.recurrenceRule = null;           // Jamais sur les enfants (cf. spec décision 7)
+        occurrence.persist();
+    }
+
+    /**
+     * Package-private to allow {@code EventServiceMock} to share the same RRULE
+     * encoding (Copilot review on SCRUM-147 — keep mock and prod aligned to avoid
+     * contract drift on Resource tests).
+     */
+    static String buildRecurrenceRule(RecurrenceRequest r) {
+        StringBuilder sb = new StringBuilder("FREQ=").append(r.frequency().name());
+        if (r.endDate() != null) {
+            sb.append(";UNTIL=").append(r.endDate().format(DateTimeFormatter.BASIC_ISO_DATE));
+        }
+        if (r.maxOccurrences() != null) {
+            sb.append(";COUNT=").append(r.maxOccurrences());
+        }
+        return sb.toString();
+    }
+
+    private static WebApplicationException badRequestRecurrence(String error, String message) {
+        return new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                        .entity(new ApiErrorResponse(error, message))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build());
     }
 
     @Transactional

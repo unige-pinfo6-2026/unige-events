@@ -35,7 +35,9 @@ public record EventDTO(
         LocalDateTime registrationDeadline,
         List<String> tags,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        Long parentEventId,
+        String recurrenceRule
 ) {
     public static EventDTO from(
             Event event,
@@ -71,7 +73,9 @@ public record EventDTO(
                 event.registrationDeadline,
                 event.tags != null ? List.copyOf(event.tags) : List.of(),
                 event.createdAt,
-                event.updatedAt
+                event.updatedAt,
+                event.parentEventId,
+                event.recurrenceRule
         );
     }
 }

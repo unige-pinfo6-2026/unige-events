@@ -27,9 +27,15 @@ class EventResourceTest {
     @Inject
     EventServiceMock eventServiceMock;
 
+    @Inject
+    ch.unige.events.config.RateLimitState rateLimitState;
+
     @BeforeEach
     void setUp() {
         eventServiceMock.reset();
+        // SCRUM-147 — clear the events.create bucket so a long test class doesn't
+        // accumulate quota between tests (see CommentResourceTest pattern).
+        rateLimitState.clearBuckets();
     }
 
     // --- GET /events ---
@@ -1182,5 +1188,130 @@ class EventResourceTest {
                 .when().get("/events/featured")
                 .then()
                 .statusCode(400);
+    }
+
+    // --- SCRUM-147 — Recurrence (POST /events with recurrence + GET occurrences) ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice", attributes = {
+            @SecurityAttribute(key = "email", value = "alice@example.com")
+    })
+    void post_validRecurrenceWeekly_returns201_recurrenceRuleSetOnParent() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Weekly seminar";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(1).plusHours(2);
+        req.category = EventCategory.CONFERENCE;
+        req.recurrence = new ch.unige.events.dto.event.RecurrenceRequest(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 4);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(201)
+                .body("recurrenceRule", is("FREQ=WEEKLY;COUNT=4"))
+                .body("parentEventId", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void post_recurrenceMaxOccurrences53_returns400_beanValidation() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Too many";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(1).plusHours(2);
+        req.category = EventCategory.CONFERENCE;
+        req.recurrence = new ch.unige.events.dto.event.RecurrenceRequest(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, 53);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void post_recurrenceWithoutFrequency_returns400_beanValidation() {
+        // Build the JSON body manually so we can omit `frequency` (the record
+        // would otherwise force us to pass null, which Bean Validation also
+        // rejects — same outcome).
+        String body = "{"
+                + "\"title\":\"Missing freq\","
+                + "\"location\":\"Uni Mail\","
+                + "\"startDate\":\"" + LocalDateTime.now().plusDays(1) + "\","
+                + "\"endDate\":\"" + LocalDateTime.now().plusDays(1).plusHours(2) + "\","
+                + "\"category\":\"CONFERENCE\","
+                + "\"recurrence\":{\"endDate\":null,\"maxOccurrences\":4}"
+                + "}";
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+                .when().post("/events")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void post_recurrenceUnbounded_returns400() {
+        CreateEventRequest req = new CreateEventRequest();
+        req.title = "Unbounded";
+        req.location = "Uni Mail";
+        req.startDate = LocalDateTime.now().plusDays(1);
+        req.endDate = LocalDateTime.now().plusDays(1).plusHours(2);
+        req.category = EventCategory.CONFERENCE;
+        req.recurrence = new ch.unige.events.dto.event.RecurrenceRequest(
+                ch.unige.events.entity.RecurrenceFrequency.WEEKLY, null, null);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(req)
+                .when().post("/events")
+                .then()
+                .statusCode(400)
+                .body("error", is("recurrence_unbounded"));
+    }
+
+    @Test
+    void getOccurrences_parentPublishedAnonymous_returns200() {
+        var parent = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Recurring", EventStatus.PUBLISHED, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + parent.id + "/occurrences")
+                .then()
+                .statusCode(200)
+                .body("", instanceOf(java.util.List.class));
+    }
+
+    @Test
+    void getOccurrences_sizeOver52_returns400() {
+        var parent = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Recurring", EventStatus.PUBLISHED, LocalDateTime.now());
+
+        given()
+                .queryParam("size", "53")
+                .when().get("/events/" + parent.id + "/occurrences")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void getOccurrences_draftByAnonymous_returns404_antiOracle() {
+        var draft = eventServiceMock.seedEventWithStatus(
+                "auth0|alice", "Hidden draft", EventStatus.DRAFT, LocalDateTime.now());
+
+        given()
+                .when().get("/events/" + draft.id + "/occurrences")
+                .then()
+                .statusCode(404);
     }
 }

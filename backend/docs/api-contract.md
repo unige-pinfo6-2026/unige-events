@@ -15,8 +15,9 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `GET` | `/users/me` | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
 | `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events` | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
-| `POST` | `/events` | `@Authenticated` | Créer un événement | 201 |
+| `POST` | `/events` | `@Authenticated` + `@PerUserRateLimit(max=10)` | Créer un événement (ponctuel ou récurrent — bloc `recurrence` optionnel SCRUM-147) | 201, 400, 401, 422, 429 |
 | `GET` | `/events/{id}` | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |
+| `GET` | `/events/{id}/occurrences` | `@PermitAll` | Lister les occurrences d'un parent récurrent (SCRUM-147 — tri startDate ASC) | 200, 400, 404 |
 | `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, tags [substring match case-insensitive], dateFrom, dateTo, page, size) | 200 |
 | `POST` | `/events/{id}/favorite` | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
 | `DELETE` | `/events/{id}/favorite` | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
@@ -150,13 +151,50 @@ Retourne la liste de tous les événements.
 
 ### `POST /events`
 
-Crée un nouvel événement.
+Crée un nouvel événement, ponctuel ou récurrent (SCRUM-147).
 
-**Body :** `CreateEventRequest` — champs requis : `title`, `location`, `startDate` (@Future), `endDate`, `category`
+**Body :** `CreateEventRequest` — champs requis : `title`, `location`, `startDate` (@Future), `endDate`, `category`. Champ optionnel `recurrence` (cf. `RecurrenceRequest`) : si renseigné, le service crée le parent + jusqu'à 51 occurrences en une transaction atomique.
 
 **Réponses :**
-- `201 Created` — `EventDTO` créé avec son `id`
-- `400 Bad Request` — validation échouée — `ValidationErrorResponse`
+- `201 Created` — `EventDTO` du parent (avec `recurrenceRule` calculée si récurrence)
+- `400 Bad Request` :
+  - `ValidationErrorResponse` (Bean Validation : title vide, category null, frequency null, maxOccurrences hors [1,52], etc.)
+  - `ApiErrorResponse{ error: "recurrence_unbounded" }` — ni `endDate` ni `maxOccurrences` fournis
+  - `ApiErrorResponse{ error: "recurrence_end_before_start" }` — `recurrence.endDate < startDate.toLocalDate()`
+- `401 Unauthorized` — token absent
+- `429 Too Many Requests` — rate limit `events.create` (max 10/min/utilisateur)
+
+> **Note** : si la combinaison `endDate × frequency` produirait plus de 52 occurrences, la récurrence est **silencieusement tronquée** à 52 (cap dur côté générateur). Pas d'erreur 422. La borne client `maxOccurrences > 52` est rejetée par Bean Validation (`@Max(52)`) en `400`.
+
+---
+
+### Event Recurrence (SCRUM-147)
+
+`POST /events` accepte un bloc optionnel `recurrence` qui matérialise un événement récurrent. Le payload de récurrence est un `RecurrenceRequest` : `frequency` (enum `WEEKLY`/`BIWEEKLY`/`MONTHLY`, requis), `endDate` (LocalDate, optionnel), `maxOccurrences` (Integer 1..52, optionnel) — au moins un des deux derniers doit être présent.
+
+**Sémantique** :
+- Le **parent** est créé avec `recurrenceRule` calculée (ex. `FREQ=WEEKLY;COUNT=4`) et `parentEventId = null`.
+- Les **occurrences** sont des rows `events` standalones avec `parentEventId = parent.id` et `recurrenceRule = null`.
+- Statut hérité du parent (DRAFT par défaut, ou `request.status` si fourni).
+- Cap hard : 52 rows total (parent + ≤51 enfants).
+- Atomicité : si l'INSERT d'une occurrence échoue, parent + occurrences déjà persistées rollback (même transaction JTA).
+- **Pas de propagation** PUT et **pas de cascade** PATCH cancel du parent vers les occurrences — chaque occurrence reste indépendamment éditable et cancellable.
+- Co-organisateurs **non hérités** automatiquement.
+- ICS feed inchangé : chaque occurrence row génère son propre VEVENT (pas de RRULE compact).
+
+**`GET /api/events/{id}/occurrences`** (`@PermitAll`) liste les enfants d'un parent récurrent, triés par `startDate ASC, id ASC`. Pagination `page`/`size` (defaults 0/52, `@Max(52)`). Si l'event ciblé n'a pas d'enfants (standalone, occurrence elle-même, parent vide), retourne `200 OK + []` — pas `404`. Visibilité héritée de `getById` (anti-oracle ISSUE-92 : DRAFT non-créateur, BANNED, id inconnu → `404`).
+
+**Codes d'erreur normalisés** sur `POST /events` côté récurrence :
+
+| HTTP | `error` slug | Cause |
+|---|---|---|
+| `400` | `recurrence_unbounded` | `recurrence` présent, ni `endDate` ni `maxOccurrences` renseignés |
+| `400` | `recurrence_end_before_start` | `recurrence.endDate < startDate.toLocalDate()` |
+| `400` | (Bean Validation generic) | `frequency` null, `maxOccurrences` hors [1,52], etc. |
+
+Pas de 422 dédié — au-delà du cap matérialisé de 52 occurrences, le générateur tronque silencieusement (cf. spec décision 9). La seule borne stricte exposée client est `@Max(52)` sur `maxOccurrences` qui renvoie 400 Bean Validation.
+
+**FK `fk_events_parent`** est `ON DELETE SET NULL` côté DB : un `DELETE /events/{parentId}` (après cancel) préserve les occurrences orphelines avec `parent_event_id = NULL` — leurs inscriptions, favoris, vues et comptages restent intacts.
 
 ---
 

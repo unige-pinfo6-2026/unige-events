@@ -214,4 +214,40 @@ class EventDTOTest {
         assertEquals(12L, dto.viewCount());
         assertEquals(5L, dto.interestedCount());
     }
+
+    // --- SCRUM-147 — recurrence projection ---
+
+    @Test
+    void from_parentRecurringEvent_exposesRecurrenceRuleAndNullParentEventId() {
+        Event event = new Event();
+        event.recurrenceRule = "FREQ=WEEKLY;COUNT=4";
+        event.parentEventId = null;
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertEquals("FREQ=WEEKLY;COUNT=4", dto.recurrenceRule());
+        assertNull(dto.parentEventId());
+    }
+
+    @Test
+    void from_occurrenceEvent_exposesParentEventIdAndNullRecurrenceRule() {
+        Event event = new Event();
+        event.parentEventId = 42L;
+        event.recurrenceRule = null;
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertEquals(42L, dto.parentEventId());
+        assertNull(dto.recurrenceRule());
+    }
+
+    @Test
+    void from_standaloneEvent_bothRecurrenceFieldsNull() {
+        Event event = new Event();
+
+        EventDTO dto = EventDTO.from(event, 0L, null, 0L, null, null);
+
+        assertNull(dto.parentEventId());
+        assertNull(dto.recurrenceRule());
+    }
 }

@@ -16,7 +16,8 @@ import java.util.Optional;
         @Index(name = "idx_event_creator", columnList = "creator_id"),
         @Index(name = "idx_event_start_date", columnList = "start_date"),
         @Index(name = "idx_event_faculty", columnList = "faculty"),
-        @Index(name = "idx_event_featured_status_end", columnList = "featured, status, end_date")
+        @Index(name = "idx_event_featured_status_end", columnList = "featured, status, end_date"),
+        @Index(name = "idx_event_parent", columnList = "parent_event_id")
 })
 public class Event extends PanacheEntity {
 
@@ -79,6 +80,12 @@ public class Event extends PanacheEntity {
 
     @Column(unique = true)
     public String shareCode;
+
+    @Column(name = "parent_event_id")
+    public Long parentEventId;
+
+    @Column(name = "recurrence_rule", length = 500)
+    public String recurrenceRule;
 
     @Column(updatable = false)
     public LocalDateTime createdAt;
