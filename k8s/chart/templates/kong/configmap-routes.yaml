@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: {{ .Release.Namespace }}
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    _transform: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Routing table — strangler-fig step 0
+    # ─────────────────────────────────────────────────────────────────────────
+    # At step 0 of the microservices migration (cf. specs_microservices_migration.md
+    # decision 20), 100% of /api/* traffic is forwarded to the legacy monolith
+    # `api:8080`. Subsequent extraction PRs (share-service, view-service, ...)
+    # will rewrite this file to route specific paths to the new services while
+    # the monolith continues to serve the rest.
+    services:
+      - name: monolith-api
+        url: http://api:8080
+        connect_timeout: 5000
+        read_timeout: 60000
+        write_timeout: 60000
+        routes:
+          - name: api-catchall
+            paths:
+              - /api
+            strip_path: false
+            preserve_host: true
+            protocols:
+              - http
+              - https
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Global plugins (cf. spec decision 6)
+    # ─────────────────────────────────────────────────────────────────────────
+    # cors          : allow the SPA running on pinfo6 hosts; permissive enough
+    #                 to cover preview namespaces (pr-N.pinfo6.p-info.net) and
+    #                 cloudflared tunnel domains used in PR previews.
+    # correlation-id: generate (or echo) X-Request-ID — preserves the existing
+    #                 RequestIdFilter MDC convention from the monolith
+    #                 (application.properties lines 67-69).
+    # prometheus    : expose metrics on the kong-proxy /metrics path; scrape
+    #                 endpoint kept internal to the cluster.
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "https://pinfo6.p-info.net"
+            - "https://*.pinfo6.p-info.net"
+            - "https://*.trycloudflare.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - Origin
+            - X-Requested-With
+            - X-Request-ID
+          exposed_headers:
+            - X-Request-ID
+            - Retry-After
+          credentials: true
+          max_age: 3600
+      - name: correlation-id
+        config:
+          header_name: X-Request-ID
+          generator: uuid
+          echo_downstream: true
+      - name: prometheus
+        config:
+          per_consumer: false
+          status_code_metrics: true
+          latency_metrics: true
+          bandwidth_metrics: true
+          upstream_health_metrics: true

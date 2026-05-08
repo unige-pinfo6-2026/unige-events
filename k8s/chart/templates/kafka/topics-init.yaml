@@ -1,0 +1,71 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Re-run on every helm upgrade — the script is idempotent (`--if-not-exists`).
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: kafka-topics-init
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-topics-init
+          image: {{ .Values.kafka.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Wait for the broker to accept connections before issuing
+              # topic create commands. The StatefulSet readiness probe just
+              # checks the TCP socket — at that point the broker may still
+              # be starting up internal coordinators.
+              echo "Waiting for kafka:9092..."
+              for i in $(seq 1 60); do
+                if /opt/kafka/bin/kafka-broker-api-versions.sh \
+                    --bootstrap-server kafka:9092 >/dev/null 2>&1; then
+                  echo "Kafka is up."
+                  break
+                fi
+                sleep 2
+              done
+
+              # All topics are created with --if-not-exists so the Job is
+              # idempotent across helm upgrades. Partitions=1 / RF=1 in S8;
+              # increase later if scaling is required (cf. spec § 4.5 + §
+              # decision 26 of specs_microservices_migration.md).
+              create_topic() {
+                /opt/kafka/bin/kafka-topics.sh \
+                  --bootstrap-server kafka:9092 \
+                  --create --if-not-exists \
+                  --topic "$1" \
+                  --partitions 1 \
+                  --replication-factor 1 \
+                  --config retention.ms=604800000
+              }
+
+              create_topic events.published
+              create_topic events.cancelled
+              create_topic events.banned
+              create_topic events.expired
+              create_topic users.followed
+              create_topic users.follow-requested
+              create_topic users.follow-accepted
+              create_topic comments.created
+              create_topic co-organizers.invited
+              create_topic co-organizers.accepted
+
+              echo "Topics:"
+              /opt/kafka/bin/kafka-topics.sh \
+                --bootstrap-server kafka:9092 \
+                --list
