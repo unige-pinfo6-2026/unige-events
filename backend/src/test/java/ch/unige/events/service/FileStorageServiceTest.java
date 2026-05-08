@@ -24,6 +24,8 @@ import static org.mockito.Mockito.*;
 
 class FileStorageServiceTest {
 
+    private static final String AVATARS_FOLDER = "users/avatars";
+
     private static FileStorageService service(S3Client s3) {
         AppConfig config = mock(AppConfig.class);
         when(config.s3Bucket()).thenReturn("bucket");
@@ -251,7 +253,7 @@ class FileStorageServiceTest {
         FileStorageService svc = service(s3);
         String oldUrl = "http://s3/bucket/users/avatars/old-key.jpg";
 
-        String newUrl = svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl);
+        String newUrl = svc.saveImage(upload, AVATARS_FOLDER, FileStorageService.MAX_AVATAR_BYTES, oldUrl);
 
         assertNotNull(newUrl);
         assertEquals(List.of("put", "delete"), callLog, "putObject must be called before deleteObject");
@@ -305,7 +307,7 @@ class FileStorageServiceTest {
         S3Client s3 = mock(S3Client.class);
         String crossFolderUrl = "http://s3/bucket/events/banners/event-key.jpg";
 
-        String newUrl = service(s3).saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, crossFolderUrl);
+        String newUrl = service(s3).saveImage(upload, AVATARS_FOLDER, FileStorageService.MAX_AVATAR_BYTES, crossFolderUrl);
 
         assertNotNull(newUrl);
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
@@ -330,7 +332,7 @@ class FileStorageServiceTest {
 
         // delete failure must not prevent the upload
         String newUrl = assertDoesNotThrow(() ->
-                svc.saveImage(upload, "users/avatars", FileStorageService.MAX_AVATAR_BYTES, oldUrl));
+                svc.saveImage(upload, AVATARS_FOLDER, FileStorageService.MAX_AVATAR_BYTES, oldUrl));
 
         assertNotNull(newUrl);
         verify(s3).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -343,7 +345,7 @@ class FileStorageServiceTest {
         S3Client s3 = mock(S3Client.class);
         FileStorageService svc = service(s3);
 
-        svc.deleteObject("http://s3/bucket/users/avatars/some-key.jpg", "users/avatars");
+        svc.deleteObject("http://s3/bucket/users/avatars/some-key.jpg", AVATARS_FOLDER);
 
         verify(s3).deleteObject(any(DeleteObjectRequest.class));
     }
@@ -353,7 +355,7 @@ class FileStorageServiceTest {
         // Security: a URL in the bucket but under a different folder must not be deleted.
         S3Client s3 = mock(S3Client.class);
 
-        service(s3).deleteObject("http://s3/bucket/events/banners/event.jpg", "users/avatars");
+        service(s3).deleteObject("http://s3/bucket/events/banners/event.jpg", AVATARS_FOLDER);
 
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
@@ -361,14 +363,14 @@ class FileStorageServiceTest {
     @Test
     void deleteObject_nullUrl_noOp() {
         S3Client s3 = mock(S3Client.class);
-        service(s3).deleteObject(null, "users/avatars");
+        service(s3).deleteObject(null, AVATARS_FOLDER);
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
     @Test
     void deleteObject_externalUrl_noOp() {
         S3Client s3 = mock(S3Client.class);
-        service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png", "users/avatars");
+        service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png", AVATARS_FOLDER);
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 }
