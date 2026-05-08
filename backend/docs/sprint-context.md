@@ -1,6 +1,79 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-07
+Dernière mise à jour : 2026-05-08
+
+---
+
+## Sprint 6 — Entité `Comment` + 3 endpoints CRUD commentaires événements (SCRUM-139) — 2026-05-08
+
+Livré.
+
+Socle backend des commentaires d'événements (US-22, épic SCRUM-16) qui débloque
+SCRUM-146 (front S7 — `CommentSection.tsx` dans `EventDetailPage`) et SCRUM-144
+(likes / report-comment S7, l'entité `Comment` étant référencée par
+`CommentLike.commentId` et l'extension `Report.commentId`).
+
+- Migration `V15__create_comments.sql` : table `comments` (BIGINT PK via
+  `comments_seq` increment 50, FK NOT NULL vers `events.id` et `users.id`,
+  FK nullable auto-référente vers `comments.id` avec `ON DELETE SET NULL` —
+  un DELETE physique d'un parent fait remonter ses replies en top-level
+  côté DB sans rejet RESTRICT, `content TEXT NOT NULL`,
+  `like_count INTEGER NOT NULL DEFAULT 0`, `created_at TIMESTAMP NOT NULL`).
+  3 indexes : `idx_comment_event`, `idx_comment_parent`,
+  `idx_comment_event_created` (composite descendant pour le tri du listing).
+- Entité `Comment` (PanacheEntity, Long PK) avec 3 `@ManyToOne(LAZY)` —
+  `event`, `author`, `parentComment`. `content` mappé en TEXT via
+  `@Column(columnDefinition="TEXT")` + `@NotBlank @Size(max=2000)`.
+  `likeCount` int default 0 — **lecture seule en S6** (mutation déléguée à
+  SCRUM-144). `@PrePersist` avec null-guard (pattern aligné sur les autres
+  entités du projet).
+- DTOs : `CommentDTO` (record, 11 champs) avec deux factories
+  `from(Comment, boolean)` et `fromTopLevelWithReplies(...)`.
+  `CreateCommentRequest` (record) avec `content @NotBlank @Size(max=2000)` et
+  `parentCommentId` nullable.
+- `CommentService` (`@ApplicationScoped`, `@Transactional` sur `post`/`delete`,
+  non-transactional sur `getByEvent`) : visibilité event déléguée à
+  `EventService.getById(...)` (anti-oracle ISSUE-92), branchement par statut
+  (PUBLISHED → 201, DRAFT/CANCELLED/EXPIRED créateur → 400, autre → 404),
+  vérification du parent (existence + appartenance event + profondeur 1 niveau
+  max — sinon 404/422), trim côté service. DELETE cascade
+  auteur/créateur/co-org ACCEPTED (réutilise SCRUM-136
+  `isCreatorOrAcceptedCoOrganizerPublic`)/admin → 204, sinon 403. Batch-load
+  des replies en 2 requêtes SQL (top-level page + WHERE parent_comment_id IN)
+  avec calcul bulk de `authorIsOrganizer` via un `Set<UUID>` mémoïsant
+  creator + co-orgs ACCEPTED.
+- `CommentResource` (`@Path("/events")`) avec POST + GET ; `CommentDirectResource`
+  (`@Path("/comments")`) avec DELETE — split en deux Resources pour respecter
+  l'unicité du `@Path` racine. Constructor injection (Sonar S6813). `POST`
+  rate-limité via `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)`.
+  GET `@PermitAll` (visibilité déléguée à getById).
+
+Tests : 918 verts au total dont 58 nouveaux SCRUM-139 (4 entity + 30 service
+coverage + 20 resource + 4 direct-resource). JaCoCo **100 % lignes** sur
+`Comment`, `CommentDTO`, `CreateCommentRequest`, `CommentService`,
+`CommentResource`, `CommentDirectResource`. Sentinels nommément verts :
+`prePersist_setsCreatedAt`,
+`post_eventDraftByNonCreator_returns404_antiOracle`,
+`post_eventBanned_returns404_antiOracle`,
+`post_replyToReply_returns422_repliesTooDeep`,
+`post_parentInOtherEvent_returns422_parentNotInEvent`,
+`post_unknownParent_returns404_parentNotFound`,
+`get_anonymousOnPublished_returnsList`,
+`getByEvent_draftByNonCreator_returns404_antiOracle`,
+`delete_byAuthor_removesRow`, `delete_byEventCreator_removesRow`,
+`delete_byAcceptedCoOrganizer_removesRow`,
+`delete_byPendingCoOrganizer_returns403`,
+`delete_byThirdParty_returns403`,
+`delete_unknownComment_returns404_commentNotFound`,
+`delete_byAdmin_removesRow`. `RateLimitState.clearBuckets()` en `@BeforeEach`
+de `CommentResourceTest` pour isoler le bucket `comments.post` entre tests.
+`CommentServiceMock` ajouté à la liste d'exclusion de
+`ShareServiceCoverageProfile`.
+
+Hors scope explicitement : likes (SCRUM-144 S7), signalement de commentaires
+(SCRUM-144 S7), notifications NEW_COMMENT/COMMENT_MENTION (SCRUM-145 S7+,
+dépend de SCRUM-99 infra Notification), édition de commentaires (UX =
+supprimer + reposter), front (SCRUM-146 S7).
 
 ---
 

@@ -36,6 +36,9 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 | `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
 | `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
 | `GET` | `/users/me/co-organizer-invitations` | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
+| `POST` | `/events/{id}/comments` | `@Authenticated` + `@PerUserRateLimit(max=10)` | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422, 429 |
+| `GET` | `/events/{id}/comments` | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
+| `DELETE` | `/comments/{id}` | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
 | `POST` | `/users/{id}/follow` | `@Authenticated` + `@PerUserRateLimit(max=30)` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
 | `DELETE` | `/users/{id}/follow` | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
 | `GET` | `/users/{id}/followers` | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
@@ -256,6 +259,80 @@ opérations suivantes :
 | `GET /events/{id}/attendees` | ✅ |
 | `GET /events/{id}/stats` | ✅ |
 | `DELETE /events/{id}` (hard-delete) | ❌ — strict-creator (action irréversible) |
+
+---
+
+### Comments (SCRUM-139)
+
+Trois endpoints. La visibilité de l'event est déléguée à
+`EventService.getById(eventId, callerAuth0Id, isAdmin)` — un event invisible
+(DRAFT/CANCELLED/BANNED non-créateur, id inconnu) renvoie `404 not_found`
+(envelope identique à un id inexistant — anti-oracle ISSUE-92).
+
+#### `POST /events/{eventId}/comments` — `@Authenticated`
+
+**Rate-limité** : `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)`.
+
+**Body** : `CreateCommentRequest{ content: string (1..2000), parentCommentId?: int64 }`.
+`content` est trimmé côté service avant persistance.
+
+**Réponse** : `201 Created` + `CommentDTO` (replies vide, parentCommentId reflète la
+valeur reçue, likedByMe toujours false en S6).
+
+| Code | `error` | Quand |
+|---|---|---|
+| `400` | `cannot_comment_draft_event` | event DRAFT, caller créateur/co-org/admin |
+| `400` | `cannot_comment_cancelled_event` | event CANCELLED |
+| `400` | `cannot_comment_expired_event` | event EXPIRED |
+| `404` | `not_found` (NotFoundExceptionMapper) | event invisible (DRAFT/CANCELLED/EXPIRED non-créateur, BANNED, id inconnu) |
+| `404` | `parent_comment_not_found` | `parentCommentId` inexistant |
+| `422` | `replies_too_deep` | `parentCommentId` réfère un commentaire qui a déjà un parent |
+| `422` | `parent_comment_not_in_event` | `parentCommentId` réfère un commentaire d'un autre event |
+| `429` | `rate_limited` | bucket `comments.post` épuisé sur la fenêtre de 60s |
+
+#### `GET /events/{eventId}/comments?page=&size=` — `@PermitAll`
+
+**Pagination** : `page` (default 0, ≥ 0), `size` (default 20, > 0, ≤ 100). `size > 100` → `400`.
+
+**Tri** : `createdAt DESC, id DESC` sur les top-level. Les replies sont chargées en bulk
+(2 requêtes SQL au total — pas de N+1) et imbriquées dans `replies[]` (chronologie ASC
+sous chaque parent). Profondeur max 1 niveau.
+
+`authorIsOrganizer` est calculé en bulk via un `Set<UUID>` mémoïsant
+`{event.creator.id} ∪ {co-organisateurs ACCEPTED}` — testé en O(1) par commentaire.
+
+**Réponse** : `200 OK` + `List<CommentDTO>` (vide possible).
+
+`404 not_found` si l'event est invisible (visibilité héritée d'`EventService.getById`).
+
+#### `DELETE /comments/{commentId}` — `@Authenticated`
+
+**Cascade d'autorisation** (cf. SCRUM-139 décision 16) :
+1. l'**auteur** du commentaire,
+2. le **créateur** de l'event,
+3. un **co-organisateur ACCEPTED** (cascade SCRUM-136),
+4. un utilisateur **ADMIN** (claim Auth0).
+
+DELETE physique — la row part définitivement. Si le commentaire avait des replies, elles
+sont conservées et leur `parent_comment_id` passe à `NULL` (`ON DELETE SET NULL` côté DB) ;
+au prochain `GET /events/{id}/comments` elles apparaissent en top-level
+(`parentCommentId: null`).
+
+| Code | `error` | Quand |
+|---|---|---|
+| `204` | — | Commentaire supprimé |
+| `401` | `unauthorized` | Token absent ou invalide |
+| `403` | `forbidden` | Caller authentifié mais ne matche aucune règle de la cascade |
+| `404` | `comment_not_found` | `commentId` inexistant |
+
+#### Hors scope SCRUM-139
+
+- **Likes** (`POST/DELETE /comments/{id}/like`) — SCRUM-144 (S7).
+- **Signalement de commentaires** (`POST /comments/{id}/report`, extension `Report.commentId`)
+  — SCRUM-144 (S7).
+- **Notifications** (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) — SCRUM-145 (S7+),
+  dépend de l'infra `Notification` SCRUM-99.
+- **Édition** d'un commentaire (`PUT /comments/{id}`) — non supportée. UX = supprimer + reposter.
 
 ---
 
