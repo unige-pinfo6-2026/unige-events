@@ -40,6 +40,10 @@
         <module>services/engagement-service</module>
         <module>services/moderation-service</module>
         <module>services/notification-service</module>
+
+        <!-- Étape 6 — Pact JVM consumer-driven contract tests + E2E happy path. -->
+        <module>contract-tests</module>
+        <module>e2e</module>
     </modules>
 
     <properties>

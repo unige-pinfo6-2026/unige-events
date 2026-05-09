@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>contract-tests</artifactId>
+    <packaging>jar</packaging>
+    <name>UNIGE Events — contract tests (Pact JVM)</name>
+
+    <!--
+      Étape 6.0 of finalization spec. Hosts consumer-driven Pact JVM
+      contracts for every cross-service REST hop wired through the
+      @RegisterRestClient interfaces in shared-domain-dtos
+      (EventServiceClient, UserServiceClient, EngagementServiceClient).
+
+      The pact JSONs are emitted under ./target/pacts/ at test time;
+      brokerless workflow per Décision E of the spec — no broker upload,
+      file-based contract diff in CI.
+    -->
+
+    <properties>
+        <pact.version>4.6.5</pact.version>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-contract-tests</sonar.projectKey>
+        <sonar.projectName>unige-events-contract-tests</sonar.projectName>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-domain-dtos</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-domain-enums</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>au.com.dius.pact.consumer</groupId>
+            <artifactId>junit5</artifactId>
+            <version>${pact.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                      Override parent: contract-tests is a plain JUnit module,
+                      not a Quarkus app, so the JBoss LogManager is not on
+                      the classpath. Reset the JUL system property and the
+                      argLine so surefire boots with the default LogManager.
+                    -->
+                    <argLine>-Djava.security.egd=file:/dev/./urandom</argLine>
+                    <systemPropertyVariables>
+                        <pact.rootDir>${project.build.directory}/pacts</pact.rootDir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

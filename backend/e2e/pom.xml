@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>e2e</artifactId>
+    <packaging>jar</packaging>
+    <name>UNIGE Events — E2E tests</name>
+
+    <!--
+      Étape 6.5 of finalization spec. Hosts the cross-service E2E happy
+      path tests that exercise the full request flow through Kong /
+      Helm topology. Tests typically run as @QuarkusIntegrationTest or
+      against the live preview cluster (CI matrix step).
+    -->
+
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-e2e</sonar.projectKey>
+        <sonar.projectName>unige-events-e2e</sonar.projectName>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                      Override parent: e2e is a plain JUnit module that
+                      drives REST Assured against a deployed cluster — the
+                      JBoss LogManager is not on the classpath. Reset the
+                      argLine so surefire boots with the default LogManager.
+                    -->
+                    <argLine>-Djava.security.egd=file:/dev/./urandom</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
