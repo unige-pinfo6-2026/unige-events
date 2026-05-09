@@ -123,6 +123,12 @@ data:
               - ~/api/users/me/co-organizer-invitations$
             strip_path: false
             preserve_host: true
+          # Absorbed from stats-service in finalization Étape 2.2.5.
+          - name: event-stats
+            paths:
+              - ~/api/events/(?:\d+)/stats$
+            strip_path: false
+            preserve_host: true
           - name: events-search
             paths:
               - ~/api/events/search$
@@ -239,19 +245,11 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 10 — stats-service (extracted) ────────────────────────────
-      # Routes /api/events/{id}/stats — per-event analytics counter.
-      - name: stats-service
-        url: http://stats-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: event-stats
-            paths:
-              - ~/api/events/(?:\d+)/stats$
-            strip_path: false
-            preserve_host: true
+      # NB: stats-service was merged into event-service in
+      # finalization Étape 2.2.5. Route /api/events/{id}/stats is now
+      # in the event-service block above. Read-only aggregator now uses
+      # local entities (Event, Attendance, Favorite, EventView,
+      # EventCoOrganizer) — no more REST cross-service hops.
 
       # ───── PR 9 — moderation-service (renamed from report-service) ─────
       # Routes the report endpoint + the admin moderation queue. Hosts the

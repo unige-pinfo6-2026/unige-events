@@ -41,7 +41,6 @@
         <module>services/comment-service</module>
         <module>services/follow-service</module>
         <module>services/moderation-service</module>
-        <module>services/stats-service</module>
         <module>services/calendar-service</module>
         <module>services/notification-service</module>
         <module>services/me-aggregator-service</module>

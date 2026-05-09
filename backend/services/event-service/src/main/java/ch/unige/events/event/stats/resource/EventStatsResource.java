@@ -1,7 +1,7 @@
-package ch.unige.events.stats.resource;
+package ch.unige.events.event.stats.resource;
 
-import ch.unige.events.stats.dto.EventStatsDTO;
-import ch.unige.events.stats.service.EventStatsService;
+import ch.unige.events.event.stats.dto.EventStatsDTO;
+import ch.unige.events.event.stats.service.EventStatsService;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;

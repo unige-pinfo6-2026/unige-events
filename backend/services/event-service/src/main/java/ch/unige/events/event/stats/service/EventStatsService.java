@@ -1,13 +1,13 @@
-package ch.unige.events.stats.service;
+package ch.unige.events.event.stats.service;
 
-import ch.unige.events.stats.dto.EventStatsDTO;
-import ch.unige.events.stats.entity.AttendanceStatus;
-import ch.unige.events.stats.entity.AttendanceStub;
-import ch.unige.events.stats.entity.EventCoOrganizerStub;
-import ch.unige.events.stats.entity.EventStub;
-import ch.unige.events.stats.entity.EventViewStub;
-import ch.unige.events.stats.entity.FavoriteStub;
-import ch.unige.events.stats.entity.UserStub;
+import ch.unige.events.event.stats.dto.EventStatsDTO;
+import ch.unige.events.event.entity.AttendanceStatus;
+import ch.unige.events.event.entity.AttendanceStub;
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.view.entity.EventView;
+import ch.unige.events.event.favorite.entity.Favorite;
+import ch.unige.events.event.entity.UserStub;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -19,7 +19,7 @@ public class EventStatsService {
 
     @Transactional
     public EventStatsDTO getStats(String auth0Id, Long eventId) {
-        EventStub event = EventStub.<EventStub>findByIdOptional(eventId)
+        Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
         UserStub caller = UserStub.findByAuth0Id(auth0Id)
@@ -31,19 +31,19 @@ public class EventStatsService {
 
         long attendingCount = AttendanceStub.count("eventId = ?1 and status = ?2",
                 eventId, AttendanceStatus.ATTENDING);
-        long interestedCount = FavoriteStub.count("eventId = ?1", eventId);
-        long viewCount = EventViewStub.count("eventId = ?1", eventId);
+        long interestedCount = Favorite.count("eventId = ?1", eventId);
+        long viewCount = EventView.count("eventId = ?1", eventId);
 
         return new EventStatsDTO(attendingCount, interestedCount, viewCount);
     }
 
-    private static boolean isCreatorOrAcceptedCoOrganizer(EventStub event, UserStub caller) {
+    private static boolean isCreatorOrAcceptedCoOrganizer(Event event, UserStub caller) {
         if (event == null || caller == null) {
             return false;
         }
-        if (caller.id.equals(event.creatorId)) {
+        if (caller.id.equals((event.creator != null ? event.creator.id : null))) {
             return true;
         }
-        return EventCoOrganizerStub.isAcceptedFor(event.id, caller.id);
+        return EventCoOrganizer.isAcceptedFor(event.id, caller.id);
     }
 }
