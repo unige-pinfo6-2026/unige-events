@@ -69,6 +69,7 @@ public class UserService {
         }
     }
 
+    @Transactional
     public PublicProfileView getPublicProfile(UUID id, String auth0Id) {
         User user = User.<User>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
@@ -98,7 +99,8 @@ public class UserService {
 
     @Transactional
     public User updateMyProfile(String authenticatedAuth0Id, String targetAuth0Id, UpdateProfileRequest req) {
-        if (!Objects.equals(authenticatedAuth0Id, targetAuth0Id)) {
+        if (authenticatedAuth0Id == null || targetAuth0Id == null
+                || !authenticatedAuth0Id.equals(targetAuth0Id)) {
             throw new ForbiddenException("Cannot modify another user's profile");
         }
         return updateMyProfile(targetAuth0Id, req);
