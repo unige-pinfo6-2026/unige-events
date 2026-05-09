@@ -115,6 +115,39 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 5 — follow-service (extracted) ────────────────────────────
+      # Follow / follow-request endpoints. Note: /api/users/me/follow-requests
+      # is namespace-anchored at /me/, while /api/users/{uuid}/follow{,ers,ing}
+      # uses a UUID segment — kept distinct via separate regex routes so
+      # the catchall keeps serving the rest of /api/users/* (auth profile,
+      # banner, image…) until user-service is extracted.
+      - name: follow-service
+        url: http://follow-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: follow-actions
+            paths:
+              - ~/api/users/[^/]+/follow$
+            strip_path: false
+            preserve_host: true
+          - name: follow-listings
+            paths:
+              - ~/api/users/[^/]+/(?:followers|following)$
+            strip_path: false
+            preserve_host: true
+          - name: follow-requests
+            paths:
+              - ~/api/follow-requests/(?:\d+)/(?:accept|reject)$
+            strip_path: false
+            preserve_host: true
+          - name: my-follow-reqs
+            paths:
+              - ~/api/users/me/follow-requests$
+            strip_path: false
+            preserve_host: true
+
       # ───────────────────────────────────────────────────────────────────────
       # Target topology — commented out, ready to flip per extraction PR
       # ───────────────────────────────────────────────────────────────────────
@@ -173,14 +206,6 @@ data:
       #   routes:
       #     - { name: event-comments,    paths: [/api/events/(?:\\d+)/comments] }
       #     - { name: comment-direct,    paths: [/api/comments/(?:\\d+)] }
-      #
-      # - name: follow-service
-      #   url: http://follow-service:8080
-      #   routes:
-      #     - { name: follow-actions,    paths: [/api/users/[^/]+/follow] }
-      #     - { name: follow-listings,   paths: [/api/users/[^/]+/(?:followers|following)] }
-      #     - { name: follow-requests,   paths: [/api/follow-requests/(?:\\d+)/(?:accept|reject)] }
-      #     - { name: my-follow-reqs,    paths: [/api/users/me/follow-requests] }
       #
       # - name: report-service
       #   url: http://report-service:8080

@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 4 services réellement extraits, 9 restants DEFERRED.**
+**Étapes 2..14 — 5 services réellement extraits, 8 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -83,7 +83,22 @@ scope étape 1**.
   read_timeout Kong bumpé à 60s (le ICS bulk-fetch peut être large). Image
   `unige-events-calendar-service:<sha>`. Helm `replicas: 1`. CI Deploy à
   valider.
-* ⏳ **PR 5..13 — 9 extractions restantes** (follow, comment, co-organizer,
+* ✅ **PR 5 — `follow-service` extrait** (commit `<this PR>`). Owns
+  `follows` table (PENDING/ACCEPTED, FK vers users, uq_follow_follower_followed
+  préservée). UserStub read-only avec id + auth0Id + profilePublic +
+  champs publics du UserPublicResponse (incluant @ElementCollection
+  user_interests). Visibilité ISSUE-93 (404 anti-oracle) inlinée dans
+  `FollowService.assertProfileVisible` — quand user-service sera extrait
+  (PR 12), bascule en REST sync via `GET /users/{id}`. Anti-harvest
+  pentest 4.1b préservé via `UserPublicResponse.fromAnonymous` pour
+  followers/following d'un profil privé. Kafka producteurs (users.followed,
+  users.follow-requested, users.follow-accepted) DEFERRED. Kong routes
+  `/api/users/[^/]+/follow$`, `/api/users/[^/]+/(?:followers|following)$`,
+  `/api/follow-requests/(?:\d+)/(?:accept|reject)$`,
+  `/api/users/me/follow-requests$` → `follow-service:8080`. Image
+  `unige-events-follow-service:<sha>`. Helm `replicas: 1`. Note : le rate-limit
+  `follows.follow` 30/min n'est pas porté (idem PR 3). CI Deploy à valider.
+* ⏳ **PR 6..13 — 8 extractions restantes** (comment, co-organizer,
   attendance, report, stats, me-aggregator, user, event) suivent le même
   pattern : POM jar→quarkus, copy resources/services/entities depuis legacy
   avec adaptations (stubs read-only pour les tables cross-domaine), Helm
