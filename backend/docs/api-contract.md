@@ -60,7 +60,7 @@ Deployments + endpoints owned.
 | `POST` | `/users/me/banner` | user-service | `@Authenticated` (multipart) | Upload bannière de profil — max 5 MiB | 200, 400, 401, 413 |
 | `DELETE` | `/users/me/banner` | user-service | `@Authenticated` | Supprime la bannière (URL `null` ; objet S3 conservé, parité legacy) | 200, 401 |
 | `GET` | `/events` | event-service | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
-| `POST` | `/events` | event-service | `@Authenticated` (rate-limit DEFERRED) | Créer un événement (ponctuel ou récurrent — bloc `recurrence` optionnel SCRUM-147) | 201, 400, 401, 422 |
+| `POST` | `/events` | event-service | `@Authenticated` + `@PerUserRateLimit(name="events.create", max=10, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 10` | Créer un événement (ponctuel ou récurrent — bloc `recurrence` optionnel SCRUM-147) | 201, 400, 401, 422, 429 |
 | `GET` | `/events/{id}` | event-service | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |
 | `PUT` | `/events/{id}` | event-service | `@Authenticated` | Mise à jour (créateur ou co-organisateur ACCEPTED) | 200, 400, 401, 403, 404, 409 |
 | `DELETE` | `/events/{id}` | event-service | `@Authenticated` | Suppression (créateur uniquement, statut CANCELLED requis) | 204, 401, 403, 404, 409 |
@@ -94,10 +94,10 @@ Deployments + endpoints owned.
 | `PATCH` | `/events/{id}/co-organizers/me/accept` | co-organizer-service | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
 | `PATCH` | `/events/{id}/co-organizers/me/decline` | co-organizer-service | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
 | `GET` | `/users/me/co-organizer-invitations` | co-organizer-service | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
-| `POST` | `/events/{id}/comments` | comment-service | `@Authenticated` (rate-limit DEFERRED) | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422 |
+| `POST` | `/events/{id}/comments` | comment-service | `@Authenticated` + `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 10` | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422, 429 |
 | `GET` | `/events/{id}/comments` | comment-service | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
 | `DELETE` | `/comments/{id}` | comment-service | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
-| `POST` | `/users/{id}/follow` | follow-service | `@Authenticated` (rate-limit DEFERRED) | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422 |
+| `POST` | `/users/{id}/follow` | follow-service | `@Authenticated` + `@PerUserRateLimit(name="follows.follow", max=30, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 30` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
 | `DELETE` | `/users/{id}/follow` | follow-service | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
 | `GET` | `/users/{id}/followers` | follow-service | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
 | `GET` | `/users/{id}/following` | follow-service | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
@@ -109,11 +109,20 @@ Deployments + endpoints owned.
 | `PATCH` | `/admin/reports/{id}` | report-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events/{id}/stats` | stats-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
 
-> **Rate limit notice** : la cellule "Auth" ne mentionne plus `@PerUserRateLimit`
-> car les annotations vivaient sur `RateLimitInterceptor` du legacy-monolith
-> et n'ont pas été portées vers les microservices. Restauration via plugin
-> Kong `rate-limiting` ou lib partagée — follow-up tracké dans
-> [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md).
+> **Rate limit notice (post-completion)** : deux étages.
+> (1) **Lib `services/shared-rate-limit/`** — `@PerUserRateLimit`
+> interceptor + state cache, restaurée au commit `446ea3e` ; 13 sites
+> annotés sur 6 services consommateurs (event, user, attendance,
+> comment, favorite, follow). 100 % couvert par tests unitaires.
+> (2) **Plugin Kong `rate-limiting`** ajouté en complétion (Étape 10
+> de la spec de complétion) sur 3 routes : `events.create=10/min`,
+> `comments.post=10/min`, `follows.follow=30/min`, avec `policy: local`
+> (compteur par instance Kong — la migration vers `policy: redis`
+> cluster-wide est un item DevOps S9+ documenté dans
+> [`devops-handoff.md`](devops-handoff.md) item 7).
+> Les annotations `@PerUserRateLimit` les plus restrictives **et** les
+> buckets Kong sont **tous deux** appliqués — Kong protège l'infra,
+> Java protège l'UX (cf. spec orig. décision 21).
 
 ---
 
