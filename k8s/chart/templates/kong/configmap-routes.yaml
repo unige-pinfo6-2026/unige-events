@@ -115,6 +115,23 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 11 — me-aggregator-service (extracted) ────────────────────
+      # BFF — owns /users/me/events for now. The other /me/* paths
+      # (favorites, attendances, participations) stay on favorite-service
+      # / attendance-service until event-service ships and the BFF grows
+      # REST clients to fan-out (per the spec § "Activate this LAST" note).
+      - name: me-aggregator-service
+        url: http://me-aggregator-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: my-events-bff
+            paths:
+              - ~/api/users/me/events$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 10 — stats-service (extracted) ────────────────────────────
       # Routes /api/events/{id}/stats — per-event analytics counter.
       - name: stats-service
@@ -319,12 +336,6 @@ data:
       #     - { name: notifications,     paths: [/api/notifications] }
       #     - { name: notification-read, paths: [/api/notifications/(?:\\d+)/read] }
       #
-      # - name: me-aggregator-service
-      #   url: http://me-aggregator-service:8080
-      #   routes:
-      #     # NB: BFF — overlaps with /me paths above. Activate this LAST and
-      #     # remove the per-service /me routes from above when the BFF is wired.
-      #     - { name: my-events-bff, paths: [/api/users/me/events] }
 
     # ─────────────────────────────────────────────────────────────────────────
     # Global plugins (cf. spec decision 6)

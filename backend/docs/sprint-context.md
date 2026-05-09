@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 10 services réellement extraits, 3 restants DEFERRED.**
+**Étapes 2..14 — 11 services réellement extraits, 2 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -161,11 +161,23 @@ scope étape 1**.
   des codes d'erreur historiques). Kong route `/api/events/(?:\d+)/stats$`
   → `stats-service:8080`. Image `unige-events-stats-service:<sha>`. Helm
   `replicas: 1`. CI Deploy à valider.
-* ⏳ **PR 11..13 — 3 extractions restantes** (me-aggregator, user, event)
-  suivent le même pattern : POM jar→quarkus, copy resources/services/
-  entities depuis legacy avec adaptations (stubs read-only pour les
-  tables cross-domaine), Helm replicas:1, Kong route flip. Documentées
-  dans [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
+* ✅ **PR 11 — `me-aggregator-service` extrait** (commit `<this PR>`).
+  BFF — owns aucun schéma. En S8 soft-extraction sert uniquement
+  `/users/me/events` (le seul `/me/*` encore dans legacy ; les autres
+  sont déjà routés vers favorite-service / attendance-service depuis
+  PR 3 / PR 8). EventStub read-only avec tous les champs EventDTO,
+  AttendanceStub.countGroupedByStatus pour enrichir avec les counts.
+  Une fois event-service livré (PR 13), ce service grossira avec des
+  REST clients vers tous les services aval et collapsera les routes
+  `/me/*` per-service ici (cf. note "Activate this LAST" du roadmap).
+  Kong route `/api/users/me/events$` → `me-aggregator-service:8080`.
+  Image `unige-events-me-aggregator-service:<sha>`. Helm `replicas: 1`.
+  CI Deploy à valider.
+* ⏳ **PR 12..13 — 2 extractions restantes** (user, event) suivent le
+  même pattern : POM jar→quarkus, copy resources/services/entities
+  depuis legacy avec adaptations (stubs read-only pour les tables
+  cross-domaine), Helm replicas:1, Kong route flip. Documentées dans
+  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
   avec file inventory exact + commit message template par PR.
 
 ### Note Sonar : Quality Gate FAILED (attendu — résolu à step 15)
