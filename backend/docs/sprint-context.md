@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 9 services réellement extraits, 4 restants DEFERRED.**
+**Étapes 2..14 — 10 services réellement extraits, 3 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -153,13 +153,35 @@ scope étape 1**.
   Kong routes `/api/events/(?:\d+)/report$`, `/api/admin/reports$`,
   `/api/admin/reports/(?:\d+)$` → `report-service:8080`. POM enrichi de
   `quarkus-scheduler`. Helm `replicas: 1`. CI Deploy à valider.
-* ⏳ **PR 10..13 — 4 extractions restantes** (stats, me-aggregator,
-  user, event) suivent le même pattern : POM jar→quarkus, copy
-  resources/services/entities depuis legacy avec adaptations (stubs
-  read-only pour les tables cross-domaine), Helm replicas:1, Kong route
-  flip. Documentées dans
-  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
+* ✅ **PR 10 — `stats-service` extrait** (commit `060708b`). Owns aucun
+  schéma (lecture pure). Les 3 counters (attendingCount, interestedCount,
+  viewCount) sont calculés via stubs read-only AttendanceStub + FavoriteStub
+  + EventViewStub sur le schéma partagé. Cascade SCRUM-136 inlinée. 404
+  explicite si `User.findByAuth0Id(auth0Id)` est vide (préserve l'ordre
+  des codes d'erreur historiques). Kong route `/api/events/(?:\d+)/stats$`
+  → `stats-service:8080`. Image `unige-events-stats-service:<sha>`. Helm
+  `replicas: 1`. CI Deploy à valider.
+* ⏳ **PR 11..13 — 3 extractions restantes** (me-aggregator, user, event)
+  suivent le même pattern : POM jar→quarkus, copy resources/services/
+  entities depuis legacy avec adaptations (stubs read-only pour les
+  tables cross-domaine), Helm replicas:1, Kong route flip. Documentées
+  dans [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
   avec file inventory exact + commit message template par PR.
+
+### Note Sonar : Quality Gate FAILED (attendu — résolu à step 15)
+
+Le run Sonar de PR #158 marque le projet `unige-events-backend` rouge :
+
+| Métrique | Mesuré | Seuil | Cause |
+|---|---|---|---|
+| Coverage on New Code | 66.6 % | ≥ 80 % | Les 10 modules extraits ne portent que le sentinel `ServiceIdentityResourceTest`. Les tests réels vivent dans `legacy-monolith` (pour les copies legacy) ; en porter une copie pour chaque module = duplication temporaire effacée à step 15. |
+| Duplication on New Code | 7.2 % | ≤ 3 % | Volontaire — soft-extraction copie le code byte-pour-byte de `legacy-monolith` vers les nouveaux modules. La duplication s'évanouit dès que `legacy-monolith` est supprimé (step 15). |
+
+Décision (alignée avec la spec) : **ne rien faire dans cette PR**. Les
+deux métriques redeviennent vertes mécaniquement quand step 15 (PR 14
+de la roadmap) supprime `services/legacy-monolith/`. Step 17 (PR 16)
+remplace le `sonar.projectKey` unique par un par-service, ce qui évite
+de remettre la dette dans la même cellule.
 
 ### Note CI : transient image-pull failure sur PR 4 (calendar-service)
 
