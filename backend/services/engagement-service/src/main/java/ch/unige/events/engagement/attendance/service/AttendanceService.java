@@ -166,6 +166,24 @@ public class AttendanceService {
                 .toList();
     }
 
+    /**
+     * Cross-service projection (Décision B finalization-ultimate REST-002):
+     * returns the user's attendances filtered by status, mapped to
+     * {@link AttendanceDTO} without user enrichment (id-only payload, the
+     * consumer user-service knows its own user data). Backing endpoint:
+     * {@code GET /users/{id}/attendances?status=...} exposed by
+     * {@link ch.unige.events.engagement.attendance.resource.UserAttendancesInternalResource}.
+     */
+    @Transactional
+    public List<AttendanceDTO> findByUser(UUID userId, AttendanceStatus status) {
+        List<Attendance> rows = (status == null)
+                ? Attendance.<Attendance>list("userId", userId)
+                : Attendance.<Attendance>list("userId = ?1 and status = ?2", userId, status);
+        return rows.stream()
+                .map(a -> AttendanceDTO.from(a, null))
+                .toList();
+    }
+
     @Transactional
     public List<EventDTO> getMyParticipationEvents(String auth0Id, AttendanceStatus statusFilter, Timeframe timeframeFilter) {
         UserStub user = resolveUser(auth0Id);
