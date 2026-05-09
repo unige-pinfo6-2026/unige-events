@@ -1314,4 +1314,81 @@ class EventResourceTest {
                 .then()
                 .statusCode(404);
     }
+
+    // --- POST /events/{id}/duplicate ---
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void duplicate_asCreator_returns201WithCopiedFields() {
+        var original = eventServiceMock.seedEvent("auth0|alice", "Conférence UNIGE");
+
+        given()
+                .when().post("/events/" + original.id + "/duplicate")
+                .then()
+                .statusCode(201)
+                .body("id", not(equalTo(original.id.intValue())))
+                .body("status", is("DRAFT"))
+                .body("title", is("Copie de Conférence UNIGE"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void duplicate_datesShiftedBySevenDays() {
+        var original = eventServiceMock.seedEvent("auth0|alice", "Event");
+
+        var startBefore = original.startDate;
+        var endBefore = original.endDate;
+
+        given()
+                .when().post("/events/" + original.id + "/duplicate")
+                .then()
+                .statusCode(201)
+                .body("startDate", not(nullValue()))
+                .body("endDate", not(nullValue()));
+
+        // Verify via the returned JSON that dates are +7 days
+        var response = given()
+                .when().post("/events/" + original.id + "/duplicate")
+                .then()
+                .statusCode(201)
+                .extract().response();
+
+        java.time.LocalDateTime returnedStart = java.time.LocalDateTime.parse(
+                response.jsonPath().getString("startDate"));
+        java.time.LocalDateTime returnedEnd = java.time.LocalDateTime.parse(
+                response.jsonPath().getString("endDate"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(startBefore.plusDays(7), returnedStart);
+        org.junit.jupiter.api.Assertions.assertEquals(endBefore.plusDays(7), returnedEnd);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|bob")
+    void duplicate_nonOwner_returns403() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Alice's event");
+
+        given()
+                .when().post("/events/" + event.id + "/duplicate")
+                .then()
+                .statusCode(403);
+    }
+
+    @Test
+    void duplicate_unauthenticated_returns401() {
+        var event = eventServiceMock.seedEvent("auth0|alice", "Event");
+
+        given()
+                .when().post("/events/" + event.id + "/duplicate")
+                .then()
+                .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|alice")
+    void duplicate_unknownEvent_returns404() {
+        given()
+                .when().post("/events/99999/duplicate")
+                .then()
+                .statusCode(404);
+    }
 }

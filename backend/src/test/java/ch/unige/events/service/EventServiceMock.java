@@ -36,6 +36,7 @@ public class EventServiceMock extends EventService {
     public static volatile boolean forceBadMimeOnUpload = false;
     public static volatile boolean forceMyEventsNotFound = false;
     public static volatile String myEventsExpectedAuth0Id = null;
+    public static volatile boolean forceForbiddenOnDuplicate = false;
 
     public void reset() {
         eventsById.clear();
@@ -46,6 +47,7 @@ public class EventServiceMock extends EventService {
         forceBadMimeOnUpload = false;
         forceMyEventsNotFound = false;
         myEventsExpectedAuth0Id = null;
+        forceForbiddenOnDuplicate = false;
     }
 
     public Event seedEvent(String creatorAuth0Id, String title) {
@@ -360,5 +362,38 @@ public class EventServiceMock extends EventService {
         if (forceForbiddenOnUpdate) throw new ForbiddenException("Forbidden");
         e.bannerUrl = "/uploads/test-banner.jpg";
         return EventDTO.from(e, 0L, e.capacity == null ? null : (long) e.capacity, 0L, null, null);
+    }
+
+    @Override
+    public EventDTO duplicate(Long id, String auth0Id) {
+        if (forceForbiddenOnDuplicate) {
+            throw new ForbiddenException("Only the event creator can duplicate this event");
+        }
+        Event original = eventsById.get(id);
+        if (original == null) throw new NotFoundException();
+        boolean isCreator = original.creator != null
+                && original.creator.auth0Id != null
+                && original.creator.auth0Id.equals(auth0Id);
+        if (!isCreator) {
+            throw new ForbiddenException("Only the event creator can duplicate this event");
+        }
+
+        User creator = original.creator;
+        Event copy = new Event();
+        copy.id = idSequence.getAndIncrement();
+        copy.title = "Copie de " + original.title;
+        copy.description = original.description;
+        copy.location = original.location;
+        copy.startDate = original.startDate != null ? original.startDate.plusDays(7) : null;
+        copy.endDate = original.endDate != null ? original.endDate.plusDays(7) : null;
+        copy.category = original.category;
+        copy.status = EventStatus.DRAFT;
+        copy.creator = creator;
+        copy.capacity = original.capacity;
+        copy.createdAt = LocalDateTime.now();
+        copy.updatedAt = LocalDateTime.now();
+
+        eventsById.put(copy.id, copy);
+        return EventDTO.from(copy, 0L, copy.capacity == null ? null : (long) copy.capacity, 0L, null, null);
     }
 }

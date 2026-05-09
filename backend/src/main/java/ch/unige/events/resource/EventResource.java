@@ -169,6 +169,15 @@ public class EventResource {
     }
 
     @POST
+    @Path("/{id}/duplicate")
+    @Authenticated
+    public Response duplicate(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        EventDTO duplicated = eventService.duplicate(id, auth0Id);
+        return Response.status(Response.Status.CREATED).entity(duplicated).build();
+    }
+
+    @POST
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated

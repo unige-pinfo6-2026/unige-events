@@ -14,6 +14,7 @@ import ch.unige.events.entity.EventStatus;
 import ch.unige.events.entity.EventView;
 import ch.unige.events.entity.Faculty;
 import ch.unige.events.entity.Favorite;
+import ch.unige.events.entity.NotificationType;
 import ch.unige.events.entity.User;
 import ch.unige.events.util.RecurrenceGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,6 +45,8 @@ public class EventService {
     @Inject FileStorageService fileStorageService;
 
     @Inject EntityManager entityManager;
+
+    @Inject NotificationService notificationService;
 
     @Transactional
     @SuppressWarnings("java:S107") // Filter-heavy list endpoint — flat params match the REST query signature 1:1.
@@ -359,8 +362,41 @@ public class EventService {
             event.status = request.status;
         }
 
+        notificationService.notifyAttendees(id, NotificationType.EVENT_UPDATED,
+                "L'événement \"" + event.title + "\" a été mis à jour.");
         long att = countAttending(id);
         return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id), null, null);
+    }
+
+    @Transactional
+    public EventDTO duplicate(Long id, String auth0Id) {
+        Event original = Event.<Event>findByIdOptional(id)
+                .orElseThrow(NotFoundException::new);
+
+        if (!isCreator(original, auth0Id)) {
+            throw new ForbiddenException("Only the event creator can duplicate this event");
+        }
+
+        Event copy = new Event();
+        copy.title = "Copie de " + original.title;
+        copy.description = original.description;
+        copy.location = original.location;
+        copy.startDate = original.startDate != null ? original.startDate.plusDays(7) : null;
+        copy.endDate = original.endDate != null ? original.endDate.plusDays(7) : null;
+        copy.category = original.category;
+        copy.faculty = original.faculty;
+        copy.bannerUrl = original.bannerUrl;
+        copy.capacity = original.capacity;
+        copy.allDay = original.allDay;
+        copy.websiteUrl = original.websiteUrl;
+        copy.contactEmail = original.contactEmail;
+        copy.registrationDeadline = original.registrationDeadline;
+        copy.tags = original.tags == null ? new ArrayList<>() : new ArrayList<>(original.tags);
+        copy.creator = original.creator;
+        copy.status = EventStatus.DRAFT;
+        copy.persist();
+
+        return EventDTO.from(copy, 0L, computeAvailableSpots(copy.capacity, 0L), 0L, null, null);
     }
 
     @Transactional
@@ -399,6 +435,8 @@ public class EventService {
         }
 
         event.status = EventStatus.CANCELLED;
+        notificationService.notifyAttendees(id, NotificationType.EVENT_CANCELLED,
+                "L'événement \"" + event.title + "\" a été annulé.");
         long attCancel = countAttending(id);
         return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id), null, null);
     }

@@ -602,19 +602,22 @@ components:
 
     Notification:
       type: object
-      # TODO: Sprint 7 — à implémenter côté backend
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
         userId:
           type: string
-        eventId:
-          type: string
+          format: uuid
         type:
           type: string
-          enum: [EVENT_UPDATED, EVENT_CANCELLED, EVENT_REMINDER]
+          enum: [EVENT_CANCELLED, EVENT_UPDATED, EVENT_REMINDER, NEW_ATTENDEE]
         message:
           type: string
+        eventId:
+          type: integer
+          format: int64
+          nullable: true
         read:
           type: boolean
         createdAt:
@@ -3846,10 +3849,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 7
   /events/{id}/duplicate:
     post:
       summary: Dupliquer un événement — créateur uniquement
+      description: |
+        Crée une copie de l'événement avec `status=DRAFT`, titre préfixé `"Copie de {titre}"`,
+        et dates `startDate`/`endDate` décalées de +7 jours. Seul le créateur (owner organizer)
+        peut dupliquer — les co-organisateurs obtiennent `403`.
       operationId: duplicateEvent
       tags: [events]
       security:
@@ -3863,11 +3869,29 @@ paths:
             format: int64
       responses:
         '201':
-          description: Copie créée (titre "[COPY] ...", dates nulles)
+          description: Copie créée (status=DRAFT, titre "Copie de …", dates +7j)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Event'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Appelant non-créateur (co-organisateur ou autre utilisateur)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/reports:
     get:
@@ -4009,23 +4033,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 7 (notifications)
   /notifications:
     get:
-      summary: Notifications de l'utilisateur connecté
+      summary: Notifications de l'utilisateur connecté (non lues en premier)
       operationId: getNotifications
       tags: [notifications]
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
-          description: Liste des notifications
+          description: Liste paginée des notifications (non lues en premier)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Notification'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /notifications/read-all:
+    put:
+      summary: Marquer toutes les notifications de l'utilisateur comme lues
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Toutes les notifications marquées comme lues
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /notifications/{id}/read:
     put:
@@ -4039,10 +4099,33 @@ paths:
           in: path
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
       responses:
         '200':
           description: Notification marquée comme lue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: La notification n'appartient pas à l'utilisateur connecté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Notification introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /s/{shortCode}:
     get:
