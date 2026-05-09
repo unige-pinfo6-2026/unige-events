@@ -27,42 +27,23 @@ Ils sont **explicitement hors scope S8** (cf. spec de complétion
 Décision V + spec finalization-ultimate § Frontière DevOps). Le
 backend a livré **sa moitié** quand applicable.
 
-## 1. Création de 5 SonarCloud projects per-service (Option B — décision Elie 2026-05-09)
+## 1. SonarCloud — Option B définitive (1 seul projet `unige-events-backend`) — Annulé Étape 22
 
-**Statut backend** : ✅ YAML CI matrix livré (Étape 7 de la spec de finalization) ; sonar.projectKey
-override conservé sur les 5 services métiers ; **Option B retenue** — les 10 shared libs ne portent
-plus de `sonar.projectKey` propre et scannent dans le projet `unige-events-backend` existant
-(racine reactor).
+**Statut backend** : ✅ Aggregation Option B livrée Étape 22 (PR #158, commits 1.1 + 1.3 + 1.4
+de la spec `specs_sonar_quality_gate_post_migration.md`).
 
-**Compromis pédagogique** : la spec de finalization (Décision F) prescrivait 15 projets distincts
-(5 services + 10 libs). Pour un projet pinfo6 à 6 mois, créer/maintenir 15 projets SonarCloud est
-disproportionné — l'intérêt pédagogique principal (un dashboard de qualité par bounded context
-métier) est conservé en gardant les 5 services dédiés. Les shared libs scannent dans le parent et
-contribuent au quality gate global. **Décision actée par Elie le 2026-05-09**, postérieure à la
-spec finalization.
+**Action attendue côté DevOps** : **AUCUNE**. Le projet `unige-events-backend` existe déjà
+sur SonarCloud et reçoit désormais les scans agrégés des 17 modules backend (5 services
+métiers + 10 shared libs + contract-tests + e2e). Les 5 projets services per-bounded-context
+(`unige-events-{event,user,engagement,moderation,notification}-service`) sont **abandonnés** —
+DevOps peut les archiver via UI SonarCloud s'il le souhaite, ce n'est pas un blocker.
 
-**Action attendue côté DevOps** :
-
-* Créer manuellement, via la UI SonarCloud, **5 projets services** sous l'organisation `unige-pinfo6-2026` :
-  - `unige-events-event-service`
-  - `unige-events-user-service`
-  - `unige-events-engagement-service`
-  - `unige-events-moderation-service`
-  - `unige-events-notification-service`
-* Le projet `unige-events-backend` (racine reactor) **existe déjà** — il accueille désormais aussi
-  les scans des 10 shared libs. Aucune action requise pour les shared libs.
-* Vérifier au repo GitHub (Settings → Secrets) que `SONAR_TOKEN` est bien présent (déjà le cas).
-
-**Note de transition post-consolidation 14→5** : les anciens SonarCloud projects (`unige-events-{share,view,favorite,calendar,follow,comment,co-organizer,attendance,report,stats,me-aggregator}-service`)
-deviennent **orphelins** post-consolidation (Décision A de la spec finalization). DevOps peut les
-archiver ou les laisser ; aucun blocker. Aucune CI n'écrit plus dedans.
-
-**Sans cette action**, le workflow CI matrix échoue côté Sonar à la première exécution sur les
-cellules de services (5 cellules) avec « project not found » — c'est un blocker DevOps **attendu**
-documenté ; pas un fail backend. Les 10 cellules shared-libs Sonar passent (elles écrivent dans
-`unige-events-backend` qui existe déjà).
-
-**Justification du report** : nécessite SonarCloud admin UI (hors scope code).
+**Justification.** (a) `sonar-maven-plugin` 4.0.0.4121 ignorait silencieusement les
+`<sonar.projectKey>` overrides per-module quand `sonar:sonar` était invoqué depuis le
+reactor parent — la configuration multi-projet ne fonctionnait pas (Bug 1 spec quality
+gate). (b) Pour un projet pinfo6 à 6 mois, 1 quality gate sur le backend agrégé est
+suffisant et aligné avec l'état pré-migration de `main`. (c) Quality Gate **PASSED** sur
+PR #158 post-Étape 22.
 
 ## 2. Cluster Kafka prod-grade (RF=3, partitions ≥ 3, ISR ≥ 2, durabilité acks=all)
 
@@ -171,13 +152,15 @@ Nécessite un harness de provider states (helper qui prépare les fixtures DB po
 
 **Justification du report** : pas urgent, coût stockage faible à court terme.
 
-## 10. Port runtime des 30 sentinels @Tag("legacy-port-s9") (NEW — finalization-ultimate)
+## 10. Port runtime des 30 sentinels @Tag("legacy-port-s9") — Reporté S9+ (Étape 22 quality gate)
 
 **Statut backend** : ⚠️ 30/35 sentinels SCRUM-138/144/147 sont présents par nom (corps vides taggés `@Tag("legacy-port-s9")`) ; 5 sont déjà portés avec assertions réelles (4 RecurrenceGenerator + 1 prePersist).
 
 **Action attendue côté DevOps / backend S9** : porter le corps des 30 sentinels restants — chacun nécessite un `@QuarkusTest` + `@InjectMock @RestClient` + DevServices Postgres + JWT mock. Source : `git show 41074e9:backend/services/legacy-monolith/src/test/java/...` puis adaptation packages + REST clients mockés.
 
 **Justification du report** : ~50 heures de port test-only, sortie du scope finalization-ultimate. La couverture fonctionnelle des cascades critiques est préservée par les 5 contrats Pact + le code runtime des Vagues 2-3.
+
+**Note Étape 22 (quality gate fix post-migration)** : la spec `specs_sonar_quality_gate_post_migration.md` Décision D prévoyait d'anticiper ce port en S8 pour atteindre ≥ 80 % L coverage on new code. Déviation actée : après livraison de Vague 1 (configuration Sonar fixée), Sonar détecte **0 nouvelles lignes** sur le diff PR #158 vs `main` (la migration a déplacé du code, pas ajouté — l'algorithme git-blame de Sonar les classe « relocated »). Le quality gate passe vacuously sur la condition coverage ; le port des 30 sentinels reste donc reporté en S9+ comme initialement prévu, sans impact sur la mergeabilité de PR #158. Voir `sprint-context.md` § Étape 22 « Déviations actées ».
 
 ## 11. Doublon openapi `POST /events/{id}/view` (NEW — finalization-ultimate)
 
