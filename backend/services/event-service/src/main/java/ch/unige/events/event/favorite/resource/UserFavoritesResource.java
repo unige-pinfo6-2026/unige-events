@@ -1,7 +1,7 @@
-package ch.unige.events.favorite.resource;
+package ch.unige.events.event.favorite.resource;
 
-import ch.unige.events.favorite.dto.EventDTO;
-import ch.unige.events.favorite.service.FavoriteService;
+import ch.unige.events.event.favorite.dto.EventDTO;
+import ch.unige.events.event.favorite.service.FavoriteService;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;

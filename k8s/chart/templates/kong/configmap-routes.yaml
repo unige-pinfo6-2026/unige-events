@@ -28,27 +28,10 @@ data:
       # Étape 2.2.2. Route /api/events/{id}/view is now in the
       # event-service block below (look for `event-view`).
 
-      # ───── PR 3 — favorite-service (extracted) ──────────────────────────
-      # Routes POST/DELETE /api/events/{id}/favorite + GET /api/users/me/favorites
-      # to favorite-service. The legacy monolith still serves the rest of
-      # /api/users/me/* (attendances, participations) until those services
-      # are extracted.
-      - name: favorite-service
-        url: http://favorite-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: favorite-actions
-            paths:
-              - ~/api/events/(?:\d+)/favorite$
-            strip_path: false
-            preserve_host: true
-          - name: my-favorites
-            paths:
-              - ~/api/users/me/favorites$
-            strip_path: false
-            preserve_host: true
+      # NB: favorite-service was merged into event-service in
+      # finalization Étape 2.2.3. Routes /api/events/{id}/favorite +
+      # /api/users/me/favorites are now in the event-service block below
+      # (look for `favorite-actions` and `my-favorites`).
 
       # ───── PR 4 — calendar-service (extracted) ──────────────────────────
       # Routes the user's calendar-token endpoints + the public ICS feed
@@ -106,6 +89,17 @@ data:
           - name: event-view
             paths:
               - ~/api/events/(?:\d+)/view$
+            strip_path: false
+            preserve_host: true
+          # Absorbed from favorite-service in finalization Étape 2.2.3.
+          - name: favorite-actions
+            paths:
+              - ~/api/events/(?:\d+)/favorite$
+            strip_path: false
+            preserve_host: true
+          - name: my-favorites
+            paths:
+              - ~/api/users/me/favorites$
             strip_path: false
             preserve_host: true
           - name: events-search

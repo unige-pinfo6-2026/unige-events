@@ -1,11 +1,11 @@
-package ch.unige.events.favorite.service;
+package ch.unige.events.event.favorite.service;
 
-import ch.unige.events.favorite.dto.EventDTO;
-import ch.unige.events.favorite.entity.AttendanceStatus;
-import ch.unige.events.favorite.entity.AttendanceStub;
-import ch.unige.events.favorite.entity.EventStub;
-import ch.unige.events.favorite.entity.Favorite;
-import ch.unige.events.favorite.entity.UserStub;
+import ch.unige.events.event.favorite.dto.EventDTO;
+import ch.unige.events.event.entity.AttendanceStatus;
+import ch.unige.events.event.entity.AttendanceStub;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.favorite.entity.Favorite;
+import ch.unige.events.event.entity.UserStub;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -30,7 +30,7 @@ public class FavoriteService {
 
     @Transactional
     public void addFavorite(String auth0Id, Long eventId) {
-        EventStub.<EventStub>findByIdOptional(eventId)
+        Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
         UUID userId = resolveUserId(auth0Id);
@@ -65,7 +65,7 @@ public class FavoriteService {
         Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
         Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(eventIds, AttendanceStatus.WAITLISTED, entityManager);
         return favorites.stream()
-                .map(f -> EventStub.<EventStub>findByIdOptional(f.eventId))
+                .map(f -> Event.<Event>findByIdOptional(f.eventId))
                 .flatMap(Optional::stream)
                 .map(e -> {
                     long att = attendingCounts.getOrDefault(e.id, 0L);
