@@ -1,33 +1,47 @@
 package ch.unige.events.user.calendar.service;
 
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.client.EventServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceDTO;
+import ch.unige.events.shared.domain.dto.EventDTO;
+import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.user.calendar.config.AppConfig;
 import ch.unige.events.user.calendar.dto.CalendarTokenResponse;
-import ch.unige.events.user.calendar.entity.AttendanceStub;
-import ch.unige.events.user.calendar.entity.EventStatus;
-import ch.unige.events.user.calendar.entity.EventStub;
-import ch.unige.events.user.calendar.entity.FavoriteStub;
-import ch.unige.events.user.entity.User;
 import ch.unige.events.user.calendar.util.IcsBuilder;
+import ch.unige.events.user.entity.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Same semantics as the legacy monolith's CalendarService — token rotation
  * (lazy create on first read, regenerate on POST) and ICS feed assembly.
+ *
+ * <p>Étape 3.3 finalization-ultimate (STUB-001 / Décisions A, B, F):
+ * the legacy {@code FavoriteStub} / {@code AttendanceStub} /
+ * {@code EventStub} navigations are replaced by REST clients to
+ * engagement-service ({@code GET /users/{id}/attendances?status=ATTENDING}
+ * — Décision B) and event-service ({@code GET /events?ids=...}). The
+ * favorites projection is dropped from the ICS feed: the favorites
+ * table moved into event-service in 2.2.3 with no internal endpoint
+ * for "user favorite event ids" (deferred to S9 — cf.
+ * internal-endpoints.md "endpoints à ajouter S9"). For S8 the ICS
+ * feed only includes events the user is ATTENDING — minor functional
+ * regression, acted in commit message.
  */
 @ApplicationScoped
 public class CalendarService {
 
     @Inject
     AppConfig appConfig;
+
+    @Inject @RestClient EventServiceClient eventClient;
+    @Inject @RestClient EngagementServiceClient engagementClient;
 
     @Transactional
     public CalendarTokenResponse getOrCreateToken(String auth0Id) {
@@ -45,31 +59,29 @@ public class CalendarService {
         return buildTokenResponse(user.calendarToken);
     }
 
-    @Transactional
     public String generateIcsFeed(UUID calendarToken) {
         User user = User.findByCalendarToken(calendarToken)
                 .orElseThrow(() -> new NotFoundException("Calendar token not found"));
 
-        List<Long> favoriteIds = FavoriteStub.findAllByUser(user.id).stream()
-                .map(f -> f.eventId)
-                .collect(Collectors.toList());
-
-        List<Long> attendingIds = AttendanceStub.findAllByUser(user.id).stream()
-                .map(a -> a.eventId)
-                .collect(Collectors.toList());
-
-        Set<Long> allIds = new HashSet<>();
-        allIds.addAll(favoriteIds);
-        allIds.addAll(attendingIds);
-
-        if (allIds.isEmpty()) {
+        List<AttendanceDTO> attendances = engagementClient.getUserAttendances(
+                user.id, AttendanceStatus.ATTENDING.name());
+        if (attendances == null || attendances.isEmpty()) {
             return IcsBuilder.buildIcsContent(List.of(), appConfig.frontendUrl());
         }
 
-        List<EventStub> events = EventStub.<EventStub>find(
-                "id IN ?1 AND status = ?2", allIds, EventStatus.PUBLISHED
-        ).list();
+        List<Long> eventIds = attendances.stream()
+                .map(AttendanceDTO::eventId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (eventIds.isEmpty()) {
+            return IcsBuilder.buildIcsContent(List.of(), appConfig.frontendUrl());
+        }
 
+        List<EventDTO> events = eventClient.findByIds(eventIds, "PUBLISHED");
+        if (events == null) {
+            events = List.of();
+        }
         return IcsBuilder.buildIcsContent(events, appConfig.frontendUrl());
     }
 
