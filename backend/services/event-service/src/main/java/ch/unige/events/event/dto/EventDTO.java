@@ -37,7 +37,8 @@ public record EventDTO(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Long parentEventId,
-        String recurrenceRule
+        String recurrenceRule,
+        Boolean coOrganizerOf
 ) {
     public static EventDTO from(
             Event event,
@@ -46,6 +47,18 @@ public record EventDTO(
             long waitlistedCount,
             Long viewCount,
             Long interestedCount
+    ) {
+        return from(event, attendingCount, availableSpots, waitlistedCount, viewCount, interestedCount, null);
+    }
+
+    public static EventDTO from(
+            Event event,
+            long attendingCount,
+            Long availableSpots,
+            long waitlistedCount,
+            Long viewCount,
+            Long interestedCount,
+            Boolean coOrganizerOf
     ) {
         return new EventDTO(
                 event.id,
@@ -75,7 +88,8 @@ public record EventDTO(
                 event.createdAt,
                 event.updatedAt,
                 event.parentEventId,
-                event.recurrenceRule
+                event.recurrenceRule,
+                coOrganizerOf
         );
     }
 }

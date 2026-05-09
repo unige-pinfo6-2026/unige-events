@@ -83,7 +83,14 @@ public class EventResource {
             @QueryParam("endDateFrom") LocalDateTime endDateFrom,
             @QueryParam("faculty") Faculty faculty,
             @QueryParam("facultyNone") Boolean facultyNone,
-            @QueryParam("featured") Boolean featured) {
+            @QueryParam("featured") Boolean featured,
+            @QueryParam("ids") List<Long> ids) {
+        // Cross-service bulk lookup short-circuit: when ?ids=… is set,
+        // ignore other filters and return only the matching events
+        // (optionally filtered by status). Used by user-service ICS feed.
+        if (ids != null && !ids.isEmpty()) {
+            return eventService.findByIds(ids, status);
+        }
         EventStatus effectiveStatus = status;
         if (organizerId != null) {
             if (effectiveStatus == null) {
@@ -113,10 +120,11 @@ public class EventResource {
     @GET
     @Path("/{id}")
     @PermitAll
-    public Response getById(@PathParam("id") Long id) {
+    public Response getById(@PathParam("id") Long id,
+                            @QueryParam("check-co-org-of") UUID checkCoOrgOf) {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
         boolean isAdmin = !identity.isAnonymous() && identity.hasRole(ROLE_ADMIN);
-        EventDTO event = eventService.getById(id, auth0Id, isAdmin);
+        EventDTO event = eventService.getById(id, auth0Id, isAdmin, checkCoOrgOf);
         return Response.ok(event).build();
     }
 

@@ -253,6 +253,18 @@ public class EventService {
 
     @Transactional
     public EventDTO getById(Long id, String auth0Id, boolean isAdmin) {
+        return getById(id, auth0Id, isAdmin, null);
+    }
+
+    /**
+     * Same as {@link #getById(Long, String, boolean)} but also fills the
+     * {@code coOrganizerOf} field of the returned DTO when {@code checkCoOrgOf}
+     * is non-null. Used by the {@code GET /events/{id}?check-co-org-of=}
+     * cross-service endpoint so consumers (engagement, moderation) can
+     * evaluate cascade SCRUM-136 in a single call (post Étape 2.2.4 the
+     * event_co_organizers table lives here, so the check is a local query).
+     */
+    public EventDTO getById(Long id, String auth0Id, boolean isAdmin, UUID checkCoOrgOf) {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
@@ -265,14 +277,43 @@ public class EventService {
         }
 
         long att = countAttending(id);
+        Boolean coOrganizerOf = null;
+        if (checkCoOrgOf != null) {
+            coOrganizerOf = isCreatorOrAcceptedCoOrganizer(event, checkCoOrgOf);
+        }
         return EventDTO.from(
                 event,
                 att,
                 computeAvailableSpots(event.capacity, att),
                 countWaitlisted(id),
                 countViews(id),
-                countInterested(id)
+                countInterested(id),
+                coOrganizerOf
         );
+    }
+
+    /**
+     * Cross-service bulk lookup. Returns the events whose ids are listed
+     * (filtered by status when provided). Used by user-service's calendar
+     * ICS feed to materialize a user's favorited / attended events into
+     * an RFC 5545 stream.
+     */
+    public List<EventDTO> findByIds(List<Long> ids, EventStatus status) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Event> events = (status == null)
+                ? Event.list("id IN ?1", ids)
+                : Event.list("id IN ?1 AND status = ?2", ids, status);
+        List<EventDTO> result = new ArrayList<>(events.size());
+        for (Event e : events) {
+            long a = countAttending(e.id);
+            result.add(EventDTO.from(
+                    e, a, computeAvailableSpots(e.capacity, a),
+                    countWaitlisted(e.id), countViews(e.id), countInterested(e.id)
+            ));
+        }
+        return result;
     }
 
     @Transactional
@@ -527,5 +568,15 @@ public class EventService {
         return UserStub.findByAuth0Id(auth0Id)
                 .map(user -> EventCoOrganizer.isAcceptedFor(event.id, user.id))
                 .orElse(false);
+    }
+
+    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID userId) {
+        if (event == null || userId == null) {
+            return false;
+        }
+        if (event.creator != null && userId.equals(event.creator.id)) {
+            return true;
+        }
+        return EventCoOrganizer.isAcceptedFor(event.id, userId);
     }
 }
