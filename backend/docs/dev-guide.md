@@ -9,14 +9,16 @@
 
 ---
 
-## Layout Maven (multi-module — post-completion)
+## Layout Maven (multi-module — post-finalization)
 
-Depuis Sprint 8 (et sa complétion), `backend/` est un projet
-**multi-module** avec parent POM agrégateur à la racine et **24 modules
-enfants** sous `backend/services/` :
-- 13 microservices Quarkus actifs (un par bounded context).
-- 1 placeholder `notification-service` (replicas:0, scaffold SCRUM-99).
-- 10 shared libs (2 Sprint-8 — `shared-rate-limit`, `shared-storage` —
+Depuis Sprint 8 (Kong/Kafka extraction + complétion + finalisation),
+`backend/` est un projet **multi-module** avec parent POM agrégateur à
+la racine et **15 modules enfants** sous `backend/services/`
+(post-consolidation 14→5, Décision A de la spec finalization) :
+- **4 microservices métiers Quarkus actifs** : `event-service`,
+  `user-service`, `engagement-service`, `moderation-service`.
+- **1 placeholder** `notification-service` (replicas:0, scaffold SCRUM-99).
+- **10 shared libs** (2 Sprint-8 — `shared-rate-limit`, `shared-storage` —
   + 8 complétion : `shared-api-error`, `shared-domain-enums`,
   `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`,
   `shared-tracing`, `shared-kafka-events`, `shared-platform`).
@@ -24,10 +26,11 @@ enfants** sous `backend/services/` :
 Le legacy-monolith a été supprimé à step 15 (commit `b570c1b`). Voir
 [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven » et
 [`architecture.md`](architecture.md) pour la table des endpoints owned
-par service.
+par service. Le détail de la consolidation 14→5 est dans
+[`consolidation-plan.md`](consolidation-plan.md).
 
 **Conséquences pratiques pour le dev local** :
-- `cd backend && ./mvnw verify` build TOUS les modules (~5 min sur 24 modules).
+- `cd backend && ./mvnw verify` build TOUS les modules (~3-4 min sur 15 modules).
 - `cd backend && ./mvnw -pl services/<svc>-service -am verify` build un
   seul service avec ses dépendances shared lib transitivement.
 - `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par
@@ -55,11 +58,14 @@ L'API du service est accessible sur `http://localhost:8080/api`.
 Swagger UI : `http://localhost:8080/api/swagger-ui`
 OpenAPI JSON : `http://localhost:8080/api/openapi`
 
-Pour reproduire la topologie complète (Kong + 13 services + db + minio
-+ kafka), passer par le chart Helm via Minikube ou un cluster preview ;
-il n'y a pas de `docker-compose.dev.yml` qui orchestre les 13 pods en
-local — le coût démarrage est élevé et le dev se fait service par
-service avec DevServices.
+Pour reproduire la topologie complète (Kong + 4 services métiers actifs
++ notification placeholder + db + minio + kafka), passer par le chart
+Helm via Minikube ou un cluster preview ; il n'y a pas de
+`docker-compose.dev.yml` qui orchestre les pods en local — le coût
+démarrage est élevé et le dev se fait service par service avec
+DevServices. Post-consolidation 14→5, le runtime preview tourne
+typiquement avec ~10 pods (4 services × 1 replica + Kong ×1 + db + kafka
++ minio + web + cloudflared) au lieu de ~20 avant.
 
 **DevServices :** Quarkus lance automatiquement un PostgreSQL éphémère via Testcontainers en mode dev. Aucune DB externe n'est requise si `quarkus.datasource.jdbc.url` n'est pas défini pour le profil dev.
 
