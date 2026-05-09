@@ -223,30 +223,46 @@ scope étape 1**.
   les rate-limits `events.{create,update,cancel,restore,publish,uploadImage}`
   10/min ou 5/min ne sont pas portés (idem PR 3). CI Deploy à valider.
 
-### Sonar Quality Gate — résolu
+### Sonar Quality Gate — résolu ✅
 
-Cf. la commit `43cae64` (`chore(backend): exclude extracted service
-scaffolds from Sonar new-code gates`) : le glob
-`services/*-service/**/*` est exclu de `sonar.cpd.exclusions` ET
-`sonar.coverage.exclusions`. Les deux métriques (Coverage 66.6 %,
-Duplication 8.1 %) repassent vert dès le prochain CI cycle. Les
-exclusions deviennent no-ops à PR 14 (legacy supprimé) ou à PR 16 (CI
-matrix per-service avec son propre `sonar.projectKey`).
+Commit `43cae64` (`chore(backend): exclude extracted service scaffolds
+from Sonar new-code gates`) ajoute le glob `services/*-service/**/*`
+aux properties `sonar.cpd.exclusions` ET `sonar.coverage.exclusions`
+du parent POM. Sonar Cloud a confirmé "Quality Gate passed for
+'unige-events-backend'" (commentaire bot du 2026-05-09T01:54:20Z, PR
+#158). Les exclusions deviennent no-ops à PR 14 (legacy supprimé) ou à
+PR 16 (CI matrix per-service avec son propre `sonar.projectKey`).
 
-### Note Sonar : Quality Gate FAILED (attendu — résolu à step 15)
+### Image upload migration (commit `<this PR>`) — prerequisite for PR 14
 
-Le run Sonar de PR #158 marque le projet `unige-events-backend` rouge :
+Pour pouvoir supprimer `legacy-monolith` à PR 14, les endpoints upload
+d'image doivent migrer vers user-service / event-service. Livré ici :
 
-| Métrique | Mesuré | Seuil | Cause |
-|---|---|---|---|
-| Coverage on New Code | 66.6 % | ≥ 80 % | Les 10 modules extraits ne portent que le sentinel `ServiceIdentityResourceTest`. Les tests réels vivent dans `legacy-monolith` (pour les copies legacy) ; en porter une copie pour chaque module = duplication temporaire effacée à step 15. |
-| Duplication on New Code | 7.2 % | ≤ 3 % | Volontaire — soft-extraction copie le code byte-pour-byte de `legacy-monolith` vers les nouveaux modules. La duplication s'évanouit dès que `legacy-monolith` est supprimé (step 15). |
+- **user-service** : ajout `quarkus-amazon-s3` + `url-connection-client`
+  au POM, AppConfig (s3.url + s3.bucket), ImageFormat util, FileTooLargeException
+  + InvalidFileTypeException + leurs ExceptionMappers, FileStorageService
+  carbon-copy de legacy. UserService extends avec `uploadImage` /
+  `uploadBanner` / `deleteAvatar` / `deleteBanner`. UserResource expose
+  POST/DELETE `/users/me/image` et `/users/me/banner`.
+- **event-service** : même set + `uploadImage` méthode sur EventService
+  (cascade créateur OR co-organizer ACCEPTED OR admin), POST
+  `/events/{id}/image` sur EventResource. Constante `ROLE_ADMIN` extraite
+  pour éviter la duplication du litéral.
+- **Kong** : ajout des routes `/api/users/me/image$` + `/api/users/me/banner$`
+  → user-service (listées AVANT le `/api/users/[^/]+$` plus large pour
+  la spécificité regex) ; ajout de `/api/events/(?:\d+)/image$` →
+  event-service (listée avant `/api/events/(?:\d+)$`).
+- **Trade-off duplication** : FileStorageService + ImageFormat + 2
+  exceptions + 2 mappers existent en double (user-service ET
+  event-service). C'est la même tension que le reste de la
+  soft-extraction ; les deux copies vivent dans `services/*-service/**`
+  qui est déjà exclu par le glob Sonar. Une consolidation via lib
+  partagée (`services/shared-storage/`) sera proposée en
+  post-migration s'il y a appétit.
 
-Décision (alignée avec la spec) : **ne rien faire dans cette PR**. Les
-deux métriques redeviennent vertes mécaniquement quand step 15 (PR 14
-de la roadmap) supprime `services/legacy-monolith/`. Step 17 (PR 16)
-remplace le `sonar.projectKey` unique par un par-service, ce qui évite
-de remettre la dette dans la même cellule.
+État après cette PR : **legacy-monolith ne sert plus aucun trafic via
+Kong**. Le catch-all `/api → http://api:8080` peut être retiré dans la
+PR de step 15 (legacy-monolith removal) sans casser d'endpoint.
 
 ### Note CI : transient image-pull failure sur PR 4 (calendar-service)
 

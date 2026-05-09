@@ -26,6 +26,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -54,6 +55,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class EventService {
 
+    @Inject FileStorageService fileStorageService;
     @Inject EntityManager entityManager;
 
     @Transactional
@@ -405,6 +407,20 @@ public class EventService {
         event.status = EventStatus.PUBLISHED;
         long attPublish = countAttending(id);
         return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id), null, null);
+    }
+
+    @Transactional
+    public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
+        Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
+
+        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+            throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can upload a banner");
+        }
+
+        event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners",
+                FileStorageService.MAX_BANNER_BYTES, event.bannerUrl);
+        long attUpload = countAttending(id);
+        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id), null, null);
     }
 
     private static List<String> collectPublishValidationErrors(Event event) {

@@ -12,12 +12,12 @@
     <!--
       user-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 12. Owns the `users` + `user_interests`
-      tables. In S8 soft-extraction mode it serves GET /users/me +
-      PUT /users/me + GET /users/{id} ; the image/banner upload endpoints
-      stay on legacy-monolith for now (FileStorageService + S3 deps not
-      pulled into user-service ; routes /me/image and /me/banner remain
-      on the catch-all). A follow-up cleanup PR will migrate the upload
-      endpoints once event-service ships its FileStorageService dep.
+      tables. Serves GET /users/me + PUT /users/me + GET /users/{id} +
+      POST/DELETE /users/me/image + POST/DELETE /users/me/banner.
+      The image/banner endpoints carry their own FileStorageService +
+      S3 wiring (via quarkus-amazon-s3 + url-connection-client) — same
+      shape as event-service's banner handler ; the duplication is the
+      soft-extraction trade-off documented in the migration roadmap.
     -->
 
     <artifactId>user-service</artifactId>
@@ -35,6 +35,10 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-validator</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-openapi</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
+
+        <!-- ── Image upload (avatar + banner) — needs S3 + URL conn client ──── -->
+        <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
 
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>

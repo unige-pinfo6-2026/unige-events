@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -31,26 +32,24 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * In S8 soft-extraction mode this resource exposes the core /events/*
- * paths. The image upload endpoint POST /{id}/image stays on
- * legacy-monolith because the FileStorageService + S3 wiring isn't
- * ported in this PR (cf. PR 12 user-service for the same trade-off) ;
- * a follow-up cleanup PR migrates uploads once the chart is stable.
- *
- * <p>The legacy {@code @PerUserRateLimit} annotations are dropped — the
- * interceptor lives in legacy-monolith. Restored at PR 14 cleanup
- * (cf. PR 3 commit message).
+ * Core /events/* paths. The legacy {@code @PerUserRateLimit} annotations
+ * are dropped — the interceptor lives in legacy-monolith. Restored at
+ * PR 14 cleanup (cf. PR 3 commit message).
  */
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class EventResource {
+
+    private static final String ROLE_ADMIN = "ADMIN";
 
     private final EventService eventService;
     private final SecurityIdentity identity;
@@ -114,7 +113,7 @@ public class EventResource {
     @PermitAll
     public Response getById(@PathParam("id") Long id) {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
-        boolean isAdmin = !identity.isAnonymous() && identity.hasRole("ADMIN");
+        boolean isAdmin = !identity.isAnonymous() && identity.hasRole(ROLE_ADMIN);
         EventDTO event = eventService.getById(id, auth0Id, isAdmin);
         return Response.ok(event).build();
     }
@@ -127,7 +126,7 @@ public class EventResource {
             @QueryParam("page") @DefaultValue("0") @Min(0) int page,
             @QueryParam("size") @DefaultValue("52") @Positive @Max(52) int size) {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
-        boolean isAdmin = !identity.isAnonymous() && identity.hasRole("ADMIN");
+        boolean isAdmin = !identity.isAnonymous() && identity.hasRole(ROLE_ADMIN);
         return eventService.getOccurrences(id, auth0Id, isAdmin, page, size);
     }
 
@@ -172,8 +171,22 @@ public class EventResource {
     @Authenticated
     public Response publish(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
-        boolean isAdmin = identity.hasRole("ADMIN");
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
         EventDTO published = eventService.publish(id, auth0Id, isAdmin);
         return Response.ok(published).build();
+    }
+
+    @POST
+    @Path("/{id}/image")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Authenticated
+    public Response uploadImage(@PathParam("id") Long id, @RestForm("file") FileUpload file) {
+        if (file == null) {
+            throw new BadRequestException("Missing required form field: file");
+        }
+        String auth0Id = identity.getPrincipal().getName();
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
+        EventDTO updated = eventService.uploadImage(id, auth0Id, file, isAdmin);
+        return Response.ok(updated).build();
     }
 }

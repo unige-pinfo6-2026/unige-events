@@ -164,6 +164,11 @@ data:
               - ~/api/events/(?:\d+)/publish$
             strip_path: false
             preserve_host: true
+          - name: events-image
+            paths:
+              - ~/api/events/(?:\d+)/image$
+            strip_path: false
+            preserve_host: true
           - name: events-by-id
             paths:
               - ~/api/events/(?:\d+)$
@@ -176,12 +181,14 @@ data:
             preserve_host: true
 
       # ───── PR 12 — user-service (extracted) ─────────────────────────────
-      # GET/PUT /api/users/me + GET /api/users/{uuid}. The /me/image and
-      # /me/banner uploads stay on legacy-monolith via the catch-all (their
-      # FileStorageService + S3 wiring isn't ported yet). The other /me/*
-      # paths (calendar-token, follow-requests, co-organizer-invitations,
-      # events, attendances, participations, favorites) keep their
-      # per-service routes thanks to longer regex specificity.
+      # GET/PUT /api/users/me + GET /api/users/{uuid} + POST/DELETE
+      # /api/users/me/image + POST/DELETE /api/users/me/banner. The /me/image
+      # and /me/banner regexes are listed BEFORE the /[^/]+$ catch so Kong
+      # matches them first (regex specificity : an explicit literal beats
+      # a single-segment wildcard). The other /me/* paths (calendar-token,
+      # follow-requests, co-organizer-invitations, events, attendances,
+      # participations, favorites) keep their per-service routes via even
+      # more specific regexes.
       #
       # NB: the regex /api/users/[^/]+$ ALSO matches /api/users/me, but
       # that's intentional — both targets land on user-service which
@@ -193,6 +200,16 @@ data:
         read_timeout: 30000
         write_timeout: 30000
         routes:
+          - name: user-image
+            paths:
+              - ~/api/users/me/image$
+            strip_path: false
+            preserve_host: true
+          - name: user-banner
+            paths:
+              - ~/api/users/me/banner$
+            strip_path: false
+            preserve_host: true
           - name: user-by-id
             paths:
               - ~/api/users/[^/]+$

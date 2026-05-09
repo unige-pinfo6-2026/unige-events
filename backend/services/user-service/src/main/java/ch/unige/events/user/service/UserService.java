@@ -18,20 +18,23 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Same contract as the legacy UserService minus the image / banner upload
- * methods (those stay on legacy-monolith for S8 — FileStorageService and
- * its S3 deps are pulled into event-service at PR 13). The follower /
+ * Same contract as the legacy UserService. Image / banner upload methods
+ * carry their own S3 wiring via {@link FileStorageService} (carbon-copied
+ * from legacy and re-rooted in this module's package — same code lives
+ * in event-service for the event banner upload). The follower /
  * followStatus enrichment uses the local FollowStub ; will become a REST
  * call to follow-service in a follow-up cleanup.
  */
 @ApplicationScoped
 public class UserService {
 
+    @Inject FileStorageService fileStorageService;
     @Inject Instance<EntityManager> entityManager;
 
     @Transactional
@@ -129,6 +132,41 @@ public class UserService {
             throw exception;
         }
 
+        return user;
+    }
+
+    @Transactional
+    public User uploadImage(String auth0Id, FileUpload fileUpload) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.avatarUrl = fileStorageService.saveImage(fileUpload, "users/avatars",
+                FileStorageService.MAX_AVATAR_BYTES, user.avatarUrl);
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User uploadBanner(String auth0Id, FileUpload fileUpload) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.bannerUrl = fileStorageService.saveImage(fileUpload, "users/banners",
+                FileStorageService.MAX_BANNER_BYTES, user.bannerUrl);
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User deleteAvatar(String auth0Id) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        fileStorageService.deleteObject(user.avatarUrl, "users/avatars");
+        user.avatarUrl = null;
+        flushEntityManager();
+        return user;
+    }
+
+    @Transactional
+    public User deleteBanner(String auth0Id) {
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+        user.bannerUrl = null;
+        flushEntityManager();
         return user;
     }
 
