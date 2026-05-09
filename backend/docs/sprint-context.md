@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 13 services réellement extraits ✅, 0 restant.**
+**Étapes 2..14 — 13 services réellement extraits ✅, 0 restant. Step 15 (legacy-monolith removal) ✅.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -263,6 +263,37 @@ d'image doivent migrer vers user-service / event-service. Livré ici :
 État après cette PR : **legacy-monolith ne sert plus aucun trafic via
 Kong**. Le catch-all `/api → http://api:8080` peut être retiré dans la
 PR de step 15 (legacy-monolith removal) sans casser d'endpoint.
+
+### Step 15 — Legacy-monolith removal (commit `<this PR>`) ✅
+
+Le strangler-fig est complet. Cette PR exécute la suppression bloc :
+
+- `git rm -r backend/services/legacy-monolith` (~370 fichiers Java + tests
+  + migrations Flyway V1..V17 + Dockerfiles).
+- `git rm -r k8s/chart/templates/api/` (Deployment + Service du monolithe).
+- `backend/pom.xml` retire `<module>services/legacy-monolith</module>` —
+  reactor passe de 15 à 14 modules.
+- `k8s/chart/values.yaml` + `values-preview.yaml` retirent la section
+  `api: { resources: ... }`.
+- `k8s/chart/values.yaml` retire `image.api.name = unige-events-api` ;
+  **garde** `image.api.tag` qui est resté la propriété "shared github.sha"
+  référencée par tous les Deployment templates des microservices (le
+  rename en `image.tag` propre est différé à la PR 16 / CI matrix pour
+  ne pas churn 14 templates ici).
+- `k8s/chart/templates/kong/configmap-routes.yaml` retire le bloc
+  `monolith-api` + sa route `api-catchall /api`. Conséquence : un path
+  `/api/*` qui ne matche aucune des regex per-service retourne désormais
+  un 404 Kong (correct — il n'y a plus de fallback monolithe).
+- `.github/workflows/deploy.yml` n'est PAS modifié — il continue de
+  passer `--set image.api.tag="${{ github.sha }}"` qui fixe la propriété
+  partagée pour tous les microservices.
+
+Résultat `cd backend && ./mvnw verify -DskipTests` : 14 modules
+microservices SUCCESS, total 1 min 10 s (legacy-monolith faisait ~5 min
+à lui seul). La métrique Sonar `services/*-service/**/*` exclude
+devient une no-op puisque legacy-monolith n'existe plus côté CPD source —
+mais on la laisse en place jusqu'à PR 16 (CI matrix per-service avec
+projectKey distinct), où elle disparaîtra complètement.
 
 ### Note CI : transient image-pull failure sur PR 4 (calendar-service)
 

@@ -24,16 +24,6 @@ minio:
       memory: "256Mi"
       ephemeral-storage: "256Mi"
 
-api:
-  resources:
-    requests:
-      cpu: "50m"
-      memory: "256Mi"
-      ephemeral-storage: "128Mi"
-    limits:
-      memory: "512Mi"
-      ephemeral-storage: "256Mi"
-
 web:
   resources:
     requests:

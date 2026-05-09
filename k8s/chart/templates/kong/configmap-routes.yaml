@@ -8,29 +8,17 @@ data:
     _format_version: "3.0"
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Routing table — strangler-fig step 0
+    # Routing table — post-migration (PR 14, legacy-monolith removed)
     # ─────────────────────────────────────────────────────────────────────────
-    # At step 0 of the microservices migration (cf. specs_microservices_migration.md
-    # decision 20), 100% of /api/* traffic is forwarded to the legacy monolith
-    # `api:8080`. Subsequent extraction PRs (share-service, view-service, ...)
-    # will rewrite this file to route specific paths to the new services while
-    # the monolith continues to serve the rest.
+    # The strangler-fig is complete : there is no `monolith-api` upstream
+    # and no `api-catchall` route. Every /api/* path is matched by an
+    # explicit per-service regex below ; an unmatched path now returns a
+    # Kong 404 (correct behaviour — there's no legacy fallback to swallow
+    # bad URLs). The 13 service blocks below are listed in the historical
+    # extraction order (PR 1 ... PR 13), not in routing-priority order
+    # (Kong picks the longest matching regex regardless of declaration
+    # order).
     services:
-      - name: monolith-api
-        url: http://api:8080
-        connect_timeout: 5000
-        read_timeout: 60000
-        write_timeout: 60000
-        routes:
-          - name: api-catchall
-            paths:
-              - /api
-            strip_path: false
-            preserve_host: true
-            protocols:
-              - http
-              - https
-
       # ───── PR 1 — share-service (extracted) ─────────────────────────────
       # Routes /api/events/{id}/share + /api/s/{shortCode} to share-service.
       # Kong route matching: regex paths outrank prefix paths, so even

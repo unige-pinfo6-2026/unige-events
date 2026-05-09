@@ -3,17 +3,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!--
-      Step 1 of the microservices migration documented in
-      specs_archives/specs_claude/specs_microservices_migration.md (decision 4).
+      Multi-module Maven layout. Sprint 8 migration documented in
+      specs_archives/specs_claude/specs_microservices_migration.md
+      (decision 4). After step 15 (PR 14 of the roadmap), the legacy
+      Quarkus monolith is gone — every reactor module is a Quarkus
+      microservice owning a bounded-context endpoint group.
 
-      Multi-module Maven layout. The legacy Quarkus monolith now lives under
-      services/legacy-monolith/; subsequent extraction PRs (steps 2..14) carve
-      bounded-context services out of it into services/<service>/ siblings.
-
-      For now only legacy-monolith carries any code or build configuration; the
-      placeholder modules are pom-packaged shells with no <build> section so the
-      parent build is a no-op for them. The CI build still works the same way:
-      `cd backend && ./mvnw verify` traverses every <module> declared below.
+      `cd backend && ./mvnw verify` builds every <module> declared below
+      with the same Quarkus chain ; each service POMs its own image name
+      via application.properties.
     -->
 
     <groupId>ch.unige.events</groupId>
@@ -23,7 +21,6 @@
     <name>UNIGE Events — backend parent</name>
 
     <modules>
-        <module>services/legacy-monolith</module>
         <module>services/user-service</module>
         <module>services/event-service</module>
         <module>services/attendance-service</module>
