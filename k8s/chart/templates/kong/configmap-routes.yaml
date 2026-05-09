@@ -69,8 +69,8 @@ data:
       # ───── PR 3 — favorite-service (extracted) ──────────────────────────
       # Routes POST/DELETE /api/events/{id}/favorite + GET /api/users/me/favorites
       # to favorite-service. The legacy monolith still serves the rest of
-      # /api/users/me/* (calendar-token, attendances, participations) until
-      # those services are extracted.
+      # /api/users/me/* (attendances, participations) until those services
+      # are extracted.
       - name: favorite-service
         url: http://favorite-service:8080
         connect_timeout: 5000
@@ -85,6 +85,33 @@ data:
           - name: my-favorites
             paths:
               - ~/api/users/me/favorites$
+            strip_path: false
+            preserve_host: true
+
+      # ───── PR 4 — calendar-service (extracted) ──────────────────────────
+      # Routes the user's calendar-token endpoints + the public ICS feed
+      # to calendar-service. read_timeout bumped to 60s : the ICS endpoint
+      # bulk-fetches every published event the user is signed up for or
+      # has favorited.
+      - name: calendar-service
+        url: http://calendar-service:8080
+        connect_timeout: 5000
+        read_timeout: 60000
+        write_timeout: 30000
+        routes:
+          - name: calendar-token
+            paths:
+              - ~/api/users/me/calendar-token$
+            strip_path: false
+            preserve_host: true
+          - name: calendar-regen
+            paths:
+              - ~/api/users/me/calendar-token/regenerate$
+            strip_path: false
+            preserve_host: true
+          - name: ics-feed
+            paths:
+              - ~/api/calendar/[^/]+\.ics$
             strip_path: false
             preserve_host: true
 
@@ -172,13 +199,6 @@ data:
       #   routes:
       #     - { name: event-share,       paths: [/api/events/(?:\\d+)/share] }
       #     - { name: shortlink,         paths: [/api/s/[^/]+$] }
-      #
-      # - name: calendar-service
-      #   url: http://calendar-service:8080
-      #   routes:
-      #     - { name: calendar-token,    paths: [/api/users/me/calendar-token] }
-      #     - { name: calendar-regen,    paths: [/api/users/me/calendar-token/regenerate] }
-      #     - { name: ics-feed,          paths: [/api/calendar/[^/]+\\.ics] }
       #
       # - name: notification-service
       #   url: http://notification-service:8080

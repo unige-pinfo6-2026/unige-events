@@ -5,14 +5,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: calendar-service
-    migration-step: scaffold
+    migration-step: extracted
 spec:
-  # Scaffold lives at replicas: 0 until the follow-up extraction PR
-  # populates the Quarkus module under backend/services/calendar-service/ and flips
-  # the Kong route. Until then, no pod is scheduled, no image is pulled,
-  # and the Deployment costs nothing on the cluster — but the Service /
-  # DNS name calendar-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
-  replicas: 0
+  # calendar-service is now active (PR 4 of the extraction roadmap). Kong
+  # routes /api/users/me/calendar-token(/regenerate) and /api/calendar/{token}.ics here.
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: calendar-service

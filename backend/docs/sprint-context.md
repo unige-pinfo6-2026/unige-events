@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 3 services réellement extraits, 10 restants DEFERRED.**
+**Étapes 2..14 — 4 services réellement extraits, 9 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -71,11 +71,23 @@ scope étape 1**.
   `@PerUserRateLimit("events.favorite", max=30)` n'est pas portée — l'intercepteur
   vit dans legacy-monolith ; régression temporaire jusqu'à PR 14 où le
   rate-limit migre vers le plugin Kong ou une lib partagée.
-* ⏳ **PR 4..13 — 10 extractions restantes** (calendar, follow, comment,
-  co-organizer, attendance, report, stats, me-aggregator, user, event)
-  suivent le même pattern : POM jar→quarkus, copy resources/services/
-  entities depuis legacy avec adaptations (stubs read-only pour les tables
-  cross-domaine), Helm replicas:1, Kong route flip. Documentées dans
+* ✅ **PR 4 — `calendar-service` extrait** (commit `<this PR>`). Owns
+  aucun schéma (lecture pure cross-service ; le seul write est la rotation
+  de `users.calendar_token`). Stubs : UserStub écrivable (id + auth0Id +
+  calendarToken + @Version), EventStub read-only (champs nécessaires à
+  IcsBuilder + filtre PUBLISHED), FavoriteStub + AttendanceStub read-only
+  pour le merge `favorites ∪ attendances`. Kong routes
+  `/api/users/me/calendar-token$` (GET) +
+  `/api/users/me/calendar-token/regenerate$` (POST) +
+  `/api/calendar/[^/]+\.ics$` (GET, `@PermitAll`) → `calendar-service:8080`.
+  read_timeout Kong bumpé à 60s (le ICS bulk-fetch peut être large). Image
+  `unige-events-calendar-service:<sha>`. Helm `replicas: 1`. CI Deploy à
+  valider.
+* ⏳ **PR 5..13 — 9 extractions restantes** (follow, comment, co-organizer,
+  attendance, report, stats, me-aggregator, user, event) suivent le même
+  pattern : POM jar→quarkus, copy resources/services/entities depuis legacy
+  avec adaptations (stubs read-only pour les tables cross-domaine), Helm
+  replicas:1, Kong route flip. Documentées dans
   [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
   avec file inventory exact + commit message template par PR.
 
