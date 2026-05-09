@@ -4,6 +4,106 @@ Dernière mise à jour : 2026-05-09
 
 ---
 
+## Sprint 8 — Étape 21 : Clôture finale (finalization-ultimate) — 2026-05-09
+
+Suite directe à Étape 20. Spec exécutée :
+[`specs_archives/specs_claude/specs_microservices_migration_ultimate.md`](../../specs_archives/specs_claude/specs_microservices_migration_ultimate.md)
+(post-audit `audit_pr158_finalization_post.md`, 52 findings adressés).
+
+**Vague 1 — CI/Sonar fixes (2 commits).** CI-001 (sonar `-pl .,<X>`
+résout le « top level project »), CI-002 (consolidation 10→1 cellule
+shared-libs avec scan racine Option B), CI-006 (verify→install
+build-contract-and-e2e). CI-003 conditionnel (continue-on-error retrait)
+**skipped** — pending DevOps validation des 5 SonarCloud projects
+services (devops-handoff item 1).
+
+**Vague 2 — REST clients runtime (4 commits).** REST-001 (URL config
+`quarkus.rest-client.<svc>.url` × 4 services), REST-004/SEC-001
+(NotFoundExceptionMapper dans shared-api-error pour envelope canonique
+`{error:"not_found"}` cross-service), REST-002 (UserAttendancesInternal
+Resource côté engagement-service — Décision B), REST-003 (admin bypass
+UserService.getPublicProfile).
+
+**Vague 3 — Suppression des 13 stubs JPA (5 commits).** Wiring REST
+clients dans engagement (3.1, 3 stubs), moderation (3.2, 3 stubs),
+user (3.3, 3 stubs), event (3.4, 4 stubs). Refactor `@ManyToOne XStub`
+→ `@Column id` sur Comment, Event.creator, Report (Décision F — pas
+de changement de schéma DB). Endpoints providers ajoutés : `GET
+/events/{id}/organizer-uuids` (Décision G), `GET
+/events/_bulk-attendance-summary` (Décision I). Mutation `events.banned`
+déléguée au consumer Kafka (Décision H — fini la mutation cross-schéma).
+Auth0IdResolver gagne `resolveUserUuid(jwt)` lisant le claim `uuid` —
+DevOps doit le configurer côté Auth0 (devops-handoff item 6).
+
+**Vague 4 — Bascule shared libs (3 commits).** DUP-001 + DUP-004
+(4 ApiErrorResponse + 16 enums locaux supprimés, sed sur les imports).
+DUP-002 + DUP-003 (5 ServiceIdentityResource + 2 Timeframe locaux
+supprimés via shared-platform + shared-jaxrs). DUP-005 + DUP-006
+partiel : adoption shared AttendanceDTO via AttendanceDTOMapper +
+EventCapacity.computeAvailableSpots remplaçant 6 copies locales. Les
+4 EventDTO locaux d'event-service restent (déférés S9 — la bascule
+finale via EventDTOMapper requiert un refactor ~30 fichiers, hors
+scope).
+
+**Vague 5 — Tests + couverture (2 commits).** TEST-002 (pact bulk
+EventEngagementBulkAttendancePactTest, 5e contrat consumer-driven),
+TEST-003/KAFKA-001 (EventLifecycleKafkaBridgeTest 3 cas), TEST-004
+(drop ContractTestsScaffoldTest + E2EScaffoldTest), COV-002 (étoffer
+EventDTOTest avec 3 nouveaux tests). TEST-001 partiel (Décision D
+Option 3 pragmatic) : 1 sentinel `prePersist_setsCreatedAt` porté
+avec assertions réelles, 30 sentinels SCRUM-138/144/147 taggés
+`@Tag("legacy-port-s9")` — port complet déféré S9 (~50h test-only,
+devops-handoff item 10).
+
+**Vague 6 — Sécurité (1 commit).** SEC-002 self-check authentifié
+sur `?check-co-org-of=` (Décision C) : le param n'est honoré que si
+caller authentifié + UUID = caller's resolved UUID. Sinon
+silencieusement ignoré → `coOrganizerOf=null`. Ferme l'oracle de
+membership co-organizer.
+
+**Vague 7 — Helm/K8s + dépendances (2 commits).** K8S-001 (livenessProbe
+ajoutée à notification-service deployment, parité avec les 4 actifs)
++ DEP-001 (quarkus-jacoco ajouté à notification-service pom +
+jacoco-maven-plugin block, parité coverage CI matrix).
+
+**Vague 8 — Documentation finale (5 commits).** DOC-001 (devops-handoff
+TL;DR aligné finalization-ultimate + 4 nouveaux items 8-11 documentés).
+DOC-002/003/006/010 (architecture + api-contract + internal-endpoints :
+13/14 → 5 services, report-service → moderation-service, internal-
+endpoints #5 + #6 ajoutés, #4 reformulé, #3 self-check note). DOC-004
+(microservices-migration-roadmap [ARCHIVÉ]). DOC-005 (AGENTS.md root +
+backend/AGENTS.md alignés sur 5 services / 17 modules / Option B).
+Ce commit (8.4) — sprint-context § Étape 21. DOC-008/009/011 +
+TODO-001 (8.5 sed cleanup final + JavaDoc obsolète sur
+AttendanceService).
+
+**Vague 9 — Clôture (1 action).** PR body de #158 réécrit from scratch
+via `gh pr edit --body-file` — description finale autonome, pas de
+tracking de processus.
+
+**Total commits Étape 21** : ~25 (8 vagues + le watch CI final).
+
+**État final des invariants à clôture du Sprint 8** :
+- `git diff --shortstat origin/main HEAD -- frontend/` = **0 ligne** ✅
+- `git diff --shortstat origin/main HEAD -- openapi/` = **0 ligne** ✅
+- 17 modules dans le reactor ✅
+- **0 stub JPA cross-service** ✅ (cible STUB-001 atteinte)
+- 8 hops cross-service couverts par 3 REST clients + URLs câblées ✅
+- 5 pact JSON contracts (+ event-engagement-bulk via Décision I) ✅
+- 5/35 sentinels portés avec assertions réelles (4 RecurrenceGenerator
+  + 1 prePersist) ; 30/35 taggés `@Tag("legacy-port-s9")` (Décision D
+  Option 3) ✅
+- Couverture services métiers ~25-40% L (vs 5-17% pré-Étape 21) ✅
+- Build local SUCCESS sur 17 modules ✅
+- Topology Helm = 5 services (livenessProbe sur les 5) ✅
+- 5 SonarCloud projects services + parent unige-events-backend
+  (Option B) — 5 services à créer côté DevOps (devops-handoff item 1) ✅
+- PR body de #158 reflète l'état final ✅
+
+**PR prête au merge** — Elie merge lui-même quand il valide.
+
+---
+
 ## Sprint 8 — Étape 20 : Finalisation (consolidation 14→5 + CI matrix + docs) — 2026-05-09
 
 Suite directe à la complétion. Spec exécutée : [`specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
