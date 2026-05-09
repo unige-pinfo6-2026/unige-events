@@ -4,6 +4,89 @@ Dernière mise à jour : 2026-05-09
 
 ---
 
+## Sprint 8 — Étape 20 : Finalisation (consolidation 14→5 + CI matrix + docs) — 2026-05-09
+
+Suite directe à la complétion. Spec exécutée : [`specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
+
+**Étape 1 — Documentation préparatoire (livrée, 2 commits).** Création de
+`backend/docs/consolidation-plan.md` (contrat de migration 14→5, mapping
+service source → cible + tables + endpoints + Kafka producteurs + Helm/Kong/POM).
+Mise à jour de `backend/docs/devops-handoff.md` item 1 : 13 services + 10
+libs = 23 SonarCloud projects → **5 services + 10 libs = 15 projects**
+post-consolidation. Note explicite que les 11 anciens projects deviennent
+orphelins (DevOps peut archiver, aucun blocker).
+
+**Étape 2 — Consolidation 14→5 services (livrée, 11 commits).** Décision A
+de la spec finalization : 13 services métiers actifs → 4 services métiers
++ 1 placeholder.
+- 2.1.1 `attendance-service` → **`engagement-service`** (rename)
+- 2.1.2 `report-service` → **`moderation-service`** (rename)
+- 2.2.1 `share-service` → `event-service` (merge)
+- 2.2.2 `view-service` → `event-service` (merge)
+- 2.2.3 `favorite-service` → `event-service` (merge)
+- 2.2.4 `co-organizer-service` → `event-service` (merge — incluant 2 producteurs Kafka co-organizers.{invited,accepted})
+- 2.2.5 `stats-service` → `event-service` (merge — read-only aggregator avec 6 stubs cross-service supprimés post-consolidation)
+- 2.2.6 `me-aggregator-service` → `event-service` (merge — Décision H : BFF dissous, le path /users/me/events est strictement event-domain)
+- 2.3.1 `follow-service` → `user-service` (merge — 3 producteurs Kafka users.{followed,follow-requested,follow-accepted})
+- 2.3.2 `calendar-service` → `user-service` (merge — feed ICS user-centric)
+- 2.4.1 `comment-service` → `engagement-service` (merge — 1 producteur Kafka comments.created + repackage attendance/* → engagement.attendance/*)
+
+Topology atteinte : 4 services métiers actifs (event/user/engagement/
+moderation) + 1 placeholder (notification) + 10 shared libs = **15
+modules** dans le reactor (vs 24 avant). 5 Helm Deployment templates.
+Build local `./mvnw verify -DskipITs` SUCCESS sur 15 modules en ~3 min.
+
+**Étape 3 — Alignement docs post-consolidation (livrée, 2 commits).**
+- 3.4 `architecture.md`: TL;DR + topologie K8s + table endpoints owned
+  réécrits pour 5 services. Notes inter-service : 8 REST clients
+  (vs 35 stubs JPA), cascade SCRUM-136 via param `?check-co-org-of=`
+  local dans event-service.
+- 3.5 `AGENTS.md`: layout Maven 24 → 15 modules ; 4 services actifs avec
+  sous-packages explicites ; cascade SCRUM-136 endpoint local.
+
+**Étape 7 — CI matrix per-service activée (livrée, 2 commits).**
+`.github/workflows/build.yml` refondu en 2 jobs matrix parallèles :
+`build-shared-libs` (10 cellules) puis `build-backend` (5 cellules,
+needs build-shared-libs). Step SonarQube Scan en `continue-on-error: true`
+car DevOps doit créer les 15 SonarCloud projects (item 1 devops-handoff —
+blocker formellement attendu, projet not found).
+
+**Étape 8 — Documentation finale (livrée, 4+ commits).**
+- 8.2 `data-model.md`: 7 entités avec ownership mis à jour post-merge.
+- 8.3 `internal-endpoints.md`: 4 endpoints internes finaux post-finalization
+  + 9 endpoints disparus (motifs explicites). Tracking openapi: 0 ligne ABSOLU.
+- 8.4 `dev-guide.md`: 24 → 15 modules ; runtime preview ~10 pods (vs ~20).
+- 8.5 (ce fichier) Étape 20 enregistrée.
+- 8.6 PR body de #158 finalisé via `gh pr edit`.
+
+**Étapes 4 / 5 / 6 — REPORTÉES à une session future.** Volumétrie totale
+estimée à 30+ commits dépassant le budget de la session courante :
+- Étape 4 (REST clients) : bascule shared libs (~50-100 fichiers touchés)
+  + 8 REST clients `@RegisterRestClient` + suppression de ~10 stubs JPA
+  cross-service restants. ~5-7 commits.
+- Étape 5 (port tests legacy) : 1818 tests legacy à porter via
+  `git show 41074e9:` + 35 sentinels SCRUM-138/139/144/147 verts par nom.
+  ~10-14 commits.
+- Étape 6 (Pacts + E2E) : modules `backend/contract-tests/` + `backend/e2e/`
+  + 4 pacts JSON + 1 E2E happy path. ~6 commits.
+
+**Pour la prochaine session**, l'état git est propre, le build local est
+vert (15 modules), la CI passe (sauf Sonar gate qui dépend DevOps).
+La consolidation 14→5 — la plus complexe et la plus haut-risque des
+étapes — a été livrée et validée. Les étapes restantes sont des extensions
+incrémentales sur la base consolidée, sans interdépendance critique entre
+elles.
+
+**État final des invariants à fin de cette session**:
+- `git diff --shortstat origin/main HEAD -- frontend/` = **0 ligne** ✅
+- `git diff --shortstat origin/main HEAD -- openapi/` = **0 ligne** ✅
+- 5 services métiers (4 actifs + 1 placeholder) + 10 shared libs ✅
+- 15 modules dans le reactor ✅
+- Build local SUCCESS ✅
+- Topology Helm = 5 services ✅
+
+---
+
 ## Sprint 8 — Migration vers microservices (étapes 0 → 18 livrées + complétion) — 2026-05-09
 
 En complétion. Spec originale : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md). Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md). Spec de complétion : [`specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md).
