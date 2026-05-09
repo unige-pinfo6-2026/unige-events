@@ -39,6 +39,9 @@
         <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
         <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
 
+        <!-- ── Kafka producers (events.published, events.cancelled, events.expired) -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-messaging-kafka</artifactId></dependency>
+
         <!-- ── Shared libs ───────────────────────────────────────────────────── -->
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-storage</artifactId><version>${project.version}</version></dependency>
@@ -48,6 +51,10 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-test-security</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jacoco</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.rest-assured</groupId><artifactId>rest-assured</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
+        <!-- In-memory connector swaps the smallrye-kafka connector under
+             %test so the sentinel + producer tests don't need a real broker. -->
+        <dependency><groupId>io.smallrye.reactive</groupId><artifactId>smallrye-reactive-messaging-in-memory</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>

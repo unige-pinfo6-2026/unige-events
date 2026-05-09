@@ -1,6 +1,7 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.ApiErrorResponse;
+import ch.unige.events.event.kafka.EventLifecyclePublisher;
 import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
@@ -58,6 +59,7 @@ public class EventService {
 
     @Inject FileStorageService fileStorageService;
     @Inject EntityManager entityManager;
+    @Inject EventLifecyclePublisher lifecyclePublisher;
 
     @Transactional
     @SuppressWarnings("java:S107")
@@ -354,6 +356,11 @@ public class EventService {
 
         event.status = EventStatus.CANCELLED;
         long attCancel = countAttending(id);
+        // Fire-and-forget Kafka notification — fired from inside the
+        // transaction (so a Kafka outage doesn't fail the user's cancel)
+        // ; downstream consumers re-fetch state via GET /events/{id} if
+        // they need authoritative truth.
+        lifecyclePublisher.cancelled(event.id, event.creator != null ? event.creator.id : null);
         return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id), null, null);
     }
 
@@ -407,6 +414,9 @@ public class EventService {
 
         event.status = EventStatus.PUBLISHED;
         long attPublish = countAttending(id);
+        // Fire-and-forget Kafka notification — see EventService#cancel
+        // for the consistency trade-off.
+        lifecyclePublisher.published(event.id, event.creator != null ? event.creator.id : null);
         return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id), null, null);
     }
 

@@ -1,26 +1,52 @@
 package ch.unige.events.event.service;
 
+import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.event.kafka.EventLifecyclePublisher;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class EventExpirationService {
 
     @Inject EntityManager entityManager;
+    @Inject EventLifecyclePublisher lifecyclePublisher;
 
+    /**
+     * Walk every event still in {@code PUBLISHED} whose {@code endDate}
+     * has elapsed, flip its status to {@code EXPIRED}, and emit a Kafka
+     * notification on {@code events.expired} so downstream consumers
+     * (notification-service when it lands, the dashboard, etc.) can react.
+     *
+     * <p>Iterating row-by-row is more verbose than the previous bulk
+     * UPDATE but lets us emit one Kafka event per transition without a
+     * second SELECT to recover the IDs ; the cron runs hourly with
+     * typically &lt; 100 candidates so the perf hit is negligible.
+     * {@code JOIN FETCH e.creator} avoids a lazy-load proxy hit when we
+     * read the creator's UUID for the payload.
+     */
     @Transactional
     public int expireEvents() {
-        return entityManager.createQuery(
-                "UPDATE Event e SET e.status = :expired, e.updatedAt = :now " +
-                "WHERE e.status = :published AND e.endDate < :now")
-                .setParameter("expired", EventStatus.EXPIRED)
+        LocalDateTime now = LocalDateTime.now();
+        List<Event> candidates = entityManager.createQuery(
+                "SELECT e FROM Event e LEFT JOIN FETCH e.creator " +
+                "WHERE e.status = :published AND e.endDate < :now",
+                Event.class)
                 .setParameter("published", EventStatus.PUBLISHED)
-                .setParameter("now", LocalDateTime.now())
-                .executeUpdate();
+                .setParameter("now", now)
+                .getResultList();
+        for (Event e : candidates) {
+            e.status = EventStatus.EXPIRED;
+            e.updatedAt = now;
+            UUID creatorId = e.creator != null ? e.creator.id : null;
+            lifecyclePublisher.expired(e.id, creatorId);
+        }
+        return candidates.size();
     }
 }
