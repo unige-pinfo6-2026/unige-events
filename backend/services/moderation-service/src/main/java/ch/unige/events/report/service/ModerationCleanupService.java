@@ -1,8 +1,6 @@
 package ch.unige.events.report.service;
 
 import ch.unige.events.report.config.AppConfig;
-import ch.unige.events.report.entity.EventStatus;
-import ch.unige.events.report.entity.EventStub;
 import ch.unige.events.report.entity.ReportStatus;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,16 +10,19 @@ import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Hides events whose PENDING report count has reached the configured
- * auto-hide threshold. Same logic as the legacy
- * ch.unige.events.service.ModerationCleanupService — only the entity
- * names changed (Event → EventStub, Report's owning module is now this
- * service).
+ * auto-hide threshold.
+ *
+ * <p>Étape 3.2 finalization-ultimate (STUB-001 / Décision H): the
+ * {@code EventStub} navigation is replaced by a Long event id; the
+ * auto-ban path fires {@code events.banned} via Kafka (consumer
+ * event-service applies status=BANNED locally — no more cross-schema
+ * mutation).
  */
 @ApplicationScoped
 public class ModerationCleanupService {
@@ -43,23 +44,27 @@ public class ModerationCleanupService {
 
     @Transactional
     public void runCleanup() {
-        Map<EventStub, Long> pendingCounts = fetchPendingReportCounts();
-        List<EventStub> toHide = atOrAboveThreshold(pendingCounts, threshold);
+        Map<Long, Long> pendingCounts = fetchPendingReportCounts();
+        List<Long> toHide = atOrAboveThreshold(pendingCounts, threshold);
         toHide.forEach(this::hide);
         log.infof("ModerationCleanup: %d event(s) auto-hidden (threshold=%d).", toHide.size(), threshold);
     }
 
-    Map<EventStub, Long> fetchPendingReportCounts() {
+    Map<Long, Long> fetchPendingReportCounts() {
         List<Object[]> rows = em.createQuery(
-                "SELECT r.event, COUNT(r) FROM Report r WHERE r.status = :status GROUP BY r.event",
+                "SELECT r.eventId, COUNT(r) FROM Report r WHERE r.status = :status GROUP BY r.eventId",
                 Object[].class
         ).setParameter("status", ReportStatus.PENDING).getResultList();
-        return rows.stream().collect(Collectors.toMap(row -> (EventStub) row[0], row -> (Long) row[1]));
+        Map<Long, Long> result = new HashMap<>();
+        for (Object[] row : rows) {
+            result.put((Long) row[0], (Long) row[1]);
+        }
+        return result;
     }
 
-    static List<EventStub> atOrAboveThreshold(Map<EventStub, Long> pendingCounts, int threshold) {
-        List<EventStub> result = new ArrayList<>();
-        for (Map.Entry<EventStub, Long> entry : pendingCounts.entrySet()) {
+    static List<Long> atOrAboveThreshold(Map<Long, Long> pendingCounts, int threshold) {
+        List<Long> result = new ArrayList<>();
+        for (Map.Entry<Long, Long> entry : pendingCounts.entrySet()) {
             if (entry.getValue() >= threshold) {
                 result.add(entry.getKey());
             }
@@ -67,11 +72,11 @@ public class ModerationCleanupService {
         return result;
     }
 
-    void hide(EventStub event) {
+    void hide(Long eventId) {
         // Auto-ban path: fire events.banned via CDI ; the bridge publishes
         // AFTER_SUCCESS, event-service consumer applies status=BANNED.
         // bannedBy is null — no human admin in the auto-cleanup flow.
         bannedEvent.fire(ch.unige.events.shared.kafka.events.EventBannedEvent.banned(
-                event.id, null, "auto-cleanup-threshold-exceeded"));
+                eventId, null, "auto-cleanup-threshold-exceeded"));
     }
 }

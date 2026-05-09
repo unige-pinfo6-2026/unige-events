@@ -1,17 +1,24 @@
 package ch.unige.events.report.dto;
 
-import ch.unige.events.report.entity.EventStub;
 import ch.unige.events.report.entity.Report;
 import ch.unige.events.report.entity.ReportReason;
 import ch.unige.events.report.entity.ReportStatus;
-import ch.unige.events.report.entity.UserStub;
+import ch.unige.events.shared.domain.dto.EventDTO;
+import ch.unige.events.shared.domain.dto.UserPublicResponse;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
  * Mirror of legacy ReportDTO. The reporter displayName fallback chain
- * (displayName → "first last" → email) is preserved.
+ * (displayName → "first last" → email) is preserved through the
+ * UserPublicResponse projection (which only carries displayName +
+ * avatarUrl post-consolidation, so the "first last" / email fallbacks
+ * become null when the cross-service projection has no display name).
+ *
+ * <p>Étape 3.2 finalization-ultimate (STUB-001 / Décision F): no more
+ * UserStub / EventStub navigation — enrichment is fed in by the
+ * service layer via REST clients to event-service and user-service.
  */
 public record ReportDTO(
         Long id,
@@ -27,46 +34,20 @@ public record ReportDTO(
         LocalDateTime reviewedAt,
         UUID reviewedBy
 ) {
-    public static ReportDTO from(Report r) {
+    public static ReportDTO from(Report r, EventDTO event, UserPublicResponse reporter) {
         return new ReportDTO(
                 r.id,
-                eventId(r.event),
-                eventTitle(r.event),
-                reporterId(r.reporter),
-                reporterDisplayName(r.reporter),
+                r.eventId,
+                event != null ? event.title() : null,
+                r.reporterId,
+                reporter != null ? reporter.displayName() : null,
                 r.reason,
                 r.description,
                 r.status,
                 r.moderationNote,
                 r.createdAt,
                 r.reviewedAt,
-                r.reviewedBy != null ? r.reviewedBy.id : null
+                r.reviewedById
         );
-    }
-
-    private static Long eventId(EventStub event) {
-        return event != null ? event.id : null;
-    }
-
-    private static String eventTitle(EventStub event) {
-        return event != null ? event.title : null;
-    }
-
-    private static UUID reporterId(UserStub reporter) {
-        return reporter != null ? reporter.id : null;
-    }
-
-    private static String reporterDisplayName(UserStub reporter) {
-        if (reporter == null) return null;
-        if (isNotBlank(reporter.displayName)) return reporter.displayName;
-        String first = reporter.firstName != null ? reporter.firstName : "";
-        String last = reporter.lastName != null ? reporter.lastName : "";
-        String combined = (first + " " + last).trim();
-        if (!combined.isEmpty()) return combined;
-        return reporter.email;
-    }
-
-    private static boolean isNotBlank(String s) {
-        return s != null && !s.isBlank();
     }
 }

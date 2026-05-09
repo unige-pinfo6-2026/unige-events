@@ -5,20 +5,24 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
- * Owned by report-service. Carbon-copy of legacy
- * ch.unige.events.entity.Report — same FKs, same constraints, same
- * indexes. Associations point at the local stubs in this module.
+ * Owned by moderation-service. Carbon-copy of legacy
+ * ch.unige.events.entity.Report.
+ *
+ * <p>Décision F finalization-ultimate (Étape 3.2, STUB-001): cross-service
+ * navigations to {@code event} / {@code reporter} / {@code reviewedBy}
+ * are replaced by id-only columns. Underlying foreign keys still point
+ * at {@code events(id)} / {@code users(id)} of the shared schema —
+ * only JPA navigation goes away. Enrichment of event title / reporter
+ * displayName is performed at the service layer via REST clients.
  */
 @Entity
 @Table(
@@ -33,13 +37,11 @@ import java.time.LocalDateTime;
 )
 public class Report extends PanacheEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id", nullable = false)
-    public EventStub event;
+    @Column(name = "event_id", nullable = false)
+    public Long eventId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reporter_id")
-    public UserStub reporter;
+    @Column(name = "reporter_id")
+    public UUID reporterId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -58,9 +60,8 @@ public class Report extends PanacheEntity {
     @Column(name = "reviewed_at")
     public LocalDateTime reviewedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reviewed_by")
-    public UserStub reviewedBy;
+    @Column(name = "reviewed_by")
+    public UUID reviewedById;
 
     @Column(updatable = false)
     public LocalDateTime createdAt;
