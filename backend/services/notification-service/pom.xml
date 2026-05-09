@@ -9,11 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-notification-service</sonar.projectKey>
-        <sonar.projectName>unige-events-notification-service</sonar.projectName>
-    </properties>
-
     <!--
       notification-service — Quarkus skeleton scaffolded by step 2..14 of the migration
       (cf. specs_archives/specs_claude/specs_microservices_migration.md

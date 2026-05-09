@@ -9,11 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-engagement-service</sonar.projectKey>
-        <sonar.projectName>unige-events-engagement-service</sonar.projectName>
-    </properties>
-
     <!--
       engagement-service — renamed from attendance-service per spec
       finalization Décision A (consolidation 14→5) Étape 2.1.1. Owns

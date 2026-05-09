@@ -9,11 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-event-service</sonar.projectKey>
-        <sonar.projectName>unige-events-event-service</sonar.projectName>
-    </properties>
-
     <!--
       event-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 13. Owns the `events` + `event_tags` tables.
