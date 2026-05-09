@@ -6,15 +6,12 @@ image:
   registry: ghcr.io
   org: unige-pinfo6-2026
   pullPolicy: Always
-  # `image.api.tag` is a quirk inherited from the pre-microservices
-  # monorepo : it carries the shared github.sha tag that EVERY service
-  # Deployment template references for its image (because all images
-  # are built and pushed at the same SHA). Renaming it to a less
-  # confusing `image.tag` is deferred to PR 16 (CI matrix per service)
-  # so we don't churn 14 deployment templates here. The `image.api.name`
-  # field is gone — no more `api` Deployment exists.
-  api:
-    tag: latest
+  # `image.tag` carries the shared github.sha tag that every service
+  # Deployment template references (all images are built and pushed at
+  # the same SHA). Per-service tag override is possible at deploy time
+  # via `--set image.<svc>.tag=<sha>` once needed (cf. completion-spec
+  # Étape 12 / SPEC-008 / INFRA-007 — renamed from image.api.tag).
+  tag: latest
   web:
     name: unige-events-web
     tag: latest

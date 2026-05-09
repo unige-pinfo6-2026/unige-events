@@ -28,7 +28,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: stats-service
-          image: {{ .Values.image.registry }}/{{ .Values.image.org }}/unige-events-stats-service:{{ .Values.image.api.tag | default "latest" }}
+          image: {{ .Values.image.registry }}/{{ .Values.image.org }}/unige-events-stats-service:{{ .Values.image.tag | default "latest" }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 8080

@@ -74,31 +74,15 @@
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/jacoco-report/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
 
         <!--
-          Sprint 8 microservices migration — Sonar exclusions on the
-          extracted service scaffolds (`services/*-service/**` — the
-          glob explicitly skips `services/legacy-monolith/` which has
-          no `-service` suffix).
-
-          Why scaffolds, not legacy : the soft-extraction strategy
-          (cf. backend/docs/microservices-migration-roadmap.md) copies
-          legacy code byte-for-byte into each extracted service. Sonar
-          then sees :
-            * 8 %+ Duplication on New Code — every extracted entity /
-              DTO matches the legacy original. Excluding the scaffolds
-              from CPD breaks the pair, the legacy original stays
-              analyzed, the duplicates disappear from the metric.
-            * 60 %+ Coverage on New Code — the scaffolds ship only a
-              sentinel @QuarkusTest. Excluding them from coverage makes
-              the new-code metric ignore them — the legacy originals
-              keep their existing test coverage.
-
-          Both exclusions auto-disappear at PR 14 (legacy removal :
-          `services/*-service/**` becomes the only Java in the reactor,
-          and they'll have proper tests by then or be re-included on a
-          per-service Sonar projectKey, cf. PR 16 of the roadmap).
+          Historical note (HYGIENE-005 / SPEC-019 closed): the Sonar
+          coverage + CPD exclusions on services/*-service/** were
+          removed in the completion étape 12. They were in place during
+          the soft-extraction phase to mask duplicated code that lived
+          simultaneously in legacy-monolith and in the scaffolds. With
+          legacy-monolith removed (commit b570c1b) and the per-service
+          tests being ported (étape 7 of the completion spec), the
+          glob would now mask real coverage gaps instead of duplication.
         -->
-        <sonar.cpd.exclusions>services/*-service/**/*</sonar.cpd.exclusions>
-        <sonar.coverage.exclusions>services/*-service/**/*</sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>

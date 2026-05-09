@@ -58,7 +58,7 @@ jobs:
           helm upgrade --install ${{ env.NAMESPACE }} ./k8s/chart \
             --namespace ${{ env.NAMESPACE }} \
             --create-namespace \
-            --set image.api.tag="${{ github.sha }}" \
+            --set image.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
             --timeout 6m \
             --wait
@@ -132,7 +132,7 @@ jobs:
             --create-namespace \
             -f k8s/chart/values-preview.yaml \
             --set ingress.host="${{ env.PR_HOST }}" \
-            --set image.api.tag="${{ github.sha }}" \
+            --set image.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
             --timeout 6m \
             --wait
