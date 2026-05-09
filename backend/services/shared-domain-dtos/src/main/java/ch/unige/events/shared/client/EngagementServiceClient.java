@@ -1,0 +1,71 @@
+package ch.unige.events.shared.client;
+
+import ch.unige.events.shared.domain.dto.AttendanceDTO;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.tracing.RequestIdClientFilter;
+
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
+import org.eclipse.microprofile.faulttolerance.Fallback;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
+import org.eclipse.microprofile.rest.client.annotation.RegisterProvider;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * REST client for cross-service reads of Attendance entities.
+ *
+ * <p>Producer: engagement-service (host of the {@code attendances} table
+ * post-Étape 2.1.1 rename, plus the {@code comments} table post-2.4.1).
+ *
+ * <p>Consumers: event-service (capacity gating + stats), user-service
+ * (calendar ICS feed enrichment).
+ *
+ * <p>URL: configured per-consumer via
+ * {@code quarkus.rest-client.engagement-service.url=
+ *  ${ENGAGEMENT_SERVICE_URL:http://engagement-service:8080}}.
+ */
+@RegisterRestClient(configKey = "engagement-service")
+@RegisterProvider(RequestIdClientFilter.class)
+public interface EngagementServiceClient {
+
+    /**
+     * Returns count-by-status (ATTENDING + WAITLISTED) for a given event,
+     * used by event-service for capacity gating without pulling rows.
+     */
+    @GET
+    @Path("/events/{eventId}/attendance-summary")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getAttendanceSummaryFallback")
+    AttendanceSummary getAttendanceSummary(@PathParam("eventId") long eventId);
+
+    default AttendanceSummary getAttendanceSummaryFallback(long eventId) {
+        return AttendanceSummary.of(0L, 0L);
+    }
+
+    /**
+     * Returns the user's attendances filtered by status — used by
+     * user-service to project an ICS feed.
+     */
+    @GET
+    @Path("/users/{id}/attendances")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getUserAttendancesFallback")
+    List<AttendanceDTO> getUserAttendances(@PathParam("id") UUID id,
+                                            @QueryParam("status") String status);
+
+    default List<AttendanceDTO> getUserAttendancesFallback(UUID id, String status) {
+        return List.of();
+    }
+}
