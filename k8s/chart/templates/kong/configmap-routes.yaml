@@ -115,6 +115,26 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 6 — comment-service (extracted) ───────────────────────────
+      # Routes /api/events/{id}/comments (POST + GET) + /api/comments/{id}
+      # (DELETE) to comment-service.
+      - name: comment-service
+        url: http://comment-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: event-comments
+            paths:
+              - ~/api/events/(?:\d+)/comments$
+            strip_path: false
+            preserve_host: true
+          - name: comment-direct
+            paths:
+              - ~/api/comments/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 5 — follow-service (extracted) ────────────────────────────
       # Follow / follow-request endpoints. Note: /api/users/me/follow-requests
       # is namespace-anchored at /me/, while /api/users/{uuid}/follow{,ers,ing}
@@ -200,12 +220,6 @@ data:
       #     - { name: co-organizer-userid,  paths: [/api/events/(?:\\d+)/co-organizers/[^/]+$] }
       #     - { name: co-organizer-me,      paths: [/api/events/(?:\\d+)/co-organizers/me/(?:accept|decline)] }
       #     - { name: my-co-org-invites,    paths: [/api/users/me/co-organizer-invitations] }
-      #
-      # - name: comment-service
-      #   url: http://comment-service:8080
-      #   routes:
-      #     - { name: event-comments,    paths: [/api/events/(?:\\d+)/comments] }
-      #     - { name: comment-direct,    paths: [/api/comments/(?:\\d+)] }
       #
       # - name: report-service
       #   url: http://report-service:8080

@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 5 services réellement extraits, 8 restants DEFERRED.**
+**Étapes 2..14 — 6 services réellement extraits, 7 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -98,10 +98,26 @@ scope étape 1**.
   `/api/users/me/follow-requests$` → `follow-service:8080`. Image
   `unige-events-follow-service:<sha>`. Helm `replicas: 1`. Note : le rate-limit
   `follows.follow` 30/min n'est pas porté (idem PR 3). CI Deploy à valider.
-* ⏳ **PR 6..13 — 8 extractions restantes** (comment, co-organizer,
-  attendance, report, stats, me-aggregator, user, event) suivent le même
-  pattern : POM jar→quarkus, copy resources/services/entities depuis legacy
-  avec adaptations (stubs read-only pour les tables cross-domaine), Helm
+* ✅ **PR 6 — `comment-service` extrait** (commit `<this PR>`). Owns
+  `comments` table (top-level + 1-deep replies, FK auto-référence
+  parent_comment_id ON DELETE SET NULL préservée). EventStub read-only
+  (id + status + creatorId), UserStub (id + auth0Id + displayName +
+  avatarUrl), EventCoOrganizerStub avec isAcceptedFor + findAcceptedUserIdsForEvent
+  pour la cascade SCRUM-136. Visibilité ISSUE-92 inlinée dans
+  `CommentService.assertEventVisibleAndLoad` (BANNED → 404 admin-blind,
+  DRAFT/CANCELLED/EXPIRED → 404 non-organizer non-admin) — bascule en
+  REST clients à event-service + co-organizer-service quand ils seront
+  extraits (PR 7 + 13). Branchement par statut pour POST (DRAFT 400,
+  CANCELLED 400, EXPIRED 400) préservé. Kong routes
+  `/api/events/(?:\d+)/comments$` (POST + GET) +
+  `/api/comments/(?:\d+)$` (DELETE) → `comment-service:8080`. Image
+  `unige-events-comment-service:<sha>`. Helm `replicas: 1`. Note : le
+  rate-limit `comments.post` 10/min n'est pas porté (idem PR 3 / PR 5).
+  Kafka `comments.created` producteur DEFERRED. CI Deploy à valider.
+* ⏳ **PR 7..13 — 7 extractions restantes** (co-organizer, attendance,
+  report, stats, me-aggregator, user, event) suivent le même pattern :
+  POM jar→quarkus, copy resources/services/entities depuis legacy avec
+  adaptations (stubs read-only pour les tables cross-domaine), Helm
   replicas:1, Kong route flip. Documentées dans
   [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
   avec file inventory exact + commit message template par PR.
