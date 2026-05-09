@@ -15,7 +15,7 @@ class ServiceIdentityResourceTest {
             .when().get("/__service")
             .then()
             .statusCode(200)
-            .body("service", equalTo("attendance-service"))
+            .body("service", equalTo("engagement-service"))
             .body("status", equalTo("scaffold"));
     }
 }

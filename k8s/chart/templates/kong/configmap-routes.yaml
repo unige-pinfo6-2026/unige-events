@@ -272,11 +272,12 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 8 — attendance-service (extracted) ────────────────────────
+      # ───── PR 8 — engagement-service (renamed from attendance-service) ──
       # Routes the attend / attendees endpoints + /me/attendances and
-      # /me/participations to attendance-service.
-      - name: attendance-service
-        url: http://attendance-service:8080
+      # /me/participations to engagement-service. After step 2.4.1 this
+      # block also serves /api/events/{id}/comments and /api/comments/{id}.
+      - name: engagement-service
+        url: http://engagement-service:8080
         connect_timeout: 5000
         read_timeout: 30000
         write_timeout: 30000

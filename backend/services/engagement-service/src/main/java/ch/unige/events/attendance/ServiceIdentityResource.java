@@ -9,10 +9,12 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.Map;
 
 /**
- * Identity probe for attendance-service. Returned by {@code GET /api/__service}.
+ * Identity probe for engagement-service (renamed from attendance-service in
+ * Étape 2.1.1 of the finalization spec). Returned by {@code GET /api/__service}.
  * Lets Kong / curl confirm which microservice answers a given path
- * during the strangler-fig cutover (cf.
- * specs_archives/specs_claude/specs_microservices_migration.md decision 20).
+ * during the strangler-fig cutover.
+ * NB: package stays {@code ch.unige.events.attendance} until step 2.4.1
+ * which renames the whole tree to {@code ch.unige.events.engagement.*}.
  */
 @Path("/__service")
 @Produces(MediaType.APPLICATION_JSON)
@@ -22,8 +24,8 @@ public class ServiceIdentityResource {
     @PermitAll
     public Map<String, String> identity() {
         return Map.of(
-            "service", "attendance-service",
-            "module", "ch.unige.events:attendance-service",
+            "service", "engagement-service",
+            "module", "ch.unige.events:engagement-service",
             "status", "scaffold");
     }
 }

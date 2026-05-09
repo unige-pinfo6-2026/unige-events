@@ -37,7 +37,7 @@
         <!-- Microservices Quarkus extraits — un par bounded context. -->
         <module>services/user-service</module>
         <module>services/event-service</module>
-        <module>services/attendance-service</module>
+        <module>services/engagement-service</module>
         <module>services/favorite-service</module>
         <module>services/view-service</module>
         <module>services/co-organizer-service</module>
