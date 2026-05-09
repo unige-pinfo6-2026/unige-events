@@ -13,10 +13,9 @@
       event-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 13. Owns the `events` + `event_tags` tables.
       Hosts EventExpirationJob (every 1h, replicas:1 strict). The
-      /events/{id}/image upload + FileStorageService stay on legacy
-      until a follow-up cleanup PR — getting them off legacy requires
-      porting the S3 wiring + ImageFormat util + custom exceptions, not
-      worth bundling here.
+      /events/{id}/image upload reuses the shared FileStorageService from
+      services/shared-storage/ ; the S3 client + URL connection client
+      stay declared here so Quarkus discovers them at build time.
     -->
 
     <artifactId>event-service</artifactId>
@@ -36,12 +35,13 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-scheduler</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
 
-        <!-- ── Shared per-user rate-limit interceptor (issue #98) ────────────── -->
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
-
         <!-- ── Image upload (event banner) — needs S3 + URL conn client ─────── -->
         <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
         <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
+
+        <!-- ── Shared libs ───────────────────────────────────────────────────── -->
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-storage</artifactId><version>${project.version}</version></dependency>
 
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>

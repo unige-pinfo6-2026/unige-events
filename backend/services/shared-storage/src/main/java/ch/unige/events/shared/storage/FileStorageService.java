@@ -1,9 +1,5 @@
-package ch.unige.events.event.service;
+package ch.unige.events.shared.storage;
 
-import ch.unige.events.event.config.AppConfig;
-import ch.unige.events.event.exception.FileTooLargeException;
-import ch.unige.events.event.exception.InvalidFileTypeException;
-import ch.unige.events.event.util.ImageFormat;
 import io.quarkus.logging.Log;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -25,13 +21,16 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * S3-backed image storage. Carbon-copy of legacy
- * ch.unige.events.service.FileStorageService — same MIME validation,
- * size cap, magic-number check, public-read bucket policy. Soft-extracted
- * into event-service for the event banner upload ; a parallel copy
- * lives in user-service for the avatar / banner uploads (the legacy file
- * was a single shared singleton ; soft-extraction prefers duplication
- * over a shared lib until the migration settles).
+ * S3-backed image storage. Carbon-copy of the legacy
+ * {@code ch.unige.events.service.FileStorageService} — same MIME
+ * validation, size cap, magic-number check, public-read bucket policy.
+ *
+ * <p>Originally cloned per-service during the soft-extraction (one copy
+ * in user-service for avatar/banner uploads, another in event-service
+ * for the event banner). This consolidated version replaces both. Each
+ * service's {@code AppConfig} extends {@link StorageConfig} so the
+ * existing {@code app.s3.url} / {@code app.s3.bucket} configuration
+ * keys keep working without churn.
  */
 @ApplicationScoped
 public class FileStorageService {
@@ -43,10 +42,10 @@ public class FileStorageService {
             "File must be a JPEG, PNG, WebP or GIF image";
 
     private final S3Client s3;
-    private final AppConfig config;
+    private final StorageConfig config;
 
     @Inject
-    public FileStorageService(S3Client s3, AppConfig config) {
+    public FileStorageService(S3Client s3, StorageConfig config) {
         this.s3 = s3;
         this.config = config;
     }
@@ -57,6 +56,8 @@ public class FileStorageService {
         } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException ignored) {
             // bucket already exists, no-op
         } catch (Exception e) {
+            // S3 endpoint unreachable in tests — log and continue ; the
+            // upload methods will surface errors when actually called.
             Log.warnf(e, "Failed to ensure bucket '%s' exists at startup", config.s3Bucket());
             return;
         }

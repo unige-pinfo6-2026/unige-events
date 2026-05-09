@@ -1,14 +1,15 @@
 package ch.unige.events.event.config;
 
+import ch.unige.events.shared.storage.StorageConfig;
 import io.smallrye.config.ConfigMapping;
-import io.smallrye.config.WithName;
 
+/**
+ * SmallRye {@code @ConfigMapping} for the {@code app.*} keys consumed by
+ * event-service. Inherits the {@code app.s3.url} + {@code app.s3.bucket}
+ * methods from {@link StorageConfig} — the shared {@code FileStorageService}
+ * resolves its config dependency to this same bean via the inherited
+ * interface type.
+ */
 @ConfigMapping(prefix = "app")
-public interface AppConfig {
-
-    @WithName("s3.url")
-    String s3Url();
-
-    @WithName("s3.bucket")
-    String s3Bucket();
+public interface AppConfig extends StorageConfig {
 }

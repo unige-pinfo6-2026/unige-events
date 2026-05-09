@@ -1,6 +1,7 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.ApiErrorResponse;
+import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
@@ -43,9 +44,9 @@ import java.util.UUID;
  *
  * <p>Notable adaptations for the soft-extraction :
  * <ul>
- *   <li>FileStorageService removed — image upload stays on legacy-monolith
- *       in S8 ({@link #uploadImage} method dropped) ; migrated in a
- *       follow-up cleanup once event-service ships the S3 wiring.</li>
+ *   <li>Image upload delegates to the shared {@link FileStorageService}
+ *       (deduped between user-service and event-service in the
+ *       shared-storage lib).</li>
  *   <li>Cross-domain entities replaced by stubs : {@link AttendanceStub},
  *       {@link EventViewStub}, {@link FavoriteStub},
  *       {@link EventCoOrganizerStub}, {@link UserStub}. The legacy JPQL

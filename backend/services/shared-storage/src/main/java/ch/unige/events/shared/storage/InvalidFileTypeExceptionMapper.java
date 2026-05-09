@@ -1,12 +1,14 @@
-package ch.unige.events.user.exception.mapper;
+package ch.unige.events.shared.storage;
 
-import ch.unige.events.user.dto.ApiErrorResponse;
-import ch.unige.events.user.exception.InvalidFileTypeException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
+/**
+ * {@link InvalidFileTypeException} → {@code 400 Bad Request} +
+ * {@code {"error": "invalid_file_type", "message": ...}}.
+ */
 @Provider
 public class InvalidFileTypeExceptionMapper implements ExceptionMapper<InvalidFileTypeException> {
 
@@ -14,7 +16,7 @@ public class InvalidFileTypeExceptionMapper implements ExceptionMapper<InvalidFi
     public Response toResponse(InvalidFileTypeException exception) {
         return Response.status(Response.Status.BAD_REQUEST)
                 .type(MediaType.APPLICATION_JSON)
-                .entity(new ApiErrorResponse("invalid_file_type", exception.getMessage()))
+                .entity(new StorageErrorBody("invalid_file_type", exception.getMessage()))
                 .build();
     }
 }

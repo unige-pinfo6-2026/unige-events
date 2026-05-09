@@ -14,10 +14,9 @@
       decision 4 + roadmap PR 12. Owns the `users` + `user_interests`
       tables. Serves GET /users/me + PUT /users/me + GET /users/{id} +
       POST/DELETE /users/me/image + POST/DELETE /users/me/banner.
-      The image/banner endpoints carry their own FileStorageService +
-      S3 wiring (via quarkus-amazon-s3 + url-connection-client) — same
-      shape as event-service's banner handler ; the duplication is the
-      soft-extraction trade-off documented in the migration roadmap.
+      The image/banner endpoints reuse the shared FileStorageService
+      from services/shared-storage/ ; the S3 client + URL connection
+      client stay declared here so Quarkus discovers them at build time.
     -->
 
     <artifactId>user-service</artifactId>
@@ -40,8 +39,9 @@
         <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
         <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
 
-        <!-- ── Shared per-user rate-limit interceptor (issue #98) ────────────── -->
+        <!-- ── Shared libs ───────────────────────────────────────────────────── -->
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-storage</artifactId><version>${project.version}</version></dependency>
 
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>

@@ -1,4 +1,4 @@
-package ch.unige.events.event.util;
+package ch.unige.events.shared.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,6 +7,16 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
+/**
+ * MIME → file extension mapping + magic-number validator for the four
+ * image formats accepted by the platform : JPEG, PNG, WebP, GIF.
+ *
+ * <p>{@link #matches(Path, String)} is the security-relevant primitive :
+ * a request that declares {@code Content-Type: image/png} but uploads
+ * SVG bytes (issue ISSUE-91, pentest 2026-04-17 finding 4.13) must be
+ * rejected, regardless of the declared MIME, because content-type
+ * sniffing is a classic vector for stored XSS via SVG payloads.
+ */
 public final class ImageFormat {
 
     public static final Map<String, String> MIME_TO_EXTENSION = Map.of(

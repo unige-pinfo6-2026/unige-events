@@ -1,5 +1,6 @@
 package ch.unige.events.user.service;
 
+import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.dto.PublicProfileView;
 import ch.unige.events.user.dto.UpdateProfileRequest;
 import ch.unige.events.user.entity.FollowStatus;
@@ -25,11 +26,9 @@ import java.util.UUID;
 
 /**
  * Same contract as the legacy UserService. Image / banner upload methods
- * carry their own S3 wiring via {@link FileStorageService} (carbon-copied
- * from legacy and re-rooted in this module's package — same code lives
- * in event-service for the event banner upload). The follower /
- * followStatus enrichment uses the local FollowStub ; will become a REST
- * call to follow-service in a follow-up cleanup.
+ * delegate S3 wiring to the shared {@link FileStorageService}. The
+ * follower / followStatus enrichment uses the local FollowStub ; will
+ * become a REST call to follow-service in a follow-up cleanup.
  */
 @ApplicationScoped
 public class UserService {
