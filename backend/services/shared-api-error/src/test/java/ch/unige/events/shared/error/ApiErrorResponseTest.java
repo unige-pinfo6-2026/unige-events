@@ -1,0 +1,35 @@
+package ch.unige.events.shared.error;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+class ApiErrorResponseTest {
+
+    @Test
+    void recordExposesErrorAndMessage() {
+        ApiErrorResponse r = new ApiErrorResponse("conflict", "Already exists");
+        assertEquals("conflict", r.error());
+        assertEquals("Already exists", r.message());
+    }
+
+    @Test
+    void recordEqualityIsValueBased() {
+        ApiErrorResponse a = new ApiErrorResponse("e", "m");
+        ApiErrorResponse b = new ApiErrorResponse("e", "m");
+        ApiErrorResponse c = new ApiErrorResponse("e", "other");
+        assertEquals(a, b);
+        assertNotEquals(a, c);
+        assertEquals(a.hashCode(), b.hashCode());
+    }
+
+    @Test
+    void recordToStringIncludesFields() {
+        String s = new ApiErrorResponse("not_found", "missing").toString();
+        // Record toString format: ApiErrorResponse[error=not_found, message=missing]
+        // We don't assert exact formatting (JDK-dependent) but require both fields to appear.
+        assert s.contains("not_found");
+        assert s.contains("missing");
+    }
+}

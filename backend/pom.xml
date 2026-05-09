@@ -25,6 +25,7 @@
              d'exclusion Sonar — leur couverture est comptée). -->
         <module>services/shared-rate-limit</module>
         <module>services/shared-storage</module>
+        <module>services/shared-api-error</module>
 
         <!-- Microservices Quarkus extraits — un par bounded context. -->
         <module>services/user-service</module>
