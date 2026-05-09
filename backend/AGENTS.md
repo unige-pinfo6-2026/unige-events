@@ -1,17 +1,17 @@
 # AGENTS.md — unige-events backend
 
 ## Rôle
-Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 — 13 microservices Quarkus 3 + 1 placeholder + 10 shared libs sur PostgreSQL 16 partagé, fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
+Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 + finalisation — **5 services Quarkus 3** (4 actifs + 1 placeholder) + 10 shared libs sur PostgreSQL 16 partagé, fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
 
-Topologie complète + flux requête + table endpoints owned par service : [`docs/architecture.md`](docs/architecture.md). Spec originale : [`../specs_archives/specs_claude/specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md). Spec de complétion (la plus à jour) : [`../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../specs_archives/specs_claude/specs_microservices_migration_completion.md).
+Topologie complète + flux requête + table endpoints owned par service : [`docs/architecture.md`](docs/architecture.md). Spec originale : [`../specs_archives/specs_claude/specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md). Spec de complétion : [`../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../specs_archives/specs_claude/specs_microservices_migration_completion.md). Spec de finalisation (la plus à jour) : [`../specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
 
-## Layout Maven (post-completion)
+## Layout Maven (post-finalisation)
 
-`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare 24 modules sous `backend/services/` :
+`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare **15 modules** sous `backend/services/` (post-consolidation 14→5, Décision A de la spec finalization) :
 
 | Catégorie | Modules | Packaging | Notes |
 |---|---|---|---|
-| **Microservices Quarkus actifs (×13)** | `share-service`, `view-service`, `favorite-service`, `calendar-service`, `follow-service`, `comment-service`, `co-organizer-service`, `attendance-service`, `report-service`, `stats-service`, `me-aggregator-service`, `user-service`, `event-service` | `quarkus` | Owned schema(s) + REST endpoints + Kafka producers/consumers selon le service. Cf. `architecture.md` table par-service. |
+| **Microservices Quarkus actifs (×4)** | `event-service` (sous-packages share, view, favorite, coorganizer, stats, me), `user-service` (sous-packages follow, calendar), `engagement-service` (sous-packages attendance, comment), `moderation-service` | `quarkus` | Owned schema(s) + REST endpoints + Kafka producers/consumers. Cf. `architecture.md` table par-service. |
 | **Placeholder Notification (×1)** | `notification-service` | `jar` | replicas:0 ; SCRUM-99 hors scope S8 (formalisé dans [`docs/devops-handoff.md`](docs/devops-handoff.md)). |
 | **Shared libs Sprint 8 (×2)** | `shared-rate-limit` (`@PerUserRateLimit` + interceptor + state cache), `shared-storage` (`FileStorageService` S3) | `jar` | 100 % couverture tests. Hors glob `<sonar.coverage.exclusions>` du parent. |
 | **Shared libs complétion (×8)** | `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform` | `jar` | Cible ≥ 95 % L / ≥ 90 % B chacune. Décision D de la spec de complétion. |
@@ -19,7 +19,7 @@ Topologie complète + flux requête + table endpoints owned par service : [`docs
 ## Commandes
 
 ```bash
-cd backend && ./mvnw verify              # build + tests complets — 24+ modules, ~5 min
+cd backend && ./mvnw verify              # build + tests complets — 15 modules, ~3-4 min
 cd backend/services/<svc>-service && ../../mvnw quarkus:dev   # dev local par service
 cd backend && ./mvnw -pl services/<svc>-service -am verify    # un service + ses deps
 ```
@@ -38,7 +38,7 @@ Entity (PanacheEntity + JPA)      Cross-service REST client
 PostgreSQL                        HTTP service voisin
 ```
 
-Jamais de saut de couche. La Resource ne touche pas aux entités directement. La logique métier est dans le Service. **Les calls cross-service passent par REST clients `@RegisterRestClient`** (jamais de JPA cross-schema — les 35 stubs ont été supprimés en complétion Étape 5).
+Jamais de saut de couche. La Resource ne touche pas aux entités directement. La logique métier est dans le Service. **Les calls cross-service passent par REST clients `@RegisterRestClient`** (jamais de JPA cross-schema — les 8 couples consumer/provider post-consolidation 14→5 sont matérialisés en Étape 4 de la spec finalization).
 
 Émissions Kafka post-commit via CDI `@Observes(during = TransactionPhase.AFTER_SUCCESS)` (Décision A). Les bridges (`<Domain>KafkaBridge.java`) déclenchent l'`Emitter.send()` après commit JDBC pour éviter les events fantômes sur rollback.
 
@@ -69,7 +69,7 @@ Le rôle ADMIN est porté **exclusivement** par la claim Auth0 (`https://quarkus
 Centralisés derrière les services propriétaires + REST clients (Décision L de la spec de complétion) :
 - **ISSUE-92** (Event DRAFT/CANCELLED retourne 404 aux non-créateurs / non-admins) : règle dans `event-service.EventService.getById`. Les consommateurs propagent le 404.
 - **ISSUE-93** (User profilePublic=false retourne 404 aux non-self / non-admins) : règle dans `user-service.UserService.getPublicProfile`. Les consommateurs propagent le 404.
-- **Cascade SCRUM-136** (`isCreatorOrAcceptedCoOrganizer`) : endpoint REST `co-organizer-service.GET /events/{eventId}/co-organizers/check?userId=` retourne `{accepted: bool}`.
+- **Cascade SCRUM-136** (`isCreatorOrAcceptedCoOrganizer`) : post-consolidation 14→5 (event-service absorbe co-organizer), la cascade est désormais une primitive locale exposée via le query param `GET /events/{id}?check-co-org-of={uuid}` qui retourne `EventDTO` enrichi du champ `coOrganizerOf: bool`. Plus de hop REST cross-service nécessaire.
 
 Les helpers locaux dupliqués des consommateurs ont été supprimés en complétion.
 
@@ -77,7 +77,7 @@ Les helpers locaux dupliqués des consommateurs ont été supprimés en complét
 
 [`openapi/openapi.yaml`](../openapi/openapi.yaml) est la **source de vérité** pour le contrat **public** (monorepo — fichier unique partagé entre frontend et backend).
 
-Les **endpoints internes service-to-service** (par ex. `GET /users/by-auth0/{auth0Id}`, `GET /events/{eventId}/co-organizers/check`, `GET /events/{id}/capacity-summary`) ne sont **pas** dans `openapi.yaml` — ils ne sont pas routés par Kong et ne font pas partie du contrat public. Ils sont documentés dans [`docs/internal-endpoints.md`](docs/internal-endpoints.md) (Décision Q).
+Les **endpoints internes service-to-service** post-finalization (`GET /events/{eventId}/attendance-summary`, `GET /events?ids=…&status=PUBLISHED`, `GET /events/{id}?check-co-org-of={uuid}`, `GET /users/{id}/attendances?status=ATTENDING`) ne sont **pas** dans `openapi.yaml` — ils ne sont pas routés par Kong et ne font pas partie du contrat public. Ils sont documentés dans [`docs/internal-endpoints.md`](docs/internal-endpoints.md). Décision G de la spec finalization annule la dérogation Q — `git diff openapi/` reste à 0 ligne ABSOLU.
 
 Avant d'implémenter un endpoint **public** :
 1. L'ajouter dans `openapi/openapi.yaml` (schémas en camelCase, booléens sans préfixe `is`).
@@ -85,7 +85,7 @@ Avant d'implémenter un endpoint **public** :
 
 ## Observabilité
 
-Chaque service métier (13) embarque :
+Chaque service métier (4 actifs post-consolidation) embarque :
 - `quarkus-logging-json` — logs structurés JSON sur stdout.
 - `quarkus-micrometer-registry-prometheus` — endpoint `/q/metrics` (interne, scraped par Prometheus K8s ; pas exposé Kong).
 - `shared-tracing` — `RequestIdFilter` + `RequestIdClientFilter` qui propagent `X-Request-ID` cross-service via header + MDC.
