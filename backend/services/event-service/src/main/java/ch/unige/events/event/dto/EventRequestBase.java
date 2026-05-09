@@ -14,6 +14,20 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * The {@code startDate} and {@code endDate} fields are deserialized as
+ * {@link LocalDateTime} (no zone) and validated by {@code @Future}
+ * against the JVM default timezone. Downstream {@code EventSearchService}
+ * converts them to {@code Europe/Zurich} for time-range filtering.
+ *
+ * <p>The container TZ is therefore load-bearing: if it drifts from
+ * {@code Europe/Zurich}, the {@code @Future} validation passes for
+ * timestamps that are already past in the canonical zone. Helm pins
+ * {@code TZ=Europe/Zurich} in every Deployment env (see
+ * {@code k8s/chart/templates/<svc>-service/deployment.yaml} — DevOps
+ * handoff item to enforce uniformly). If you bump the container TZ,
+ * also update {@code EventSearchService.SEARCH_ZONE}.
+ */
 public abstract class EventRequestBase {
 
     @NotBlank
