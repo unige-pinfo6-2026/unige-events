@@ -46,13 +46,19 @@ jobs:
           distribution: temurin
           cache: maven
       - name: Build & Test
-        run: ./mvnw -pl services/${{ matrix.lib }} -am verify -B
+        # `install` (vs `verify`) places the shared lib + its inter-lib
+        # dependencies into this runner's local m2 repository so the
+        # follow-up `sonar:sonar` invocation can resolve them — without
+        # `install`, sonar:sonar fails with
+        # "Could not find artifact ch.unige.events:shared-XXX:1.0-SNAPSHOT".
+        run: ./mvnw -pl services/${{ matrix.lib }} -am install -B
       - name: SonarQube Scan
-        # continue-on-error: tant que DevOps n'a pas créé les 15 SonarCloud
-        # projects (cf. backend/docs/devops-handoff.md item 1), ce step
-        # échoue avec "project not found". C'est le blocker DevOps attendu
-        # documenté ; on ne veut pas que ça bloque le build matrix backend
-        # downstream qui dépend de ce job via `needs:`.
+        # continue-on-error: tant que DevOps n'a pas créé les 5 SonarCloud
+        # projects services post-consolidation (Option B — les 10 shared
+        # libs scannent dans le projet unige-events-backend, qui existe
+        # déjà ; cf. backend/docs/devops-handoff.md item 1), ce step
+        # peut échouer côté services. On ne veut pas que ça bloque la
+        # matrix backend downstream qui dépend de ce job via `needs:`.
         continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -95,7 +101,10 @@ jobs:
           # Each module pins its own quarkus.container-image.name in its
           # application.properties, so the reactor builds N images named
           # unige-events-<service>:<sha>.
-          ./mvnw -pl services/${{ matrix.service }}-service -am verify -B \
+          # `install` (vs `verify`) places the service jar + its shared
+          # lib dependencies into this runner's local m2 so the follow-up
+          # sonar:sonar invocation can resolve them.
+          ./mvnw -pl services/${{ matrix.service }}-service -am install -B \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
             -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
