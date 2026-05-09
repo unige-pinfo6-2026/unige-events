@@ -61,7 +61,7 @@ scope étape 1**.
   existence + résoudre auth0Id → userId. Kong route `/api/events/(?:\d+)/view$`
   → `view-service:8080`. Image `unige-events-view-service:<sha>`. Helm
   `replicas: 1`. CI Deploy to Preview vert.
-* ✅ **PR 3 — `favorite-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 3 — `favorite-service` extrait** (commit `8eeaba3`). Owns
   `favorites` table. Stubs read-only EventStub (full record pour fabriquer
   EventDTO sur `GET /users/me/favorites`), UserStub (id + auth0Id),
   AttendanceStub (count grouped by status). Kong routes
@@ -71,7 +71,7 @@ scope étape 1**.
   `@PerUserRateLimit("events.favorite", max=30)` n'est pas portée — l'intercepteur
   vit dans legacy-monolith ; régression temporaire jusqu'à PR 14 où le
   rate-limit migre vers le plugin Kong ou une lib partagée.
-* ✅ **PR 4 — `calendar-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 4 — `calendar-service` extrait** (commit `df19461`). Owns
   aucun schéma (lecture pure cross-service ; le seul write est la rotation
   de `users.calendar_token`). Stubs : UserStub écrivable (id + auth0Id +
   calendarToken + @Version), EventStub read-only (champs nécessaires à
@@ -83,7 +83,7 @@ scope étape 1**.
   read_timeout Kong bumpé à 60s (le ICS bulk-fetch peut être large). Image
   `unige-events-calendar-service:<sha>`. Helm `replicas: 1`. CI Deploy à
   valider.
-* ✅ **PR 5 — `follow-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 5 — `follow-service` extrait** (commit `39d0e56`). Owns
   `follows` table (PENDING/ACCEPTED, FK vers users, uq_follow_follower_followed
   préservée). UserStub read-only avec id + auth0Id + profilePublic +
   champs publics du UserPublicResponse (incluant @ElementCollection
@@ -98,7 +98,7 @@ scope étape 1**.
   `/api/users/me/follow-requests$` → `follow-service:8080`. Image
   `unige-events-follow-service:<sha>`. Helm `replicas: 1`. Note : le rate-limit
   `follows.follow` 30/min n'est pas porté (idem PR 3). CI Deploy à valider.
-* ✅ **PR 6 — `comment-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 6 — `comment-service` extrait** (commit `6a44257`). Owns
   `comments` table (top-level + 1-deep replies, FK auto-référence
   parent_comment_id ON DELETE SET NULL préservée). EventStub read-only
   (id + status + creatorId), UserStub (id + auth0Id + displayName +
@@ -139,7 +139,7 @@ scope étape 1**.
   `/api/users/me/attendances$`, `/api/users/me/participations$` →
   `attendance-service:8080`. Helm `replicas: 1`. Note : rate-limit
   `events.attend` 30/min non porté (idem PR 3). CI Deploy à valider.
-* ✅ **PR 9 — `report-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 9 — `report-service` extrait** (commit `b064170`). Owns
   `reports` table + héberge le `ModerationCleanupJob` (`@Scheduled` cron
   `0 0 3 * * ? Europe/Zurich`, `replicas:1` strict — pas de
   leader-election en S8 ; `%test.quarkus.scheduler.enabled=false` pour
@@ -161,7 +161,7 @@ scope étape 1**.
   des codes d'erreur historiques). Kong route `/api/events/(?:\d+)/stats$`
   → `stats-service:8080`. Image `unige-events-stats-service:<sha>`. Helm
   `replicas: 1`. CI Deploy à valider.
-* ✅ **PR 11 — `me-aggregator-service` extrait** (commit `<this PR>`).
+* ✅ **PR 11 — `me-aggregator-service` extrait** (commit `ba3cfa5`).
   BFF — owns aucun schéma. En S8 soft-extraction sert uniquement
   `/users/me/events` (le seul `/me/*` encore dans legacy ; les autres
   sont déjà routés vers favorite-service / attendance-service depuis
@@ -173,7 +173,7 @@ scope étape 1**.
   Kong route `/api/users/me/events$` → `me-aggregator-service:8080`.
   Image `unige-events-me-aggregator-service:<sha>`. Helm `replicas: 1`.
   CI Deploy à valider.
-* ✅ **PR 12 — `user-service` extrait** (commit `<this PR>`). Owns
+* ✅ **PR 12 — `user-service` extrait** (commit `166b1dd`). Owns
   `users` + `user_interests` (le @ElementCollection EAGER). En S8 sert
   `GET /users/me` (auto-créé depuis claims JWT à la 1ère connexion),
   `PUT /users/me` (update partiel + optimistic lock translation),
@@ -191,7 +191,7 @@ scope étape 1**.
   même classe). Image `unige-events-user-service:<sha>`. Helm
   `replicas: 1`. Note : le rate-limit `users.updateMe` 10/min n'est pas
   porté (idem PR 3). CI Deploy à valider.
-* ✅ **PR 13 — `event-service` extrait** (commit `<this PR>`). La plus
+* ✅ **PR 13 — `event-service` extrait** (commit `f360aff`). La plus
   grosse : owns `events` + `event_tags` (le @ElementCollection). Sert
   toutes les routes `/api/events/*` + `/api/admin/events/{id}/{,un}feature` :
   `GET /events`, `POST /events`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`,
@@ -233,7 +233,7 @@ du parent POM. Sonar Cloud a confirmé "Quality Gate passed for
 #158). Les exclusions deviennent no-ops à PR 14 (legacy supprimé) ou à
 PR 16 (CI matrix per-service avec son propre `sonar.projectKey`).
 
-### Image upload migration (commit `<this PR>`) — prerequisite for PR 14
+### Image upload migration (commit `41074e9`) — prerequisite for PR 14
 
 Pour pouvoir supprimer `legacy-monolith` à PR 14, les endpoints upload
 d'image doivent migrer vers user-service / event-service. Livré ici :
@@ -264,7 +264,7 @@ d'image doivent migrer vers user-service / event-service. Livré ici :
 Kong**. Le catch-all `/api → http://api:8080` peut être retiré dans la
 PR de step 15 (legacy-monolith removal) sans casser d'endpoint.
 
-### Step 15 — Legacy-monolith removal (commit `<this PR>`) ✅
+### Step 15 — Legacy-monolith removal (commit `b570c1b`) ✅
 
 Le strangler-fig est complet. Cette PR exécute la suppression bloc :
 
@@ -295,7 +295,7 @@ devient une no-op puisque legacy-monolith n'existe plus côté CPD source —
 mais on la laisse en place jusqu'à PR 16 (CI matrix per-service avec
 projectKey distinct), où elle disparaîtra complètement.
 
-**Étape 16 partielle — Documentation finale (commit `<this PR>`) ✅**
+**Étape 16 partielle — Documentation finale (commits `912a0e3` + `454cfb3`) ✅**
 
 - `architecture.md` : section « Vue d'ensemble — topologie microservices »
   réécrite avec la table des 13 services + endpoints owned + tables
