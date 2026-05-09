@@ -8,6 +8,7 @@ import ch.unige.events.comment.entity.EventCoOrganizerStub;
 import ch.unige.events.comment.entity.EventStatus;
 import ch.unige.events.comment.entity.EventStub;
 import ch.unige.events.comment.entity.UserStub;
+import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
 public class CommentService {
 
     @Inject SecurityIdentity identity;
+    @Inject jakarta.enterprise.event.Event<CommentCreatedEvent> commentCreatedEvent;
 
     @Transactional
     public CommentDTO post(String auth0Id, Long eventId, CreateCommentRequest request) {
@@ -91,6 +93,10 @@ public class CommentService {
         comment.content = request.content().strip();
         comment.likeCount = 0;
         comment.persist();
+
+        // CDI fire — bridge publishes comments.created AFTER_SUCCESS.
+        commentCreatedEvent.fire(CommentCreatedEvent.created(
+                comment.id, eventId, author.id, parent != null ? parent.id : null));
 
         boolean authorIsOrganizer = isCreatorOrAcceptedCoOrganizer(event, author);
         return CommentDTO.from(comment, authorIsOrganizer);
