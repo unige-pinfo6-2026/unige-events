@@ -1,6 +1,6 @@
 package ch.unige.events.user.dto;
 
-import ch.unige.events.user.entity.FollowStatus;
+import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 
 public record PublicProfileView(

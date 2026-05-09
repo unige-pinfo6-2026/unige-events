@@ -1,6 +1,6 @@
 package ch.unige.events.event.dto;
 
-import ch.unige.events.event.entity.RecurrenceFrequency;
+import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;

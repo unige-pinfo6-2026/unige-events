@@ -1,7 +1,7 @@
 package ch.unige.events.event.kafka;
 
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.kafka.events.EventBannedEvent;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;

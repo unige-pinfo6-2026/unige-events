@@ -1,5 +1,7 @@
 package ch.unige.events.report.entity;
 
+import ch.unige.events.shared.domain.enums.ReportReason;
+import ch.unige.events.shared.domain.enums.ReportStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

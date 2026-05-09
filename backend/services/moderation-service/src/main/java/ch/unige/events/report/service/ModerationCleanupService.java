@@ -1,7 +1,7 @@
 package ch.unige.events.report.service;
 
 import ch.unige.events.report.config.AppConfig;
-import ch.unige.events.report.entity.ReportStatus;
+import ch.unige.events.shared.domain.enums.ReportStatus;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

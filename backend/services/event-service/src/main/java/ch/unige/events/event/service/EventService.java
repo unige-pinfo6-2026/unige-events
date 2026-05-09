@@ -1,15 +1,15 @@
 package ch.unige.events.event.service;
 
-import ch.unige.events.event.dto.ApiErrorResponse;
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
 import ch.unige.events.event.dto.UpdateEventRequest;
-import ch.unige.events.event.entity.AttendanceStatus;
+import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.EventCategory;
-import ch.unige.events.event.entity.EventStatus;
-import ch.unige.events.event.entity.Faculty;
+import ch.unige.events.shared.domain.enums.EventCategory;
+import ch.unige.events.shared.domain.enums.EventStatus;
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.event.util.RecurrenceGenerator;

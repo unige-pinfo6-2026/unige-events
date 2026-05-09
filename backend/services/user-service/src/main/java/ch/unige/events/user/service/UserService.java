@@ -3,7 +3,7 @@ package ch.unige.events.user.service;
 import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.dto.PublicProfileView;
 import ch.unige.events.user.dto.UpdateProfileRequest;
-import ch.unige.events.user.entity.FollowStatus;
+import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.follow.entity.Follow;
 import ch.unige.events.user.entity.User;
 

@@ -1,6 +1,6 @@
 package ch.unige.events.event.coorganizer.entity;
 
-import ch.unige.events.event.entity.CoOrganizerStatus;
+import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

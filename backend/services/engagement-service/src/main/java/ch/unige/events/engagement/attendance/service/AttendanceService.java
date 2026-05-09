@@ -1,9 +1,9 @@
 package ch.unige.events.engagement.attendance.service;
 
-import ch.unige.events.engagement.attendance.dto.ApiErrorResponse;
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
 import ch.unige.events.engagement.attendance.entity.Attendance;
-import ch.unige.events.engagement.attendance.entity.AttendanceStatus;
+import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.engagement.attendance.entity.Timeframe;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;

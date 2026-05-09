@@ -1,10 +1,10 @@
 package ch.unige.events.event.coorganizer.service;
 
-import ch.unige.events.event.dto.ApiErrorResponse;
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerDTO;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerInvitationDTO;
 import ch.unige.events.event.coorganizer.dto.EventDTO;
-import ch.unige.events.event.entity.CoOrganizerStatus;
+import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.client.EngagementServiceClient;

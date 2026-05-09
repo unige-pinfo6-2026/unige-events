@@ -1,7 +1,7 @@
 package ch.unige.events.event.dto;
 
-import ch.unige.events.event.entity.EventCategory;
-import ch.unige.events.event.entity.Faculty;
+import ch.unige.events.shared.domain.enums.EventCategory;
+import ch.unige.events.shared.domain.enums.Faculty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;

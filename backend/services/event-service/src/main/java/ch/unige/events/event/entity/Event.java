@@ -1,5 +1,8 @@
 package ch.unige.events.event.entity;
 
+import ch.unige.events.shared.domain.enums.EventCategory;
+import ch.unige.events.shared.domain.enums.EventStatus;
+import ch.unige.events.shared.domain.enums.Faculty;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;

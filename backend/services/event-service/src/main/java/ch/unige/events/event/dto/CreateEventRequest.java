@@ -1,6 +1,6 @@
 package ch.unige.events.event.dto;
 
-import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import jakarta.validation.Valid;
 
 public class CreateEventRequest extends EventRequestBase {

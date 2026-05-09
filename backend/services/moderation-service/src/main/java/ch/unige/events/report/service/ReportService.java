@@ -1,11 +1,11 @@
 package ch.unige.events.report.service;
 
-import ch.unige.events.report.dto.ApiErrorResponse;
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.report.dto.CreateReportRequest;
 import ch.unige.events.report.dto.HandleReportRequest;
 import ch.unige.events.report.dto.ReportDTO;
 import ch.unige.events.report.entity.Report;
-import ch.unige.events.report.entity.ReportStatus;
+import ch.unige.events.shared.domain.enums.ReportStatus;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;

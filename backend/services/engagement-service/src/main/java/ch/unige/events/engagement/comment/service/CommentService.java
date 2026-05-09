@@ -1,6 +1,6 @@
 package ch.unige.events.engagement.comment.service;
 
-import ch.unige.events.engagement.attendance.dto.ApiErrorResponse;
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.engagement.comment.dto.CommentDTO;
 import ch.unige.events.engagement.comment.dto.CreateCommentRequest;
 import ch.unige.events.engagement.comment.entity.Comment;

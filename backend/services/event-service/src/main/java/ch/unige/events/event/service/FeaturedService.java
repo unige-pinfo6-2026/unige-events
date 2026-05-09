@@ -2,7 +2,7 @@ package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -1,6 +1,6 @@
 package ch.unige.events.user.follow.entity;
 
-import ch.unige.events.user.entity.FollowStatus;
+import ch.unige.events.shared.domain.enums.FollowStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

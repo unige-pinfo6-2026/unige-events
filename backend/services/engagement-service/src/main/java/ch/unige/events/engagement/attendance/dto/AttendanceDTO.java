@@ -1,7 +1,7 @@
 package ch.unige.events.engagement.attendance.dto;
 
 import ch.unige.events.engagement.attendance.entity.Attendance;
-import ch.unige.events.engagement.attendance.entity.AttendanceStatus;
+import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 
 import java.time.LocalDateTime;

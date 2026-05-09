@@ -1,8 +1,8 @@
 package ch.unige.events.event.resource;
 
 import ch.unige.events.event.dto.EventDTO;
-import ch.unige.events.event.entity.EventCategory;
-import ch.unige.events.event.entity.Faculty;
+import ch.unige.events.shared.domain.enums.EventCategory;
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.event.service.EventSearchService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;

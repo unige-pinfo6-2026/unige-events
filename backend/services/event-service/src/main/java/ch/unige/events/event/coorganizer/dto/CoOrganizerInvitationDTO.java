@@ -1,6 +1,6 @@
 package ch.unige.events.event.coorganizer.dto;
 
-import ch.unige.events.event.entity.CoOrganizerStatus;
+import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 
 import java.time.LocalDateTime;

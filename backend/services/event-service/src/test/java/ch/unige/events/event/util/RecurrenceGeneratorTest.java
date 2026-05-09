@@ -1,6 +1,6 @@
 package ch.unige.events.event.util;
 
-import ch.unige.events.event.entity.RecurrenceFrequency;
+import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

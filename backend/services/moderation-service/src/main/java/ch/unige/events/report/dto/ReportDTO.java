@@ -1,8 +1,8 @@
 package ch.unige.events.report.dto;
 
 import ch.unige.events.report.entity.Report;
-import ch.unige.events.report.entity.ReportReason;
-import ch.unige.events.report.entity.ReportStatus;
+import ch.unige.events.shared.domain.enums.ReportReason;
+import ch.unige.events.shared.domain.enums.ReportStatus;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 

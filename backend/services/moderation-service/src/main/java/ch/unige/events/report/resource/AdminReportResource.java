@@ -2,7 +2,7 @@ package ch.unige.events.report.resource;
 
 import ch.unige.events.report.dto.HandleReportRequest;
 import ch.unige.events.report.dto.ReportDTO;
-import ch.unige.events.report.entity.ReportStatus;
+import ch.unige.events.shared.domain.enums.ReportStatus;
 import ch.unige.events.report.service.ReportService;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;

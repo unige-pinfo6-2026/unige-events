@@ -1,7 +1,7 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

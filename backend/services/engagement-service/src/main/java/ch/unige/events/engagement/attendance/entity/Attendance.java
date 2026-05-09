@@ -1,5 +1,6 @@
 package ch.unige.events.engagement.attendance.entity;
 
+import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,7 +1,7 @@
 package ch.unige.events.event.me.resource;
 
 import ch.unige.events.event.me.dto.EventDTO;
-import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.event.me.service.MyEventsService;
 
 import io.quarkus.security.Authenticated;
