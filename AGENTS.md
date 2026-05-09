@@ -9,21 +9,21 @@ Chaque sous-projet possède son propre `AGENTS.md` avec les conventions, command
 | Dossier | Stack | AGENTS.md |
 |---|---|---|
 | `frontend/` | React 19 · TypeScript · Vite · Nginx | [`frontend/AGENTS.md`](frontend/AGENTS.md) |
-| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 13 microservices Quarkus livrés au Sprint 8 + 1 scaffold `notification-service` (replicas:0, follow-up SCRUM-99) + 10 shared libs (`shared-rate-limit`, `shared-storage`, `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform`) — cf. [`specs_archives/specs_claude/specs_microservices_migration_completion.md`](specs_archives/specs_claude/specs_microservices_migration_completion.md) | [`backend/AGENTS.md`](backend/AGENTS.md) |
+| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 5 services métiers Quarkus livrés au Sprint 8 (4 actifs + 1 scaffold `notification-service` replicas:0, follow-up SCRUM-99) + 10 shared libs (`shared-rate-limit`, `shared-storage`, `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform`) + `contract-tests` + `e2e` = **17 modules** dans le reactor — cf. [`specs_archives/specs_claude/specs_microservices_migration_ultimate.md`](specs_archives/specs_claude/specs_microservices_migration_ultimate.md) | [`backend/AGENTS.md`](backend/AGENTS.md) |
 
 ### Architecture backend post-migration (Sprint 8)
 
-Le backend est découpé en 13 microservices sous `backend/services/<svc>-service/` :
+Le backend est découpé en 5 services métiers sous `backend/services/<svc>-service/` post-consolidation 14→5 (Étape 2 finalization) :
 
-`share-service`, `view-service`, `favorite-service`, `calendar-service`,
-`follow-service`, `comment-service`, `co-organizer-service`,
-`attendance-service`, `report-service`, `stats-service`,
-`me-aggregator-service`, `user-service`, `event-service`.
+`event-service`, `user-service`, `engagement-service`,
+`moderation-service`, `notification-service` (placeholder).
 
 Trafic `/api/*` routé via **Kong API Gateway** (DB-less, ConfigMap déclarative).
 Topologie complète + table endpoints owned par service :
 [`backend/docs/architecture.md`](backend/docs/architecture.md). Plan de
-migration archivé :
+consolidation 14→5 :
+[`backend/docs/consolidation-plan.md`](backend/docs/consolidation-plan.md).
+Plan de migration archivé :
 [`specs_archives/specs_claude/specs_microservices_migration.md`](specs_archives/specs_claude/specs_microservices_migration.md).
 
 ## Contrat API partagé

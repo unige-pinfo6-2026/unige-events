@@ -1,5 +1,14 @@
 # Microservices Migration — Per-Service Roadmap
 
+> **[ARCHIVÉ — 2026-05-09]** Ce document trace l'historique de la
+> migration Sprint 8, désormais **livrée intégralement**. État final :
+> 5 services métiers + 10 shared libs + contract-tests + e2e = 17
+> modules. Pour la topologie post-finalization, voir
+> [`architecture.md`](architecture.md) ; pour le mapping 14→5, voir
+> [`consolidation-plan.md`](consolidation-plan.md) ; pour la spec
+> ultime, voir
+> [`../../specs_archives/specs_claude/specs_microservices_migration_ultimate.md`](../../specs_archives/specs_claude/specs_microservices_migration_ultimate.md).
+
 Dernière mise à jour : 2026-05-09
 
 > **Note** : ce document a été rédigé **avant** les 13 extractions et

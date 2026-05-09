@@ -7,7 +7,7 @@ Topologie complète + flux requête + table endpoints owned par service : [`docs
 
 ## Layout Maven (post-finalisation)
 
-`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare **15 modules** sous `backend/services/` (post-consolidation 14→5, Décision A de la spec finalization) :
+`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare **17 modules** sous `backend/services/` (post-consolidation 14→5, Décision A de la spec finalization) :
 
 | Catégorie | Modules | Packaging | Notes |
 |---|---|---|---|
@@ -19,7 +19,7 @@ Topologie complète + flux requête + table endpoints owned par service : [`docs
 ## Commandes
 
 ```bash
-cd backend && ./mvnw verify              # build + tests complets — 15 modules, ~3-4 min
+cd backend && ./mvnw verify              # build + tests complets — 17 modules, ~3-4 min
 cd backend/services/<svc>-service && ../../mvnw quarkus:dev   # dev local par service
 cd backend && ./mvnw -pl services/<svc>-service -am verify    # un service + ses deps
 ```
@@ -110,7 +110,7 @@ Chaque service métier (4 actifs post-consolidation) embarque :
 - [`openapi/openapi.yaml`](../openapi/openapi.yaml) — contrat API public.
 - [`docs/internal-endpoints.md`](docs/internal-endpoints.md) — endpoints internes service-to-service (hors openapi).
 - [`docs/api-contract.md`](docs/api-contract.md) — annotations rate-limit, service amont par endpoint.
-- [`docs/dev-guide.md`](docs/dev-guide.md) — démarrage, workflows, layout 24 modules.
+- [`docs/dev-guide.md`](docs/dev-guide.md) — démarrage, workflows, layout 17 modules.
 - [`docs/sprint-context.md`](docs/sprint-context.md) — état d'avancement et backlog.
 - [`docs/microservices-migration-roadmap.md`](docs/microservices-migration-roadmap.md) — historique des PRs d'extraction.
 - [`docs/devops-handoff.md`](docs/devops-handoff.md) — items DevOps S9+ formalisés.
@@ -131,7 +131,7 @@ Chaque service métier (4 actifs post-consolidation) embarque :
 ## Workflow Git
 - Branche : `feature/SCRUM-XX-description`. Branche persistante de migration : `refactor(backend)--migrate-to-microservices` (PR #158, attention au workaround `chore(backend):` cf. sprint-context).
 - 1 PR par tâche, review obligatoire avant merge sur `main`.
-- Qualité : SonarCloud seuil 80 % couverture (JaCoCo) — par projet per-service après activation DevOps des 13 SonarCloud projects (Étape 12 de la spec de complétion).
+- Qualité : SonarCloud seuil 80 % couverture (JaCoCo) — par projet per-service après activation DevOps des 5 SonarCloud projects (Option B) (Étape 12 de la spec de complétion).
 
 ### Conventions de PR
 - **Titre** : format `<type>(<scope>): <description>`, validé par `.github/workflows/pr-title-check.yml`.
