@@ -88,6 +88,74 @@ class CommentDTOTest {
     }
 
     @Test
+    void fromTopLevelWithReplies_buildsNestedDTOs() {
+        UUID topAuthorId = UUID.randomUUID();
+        UUID replyAuthorId = UUID.randomUUID();
+
+        Comment top = new Comment();
+        top.id = 50L;
+        top.eventId = 1L;
+        top.authorId = topAuthorId;
+        top.content = "top-level";
+        top.likeCount = 2;
+        top.createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+
+        Comment reply = new Comment();
+        reply.id = 51L;
+        reply.eventId = 1L;
+        reply.authorId = replyAuthorId;
+        reply.parentComment = top;
+        reply.content = "reply-body";
+        reply.likeCount = 0;
+        reply.createdAt = LocalDateTime.of(2026, 5, 1, 12, 1);
+
+        UserPublicResponse topAuthor = new UserPublicResponse(
+                topAuthorId, "Alice", null, null, null, null,
+                "https://avatars/alice.png", null, 0L, 0L, null);
+        UserPublicResponse replyAuthor = new UserPublicResponse(
+                replyAuthorId, "Bob", null, null, null, null,
+                null, null, 0L, 0L, null);
+
+        CommentDTO dto = CommentDTO.fromTopLevelWithReplies(
+                top, topAuthor,
+                List.of(reply),
+                java.util.Map.of(replyAuthorId, replyAuthor),
+                true,
+                java.util.Map.of(replyAuthorId, false));
+
+        assertEquals(50L, dto.id());
+        assertEquals("top-level", dto.content());
+        assertEquals("Alice", dto.authorDisplayName());
+        assertTrue(dto.authorIsOrganizer());
+        assertEquals(1, dto.replies().size());
+
+        CommentDTO replyDto = dto.replies().get(0);
+        assertEquals(51L, replyDto.id());
+        assertEquals("Bob", replyDto.authorDisplayName());
+        assertFalse(replyDto.authorIsOrganizer());
+        assertEquals(50L, replyDto.parentCommentId());
+    }
+
+    @Test
+    void fromTopLevelWithReplies_withoutAuthor_keepsNullDisplayName() {
+        UUID topAuthorId = UUID.randomUUID();
+        Comment top = new Comment();
+        top.id = 60L;
+        top.eventId = 1L;
+        top.authorId = topAuthorId;
+        top.content = "no-author-info";
+        top.likeCount = 0;
+        top.createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+
+        CommentDTO dto = CommentDTO.fromTopLevelWithReplies(
+                top, null, List.of(), java.util.Map.of(), false, java.util.Map.of());
+
+        assertNull(dto.authorDisplayName());
+        assertNull(dto.authorAvatarUrl());
+        assertTrue(dto.replies().isEmpty());
+    }
+
+    @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         LocalDateTime t = LocalDateTime.of(2026, 5, 1, 12, 0);
