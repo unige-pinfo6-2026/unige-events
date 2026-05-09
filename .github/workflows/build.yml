@@ -38,12 +38,16 @@ jobs:
         run: |
           ./mvnw -pl services/shared-rate-limit,services/shared-storage,services/shared-api-error,services/shared-domain-enums,services/shared-domain-dtos,services/shared-domain-projections,services/shared-jaxrs,services/shared-tracing,services/shared-kafka-events,services/shared-platform install -B
       # Étape 22 quality-gate (Étape 1.3) : Sonar scan retiré ici ; coverage
-      # remontée à `sonar-aggregate` via les artifacts jacoco.
+      # remontée à `sonar-aggregate` via les artifacts jacoco. `backend/pom.xml`
+      # est ajouté comme sentinel pour pousser la LCA d'upload-artifact@v4 à
+      # `backend/` (sinon les chemins `services/<X>/...` seraient strippés).
       - name: Upload jacoco artifacts (shared libs)
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-shared-libs
-          path: backend/services/shared-*/target/jacoco-report/jacoco.xml
+          path: |
+            backend/pom.xml
+            backend/services/shared-*/target/jacoco-report/jacoco.xml
           if-no-files-found: error
           retention-days: 1
 
@@ -97,11 +101,16 @@ jobs:
 
       # Étape 22 quality-gate (Étape 1.3) : Sonar scan per-cell retiré ;
       # le job sonar-aggregate consomme les artifacts jacoco uploadés ci-dessous.
+      # `backend/pom.xml` est ajouté comme sentinel pour pousser la LCA
+      # d'upload-artifact@v4 à `backend/` (sinon le single-file upload ne
+      # préserverait que `jacoco.xml` sans le préfixe services/<X>/...).
       - name: Upload jacoco artifact (${{ matrix.service }}-service)
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-${{ matrix.service }}-service
-          path: backend/services/${{ matrix.service }}-service/target/jacoco-report/jacoco.xml
+          path: |
+            backend/pom.xml
+            backend/services/${{ matrix.service }}-service/target/jacoco-report/jacoco.xml
           if-no-files-found: error
           retention-days: 1
 
@@ -151,12 +160,15 @@ jobs:
       # — quarkus-jacoco n'a rien à instrumenter (Étape 1.2 spec : conditionnelle).
       # On laisse les uploads avec if-no-files-found: warn pour tolérer l'absence
       # tout en restant prêt à les consommer si jacoco est ajouté plus tard.
+      # Sentinel `backend/pom.xml` pour pousser la LCA à `backend/`.
       - name: Upload jacoco artifact (contract-tests)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-contract-tests
-          path: backend/contract-tests/target/jacoco-report/jacoco.xml
+          path: |
+            backend/pom.xml
+            backend/contract-tests/target/jacoco-report/jacoco.xml
           if-no-files-found: warn
           retention-days: 1
       - name: Upload jacoco artifact (e2e)
@@ -164,7 +176,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-e2e
-          path: backend/e2e/target/jacoco-report/jacoco.xml
+          path: |
+            backend/pom.xml
+            backend/e2e/target/jacoco-report/jacoco.xml
           if-no-files-found: warn
           retention-days: 1
 
