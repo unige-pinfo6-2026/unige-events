@@ -24,30 +24,31 @@ La PR #158 livre **côté code** :
 Ils sont **explicitement hors scope S8** (cf. spec de complétion
 Décision V). Le backend a livré **sa moitié** quand applicable.
 
-## 1. Création de 13 SonarCloud projects per-service
+## 1. Création de 5 SonarCloud projects per-service + 10 shared libs
 
-**Statut backend** : ✅ YAML CI livré (Étape 12 de la spec de complétion).
+**Statut backend** : ✅ YAML CI matrix livré (Étape 7 de la spec de finalization) ; sonar.projectKey
+per-module livré (Étape 12.2 de la completion-spec).
 
 **Action attendue côté DevOps** :
 
-* Créer manuellement, via la UI SonarCloud, 13 projets sous l'organisation `unige-pinfo6-2026` :
-  - `unige-events-share-service`
-  - `unige-events-view-service`
-  - `unige-events-favorite-service`
-  - `unige-events-calendar-service`
-  - `unige-events-follow-service`
-  - `unige-events-comment-service`
-  - `unige-events-co-organizer-service`
-  - `unige-events-attendance-service`
-  - `unige-events-report-service`
-  - `unige-events-stats-service`
-  - `unige-events-me-aggregator-service`
-  - `unige-events-user-service`
+* Créer manuellement, via la UI SonarCloud, **5 projets services** sous l'organisation `unige-pinfo6-2026` :
   - `unige-events-event-service`
-* Plus 10 projets pour les shared libs : `unige-events-shared-rate-limit`, `unige-events-shared-storage`, `unige-events-shared-api-error`, `unige-events-shared-domain-enums`, `unige-events-shared-domain-dtos`, `unige-events-shared-domain-projections`, `unige-events-shared-jaxrs`, `unige-events-shared-tracing`, `unige-events-shared-kafka-events`, `unige-events-shared-platform`.
-* Ajouter au repo GitHub (Settings → Secrets) : `SONAR_TOKEN_<SVC>` par service (ou un `SONAR_TOKEN` partagé si SonarCloud le permet).
+  - `unige-events-user-service`
+  - `unige-events-engagement-service`
+  - `unige-events-moderation-service`
+  - `unige-events-notification-service`
+* Plus **10 projets shared libs** : `unige-events-shared-rate-limit`, `unige-events-shared-storage`,
+  `unige-events-shared-api-error`, `unige-events-shared-domain-enums`, `unige-events-shared-domain-dtos`,
+  `unige-events-shared-domain-projections`, `unige-events-shared-jaxrs`, `unige-events-shared-tracing`,
+  `unige-events-shared-kafka-events`, `unige-events-shared-platform`.
+* Ajouter au repo GitHub (Settings → Secrets) : `SONAR_TOKEN` (un seul partagé suffit avec SonarCloud).
 
-**Sans cette action**, le workflow CI matrix échoue côté Sonar à la première exécution avec « project not found » — c'est un blocker DevOps **attendu** documenté ; pas un fail backend.
+**Note de transition post-consolidation 14→5** : les anciens SonarCloud projects (`unige-events-{share,view,favorite,calendar,follow,comment,co-organizer,attendance,report,stats,me-aggregator}-service`)
+deviennent **orphelins** post-consolidation (Décision A de la spec finalization). DevOps peut les
+archiver ou les laisser ; aucun blocker. Aucune CI n'écrit plus dedans.
+
+**Sans cette action**, le workflow CI matrix échoue côté Sonar à la première exécution avec
+« project not found » — c'est un blocker DevOps **attendu** documenté ; pas un fail backend.
 
 **Justification du report** : nécessite SonarCloud admin UI (hors scope code).
 
