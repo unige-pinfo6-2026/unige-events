@@ -37,11 +37,15 @@ jobs:
         # la matrix backend downstream puisse les résoudre transitivement.
         run: |
           ./mvnw -pl services/shared-rate-limit,services/shared-storage,services/shared-api-error,services/shared-domain-enums,services/shared-domain-dtos,services/shared-domain-projections,services/shared-jaxrs,services/shared-tracing,services/shared-kafka-events,services/shared-platform install -B
-      - name: SonarQube Scan (root reactor — Option B unige-events-backend)
-        # Le projet unige-events-backend existe côté SonarCloud, donc strict.
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw -pl . sonar:sonar -B
+      # Étape 22 quality-gate (Étape 1.3) : Sonar scan retiré ici ; coverage
+      # remontée à `sonar-aggregate` via les artifacts jacoco.
+      - name: Upload jacoco artifacts (shared libs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-shared-libs
+          path: backend/services/shared-*/target/jacoco-report/jacoco.xml
+          if-no-files-found: error
+          retention-days: 1
 
   # Étape 21 finalization-ultimate (CI-001 — Décision E) : `-pl .,<svc>-service`
   # ajoute le parent reactor comme top-level project pour que sonar:sonar
@@ -91,14 +95,15 @@ jobs:
             -Dquarkus.container-image.additional-tags=${{ env.IMAGE_ADDITIONAL_TAGS }} \
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
 
-      - name: SonarQube Scan
-        # continue-on-error: tant que DevOps n'a pas créé les 5 SonarCloud
-        # projects services post-consolidation (cf. devops-handoff.md item 1).
-        # Sera retiré (Étape 1.3 conditionnelle) quand DevOps aura validé.
-        continue-on-error: true
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw -pl .,services/${{ matrix.service }}-service sonar:sonar -B
+      # Étape 22 quality-gate (Étape 1.3) : Sonar scan per-cell retiré ;
+      # le job sonar-aggregate consomme les artifacts jacoco uploadés ci-dessous.
+      - name: Upload jacoco artifact (${{ matrix.service }}-service)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-${{ matrix.service }}-service
+          path: backend/services/${{ matrix.service }}-service/target/jacoco-report/jacoco.xml
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Cleanup Docker images
         if: always()
@@ -141,6 +146,27 @@ jobs:
           name: pacts-${{ github.sha }}
           path: backend/contract-tests/target/pacts/*.json
           if-no-files-found: warn
+      # Étape 22 quality-gate (Étape 1.3) : contract-tests + e2e n'ont pas
+      # de src/main/java (pure test modules) et ne sont pas des apps Quarkus
+      # — quarkus-jacoco n'a rien à instrumenter (Étape 1.2 spec : conditionnelle).
+      # On laisse les uploads avec if-no-files-found: warn pour tolérer l'absence
+      # tout en restant prêt à les consommer si jacoco est ajouté plus tard.
+      - name: Upload jacoco artifact (contract-tests)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-contract-tests
+          path: backend/contract-tests/target/jacoco-report/jacoco.xml
+          if-no-files-found: warn
+          retention-days: 1
+      - name: Upload jacoco artifact (e2e)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-e2e
+          path: backend/e2e/target/jacoco-report/jacoco.xml
+          if-no-files-found: warn
+          retention-days: 1
 
   build-frontend:
     name: Build Frontend
