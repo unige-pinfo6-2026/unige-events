@@ -315,6 +315,76 @@ projectKey distinct), où elle disparaîtra complètement.
   endpoint (idem — mécanique, mais 200+ lignes à mettre à jour).
 - `AGENTS.md` racine : référence à la nouvelle topologie.
 
+### Étape 18 — Consolidation post-migration (commits `446ea3e`, `3f3dcd1`, `5dce9be`, `08a99d1`) ✅
+
+Une fois les 13 extractions livrées + legacy-monolith supprimé, trois
+dettes héritées de la soft-extraction ont été remboursées sur la même
+branche persistante :
+
+* **`446ea3e` — Restauration de `@PerUserRateLimit` via `services/shared-rate-limit/`.**
+  Le PerUserRateLimit interceptor + RateLimitState (Caffeine) +
+  RateLimitExceededException + son ExceptionMapper vivaient dans
+  `legacy-monolith` ; sa suppression à `b570c1b` a fait perdre les 13
+  annotations qui rate-limitaient les endpoints write (issue #98 / pentest
+  finding 4.14). Les primitives sont republiées dans une lib jar dédiée
+  (hors glob d'exclusion Sonar — sa couverture compte sur le new-code
+  metric), discoverable par chaque service Quarkus via `META-INF/jandex.idx`.
+  Couverture jacoco : 35 tests unitaires, ~95 % lignes. Les 13 annotations
+  `@PerUserRateLimit` sont restaurées sur 6 Resources (event-service ×6,
+  user-service ×3, attendance/comment/favorite/follow ×1 chacun) — mêmes
+  noms et budgets que le monolith, donc Kong + frontend inchangés.
+
+* **`3f3dcd1` — Dédoublonnage `FileStorageService` via `services/shared-storage/`.**
+  `FileStorageService` + `ImageFormat` + 2 exceptions + 2 mappers
+  étaient clonés dans user-service ET event-service (compromis explicite
+  de la soft-extraction au commit `41074e9`). Avec la migration livrée,
+  le clone est pure dette — un fix de sécurité S3 ou de pentest devrait
+  atterrir à 2 endroits. Le code est consolidé dans une lib jar avec une
+  petite interface `StorageConfig` (chacun des `AppConfig` `extends`
+  cette interface — SmallRye Config + ArC exposent un seul bean qui
+  satisfait les deux injection points). 75 tests unitaires, **100 %
+  lignes**. 12 fichiers Java dupliqués supprimés.
+
+* **`5dce9be` — Premier producteur Kafka : `events.{published,cancelled,expired}` depuis event-service.**
+  Les 10 topics Kafka provisionnés au S8 (cf. PR #158) étaient vides —
+  aucun producteur ni consommateur câblé. Ce commit livre le premier
+  producteur :
+    - `quarkus-messaging-kafka` ajouté à event-service ; 3 channels
+      `mp.messaging.outgoing.events-{published,cancelled,expired}.*`
+      configurés ; `%test` flippe vers `smallrye-in-memory` pour les
+      sentinel tests.
+    - `EventLifecycleEvent` (record `(type, eventId, creatorId, occurredAt)`)
+      + `EventLifecyclePublisher` (@ApplicationScoped, 3 Emitters,
+      fire-and-forget — un crash Kafka ne propage pas dans la transaction
+      utilisateur).
+    - Wired dans `EventService.publish` / `EventService.cancel` /
+      `EventExpirationService.expireEvents` (refactor row-by-row avec
+      `JOIN FETCH e.creator` au passage pour avoir le `creatorId` sans
+      lazy-load proxy).
+    - 10 tests unitaires (factories du record + routing publisher +
+      swallow d'exception).
+  Producteur-only : les consommateurs vivront dans `notification-service`
+  (SCRUM-99 follow-up). Les 7 autres topics (`events.banned`, `users.*`,
+  `comments.created`, `co-organizers.*`) restent à câbler dans des PRs
+  follow-up — le pattern `EventLifecyclePublisher` est reproductible.
+
+* **`08a99d1` — Cleanup doc : déduplication de la section `### EventView`.**
+  `data-model.md` avait deux sections `### EventView` (la première
+  basique, la seconde annotée per-service ownership + idempotence note).
+  Fusionnées en une.
+
+`./mvnw verify -DskipITs` reste vert sur les 16 modules (15 + 2 nouvelles
+shared libs - 1 module hors -service suffix = 16) en ~3m45s.
+
+**Toujours différé après cette consolidation** :
+
+- 7 producteurs Kafka restants (report-service `events.banned`,
+  follow-service `users.*`, comment-service `comments.created`,
+  co-organizer-service `co-organizers.*`).
+- REST clients pour remplacer les JPA stubs (besoin coordination DevOps :
+  schémas-par-service à câbler via Flyway dédiés).
+- PR 16 CI matrix per-service + sonar.projectKey distinct (DevOps).
+
 ### Note CI : transient image-pull failure sur PR 4 (calendar-service)
 
 Le run CI de la PR 4 (commit `df19461`) a échoué au stage Deploy avec
