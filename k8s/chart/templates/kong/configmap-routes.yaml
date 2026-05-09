@@ -102,6 +102,27 @@ data:
               - ~/api/users/me/favorites$
             strip_path: false
             preserve_host: true
+          # Absorbed from co-organizer-service in finalization Étape 2.2.4.
+          - name: co-organizer-me
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizer-userid
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizers
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers$
+            strip_path: false
+            preserve_host: true
+          - name: my-co-org-invites
+            paths:
+              - ~/api/users/me/co-organizer-invitations$
+            strip_path: false
+            preserve_host: true
           - name: events-search
             paths:
               - ~/api/events/search$
@@ -289,36 +310,11 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 7 — co-organizer-service (extracted) ──────────────────────
-      # The co-organizer routes share the /api/events/{id}/co-organizers
-      # prefix : invite/list at the bare path, accept/decline under /me/,
-      # and DELETE under /{userId}. Listed in regex-specificity order.
-      - name: co-organizer-service
-        url: http://co-organizer-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: co-organizer-me
-            paths:
-              - ~/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$
-            strip_path: false
-            preserve_host: true
-          - name: co-organizer-userid
-            paths:
-              - ~/api/events/(?:\d+)/co-organizers/[^/]+$
-            strip_path: false
-            preserve_host: true
-          - name: co-organizers
-            paths:
-              - ~/api/events/(?:\d+)/co-organizers$
-            strip_path: false
-            preserve_host: true
-          - name: my-co-org-invites
-            paths:
-              - ~/api/users/me/co-organizer-invitations$
-            strip_path: false
-            preserve_host: true
+      # NB: co-organizer-service was merged into event-service in
+      # finalization Étape 2.2.4. Routes /api/events/{id}/co-organizers/*
+      # + /api/users/me/co-organizer-invitations are now in the
+      # event-service block above. Cascade SCRUM-136 is now a local
+      # method call in event-service (no more REST hop).
 
       # ───── PR 6 — comment-service (extracted) ───────────────────────────
       # Routes /api/events/{id}/comments (POST + GET) + /api/comments/{id}

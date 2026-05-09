@@ -11,7 +11,7 @@ import ch.unige.events.event.entity.AttendanceStatus;
 import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventCategory;
-import ch.unige.events.event.entity.EventCoOrganizerStub;
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.entity.EventStatus;
 import ch.unige.events.event.entity.EventViewStub;
 import ch.unige.events.event.entity.Faculty;
@@ -50,7 +50,7 @@ import java.util.UUID;
  *       shared-storage lib).</li>
  *   <li>Cross-domain entities replaced by stubs : {@link AttendanceStub},
  *       {@link EventViewStub}, {@link FavoriteStub},
- *       {@link EventCoOrganizerStub}, {@link UserStub}. The legacy JPQL
+ *       {@link EventCoOrganizer}, {@link UserStub}. The legacy JPQL
  *       queries are retyped to the stub names.</li>
  * </ul>
  */
@@ -525,7 +525,7 @@ public class EventService {
             return false;
         }
         return UserStub.findByAuth0Id(auth0Id)
-                .map(user -> EventCoOrganizerStub.isAcceptedFor(event.id, user.id))
+                .map(user -> EventCoOrganizer.isAcceptedFor(event.id, user.id))
                 .orElse(false);
     }
 }

@@ -1,15 +1,15 @@
-package ch.unige.events.coorganizer.service;
+package ch.unige.events.event.coorganizer.service;
 
-import ch.unige.events.coorganizer.dto.ApiErrorResponse;
-import ch.unige.events.coorganizer.dto.CoOrganizerDTO;
-import ch.unige.events.coorganizer.dto.CoOrganizerInvitationDTO;
-import ch.unige.events.coorganizer.dto.EventDTO;
-import ch.unige.events.coorganizer.entity.AttendanceStatus;
-import ch.unige.events.coorganizer.entity.AttendanceStub;
-import ch.unige.events.coorganizer.entity.CoOrganizerStatus;
-import ch.unige.events.coorganizer.entity.EventCoOrganizer;
-import ch.unige.events.coorganizer.entity.EventStub;
-import ch.unige.events.coorganizer.entity.UserStub;
+import ch.unige.events.event.dto.ApiErrorResponse;
+import ch.unige.events.event.coorganizer.dto.CoOrganizerDTO;
+import ch.unige.events.event.coorganizer.dto.CoOrganizerInvitationDTO;
+import ch.unige.events.event.coorganizer.dto.EventDTO;
+import ch.unige.events.event.entity.AttendanceStatus;
+import ch.unige.events.event.entity.AttendanceStub;
+import ch.unige.events.event.entity.CoOrganizerStatus;
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.entity.UserStub;
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -30,7 +30,7 @@ import java.util.UUID;
 
 /**
  * Same contract as the legacy EventCoOrganizerService. The bulk EventDTO
- * resolver used by {@link #getMyInvitations} reads from EventStub +
+ * resolver used by {@link #getMyInvitations} reads from Event +
  * AttendanceStub directly until event-service / attendance-service ship
  * (PR 13 / 8).
  */
@@ -42,7 +42,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public CoOrganizerDTO invite(Long eventId, String inviterAuth0Id, UUID targetUserId, boolean isAdmin) {
-        EventStub event = EventStub.<EventStub>findByIdOptional(eventId)
+        Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
         UserStub inviter = UserStub.findByAuth0Id(inviterAuth0Id)
@@ -110,7 +110,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public void remove(Long eventId, String requesterAuth0Id, UUID targetUserId, boolean isAdmin) {
-        EventStub event = EventStub.<EventStub>findByIdOptional(eventId)
+        Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
         UserStub requester = UserStub.findByAuth0Id(requesterAuth0Id).orElse(null);
@@ -124,7 +124,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public List<CoOrganizerDTO> getCoOrganizers(Long eventId) {
-        EventStub.<EventStub>findByIdOptional(eventId)
+        Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
         List<EventCoOrganizer> rows = EventCoOrganizer.findByEvent(eventId);
@@ -178,11 +178,11 @@ public class EventCoOrganizerService {
         if (ids == null || ids.isEmpty()) {
             return Map.of();
         }
-        List<EventStub> events = EventStub.<EventStub>list("id IN ?1", ids);
+        List<Event> events = Event.<Event>list("id IN ?1", ids);
         Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(ids, AttendanceStatus.ATTENDING, entityManager);
         Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(ids, AttendanceStatus.WAITLISTED, entityManager);
         Map<Long, EventDTO> result = new HashMap<>();
-        for (EventStub event : events) {
+        for (Event event : events) {
             long att = attendingCounts.getOrDefault(event.id, 0L);
             long wait = waitlistedCounts.getOrDefault(event.id, 0L);
             EventDTO dto = EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), wait, null, null);
@@ -198,10 +198,10 @@ public class EventCoOrganizerService {
         return Math.max(0L, capacity.longValue() - attendingCount);
     }
 
-    private static boolean isCreator(EventStub event, UserStub user) {
+    private static boolean isCreator(Event event, UserStub user) {
         return event != null && user != null
-                && event.creatorId != null
-                && event.creatorId.equals(user.id);
+                && (event.creator != null ? event.creator.id : null) != null
+                && (event.creator != null ? event.creator.id : null).equals(user.id);
     }
 
     protected static WebApplicationException badRequest(String error, String message) {

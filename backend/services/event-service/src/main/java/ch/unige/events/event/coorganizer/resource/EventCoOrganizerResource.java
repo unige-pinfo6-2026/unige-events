@@ -1,8 +1,8 @@
-package ch.unige.events.coorganizer.resource;
+package ch.unige.events.event.coorganizer.resource;
 
-import ch.unige.events.coorganizer.dto.CoOrganizerDTO;
-import ch.unige.events.coorganizer.dto.InviteCoOrganizerRequest;
-import ch.unige.events.coorganizer.service.EventCoOrganizerService;
+import ch.unige.events.event.coorganizer.dto.CoOrganizerDTO;
+import ch.unige.events.event.coorganizer.dto.InviteCoOrganizerRequest;
+import ch.unige.events.event.coorganizer.service.EventCoOrganizerService;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;

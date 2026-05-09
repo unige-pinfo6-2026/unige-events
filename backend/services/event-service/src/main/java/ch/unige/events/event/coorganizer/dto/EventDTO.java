@@ -1,9 +1,9 @@
-package ch.unige.events.coorganizer.dto;
+package ch.unige.events.event.coorganizer.dto;
 
-import ch.unige.events.coorganizer.entity.EventCategory;
-import ch.unige.events.coorganizer.entity.EventStatus;
-import ch.unige.events.coorganizer.entity.EventStub;
-import ch.unige.events.coorganizer.entity.Faculty;
+import ch.unige.events.event.entity.EventCategory;
+import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.entity.Faculty;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,7 +40,7 @@ public record EventDTO(
         String recurrenceRule
 ) {
     public static EventDTO from(
-            EventStub event,
+            Event event,
             long attendingCount,
             Long availableSpots,
             long waitlistedCount,
@@ -57,7 +57,7 @@ public record EventDTO(
                 event.category,
                 event.faculty,
                 event.bannerUrl,
-                event.creatorId,
+                (event.creator != null ? event.creator.id : null),
                 event.status,
                 event.capacity,
                 event.allDay,

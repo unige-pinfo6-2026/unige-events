@@ -35,6 +35,12 @@ public class UserStub extends PanacheEntityBase {
     @Column(name = "auth0_id", nullable = false, unique = true, updatable = false)
     public String auth0Id;
 
+    @Column(name = "display_name")
+    public String displayName;
+
+    @Column(name = "avatar_url")
+    public String avatarUrl;
+
     public static Optional<UserStub> findByAuth0Id(String auth0Id) {
         return find("auth0Id", auth0Id).firstResultOptional();
     }

@@ -1,8 +1,8 @@
-package ch.unige.events.coorganizer.dto;
+package ch.unige.events.event.coorganizer.dto;
 
-import ch.unige.events.coorganizer.entity.CoOrganizerStatus;
-import ch.unige.events.coorganizer.entity.EventCoOrganizer;
-import ch.unige.events.coorganizer.entity.UserStub;
+import ch.unige.events.event.entity.CoOrganizerStatus;
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
+import ch.unige.events.event.entity.UserStub;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

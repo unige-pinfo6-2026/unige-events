@@ -1,4 +1,4 @@
-package ch.unige.events.coorganizer.dto;
+package ch.unige.events.event.coorganizer.dto;
 
 import jakarta.validation.constraints.NotNull;
 

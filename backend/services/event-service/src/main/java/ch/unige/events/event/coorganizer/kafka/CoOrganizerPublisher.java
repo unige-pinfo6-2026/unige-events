@@ -1,4 +1,4 @@
-package ch.unige.events.coorganizer.kafka;
+package ch.unige.events.event.coorganizer.kafka;
 
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 import io.quarkus.logging.Log;
