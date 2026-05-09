@@ -1,10 +1,10 @@
 package ch.unige.events.engagement.attendance.resource;
 
 import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
-import ch.unige.events.engagement.attendance.dto.EventDTO;
 import ch.unige.events.engagement.attendance.entity.AttendanceStatus;
 import ch.unige.events.engagement.attendance.entity.Timeframe;
 import ch.unige.events.engagement.attendance.service.AttendanceService;
+import ch.unige.events.shared.domain.dto.EventDTO;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;

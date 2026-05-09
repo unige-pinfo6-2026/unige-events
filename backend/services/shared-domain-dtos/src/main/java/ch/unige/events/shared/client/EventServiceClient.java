@@ -85,4 +85,27 @@ public interface EventServiceClient {
     default List<EventDTO> findByIdsFallback(List<Long> ids, String status) {
         return List.of();
     }
+
+    /**
+     * Returns the set of UUIDs that count as "organizers" of an event:
+     * the creator + every ACCEPTED co-organizer. Used cross-service by
+     * engagement-service / moderation-service to annotate downstream
+     * payloads (e.g. {@code authorIsOrganizer:bool} on comments) without
+     * an N+1 of {@code ?check-co-org-of=} self-checks.
+     *
+     * <p>Décision G of finalization-ultimate spec: replaces the legacy
+     * {@code EventCoOrganizerStub.findAcceptedUserIdsForEvent(eventId)}
+     * pattern — single REST call returning the full list.
+     */
+    @GET
+    @Path("/{id}/organizer-uuids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getOrganizerUuidsFallback")
+    List<UUID> getOrganizerUuids(@PathParam("id") long id);
+
+    default List<UUID> getOrganizerUuidsFallback(long id) {
+        return List.of();
+    }
 }

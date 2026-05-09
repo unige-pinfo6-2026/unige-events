@@ -1,6 +1,7 @@
 package ch.unige.events.engagement.comment.dto;
 
 import ch.unige.events.engagement.comment.entity.Comment;
+import ch.unige.events.shared.domain.dto.UserPublicResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,6 +11,11 @@ import java.util.UUID;
 /**
  * Mirror of the legacy CommentDTO. {@code likedByMe} stays {@code false}
  * in S6/S8 — wired by SCRUM-144 at S7+ when {@code CommentLike} ships.
+ *
+ * <p>Étape 3.1 finalization-ultimate: the {@code authorDisplayName} /
+ * {@code authorAvatarUrl} fields are now populated from a
+ * {@link UserPublicResponse} fetched cross-service, not from a local
+ * {@code UserStub} navigation.
  */
 public record CommentDTO(
         Long id,
@@ -25,13 +31,13 @@ public record CommentDTO(
         List<CommentDTO> replies
 ) {
 
-    public static CommentDTO from(Comment c, boolean authorIsOrganizer) {
+    public static CommentDTO from(Comment c, UserPublicResponse author, boolean authorIsOrganizer) {
         return new CommentDTO(
                 c.id,
                 c.content,
-                c.author != null ? c.author.id : null,
-                c.author != null ? c.author.displayName : null,
-                c.author != null ? c.author.avatarUrl : null,
+                c.authorId,
+                author != null ? author.displayName() : null,
+                author != null ? author.avatarUrl() : null,
                 authorIsOrganizer,
                 c.likeCount,
                 false,
@@ -43,22 +49,24 @@ public record CommentDTO(
 
     public static CommentDTO fromTopLevelWithReplies(
             Comment top,
+            UserPublicResponse topAuthor,
             List<Comment> replies,
+            Map<UUID, UserPublicResponse> repliesAuthors,
             boolean topAuthorIsOrganizer,
             Map<UUID, Boolean> repliesAuthorIsOrganizer
     ) {
         List<CommentDTO> replyDTOs = replies.stream()
                 .map(r -> CommentDTO.from(
                         r,
-                        r.author != null
-                                && repliesAuthorIsOrganizer.getOrDefault(r.author.id, false)))
+                        repliesAuthors.get(r.authorId),
+                        repliesAuthorIsOrganizer.getOrDefault(r.authorId, false)))
                 .toList();
         return new CommentDTO(
                 top.id,
                 top.content,
-                top.author != null ? top.author.id : null,
-                top.author != null ? top.author.displayName : null,
-                top.author != null ? top.author.avatarUrl : null,
+                top.authorId,
+                topAuthor != null ? topAuthor.displayName() : null,
+                topAuthor != null ? topAuthor.avatarUrl() : null,
                 topAuthorIsOrganizer,
                 top.likeCount,
                 false,

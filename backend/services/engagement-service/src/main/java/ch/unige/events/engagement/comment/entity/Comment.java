@@ -1,7 +1,5 @@
 package ch.unige.events.engagement.comment.entity;
 
-import ch.unige.events.engagement.attendance.entity.EventStub;
-import ch.unige.events.engagement.attendance.entity.UserStub;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,14 +13,21 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
- * Owned by comment-service. Carbon-copy of legacy
+ * Owned by engagement-service. Carbon-copy of legacy
  * ch.unige.events.entity.Comment — same FKs, same indexes, same
- * column-name conventions. The {@code event} / {@code author} associations
- * point at the local read-only stubs in this module so Hibernate can
- * navigate them lazily in tests ; the underlying foreign keys still
- * reference {@code events(id)} / {@code users(id)} of the shared schema.
+ * column-name conventions.
+ *
+ * <p>Décision F finalization-ultimate (Étape 3.1, STUB-001): the
+ * cross-service navigations to {@code event} / {@code author} that
+ * existed in the original Comment entity have been replaced by id-only
+ * columns ({@code eventId Long}, {@code authorId UUID}). The underlying
+ * foreign keys still reference {@code events(id)} / {@code users(id)}
+ * of the shared schema — only the JPA navigation goes away. Enrichment
+ * (display name, avatar, organizer flag) is performed at the service
+ * layer via REST clients to event-service / user-service.
  */
 @Entity
 @Table(
@@ -35,13 +40,11 @@ import java.time.LocalDateTime;
 )
 public class Comment extends PanacheEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id", nullable = false)
-    public EventStub event;
+    @Column(name = "event_id", nullable = false)
+    public Long eventId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
-    public UserStub author;
+    @Column(name = "author_id", nullable = false)
+    public UUID authorId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_comment_id")

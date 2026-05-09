@@ -43,6 +43,11 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-tracing</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-dtos</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
+        <!-- ── REST client runtime (Étape 3.1 finalization-ultimate) ─────────── -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
 
         <!-- ── Shared per-user rate-limit interceptor (issue #98) ────────────── -->
