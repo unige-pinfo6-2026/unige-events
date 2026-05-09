@@ -167,6 +167,18 @@ data:
               - ~/api/events$
             strip_path: false
             preserve_host: true
+            plugins:
+              # spec décision 6 / completion-spec Étape 10 — bucket
+              # `events.create=10/min`. policy=local : compteur par
+              # instance Kong (acceptable en S8, single-cluster). Le
+              # `@PerUserRateLimit` Java côté event-service couvre
+              # l'UX (max=10, windowSeconds=60) — Kong protège l'edge.
+              - name: rate-limiting
+                config:
+                  minute: 10
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
 
       # ───── PR 12 — user-service (extracted) ─────────────────────────────
       # GET/PUT /api/users/me + GET /api/users/{uuid} + POST/DELETE
@@ -335,6 +347,14 @@ data:
               - ~/api/events/(?:\d+)/comments$
             strip_path: false
             preserve_host: true
+            plugins:
+              # bucket `comments.post=10/min` (completion-spec Étape 10).
+              - name: rate-limiting
+                config:
+                  minute: 10
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
           - name: comment-direct
             paths:
               - ~/api/comments/(?:\d+)$
@@ -358,6 +378,14 @@ data:
               - ~/api/users/[^/]+/follow$
             strip_path: false
             preserve_host: true
+            plugins:
+              # bucket `follows.follow=30/min` (completion-spec Étape 10).
+              - name: rate-limiting
+                config:
+                  minute: 30
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
           - name: follow-listings
             paths:
               - ~/api/users/[^/]+/(?:followers|following)$
