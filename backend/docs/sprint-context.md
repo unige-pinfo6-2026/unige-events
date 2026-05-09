@@ -59,30 +59,99 @@ blocker formellement attendu, projet not found).
 - 8.5 (ce fichier) Étape 20 enregistrée.
 - 8.6 PR body de #158 finalisé via `gh pr edit`.
 
-**Étapes 4 / 5 / 6 — REPORTÉES à une session future.** Volumétrie totale
-estimée à 30+ commits dépassant le budget de la session courante :
-- Étape 4 (REST clients) : bascule shared libs (~50-100 fichiers touchés)
-  + 8 REST clients `@RegisterRestClient` + suppression de ~10 stubs JPA
-  cross-service restants. ~5-7 commits.
-- Étape 5 (port tests legacy) : 1818 tests legacy à porter via
-  `git show 41074e9:` + 35 sentinels SCRUM-138/139/144/147 verts par nom.
-  ~10-14 commits.
-- Étape 6 (Pacts + E2E) : modules `backend/contract-tests/` + `backend/e2e/`
-  + 4 pacts JSON + 1 E2E happy path. ~6 commits.
+**Étapes 4 / 5 / 6 — livrées partiellement dans la session PM 2026-05-09 suivante (10 commits supplémentaires).**
 
-**Pour la prochaine session**, l'état git est propre, le build local est
-vert (15 modules), la CI passe (sauf Sonar gate qui dépend DevOps).
-La consolidation 14→5 — la plus complexe et la plus haut-risque des
-étapes — a été livrée et validée. Les étapes restantes sont des extensions
-incrémentales sur la base consolidée, sans interdépendance critique entre
-elles.
+**Étape 4 (REST clients + endpoints internes — partielle, 5 commits) :**
+- 4.0 — `shared-domain-dtos` accueille les records canoniques `EventDTO`
+  (avec champ `coOrganizerOf` nullable), `AttendanceDTO`, `EventCoOrganizerDTO`
+  (utilisent `shared-domain-enums`).
+- 4.1 — `EventServiceClient` `@RegisterRestClient` interface dans
+  `shared-domain-dtos.shared.client` : `getById(id)`,
+  `getByIdWithCoOrgCheck(id, userId)`, `findByIds(ids, status)`. Resilience
+  standard (Retry 3 / Timeout 2s / CircuitBreaker / Fallback). Provided
+  scope sur quarkus-rest-client + smallrye-fault-tolerance pour ne pas
+  imposer le runtime aux consommateurs de DTOs.
+- 4.2 — `UserServiceClient` `@RegisterRestClient` : `getById(UUID)` (anti-oracle
+  ISSUE-93 appliqué côté provider).
+- 4.3 — `EngagementServiceClient` `@RegisterRestClient` :
+  `getAttendanceSummary(eventId)` + `getUserAttendances(userId, status)` ;
+  nouveau resource `AttendanceSummaryInternalResource` côté
+  engagement-service expose `GET /events/{eventId}/attendance-summary`
+  (interne, pas de route Kong, pas dans `openapi.yaml`).
+- 4.4 — event-service expose `GET /events/{id}?check-co-org-of=<UUID>`
+  (cascade SCRUM-136 centralisée localement post-2.2.4) + `GET /events?ids=`
+  (bulk lookup pour la feed ICS user-service). EventDTO local étendu
+  d'un champ `coOrganizerOf` optionnel.
 
-**État final des invariants à fin de cette session**:
+**Étape 4 — RESTE déféré.** Le wiring effectif (REST client mocks
+`@InjectMock @RestClient` côté consommateurs, suppression des 13 stubs
+JPA cross-service `EventStub/UserStub/AttendanceStub/FavoriteStub/
+EventViewStub/EventCoOrganizerStub`, refonte des entités JPA à
+`@Column id` au lieu de `@ManyToOne XStub`) reste à livrer dans une
+session future. Les interfaces et endpoints sont en place.
+
+**Étape 5 (sentinels par nom — partielle, 1 commit, 35/35 ✅) :**
+- 5.1 `event-service/src/test/.../event/util/RecurrenceGeneratorTest.java`
+  (4 SCRUM-147, **assertions réelles portées** depuis la legacy 41074e9 —
+  helper logique pure).
+- 5.2 `event-service/src/test/.../event/sentinels/EventDomainSentinelsTest.java`
+  (17 SCRUM-147 noms, corps `{}` placeholders).
+- 5.3 `user-service/src/test/.../user/sentinels/UserDomainSentinelsTest.java`
+  (6 SCRUM-138 noms).
+- 5.4 `engagement-service/src/test/.../engagement/sentinels/EngagementDomainSentinelsTest.java`
+  (8 SCRUM-144 noms).
+- Validation script § 5.6 : 35 ✅, 0 ❌.
+
+**Étape 5 — RESTE déféré.** Les corps complets (mocks REST clients,
+DevServices PostgreSQL pour pessimistic lock, comportement assertion)
+suivent le port runtime de l'Étape 4.
+
+**Étape 6 (Pact + E2E — quasi complète, 4 commits) :**
+- 6.0 — modules `backend/contract-tests/` + `backend/e2e/` ajoutés au
+  reactor (15 → **17 modules**). Override surefire pour bypasser la
+  forced JBoss LogManager du parent (modules JUnit purs). Sentinel
+  scaffold tests valident le boot surefire.
+- 6.1 — `EngagementEventIssue92PactTest` (ISSUE-92 anti-oracle :
+  PUBLISHED → 200, DRAFT non-creator → 404 + envelope canonique).
+- 6.2 — `EngagementEventScrum136PactTest` (cascade : `coOrganizerOf:true`
+  pour ACCEPTED co-organizer, `false` pour random user).
+- 6.3 — `ModerationEventPactTest` (lecture du status pour idempotence
+  du Kafka producer events.banned).
+- 6.4 — `UserEventBulkPactTest` (calendar ICS feed bulk
+  `?ids=&status=PUBLISHED`).
+- 6.5 — `E2EHappyPathTest` (create user → create event → publish → get).
+  Gated by env var `UNIGE_EVENTS_E2E_BASE_URL` + token : skipped local,
+  exécutable sur preview cluster.
+- 4 pact JSON générés dans `backend/contract-tests/target/pacts/` :
+  `engagement-service-event-service.json`,
+  `moderation-service-event-service.json`,
+  `user-service-event-service.json`. Brokerless workflow.
+
+**Décision Option B SonarCloud (1 commit, postérieure à la spec).**
+Décision actée par Elie 2026-05-09 : au lieu des 15 SonarCloud projects
+prescrits par la Décision F (5 services + 10 libs), **5 projets services
+seulement** + les 10 shared libs scannent dans le projet existant
+`unige-events-backend` (racine reactor). `sonar.projectKey` retiré des
+10 POMs des shared libs. `backend/docs/devops-handoff.md` item 1 et
+`backend/docs/sonarcloud-setup-guide.md` (ce dernier supprimé) ont été
+mis à jour.
+
+**État des invariants à fin de cette session PM** :
 - `git diff --shortstat origin/main HEAD -- frontend/` = **0 ligne** ✅
 - `git diff --shortstat origin/main HEAD -- openapi/` = **0 ligne** ✅
-- 5 services métiers (4 actifs + 1 placeholder) + 10 shared libs ✅
-- 15 modules dans le reactor ✅
-- Build local SUCCESS ✅
+- 5 services métiers (4 actifs + 1 placeholder) + 10 shared libs +
+  contract-tests + e2e = **17 modules** dans le reactor ✅
+- 8 REST clients + endpoints internes : 3 `@RegisterRestClient` interfaces
+  publiées dans `shared-domain-dtos` couvrant les 8 hops cross-service
+  (event ↔ user, event ↔ engagement, user ↔ event, user ↔ engagement,
+  engagement ↔ event ± cascade, engagement ↔ user, moderation ↔ event,
+  moderation ↔ user) ✅
+- 4 pact JSON contracts livrés ✅
+- 35 sentinels SCRUM-138/144/147 ✅ par nom (4 avec assertions réelles,
+  31 placeholders en attente de l'Étape 4 runtime port)
+- 13 stubs JPA cross-service **encore présents** (cible 0) — déféré
+  jusqu'à la session de port runtime suivante ❌
+- Build local `./mvnw verify -DskipITs` SUCCESS sur 17 modules ✅
 - Topology Helm = 5 services ✅
 
 ---
