@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-api-error</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-api-error</sonar.projectName>
+    </properties>
+
     <!--
       shared-api-error — common ApiErrorResponse record + factory helpers
       that wrap WebApplicationException. Cf. completion-spec Décision D

@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-tracing</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-tracing</sonar.projectName>
+    </properties>
+
     <!--
       shared-tracing — X-Request-ID propagation via RequestIdFilter
       (server-side, ContainerRequestFilter) + RequestIdClientFilter

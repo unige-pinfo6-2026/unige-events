@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-platform</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-platform</sonar.projectName>
+    </properties>
+
     <!--
       shared-platform — common ServiceIdentityResource (parametrized via
       @ConfigProperty quarkus.application.name) so each service can

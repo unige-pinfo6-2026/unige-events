@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-follow-service</sonar.projectKey>
+        <sonar.projectName>unige-events-follow-service</sonar.projectName>
+    </properties>
+
     <!--
       follow-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 5. Owns the `follows` table (PENDING / ACCEPTED

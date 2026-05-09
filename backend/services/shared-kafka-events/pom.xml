@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-kafka-events</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-kafka-events</sonar.projectName>
+    </properties>
+
     <!--
       shared-kafka-events — payload records for the 10 Kafka topics
       provisioned in S8. Cf. completion-spec Décision D / Décision F

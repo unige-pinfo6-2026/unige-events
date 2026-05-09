@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-attendance-service</sonar.projectKey>
+        <sonar.projectName>unige-events-attendance-service</sonar.projectName>
+    </properties>
+
     <!--
       attendance-service — extracted from services/legacy-monolith/ per
       spec decision 4 + roadmap PR 8. Owns the `attendances` table

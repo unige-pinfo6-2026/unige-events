@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-calendar-service</sonar.projectKey>
+        <sonar.projectName>unige-events-calendar-service</sonar.projectName>
+    </properties>
+
     <!--
       calendar-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 4. Owns no schema (lecture pure cross-service).

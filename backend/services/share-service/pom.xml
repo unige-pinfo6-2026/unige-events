@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-share-service</sonar.projectKey>
+        <sonar.projectName>unige-events-share-service</sonar.projectName>
+    </properties>
+
     <!--
       share-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 1. Owns no schema (Event.shareCode lives in

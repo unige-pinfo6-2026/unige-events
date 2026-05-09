@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-co-organizer-service</sonar.projectKey>
+        <sonar.projectName>unige-events-co-organizer-service</sonar.projectName>
+    </properties>
+
     <!--
       co-organizer-service — extracted from services/legacy-monolith/ per
       spec decision 4 + roadmap PR 7. Owns the `event_co_organizers` table

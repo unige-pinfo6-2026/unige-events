@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-me-aggregator-service</sonar.projectKey>
+        <sonar.projectName>unige-events-me-aggregator-service</sonar.projectName>
+    </properties>
+
     <!--
       me-aggregator-service — extracted from services/legacy-monolith/ per
       spec decision 4 + roadmap PR 11. BFF — owns no schema, projects

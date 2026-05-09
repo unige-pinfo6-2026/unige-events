@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-user-service</sonar.projectKey>
+        <sonar.projectName>unige-events-user-service</sonar.projectName>
+    </properties>
+
     <!--
       user-service — extracted from services/legacy-monolith/ per spec
       decision 4 + roadmap PR 12. Owns the `users` + `user_interests`

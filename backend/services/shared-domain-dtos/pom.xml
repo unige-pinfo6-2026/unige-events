@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-domain-dtos</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-domain-dtos</sonar.projectName>
+    </properties>
+
     <!--
       shared-domain-dtos — cross-projected DTOs consumed by REST clients
       and / or shared between producer and consumer services. Cf.
