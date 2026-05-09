@@ -22,7 +22,7 @@ public class RedirectResource {
 
     private final ShareService shareService;
 
-    @ConfigProperty(name = "app.frontend.url", defaultValue = "https://10.25.10.136.nip.io")
+    @ConfigProperty(name = "app.frontend.url")
     String frontendUrl;
 
     @Inject
