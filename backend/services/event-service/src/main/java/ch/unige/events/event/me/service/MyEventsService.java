@@ -1,11 +1,11 @@
-package ch.unige.events.meaggregator.service;
+package ch.unige.events.event.me.service;
 
-import ch.unige.events.meaggregator.dto.EventDTO;
-import ch.unige.events.meaggregator.entity.AttendanceStatus;
-import ch.unige.events.meaggregator.entity.AttendanceStub;
-import ch.unige.events.meaggregator.entity.EventStatus;
-import ch.unige.events.meaggregator.entity.EventStub;
-import ch.unige.events.meaggregator.entity.UserStub;
+import ch.unige.events.event.me.dto.EventDTO;
+import ch.unige.events.event.entity.AttendanceStatus;
+import ch.unige.events.event.entity.AttendanceStub;
+import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.entity.UserStub;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -35,7 +35,7 @@ public class MyEventsService {
                 .orElseThrow(() -> new NotFoundException(
                         "User profile not found — call GET /users/me first"));
 
-        StringBuilder jpql = new StringBuilder("SELECT e FROM EventStub e WHERE e.creatorId = :creatorId");
+        StringBuilder jpql = new StringBuilder("SELECT e FROM Event e WHERE e.creatorId = :creatorId");
         Map<String, Object> params = new HashMap<>();
         params.put("creatorId", user.id);
         if (status != null) {
@@ -44,14 +44,14 @@ public class MyEventsService {
         }
         jpql.append(" ORDER BY e.createdAt DESC, e.id DESC");
 
-        List<EventStub> events = EventStub.<EventStub>find(jpql.toString(), params)
+        List<Event> events = Event.<Event>find(jpql.toString(), params)
                 .page(page, size)
                 .list();
 
         return toEventDTOs(events);
     }
 
-    private List<EventDTO> toEventDTOs(List<EventStub> events) {
+    private List<EventDTO> toEventDTOs(List<Event> events) {
         if (events.isEmpty()) {
             return List.of();
         }

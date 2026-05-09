@@ -1,8 +1,8 @@
-package ch.unige.events.meaggregator.resource;
+package ch.unige.events.event.me.resource;
 
-import ch.unige.events.meaggregator.dto.EventDTO;
-import ch.unige.events.meaggregator.entity.EventStatus;
-import ch.unige.events.meaggregator.service.MyEventsService;
+import ch.unige.events.event.me.dto.EventDTO;
+import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.event.me.service.MyEventsService;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;

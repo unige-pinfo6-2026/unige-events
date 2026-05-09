@@ -129,6 +129,12 @@ data:
               - ~/api/events/(?:\d+)/stats$
             strip_path: false
             preserve_host: true
+          # Absorbed from me-aggregator-service in finalization Étape 2.2.6 (Décision H).
+          - name: my-events
+            paths:
+              - ~/api/users/me/events$
+            strip_path: false
+            preserve_host: true
           - name: events-search
             paths:
               - ~/api/events/search$
@@ -228,22 +234,10 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 11 — me-aggregator-service (extracted) ────────────────────
-      # BFF — owns /users/me/events for now. The other /me/* paths
-      # (favorites, attendances, participations) stay on favorite-service
-      # / attendance-service until event-service ships and the BFF grows
-      # REST clients to fan-out (per the spec § "Activate this LAST" note).
-      - name: me-aggregator-service
-        url: http://me-aggregator-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: my-events-bff
-            paths:
-              - ~/api/users/me/events$
-            strip_path: false
-            preserve_host: true
+      # NB: me-aggregator-service was merged into event-service in
+      # finalization Étape 2.2.6 (Décision H — BFF dissous, le path
+      # /users/me/events est strictement event-domain). Route my-events
+      # est désormais dans le bloc event-service au-dessus.
 
       # NB: stats-service was merged into event-service in
       # finalization Étape 2.2.5. Route /api/events/{id}/stats is now

@@ -43,7 +43,6 @@
         <module>services/moderation-service</module>
         <module>services/calendar-service</module>
         <module>services/notification-service</module>
-        <module>services/me-aggregator-service</module>
     </modules>
 
     <properties>
