@@ -9,23 +9,23 @@
 
 ---
 
-## Layout Maven (multi-module post Sprint 8)
+## Layout Maven (multi-module — post-migration)
 
-Depuis 2026-05-08, `backend/` est un projet **multi-module** avec parent POM
-agrégateur à la racine et 15 modules enfants sous `backend/services/` :
-1 monolith Quarkus (`legacy-monolith`) qui porte 100 % du code aujourd'hui,
-et 14 squelettes de microservices (`<X>-service`) en cours d'extraction
-progressive. Voir [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven »
-et [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+Depuis Sprint 8, `backend/` est un projet **multi-module** avec parent POM
+agrégateur à la racine et **14 microservices Quarkus** sous
+`backend/services/` (un par bounded context). Le legacy-monolith a été
+supprimé à step 15. Voir [`backend/AGENTS.md`](../AGENTS.md) section
+« Layout Maven » et [`architecture.md`](architecture.md) pour la table
+des endpoints owned par service.
 
 **Conséquences pratiques pour le dev local** :
-- `cd backend && ./mvnw verify` build TOUS les modules.
-- `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par module.
-  Pour le monolithe : `cd backend/services/legacy-monolith && ../../mvnw quarkus:dev`.
-- Les 14 squelettes sont jar-packagés (pas `quarkus`) — `quarkus:dev` n'y
-  fonctionne pas tant qu'ils n'ont pas été enrichis par leur PR d'extraction.
-  Ils ont juste un endpoint `/api/__service` (identité du module) pour permettre
-  à Kong / curl de vérifier qui répond pendant la coexistence.
+- `cd backend && ./mvnw verify` build TOUS les microservices (~1 min 10 s).
+- `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par
+  service. Exemple :
+  `cd backend/services/event-service && ../../mvnw quarkus:dev`.
+- Pour faire tourner plusieurs services en même temps il faut leur
+  attribuer des ports HTTP distincts (par défaut tous écoutent
+  `:8080`) via `-Dquarkus.http.port=8082` etc.
 
 ---
 
@@ -36,14 +36,20 @@ et [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_
 cp .env.example .env
 # Éditer .env avec les vraies valeurs Auth0 (OIDC_AUTH_SERVER_URL, OIDC_CLIENT_ID, etc.)
 
-# Lancer le monolithe en mode dev (hot reload + PostgreSQL auto via DevServices)
-cd backend/services/legacy-monolith
+# Lancer un service en mode dev (hot reload + PostgreSQL auto via DevServices)
+cd backend/services/event-service
 ../../mvnw quarkus:dev
 ```
 
-L'API est accessible sur `http://localhost:8080/api`.
+L'API du service est accessible sur `http://localhost:8080/api`.
 Swagger UI : `http://localhost:8080/api/swagger-ui`
 OpenAPI JSON : `http://localhost:8080/api/openapi`
+
+Pour reproduire la topologie complète (Kong + 13 services + db + minio
++ kafka), passer par le chart Helm via Minikube ou un cluster preview ;
+il n'y a pas de `docker-compose.dev.yml` qui orchestre les 13 pods en
+local — le coût démarrage est élevé et le dev se fait service par
+service avec DevServices.
 
 **DevServices :** Quarkus lance automatiquement un PostgreSQL éphémère via Testcontainers en mode dev. Aucune DB externe n'est requise si `quarkus.datasource.jdbc.url` n'est pas défini pour le profil dev.
 

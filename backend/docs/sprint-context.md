@@ -295,6 +295,26 @@ devient une no-op puisque legacy-monolith n'existe plus côté CPD source —
 mais on la laisse en place jusqu'à PR 16 (CI matrix per-service avec
 projectKey distinct), où elle disparaîtra complètement.
 
+**Étape 16 partielle — Documentation finale (commit `<this PR>`) ✅**
+
+- `architecture.md` : section « Vue d'ensemble — topologie microservices »
+  réécrite avec la table des 13 services + endpoints owned + tables
+  possédées + notes inter-service (REST clients différés, Kafka non câblé,
+  rate-limits non portés). Banner Sprint 8 mis à jour pour indiquer
+  "migration LIVRÉE".
+- `dev-guide.md` : section « Layout Maven (multi-module — post-migration) »
+  réécrite (14 microservices, plus de legacy-monolith). Workflow `quarkus:dev`
+  par service avec port HTTP override.
+
+**Différé pour des PRs follow-up dédiées** :
+
+- `data-model.md` : ajout d'une colonne « Service propriétaire » par
+  table d'entité (mapping mécaniquement dérivable de la table dans
+  `architecture.md` mais non encore pushé dans `data-model.md`).
+- `api-contract.md` : ajout d'une colonne « Service amont » par
+  endpoint (idem — mécanique, mais 200+ lignes à mettre à jour).
+- `AGENTS.md` racine : référence à la nouvelle topologie.
+
 ### Note CI : transient image-pull failure sur PR 4 (calendar-service)
 
 Le run CI de la PR 4 (commit `df19461`) a échoué au stage Deploy avec
