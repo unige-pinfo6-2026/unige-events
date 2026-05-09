@@ -4,9 +4,9 @@ Dernière mise à jour : 2026-05-09
 
 ---
 
-## Sprint 8 — Migration vers microservices (étapes 0 + 1 livrées) — 2026-05-08
+## Sprint 8 — Migration vers microservices (étapes 0 → 18 livrées + complétion) — 2026-05-09
 
-En cours. Spec : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+En complétion. Spec originale : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md). Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md). Spec de complétion : [`specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md).
 PR active : [#158](https://github.com/unige-pinfo6-2026/unige-events/pull/158) sur la branche
 persistante `refactor(backend)--migrate-to-microservices` (NB : `--` substitué à `:` côté
 git ref pour compatibilité shell — déviation cosmétique).
