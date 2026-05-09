@@ -1,4 +1,4 @@
-package ch.unige.events.share.config;
+package ch.unige.events.event.share.config;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithName;

@@ -19,27 +19,10 @@ data:
     # (Kong picks the longest matching regex regardless of declaration
     # order).
     services:
-      # ───── PR 1 — share-service (extracted) ─────────────────────────────
-      # Routes /api/events/{id}/share + /api/s/{shortCode} to share-service.
-      # Kong route matching: regex paths outrank prefix paths, so even
-      # though /api still matches via api-catchall, Kong picks these
-      # specific regexes first.
-      - name: share-service
-        url: http://share-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: event-share
-            paths:
-              - ~/api/events/(?:\d+)/share$
-            strip_path: false
-            preserve_host: true
-          - name: shortlink
-            paths:
-              - ~/api/s/[^/]+$
-            strip_path: false
-            preserve_host: true
+      # NB: share-service was merged into event-service in finalization
+      # Étape 2.2.1 (Décision A). Routes /api/events/{id}/share +
+      # /api/s/{shortCode} are now declared in the event-service block
+      # below (look for `event-share` and `shortlink`).
 
       # ───── PR 2 — view-service (extracted) ──────────────────────────────
       - name: view-service
@@ -117,6 +100,17 @@ data:
         read_timeout: 30000
         write_timeout: 30000
         routes:
+          # Absorbed from share-service in finalization Étape 2.2.1.
+          - name: event-share
+            paths:
+              - ~/api/events/(?:\d+)/share$
+            strip_path: false
+            preserve_host: true
+          - name: shortlink
+            paths:
+              - ~/api/s/[^/]+$
+            strip_path: false
+            preserve_host: true
           - name: events-search
             paths:
               - ~/api/events/search$

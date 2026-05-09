@@ -1,4 +1,4 @@
-package ch.unige.events.share.dto;
+package ch.unige.events.event.share.dto;
 
 public record ShareResponse(
         String shareUrl,

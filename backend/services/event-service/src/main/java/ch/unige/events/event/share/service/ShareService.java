@@ -1,8 +1,8 @@
-package ch.unige.events.share.service;
+package ch.unige.events.event.share.service;
 
-import ch.unige.events.share.config.AppConfig;
-import ch.unige.events.share.dto.ShareResponse;
-import ch.unige.events.share.entity.Event;
+import ch.unige.events.event.share.config.AppConfig;
+import ch.unige.events.event.share.dto.ShareResponse;
+import ch.unige.events.event.entity.Event;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

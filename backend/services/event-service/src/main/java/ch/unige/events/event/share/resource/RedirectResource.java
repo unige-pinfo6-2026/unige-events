@@ -1,7 +1,7 @@
-package ch.unige.events.share.resource;
+package ch.unige.events.event.share.resource;
 
-import ch.unige.events.share.entity.Event;
-import ch.unige.events.share.service.ShareService;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.share.service.ShareService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
