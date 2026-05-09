@@ -115,6 +115,30 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 12 — user-service (extracted) ─────────────────────────────
+      # GET/PUT /api/users/me + GET /api/users/{uuid}. The /me/image and
+      # /me/banner uploads stay on legacy-monolith via the catch-all (their
+      # FileStorageService + S3 wiring isn't ported yet). The other /me/*
+      # paths (calendar-token, follow-requests, co-organizer-invitations,
+      # events, attendances, participations, favorites) keep their
+      # per-service routes thanks to longer regex specificity.
+      #
+      # NB: the regex /api/users/[^/]+$ ALSO matches /api/users/me, but
+      # that's intentional — both targets land on user-service which
+      # handles /me (Authenticated) and /{uuid} (PermitAll) on the same
+      # @Path("/users") class.
+      - name: user-service
+        url: http://user-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: user-by-id
+            paths:
+              - ~/api/users/[^/]+$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 11 — me-aggregator-service (extracted) ────────────────────
       # BFF — owns /users/me/events for now. The other /me/* paths
       # (favorites, attendances, participations) stay on favorite-service
@@ -298,13 +322,6 @@ data:
       # Service Kubernetes DNS naming: <service>.<namespace>.svc.cluster.local
       # — the chart already provisions Service objects with replicas: 0 for
       # each of these (see k8s/chart/templates/<service>/service.yaml).
-      #
-      # - name: user-service
-      #   url: http://user-service:8080
-      #   routes:
-      #     - { name: user-me,             paths: [/api/users/me] }
-      #     - { name: user-by-id,          paths: [/api/users/(?:[^/]+)$], strip_path: false }
-      #     - { name: user-image-banner,   paths: [/api/users/me/image, /api/users/me/banner] }
       #
       # - name: event-service
       #   url: http://event-service:8080

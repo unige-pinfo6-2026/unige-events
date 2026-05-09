@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 11 services réellement extraits, 2 restants DEFERRED.**
+**Étapes 2..14 — 12 services réellement extraits, 1 restant DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -173,12 +173,34 @@ scope étape 1**.
   Kong route `/api/users/me/events$` → `me-aggregator-service:8080`.
   Image `unige-events-me-aggregator-service:<sha>`. Helm `replicas: 1`.
   CI Deploy à valider.
-* ⏳ **PR 12..13 — 2 extractions restantes** (user, event) suivent le
-  même pattern : POM jar→quarkus, copy resources/services/entities
-  depuis legacy avec adaptations (stubs read-only pour les tables
-  cross-domaine), Helm replicas:1, Kong route flip. Documentées dans
-  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
-  avec file inventory exact + commit message template par PR.
+* ✅ **PR 12 — `user-service` extrait** (commit `<this PR>`). Owns
+  `users` + `user_interests` (le @ElementCollection EAGER). En S8 sert
+  `GET /users/me` (auto-créé depuis claims JWT à la 1ère connexion),
+  `PUT /users/me` (update partiel + optimistic lock translation),
+  `GET /users/{id}` (anti-oracle 404 ISSUE-93 + projection conditionnelle
+  anonyme/auth/self). FollowStub read-only pour les compteurs +
+  followStatus du PublicProfileView (sera REST sync vers follow-service
+  PR 5 dans une PR de cleanup). JsonWebToken injecté en
+  `Instance<JsonWebToken>` lazy — le sentinel test tourne avec
+  `oidc.enabled=false` et n'a pas de mock JWT. Kong route
+  `/api/users/[^/]+$` (matche `/me` ET `/{uuid}`) → `user-service:8080`.
+  **NON extrait** : `POST/DELETE /users/me/image` + `/banner` qui
+  restent sur legacy-monolith via le catch-all (FileStorageService + S3
+  + ImageFormat helpers + custom exceptions vivent côté legacy ; migrent
+  dans une PR de cleanup une fois event-service est livré et porte la
+  même classe). Image `unige-events-user-service:<sha>`. Helm
+  `replicas: 1`. Note : le rate-limit `users.updateMe` 10/min n'est pas
+  porté (idem PR 3). CI Deploy à valider.
+* ⏳ **PR 13 — 1 extraction restante** (event-service). Le plus gros :
+  9 paths principaux + recurrence + featured + admin actions + scheduler
+  EventExpirationJob + Kafka producteurs (events.{published,cancelled,
+  expired}) + consommateur (events.banned depuis report-service) +
+  FileStorageService partagé. Documentée dans
+  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md).
+  À la fin de cette PR : **legacy-monolith est vide** → step 15 le
+  supprime, ce qui résout mécaniquement la Sonar Quality Gate (la
+  duplication s'évanouit, la couverture du new-code se rebase sur les
+  modules per-service).
 
 ### Note Sonar : Quality Gate FAILED (attendu — résolu à step 15)
 
