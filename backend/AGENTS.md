@@ -131,7 +131,7 @@ Chaque service métier (4 actifs post-consolidation) embarque :
 ## Workflow Git
 - Branche : `feature/SCRUM-XX-description`. Branche persistante de migration : `refactor(backend)--migrate-to-microservices` (PR #158, attention au workaround `chore(backend):` cf. sprint-context).
 - 1 PR par tâche, review obligatoire avant merge sur `main`.
-- Qualité : SonarCloud seuil 80 % couverture (JaCoCo) — par projet per-service après activation DevOps des 5 SonarCloud projects (Option B) (Étape 12 de la spec de complétion).
+- Qualité : SonarCloud seuil 80 % couverture (JaCoCo) — projet unique `unige-pinfo6-2026_unige-events-backend` (**Option B définitive Étape 22** — finit le bug Sonar Maven multi-module). Le scan est lancé par le job CI `sonar-aggregate` (post-matrix), qui consomme les jacoco.xml des 17 modules via artifacts uploadés par les jobs amont. Cf. `docs/sprint-context.md` § Étape 22.
 
 ### Conventions de PR
 - **Titre** : format `<type>(<scope>): <description>`, validé par `.github/workflows/pr-title-check.yml`.
