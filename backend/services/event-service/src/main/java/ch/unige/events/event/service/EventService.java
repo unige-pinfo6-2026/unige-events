@@ -353,6 +353,9 @@ public class EventService {
         if (event.status == EventStatus.BANNED) {
             throw conflict("Banned events cannot be cancelled by their creator.");
         }
+        if (event.status == EventStatus.EXPIRED) {
+            throw conflict("Expired events cannot be cancelled.");
+        }
 
         event.status = EventStatus.CANCELLED;
         long attCancel = countAttending(id);
