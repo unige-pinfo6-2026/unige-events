@@ -17,6 +17,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -67,5 +68,26 @@ public interface EngagementServiceClient {
 
     default List<AttendanceDTO> getUserAttendancesFallback(UUID id, String status) {
         return List.of();
+    }
+
+    /**
+     * Bulk attendance summary lookup for a list of event ids — Décision I
+     * of finalization-ultimate spec. Replaces the legacy
+     * {@code AttendanceStub.countGroupedByStatus(ids, ...)} pattern that
+     * required cross-service entity navigation. Provider:
+     * {@code GET /events/_bulk-attendance-summary?ids=42&ids=7} on
+     * engagement-service. The {@code _bulk-} prefix avoids ambiguity with
+     * the path-param route {@code /events/{eventId}/attendance-summary}.
+     */
+    @GET
+    @Path("/events/_bulk-attendance-summary")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getAttendanceSummariesBulkFallback")
+    Map<Long, AttendanceSummary> getAttendanceSummariesBulk(@QueryParam("ids") List<Long> ids);
+
+    default Map<Long, AttendanceSummary> getAttendanceSummariesBulkFallback(List<Long> ids) {
+        return Map.of();
     }
 }

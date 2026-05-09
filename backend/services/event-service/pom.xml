@@ -54,6 +54,14 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-storage</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-kafka-events</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-dtos</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
+
+        <!-- ── REST client runtime (Étape 3.4 finalization-ultimate) ─────────── -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId></dependency>
 
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>

@@ -73,4 +73,17 @@ public class EventCoOrganizer extends PanacheEntity {
                 .page(page, size)
                 .list();
     }
+
+    /**
+     * Décision G of finalization-ultimate spec: returns the user ids that
+     * are ACCEPTED co-organizers of the given event. Consumed by
+     * {@link ch.unige.events.event.service.EventService#getOrganizerUuids}
+     * to build the {@code creator + co-organizers} set in a single query.
+     */
+    public static List<UUID> findAcceptedUserIdsForEvent(Long eventId) {
+        List<EventCoOrganizer> rows = list(
+                "eventId = ?1 and status = ?2",
+                eventId, CoOrganizerStatus.ACCEPTED);
+        return rows.stream().map(co -> co.userId).toList();
+    }
 }

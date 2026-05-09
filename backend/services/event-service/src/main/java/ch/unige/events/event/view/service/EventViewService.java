@@ -1,11 +1,14 @@
 package ch.unige.events.event.view.service;
 
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.UserStub;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -15,14 +18,25 @@ import java.util.UUID;
  * native SQL with ON CONFLICT, identical semantics to the legacy
  * monolith's EventViewService. Refreshing viewed_at gives "most recent
  * view" semantics.
+ *
+ * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décision F): caller
+ * UUID is resolved from the JWT {@code uuid} claim
+ * ({@link Auth0IdResolver#resolveUserUuid}) — no more
+ * {@code UserStub.findByAuth0Id} cross-schema query.
  */
 @ApplicationScoped
 public class EventViewService {
 
     private final EntityManager entityManager;
 
+    @Inject Instance<JsonWebToken> jwt;
+
     public EventViewService(EntityManager entityManager) {
         this.entityManager = entityManager;
+    }
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
     }
 
     @Transactional
@@ -31,9 +45,10 @@ public class EventViewService {
             throw new NotFoundException("Event not found");
         }
 
-        UUID userId = UserStub.findByAuth0Id(auth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found"))
-                .id;
+        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (userId == null) {
+            throw new NotFoundException("User profile not found");
+        }
 
         // Native upsert: ON CONFLICT closes the concurrent-insert race.
         // event_views_seq is created by Hibernate's drop-and-create in test

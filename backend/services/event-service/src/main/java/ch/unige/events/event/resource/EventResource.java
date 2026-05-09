@@ -129,6 +129,17 @@ public class EventResource {
     }
 
     @GET
+    @Path("/{id}/organizer-uuids")
+    @PermitAll
+    public List<UUID> getOrganizerUuids(@PathParam("id") Long id) {
+        // Internal endpoint (Décision G finalization-ultimate). Consumed
+        // cross-service by engagement-service / moderation-service to
+        // build the creator + ACCEPTED co-organizers set in a single
+        // call, replacing the legacy EventCoOrganizerStub.
+        return eventService.getOrganizerUuids(id);
+    }
+
+    @GET
     @Path("/{id}/occurrences")
     @PermitAll
     public List<EventDTO> getOccurrences(

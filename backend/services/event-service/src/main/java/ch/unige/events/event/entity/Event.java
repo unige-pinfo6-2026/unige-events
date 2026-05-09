@@ -11,7 +11,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -23,14 +22,18 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Owned by event-service. Carbon-copy of the legacy
- * ch.unige.events.entity.Event — same column layout, same indexes,
- * same finders. The {@code creator} association points at
- * {@link UserStub} so JPA can hydrate it lazily ; until user-service is
- * accessed via REST in a follow-up cleanup, the FK column still points
- * at the shared `users` table.
+ * ch.unige.events.entity.Event — same column layout, same indexes.
+ *
+ * <p>Décision F finalization-ultimate (Étape 3.4, STUB-001): the cross-
+ * service {@code @ManyToOne UserStub creator} navigation is replaced
+ * by an id-only {@code @Column UUID creatorId}. The {@code creator_id}
+ * column already exists in the {@code events} table — only the JPA
+ * navigation goes away. Display-name / avatar enrichment is performed
+ * at the service layer via {@code UserServiceClient.getById(uuid)}.
  */
 @Entity
 @Table(name = "events", indexes = {
@@ -61,9 +64,8 @@ public class Event extends PanacheEntity {
 
     public String bannerUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "creator_id")
-    public UserStub creator;
+    @Column(name = "creator_id")
+    public UUID creatorId;
 
     @Enumerated(EnumType.STRING)
     public EventStatus status = EventStatus.DRAFT;

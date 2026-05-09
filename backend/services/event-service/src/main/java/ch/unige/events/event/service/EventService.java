@@ -1,24 +1,27 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.ApiErrorResponse;
-import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
-import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
 import ch.unige.events.event.dto.UpdateEventRequest;
 import ch.unige.events.event.entity.AttendanceStatus;
-import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventCategory;
-import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.entity.EventStatus;
-import ch.unige.events.event.entity.EventViewStub;
 import ch.unige.events.event.entity.Faculty;
-import ch.unige.events.event.entity.FavoriteStub;
-import ch.unige.events.event.entity.UserStub;
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
+import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.event.util.RecurrenceGenerator;
+import ch.unige.events.event.view.entity.EventView;
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
+import ch.unige.events.shared.storage.FileStorageService;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -28,30 +31,38 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Same contract as the legacy ch.unige.events.service.EventService.
  *
- * <p>Notable adaptations for the soft-extraction :
+ * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décisions A, F, G, I):
  * <ul>
- *   <li>Image upload delegates to the shared {@link FileStorageService}
- *       (deduped between user-service and event-service in the
- *       shared-storage lib).</li>
- *   <li>Cross-domain entities replaced by stubs : {@link AttendanceStub},
- *       {@link EventViewStub}, {@link FavoriteStub},
- *       {@link EventCoOrganizer}, {@link UserStub}. The legacy JPQL
- *       queries are retyped to the stub names.</li>
+ *   <li>Décision F: {@code Event.creator} {@code @ManyToOne UserStub}
+ *       replaced by {@code Event.creatorId UUID}.</li>
+ *   <li>Décision I: bulk attendance counts come from
+ *       {@link EngagementServiceClient#getAttendanceSummariesBulk(java.util.List)}
+ *       instead of the deleted local {@code AttendanceStub}.</li>
+ *   <li>EventViewStub / FavoriteStub were redundant copies of the local
+ *       {@code EventView} / {@code Favorite} entities (same tables) —
+ *       call sites use the local entities directly.</li>
+ *   <li>{@code isCreator(event, auth0Id)} switches from
+ *       UserStub.findByAuth0Id to a JWT-claim check
+ *       ({@link Auth0IdResolver#resolveUserUuid}).</li>
  * </ul>
  */
 @ApplicationScoped
@@ -60,6 +71,14 @@ public class EventService {
     @Inject FileStorageService fileStorageService;
     @Inject EntityManager entityManager;
     @Inject jakarta.enterprise.event.Event<EventLifecycleEvent> lifecycleEvent;
+    @Inject Instance<JsonWebToken> jwt;
+
+    @Inject @RestClient EngagementServiceClient engagementClient;
+    @Inject @RestClient UserServiceClient userClient;
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
+    }
 
     @Transactional
     @SuppressWarnings("java:S107")
@@ -86,7 +105,7 @@ public class EventService {
             params.put("category", category);
         }
         if (organizerId != null) {
-            conditions.add("e.creator.id = :organizerId");
+            conditions.add("e.creatorId = :organizerId");
             params.put("organizerId", organizerId);
         }
         if (endDateFrom != null) {
@@ -158,26 +177,30 @@ public class EventService {
                 parentId
         ).page(page, size).list();
 
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
         List<Event> visible = occurrences.stream()
-                .filter(o -> isOccurrenceVisible(o, auth0Id, isAdmin))
+                .filter(o -> isOccurrenceVisible(o, callerUuid, isAdmin))
                 .toList();
 
         return toEventDTOs(visible);
     }
 
-    private boolean isOccurrenceVisible(Event occurrence, String auth0Id, boolean isAdmin) {
+    private boolean isOccurrenceVisible(Event occurrence, UUID callerUuid, boolean isAdmin) {
         if (occurrence.status == EventStatus.BANNED) {
             return false;
         }
         if (occurrence.status == EventStatus.PUBLISHED) {
             return true;
         }
-        return isAdmin || isCreatorOrAcceptedCoOrganizer(occurrence, auth0Id);
+        return isAdmin || isCreatorOrAcceptedCoOrganizer(occurrence, callerUuid);
     }
 
     private Event persistParent(String auth0Id, CreateEventRequest request) {
-        UserStub creator = UserStub.findByAuth0Id(auth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+        UUID creatorId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (creatorId == null) {
+            throw new NotFoundException(
+                    "User profile not found — call GET /users/me first");
+        }
 
         Event event = new Event();
         event.title = request.title;
@@ -194,7 +217,7 @@ public class EventService {
         event.contactEmail = request.contactEmail;
         event.registrationDeadline = request.registrationDeadline;
         event.tags = normalizeTags(request.tags);
-        event.creator = creator;
+        event.creatorId = creatorId;
         if (request.getStatus() == EventStatus.EXPIRED) {
             throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
         }
@@ -225,7 +248,7 @@ public class EventService {
         occurrence.contactEmail = parent.contactEmail;
         occurrence.registrationDeadline = parent.registrationDeadline;
         occurrence.tags = parent.tags == null ? new ArrayList<>() : new ArrayList<>(parent.tags);
-        occurrence.creator = parent.creator;
+        occurrence.creatorId = parent.creatorId;
         occurrence.status = parent.status;
         occurrence.parentEventId = parent.id;
         occurrence.recurrenceRule = null;
@@ -261,8 +284,7 @@ public class EventService {
      * {@code coOrganizerOf} field of the returned DTO when {@code checkCoOrgOf}
      * is non-null. Used by the {@code GET /events/{id}?check-co-org-of=}
      * cross-service endpoint so consumers (engagement, moderation) can
-     * evaluate cascade SCRUM-136 in a single call (post Étape 2.2.4 the
-     * event_co_organizers table lives here, so the check is a local query).
+     * evaluate cascade SCRUM-136 in a single call.
      */
     public EventDTO getById(Long id, String auth0Id, boolean isAdmin, UUID checkCoOrgOf) {
         Event event = Event.<Event>findByIdOptional(id)
@@ -272,11 +294,15 @@ public class EventService {
             throw new NotFoundException();
         }
 
-        if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (event.status != EventStatus.PUBLISHED && !isAdmin
+                && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new NotFoundException();
         }
 
-        long att = countAttending(id);
+        AttendanceSummary summary = engagementClient.getAttendanceSummary(id);
+        long att = summary != null ? summary.attending() : 0L;
+        long wait = summary != null ? summary.waitlisted() : 0L;
         Boolean coOrganizerOf = null;
         if (checkCoOrgOf != null) {
             coOrganizerOf = isCreatorOrAcceptedCoOrganizer(event, checkCoOrgOf);
@@ -285,7 +311,7 @@ public class EventService {
                 event,
                 att,
                 computeAvailableSpots(event.capacity, att),
-                countWaitlisted(id),
+                wait,
                 countViews(id),
                 countInterested(id),
                 coOrganizerOf
@@ -305,15 +331,51 @@ public class EventService {
         List<Event> events = (status == null)
                 ? Event.list("id IN ?1", ids)
                 : Event.list("id IN ?1 AND status = ?2", ids, status);
+        if (events.isEmpty()) {
+            return List.of();
+        }
+        List<Long> eventIds = events.stream().map(e -> e.id).toList();
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(eventIds);
+        if (summaries == null) {
+            summaries = Map.of();
+        }
         List<EventDTO> result = new ArrayList<>(events.size());
         for (Event e : events) {
-            long a = countAttending(e.id);
+            AttendanceSummary s = summaries.getOrDefault(e.id, AttendanceSummary.of(0L, 0L));
+            long a = s.attending();
             result.add(EventDTO.from(
                     e, a, computeAvailableSpots(e.capacity, a),
-                    countWaitlisted(e.id), countViews(e.id), countInterested(e.id)
+                    s.waitlisted(), countViews(e.id), countInterested(e.id)
             ));
         }
         return result;
+    }
+
+    /**
+     * Décision G of finalization-ultimate spec: returns the set of UUIDs
+     * counting as "organizers" of an event = creator + ACCEPTED co-
+     * organizers. Single REST call for engagement-service /
+     * moderation-service consumers, replaces the legacy
+     * {@code EventCoOrganizerStub.findAcceptedUserIdsForEvent}.
+     *
+     * <p>Anti-oracle: this endpoint is {@code @PermitAll} but applies a
+     * minimal gate — 404 if the event is BANNED. We don't apply the
+     * full ISSUE-92 cascade because the only consumer (engagement-
+     * service) calls {@code /events/{id}?check-co-org-of=} first and
+     * only invokes this endpoint after that visibility check passed.
+     */
+    public List<UUID> getOrganizerUuids(Long eventId) {
+        Event event = Event.<Event>findByIdOptional(eventId)
+                .orElseThrow(NotFoundException::new);
+        if (event.status == EventStatus.BANNED) {
+            throw new NotFoundException();
+        }
+        Set<UUID> ids = new HashSet<>();
+        if (event.creatorId != null) {
+            ids.add(event.creatorId);
+        }
+        ids.addAll(EventCoOrganizer.findAcceptedUserIdsForEvent(eventId));
+        return new ArrayList<>(ids);
     }
 
     @Transactional
@@ -321,7 +383,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can update this event");
         }
 
@@ -356,8 +419,10 @@ public class EventService {
             event.status = request.status;
         }
 
-        long att = countAttending(id);
-        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), countWaitlisted(id), null, null);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(id);
+        long att = s != null ? s.attending() : 0L;
+        long wait = s != null ? s.waitlisted() : 0L;
+        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), wait, null, null);
     }
 
     @Transactional
@@ -365,7 +430,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreator(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isCreator(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator can delete this event");
         }
 
@@ -373,9 +439,15 @@ public class EventService {
             throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
         }
 
-        entityManager.createQuery("DELETE FROM AttendanceStub a WHERE a.eventId = :id").setParameter("id", id).executeUpdate();
-        entityManager.createQuery("DELETE FROM FavoriteStub f WHERE f.eventId = :id").setParameter("id", id).executeUpdate();
-        entityManager.createQuery("DELETE FROM EventViewStub v WHERE v.eventId = :id").setParameter("id", id).executeUpdate();
+        // Local cleanup only: favorites + event_views are owned by event-
+        // service ; attendances + comments live in engagement-service —
+        // hard-delete cross-service is delegated to engagement (orphan
+        // attendance rows for cancelled-then-deleted events are handled
+        // by engagement-service's eventual GC ; deferred S9 if needed).
+        entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
+                .setParameter("id", id).executeUpdate();
+        entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
+                .setParameter("id", id).executeUpdate();
         event.delete();
     }
 
@@ -384,7 +456,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can cancel this event");
         }
 
@@ -399,12 +472,13 @@ public class EventService {
         }
 
         event.status = EventStatus.CANCELLED;
-        long attCancel = countAttending(id);
-        // CDI fire — the EventLifecycleKafkaBridge observer routes to
-        // the Kafka publisher only AFTER_SUCCESS commit (Décision A —
-        // fixes BUG-002). A rollback aborts the delivery.
-        lifecycleEvent.fire(EventLifecycleEvent.cancelled(event.id, event.creator != null ? event.creator.id : null));
-        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), countWaitlisted(id), null, null);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(id);
+        long attCancel = s != null ? s.attending() : 0L;
+        long waitCancel = s != null ? s.waitlisted() : 0L;
+        // CDI fire — bridge observer publishes to Kafka AFTER_SUCCESS
+        // (Décision A — fixes BUG-002).
+        lifecycleEvent.fire(EventLifecycleEvent.cancelled(event.id, event.creatorId));
+        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), waitCancel, null, null);
     }
 
     @Transactional
@@ -412,7 +486,8 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        if (!isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can restore this event");
         }
 
@@ -421,8 +496,10 @@ public class EventService {
         }
 
         event.status = EventStatus.DRAFT;
-        long attRestore = countAttending(id);
-        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), countWaitlisted(id), null, null);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(id);
+        long attRestore = s != null ? s.attending() : 0L;
+        long waitRestore = s != null ? s.waitlisted() : 0L;
+        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), waitRestore, null, null);
     }
 
     private static WebApplicationException conflict(String message) {
@@ -436,7 +513,8 @@ public class EventService {
     public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can publish this event");
         }
 
@@ -456,25 +534,30 @@ public class EventService {
         }
 
         event.status = EventStatus.PUBLISHED;
-        long attPublish = countAttending(id);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(id);
+        long attPublish = s != null ? s.attending() : 0L;
+        long waitPublish = s != null ? s.waitlisted() : 0L;
         // CDI fire — bridge observer publishes to Kafka AFTER_SUCCESS
         // (Décision A — fixes BUG-001 / BUG-002).
-        lifecycleEvent.fire(EventLifecycleEvent.published(event.id, event.creator != null ? event.creator.id : null));
-        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), countWaitlisted(id), null, null);
+        lifecycleEvent.fire(EventLifecycleEvent.published(event.id, event.creatorId));
+        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), waitPublish, null, null);
     }
 
     @Transactional
     public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, auth0Id)) {
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can upload a banner");
         }
 
         event.bannerUrl = fileStorageService.saveImage(fileUpload, "events/banners",
                 FileStorageService.MAX_BANNER_BYTES, event.bannerUrl);
-        long attUpload = countAttending(id);
-        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), countWaitlisted(id), null, null);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(id);
+        long attUpload = s != null ? s.attending() : 0L;
+        long waitUpload = s != null ? s.waitlisted() : 0L;
+        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), waitUpload, null, null);
     }
 
     private static List<String> collectPublishValidationErrors(Event event) {
@@ -500,34 +583,32 @@ public class EventService {
     }
 
     private List<EventDTO> toEventDTOs(List<Event> events) {
+        if (events.isEmpty()) {
+            return List.of();
+        }
         List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(ids);
+        if (summaries == null) {
+            summaries = Map.of();
+        }
+        Map<Long, AttendanceSummary> finalSummaries = summaries;
         return events.stream()
                 .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    AttendanceSummary s = finalSummaries.getOrDefault(
+                            e.id, AttendanceSummary.of(0L, 0L));
+                    long att = s.attending();
+                    long wait = s.waitlisted();
                     return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }
 
-    private static long countAttending(Long eventId) {
-        return AttendanceStub.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.ATTENDING);
-    }
-
-    private static long countWaitlisted(Long eventId) {
-        return AttendanceStub.count("eventId = ?1 and status = ?2", eventId, AttendanceStatus.WAITLISTED);
-    }
-
     private static long countViews(Long eventId) {
-        return EventViewStub.count("eventId = ?1", eventId);
+        return EventView.count("eventId = ?1", eventId);
     }
 
     private static long countInterested(Long eventId) {
-        return FavoriteStub.count("eventId = ?1", eventId);
+        return Favorite.count("eventId = ?1", eventId);
     }
 
     static Long computeAvailableSpots(Integer capacity, long attendingCount) {
@@ -552,31 +633,30 @@ public class EventService {
         return new ArrayList<>(seen);
     }
 
-    private static boolean isCreator(Event event, String auth0Id) {
-        return event.creator != null
-                && event.creator.auth0Id != null
-                && event.creator.auth0Id.equals(auth0Id);
+    private static boolean isCreator(Event event, UUID callerUuid) {
+        return event.creatorId != null
+                && callerUuid != null
+                && event.creatorId.equals(callerUuid);
     }
 
+    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
+        if (event == null || callerUuid == null) {
+            return false;
+        }
+        if (callerUuid.equals(event.creatorId)) {
+            return true;
+        }
+        return EventCoOrganizer.isAcceptedFor(event.id, callerUuid);
+    }
+
+    /**
+     * Suppress UNUSED warning: kept for the Kafka consumer / scheduler
+     * call sites that still pass auth0Id (legacy-compat). When the
+     * caller is the system (auto-cleanup, expiration job) they pass
+     * null and the JWT is also null, so the helper short-circuits.
+     */
+    @SuppressWarnings("unused")
     private boolean isCreatorOrAcceptedCoOrganizer(Event event, String auth0Id) {
-        if (isCreator(event, auth0Id)) {
-            return true;
-        }
-        if (auth0Id == null) {
-            return false;
-        }
-        return UserStub.findByAuth0Id(auth0Id)
-                .map(user -> EventCoOrganizer.isAcceptedFor(event.id, user.id))
-                .orElse(false);
-    }
-
-    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID userId) {
-        if (event == null || userId == null) {
-            return false;
-        }
-        if (event.creator != null && userId.equals(event.creator.id)) {
-            return true;
-        }
-        return EventCoOrganizer.isAcceptedFor(event.id, userId);
+        return isCreatorOrAcceptedCoOrganizer(event, Auth0IdResolver.resolveUserUuid(jwt()));
     }
 }

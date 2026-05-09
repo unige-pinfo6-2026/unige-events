@@ -1,16 +1,18 @@
 package ch.unige.events.event.favorite.service;
 
 import ch.unige.events.event.favorite.dto.EventDTO;
-import ch.unige.events.event.entity.AttendanceStatus;
-import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.favorite.entity.Favorite;
-import ch.unige.events.event.entity.UserStub;
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
 import java.util.Map;
@@ -21,19 +23,27 @@ import java.util.UUID;
  * Same semantics as the legacy monolith's FavoriteService — idempotent
  * add, NotFoundException on missing event / favorite, listing returns
  * EventDTOs enriched with attending / waitlisted counts.
+ *
+ * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décisions F, I): caller
+ * UUID resolved via JWT claim, attendance counts via REST client to
+ * engagement-service.
  */
 @ApplicationScoped
 public class FavoriteService {
 
-    @Inject
-    EntityManager entityManager;
+    @Inject Instance<JsonWebToken> jwt;
+    @Inject @RestClient EngagementServiceClient engagementClient;
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
+    }
 
     @Transactional
     public void addFavorite(String auth0Id, Long eventId) {
         Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UUID userId = resolveUserId(auth0Id);
+        UUID userId = resolveUserId();
 
         boolean alreadyExists = Favorite.findByUserAndEvent(userId, eventId).isPresent();
         if (alreadyExists) {
@@ -48,7 +58,7 @@ public class FavoriteService {
 
     @Transactional
     public void removeFavorite(String auth0Id, Long eventId) {
-        UUID userId = resolveUserId(auth0Id);
+        UUID userId = resolveUserId();
 
         Favorite favorite = Favorite.findByUserAndEvent(userId, eventId)
                 .orElseThrow(() -> new NotFoundException("Favorite not found"));
@@ -58,18 +68,26 @@ public class FavoriteService {
 
     @Transactional
     public List<EventDTO> getFavorites(String auth0Id, int page, int size) {
-        UUID userId = resolveUserId(auth0Id);
+        UUID userId = resolveUserId();
 
         List<Favorite> favorites = Favorite.findByUser(userId, page, size);
+        if (favorites.isEmpty()) {
+            return List.of();
+        }
         List<Long> eventIds = favorites.stream().map(f -> f.eventId).toList();
-        Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(eventIds, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(eventIds, AttendanceStatus.WAITLISTED, entityManager);
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(eventIds);
+        if (summaries == null) {
+            summaries = Map.of();
+        }
+        Map<Long, AttendanceSummary> finalSummaries = summaries;
         return favorites.stream()
                 .map(f -> Event.<Event>findByIdOptional(f.eventId))
                 .flatMap(Optional::stream)
                 .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    AttendanceSummary s = finalSummaries.getOrDefault(
+                            e.id, AttendanceSummary.of(0L, 0L));
+                    long att = s.attending();
+                    long wait = s.waitlisted();
                     return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
@@ -87,9 +105,11 @@ public class FavoriteService {
         return Math.max(0L, capacity.longValue() - attendingCount);
     }
 
-    private UUID resolveUserId(String auth0Id) {
-        return UserStub.findByAuth0Id(auth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found"))
-                .id;
+    private UUID resolveUserId() {
+        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (userId == null) {
+            throw new NotFoundException("User profile not found");
+        }
+        return userId;
     }
 }

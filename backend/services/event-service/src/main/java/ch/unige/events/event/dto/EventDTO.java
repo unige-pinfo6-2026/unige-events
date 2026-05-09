@@ -70,7 +70,7 @@ public record EventDTO(
                 event.category,
                 event.faculty,
                 event.bannerUrl,
-                event.creator != null ? event.creator.id : null,
+                event.creatorId,
                 event.status,
                 event.capacity,
                 event.allDay,

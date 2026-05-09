@@ -4,23 +4,27 @@ import ch.unige.events.event.dto.ApiErrorResponse;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerDTO;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerInvitationDTO;
 import ch.unige.events.event.coorganizer.dto.EventDTO;
-import ch.unige.events.event.entity.AttendanceStatus;
-import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.CoOrganizerStatus;
 import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.event.entity.UserStub;
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.dto.UserPublicResponse;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,37 +33,48 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Same contract as the legacy EventCoOrganizerService. The bulk EventDTO
- * resolver used by {@link #getMyInvitations} reads from Event +
- * AttendanceStub directly until event-service / attendance-service ship
- * (PR 13 / 8).
+ * Same contract as the legacy EventCoOrganizerService. Étape 3.4
+ * finalization-ultimate (STUB-001 / Décisions F, I): caller UUID via
+ * JWT claim, target user enrichment via UserServiceClient, bulk
+ * attendance counts via EngagementServiceClient.
  */
 @ApplicationScoped
 public class EventCoOrganizerService {
 
-    @Inject EntityManager entityManager;
     @Inject jakarta.enterprise.event.Event<CoOrganizerEvent> coOrgEvent;
+    @Inject Instance<JsonWebToken> jwt;
+
+    @Inject @RestClient UserServiceClient userClient;
+    @Inject @RestClient EngagementServiceClient engagementClient;
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
+    }
 
     @Transactional
     public CoOrganizerDTO invite(Long eventId, String inviterAuth0Id, UUID targetUserId, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UserStub inviter = UserStub.findByAuth0Id(inviterAuth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+        UUID inviterId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (inviterId == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
 
-        boolean creator = isCreator(event, inviter);
+        boolean creator = isCreator(event, inviterId);
         if (!isAdmin && !creator) {
             throw new ForbiddenException("Only the event creator (or an admin) can invite co-organizers");
         }
 
-        if (creator && inviter.id.equals(targetUserId)) {
+        if (creator && inviterId.equals(targetUserId)) {
             throw badRequest("cannot_invite_self",
                     "The event creator cannot invite themselves as co-organizer.");
         }
 
-        UserStub target = UserStub.<UserStub>findByIdOptional(targetUserId)
-                .orElseThrow(() -> new NotFoundException("Target user not found"));
+        UserPublicResponse target = safeGetUser(targetUserId);
+        if (target == null) {
+            throw new NotFoundException("Target user not found");
+        }
 
         if (EventCoOrganizer.findByEventAndUser(eventId, targetUserId).isPresent()) {
             throw conflict("already_invited",
@@ -80,10 +95,12 @@ public class EventCoOrganizerService {
 
     @Transactional
     public CoOrganizerDTO accept(Long eventId, String userAuth0Id) {
-        UserStub user = UserStub.findByAuth0Id(userAuth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (userId == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
 
-        EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, user.id)
+        EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, userId)
                 .orElseThrow(() -> unprocessable("no_pending_invitation",
                         "No pending co-organizer invitation found for this event."));
 
@@ -91,17 +108,19 @@ public class EventCoOrganizerService {
         if (transition) {
             invitation.status = CoOrganizerStatus.ACCEPTED;
             // CDI fire — bridge publishes co-organizers.accepted AFTER_SUCCESS.
-            coOrgEvent.fire(CoOrganizerEvent.accepted(eventId, user.id));
+            coOrgEvent.fire(CoOrganizerEvent.accepted(eventId, userId));
         }
-        return CoOrganizerDTO.from(invitation, user);
+        return CoOrganizerDTO.from(invitation, safeGetUser(userId));
     }
 
     @Transactional
     public void decline(Long eventId, String userAuth0Id) {
-        UserStub user = UserStub.findByAuth0Id(userAuth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (userId == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
 
-        EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, user.id)
+        EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, userId)
                 .orElseThrow(() -> unprocessable("no_pending_invitation",
                         "No pending co-organizer invitation found for this event."));
 
@@ -113,8 +132,8 @@ public class EventCoOrganizerService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UserStub requester = UserStub.findByAuth0Id(requesterAuth0Id).orElse(null);
-        if (!isAdmin && !isCreator(event, requester)) {
+        UUID requesterId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (!isAdmin && !isCreator(event, requesterId)) {
             throw new ForbiddenException("Only the event creator (or an admin) can remove co-organizers");
         }
 
@@ -133,8 +152,11 @@ public class EventCoOrganizerService {
         }
 
         List<UUID> userIds = rows.stream().map(r -> r.userId).distinct().toList();
-        Map<UUID, UserStub> usersById = new HashMap<>();
-        UserStub.<UserStub>list("id IN ?1", userIds).forEach(u -> usersById.put(u.id, u));
+        Map<UUID, UserPublicResponse> usersById = new HashMap<>();
+        for (UUID uid : userIds) {
+            UserPublicResponse u = safeGetUser(uid);
+            if (u != null) usersById.put(uid, u);
+        }
 
         return rows.stream()
                 .map(r -> CoOrganizerDTO.from(r, usersById.get(r.userId)))
@@ -143,11 +165,13 @@ public class EventCoOrganizerService {
 
     @Transactional
     public List<CoOrganizerInvitationDTO> getMyInvitations(String auth0Id, CoOrganizerStatus status, int page, int size) {
-        UserStub user = UserStub.findByAuth0Id(auth0Id)
-                .orElseThrow(() -> new NotFoundException("User profile not found — call GET /users/me first"));
+        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        if (userId == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
 
         CoOrganizerStatus effective = status != null ? status : CoOrganizerStatus.PENDING;
-        List<EventCoOrganizer> invitations = EventCoOrganizer.findByUser(user.id, effective, page, size);
+        List<EventCoOrganizer> invitations = EventCoOrganizer.findByUser(userId, effective, page, size);
         if (invitations.isEmpty()) {
             return List.of();
         }
@@ -165,10 +189,9 @@ public class EventCoOrganizerService {
     }
 
     /**
-     * SCRUM-136 — Internal cascade lookup. Exposed through
-     * {@code GET /events/{eventId}/co-organizers/check?userId=} for
-     * comment-service / attendance-service / stats-service / event-service
-     * once they migrate from local stubs to REST clients.
+     * SCRUM-136 — Internal cascade lookup. Exposed through the cross-
+     * service {@code GET /events/{id}/organizer-uuids} endpoint
+     * (Décision G).
      */
     public boolean isAcceptedFor(Long eventId, UUID userId) {
         return EventCoOrganizer.isAcceptedFor(eventId, userId);
@@ -179,16 +202,34 @@ public class EventCoOrganizerService {
             return Map.of();
         }
         List<Event> events = Event.<Event>list("id IN ?1", ids);
-        Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(ids, AttendanceStatus.WAITLISTED, entityManager);
+        if (events.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(ids);
+        if (summaries == null) {
+            summaries = Map.of();
+        }
         Map<Long, EventDTO> result = new HashMap<>();
         for (Event event : events) {
-            long att = attendingCounts.getOrDefault(event.id, 0L);
-            long wait = waitlistedCounts.getOrDefault(event.id, 0L);
+            AttendanceSummary s = summaries.getOrDefault(
+                    event.id, AttendanceSummary.of(0L, 0L));
+            long att = s.attending();
+            long wait = s.waitlisted();
             EventDTO dto = EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), wait, null, null);
             result.put(dto.id(), dto);
         }
         return result;
+    }
+
+    private UserPublicResponse safeGetUser(UUID userId) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            return userClient.getById(userId);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static Long computeAvailableSpots(Integer capacity, long attendingCount) {
@@ -198,10 +239,10 @@ public class EventCoOrganizerService {
         return Math.max(0L, capacity.longValue() - attendingCount);
     }
 
-    private static boolean isCreator(Event event, UserStub user) {
-        return event != null && user != null
-                && (event.creator != null ? event.creator.id : null) != null
-                && (event.creator != null ? event.creator.id : null).equals(user.id);
+    private static boolean isCreator(Event event, UUID userId) {
+        return event != null && userId != null
+                && event.creatorId != null
+                && event.creatorId.equals(userId);
     }
 
     protected static WebApplicationException badRequest(String error, String message) {

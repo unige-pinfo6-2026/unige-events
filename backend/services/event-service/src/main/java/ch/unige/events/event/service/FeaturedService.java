@@ -1,15 +1,16 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.EventDTO;
-import ch.unige.events.event.entity.AttendanceStatus;
-import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventStatus;
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class FeaturedService {
 
     @Inject EntityManager entityManager;
+    @Inject @RestClient EngagementServiceClient engagementClient;
 
     @Transactional
     public List<EventDTO> getFeatured(int limit) {
@@ -63,19 +65,23 @@ public class FeaturedService {
 
             if (!candidates.isEmpty()) {
                 List<Long> candidateIds = candidates.stream().map(e -> e.id).toList();
-                Map<Long, Long> attending = AttendanceStub.countGroupedByStatus(
-                        candidateIds, AttendanceStatus.ATTENDING, entityManager);
+                Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(candidateIds);
+                if (summaries == null) summaries = Map.of();
+                Map<Long, AttendanceSummary> finalSummaries = summaries;
                 Map<Long, Long> favorites = countFavorites(candidateIds);
 
                 List<Event> phase2 = candidates.stream()
                         .sorted(Comparator
-                                .comparingLong((Event e) ->
-                                        -(attending.getOrDefault(e.id, 0L) + favorites.getOrDefault(e.id, 0L)))
+                                .comparingLong((Event e) -> {
+                                    AttendanceSummary s = finalSummaries.getOrDefault(
+                                            e.id, AttendanceSummary.of(0L, 0L));
+                                    return -(s.attending() + favorites.getOrDefault(e.id, 0L));
+                                })
                                 .thenComparingLong(e -> e.id))
                         .limit(remaining)
                         .toList();
 
-                result.addAll(toEventDTOs(phase2, attending));
+                result.addAll(toEventDTOs(phase2, summaries));
             }
         }
 
@@ -103,10 +109,9 @@ public class FeaturedService {
     }
 
     private EventDTO toSingleEventDTO(Event event) {
-        long att = AttendanceStub.count("eventId = ?1 and status = ?2",
-                event.id, AttendanceStatus.ATTENDING);
-        long wait = AttendanceStub.count("eventId = ?1 and status = ?2",
-                event.id, AttendanceStatus.WAITLISTED);
+        AttendanceSummary s = engagementClient.getAttendanceSummary(event.id);
+        long att = s != null ? s.attending() : 0L;
+        long wait = s != null ? s.waitlisted() : 0L;
         return EventDTO.from(event, att,
                 EventService.computeAvailableSpots(event.capacity, att), wait, null, null);
     }
@@ -114,33 +119,27 @@ public class FeaturedService {
     private List<EventDTO> toEventDTOs(List<Event> events) {
         if (events.isEmpty()) return List.of();
         List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attending = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlisted = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
-        return events.stream().map(e -> {
-            long att = attending.getOrDefault(e.id, 0L);
-            long wait = waitlisted.getOrDefault(e.id, 0L);
-            return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
-        }).toList();
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(ids);
+        if (summaries == null) summaries = Map.of();
+        return toEventDTOs(events, summaries);
     }
 
-    private List<EventDTO> toEventDTOs(List<Event> events, Map<Long, Long> attendingCounts) {
+    private List<EventDTO> toEventDTOs(List<Event> events, Map<Long, AttendanceSummary> summaries) {
         if (events.isEmpty()) return List.of();
-        List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> waitlisted = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
         return events.stream().map(e -> {
-            long att = attendingCounts.getOrDefault(e.id, 0L);
-            long wait = waitlisted.getOrDefault(e.id, 0L);
+            AttendanceSummary s = summaries.getOrDefault(e.id, AttendanceSummary.of(0L, 0L));
+            long att = s.attending();
+            long wait = s.waitlisted();
             return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
         }).toList();
     }
 
     private Map<Long, Long> countFavorites(List<Long> eventIds) {
         if (eventIds.isEmpty()) return Map.of();
+        // Favorites table is local to event-service post-2.2.3 — direct
+        // JPQL on the local Favorite entity (not FavoriteStub anymore).
         List<Object[]> rows = entityManager.createQuery(
-                "SELECT f.eventId, COUNT(f) FROM FavoriteStub f WHERE f.eventId IN :ids GROUP BY f.eventId",
+                "SELECT f.eventId, COUNT(f) FROM Favorite f WHERE f.eventId IN :ids GROUP BY f.eventId",
                 Object[].class)
                 .setParameter("ids", eventIds)
                 .getResultList();

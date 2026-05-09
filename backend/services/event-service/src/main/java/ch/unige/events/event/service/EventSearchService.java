@@ -1,16 +1,16 @@
 package ch.unige.events.event.service;
 
 import ch.unige.events.event.dto.EventDTO;
-import ch.unige.events.event.entity.AttendanceStatus;
-import ch.unige.events.event.entity.AttendanceStub;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventCategory;
 import ch.unige.events.event.entity.EventStatus;
 import ch.unige.events.event.entity.Faculty;
+import ch.unige.events.shared.client.EngagementServiceClient;
+import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +27,7 @@ public class EventSearchService {
 
     private static final ZoneId ZURICH = ZoneId.of("Europe/Zurich");
 
-    @Inject EntityManager entityManager;
+    @Inject @RestClient EngagementServiceClient engagementClient;
 
     @Transactional
     @SuppressWarnings("java:S107")
@@ -85,16 +85,22 @@ public class EventSearchService {
                 .page(page, size)
                 .list();
 
+        if (events.isEmpty()) {
+            return List.of();
+        }
         List<Long> ids = events.stream().map(e -> e.id).toList();
-        Map<Long, Long> attendingCounts = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.ATTENDING, entityManager);
-        Map<Long, Long> waitlistedCounts = AttendanceStub.countGroupedByStatus(
-                ids, AttendanceStatus.WAITLISTED, entityManager);
+        Map<Long, AttendanceSummary> summaries = engagementClient.getAttendanceSummariesBulk(ids);
+        if (summaries == null) {
+            summaries = Map.of();
+        }
+        Map<Long, AttendanceSummary> finalSummaries = summaries;
 
         return events.stream()
                 .map(e -> {
-                    long att = attendingCounts.getOrDefault(e.id, 0L);
-                    long wait = waitlistedCounts.getOrDefault(e.id, 0L);
+                    AttendanceSummary s = finalSummaries.getOrDefault(
+                            e.id, AttendanceSummary.of(0L, 0L));
+                    long att = s.attending();
+                    long wait = s.waitlisted();
                     return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
