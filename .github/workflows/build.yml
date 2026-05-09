@@ -13,40 +13,83 @@ env:
   IMAGE_ADDITIONAL_TAGS: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
 
 jobs:
-  build-backend:
-    name: Build Backend
+  # Étape 7 — finalization spec : matrix per shared lib (10 cells).
+  # Builds + tests each shared lib independently, then runs Sonar with
+  # its own sonar.projectKey override (set in each module's pom.xml).
+  build-shared-libs:
+    name: Build Shared Lib (${{ matrix.lib }})
     runs-on: ubuntu-latest
-    env:
-      JAVA_VERSION: 21
-      JAVA_DISTRIBUTION: "temurin"
-      BACKEND_IMAGE: unige-events-api
-
+    strategy:
+      fail-fast: false
+      matrix:
+        lib:
+          - shared-rate-limit
+          - shared-storage
+          - shared-api-error
+          - shared-domain-enums
+          - shared-domain-dtos
+          - shared-domain-projections
+          - shared-jaxrs
+          - shared-tracing
+          - shared-kafka-events
+          - shared-platform
     defaults:
       run:
         working-directory: backend
-
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # Nécessaire pour SonarQube
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+      - name: Build & Test
+        run: ./mvnw -pl services/${{ matrix.lib }} -am verify -B
+      - name: SonarQube Scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./mvnw -pl services/${{ matrix.lib }} sonar:sonar -B
+
+  # Étape 7 — finalization spec : matrix per service (5 cells, post-consolidation 14→5).
+  # Each cell builds + tests + (optionally) pushes the service image.
+  build-backend:
+    name: Build Backend (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: build-shared-libs
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - event
+          - user
+          - engagement
+          - moderation
+          - notification
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: 21
+          distribution: temurin
           cache: maven
 
-      - name: Build & Test
+      - name: Build & Test (with image build/push)
         env:
           QUARKUS_CONTAINER_IMAGE_USERNAME: ${{ github.actor }}
           QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # NB: -Dquarkus.container-image.name was previously hardcoded to
-          # `unige-events-api` here. Now that backend/ is multi-module and
-          # multiple services emit images, each module pins its own image
-          # name in its application.properties. Removing the CLI override
-          # so per-module names take effect.
-          ./mvnw verify -B \
+          # Each module pins its own quarkus.container-image.name in its
+          # application.properties, so the reactor builds N images named
+          # unige-events-<service>:<sha>.
+          ./mvnw -pl services/${{ matrix.service }}-service -am verify -B \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
             -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
@@ -58,7 +101,7 @@ jobs:
       - name: SonarQube Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw sonar:sonar -B
+        run: ./mvnw -pl services/${{ matrix.service }}-service sonar:sonar -B
 
       - name: Cleanup Docker images
         if: always()
