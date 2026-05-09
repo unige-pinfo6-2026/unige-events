@@ -1,6 +1,14 @@
 # Microservices Migration — Per-Service Roadmap
 
-Dernière mise à jour : 2026-05-08
+Dernière mise à jour : 2026-05-09
+
+> **Note** : ce document a été rédigé **avant** les 13 extractions et
+> contient des références historiques au chemin
+> `services/legacy-monolith/...` (qui a été supprimé au commit
+> `b570c1b` — Étape 15). Pour l'état post-migration cf.
+> [`architecture.md`](architecture.md). Pour l'état post-completion
+> (REST clients, Kafka complet, observabilité, tests portés) cf.
+> [`../../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md).
 
 Ce document est le **plan opérationnel** de la migration backend monolithe →
 microservices documentée dans
@@ -168,21 +176,26 @@ docs(backend): document <svc>-service ownership in data-model + api-contract
 
 Ordre **strict** dicté par la spec décision 20 (le moins couplé d'abord) :
 
-| # | PR | Service | Endpoints | Couplage cross-service |
+| # | PR | Service | Status | Commit |
 |---|---|---|---|---|
-| 1 | `refactor/extract-share-service` | `share-service` | `/events/{id}/share`, `/s/{shortCode}` | Lit `Event.shareCode` (REST sync vers `event-service`) — qui n'existera qu'après la PR 13 ; **alternative** : laisser share-service lire directement la table `events` du schéma `public` partagé tant que `event-service` n'existe pas |
-| 2 | `refactor/extract-view-service` | `view-service` | `/events/{id}/view` | Idempotent write `event_views` ; lookup event PUBLISHED via REST sync |
-| 3 | `refactor/extract-favorite-service` | `favorite-service` | `/events/{id}/favorite`, `/users/me/favorites` | CRUD sur `favorites` ; lookup event existence |
-| 4 | `refactor/extract-calendar-service` | `calendar-service` | `/users/me/calendar-token*`, `/calendar/{token}.ics` | Lecture pure : token via `user-service`, favoris via `favorite-service`, attendings via `attendance-service`, events via `event-service` |
-| 5 | `refactor/extract-follow-service` | `follow-service` | `/users/{id}/follow`, `/followers`, `/following`, `/follow-requests/*` | Lit `User.profilePublic` via `user-service` REST sync |
-| 6 | `refactor/extract-comment-service` | `comment-service` | `/events/{id}/comments`, `/comments/{id}` | Cascade lourde : visibilité event (`event-service`), org cascade (`co-organizer-service`), author lookup (`user-service`) |
-| 7 | `refactor/extract-co-organizer-service` | `co-organizer-service` | `/events/{id}/co-organizers/*`, `/users/me/co-organizer-invitations` | Cascade d'autorisation centrale ; expose `GET /events/{id}/co-organizers/check?userId=` (interne) consommé par les services voisins |
-| 8 | `refactor/extract-attendance-service` | `attendance-service` | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations` | Lookup event PUBLISHED + cascade co-org pour `getAttendees` |
-| 9 | `refactor/extract-report-service` | `report-service` | `/events/{id}/report`, `/admin/reports*` + scheduler `ModerationCleanupJob` | Émet `events.banned` Kafka consommé par `event-service` ; cascade co-org pour self-report check |
-| 10 | `refactor/extract-stats-service` | `stats-service` | `/events/{id}/stats` | Lecture pure ; agrège counts via REST sync (view, attendance, favorite) |
-| 11 | `refactor/extract-me-aggregator-service` | `me-aggregator-service` | `/users/me/events`, `/users/me/attendances`, `/users/me/favorites`, `/users/me/participations` | BFF — proxy multi-domain, dépend de tous les services aval |
-| 12 | `refactor/extract-user-service` | `user-service` | `/users/me`, `/users/me/image`, `/users/me/banner`, `/users/{id}` | Cœur : l'auth Auth0 provisionne `User`. Dépendance de presque tout le reste |
-| 13 | `refactor/extract-event-service` | `event-service` | `/events*`, `/admin/events*`, `/events/search`, `/events/featured` + scheduler `EventExpirationJob` | Le plus gros : 9 paths principaux + recurrence + featured + admin actions. Émet `events.{published,cancelled,expired}` |
+| 1 | `refactor/extract-share-service` | `share-service` | ✅ livré | `b858196` |
+| 2 | `refactor/extract-view-service` | `view-service` | ✅ livré | `b75d680` |
+| 3 | `refactor/extract-favorite-service` | `favorite-service` | ✅ livré | `8eeaba3` |
+| 4 | `refactor/extract-calendar-service` | `calendar-service` | ✅ livré | `df19461` |
+| 5 | `refactor/extract-follow-service` | `follow-service` | ✅ livré | `39d0e56` |
+| 6 | `refactor/extract-comment-service` | `comment-service` | ✅ livré | `6a44257` |
+| 7 | `refactor/extract-co-organizer-service` | `co-organizer-service` | ✅ livré | `c9f0e34` |
+| 8 | `refactor/extract-attendance-service` | `attendance-service` | ✅ livré | `eb5999a` |
+| 9 | `refactor/extract-report-service` | `report-service` | ✅ livré | `b064170` |
+| 10 | `refactor/extract-stats-service` | `stats-service` | ✅ livré | `060708b` |
+| 11 | `refactor/extract-me-aggregator-service` | `me-aggregator-service` | ✅ livré | `ba3cfa5` |
+| 12 | `refactor/extract-user-service` | `user-service` | ✅ livré | `166b1dd` |
+| 13 | `refactor/extract-event-service` | `event-service` | ✅ livré | `f360aff` |
+| 14 | `refactor/remove-legacy-monolith` (Étape 15) | (suppression) | ✅ livré | `b570c1b` |
+| 15 | Étape 16 partielle — Documentation finale | (docs) | ⚠ partiel S8 | `912a0e3` + `454cfb3` |
+| 16 | Étape 16 reste — Documentation finale | (docs) | ❌ reporté | (intégré à PR 18 ci-dessous) |
+| 17 | Étape 18 — post-migration consolidation (rate-limit, FileStorageService dédup, 3 producers Kafka pilote, AGENTS.md scope, étape 18 logged) | (consolidation) | ✅ livré | `446ea3e`..`bee933d` |
+| 18 | Étape de complétion post-PR-158 (REST clients, 6 producteurs Kafka manquants, 1 consumer events.banned, observabilité, anti-oracles centralisés, tests legacy portés, Pact + E2E, Kong rate-limiting plugin, livenessProbe, CI matrix YAML, doc finale + devops-handoff.md) | (complétion) | ✅ livré | commits livrés sur la même branche `refactor(backend)--migrate-to-microservices` au-dessus de `bee933d` (cf. spec de complétion Étapes 0..14) |
 
 ---
 
