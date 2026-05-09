@@ -2,7 +2,7 @@ package ch.unige.events.event.service;
 
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.entity.EventStatus;
-import ch.unige.events.event.kafka.EventLifecyclePublisher;
+import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -16,7 +16,7 @@ import java.util.UUID;
 public class EventExpirationService {
 
     @Inject EntityManager entityManager;
-    @Inject EventLifecyclePublisher lifecyclePublisher;
+    @Inject jakarta.enterprise.event.Event<EventLifecycleEvent> lifecycleEvent;
 
     /**
      * Walk every event still in {@code PUBLISHED} whose {@code endDate}
@@ -45,7 +45,8 @@ public class EventExpirationService {
             e.status = EventStatus.EXPIRED;
             e.updatedAt = now;
             UUID creatorId = e.creator != null ? e.creator.id : null;
-            lifecyclePublisher.expired(e.id, creatorId);
+            // CDI fire — bridge publishes to Kafka AFTER_SUCCESS (Décision A).
+            lifecycleEvent.fire(EventLifecycleEvent.expired(e.id, creatorId));
         }
         return candidates.size();
     }
