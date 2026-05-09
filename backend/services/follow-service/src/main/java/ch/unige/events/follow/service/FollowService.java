@@ -4,6 +4,7 @@ import ch.unige.events.follow.dto.ApiErrorResponse;
 import ch.unige.events.follow.entity.Follow;
 import ch.unige.events.follow.entity.FollowStatus;
 import ch.unige.events.follow.entity.UserStub;
+import ch.unige.events.shared.kafka.events.FollowLifecycleEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class FollowService {
 
     @Inject EntityManager entityManager;
+    @Inject jakarta.enterprise.event.Event<FollowLifecycleEvent> lifecycleEvent;
 
     public List<Follow> getFollowers(UUID userId, int page, int size) {
         return Follow.findFollowersOf(userId, page, size);
@@ -73,6 +75,11 @@ public class FollowService {
             }
             throw exception;
         }
+        // CDI fire — bridge publishes to Kafka AFTER_SUCCESS.
+        FollowLifecycleEvent ev = (row.status == FollowStatus.ACCEPTED)
+                ? FollowLifecycleEvent.followed(followerId, followedId)
+                : FollowLifecycleEvent.followRequested(followerId, followedId);
+        lifecycleEvent.fire(ev);
         return row;
     }
 
@@ -108,6 +115,8 @@ public class FollowService {
                     "Follow is already in status " + row.status + " — only PENDING follows can be accepted.");
         }
         row.status = FollowStatus.ACCEPTED;
+        // CDI fire — bridge publishes users.follow-accepted AFTER_SUCCESS.
+        lifecycleEvent.fire(FollowLifecycleEvent.followAccepted(row.followerId, row.followedId));
         return row;
     }
 
