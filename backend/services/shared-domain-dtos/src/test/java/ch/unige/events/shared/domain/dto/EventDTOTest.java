@@ -43,4 +43,42 @@ class EventDTOTest {
                 List.of(), null, null, null, null, Boolean.TRUE);
         assertEquals(Boolean.TRUE, dto.coOrganizerOf());
     }
+
+    @Test
+    void availableSpots_canBeNullForUncappedEvents() {
+        EventDTO dto = new EventDTO(
+                1L, "t", null, null, null, null, null, null, null, null,
+                EventStatus.PUBLISHED, null, false, false, null,
+                3L, null, 0L, 0L, 0L, null, null, null,
+                List.of(), null, null, null, null, null);
+        assertNull(dto.availableSpots());
+        assertNull(dto.capacity());
+    }
+
+    @Test
+    void countsAreNullableForCrossServiceProjections() {
+        // When event-service emits the DTO without computing counts (e.g.
+        // bulk findByIds projecting to consumer user-service), all the
+        // count fields are nullable Long.
+        EventDTO dto = new EventDTO(
+                7L, "t", null, null, null, null, null, null, null, null,
+                EventStatus.DRAFT, null, false, false, null,
+                null, null, null, null, null, null, null, null,
+                List.of(), null, null, null, null, null);
+        assertNull(dto.attendingCount());
+        assertNull(dto.waitlistedCount());
+        assertNull(dto.viewCount());
+        assertNull(dto.interestedCount());
+    }
+
+    @Test
+    void parentEventIdAndRecurrenceRule_areOptionalForOccurrences() {
+        EventDTO occurrence = new EventDTO(
+                100L, "Weekly", null, null, null, null, null, null, null, null,
+                EventStatus.PUBLISHED, null, false, false, null,
+                0L, null, 0L, 0L, 0L, null, null, null,
+                List.of(), null, null, 99L, null, null);
+        assertEquals(99L, occurrence.parentEventId());
+        assertNull(occurrence.recurrenceRule());
+    }
 }
