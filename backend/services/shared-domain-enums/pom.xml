@@ -9,10 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-domain-enums</sonar.projectKey>
-        <sonar.projectName>unige-events-shared-domain-enums</sonar.projectName>
-    </properties>
 
     <!--
       shared-domain-enums — 9 cross-projected enums (EventStatus,

@@ -9,10 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-domain-projections</sonar.projectKey>
-        <sonar.projectName>unige-events-shared-domain-projections</sonar.projectName>
-    </properties>
 
     <!--
       shared-domain-projections — pure-function helpers shared across

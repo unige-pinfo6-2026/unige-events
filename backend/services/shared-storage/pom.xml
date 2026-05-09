@@ -9,10 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-storage</sonar.projectKey>
-        <sonar.projectName>unige-events-shared-storage</sonar.projectName>
-    </properties>
 
     <!--
       shared-storage — S3-backed image storage primitives shared between

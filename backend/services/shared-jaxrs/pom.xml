@@ -9,10 +9,6 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-jaxrs</sonar.projectKey>
-        <sonar.projectName>unige-events-shared-jaxrs</sonar.projectName>
-    </properties>
 
     <!--
       shared-jaxrs — Timeframe enum + Jakarta ParamConverter so JAX-RS
