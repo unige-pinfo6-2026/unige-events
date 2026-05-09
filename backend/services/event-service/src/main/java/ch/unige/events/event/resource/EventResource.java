@@ -9,11 +9,14 @@ import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.event.service.EventService;
 import ch.unige.events.event.service.FeaturedService;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -56,11 +59,21 @@ public class EventResource {
     private final SecurityIdentity identity;
 
     @Inject FeaturedService featuredService;
+    /**
+     * Lazy via {@link Instance} so the @QuarkusTest scaffolds (which
+     * boot with quarkus.oidc.enabled=false) can resolve the bean
+     * without a real OIDC context.
+     */
+    @Inject Instance<JsonWebToken> jwt;
 
     @Inject
     public EventResource(EventService eventService, SecurityIdentity identity) {
         this.eventService = eventService;
         this.identity = identity;
+    }
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
     }
 
     @GET
@@ -124,7 +137,24 @@ public class EventResource {
                             @QueryParam("check-co-org-of") UUID checkCoOrgOf) {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
         boolean isAdmin = !identity.isAnonymous() && identity.hasRole(ROLE_ADMIN);
-        EventDTO event = eventService.getById(id, auth0Id, isAdmin, checkCoOrgOf);
+
+        // SEC-002 finalization-ultimate (Étape 6.1 / Décision C):
+        // ?check-co-org-of= is only honored when:
+        //   1. caller is authenticated, AND
+        //   2. the value matches the caller's resolved UUID
+        //      (Auth0IdResolver.resolveUserUuid → uuid claim).
+        // Otherwise the param is silently ignored (coOrganizerOf=null in
+        // the response) — closes the membership oracle for anonymous /
+        // cross-user lookups.
+        UUID effectiveCheck = null;
+        if (checkCoOrgOf != null && auth0Id != null) {
+            UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+            if (callerUuid != null && callerUuid.equals(checkCoOrgOf)) {
+                effectiveCheck = checkCoOrgOf;
+            }
+        }
+
+        EventDTO event = eventService.getById(id, auth0Id, isAdmin, effectiveCheck);
         return Response.ok(event).build();
     }
 
