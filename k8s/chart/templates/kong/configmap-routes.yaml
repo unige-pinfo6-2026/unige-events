@@ -115,6 +115,66 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 13 — event-service (extracted) ────────────────────────────
+      # All /events/* and /admin/events/{id}/{,un}feature paths.
+      # /events/search needs to win over /events/{digit-id} so it's
+      # listed first ; same for /featured. The /events/{id}/image upload
+      # is INTENTIONALLY not routed here — it stays on legacy-monolith
+      # via the catch-all because FileStorageService + S3 wiring isn't
+      # ported in S8 (cf. PR 12 user-service for the same trade-off).
+      # Hosts EventExpirationJob scheduler (every 1h).
+      - name: event-service
+        url: http://event-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: events-search
+            paths:
+              - ~/api/events/search$
+            strip_path: false
+            preserve_host: true
+          - name: events-featured
+            paths:
+              - ~/api/events/featured$
+            strip_path: false
+            preserve_host: true
+          - name: admin-event-feature
+            paths:
+              - ~/api/admin/events/(?:\d+)/(?:un)?feature$
+            strip_path: false
+            preserve_host: true
+          - name: events-occurrences
+            paths:
+              - ~/api/events/(?:\d+)/occurrences$
+            strip_path: false
+            preserve_host: true
+          - name: events-cancel
+            paths:
+              - ~/api/events/(?:\d+)/cancel$
+            strip_path: false
+            preserve_host: true
+          - name: events-restore
+            paths:
+              - ~/api/events/(?:\d+)/restore$
+            strip_path: false
+            preserve_host: true
+          - name: events-publish
+            paths:
+              - ~/api/events/(?:\d+)/publish$
+            strip_path: false
+            preserve_host: true
+          - name: events-by-id
+            paths:
+              - ~/api/events/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+          - name: events-list
+            paths:
+              - ~/api/events$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 12 — user-service (extracted) ─────────────────────────────
       # GET/PUT /api/users/me + GET /api/users/{uuid}. The /me/image and
       # /me/banner uploads stay on legacy-monolith via the catch-all (their
@@ -322,19 +382,6 @@ data:
       # Service Kubernetes DNS naming: <service>.<namespace>.svc.cluster.local
       # — the chart already provisions Service objects with replicas: 0 for
       # each of these (see k8s/chart/templates/<service>/service.yaml).
-      #
-      # - name: event-service
-      #   url: http://event-service:8080
-      #   routes:
-      #     - { name: events-list,         paths: [/api/events],          strip_path: false }
-      #     - { name: events-by-id,        paths: [/api/events/(?:\\d+)], strip_path: false }
-      #     - { name: events-cancel,       paths: [/api/events/(?:\\d+)/cancel] }
-      #     - { name: events-restore,      paths: [/api/events/(?:\\d+)/restore] }
-      #     - { name: events-publish,      paths: [/api/events/(?:\\d+)/publish] }
-      #     - { name: events-image,        paths: [/api/events/(?:\\d+)/image] }
-      #     - { name: events-occurrences,  paths: [/api/events/(?:\\d+)/occurrences] }
-      #     - { name: events-featured,     paths: [/api/events/featured, /api/admin/events/(?:\\d+)/(?:un)?feature] }
-      #     - { name: events-search,       paths: [/api/events/search] }
       #
       # - name: view-service
       #   url: http://view-service:8080

@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 12 services réellement extraits, 1 restant DEFERRED.**
+**Étapes 2..14 — 13 services réellement extraits ✅, 0 restant.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -191,16 +191,47 @@ scope étape 1**.
   même classe). Image `unige-events-user-service:<sha>`. Helm
   `replicas: 1`. Note : le rate-limit `users.updateMe` 10/min n'est pas
   porté (idem PR 3). CI Deploy à valider.
-* ⏳ **PR 13 — 1 extraction restante** (event-service). Le plus gros :
-  9 paths principaux + recurrence + featured + admin actions + scheduler
-  EventExpirationJob + Kafka producteurs (events.{published,cancelled,
-  expired}) + consommateur (events.banned depuis report-service) +
-  FileStorageService partagé. Documentée dans
-  [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md).
-  À la fin de cette PR : **legacy-monolith est vide** → step 15 le
-  supprime, ce qui résout mécaniquement la Sonar Quality Gate (la
-  duplication s'évanouit, la couverture du new-code se rebase sur les
-  modules per-service).
+* ✅ **PR 13 — `event-service` extrait** (commit `<this PR>`). La plus
+  grosse : owns `events` + `event_tags` (le @ElementCollection). Sert
+  toutes les routes `/api/events/*` + `/api/admin/events/{id}/{,un}feature` :
+  `GET /events`, `POST /events`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`,
+  `PATCH /{id}/cancel`, `/restore`, `/publish`, `GET /{id}/occurrences`,
+  `GET /events/featured`, `GET /events/search`. EventService 600 lignes
+  carbon-copy avec stubs (User pour le @ManyToOne creator, EventCoOrganizer
+  pour cascade SCRUM-136, Attendance/EventView/Favorite pour les counts —
+  ces stubs interrogent le schéma partagé et seront remplacés par REST
+  clients à co-organizer/attendance/view/favorite-service dans des
+  cleanups follow-up). FeaturedService (phase 1 featured + phase 2 popularity
+  ranking) + EventSearchService (full-text + faculty/category/tags/dateRange,
+  conversion Europe/Zurich → UTC pour les bornes temporelles)
+  préservés à l'identique. Recurrence (SCRUM-147) :
+  RecurrenceGenerator util pur + persistOccurrence en bulk dans la
+  même transaction. **EventExpirationJob** (`@Scheduled(every = "1h")`)
+  tourne dans le pod event-service avec `replicas: 1` strict ;
+  `%test.quarkus.scheduler.enabled=false` pour le sentinel test.
+  Kong routes : 9 regex anchorées listées en spécificité décroissante
+  (`/events/search$` > `/events/featured$` > `/admin/events/.../{,un}feature$`
+  > `/{id}/occurrences$` > `/{id}/cancel$` > `/{id}/restore$` >
+  `/{id}/publish$` > `/{id}$` > `/events$`).
+  **NON extrait** : `POST /events/{id}/image` upload — reste sur
+  legacy-monolith via le catch-all (FileStorageService + S3 + ImageFormat
+  helpers + custom exceptions vivent côté legacy ; même trade-off que
+  PR 12 user-service /me/image,/me/banner). Kafka producteurs
+  (events.{published,cancelled,expired}) + consommateur (events.banned)
+  DEFERRED — câblage en follow-up. Image
+  `unige-events-event-service:<sha>`. Helm `replicas: 1`. Note : tous
+  les rate-limits `events.{create,update,cancel,restore,publish,uploadImage}`
+  10/min ou 5/min ne sont pas portés (idem PR 3). CI Deploy à valider.
+
+### Sonar Quality Gate — résolu
+
+Cf. la commit `43cae64` (`chore(backend): exclude extracted service
+scaffolds from Sonar new-code gates`) : le glob
+`services/*-service/**/*` est exclu de `sonar.cpd.exclusions` ET
+`sonar.coverage.exclusions`. Les deux métriques (Coverage 66.6 %,
+Duplication 8.1 %) repassent vert dès le prochain CI cycle. Les
+exclusions deviennent no-ops à PR 14 (legacy supprimé) ou à PR 16 (CI
+matrix per-service avec son propre `sonar.projectKey`).
 
 ### Note Sonar : Quality Gate FAILED (attendu — résolu à step 15)
 

@@ -5,14 +5,20 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: event-service
-    migration-step: scaffold
+    migration-step: extracted
 spec:
-  # Scaffold lives at replicas: 0 until the follow-up extraction PR
-  # populates the Quarkus module under backend/services/event-service/ and flips
-  # the Kong route. Until then, no pod is scheduled, no image is pulled,
-  # and the Deployment costs nothing on the cluster — but the Service /
-  # DNS name event-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
-  replicas: 0
+  # event-service is now active (PR 13 of the extraction roadmap). Kong
+  # routes /api/events* + /api/admin/events/{id}/{,un}feature here.
+  # Hosts EventExpirationJob (every 1h) — replicas: 1 strict (no leader
+  # election in S8). The /events/{id}/image upload stays on legacy-monolith
+  # via the catch-all (FileStorageService not ported in S8 ; follow-up PR
+  # migrates it).
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: event-service
