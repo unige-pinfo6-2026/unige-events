@@ -71,10 +71,19 @@ public class UserService {
 
     @Transactional
     public PublicProfileView getPublicProfile(UUID id, String auth0Id) {
+        return getPublicProfile(id, auth0Id, false);
+    }
+
+    @Transactional
+    public PublicProfileView getPublicProfile(UUID id, String auth0Id, boolean isAdmin) {
         User user = User.<User>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
         boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
-        if (!user.profilePublic && !isOwner) {
+        // Admin bypass aligns with UserServiceClient javadoc (Étape 2.4
+        // finalization-ultimate REST-003 / ISSUE-93): admins read private
+        // profiles for moderation/support. Anti-oracle ISSUE-93 stays for
+        // anonymous + non-admin non-self callers.
+        if (!user.profilePublic && !isOwner && !isAdmin) {
             throw new NotFoundException();
         }
 

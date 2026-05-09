@@ -61,13 +61,19 @@ public class UserResource {
      */
     @Inject Instance<JsonWebToken> jwt;
 
+    private static final String ROLE_ADMIN = "ADMIN";
+
     @GET
     @Path("/{id}")
     @PermitAll
     public Response getProfile(@PathParam("id") UUID id) {
         boolean anonymous = identity.isAnonymous();
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
-        PublicProfileView view = userService.getPublicProfile(id, auth0Id);
+        // REST-003 / ISSUE-93 (Étape 2.4 finalization-ultimate): admins read
+        // private profiles for moderation/support. Anti-oracle 404 stays for
+        // anonymous + non-admin non-self callers.
+        boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
+        PublicProfileView view = userService.getPublicProfile(id, auth0Id, isAdmin);
         UserPublicResponse body = anonymous
                 ? UserPublicResponse.fromAnonymous(view.user())
                 : UserPublicResponse.from(
