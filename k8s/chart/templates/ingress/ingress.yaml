@@ -14,11 +14,11 @@ spec:
             pathType: Prefix
             backend:
               service:
-                # Strangler-fig step 0: /api/* now goes through Kong, which
-                # currently forwards 100% of the traffic to the legacy monolith
-                # (api:8080). Subsequent extraction PRs flip individual paths
-                # over to the new microservices by editing the kong-config
-                # ConfigMap (cf. specs_microservices_migration.md decision 6).
+                # /api/* goes through Kong (DB-less, ConfigMap-declared
+                # routes). The legacy monolith was removed at step 15
+                # (commit b570c1b) ; Kong now routes each path to the
+                # 13 owning microservices (cf. templates/kong/configmap-routes.yaml
+                # + backend/docs/architecture.md).
                 name: kong-proxy
                 port:
                   number: 8000
