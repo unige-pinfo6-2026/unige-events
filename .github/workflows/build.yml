@@ -238,15 +238,18 @@ jobs:
           [ "$count" -ge 15 ] || (echo "FAIL: expected >= 15 jacoco files" && exit 1)
 
       # Liste comma-séparée des paths jacoco passée au CLI Sonar (Décision B).
-      # Court-circuite le bug `${project.build.directory}` du pom racine qui
-      # pointerait sur backend/target/jacoco-report/ (vide post-migration).
+      # IMPORTANT — pas de `-pl .` : avec `-pl .`, sonar-maven-plugin n'analyse
+      # QUE le pom parent (qui n'a aucune source Java post-migration) → 1 file
+      # indexed, 0 Java file analyzed, 0 new lines, gate vacuously PASSED. Sans
+      # `-pl .`, sonar:sonar parcourt tous les modules du reactor et soumet
+      # leurs sources sous le `sonar.projectKey` parent.
       - name: SonarQube Scan (aggregated)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           JACOCO_PATHS=$(find services contract-tests e2e -name jacoco.xml -path '*/jacoco-report/*' 2>/dev/null | paste -sd ',')
           echo "Sonar coverage paths: $JACOCO_PATHS"
-          ./mvnw -pl . sonar:sonar -B \
+          ./mvnw sonar:sonar -B \
               -Dsonar.coverage.jacoco.xmlReportPaths=$JACOCO_PATHS
 
   build-frontend:
