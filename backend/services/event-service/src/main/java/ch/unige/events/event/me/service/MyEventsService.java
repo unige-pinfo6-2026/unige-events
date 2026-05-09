@@ -1,5 +1,6 @@
 package ch.unige.events.event.me.service;
 
+import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.event.me.dto.EventDTO;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.event.entity.Event;
@@ -76,15 +77,10 @@ public class MyEventsService {
                             e.id, AttendanceSummary.of(0L, 0L));
                     long att = s.attending();
                     long wait = s.waitlisted();
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
+                    return EventDTO.from(e, att, EventCapacity.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }
-
-    private static Long computeAvailableSpots(Integer capacity, long attendingCount) {
-        if (capacity == null) {
-            return null;
-        }
         return Math.max(0L, capacity.longValue() - attendingCount);
     }
 }

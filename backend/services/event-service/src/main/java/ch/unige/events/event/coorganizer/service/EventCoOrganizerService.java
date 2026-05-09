@@ -1,5 +1,6 @@
 package ch.unige.events.event.coorganizer.service;
 
+import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerDTO;
 import ch.unige.events.event.coorganizer.dto.CoOrganizerInvitationDTO;
@@ -215,7 +216,7 @@ public class EventCoOrganizerService {
                     event.id, AttendanceSummary.of(0L, 0L));
             long att = s.attending();
             long wait = s.waitlisted();
-            EventDTO dto = EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), wait, null, null);
+            EventDTO dto = EventDTO.from(event, att, EventCapacity.computeAvailableSpots(event.capacity, att), wait, null, null);
             result.put(dto.id(), dto);
         }
         return result;
@@ -231,11 +232,6 @@ public class EventCoOrganizerService {
             return null;
         }
     }
-
-    private static Long computeAvailableSpots(Integer capacity, long attendingCount) {
-        if (capacity == null) {
-            return null;
-        }
         return Math.max(0L, capacity.longValue() - attendingCount);
     }
 

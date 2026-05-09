@@ -1,5 +1,6 @@
 package ch.unige.events.event.service;
 
+import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.domain.enums.EventCategory;
@@ -101,7 +102,7 @@ public class EventSearchService {
                             e.id, AttendanceSummary.of(0L, 0L));
                     long att = s.attending();
                     long wait = s.waitlisted();
-                    return EventDTO.from(e, att, EventService.computeAvailableSpots(e.capacity, att), wait, null, null);
+                    return EventDTO.from(e, att, EventCapacity.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }

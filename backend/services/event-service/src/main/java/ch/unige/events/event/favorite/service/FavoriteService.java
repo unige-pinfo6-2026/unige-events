@@ -1,5 +1,6 @@
 package ch.unige.events.event.favorite.service;
 
+import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.event.favorite.dto.EventDTO;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.favorite.entity.Favorite;
@@ -88,7 +89,7 @@ public class FavoriteService {
                             e.id, AttendanceSummary.of(0L, 0L));
                     long att = s.attending();
                     long wait = s.waitlisted();
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
+                    return EventDTO.from(e, att, EventCapacity.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }
@@ -98,7 +99,7 @@ public class FavoriteService {
      * means unlimited (returns null), otherwise capacity minus current
      * attending count clamped to zero.
      */
-    static Long computeAvailableSpots(Integer capacity, long attendingCount) {
+    static Long EventCapacity.computeAvailableSpots(Integer capacity, long attendingCount) {
         if (capacity == null) {
             return null;
         }

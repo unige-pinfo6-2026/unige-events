@@ -1,7 +1,8 @@
 package ch.unige.events.engagement.attendance.service;
 
 import ch.unige.events.shared.error.ApiErrorResponse;
-import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
+import ch.unige.events.engagement.attendance.dto.AttendanceDTOMapper;
+import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.engagement.attendance.entity.Attendance;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.shared.jaxrs.Timeframe;
@@ -10,6 +11,7 @@ import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.EventCapacity;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -103,7 +105,7 @@ public class AttendanceService {
                 .firstResultOptional()
                 .orElse(null);
         if (existing != null) {
-            return AttendanceDTO.from(existing, safeGetUser(userId));
+            return AttendanceDTOMapper.from(existing, safeGetUser(userId));
         }
 
         AttendanceStatus effective;
@@ -123,7 +125,7 @@ public class AttendanceService {
         attendance.status = effective;
         attendance.persist();
 
-        return AttendanceDTO.from(attendance, safeGetUser(userId));
+        return AttendanceDTOMapper.from(attendance, safeGetUser(userId));
     }
 
     @Transactional
@@ -199,7 +201,7 @@ public class AttendanceService {
         }
 
         return rows.stream()
-                .map(a -> AttendanceDTO.from(a, usersById.get(a.userId)))
+                .map(a -> AttendanceDTOMapper.from(a, usersById.get(a.userId)))
                 .toList();
     }
 
@@ -211,7 +213,7 @@ public class AttendanceService {
         }
         UserPublicResponse user = safeGetUser(userId);
         return Attendance.findAllByUser(userId).stream()
-                .map(a -> AttendanceDTO.from(a, user))
+                .map(a -> AttendanceDTOMapper.from(a, user))
                 .toList();
     }
 
@@ -230,7 +232,7 @@ public class AttendanceService {
                 ? Attendance.<Attendance>list("userId", userId)
                 : Attendance.<Attendance>list("userId = ?1 and status = ?2", userId, status);
         return rows.stream()
-                .map(a -> AttendanceDTO.from(a, null))
+                .map(a -> AttendanceDTOMapper.from(a, null))
                 .toList();
     }
 
@@ -292,7 +294,7 @@ public class AttendanceService {
                 e.creatorId(), e.status(), e.capacity(),
                 e.allDay(), e.featured(), e.featuredAt(),
                 attending,
-                computeAvailableSpots(e.capacity(), attending),
+                EventCapacity.computeAvailableSpots(e.capacity(), attending),
                 waitlisted,
                 e.viewCount(), e.interestedCount(),
                 e.websiteUrl(), e.contactEmail(), e.registrationDeadline(),
@@ -300,13 +302,6 @@ public class AttendanceService {
                 e.createdAt(), e.updatedAt(),
                 e.parentEventId(), e.recurrenceRule(),
                 e.coOrganizerOf());
-    }
-
-    private static Long computeAvailableSpots(Integer capacity, long attendingCount) {
-        if (capacity == null) {
-            return null;
-        }
-        return Math.max(0L, capacity.longValue() - attendingCount);
     }
 
     private UserPublicResponse safeGetUser(UUID userId) {

@@ -1,5 +1,6 @@
 package ch.unige.events.event.service;
 
+import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
@@ -134,7 +135,7 @@ public class EventService {
             return createRecurring(auth0Id, request);
         }
         Event event = persistParent(auth0Id, request);
-        return EventDTO.from(event, 0L, computeAvailableSpots(event.capacity, 0L), 0L, null, null);
+        return EventDTO.from(event, 0L, EventCapacity.computeAvailableSpots(event.capacity, 0L), 0L, null, null);
     }
 
     @Transactional
@@ -165,7 +166,7 @@ public class EventService {
             persistOccurrence(parent, range);
         }
 
-        return EventDTO.from(parent, 0L, computeAvailableSpots(parent.capacity, 0L), 0L, null, null);
+        return EventDTO.from(parent, 0L, EventCapacity.computeAvailableSpots(parent.capacity, 0L), 0L, null, null);
     }
 
     @Transactional
@@ -310,7 +311,7 @@ public class EventService {
         return EventDTO.from(
                 event,
                 att,
-                computeAvailableSpots(event.capacity, att),
+                EventCapacity.computeAvailableSpots(event.capacity, att),
                 wait,
                 countViews(id),
                 countInterested(id),
@@ -344,7 +345,7 @@ public class EventService {
             AttendanceSummary s = summaries.getOrDefault(e.id, AttendanceSummary.of(0L, 0L));
             long a = s.attending();
             result.add(EventDTO.from(
-                    e, a, computeAvailableSpots(e.capacity, a),
+                    e, a, EventCapacity.computeAvailableSpots(e.capacity, a),
                     s.waitlisted(), countViews(e.id), countInterested(e.id)
             ));
         }
@@ -422,7 +423,7 @@ public class EventService {
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);
         long att = s != null ? s.attending() : 0L;
         long wait = s != null ? s.waitlisted() : 0L;
-        return EventDTO.from(event, att, computeAvailableSpots(event.capacity, att), wait, null, null);
+        return EventDTO.from(event, att, EventCapacity.computeAvailableSpots(event.capacity, att), wait, null, null);
     }
 
     @Transactional
@@ -478,7 +479,7 @@ public class EventService {
         // CDI fire — bridge observer publishes to Kafka AFTER_SUCCESS
         // (Décision A — fixes BUG-002).
         lifecycleEvent.fire(EventLifecycleEvent.cancelled(event.id, event.creatorId));
-        return EventDTO.from(event, attCancel, computeAvailableSpots(event.capacity, attCancel), waitCancel, null, null);
+        return EventDTO.from(event, attCancel, EventCapacity.computeAvailableSpots(event.capacity, attCancel), waitCancel, null, null);
     }
 
     @Transactional
@@ -499,7 +500,7 @@ public class EventService {
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);
         long attRestore = s != null ? s.attending() : 0L;
         long waitRestore = s != null ? s.waitlisted() : 0L;
-        return EventDTO.from(event, attRestore, computeAvailableSpots(event.capacity, attRestore), waitRestore, null, null);
+        return EventDTO.from(event, attRestore, EventCapacity.computeAvailableSpots(event.capacity, attRestore), waitRestore, null, null);
     }
 
     private static WebApplicationException conflict(String message) {
@@ -540,7 +541,7 @@ public class EventService {
         // CDI fire — bridge observer publishes to Kafka AFTER_SUCCESS
         // (Décision A — fixes BUG-001 / BUG-002).
         lifecycleEvent.fire(EventLifecycleEvent.published(event.id, event.creatorId));
-        return EventDTO.from(event, attPublish, computeAvailableSpots(event.capacity, attPublish), waitPublish, null, null);
+        return EventDTO.from(event, attPublish, EventCapacity.computeAvailableSpots(event.capacity, attPublish), waitPublish, null, null);
     }
 
     @Transactional
@@ -557,7 +558,7 @@ public class EventService {
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);
         long attUpload = s != null ? s.attending() : 0L;
         long waitUpload = s != null ? s.waitlisted() : 0L;
-        return EventDTO.from(event, attUpload, computeAvailableSpots(event.capacity, attUpload), waitUpload, null, null);
+        return EventDTO.from(event, attUpload, EventCapacity.computeAvailableSpots(event.capacity, attUpload), waitUpload, null, null);
     }
 
     private static List<String> collectPublishValidationErrors(Event event) {
@@ -598,7 +599,7 @@ public class EventService {
                             e.id, AttendanceSummary.of(0L, 0L));
                     long att = s.attending();
                     long wait = s.waitlisted();
-                    return EventDTO.from(e, att, computeAvailableSpots(e.capacity, att), wait, null, null);
+                    return EventDTO.from(e, att, EventCapacity.computeAvailableSpots(e.capacity, att), wait, null, null);
                 })
                 .toList();
     }
@@ -609,13 +610,6 @@ public class EventService {
 
     private static long countInterested(Long eventId) {
         return Favorite.count("eventId = ?1", eventId);
-    }
-
-    static Long computeAvailableSpots(Integer capacity, long attendingCount) {
-        if (capacity == null) {
-            return null;
-        }
-        return Math.max(0L, capacity.longValue() - attendingCount);
     }
 
     static List<String> normalizeTags(List<String> input) {

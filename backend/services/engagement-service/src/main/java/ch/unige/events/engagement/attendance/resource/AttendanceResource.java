@@ -1,6 +1,6 @@
 package ch.unige.events.engagement.attendance.resource;
 
-import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
+import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.engagement.attendance.dto.AttendanceRequest;
 import ch.unige.events.engagement.attendance.service.AttendanceService;
 import ch.unige.events.shared.ratelimit.PerUserRateLimit;
