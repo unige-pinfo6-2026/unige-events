@@ -9,6 +9,11 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-shared-rate-limit</sonar.projectKey>
+        <sonar.projectName>unige-events-shared-rate-limit</sonar.projectName>
+    </properties>
+
     <!--
       shared-rate-limit — per-user rate limit primitives shared across
       microservices. Restores the @PerUserRateLimit interceptor that lived
