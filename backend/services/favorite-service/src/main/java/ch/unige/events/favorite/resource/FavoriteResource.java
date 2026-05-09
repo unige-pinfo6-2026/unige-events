@@ -1,6 +1,7 @@
 package ch.unige.events.favorite.resource;
 
 import ch.unige.events.favorite.service.FavoriteService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
@@ -26,19 +27,11 @@ public class FavoriteResource {
         this.identity = identity;
     }
 
-    /**
-     * The legacy monolith decorates this method with {@code @PerUserRateLimit
-     * (name = "events.favorite", max = 30)}. The interceptor lives in the
-     * monolith module and is intentionally not duplicated in S8 — once Kong
-     * routes /events/{id}/favorite here, the rate limit is temporarily
-     * dropped. Restored at PR 14 (legacy-monolith removal) by porting the
-     * Caffeine-based bucket into a shared library or moving it to Kong's
-     * rate-limiting plugin.
-     */
     @POST
     @Path("/{id}/favorite")
     @Authenticated
     @Consumes(MediaType.WILDCARD)
+    @PerUserRateLimit(name = "events.favorite", max = 30)
     public Response addFavorite(@PathParam("id") Long id) {
         String auth0Id = identity.getPrincipal().getName();
         favoriteService.addFavorite(auth0Id, id);

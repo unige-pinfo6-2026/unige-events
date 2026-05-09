@@ -3,6 +3,7 @@ package ch.unige.events.attendance.resource;
 import ch.unige.events.attendance.dto.AttendanceDTO;
 import ch.unige.events.attendance.dto.AttendanceRequest;
 import ch.unige.events.attendance.service.AttendanceService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
@@ -26,9 +27,9 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 
 /**
- * The legacy POST handler decorates with
- * {@code @PerUserRateLimit(name = "events.attend", max = 30)} —
- * intentionally not duplicated in S8 (cf. PR 3 commit message).
+ * Attendance endpoints rooted under {@code /events}. The POST handler is
+ * rate-limited via {@link PerUserRateLimit} (issue #98) using the shared
+ * interceptor lib — same name/budget as the legacy monolith.
  */
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
@@ -47,6 +48,7 @@ public class AttendanceResource {
     @POST
     @Path("/{id}/attend")
     @Authenticated
+    @PerUserRateLimit(name = "events.attend", max = 30)
     public Response attend(@PathParam("id") Long id, @NotNull @Valid AttendanceRequest request) {
         String auth0Id = identity.getPrincipal().getName();
         AttendanceDTO dto = attendanceService.attend(auth0Id, id, request.status());

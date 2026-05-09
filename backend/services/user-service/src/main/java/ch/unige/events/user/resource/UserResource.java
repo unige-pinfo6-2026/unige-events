@@ -6,6 +6,7 @@ import ch.unige.events.user.dto.UserProfileResponse;
 import ch.unige.events.user.dto.UserPublicResponse;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.service.UserService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
@@ -39,8 +40,9 @@ import java.util.UUID;
  *   - POST   /users/me/banner    — multipart upload, S3-backed banner
  *   - DELETE /users/me/banner    — clear banner (S3 object kept ; legacy parity)
  *
- * <p>The legacy {@code @PerUserRateLimit} annotations on PUT / image /
- * banner are intentionally not duplicated in S8 (cf. PR 3 commit message).
+ * <p>PUT, POST /me/image and POST /me/banner carry {@link PerUserRateLimit}
+ * decorations (issue #98) wired to the shared interceptor lib — same
+ * names/budgets as the legacy monolith.
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
@@ -89,6 +91,7 @@ public class UserResource {
     @PUT
     @Path("/me")
     @Authenticated
+    @PerUserRateLimit(name = "users.updateMe", max = 10)
     public Response updateMe(@Valid UpdateProfileRequest req) {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateMyProfile(auth0Id, auth0Id, req);
@@ -99,6 +102,7 @@ public class UserResource {
     @Path("/me/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadImage", max = 5)
     public Response uploadImage(@RestForm("file") FileUpload file) {
         if (file == null) {
             throw new BadRequestException("Missing required form field: file");
@@ -122,6 +126,7 @@ public class UserResource {
     @Path("/me/banner")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Authenticated
+    @PerUserRateLimit(name = "users.uploadBanner", max = 5)
     public Response uploadBanner(@RestForm("file") FileUpload file) {
         if (file == null) {
             throw new BadRequestException("Missing required form field: file");

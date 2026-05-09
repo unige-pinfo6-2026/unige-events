@@ -3,6 +3,7 @@ package ch.unige.events.comment.resource;
 import ch.unige.events.comment.dto.CommentDTO;
 import ch.unige.events.comment.dto.CreateCommentRequest;
 import ch.unige.events.comment.service.CommentService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -31,9 +32,8 @@ import java.util.List;
  * Comment endpoints rooted under {@code /events}. The complementary
  * {@code DELETE /comments/{id}} lives in {@link CommentDirectResource}.
  *
- * <p>The legacy POST handler decorates with
- * {@code @PerUserRateLimit(name = "comments.post", max = 10)} —
- * intentionally not duplicated in S8 (cf. PR 3 commit message).
+ * <p>POST is rate-limited via {@link PerUserRateLimit} (issue #98) — same
+ * name/budget as the legacy monolith.
  */
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
@@ -52,6 +52,7 @@ public class CommentResource {
     @POST
     @Path("/{eventId}/comments")
     @Authenticated
+    @PerUserRateLimit(name = "comments.post", max = 10, windowSeconds = 60)
     public Response postComment(@PathParam("eventId") Long eventId,
                                 @Valid @NotNull CreateCommentRequest request) {
         String auth0Id = identity.getPrincipal().getName();

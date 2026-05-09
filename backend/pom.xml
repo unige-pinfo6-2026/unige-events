@@ -21,6 +21,11 @@
     <name>UNIGE Events — backend parent</name>
 
     <modules>
+        <!-- Shared libs (jar packaging, hors `services/*-service/` glob
+             d'exclusion Sonar — leur couverture est comptée). -->
+        <module>services/shared-rate-limit</module>
+
+        <!-- Microservices Quarkus extraits — un par bounded context. -->
         <module>services/user-service</module>
         <module>services/event-service</module>
         <module>services/attendance-service</module>

@@ -5,6 +5,7 @@ import ch.unige.events.follow.dto.UserPublicResponse;
 import ch.unige.events.follow.entity.Follow;
 import ch.unige.events.follow.entity.UserStub;
 import ch.unige.events.follow.service.FollowService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -36,10 +37,8 @@ import java.util.UUID;
  * live in {@link FollowRequestResource} (separate {@code /follow-requests}
  * root).
  *
- * <p>The legacy POST handler decorates with
- * {@code @PerUserRateLimit(name = "follows.follow", max = 30)} —
- * intentionally not duplicated in S8, see PR 3 commit message for the
- * same reasoning.
+ * <p>POST is rate-limited via {@link PerUserRateLimit} (issue #98) — same
+ * name/budget as the legacy monolith.
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
@@ -53,6 +52,7 @@ public class FollowResource {
     @Path("/{id}/follow")
     @Authenticated
     @Consumes(MediaType.WILDCARD)
+    @PerUserRateLimit(name = "follows.follow", max = 30)
     public Response follow(@PathParam("id") UUID followedId) {
         String auth0Id = identity.getPrincipal().getName();
         Follow row = followService.follow(auth0Id, followedId);

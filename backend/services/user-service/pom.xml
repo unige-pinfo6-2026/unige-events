@@ -40,6 +40,9 @@
         <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
         <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
 
+        <!-- ── Shared per-user rate-limit interceptor (issue #98) ────────────── -->
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
+
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-test-security</artifactId><scope>test</scope></dependency>

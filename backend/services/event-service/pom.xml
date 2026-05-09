@@ -36,6 +36,9 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-scheduler</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
 
+        <!-- ── Shared per-user rate-limit interceptor (issue #98) ────────────── -->
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
+
         <!-- ── Image upload (event banner) — needs S3 + URL conn client ─────── -->
         <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId></dependency>
         <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId></dependency>
