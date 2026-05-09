@@ -85,7 +85,7 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
 * **Kafka post-consolidation** : 10 topics provisionnés.
   Producteurs livrés : `event-service` (`events.{published,cancelled,
   expired}` + `co-organizers.{invited,accepted}` post-2.2.4) +
-  `moderation-service` (`events.banned`, ex-report-service post-2.1.2) +
+  `moderation-service` (`events.banned`, moderation-service post-2.1.2) +
   `user-service` (`users.{followed,follow-requested,follow-accepted}`,
   ex-follow-service post-2.3.1) + `engagement-service` (`comments.created`,
   ex-comment-service post-2.4.1). Consommateur : `event-service` ←
@@ -249,7 +249,7 @@ Event ────────────────────────�
 ## Composants par couche (récap post-completion)
 
 Cette section listait l'état Étape-1 (un seul `Service api`). Le code
-applicatif est désormais distribué sur 13 services Quarkus — voir la
+applicatif est désormais distribué sur/  4 services métiers + notification placeholder /Quarkus — voir la
 table « Microservices — endpoints owned » plus haut pour la
 ventilation par-service.
 
@@ -257,13 +257,13 @@ ventilation par-service.
 
 | Pattern | Lib | Consommé par |
 |---|---|---|
-| `ApiErrorResponse` + factory helpers (`badRequest`/`conflict`/`unprocessable`/`forbidden`/`notFound`) | `shared-api-error` | 13 services |
-| Exception Mapper générique pour `WebApplicationException` | `shared-api-error` | 13 services |
+| `ApiErrorResponse` + factory helpers (`badRequest`/`conflict`/`unprocessable`/`forbidden`/`notFound`) | `shared-api-error` |/  4 services métiers + notification placeholder /|
+| Exception Mapper générique pour `WebApplicationException` | `shared-api-error` |/  4 services métiers + notification placeholder /|
 | Enums métier (`EventStatus`, `AttendanceStatus`, `EventCategory`, `Faculty`, `CoOrganizerStatus`, `FollowStatus`, `RecurrenceFrequency`, `ReportReason`, `ReportStatus`) | `shared-domain-enums` | 8-12 services chacun |
 | DTOs cross-projetés (`UserPublicResponse`, `EventDTO`, `AttendanceDTO`, `EventCoOrganizerDTO`, `CapacitySummary`, `AttendanceSummary`, `FollowCounts`) | `shared-domain-dtos` | 10+ services |
-| `ParamConverter`s (Timeframe, AttendanceStatus, EventStatus, …) + `JsonWebTokenLazy` | `shared-jaxrs` | 13 services |
-| `ServiceIdentityResource` paramétrisable + health-check helpers | `shared-platform` | 14 services (incl. notification) |
-| `RequestIdFilter` + `RequestIdClientFilter` + `MdcKafkaInterceptor` | `shared-tracing` | 13 services |
+| `ParamConverter`s (Timeframe, AttendanceStatus, EventStatus, …) + `JsonWebTokenLazy` | `shared-jaxrs` |/  4 services métiers + notification placeholder /|
+| `ServiceIdentityResource` paramétrisable + health-check helpers | `shared-platform` | 5 services (incl. notification placeholder) |
+| `RequestIdFilter` + `RequestIdClientFilter` + `MdcKafkaInterceptor` | `shared-tracing` |/  4 services métiers + notification placeholder /|
 | Kafka payload records (`EventLifecycleEvent`, `EventBannedEvent`, `FollowLifecycleEvent`, `CommentCreatedEvent`, `CoOrganizerEvent`) | `shared-kafka-events` | 5 services producteurs + event-service consumer |
 | `@PerUserRateLimit` interceptor + state cache | `shared-rate-limit` | 6 services consommateurs (event, user, attendance, comment, favorite, follow) |
 | `FileStorageService` S3 | `shared-storage` | 2 services (user, event) |
@@ -298,7 +298,7 @@ Ingress Nginx (path: /, /s3/*)
   │      └── reverse proxy /api/*        → Service kong-proxy
   ├── Service kong-proxy (ClusterIP:8000)→ 2 pods Kong DB-less
   │      └── route /api/<rule>           → Service <svc>-service:8080
-  │                                         (13 microservices Quarkus)
+  │                                         (5 services métiers consolidés post-Étape 2)
   ├── Service kafka (ClusterIP:9092)     → Pod kafka (KRaft, 1 replica)
   │      └── 10 topics provisionnés
   ├── Service db (ClusterIP:5432)        → Pod db (PostgreSQL 16, 1 PVC)
@@ -318,9 +318,9 @@ Le backend exécute des jobs de fond via `quarkus-scheduler`.
 | Classe | Service | Cron | Réplicas | Rôle |
 |---|---|---|---|---|
 | `EventExpirationJob` | `event-service` | `0 0 * * * ?` (toutes les heures) | 1 strict | Marque `EXPIRED` les events publiés dont `endDate` est passé. Émet `events.expired` Kafka post-commit. |
-| `ModerationCleanupJob` | `report-service` | `0 0 3 * * ?` (03h00 chaque nuit) | 1 strict | Auto-bannit les events dépassant le seuil de signalements `PENDING`. Émet `events.banned` Kafka — event-service consomme et applique `event.status = BANNED` localement. |
+| `ModerationCleanupJob` | `moderation-service` | `0 0 3 * * ?` (03h00 chaque nuit) | 1 strict | Auto-bannit les events dépassant le seuil de signalements `PENDING`. Émet `events.banned` Kafka — event-service consomme et applique `event.status = BANNED` localement. |
 
-### ModerationCleanupJob / ModerationCleanupService (report-service)
+### ModerationCleanupJob / ModerationCleanupService (moderation-service)
 
 Déclenchement quotidien à 03h00. Délègue à `ModerationCleanupService.runCleanup()` :
 

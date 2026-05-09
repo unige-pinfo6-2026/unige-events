@@ -10,7 +10,7 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 
 ## Topologie — service amont par préfixe
 
-Sprint 8 a découpé le backend en 13 microservices ; Kong route chaque path vers
+Sprint 8 a découpé le backend en 5 services métiers ; Kong route chaque path vers
 le service propriétaire via une regex anchorée. Cf.
 [`architecture.md`](architecture.md) pour la table complète des Helm
 Deployments + endpoints owned.
@@ -42,7 +42,7 @@ Deployments + endpoints owned.
 | `/api/events/{id}/attend`, `/api/events/{id}/attendees` | **attendance-service** | |
 | `/api/events/{id}/co-organizers/*` | **co-organizer-service** | |
 | `/api/events/{id}/comments`, `/api/comments/{id}` | **comment-service** | |
-| `/api/events/{id}/report`, `/api/admin/reports/*` | **report-service** | + ModerationCleanupJob |
+| `/api/events/{id}/report`, `/api/admin/reports/*` | **moderation-service** | + ModerationCleanupJob |
 | `/api/events/{id}/stats` | **stats-service** | |
 | `/api/calendar/{token}.ics` | **calendar-service** | |
 
@@ -104,9 +104,9 @@ Deployments + endpoints owned.
 | `GET` | `/users/me/follow-requests` | follow-service | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
 | `PATCH` | `/follow-requests/{followId}/accept` | follow-service | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
 | `PATCH` | `/follow-requests/{followId}/reject` | follow-service | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
-| `POST` | `/events/{id}/report` | report-service | `@Authenticated` | Signaler un event (raison + description) | 201, 400, 401, 404, 409, 422 |
-| `GET` | `/admin/reports` | report-service | `@RolesAllowed("ADMIN")` | Liste paginée des reports (default `status=PENDING`) | 200, 401, 403 |
-| `PATCH` | `/admin/reports/{id}` | report-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
+| `POST` | `/events/{id}/report` | moderation-service | `@Authenticated` | Signaler un event (raison + description) | 201, 400, 401, 404, 409, 422 |
+| `GET` | `/admin/reports` | moderation-service | `@RolesAllowed("ADMIN")` | Liste paginée des reports (default `status=PENDING`) | 200, 401, 403 |
+| `PATCH` | `/admin/reports/{id}` | moderation-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events/{id}/stats` | stats-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
 
 > **Rate limit notice (post-completion)** : deux étages.
