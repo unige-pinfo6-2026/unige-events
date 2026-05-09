@@ -8,21 +8,24 @@
 
 ## TL;DR
 
-La PR #158 livre **côté code** :
+La PR #158 livre **côté code** (état à clôture finale Étape 21 — finalization-ultimate) :
 
-* 13 microservices Quarkus extraits + 10 shared libs.
-* Kong DB-less + table de routes complète + plugin `rate-limiting` `policy: local` sur 3 routes.
+* **5 services métiers** Quarkus extraits (event, user, engagement, moderation + notification placeholder) post-consolidation 14→5 + **10 shared libs** + `contract-tests` + `e2e` = **17 modules** dans le reactor.
+* Kong DB-less + table de routes 4 services métiers actifs + plugin `rate-limiting` `policy: local` sur 3 routes.
 * Kafka KRaft single-broker + 10 topics provisionnés + **9 producteurs câblés + 1 consommateur** (`event-service ← events.banned`).
-* REST clients `@RegisterRestClient` cross-service avec resilience (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback`) — 35 stubs JPA cross-schéma supprimés.
-* Anti-oracles ISSUE-92 / ISSUE-93 + cascade SCRUM-136 centralisés derrière les services propriétaires + REST clients.
+* **3 REST clients `@RegisterRestClient`** dans `shared-domain-dtos` couvrant **8 hops cross-service** avec resilience (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback`).
+* **0 stub JPA cross-service** — refactor `@ManyToOne XStub` → `@Column id` (Décision F finalization-ultimate) ; mutation `events.banned` déléguée au consumer Kafka (Décision H).
+* Anti-oracles ISSUE-92 / ISSUE-93 + cascade SCRUM-136 centralisés derrière les services propriétaires + REST clients ; envelope canonique `{error:"not_found"}` via `NotFoundExceptionMapper` (REST-004 / SEC-001).
+* Cascade SCRUM-136 self-check authentifié uniquement sur `?check-co-org-of=` (SEC-002 / Décision C — fermeture de l'oracle de membership co-organizer).
 * Observabilité : `quarkus-logging-json` + `micrometer-registry-prometheus` + `shared-tracing` (`X-Request-ID` MDC + propagation REST + Kafka).
-* Helm : `livenessProbe` ajoutée aux 13 deployments.
-* CI : `.github/workflows/build.yml` refondu en `strategy.matrix.service: [...]` + `sonar.projectKey` override par module + suppression du glob `<sonar.coverage.exclusions>services/*-service/**/*</sonar.coverage.exclusions>`.
-* Tests : 1818 tests legacy portés ; 35 sentinels SCRUM-138/139/144/147 verts ; 4 pacts + 1 E2E happy path.
+* Helm : `livenessProbe` sur 5 deployments (4 actifs + notification placeholder, K8S-001).
+* CI : `.github/workflows/build.yml` matrix consolidée (1 cellule shared-libs + 5 services + 1 contract-tests/e2e + 1 frontend), Sonar `-pl .,<X>` pour résoudre top-level project (CI-001 / Décision E).
+* Tests : 4 sentinels SCRUM-147 RecurrenceGenerator (assertions réelles) + 1 sentinel SCRUM-144 prePersist porté + 30 sentinels taggés `@Tag("legacy-port-s9")` (Décision D Option 3 — port complet S9). 5 pacts JSON consumer-driven brokerless (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1) + 1 E2E happy path gated env var.
 
 **Côté infra**, sept items restent à faire — formalisés ci-dessous.
 Ils sont **explicitement hors scope S8** (cf. spec de complétion
-Décision V). Le backend a livré **sa moitié** quand applicable.
+Décision V + spec finalization-ultimate § Frontière DevOps). Le
+backend a livré **sa moitié** quand applicable.
 
 ## 1. Création de 5 SonarCloud projects per-service (Option B — décision Elie 2026-05-09)
 
@@ -139,6 +142,48 @@ documenté ; pas un fail backend. Les 10 cellules shared-libs Sonar passent (ell
 * Migrer le plugin `rate-limiting` de `policy: local` vers `policy: redis` (avec un Redis Helm chart) pour un compteur cluster-wide. Sans cela, un attaquant peut tripler son budget en routant sur une autre instance Kong.
 
 **Justification du report** : hors scope cours, DB-less S8 OK.
+
+## 8. Pact provider verification CI job (NEW — finalization-ultimate)
+
+**Statut backend** : ✅ 5 pacts consumer générés (`engagement-event-issue92.json`, `engagement-event-scrum136.json`, `moderation-event.json`, `user-event-bulk.json`, `event-engagement-bulk.json`) à chaque CI run et uploadés en artifact GitHub Actions (`pacts-${{ github.sha }}`).
+
+**Action attendue côté DevOps** : ajouter un job `verify-pacts` qui les vérifie côté provider :
+
+```yaml
+verify-pacts:
+  needs: [build-shared-libs, build-contract-and-e2e]
+  steps:
+    - actions/download-artifact pacts-${{ github.sha }}
+    - run: ./mvnw -pl services/event-service,services/engagement-service,services/user-service \
+                  verify -Dpact.verifier.dir=../../contract-tests/target/pacts \
+                  -Dpact.verifier.tests=*PactVerification*
+```
+
+Nécessite un harness de provider states (helper qui prépare les fixtures DB pour chaque "given" du pact). Sprint S9.
+
+**Justification du report** : harness provider states non trivial, sortie du scope finalization-ultimate.
+
+## 9. GHCR cleanup PR-tagged images (NEW — finalization-ultimate)
+
+**Statut backend** : ✅ push GHCR des 5 services à chaque PR avec tag `pr-<N>`.
+
+**Action attendue côté DevOps** : ajouter à `cleanup.yml` un job qui supprime les images via `gh api -X DELETE /user/packages/container/<img>/versions/<id>` filtré par tag `pr-<N>` quand la PR est fermée. Sprint S9.
+
+**Justification du report** : pas urgent, coût stockage faible à court terme.
+
+## 10. Port runtime des 30 sentinels @Tag("legacy-port-s9") (NEW — finalization-ultimate)
+
+**Statut backend** : ⚠️ 30/35 sentinels SCRUM-138/144/147 sont présents par nom (corps vides taggés `@Tag("legacy-port-s9")`) ; 5 sont déjà portés avec assertions réelles (4 RecurrenceGenerator + 1 prePersist).
+
+**Action attendue côté DevOps / backend S9** : porter le corps des 30 sentinels restants — chacun nécessite un `@QuarkusTest` + `@InjectMock @RestClient` + DevServices Postgres + JWT mock. Source : `git show 41074e9:backend/services/legacy-monolith/src/test/java/...` puis adaptation packages + REST clients mockés.
+
+**Justification du report** : ~50 heures de port test-only, sortie du scope finalization-ultimate. La couverture fonctionnelle des cascades critiques est préservée par les 5 contrats Pact + le code runtime des Vagues 2-3.
+
+## 11. Doublon openapi `POST /events/{id}/view` (NEW — finalization-ultimate)
+
+**Statut openapi** : ⚠️ le contrat openapi.yaml expose `/events/{id}/view` deux fois (cosmétique, pas de bug runtime). Hors scope finalization-ultimate (invariant openapi = 0 ligne diff).
+
+**Action attendue côté DevOps / frontend S9** : nettoyer dans une PR future avec coordination frontend explicite (pour éviter de casser un client qui dépendrait du double-listing).
 
 ## Smoke tests recommandés post-deploy preview
 
