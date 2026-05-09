@@ -1,8 +1,8 @@
-package ch.unige.events.follow.resource;
+package ch.unige.events.user.follow.resource;
 
-import ch.unige.events.follow.dto.FollowDTO;
-import ch.unige.events.follow.entity.Follow;
-import ch.unige.events.follow.service.FollowService;
+import ch.unige.events.user.follow.dto.FollowDTO;
+import ch.unige.events.user.follow.entity.Follow;
+import ch.unige.events.user.follow.service.FollowService;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;

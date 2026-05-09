@@ -233,6 +233,35 @@ data:
               - ~/api/users/[^/]+$
             strip_path: false
             preserve_host: true
+          # Absorbed from follow-service in finalization Étape 2.3.1.
+          - name: follow-actions
+            paths:
+              - ~/api/users/[^/]+/follow$
+            strip_path: false
+            preserve_host: true
+            plugins:
+              # bucket `follows.follow=30/min` (completion-spec Étape 10).
+              - name: rate-limiting
+                config:
+                  minute: 30
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
+          - name: follow-listings
+            paths:
+              - ~/api/users/[^/]+/(?:followers|following)$
+            strip_path: false
+            preserve_host: true
+          - name: follow-requests
+            paths:
+              - ~/api/follow-requests/(?:\d+)/(?:accept|reject)$
+            strip_path: false
+            preserve_host: true
+          - name: my-follow-reqs
+            paths:
+              - ~/api/users/me/follow-requests$
+            strip_path: false
+            preserve_host: true
 
       # NB: me-aggregator-service was merged into event-service in
       # finalization Étape 2.2.6 (Décision H — BFF dissous, le path
@@ -336,46 +365,11 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 5 — follow-service (extracted) ────────────────────────────
-      # Follow / follow-request endpoints. Note: /api/users/me/follow-requests
-      # is namespace-anchored at /me/, while /api/users/{uuid}/follow{,ers,ing}
-      # uses a UUID segment — kept distinct via separate regex routes so
-      # the catchall keeps serving the rest of /api/users/* (auth profile,
-      # banner, image…) until user-service is extracted.
-      - name: follow-service
-        url: http://follow-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: follow-actions
-            paths:
-              - ~/api/users/[^/]+/follow$
-            strip_path: false
-            preserve_host: true
-            plugins:
-              # bucket `follows.follow=30/min` (completion-spec Étape 10).
-              - name: rate-limiting
-                config:
-                  minute: 30
-                  policy: local
-                  fault_tolerant: true
-                  hide_client_headers: false
-          - name: follow-listings
-            paths:
-              - ~/api/users/[^/]+/(?:followers|following)$
-            strip_path: false
-            preserve_host: true
-          - name: follow-requests
-            paths:
-              - ~/api/follow-requests/(?:\d+)/(?:accept|reject)$
-            strip_path: false
-            preserve_host: true
-          - name: my-follow-reqs
-            paths:
-              - ~/api/users/me/follow-requests$
-            strip_path: false
-            preserve_host: true
+      # NB: follow-service was merged into user-service in finalization
+      # Étape 2.3.1 (Décision A — follow est une propriété de l'identité
+      # utilisateur, social graph user×user). Routes follow-actions /
+      # follow-listings / follow-requests / my-follow-reqs sont désormais
+      # dans le bloc user-service au-dessus.
 
       # ───────────────────────────────────────────────────────────────────────
       # Target topology — commented out, ready to flip per extraction PR

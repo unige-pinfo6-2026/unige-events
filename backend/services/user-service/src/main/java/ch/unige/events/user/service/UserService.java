@@ -4,7 +4,7 @@ import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.dto.PublicProfileView;
 import ch.unige.events.user.dto.UpdateProfileRequest;
 import ch.unige.events.user.entity.FollowStatus;
-import ch.unige.events.user.entity.FollowStub;
+import ch.unige.events.user.follow.entity.Follow;
 import ch.unige.events.user.entity.User;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,7 +27,7 @@ import java.util.UUID;
 /**
  * Same contract as the legacy UserService. Image / banner upload methods
  * delegate S3 wiring to the shared {@link FileStorageService}. The
- * follower / followStatus enrichment uses the local FollowStub ; will
+ * follower / followStatus enrichment uses the local Follow ; will
  * become a REST call to follow-service in a follow-up cleanup.
  */
 @ApplicationScoped
@@ -82,15 +82,15 @@ public class UserService {
             return PublicProfileView.anonymous(user);
         }
 
-        long followerCount = FollowStub.countFollowersOf(user.id);
-        long followingCount = FollowStub.countFollowingOf(user.id);
+        long followerCount = Follow.countFollowersOf(user.id);
+        long followingCount = Follow.countFollowingOf(user.id);
 
         FollowStatus followStatus = null;
         if (!isOwner) {
             UUID callerId = User.findByAuth0Id(auth0Id).map(u -> u.id).orElse(null);
             if (callerId != null && !callerId.equals(user.id)) {
-                followStatus = FollowStub.findByFollowerAndFollowed(callerId, user.id)
-                        .map(f -> f.status)
+                followStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
+                        .map((Follow f) -> f.status)
                         .orElse(null);
             }
         }

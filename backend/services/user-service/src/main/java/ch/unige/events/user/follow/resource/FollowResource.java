@@ -1,10 +1,10 @@
-package ch.unige.events.follow.resource;
+package ch.unige.events.user.follow.resource;
 
-import ch.unige.events.follow.dto.FollowDTO;
-import ch.unige.events.follow.dto.UserPublicResponse;
-import ch.unige.events.follow.entity.Follow;
-import ch.unige.events.follow.entity.UserStub;
-import ch.unige.events.follow.service.FollowService;
+import ch.unige.events.user.follow.dto.FollowDTO;
+import ch.unige.events.user.dto.UserPublicResponse;
+import ch.unige.events.user.follow.entity.Follow;
+import ch.unige.events.user.entity.User;
+import ch.unige.events.user.follow.service.FollowService;
 import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 
 import io.quarkus.security.Authenticated;
@@ -116,14 +116,14 @@ public class FollowResource {
      * and projects them preserving arrival order. Mirror of the legacy
      * {@code FollowResource#resolveUsers} — pentest 4.1b anti-harvest
      * preserved (private profiles seen by non-self callers project via
-     * {@link UserPublicResponse#fromAnonymous(UserStub)}).
+     * {@link UserPublicResponse#fromAnonymous(User)}).
      */
     private List<UserPublicResponse> resolveUsers(List<UUID> ids, String callerAuth0Id) {
         if (ids.isEmpty()) {
             return List.of();
         }
-        List<UserStub> users = UserStub.list("id in ?1", ids);
-        Map<UUID, UserStub> byId = new HashMap<>(users.size());
+        List<User> users = User.list("id in ?1", ids);
+        Map<UUID, User> byId = new HashMap<>(users.size());
         users.forEach(u -> byId.put(u.id, u));
         return ids.stream()
                 .map(byId::get)
@@ -132,7 +132,7 @@ public class FollowResource {
                 .toList();
     }
 
-    private UserPublicResponse projectListItem(UserStub user, String callerAuth0Id) {
+    private UserPublicResponse projectListItem(User user, String callerAuth0Id) {
         boolean isSelf = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
         if (user.profilePublic || isSelf) {
             return UserPublicResponse.from(user);

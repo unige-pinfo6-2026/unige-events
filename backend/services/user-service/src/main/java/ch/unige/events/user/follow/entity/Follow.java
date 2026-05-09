@@ -1,5 +1,6 @@
-package ch.unige.events.follow.entity;
+package ch.unige.events.user.follow.entity;
 
+import ch.unige.events.user.entity.FollowStatus;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -76,5 +77,13 @@ public class Follow extends PanacheEntity {
                 followedId, FollowStatus.PENDING)
                 .page(page, size)
                 .list();
+    }
+
+    public static long countFollowersOf(UUID followedId) {
+        return count("followedId = ?1 and status = ?2", followedId, FollowStatus.ACCEPTED);
+    }
+
+    public static long countFollowingOf(UUID followerId) {
+        return count("followerId = ?1 and status = ?2", followerId, FollowStatus.ACCEPTED);
     }
 }

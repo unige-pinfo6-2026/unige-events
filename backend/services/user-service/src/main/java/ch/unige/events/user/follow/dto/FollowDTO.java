@@ -1,7 +1,7 @@
-package ch.unige.events.follow.dto;
+package ch.unige.events.user.follow.dto;
 
-import ch.unige.events.follow.entity.Follow;
-import ch.unige.events.follow.entity.FollowStatus;
+import ch.unige.events.user.follow.entity.Follow;
+import ch.unige.events.user.entity.FollowStatus;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

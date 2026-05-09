@@ -1,9 +1,9 @@
-package ch.unige.events.follow.service;
+package ch.unige.events.user.follow.service;
 
-import ch.unige.events.follow.dto.ApiErrorResponse;
-import ch.unige.events.follow.entity.Follow;
-import ch.unige.events.follow.entity.FollowStatus;
-import ch.unige.events.follow.entity.UserStub;
+import ch.unige.events.user.dto.ApiErrorResponse;
+import ch.unige.events.user.follow.entity.Follow;
+import ch.unige.events.user.entity.FollowStatus;
+import ch.unige.events.user.entity.User;
 import ch.unige.events.shared.kafka.events.FollowLifecycleEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -51,7 +51,7 @@ public class FollowService {
             throw unprocessable("cannot_follow_self", "You cannot follow yourself.");
         }
 
-        UserStub followed = UserStub.<UserStub>findByIdOptional(followedId)
+        User followed = User.<User>findByIdOptional(followedId)
                 .orElseThrow(() -> new NotFoundException("Target user not found"));
 
         if (Follow.findByFollowerAndFollowed(followerId, followedId).isPresent()) {
@@ -146,7 +146,7 @@ public class FollowService {
      * user-service (which doesn't exist yet — replaced at PR 12).
      */
     public void assertProfileVisible(UUID targetId, String callerAuth0Id) {
-        UserStub target = UserStub.<UserStub>findByIdOptional(targetId)
+        User target = User.<User>findByIdOptional(targetId)
                 .orElseThrow(NotFoundException::new);
         boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(target.auth0Id);
         if (!target.profilePublic && !isOwner) {
@@ -155,7 +155,7 @@ public class FollowService {
     }
 
     private UUID resolveUserId(String auth0Id) {
-        return UserStub.findByAuth0Id(auth0Id)
+        return User.findByAuth0Id(auth0Id)
                 .orElseThrow(() -> new NotFoundException("User profile not found"))
                 .id;
     }

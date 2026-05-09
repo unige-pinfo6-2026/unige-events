@@ -1,4 +1,4 @@
-package ch.unige.events.follow.kafka;
+package ch.unige.events.user.follow.kafka;
 
 import ch.unige.events.shared.kafka.events.FollowLifecycleEvent;
 import jakarta.enterprise.context.ApplicationScoped;
