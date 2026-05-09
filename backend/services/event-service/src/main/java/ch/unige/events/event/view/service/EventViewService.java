@@ -1,7 +1,7 @@
-package ch.unige.events.view.service;
+package ch.unige.events.event.view.service;
 
-import ch.unige.events.view.entity.EventStub;
-import ch.unige.events.view.entity.UserStub;
+import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.entity.UserStub;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -27,7 +27,7 @@ public class EventViewService {
 
     @Transactional
     public void recordView(String auth0Id, Long eventId) {
-        if (entityManager.find(EventStub.class, eventId) == null) {
+        if (entityManager.find(Event.class, eventId) == null) {
             throw new NotFoundException("Event not found");
         }
 

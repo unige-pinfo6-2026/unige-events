@@ -1,6 +1,6 @@
-package ch.unige.events.view.resource;
+package ch.unige.events.event.view.resource;
 
-import ch.unige.events.view.service.EventViewService;
+import ch.unige.events.event.view.service.EventViewService;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;

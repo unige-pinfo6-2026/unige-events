@@ -24,18 +24,9 @@ data:
       # /api/s/{shortCode} are now declared in the event-service block
       # below (look for `event-share` and `shortlink`).
 
-      # ───── PR 2 — view-service (extracted) ──────────────────────────────
-      - name: view-service
-        url: http://view-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
-          - name: event-view
-            paths:
-              - ~/api/events/(?:\d+)/view$
-            strip_path: false
-            preserve_host: true
+      # NB: view-service was merged into event-service in finalization
+      # Étape 2.2.2. Route /api/events/{id}/view is now in the
+      # event-service block below (look for `event-view`).
 
       # ───── PR 3 — favorite-service (extracted) ──────────────────────────
       # Routes POST/DELETE /api/events/{id}/favorite + GET /api/users/me/favorites
@@ -109,6 +100,12 @@ data:
           - name: shortlink
             paths:
               - ~/api/s/[^/]+$
+            strip_path: false
+            preserve_host: true
+          # Absorbed from view-service in finalization Étape 2.2.2.
+          - name: event-view
+            paths:
+              - ~/api/events/(?:\d+)/view$
             strip_path: false
             preserve_host: true
           - name: events-search
