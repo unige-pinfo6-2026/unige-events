@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 8 services réellement extraits, 5 restants DEFERRED.**
+**Étapes 2..14 — 9 services réellement extraits, 4 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -139,7 +139,21 @@ scope étape 1**.
   `/api/users/me/attendances$`, `/api/users/me/participations$` →
   `attendance-service:8080`. Helm `replicas: 1`. Note : rate-limit
   `events.attend` 30/min non porté (idem PR 3). CI Deploy à valider.
-* ⏳ **PR 9..13 — 5 extractions restantes** (report, stats, me-aggregator,
+* ✅ **PR 9 — `report-service` extrait** (commit `<this PR>`). Owns
+  `reports` table + héberge le `ModerationCleanupJob` (`@Scheduled` cron
+  `0 0 3 * * ? Europe/Zurich`, `replicas:1` strict — pas de
+  leader-election en S8 ; `%test.quarkus.scheduler.enabled=false` pour
+  isoler les tests sentinel). Cascade SCRUM-136 inlinée pour
+  `cannot_report_own_event`. SCRUM-97 BANNED-on-validate écrit
+  directement `event.status = BANNED` sur le schéma partagé (deviendra
+  un message Kafka `events.banned` que `event-service` consommera à PR 13).
+  Sibling cascade dans `cascadeSiblingReports` préservée. EventStub
+  writable (uniquement le champ `status`). UserStub avec
+  `firstName + lastName + email` pour le fallback du `reporterDisplayName`.
+  Kong routes `/api/events/(?:\d+)/report$`, `/api/admin/reports$`,
+  `/api/admin/reports/(?:\d+)$` → `report-service:8080`. POM enrichi de
+  `quarkus-scheduler`. Helm `replicas: 1`. CI Deploy à valider.
+* ⏳ **PR 10..13 — 4 extractions restantes** (stats, me-aggregator,
   user, event) suivent le même pattern : POM jar→quarkus, copy
   resources/services/entities depuis legacy avec adaptations (stubs
   read-only pour les tables cross-domaine), Helm replicas:1, Kong route

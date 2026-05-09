@@ -5,14 +5,18 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: report-service
-    migration-step: scaffold
+    migration-step: extracted
 spec:
-  # Scaffold lives at replicas: 0 until the follow-up extraction PR
-  # populates the Quarkus module under backend/services/report-service/ and flips
-  # the Kong route. Until then, no pod is scheduled, no image is pulled,
-  # and the Deployment costs nothing on the cluster — but the Service /
-  # DNS name report-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
-  replicas: 0
+  # report-service is now active (PR 9 of the extraction roadmap). Kong
+  # routes /api/events/{id}/report + /api/admin/reports[/{id}] here.
+  # ModerationCleanupJob (cron @ 03:00 Europe/Zurich) runs in this pod
+  # — replicas: 1 strict (no leader-election in S8).
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: report-service
