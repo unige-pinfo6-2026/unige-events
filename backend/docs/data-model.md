@@ -131,7 +131,7 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ### EventView
 
-Table : `event_views`
+Owned by **view-service**. Table : `event_views`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -141,6 +141,10 @@ Table : `event_views`
 | `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 
 Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
+
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
 
@@ -169,27 +173,6 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 `AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
 
 `AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
-
----
-
-### EventView
-
-Owned by **view-service**. Table : `event_views`. *(Section dupliquée
-ci-dessous — incohérence pré-existante dans data-model.md, à fusionner
-en follow-up.)*
-
-| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
-|---|---|---|---|---|
-| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
-| `eventId` | `eventId` | `Long` | `event_id` | not null |
-| `userId` | `userId` | `UUID` | `user_id` | not null |
-| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
-
-Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
-
-L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
-
-Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 
 ---
 
