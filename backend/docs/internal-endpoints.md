@@ -1,32 +1,42 @@
 # Internal endpoints — service-to-service
 
 > Catalogue des endpoints REST **internes** consommés par les REST
-> clients `@RegisterRestClient` cross-service. Ces endpoints **ne sont
-> pas** exposés via Kong (pas de route dans `k8s/chart/templates/kong/configmap-routes.yaml`)
-> et **ne sont pas** dans `openapi/openapi.yaml` (dérogation explicite à
-> la règle openapi-first — ils ne font pas partie du contrat public ;
-> cf. Décision Q de [`../../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md)).
+> clients `@RegisterRestClient` cross-service post-finalization. Ces
+> endpoints **ne sont pas** exposés via Kong (pas de route dans
+> `k8s/chart/templates/kong/configmap-routes.yaml`) et **ne sont pas**
+> dans `openapi/openapi.yaml`. Cf. Décision G de
+> [`../../specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../../specs_archives/specs_claude/specs_microservices_migration_finalization.md)
+> qui annule la dérogation Q de la completion-spec : `git diff --shortstat
+> origin/main HEAD -- openapi/` doit rester à **0 ligne ABSOLU**.
 >
-> Convention : tous les endpoints internes sont préfixés par leur
-> propre `@Path` racine (ex. `/users/by-auth0/{auth0Id}`) et restent
-> accessibles uniquement à l'intérieur du cluster K8s
-> (service-to-service via `http://<svc>-service:8080`).
+> Convention : tous les endpoints internes restent accessibles uniquement
+> à l'intérieur du cluster K8s (service-to-service via
+> `http://<svc>-service:8080`).
 
-## Endpoint catalog
+## Endpoint catalog (post-finalization, après consolidation 14→5)
 
-| Path | Service propriétaire | Service(s) consommateur(s) | Payload réponse | Notes |
-|---|---|---|---|---|
-| `GET /users/by-auth0/{auth0Id}` | user-service | view-service, me-aggregator-service, autres consommateurs futurs | `UserPublicResponse` (`shared-domain-dtos`) | Lookup user par claim Auth0 (`sub`). Anti-oracle ISSUE-93 désactivé pour les appels internes (le caller est un service de confiance). |
-| `GET /users/by-calendar-token/{token}` | user-service | calendar-service | `UserPublicResponse` (id + displayName uniquement, plus le `calendarToken` lui-même) | Token UUID régénérable. Service-to-service uniquement (pas exposé Kong). |
-| `GET /users/{id}/follow-counts` | follow-service | user-service (pour enrichir la réponse `getPublicProfile`) | `FollowCounts(long followers, long following, FollowStatus followStatus)` | Fallback `(0, 0, null)` si follow-service down. |
-| `GET /events/{id}/capacity-summary` | event-service | attendance-service | `CapacitySummary(Integer capacity, long currentAttending, long waitlistedCount)` | Évite à attendance-service de lire la table `events` cross-schéma. |
-| `GET /events?ids=...` | event-service | favorite-service, calendar-service | `List<EventDTO>` | Bulk lookup pour fabrication de réponses `/me/favorites` et ICS feed. |
-| `GET /events/{id}/favorite-count` | favorite-service | event-service, stats-service | `{ "count": long }` | Count atomique. |
-| `GET /events/{id}/view-count` | view-service | event-service, stats-service | `{ "count": long }` | Count atomique. |
-| `GET /events/{eventId}/attendance-summary` | attendance-service | event-service, co-organizer-service, stats-service | `AttendanceSummary(long attending, long waitlisted, long interested)` | Count by status. |
-| `GET /events/attendance-summary?ids=...` | attendance-service | favorite-service, calendar-service | `Map<Long, AttendanceSummary>` | Bulk pour fabriquer `EventDTO` enrichi sur `/me/favorites`. |
-| `GET /events/{eventId}/co-organizers/check?userId={uuid}` | co-organizer-service | event-service, comment-service, attendance-service, report-service, stats-service | `{ "accepted": boolean }` | Cascade SCRUM-136 centralisée — règle unique côté co-organizer-service. Évite à 5 services d'inliner la logique. |
-| `GET /events/{eventId}/co-organizers/accepted-user-ids` | co-organizer-service | stats-service | `List<UUID>` | Liste des userIds accepted (pour stats compute). |
+| # | Path | Service propriétaire | Service(s) consommateur(s) | Payload réponse | Notes |
+|---|---|---|---|---|---|
+| 1 | `GET /events/{eventId}/attendance-summary` | engagement-service | event-service, moderation-service | `AttendanceSummary` (`shared-domain-dtos`) | Count by status (ATTENDING + WAITLISTED). Nouveau post-finalization (remplace l'ancien `attendance-service.GET /events/{eventId}/attendance-summary`, le service est juste renommé). |
+| 2 | `GET /events?ids=...&status=PUBLISHED` | event-service | user-service (calendar ICS feed bulk lookup), engagement-service futur | `List<EventDTO>` | Bulk lookup pour fabriquer la feed ICS de l'utilisateur. |
+| 3 | `GET /events/{id}?check-co-org-of={uuid}` | event-service | engagement-service (cascade SCRUM-136 sur post comments + RSVP), moderation-service (cascade pour reports) | `EventDTO` enrichi du champ `coOrganizerOf: bool` | Cascade SCRUM-136 centralisée — règle unique côté event-service (post-merge co-organizer→event en Étape 2.2.4). Évite aux consommateurs d'inliner la logique. |
+| 4 | `GET /users/{id}/attendances?status=ATTENDING` | engagement-service | user-service (calendar ICS feed) | `List<AttendanceDTO>` | Existant publiquement (déjà routé Kong sur `/api/users/me/attendances`), réutilisé en interne par user-service via REST client (sans passer par Kong). |
+
+## Endpoints internes **disparus** post-finalization
+
+Les endpoints internes suivants existaient pré-finalization et **disparaissent** post-consolidation 14→5 (les services concernés ont été absorbés dans event-service ou user-service, donc l'accès devient local) :
+
+| Ancien path | Raison de la suppression |
+|---|---|
+| `GET /users/by-auth0/{auth0Id}` | Plus nécessaire : event-service / engagement-service / moderation-service ont tous accès à `JsonWebToken` localement (résolution via `Auth0IdResolver.resolveUserId(jwt)`) puis appellent `userServiceClient.getById(uuid)` avec UUID résolu. |
+| `GET /users/by-calendar-token/{token}` | Plus nécessaire : calendar-service est absorbé dans user-service (Étape 2.3.2), accès local à `users.calendar_token` via `User.findByCalendarToken(...)`. |
+| `GET /events/{id}/capacity-summary` | Plus nécessaire : capacity calculée localement dans event-service (qui possède `events.capacity`). |
+| `GET /events/{id}/favorite-count` | Plus nécessaire : `favorites` table est locale dans event-service post-2.2.3. |
+| `GET /events/{id}/view-count` | Plus nécessaire : `event_views` table est locale dans event-service post-2.2.2. |
+| `GET /events/{eventId}/co-organizers/check?userId=` | Remplacé par le param `?check-co-org-of=` sur `GET /events/{id}` (cascade locale post-2.2.4 dans event-service). |
+| `GET /events/{eventId}/co-organizers/accepted-user-ids` | Plus nécessaire : stats-service est absorbé dans event-service (Étape 2.2.5), accès local. |
+| `GET /users/{id}/follow-counts` | Plus nécessaire : follow-service est absorbé dans user-service (Étape 2.3.1), `Follow.countFollowersOf(...)` / `Follow.countFollowingOf(...)` sont des appels locaux. |
+| `GET /events/attendance-summary?ids=...` (bulk) | Plus nécessaire : favorite-service et calendar-service sont absorbés ; les bulk lookups deviennent des queries locales sur `attendances` cross-service via REST client unique #1. |
 
 ## Convention de resilience
 
@@ -34,11 +44,12 @@ Chaque REST client `@RegisterRestClient` consommant un endpoint interne porte la
 
 ```java
 @RegisterRestClient(configKey = "<svc>-service")
+@RegisterProvider(ch.unige.events.shared.tracing.RequestIdClientFilter.class)
 @Path(...)
 public interface <Svc>ServiceClient {
     @GET @Path(...)
     @Retry(maxRetries = 3, delay = 200)
-    @Timeout(2000)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
     @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
     @Fallback(fallbackMethod = "...")  // ← optionnel selon criticité
     <ResponseType> get(...);
@@ -61,10 +72,10 @@ quarkus.rest-client.<svc>-service.url=${<SVC>_SERVICE_URL:http://<svc>-service:8
 
 * ne sont jamais appelés par le frontend (pas de route Kong → 404 depuis l'extérieur du cluster) ;
 * peuvent évoluer librement sans coordination avec le frontend ;
-* changent de signature au gré des besoins cross-service (ex. ajouter un champ à `CapacitySummary` n'est pas un breaking change public).
+* changent de signature au gré des besoins cross-service (ex. ajouter un champ à `AttendanceSummary` n'est pas un breaking change public).
 
-Les ajouter à `openapi.yaml` polluerait le contrat public et ferait voir des endpoints invisibles aux consommateurs externes. La dérogation est actée par Décision Q de la spec de complétion.
+Les ajouter à `openapi.yaml` polluerait le contrat public et ferait voir des endpoints invisibles aux consommateurs externes.
 
 ## Tracking — invariant `git diff openapi/`
 
-L'invariant `git diff --shortstat origin/main HEAD -- openapi/` doit rester ≤ 32 lignes — la SEULE modification autorisée à `openapi.yaml` est la suppression du doublon `POST /events/{id}/view` (ligne ~3482, Décision Q de la spec de complétion). Toute autre modification d'`openapi.yaml` lèverait un blocker.
+L'invariant `git diff --shortstat origin/main HEAD -- openapi/` doit rester à **0 ligne ABSOLU** post-finalization (Décision G annule la dérogation Q de la completion-spec). Toute modification d'`openapi.yaml` est désormais bloquante. Le doublon `POST /events/{id}/view` (cosmétique) sera nettoyé dans une PR future avec coordination frontend explicite.

@@ -48,6 +48,12 @@ jobs:
       - name: Build & Test
         run: ./mvnw -pl services/${{ matrix.lib }} -am verify -B
       - name: SonarQube Scan
+        # continue-on-error: tant que DevOps n'a pas créé les 15 SonarCloud
+        # projects (cf. backend/docs/devops-handoff.md item 1), ce step
+        # échoue avec "project not found". C'est le blocker DevOps attendu
+        # documenté ; on ne veut pas que ça bloque le build matrix backend
+        # downstream qui dépend de ce job via `needs:`.
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./mvnw -pl services/${{ matrix.lib }} sonar:sonar -B
@@ -99,6 +105,8 @@ jobs:
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
 
       - name: SonarQube Scan
+        # continue-on-error : cf. note dans build-shared-libs.SonarQube Scan.
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./mvnw -pl services/${{ matrix.service }}-service sonar:sonar -B
