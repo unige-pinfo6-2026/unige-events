@@ -16,6 +16,6 @@ class ServiceIdentityResourceTest {
             .then()
             .statusCode(200)
             .body("service", equalTo("event-service"))
-            .body("status", equalTo("scaffold"));
+            .body("module", equalTo("ch.unige.events:event-service"));
     }
 }

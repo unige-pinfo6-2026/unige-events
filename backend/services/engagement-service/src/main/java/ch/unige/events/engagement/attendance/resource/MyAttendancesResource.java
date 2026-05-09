@@ -2,7 +2,7 @@ package ch.unige.events.engagement.attendance.resource;
 
 import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
-import ch.unige.events.engagement.attendance.entity.Timeframe;
+import ch.unige.events.shared.jaxrs.Timeframe;
 import ch.unige.events.engagement.attendance.service.AttendanceService;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import io.quarkus.security.Authenticated;

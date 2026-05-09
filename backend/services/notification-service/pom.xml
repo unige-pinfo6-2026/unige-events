@@ -52,6 +52,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
+        <!-- Étape 4.2 finalization-ultimate (DUP-002): adopt shared
+             ServiceIdentityResource via shared-platform dep. -->
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-platform</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-jaxrs</artifactId><version>${project.version}</version></dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>
