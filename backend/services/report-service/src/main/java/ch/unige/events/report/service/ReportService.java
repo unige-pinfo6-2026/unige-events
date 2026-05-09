@@ -10,8 +10,10 @@ import ch.unige.events.report.entity.EventStub;
 import ch.unige.events.report.entity.Report;
 import ch.unige.events.report.entity.ReportStatus;
 import ch.unige.events.report.entity.UserStub;
+import ch.unige.events.shared.kafka.events.EventBannedEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -34,6 +36,8 @@ import java.util.List;
  */
 @ApplicationScoped
 public class ReportService {
+
+    @Inject jakarta.enterprise.event.Event<EventBannedEvent> bannedEvent;
 
     @Transactional
     public ReportDTO create(Long eventId, String reporterAuth0Id, CreateReportRequest request) {
@@ -117,11 +121,14 @@ public class ReportService {
 
         // SCRUM-97: validating a report bans the underlying event and
         // cascades the decision to all sibling PENDING reports on the
-        // same event. Soft-extraction caveat: we mutate event.status
-        // directly on the shared schema — once event-service ships, the
-        // ban migrates to a Kafka events.banned producer message.
+        // same event. Per Décision F of the completion spec, the ban
+        // is published as a Kafka events.banned message — event-service
+        // consumes and applies status=BANNED locally (no more cross-
+        // schema mutation). The CDI fire is delivered AFTER_SUCCESS so
+        // a rollback aborts the propagation.
         if (request.status() == ReportStatus.REVIEWED) {
-            report.event.status = EventStatus.BANNED;
+            String reason = request.moderationNote() != null ? request.moderationNote() : "admin-ban";
+            bannedEvent.fire(EventBannedEvent.banned(report.event.id, admin.id, reason));
             cascadeSiblingReports(report, admin, now);
         }
 

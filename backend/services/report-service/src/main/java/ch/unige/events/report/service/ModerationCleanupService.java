@@ -32,6 +32,8 @@ public class ModerationCleanupService {
 
     @Inject EntityManager em;
 
+    @Inject jakarta.enterprise.event.Event<ch.unige.events.shared.kafka.events.EventBannedEvent> bannedEvent;
+
     int threshold;
 
     @PostConstruct
@@ -66,10 +68,10 @@ public class ModerationCleanupService {
     }
 
     void hide(EventStub event) {
-        event.status = EventStatus.BANNED;
-        // TODO: emit events.banned Kafka message once event-service ships
-        // (PR 13). Until then the legacy notification path still observes
-        // event.status flip in-process within legacy-monolith via the
-        // shared schema.
+        // Auto-ban path: fire events.banned via CDI ; the bridge publishes
+        // AFTER_SUCCESS, event-service consumer applies status=BANNED.
+        // bannedBy is null — no human admin in the auto-cleanup flow.
+        bannedEvent.fire(ch.unige.events.shared.kafka.events.EventBannedEvent.banned(
+                event.id, null, "auto-cleanup-threshold-exceeded"));
     }
 }
