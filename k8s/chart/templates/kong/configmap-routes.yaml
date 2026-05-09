@@ -115,6 +115,37 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 7 — co-organizer-service (extracted) ──────────────────────
+      # The co-organizer routes share the /api/events/{id}/co-organizers
+      # prefix : invite/list at the bare path, accept/decline under /me/,
+      # and DELETE under /{userId}. Listed in regex-specificity order.
+      - name: co-organizer-service
+        url: http://co-organizer-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: co-organizer-me
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizer-userid
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizers
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers$
+            strip_path: false
+            preserve_host: true
+          - name: my-co-org-invites
+            paths:
+              - ~/api/users/me/co-organizer-invitations$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 6 — comment-service (extracted) ───────────────────────────
       # Routes /api/events/{id}/comments (POST + GET) + /api/comments/{id}
       # (DELETE) to comment-service.
@@ -212,14 +243,6 @@ data:
       #   url: http://view-service:8080
       #   routes:
       #     - { name: event-view,        paths: [/api/events/(?:\\d+)/view] }
-      #
-      # - name: co-organizer-service
-      #   url: http://co-organizer-service:8080
-      #   routes:
-      #     - { name: co-organizers,        paths: [/api/events/(?:\\d+)/co-organizers] }
-      #     - { name: co-organizer-userid,  paths: [/api/events/(?:\\d+)/co-organizers/[^/]+$] }
-      #     - { name: co-organizer-me,      paths: [/api/events/(?:\\d+)/co-organizers/me/(?:accept|decline)] }
-      #     - { name: my-co-org-invites,    paths: [/api/users/me/co-organizer-invitations] }
       #
       # - name: report-service
       #   url: http://report-service:8080
