@@ -130,7 +130,10 @@ jobs:
         # -am builds shared-domain-dtos + shared-domain-enums + shared-tracing
         # transitively; surefire produces backend/contract-tests/target/pacts/.
         # E2EHappyPathTest auto-skips without UNIGE_EVENTS_E2E_BASE_URL.
-        run: ./mvnw -pl contract-tests,e2e -am verify -B
+        # `install` (vs `verify`) — alignement Étape 1.2 finalization-ultimate
+        # (CI-006) avec les autres jobs de la matrix qui utilisent install
+        # pour pousser les artefacts dans le local m2.
+        run: ./mvnw -pl contract-tests,e2e -am install -B
       - name: Upload generated pacts
         if: always()
         uses: actions/upload-artifact@v4
