@@ -10,75 +10,42 @@
     </parent>
 
     <!--
-      favorite-service — Quarkus skeleton scaffolded by step 2..14 of the migration
-      (cf. specs_archives/specs_claude/specs_microservices_migration.md
-      decision 4). jar-packaging on purpose: keeps the parent reactor build
-      fast (no Quarkus AOT, no container-image push), avoids any clash
-      with legacy-monolith's image name, but still lets @QuarkusTest
-      tests run because the Quarkus runtime classes are on classpath.
-      The follow-up extraction PR will:
-        1. switch <packaging> to quarkus,
-        2. add the missing extensions (jdbc-postgresql, hibernate-orm-panache,
-           flyway, rest-client-reactive, smallrye-reactive-messaging-kafka,
-           smallrye-fault-tolerance, micrometer-registry-prometheus),
-        3. add quarkus-container-image-jib + override container-image-name,
-        4. flip the matching Kong route from api:8080 to favorite-service:8080,
-        5. carve resources / services / entities out of services/legacy-monolith/.
+      favorite-service — extracted from services/legacy-monolith/ per spec
+      decision 4 + roadmap PR 3. Owns the `favorites` table (idempotent
+      "user X favorited event Y" record). Reads `events.*`, `users.*` and
+      `attendances.*` from the shared schema while event-service /
+      user-service / attendance-service haven't been extracted yet.
     -->
 
     <artifactId>favorite-service</artifactId>
-    <packaging>jar</packaging>
+    <packaging>quarkus</packaging>
     <name>UNIGE Events — favorite-service</name>
 
     <dependencies>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-rest</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-rest-jackson</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-smallrye-health</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-arc</artifactId>
-        </dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-health</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-oidc</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jdbc-postgresql</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-orm-panache</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-validator</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-openapi</artifactId></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
 
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.rest-assured</groupId>
-            <artifactId>rest-assured</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-junit</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-devservices-postgresql</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-test-security</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-jacoco</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>io.rest-assured</groupId><artifactId>rest-assured</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <!--
-                      Override the parent pluginManagement argLine: the parent
-                      uses @{argLine} which is substituted by jacoco-maven-plugin
-                      at runtime. The scaffolded modules don't have jacoco on the
-                      classpath, so the literal @{argLine} would be passed to the
-                      forked JVM and crash with "VM crash or System.exit called".
-                      Coverage is N/A on these scaffolds (one health endpoint).
-                    -->
-                    <argLine>-Djava.security.egd=file:/dev/./urandom</argLine>
-                </configuration>
-            </plugin>
+            <plugin><groupId>${quarkus.platform.group-id}</groupId><artifactId>quarkus-maven-plugin</artifactId></plugin>
+            <plugin><artifactId>maven-compiler-plugin</artifactId></plugin>
+            <plugin><artifactId>maven-surefire-plugin</artifactId></plugin>
+            <plugin><artifactId>maven-failsafe-plugin</artifactId></plugin>
         </plugins>
     </build>
 </project>

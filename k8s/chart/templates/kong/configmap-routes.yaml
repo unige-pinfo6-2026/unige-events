@@ -66,6 +66,28 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 3 — favorite-service (extracted) ──────────────────────────
+      # Routes POST/DELETE /api/events/{id}/favorite + GET /api/users/me/favorites
+      # to favorite-service. The legacy monolith still serves the rest of
+      # /api/users/me/* (calendar-token, attendances, participations) until
+      # those services are extracted.
+      - name: favorite-service
+        url: http://favorite-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: favorite-actions
+            paths:
+              - ~/api/events/(?:\d+)/favorite$
+            strip_path: false
+            preserve_host: true
+          - name: my-favorites
+            paths:
+              - ~/api/users/me/favorites$
+            strip_path: false
+            preserve_host: true
+
       # ───────────────────────────────────────────────────────────────────────
       # Target topology — commented out, ready to flip per extraction PR
       # ───────────────────────────────────────────────────────────────────────
@@ -105,12 +127,6 @@ data:
       #   routes:
       #     - { name: attend-actions,    paths: [/api/events/(?:\\d+)/attend, /api/events/(?:\\d+)/attendees] }
       #     - { name: my-attendances,    paths: [/api/users/me/attendances, /api/users/me/participations] }
-      #
-      # - name: favorite-service
-      #   url: http://favorite-service:8080
-      #   routes:
-      #     - { name: favorite-actions,  paths: [/api/events/(?:\\d+)/favorite] }
-      #     - { name: my-favorites,      paths: [/api/users/me/favorites] }
       #
       # - name: view-service
       #   url: http://view-service:8080

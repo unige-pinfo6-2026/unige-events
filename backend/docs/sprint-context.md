@@ -1,6 +1,6 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-08
+Dernière mise à jour : 2026-05-09
 
 ---
 
@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 2 services réellement extraits, 11 restants DEFERRED.**
+**Étapes 2..14 — 3 services réellement extraits, 10 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -61,9 +61,19 @@ scope étape 1**.
   existence + résoudre auth0Id → userId. Kong route `/api/events/(?:\d+)/view$`
   → `view-service:8080`. Image `unige-events-view-service:<sha>`. Helm
   `replicas: 1`. CI Deploy to Preview vert.
-* ⏳ **PR 3..13 — 11 extractions restantes** (favorite, calendar, follow,
-  comment, co-organizer, attendance, report, stats, me-aggregator, user,
-  event) suivent le même pattern : POM jar→quarkus, copy resources/services/
+* ✅ **PR 3 — `favorite-service` extrait** (commit `<this PR>`). Owns
+  `favorites` table. Stubs read-only EventStub (full record pour fabriquer
+  EventDTO sur `GET /users/me/favorites`), UserStub (id + auth0Id),
+  AttendanceStub (count grouped by status). Kong routes
+  `/api/events/(?:\d+)/favorite$` (POST/DELETE) + `/api/users/me/favorites$`
+  (GET) → `favorite-service:8080`. Image `unige-events-favorite-service:<sha>`.
+  Helm `replicas: 1`. CI Deploy to Preview à valider. Note : l'annotation
+  `@PerUserRateLimit("events.favorite", max=30)` n'est pas portée — l'intercepteur
+  vit dans legacy-monolith ; régression temporaire jusqu'à PR 14 où le
+  rate-limit migre vers le plugin Kong ou une lib partagée.
+* ⏳ **PR 4..13 — 10 extractions restantes** (calendar, follow, comment,
+  co-organizer, attendance, report, stats, me-aggregator, user, event)
+  suivent le même pattern : POM jar→quarkus, copy resources/services/
   entities depuis legacy avec adaptations (stubs read-only pour les tables
   cross-domaine), Helm replicas:1, Kong route flip. Documentées dans
   [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
