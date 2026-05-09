@@ -1,5 +1,6 @@
 package ch.unige.events.event.kafka;
 
+import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

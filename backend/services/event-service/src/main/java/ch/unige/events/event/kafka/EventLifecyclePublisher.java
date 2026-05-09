@@ -1,5 +1,6 @@
 package ch.unige.events.event.kafka;
 
+import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

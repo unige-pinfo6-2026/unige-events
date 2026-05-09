@@ -29,6 +29,7 @@
         <module>services/shared-domain-enums</module>
         <module>services/shared-jaxrs</module>
         <module>services/shared-tracing</module>
+        <module>services/shared-kafka-events</module>
 
         <!-- Microservices Quarkus extraits — un par bounded context. -->
         <module>services/user-service</module>

@@ -1,19 +1,19 @@
-package ch.unige.events.event.kafka;
+package ch.unige.events.shared.kafka.events;
 
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Wire shape of the {@code events.{published,cancelled,expired}} Kafka
- * topics — a single record so producer + (future) consumer agree on the
- * payload regardless of which lifecycle transition fired it. The
- * {@link Type} discriminator lets a consumer fan out without subscribing
- * to three separate topics if it ever wants to.
+ * topics — a single record so producer + consumer agree on the payload
+ * regardless of which lifecycle transition fired it. The {@link Type}
+ * discriminator lets a consumer fan out without subscribing to three
+ * separate topics if it ever wants to.
  *
  * <p>Kept deliberately minimal — id + creator + timestamp. A consumer
- * that needs the full event payload can fetch it via {@code GET
- * /events/{id}} on event-service. Avoids embedding mutable data
- * (title, description) that would bit-rot in flight.
+ * that needs the full event payload can fetch it via
+ * {@code GET /events/{id}} on event-service. Avoids embedding mutable
+ * data (title, description) that would bit-rot in flight.
  */
 public record EventLifecycleEvent(
         Type type,
