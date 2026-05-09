@@ -401,21 +401,11 @@ Les services restants sont **déjà scaffoldés** (POM placeholder
 `replicas: 0`) — les follow-up PRs n'ont qu'à upgrader chaque scaffold
 vers une vraie extraction.
 
-**Étape 15 — Suppression `legacy-monolith` (DEFERRED).** Une fois les 13
-extractions mergées. PR template dans le roadmap.
-
-**Étape 16 — Documentation finale (PARTIELLE livrée + reste DEFERRED).**
-Livré ici : banner Sprint 8 dans `architecture.md` + sous-section « Briques
-d'infrastructure ajoutées au S8 », `dev-guide.md` mis à jour pour le layout
-multi-module + commande `quarkus:dev`. Reste DEFERRED : réécriture totale
-d'`architecture.md` quand topologie cible = réalité, enrichissement
-`data-model.md` (colonne « Service propriétaire » par entité), enrichissement
-`api-contract.md` (colonne « Service amont » par endpoint), MAJ `AGENTS.md`
-racine.
-
-**Étape 17 — CI matrix per-service (DEFERRED).** Refonte de `build.yml` en
-strategy matrix `service in [...]` avec un `sonar.projectKey` distinct par
-service. Hors scope étape 1 ; PR template dans le roadmap.
+**Étape 17 — CI matrix per-service (livré en complétion).** Refonte de
+`build.yml` en strategy matrix `service in [...]` avec un
+`sonar.projectKey` distinct par service. Cf. Étape 12 de la spec de
+complétion + [`devops-handoff.md`](devops-handoff.md) item 1 pour la
+création des 13 SonarCloud projects côté DevOps.
 
 ### Écarts vs spec — récapitulatif post-completion
 
