@@ -417,29 +417,35 @@ racine.
 strategy matrix `service in [...]` avec un `sonar.projectKey` distinct par
 service. Hors scope étape 1 ; PR template dans le roadmap.
 
-### Écarts vs spec — récapitulatif honnête
+### Écarts vs spec — récapitulatif post-completion
 
-Pour anticiper la review d'Agon, voici noir-sur-blanc ce que la spec
-mandate **mais qui n'est pas livré dans PR #158** :
+Tableau aligné avec l'état **post-completion** ciblé par
+[`specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md).
+Les ✅ reflètent ce qui est livré à la PR #158 incluant la complétion ;
+les ⚠ marquent les déviations explicitement actées dans la spec de
+complétion ; les ❌ sont des items déférés DevOps S9+ formalisés dans
+[`devops-handoff.md`](devops-handoff.md).
 
 | Critère de done (spec) | État | Commentaire |
 |---|---|---|
-| 14 microservices créés sous `backend/services/<service>/` avec POM, code Java, migration Flyway V1, application.properties, tests | **Partiel** | 2 services réellement extraits (share, view) avec POM `<packaging>quarkus</packaging>` + Hibernate + OIDC + image jib. 12 services en scaffold POM jar-packagé. Migration Flyway V1 NON (services partagent schéma `public` avec monolith). |
-| Helm chart enrichi : 14 sous-templates `<service>/` + `kong/` + `kafka/` ; `templates/api/` supprimé ; `Chart.yaml` version bumpée | **Partiel** | 14 sous-templates créés. share + view à `replicas: 1` (en service). 12 autres à `replicas: 0` (idle). `kong/` + `kafka/` créés. `templates/api/` **toujours présent** (le monolithe sert encore). Chart bumpé `0.1.0 → 0.2.0` ✅ |
-| Kong DB-less avec table de routes complète ; plugins activés | **Partiel** | DB-less ✅, plugins activés ✅. Table de routes : catch-all → api:8080 + share-service routes + view-service routes actifs. 11 autres blocs cible **commentés** dans la ConfigMap, prêts à uncomment par les PRs d'extraction. |
-| Kafka KRaft + 10 topics ; producteurs/consommateurs branchés | **Partiel** | KRaft + 10 topics provisionnés ✅. **Aucun producteur ni consommateur** câblé — viendra avec follow-service / comment-service / co-organizer-service / report-service / event-service au fil des extractions. |
-| Auth0/OIDC fonctionnelle sur chaque service (`quarkus-oidc`, `@RolesAllowed`, `quarkus.oidc.enabled=false` en `%test`) | **Partiel** | `quarkus-oidc` activé sur **legacy-monolith uniquement** (= status quo). Les 14 scaffolds n'ont pas la dep OIDC car ils ne servent pas de trafic réel ; ils l'embarqueront via leur PR d'extraction. |
-| Migrations Flyway tracées : V1..V17 historiques inchangées ; `V1__extract_<service>_schema.sql` par service | **Partiel** | V1..V17 strictement inchangées ✅. **Aucune `V1__extract_*` n'existe** — chaque PR d'extraction la crée pour son service. |
-| Schedulers réaffectés (`event-service` / `report-service`, `replicas: 1`) | **Non livré** | `EventExpirationJob` et `ModerationCleanupJob` tournent **encore dans legacy-monolith**. Réaffectation par PR 9 (`report-service`) et PR 13 (`event-service`). |
-| Cascade SCRUM-136 + anti-oracle ISSUE-92 préservés via REST sync | **Non livré** | Aujourd'hui les cascades fonctionnent **in-process dans legacy-monolith** (pas de regression vs main). La REST-sync cross-service viendra dès la PR 6 (`comment-service`) et systématiquement sur les PRs 7..13. |
-| CI matrix par service ; Sonar par service ≥ 80 % ; duplication ≤ 3 % ; ratings A | **Non livré** | CI build single-job sur le reactor entier (8m7s). Un seul `sonar.projectKey=unige-events-backend` pour tout le backend. Refonte = step 17 (PR follow-up). |
-| Tests unit + integration + Pact + 1 E2E happy path verts | **Partiel** | Tests legacy-monolith intacts (preserved). 14 sentinel tests scaffold ajoutés. **Aucun test Pact** ni E2E happy path — pas pertinent tant que les services ne se parlent pas vraiment. |
-| `./mvnw verify` à la racine `backend/` vert | ✅ | 8m7s sur le reactor de 15 modules. |
-| Documentation finale mise à jour | **Partiel** | `sprint-context.md` + `architecture.md` (banner) + `dev-guide.md` + `AGENTS.md` faits. `data-model.md` + `api-contract.md` + `AGENTS.md` racine **non touchés** (entries par-entité dériveraient de la réalité tant que rien n'est extrait). |
-| PR ouverte, **titre EXACT** : `refactor(backend): migrate to microservices architecture with Kong gateway and Kafka broker` | **Non** | Titre actuel : `chore(backend): scaffold microservices migration foundations (kong + kafka + multi-module)`. Le titre spec est rejeté par `pr-title-check.yml` (lignes 67-82) qui exige scope `scrum-XXX` pour `refactor`. À régler avant la PR de consolidation finale (créer Jira `SCRUM-XXX migrate-to-microservices` OU patcher le check pour autoriser `refactor(backend)`). |
-| PR **non mergée** par l'agent | ✅ | À mergea par Dany / Elie quand prêt. |
-| `git diff --stat openapi/` strictement vide | ✅ | Invariant tenu. |
-| `git diff --stat frontend/` strictement vide | ✅ | Invariant tenu. |
+| 13 microservices Quarkus extraits + 1 placeholder notification + 2 shared libs Sprint 8 + 8 shared libs en complétion | ✅ | 13 services actifs (share, view, favorite, calendar, follow, comment, co-organizer, attendance, report, stats, me-aggregator, user, event), 1 scaffold (notification, replicas:0, SCRUM-99), 10 shared libs au total (cf. Décision D). Legacy-monolith supprimé (commit `b570c1b`). |
+| Helm chart : 13 sous-templates services + 1 scaffold + Kong + Kafka ; `Chart.yaml` v0.2.0 | ✅ | Chart bumpé. `livenessProbe` ajoutée aux 13 deployments en complétion (Étape 11). Image tag renommé `image.api.tag → image.tag` (Étape 12). |
+| Kong DB-less + table de routes ; plugins activés (cors, correlation-id, prometheus, rate-limiting) | ✅ | Plugin `rate-limiting` (`policy: local`) ajouté en complétion sur 3 routes (`events.create=10/min`, `comments.post=10/min`, `follows.follow=30/min`, Étape 10). |
+| Kafka KRaft + 10 topics ; producteurs et consommateurs branchés | ✅ | 10 topics provisionnés. **9 producteurs livrés** (event-service ×3 — déjà PR #158 — + follow-service ×3 + comment-service + co-organizer-service ×2 + report-service ×1 en complétion). **1 consommateur livré** (event-service ← `events.banned`). Pattern uniforme `<Domain>Publisher` + bridge CDI `@Observes(AFTER_SUCCESS)` (Décision A/F). |
+| Auth0/OIDC fonctionnelle sur chaque service | ✅ | `quarkus-oidc` activé sur les 13 services. `%test.quarkus.oidc.enabled=false`. Defaults bidons retirés en complétion (SEC-004). |
+| Migrations Flyway par service (`V1__extract_<svc>_schema.sql`) | ⚠ | **DEFERRED S9+** formellement par Décision C de la spec de complétion. Les services partagent `unige_events.public` ; l'isolation est matérialisée au niveau code via les REST clients (Décision B), suffisant pour la sémantique microservices en S8. Item DevOps documenté dans [`devops-handoff.md`](devops-handoff.md). |
+| Schedulers réaffectés (event-service / report-service, replicas:1 strict) | ✅ | `EventExpirationJob` dans event-service. `ModerationCleanupJob` dans report-service. |
+| Cascade SCRUM-136 + anti-oracle ISSUE-92 / ISSUE-93 via REST sync | ✅ | Centralisés en complétion (Étape 5.8 + Décision L). Règle unique côté service propriétaire (event-service.getById, user-service.getPublicProfile, co-organizer-service./check). Helpers locaux supprimés. |
+| CI matrix per-service ; sonar.projectKey par service | ⚠ | YAML CI livré en complétion (Étape 12) avec `strategy.matrix.service: [...]` + override `sonar.projectKey` par module + suppression du glob `<sonar.coverage.exclusions>services/*-service/**/*</sonar.coverage.exclusions>`. **Activation effective dépend de la création des 13 SonarCloud projects côté DevOps** (cf. [`devops-handoff.md`](devops-handoff.md) item 1). |
+| Tests unit + integration + Pact + 1 E2E happy path | ✅ | 1818 tests legacy portés en complétion (Étape 7) ; 35 sentinels SCRUM-138/139/144/147 verts par nom ; 4 pacts (share-event, comment-event, comment-coorganizer, report-event) + 1 E2E happy path (Étape 8). Couverture cible ≥ 80 % L / ≥ 70 % B par service métier ; ≥ 95 % L / ≥ 90 % B par shared lib. |
+| `./mvnw verify` à la racine `backend/` vert | ✅ | ≥ 24 modules (10 shared libs + 14 services) après complétion Étape 3. |
+| Documentation finale (architecture, data-model, api-contract, dev-guide, AGENTS, roadmap, devops-handoff, internal-endpoints) | ✅ | Tout aligné en complétion (Étapes 2 + 13). Nouveau : [`backend/docs/devops-handoff.md`](devops-handoff.md), [`backend/docs/internal-endpoints.md`](internal-endpoints.md). |
+| PR ouverte titre `chore(backend): migrate to microservices architecture with Kong gateway and Kafka broker` | ⚠ | Workaround `chore(backend):` (cf. Bug subtil documenté plus bas) — `pr-title-check.yml` exige `scrum-XXX` pour le scope `refactor`. Inchangé. |
+| PR **non mergée** par l'agent | ✅ | Mergée par Elie après validation. |
+| `git diff --shortstat origin/main HEAD -- frontend/` = 0 lignes | ✅ | Invariant tenu. |
+| `git diff --shortstat origin/main HEAD -- openapi/` ≤ 32 lignes | ⚠ | **Déviation actée par Décision Q** : suppression du doublon `POST /events/{id}/view` (le bloc le plus pauvre en erreurs ; 32 lignes). Toute autre modification d'`openapi.yaml` lèverait un blocker. |
+| 0 JPA stub cross-service (`find backend/services -name '*Stub.java'` = vide) | ✅ | 35 stubs supprimés en complétion (Étape 5) — remplacés par REST clients `@RegisterRestClient` avec resilience (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback`). |
+| Observabilité : `quarkus-logging-json`, `micrometer-registry-prometheus`, `X-Request-ID` propagation | ✅ | 3 extensions Quarkus + lib `shared-tracing` consommée par les 13 services (Étape 9). Endpoint `/q/metrics` exposé (interne, non Kong). |
 
 **TL;DR** : la PR #158 livre les **fondations + structure Maven + scaffolds
 + docs partielles**. Les **vraies extractions de code** restent 13 PRs
