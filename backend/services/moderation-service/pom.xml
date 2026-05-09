@@ -10,23 +10,24 @@
     </parent>
 
     <properties>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-report-service</sonar.projectKey>
-        <sonar.projectName>unige-events-report-service</sonar.projectName>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-moderation-service</sonar.projectKey>
+        <sonar.projectName>unige-events-moderation-service</sonar.projectName>
     </properties>
 
     <!--
-      report-service — extracted from services/legacy-monolith/ per spec
-      decision 4 + roadmap PR 9. Owns the `reports` table + the
-      ModerationCleanupJob scheduler (cron @ 03:00 Europe/Zurich,
-      replicas:1 strict). Reads events.* + users.* + event_co_organizers.*
-      from the shared schema while event-service / user-service /
-      co-organizer-service haven't been extracted yet — and writes
-      events.status = BANNED (legacy ReportService.handle + ModerationCleanup).
+      moderation-service — renamed from report-service per spec finalization
+      Décision A (consolidation 14→5) Étape 2.1.2. Owns the `reports`
+      table + the ModerationCleanupJob scheduler (cron @ 03:00
+      Europe/Zurich, replicas:1 strict) + the events.banned Kafka
+      producer. The new name clarifies the role: reports + auto-ban =
+      moderation. Java packages stay under ch.unige.events.report.* —
+      they don't need a rename since this service is not absorbed by
+      another and stays as a single bounded context.
     -->
 
-    <artifactId>report-service</artifactId>
+    <artifactId>moderation-service</artifactId>
     <packaging>quarkus</packaging>
-    <name>UNIGE Events — report-service</name>
+    <name>UNIGE Events — moderation-service</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId></dependency>

@@ -247,11 +247,12 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 9 — report-service (extracted) ────────────────────────────
+      # ───── PR 9 — moderation-service (renamed from report-service) ─────
       # Routes the report endpoint + the admin moderation queue. Hosts the
-      # ModerationCleanupJob scheduler (cron 03:00 Europe/Zurich).
-      - name: report-service
-        url: http://report-service:8080
+      # ModerationCleanupJob scheduler (cron 03:00 Europe/Zurich,
+      # replicas:1 strict) and the events.banned Kafka producer.
+      - name: moderation-service
+        url: http://moderation-service:8080
         connect_timeout: 5000
         read_timeout: 30000
         write_timeout: 30000

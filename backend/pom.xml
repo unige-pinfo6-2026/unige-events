@@ -43,7 +43,7 @@
         <module>services/co-organizer-service</module>
         <module>services/comment-service</module>
         <module>services/follow-service</module>
-        <module>services/report-service</module>
+        <module>services/moderation-service</module>
         <module>services/stats-service</module>
         <module>services/share-service</module>
         <module>services/calendar-service</module>
