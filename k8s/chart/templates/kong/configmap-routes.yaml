@@ -33,32 +33,11 @@ data:
       # /api/users/me/favorites are now in the event-service block below
       # (look for `favorite-actions` and `my-favorites`).
 
-      # ───── PR 4 — calendar-service (extracted) ──────────────────────────
-      # Routes the user's calendar-token endpoints + the public ICS feed
-      # to calendar-service. read_timeout bumped to 60s : the ICS endpoint
-      # bulk-fetches every published event the user is signed up for or
-      # has favorited.
-      - name: calendar-service
-        url: http://calendar-service:8080
-        connect_timeout: 5000
-        read_timeout: 60000
-        write_timeout: 30000
-        routes:
-          - name: calendar-token
-            paths:
-              - ~/api/users/me/calendar-token$
-            strip_path: false
-            preserve_host: true
-          - name: calendar-regen
-            paths:
-              - ~/api/users/me/calendar-token/regenerate$
-            strip_path: false
-            preserve_host: true
-          - name: ics-feed
-            paths:
-              - ~/api/calendar/[^/]+\.ics$
-            strip_path: false
-            preserve_host: true
+      # NB: calendar-service was merged into user-service in finalization
+      # Étape 2.3.2 (Décision A — la feed ICS est strictement user-centric,
+      # le token vit sur users.calendar_token). Routes calendar-token,
+      # calendar-regen, ics-feed sont désormais dans le bloc user-service
+      # avec read_timeout dédié 60s.
 
       # ───── PR 13 — event-service (extracted) ────────────────────────────
       # All /events/* and /admin/events/{id}/{,un}feature paths.
@@ -260,6 +239,22 @@ data:
           - name: my-follow-reqs
             paths:
               - ~/api/users/me/follow-requests$
+            strip_path: false
+            preserve_host: true
+          # Absorbed from calendar-service in finalization Étape 2.3.2.
+          - name: calendar-token
+            paths:
+              - ~/api/users/me/calendar-token$
+            strip_path: false
+            preserve_host: true
+          - name: calendar-regen
+            paths:
+              - ~/api/users/me/calendar-token/regenerate$
+            strip_path: false
+            preserve_host: true
+          - name: ics-feed
+            paths:
+              - ~/api/calendar/[^/]+\.ics$
             strip_path: false
             preserve_host: true
 

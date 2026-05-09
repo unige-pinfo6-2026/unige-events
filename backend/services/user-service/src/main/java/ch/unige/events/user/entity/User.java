@@ -69,4 +69,8 @@ public class User extends PanacheEntityBase {
     public static Optional<User> findByEmail(String email) {
         return find("email", email).firstResultOptional();
     }
+
+    public static Optional<User> findByCalendarToken(UUID calendarToken) {
+        return find("calendarToken", calendarToken).firstResultOptional();
+    }
 }

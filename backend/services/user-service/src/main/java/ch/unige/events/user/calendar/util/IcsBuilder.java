@@ -1,6 +1,6 @@
-package ch.unige.events.calendar.util;
+package ch.unige.events.user.calendar.util;
 
-import ch.unige.events.calendar.entity.EventStub;
+import ch.unige.events.user.calendar.entity.EventStub;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;

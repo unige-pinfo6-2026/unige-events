@@ -1,6 +1,6 @@
-package ch.unige.events.calendar.resource;
+package ch.unige.events.user.calendar.resource;
 
-import ch.unige.events.calendar.service.CalendarService;
+import ch.unige.events.user.calendar.service.CalendarService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;

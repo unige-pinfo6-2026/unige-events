@@ -1,13 +1,13 @@
-package ch.unige.events.calendar.service;
+package ch.unige.events.user.calendar.service;
 
-import ch.unige.events.calendar.config.AppConfig;
-import ch.unige.events.calendar.dto.CalendarTokenResponse;
-import ch.unige.events.calendar.entity.AttendanceStub;
-import ch.unige.events.calendar.entity.EventStatus;
-import ch.unige.events.calendar.entity.EventStub;
-import ch.unige.events.calendar.entity.FavoriteStub;
-import ch.unige.events.calendar.entity.UserStub;
-import ch.unige.events.calendar.util.IcsBuilder;
+import ch.unige.events.user.calendar.config.AppConfig;
+import ch.unige.events.user.calendar.dto.CalendarTokenResponse;
+import ch.unige.events.user.calendar.entity.AttendanceStub;
+import ch.unige.events.user.calendar.entity.EventStatus;
+import ch.unige.events.user.calendar.entity.EventStub;
+import ch.unige.events.user.calendar.entity.FavoriteStub;
+import ch.unige.events.user.entity.User;
+import ch.unige.events.user.calendar.util.IcsBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -31,7 +31,7 @@ public class CalendarService {
 
     @Transactional
     public CalendarTokenResponse getOrCreateToken(String auth0Id) {
-        UserStub user = resolveUser(auth0Id);
+        User user = resolveUser(auth0Id);
         if (user.calendarToken == null) {
             user.calendarToken = UUID.randomUUID();
         }
@@ -40,14 +40,14 @@ public class CalendarService {
 
     @Transactional
     public CalendarTokenResponse regenerateToken(String auth0Id) {
-        UserStub user = resolveUser(auth0Id);
+        User user = resolveUser(auth0Id);
         user.calendarToken = UUID.randomUUID();
         return buildTokenResponse(user.calendarToken);
     }
 
     @Transactional
     public String generateIcsFeed(UUID calendarToken) {
-        UserStub user = UserStub.findByCalendarToken(calendarToken)
+        User user = User.findByCalendarToken(calendarToken)
                 .orElseThrow(() -> new NotFoundException("Calendar token not found"));
 
         List<Long> favoriteIds = FavoriteStub.findAllByUser(user.id).stream()
@@ -79,8 +79,8 @@ public class CalendarService {
         return new CalendarTokenResponse(token, webcalUrl, httpsUrl);
     }
 
-    private UserStub resolveUser(String auth0Id) {
-        return UserStub.findByAuth0Id(auth0Id)
+    private User resolveUser(String auth0Id) {
+        return User.findByAuth0Id(auth0Id)
                 .orElseThrow(() -> new NotFoundException("User profile not found"));
     }
 }

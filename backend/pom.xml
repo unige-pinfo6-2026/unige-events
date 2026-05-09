@@ -40,7 +40,6 @@
         <module>services/engagement-service</module>
         <module>services/comment-service</module>
         <module>services/moderation-service</module>
-        <module>services/calendar-service</module>
         <module>services/notification-service</module>
     </modules>
 

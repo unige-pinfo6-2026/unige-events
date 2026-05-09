@@ -1,4 +1,4 @@
-package ch.unige.events.calendar.entity;
+package ch.unige.events.user.calendar.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;

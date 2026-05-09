@@ -1,7 +1,7 @@
-package ch.unige.events.calendar.resource;
+package ch.unige.events.user.calendar.resource;
 
-import ch.unige.events.calendar.dto.CalendarTokenResponse;
-import ch.unige.events.calendar.service.CalendarService;
+import ch.unige.events.user.calendar.dto.CalendarTokenResponse;
+import ch.unige.events.user.calendar.service.CalendarService;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;

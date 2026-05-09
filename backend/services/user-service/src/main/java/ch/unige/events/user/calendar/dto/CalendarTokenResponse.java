@@ -1,4 +1,4 @@
-package ch.unige.events.calendar.dto;
+package ch.unige.events.user.calendar.dto;
 
 import java.util.UUID;
 

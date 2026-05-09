@@ -1,4 +1,4 @@
-package ch.unige.events.calendar.config;
+package ch.unige.events.user.calendar.config;
 
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithName;
