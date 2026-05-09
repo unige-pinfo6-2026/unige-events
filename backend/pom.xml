@@ -31,6 +31,7 @@
         <module>services/shared-tracing</module>
         <module>services/shared-kafka-events</module>
         <module>services/shared-platform</module>
+        <module>services/shared-domain-dtos</module>
 
         <!-- Microservices Quarkus extraits — un par bounded context. -->
         <module>services/user-service</module>

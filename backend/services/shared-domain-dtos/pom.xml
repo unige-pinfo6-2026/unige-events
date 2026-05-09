@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <!--
+      shared-domain-dtos — cross-projected DTOs consumed by REST clients
+      and / or shared between producer and consumer services. Cf.
+      completion-spec Décision D (REFACTOR-006).
+
+      Includes only DTOs that are actually consumed cross-service:
+      - UserPublicResponse (consumed by follow-service)
+      - CapacitySummary    (event-service → attendance-service internal)
+      - AttendanceSummary  (attendance-service → event/co-org/stats)
+      - FollowCounts       (follow-service → user-service)
+      - EventCoOrganizerCheck (co-organizer-service → 5 consumers)
+
+      Service-private DTOs (UpdateProfileRequest, CreateEventRequest,
+      CommentDTO, FollowDTO, RecurrenceRequest…) stay in their owning
+      service and are reified by Jackson on the consumer side without
+      a shared definition.
+    -->
+
+    <artifactId>shared-domain-dtos</artifactId>
+    <packaging>jar</packaging>
+    <name>UNIGE Events — shared-domain-dtos</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-domain-enums</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin><artifactId>maven-compiler-plugin</artifactId></plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration><outputDirectory>${project.build.directory}/jacoco-report</outputDirectory></configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions><execution><id>make-index</id><goals><goal>jandex</goal></goals></execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
