@@ -13,26 +13,13 @@ env:
   IMAGE_ADDITIONAL_TAGS: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
 
 jobs:
-  # Étape 7 — finalization spec : matrix per shared lib (10 cells).
-  # Builds + tests each shared lib independently, then runs Sonar with
-  # its own sonar.projectKey override (set in each module's pom.xml).
+  # Étape 21 finalization-ultimate (CI-002 — Décision E) : 10 cells matrix
+  # consolidée en 1 cellule unique. Toutes les shared libs sont buildées
+  # ensemble, puis un seul Sonar scan racine agrège dans le projet
+  # `unige-events-backend` (Option B).
   build-shared-libs:
-    name: Build Shared Lib (${{ matrix.lib }})
+    name: Build All Shared Libs
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        lib:
-          - shared-rate-limit
-          - shared-storage
-          - shared-api-error
-          - shared-domain-enums
-          - shared-domain-dtos
-          - shared-domain-projections
-          - shared-jaxrs
-          - shared-tracing
-          - shared-kafka-events
-          - shared-platform
     defaults:
       run:
         working-directory: backend
@@ -45,27 +32,21 @@ jobs:
           java-version: 21
           distribution: temurin
           cache: maven
-      - name: Build & Test
-        # `install` (vs `verify`) places the shared lib + its inter-lib
-        # dependencies into this runner's local m2 repository so the
-        # follow-up `sonar:sonar` invocation can resolve them — without
-        # `install`, sonar:sonar fails with
-        # "Could not find artifact ch.unige.events:shared-XXX:1.0-SNAPSHOT".
-        run: ./mvnw -pl services/${{ matrix.lib }} -am install -B
-      - name: SonarQube Scan
-        # continue-on-error: tant que DevOps n'a pas créé les 5 SonarCloud
-        # projects services post-consolidation (Option B — les 10 shared
-        # libs scannent dans le projet unige-events-backend, qui existe
-        # déjà ; cf. backend/docs/devops-handoff.md item 1), ce step
-        # peut échouer côté services. On ne veut pas que ça bloque la
-        # matrix backend downstream qui dépend de ce job via `needs:`.
-        continue-on-error: true
+      - name: Build & Test all shared libs
+        # `install` (vs `verify`) place les jars dans le local m2 pour que
+        # la matrix backend downstream puisse les résoudre transitivement.
+        run: |
+          ./mvnw -pl services/shared-rate-limit,services/shared-storage,services/shared-api-error,services/shared-domain-enums,services/shared-domain-dtos,services/shared-domain-projections,services/shared-jaxrs,services/shared-tracing,services/shared-kafka-events,services/shared-platform install -B
+      - name: SonarQube Scan (root reactor — Option B unige-events-backend)
+        # Le projet unige-events-backend existe côté SonarCloud, donc strict.
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw -pl services/${{ matrix.lib }} sonar:sonar -B
+        run: ./mvnw -pl . sonar:sonar -B
 
-  # Étape 7 — finalization spec : matrix per service (5 cells, post-consolidation 14→5).
-  # Each cell builds + tests + (optionally) pushes the service image.
+  # Étape 21 finalization-ultimate (CI-001 — Décision E) : `-pl .,<svc>-service`
+  # ajoute le parent reactor comme top-level project pour que sonar:sonar
+  # 4.0.0.4121 trouve un top-level défini. Chaque cellule scanne dans son
+  # propre `sonar.projectKey` override (5 projets services dédiés Option B).
   build-backend:
     name: Build Backend (${{ matrix.service }})
     runs-on: ubuntu-latest
@@ -98,13 +79,10 @@ jobs:
           QUARKUS_CONTAINER_IMAGE_USERNAME: ${{ github.actor }}
           QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Each module pins its own quarkus.container-image.name in its
-          # application.properties, so the reactor builds N images named
-          # unige-events-<service>:<sha>.
-          # `install` (vs `verify`) places the service jar + its shared
-          # lib dependencies into this runner's local m2 so the follow-up
-          # sonar:sonar invocation can resolve them.
-          ./mvnw -pl services/${{ matrix.service }}-service -am install -B \
+          # `install` (vs `verify`) place les artefacts dans local m2 pour
+          # le Sonar step suivant. Le `.` (parent reactor) est nécessaire
+          # pour résoudre le top-level Maven session que sonar:sonar exige.
+          ./mvnw -pl .,services/${{ matrix.service }}-service -am install -B \
             -Dquarkus.container-image.build=true \
             -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
             -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
@@ -114,11 +92,13 @@ jobs:
             -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
 
       - name: SonarQube Scan
-        # continue-on-error : cf. note dans build-shared-libs.SonarQube Scan.
+        # continue-on-error: tant que DevOps n'a pas créé les 5 SonarCloud
+        # projects services post-consolidation (cf. devops-handoff.md item 1).
+        # Sera retiré (Étape 1.3 conditionnelle) quand DevOps aura validé.
         continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw -pl services/${{ matrix.service }}-service sonar:sonar -B
+        run: ./mvnw -pl .,services/${{ matrix.service }}-service sonar:sonar -B
 
       - name: Cleanup Docker images
         if: always()
