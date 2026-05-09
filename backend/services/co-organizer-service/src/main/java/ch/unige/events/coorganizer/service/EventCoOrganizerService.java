@@ -10,6 +10,7 @@ import ch.unige.events.coorganizer.entity.CoOrganizerStatus;
 import ch.unige.events.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.coorganizer.entity.EventStub;
 import ch.unige.events.coorganizer.entity.UserStub;
+import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -37,6 +38,7 @@ import java.util.UUID;
 public class EventCoOrganizerService {
 
     @Inject EntityManager entityManager;
+    @Inject jakarta.enterprise.event.Event<CoOrganizerEvent> coOrgEvent;
 
     @Transactional
     public CoOrganizerDTO invite(Long eventId, String inviterAuth0Id, UUID targetUserId, boolean isAdmin) {
@@ -70,6 +72,9 @@ public class EventCoOrganizerService {
         invitation.status = CoOrganizerStatus.PENDING;
         invitation.persist();
 
+        // CDI fire — bridge publishes co-organizers.invited AFTER_SUCCESS.
+        coOrgEvent.fire(CoOrganizerEvent.invited(eventId, targetUserId));
+
         return CoOrganizerDTO.from(invitation, target);
     }
 
@@ -82,8 +87,11 @@ public class EventCoOrganizerService {
                 .orElseThrow(() -> unprocessable("no_pending_invitation",
                         "No pending co-organizer invitation found for this event."));
 
-        if (invitation.status != CoOrganizerStatus.ACCEPTED) {
+        boolean transition = invitation.status != CoOrganizerStatus.ACCEPTED;
+        if (transition) {
             invitation.status = CoOrganizerStatus.ACCEPTED;
+            // CDI fire — bridge publishes co-organizers.accepted AFTER_SUCCESS.
+            coOrgEvent.fire(CoOrganizerEvent.accepted(eventId, user.id));
         }
         return CoOrganizerDTO.from(invitation, user);
     }
