@@ -115,6 +115,36 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 8 — attendance-service (extracted) ────────────────────────
+      # Routes the attend / attendees endpoints + /me/attendances and
+      # /me/participations to attendance-service.
+      - name: attendance-service
+        url: http://attendance-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: attend-actions
+            paths:
+              - ~/api/events/(?:\d+)/attend$
+            strip_path: false
+            preserve_host: true
+          - name: event-attendees
+            paths:
+              - ~/api/events/(?:\d+)/attendees$
+            strip_path: false
+            preserve_host: true
+          - name: my-attendances
+            paths:
+              - ~/api/users/me/attendances$
+            strip_path: false
+            preserve_host: true
+          - name: my-participations
+            paths:
+              - ~/api/users/me/participations$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 7 — co-organizer-service (extracted) ──────────────────────
       # The co-organizer routes share the /api/events/{id}/co-organizers
       # prefix : invite/list at the bare path, accept/decline under /me/,
@@ -232,12 +262,6 @@ data:
       #     - { name: events-occurrences,  paths: [/api/events/(?:\\d+)/occurrences] }
       #     - { name: events-featured,     paths: [/api/events/featured, /api/admin/events/(?:\\d+)/(?:un)?feature] }
       #     - { name: events-search,       paths: [/api/events/search] }
-      #
-      # - name: attendance-service
-      #   url: http://attendance-service:8080
-      #   routes:
-      #     - { name: attend-actions,    paths: [/api/events/(?:\\d+)/attend, /api/events/(?:\\d+)/attendees] }
-      #     - { name: my-attendances,    paths: [/api/users/me/attendances, /api/users/me/participations] }
       #
       # - name: view-service
       #   url: http://view-service:8080
