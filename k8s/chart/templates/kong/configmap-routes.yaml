@@ -325,22 +325,7 @@ data:
               - ~/api/users/me/participations$
             strip_path: false
             preserve_host: true
-
-      # NB: co-organizer-service was merged into event-service in
-      # finalization Étape 2.2.4. Routes /api/events/{id}/co-organizers/*
-      # + /api/users/me/co-organizer-invitations are now in the
-      # event-service block above. Cascade SCRUM-136 is now a local
-      # method call in event-service (no more REST hop).
-
-      # ───── PR 6 — comment-service (extracted) ───────────────────────────
-      # Routes /api/events/{id}/comments (POST + GET) + /api/comments/{id}
-      # (DELETE) to comment-service.
-      - name: comment-service
-        url: http://comment-service:8080
-        connect_timeout: 5000
-        read_timeout: 30000
-        write_timeout: 30000
-        routes:
+          # Absorbed from comment-service in finalization Étape 2.4.1.
           - name: event-comments
             paths:
               - ~/api/events/(?:\d+)/comments$
@@ -359,6 +344,17 @@ data:
               - ~/api/comments/(?:\d+)$
             strip_path: false
             preserve_host: true
+
+      # NB: co-organizer-service was merged into event-service in
+      # finalization Étape 2.2.4. Routes /api/events/{id}/co-organizers/*
+      # + /api/users/me/co-organizer-invitations are now in the
+      # event-service block above. Cascade SCRUM-136 is now a local
+      # method call in event-service (no more REST hop).
+
+      # NB: comment-service was merged into engagement-service in
+      # finalization Étape 2.4.1 (Décision A). Routes event-comments
+      # (avec rate-limiting 10/min) + comment-direct sont désormais dans
+      # le bloc engagement-service au-dessus.
 
       # NB: follow-service was merged into user-service in finalization
       # Étape 2.3.1 (Décision A — follow est une propriété de l'identité

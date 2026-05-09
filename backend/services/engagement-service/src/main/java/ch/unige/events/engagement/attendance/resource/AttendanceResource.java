@@ -1,0 +1,77 @@
+package ch.unige.events.engagement.attendance.resource;
+
+import ch.unige.events.engagement.attendance.dto.AttendanceDTO;
+import ch.unige.events.engagement.attendance.dto.AttendanceRequest;
+import ch.unige.events.engagement.attendance.service.AttendanceService;
+import ch.unige.events.shared.ratelimit.PerUserRateLimit;
+import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.inject.Inject;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+
+import java.util.List;
+
+/**
+ * Attendance endpoints rooted under {@code /events}. The POST handler is
+ * rate-limited via {@link PerUserRateLimit} (issue #98) using the shared
+ * interceptor lib — same name/budget as the legacy monolith.
+ */
+@Path("/events")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class AttendanceResource {
+
+    private final AttendanceService attendanceService;
+    private final SecurityIdentity identity;
+
+    @Inject
+    public AttendanceResource(AttendanceService attendanceService, SecurityIdentity identity) {
+        this.attendanceService = attendanceService;
+        this.identity = identity;
+    }
+
+    @POST
+    @Path("/{id}/attend")
+    @Authenticated
+    @PerUserRateLimit(name = "events.attend", max = 30)
+    public Response attend(@PathParam("id") Long id, @NotNull @Valid AttendanceRequest request) {
+        String auth0Id = identity.getPrincipal().getName();
+        AttendanceDTO dto = attendanceService.attend(auth0Id, id, request.status());
+        return Response.ok(dto).build();
+    }
+
+    @DELETE
+    @Path("/{id}/attend")
+    @Authenticated
+    public Response removeAttendance(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        attendanceService.removeAttendance(auth0Id, id);
+        return Response.noContent().build();
+    }
+
+    @GET
+    @Path("/{id}/attendees")
+    @Authenticated
+    public List<AttendanceDTO> getAttendees(
+            @PathParam("id") Long id,
+            @QueryParam("page") @DefaultValue("0") @Min(0) int page,
+            @QueryParam("size") @DefaultValue("20") @Positive @Max(100) int size) {
+        String auth0Id = identity.getPrincipal().getName();
+        return attendanceService.getAttendees(auth0Id, id, page, size);
+    }
+}
