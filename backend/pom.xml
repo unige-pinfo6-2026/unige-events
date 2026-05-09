@@ -52,6 +52,10 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.35.1</quarkus.platform.version>
+        <!-- Pinned to match the smallrye-reactive-messaging version that
+             ships with quarkus-bom 3.35.1. Used by the in-memory test
+             connector swap declared in <dependencyManagement>. -->
+        <smallrye-reactive-messaging.version>4.34.0</smallrye-reactive-messaging.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
         <jacoco.version>0.8.12</jacoco.version>
@@ -104,6 +108,19 @@
                 <version>${quarkus.amazon.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!--
+              Test-only Kafka in-memory connector swap. Pinned here so
+              producer/consumer services don't have to repeat the version
+              + scope (KAFKA-009 of the completion spec). The version is
+              kept in sync with the smallrye-reactive-messaging artifacts
+              shipped by quarkus-bom 3.35.1.
+            -->
+            <dependency>
+                <groupId>io.smallrye.reactive</groupId>
+                <artifactId>smallrye-reactive-messaging-in-memory</artifactId>
+                <version>${smallrye-reactive-messaging.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

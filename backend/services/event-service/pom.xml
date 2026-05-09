@@ -53,8 +53,9 @@
         <dependency><groupId>io.rest-assured</groupId><artifactId>rest-assured</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
         <!-- In-memory connector swaps the smallrye-kafka connector under
-             %test so the sentinel + producer tests don't need a real broker. -->
-        <dependency><groupId>io.smallrye.reactive</groupId><artifactId>smallrye-reactive-messaging-in-memory</artifactId><scope>test</scope></dependency>
+             %test so the sentinel + producer tests don't need a real broker.
+             Version + scope=test inherited from parent dependencyManagement. -->
+        <dependency><groupId>io.smallrye.reactive</groupId><artifactId>smallrye-reactive-messaging-in-memory</artifactId></dependency>
     </dependencies>
 
     <build>
