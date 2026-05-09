@@ -67,6 +67,17 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- DEP-001 finalization-ultimate Étape 7.2: parity with the
+             4 active services for jacoco-driven coverage in CI matrix.
+             Even on a placeholder, jacoco-maven-plugin's @{argLine}
+             expansion expects this dep on the classpath ; with it
+             present the explicit argLine override below is no longer
+             necessary at the surefire level. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jacoco</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -75,18 +86,20 @@
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
             <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <!--
-                      Override the parent pluginManagement argLine: the parent
-                      uses @{argLine} which is substituted by jacoco-maven-plugin
-                      at runtime. The scaffolded modules don't have jacoco on the
-                      classpath, so the literal @{argLine} would be passed to the
-                      forked JVM and crash with "VM crash or System.exit called".
-                      Coverage is N/A on these scaffolds (one health endpoint).
-                    -->
-                    <argLine>-Djava.security.egd=file:/dev/./urandom</argLine>
-                </configuration>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jacoco-report</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
