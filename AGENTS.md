@@ -9,7 +9,22 @@ Chaque sous-projet possède son propre `AGENTS.md` avec les conventions, command
 | Dossier | Stack | AGENTS.md |
 |---|---|---|
 | `frontend/` | React 19 · TypeScript · Vite · Nginx | [`frontend/AGENTS.md`](frontend/AGENTS.md) |
-| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 | [`backend/AGENTS.md`](backend/AGENTS.md) |
+| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 13 microservices Quarkus livrés au Sprint 8 | [`backend/AGENTS.md`](backend/AGENTS.md) |
+
+### Architecture backend post-migration (Sprint 8)
+
+Le backend est découpé en 13 microservices sous `backend/services/<svc>-service/` :
+
+`share-service`, `view-service`, `favorite-service`, `calendar-service`,
+`follow-service`, `comment-service`, `co-organizer-service`,
+`attendance-service`, `report-service`, `stats-service`,
+`me-aggregator-service`, `user-service`, `event-service`.
+
+Trafic `/api/*` routé via **Kong API Gateway** (DB-less, ConfigMap déclarative).
+Topologie complète + table endpoints owned par service :
+[`backend/docs/architecture.md`](backend/docs/architecture.md). Plan de
+migration archivé :
+[`specs_archives/specs_claude/specs_microservices_migration.md`](specs_archives/specs_claude/specs_microservices_migration.md).
 
 ## Contrat API partagé
 

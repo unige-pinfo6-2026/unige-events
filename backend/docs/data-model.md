@@ -44,7 +44,7 @@ le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.f
 
 ### Event
 
-Table : `events`
+Owned by **event-service**. Tables : `events` + `event_tags`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -112,7 +112,7 @@ Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les
 
 ### Favorite
 
-Table : `favorites`
+Owned by **favorite-service**. Table : `favorites`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -148,7 +148,7 @@ Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
 
 ### Attendance
 
-Table : `attendances`
+Owned by **attendance-service**. Table : `attendances`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -174,7 +174,9 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 ### EventView
 
-Table : `event_views`
+Owned by **view-service**. Table : `event_views`. *(Section dupliquée
+ci-dessous — incohérence pré-existante dans data-model.md, à fusionner
+en follow-up.)*
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -192,6 +194,8 @@ Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
 ---
 
 ### EventCoOrganizer
+
+Owned by **co-organizer-service**. Table : `event_co_organizers`.
 
 Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
 
@@ -251,6 +255,8 @@ du JWT — pas de spoofing).
 ---
 
 ### Follow
+
+Owned by **follow-service**. Table : `follows`.
 
 Table : `follows` (créée par la migration `V14__create_follows.sql` en SCRUM-138).
 
@@ -337,6 +343,8 @@ ISSUE-93).
 
 ### Report
 
+Owned by **report-service**. Table : `reports`.
+
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
 enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
 
@@ -411,6 +419,8 @@ Quand `ReportService.handle()` reçoit `status=REVIEWED` :
 ---
 
 ### Comment
+
+Owned by **comment-service**. Table : `comments`.
 
 Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM-139).
 

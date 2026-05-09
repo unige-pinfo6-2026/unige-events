@@ -1,52 +1,119 @@
-# API Contract — unige-events-api
+# API Contract — unige-events backend
 
-Root path : `/api` (configuré via `quarkus.http.root-path=api` dans `application.properties`)
+Root path : `/api` (configuré via `quarkus.http.root-path=api` dans `application.properties` de chaque microservice).
 
-Tous les endpoints produisent et consomment `application/json`.
+Tous les endpoints produisent et consomment `application/json` (sauf
+`/calendar/{token}.ics` qui sert `text/calendar`).
 Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OIDC).
+
+---
+
+## Topologie — service amont par préfixe
+
+Sprint 8 a découpé le backend en 13 microservices ; Kong route chaque path vers
+le service propriétaire via une regex anchorée. Cf.
+[`architecture.md`](architecture.md) pour la table complète des Helm
+Deployments + endpoints owned.
+
+| Préfixe | Service amont | Notes |
+|---|---|---|
+| `/api/users/me` (sauf sous-paths) | **user-service** | GET / PUT |
+| `/api/users/me/image`, `/api/users/me/banner` | **user-service** | upload + delete (multipart) |
+| `/api/users/{uuid}` | **user-service** | profil public (anti-oracle 404) |
+| `/api/users/me/events` | **me-aggregator-service** | BFF |
+| `/api/users/me/favorites` | **favorite-service** | |
+| `/api/users/me/attendances`, `/api/users/me/participations` | **attendance-service** | |
+| `/api/users/me/calendar-token`, `/api/users/me/calendar-token/regenerate` | **calendar-service** | |
+| `/api/users/me/co-organizer-invitations` | **co-organizer-service** | BFF de leurs invitations |
+| `/api/users/me/follow-requests` | **follow-service** | |
+| `/api/users/{uuid}/follow`, `/api/users/{uuid}/{followers,following}` | **follow-service** | |
+| `/api/follow-requests/{id}/{accept,reject}` | **follow-service** | |
+| `/api/events` (list, create) | **event-service** | |
+| `/api/events/{id}` (GET, PUT, DELETE) | **event-service** | |
+| `/api/events/{id}/{cancel,restore,publish}` | **event-service** | |
+| `/api/events/{id}/occurrences` | **event-service** | recurrence SCRUM-147 |
+| `/api/events/{id}/image` | **event-service** | upload bannière |
+| `/api/events/featured` | **event-service** | |
+| `/api/events/search` | **event-service** | |
+| `/api/admin/events/{id}/{,un}feature` | **event-service** | `@RolesAllowed("ADMIN")` |
+| `/api/events/{id}/share`, `/api/s/{code}` | **share-service** | |
+| `/api/events/{id}/view` | **view-service** | |
+| `/api/events/{id}/favorite` | **favorite-service** | |
+| `/api/events/{id}/attend`, `/api/events/{id}/attendees` | **attendance-service** | |
+| `/api/events/{id}/co-organizers/*` | **co-organizer-service** | |
+| `/api/events/{id}/comments`, `/api/comments/{id}` | **comment-service** | |
+| `/api/events/{id}/report`, `/api/admin/reports/*` | **report-service** | + ModerationCleanupJob |
+| `/api/events/{id}/stats` | **stats-service** | |
+| `/api/calendar/{token}.ics` | **calendar-service** | |
 
 ---
 
 ## Endpoints implémentés
 
-| Méthode | Path | Auth | Description | Codes HTTP |
-|---|---|---|---|---|
-| `GET` | `/users/{id}` | `@PermitAll` | Profil public d'un utilisateur — **payload réduit pour anon**, 404 si privé ou non autorisé (pas d'oracle d'existence) | 200, 404 |
-| `GET` | `/users/me` | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
-| `PUT` | `/users/me` | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
-| `GET` | `/events` | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
-| `POST` | `/events` | `@Authenticated` + `@PerUserRateLimit(max=10)` | Créer un événement (ponctuel ou récurrent — bloc `recurrence` optionnel SCRUM-147) | 201, 400, 401, 422, 429 |
-| `GET` | `/events/{id}` | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |
-| `GET` | `/events/{id}/occurrences` | `@PermitAll` | Lister les occurrences d'un parent récurrent (SCRUM-147 — tri startDate ASC) | 200, 400, 404 |
-| `GET` | `/events/search` | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, tags [substring match case-insensitive], dateFrom, dateTo, page, size) | 200 |
-| `POST` | `/events/{id}/favorite` | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
-| `DELETE` | `/events/{id}/favorite` | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
-| `GET` | `/users/me/favorites` | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
-| `GET` | `/events/{id}/share` | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
-| `GET` | `/s/{shortCode}` | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
-| `GET` | `/users/me/calendar-token` | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
-| `POST` | `/users/me/calendar-token/regenerate` | `@Authenticated` | Révoquer et régénérer le token | 200, 401, 404 |
-| `GET` | `/calendar/{calendarToken}.ics` | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
-| `POST` | `/events/{id}/attend` | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si capacité pleine | 200, 400, 401, 404, 409 |
-| `DELETE` | `/events/{id}/attend` | `@Authenticated` | Se désinscrire | 204, 401, 404 |
-| `GET` | `/events/{id}/attendees` | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
-| `GET` | `/users/me/attendances` | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
-| `POST` | `/events/{id}/co-organizers` | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
-| `GET` | `/events/{id}/co-organizers` | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
-| `DELETE` | `/events/{id}/co-organizers/{userId}` | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
-| `PATCH` | `/events/{id}/co-organizers/me/accept` | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
-| `PATCH` | `/events/{id}/co-organizers/me/decline` | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
-| `GET` | `/users/me/co-organizer-invitations` | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
-| `POST` | `/events/{id}/comments` | `@Authenticated` + `@PerUserRateLimit(max=10)` | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422, 429 |
-| `GET` | `/events/{id}/comments` | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
-| `DELETE` | `/comments/{id}` | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
-| `POST` | `/users/{id}/follow` | `@Authenticated` + `@PerUserRateLimit(max=30)` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
-| `DELETE` | `/users/{id}/follow` | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
-| `GET` | `/users/{id}/followers` | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
-| `GET` | `/users/{id}/following` | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
-| `GET` | `/users/me/follow-requests` | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
-| `PATCH` | `/follow-requests/{followId}/accept` | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
-| `PATCH` | `/follow-requests/{followId}/reject` | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
+| Méthode | Path | Service amont | Auth | Description | Codes HTTP |
+|---|---|---|---|---|---|
+| `GET` | `/users/{id}` | user-service | `@PermitAll` | Profil public d'un utilisateur — **payload réduit pour anon**, 404 si privé ou non autorisé (pas d'oracle d'existence) | 200, 404 |
+| `GET` | `/users/me` | user-service | `@Authenticated` | Profil complet de l'utilisateur connecté (provisionne le compte au 1er appel) | 200, 401 |
+| `PUT` | `/users/me` | user-service | `@Authenticated` | Mise à jour du profil de l'utilisateur connecté | 200, 400, 401, 403, 404, 409 |
+| `POST` | `/users/me/image` | user-service | `@Authenticated` (multipart) | Upload avatar — JPEG/PNG/WebP/GIF, max 2 MiB | 200, 400, 401, 413 |
+| `DELETE` | `/users/me/image` | user-service | `@Authenticated` | Supprime l'avatar (objet S3 + URL `null`) | 200, 401 |
+| `POST` | `/users/me/banner` | user-service | `@Authenticated` (multipart) | Upload bannière de profil — max 5 MiB | 200, 400, 401, 413 |
+| `DELETE` | `/users/me/banner` | user-service | `@Authenticated` | Supprime la bannière (URL `null` ; objet S3 conservé, parité legacy) | 200, 401 |
+| `GET` | `/events` | event-service | `@PermitAll` | Liste paginée — filtres : status, category, organizerId, endDateFrom (date-time), faculty, facultyNone (mutex avec faculty) | 200 |
+| `POST` | `/events` | event-service | `@Authenticated` (rate-limit DEFERRED) | Créer un événement (ponctuel ou récurrent — bloc `recurrence` optionnel SCRUM-147) | 201, 400, 401, 422 |
+| `GET` | `/events/{id}` | event-service | `@PermitAll` | Détail d'un événement — **DRAFT/CANCELLED cachés** (créateur ou admin uniquement, sinon 404) | 200, 404 |
+| `PUT` | `/events/{id}` | event-service | `@Authenticated` | Mise à jour (créateur ou co-organisateur ACCEPTED) | 200, 400, 401, 403, 404, 409 |
+| `DELETE` | `/events/{id}` | event-service | `@Authenticated` | Suppression (créateur uniquement, statut CANCELLED requis) | 204, 401, 403, 404, 409 |
+| `PATCH` | `/events/{id}/cancel` | event-service | `@Authenticated` | Annulation | 200, 401, 403, 404, 409 |
+| `PATCH` | `/events/{id}/restore` | event-service | `@Authenticated` | Restoration CANCELLED → DRAFT | 200, 401, 403, 404, 409 |
+| `PATCH` | `/events/{id}/publish` | event-service | `@Authenticated` | DRAFT → PUBLISHED (créateur, co-org ACCEPTED ou admin) | 200, 401, 403, 404, 409, 422 |
+| `POST` | `/events/{id}/image` | event-service | `@Authenticated` (multipart) | Upload bannière event — max 5 MiB | 200, 400, 401, 403, 404, 413 |
+| `GET` | `/events/{id}/occurrences` | event-service | `@PermitAll` | Lister les occurrences d'un parent récurrent (SCRUM-147 — tri startDate ASC) | 200, 400, 404 |
+| `GET` | `/events/featured` | event-service | `@PermitAll` | Top events (phase 1 = featured + PUBLISHED ; phase 2 = popularity ranking) | 200 |
+| `GET` | `/events/search` | event-service | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, tags [substring match case-insensitive], dateFrom, dateTo, page, size) | 200 |
+| `PATCH` | `/admin/events/{id}/feature` | event-service | `@RolesAllowed("ADMIN")` | Bascule un event en featured | 200, 401, 403, 404 |
+| `PATCH` | `/admin/events/{id}/unfeature` | event-service | `@RolesAllowed("ADMIN")` | Inverse | 200, 401, 403, 404 |
+| `POST` | `/events/{id}/favorite` | favorite-service | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/favorite` | favorite-service | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
+| `GET` | `/users/me/favorites` | favorite-service | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
+| `GET` | `/users/me/events` | me-aggregator-service | `@Authenticated` | Mes events (BFF — fan-out vers event-service à terme) | 200, 401, 404 |
+| `GET` | `/events/{id}/share` | share-service | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
+| `GET` | `/s/{shortCode}` | share-service | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
+| `POST` | `/events/{id}/view` | view-service | `@Authenticated` | Marque l'event vu par l'utilisateur (idempotent — upsert) | 204, 401, 404 |
+| `GET` | `/users/me/calendar-token` | calendar-service | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
+| `POST` | `/users/me/calendar-token/regenerate` | calendar-service | `@Authenticated` | Révoquer et régénérer le token | 200, 401, 404 |
+| `GET` | `/calendar/{calendarToken}.ics` | calendar-service | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
+| `POST` | `/events/{id}/attend` | attendance-service | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si registration deadline dépassée | 200, 400, 401, 404, 409 |
+| `DELETE` | `/events/{id}/attend` | attendance-service | `@Authenticated` | Se désinscrire (auto-promotion WAITLISTED → ATTENDING si capacité libérée) | 204, 401, 404 |
+| `GET` | `/events/{id}/attendees` | attendance-service | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
+| `GET` | `/users/me/attendances` | attendance-service | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
+| `GET` | `/users/me/participations` | attendance-service | `@Authenticated` | Mes events ATTENDING/WAITLISTED (avec filtre `status` + `timeframe=upcoming\|past`) | 200, 400, 401 |
+| `POST` | `/events/{id}/co-organizers` | co-organizer-service | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
+| `GET` | `/events/{id}/co-organizers` | co-organizer-service | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/co-organizers/{userId}` | co-organizer-service | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
+| `PATCH` | `/events/{id}/co-organizers/me/accept` | co-organizer-service | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
+| `PATCH` | `/events/{id}/co-organizers/me/decline` | co-organizer-service | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
+| `GET` | `/users/me/co-organizer-invitations` | co-organizer-service | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
+| `POST` | `/events/{id}/comments` | comment-service | `@Authenticated` (rate-limit DEFERRED) | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422 |
+| `GET` | `/events/{id}/comments` | comment-service | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
+| `DELETE` | `/comments/{id}` | comment-service | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
+| `POST` | `/users/{id}/follow` | follow-service | `@Authenticated` (rate-limit DEFERRED) | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422 |
+| `DELETE` | `/users/{id}/follow` | follow-service | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
+| `GET` | `/users/{id}/followers` | follow-service | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
+| `GET` | `/users/{id}/following` | follow-service | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
+| `GET` | `/users/me/follow-requests` | follow-service | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
+| `PATCH` | `/follow-requests/{followId}/accept` | follow-service | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
+| `PATCH` | `/follow-requests/{followId}/reject` | follow-service | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
+| `POST` | `/events/{id}/report` | report-service | `@Authenticated` | Signaler un event (raison + description) | 201, 400, 401, 404, 409, 422 |
+| `GET` | `/admin/reports` | report-service | `@RolesAllowed("ADMIN")` | Liste paginée des reports (default `status=PENDING`) | 200, 401, 403 |
+| `PATCH` | `/admin/reports/{id}` | report-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
+| `GET` | `/events/{id}/stats` | stats-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
+
+> **Rate limit notice** : la cellule "Auth" ne mentionne plus `@PerUserRateLimit`
+> car les annotations vivaient sur `RateLimitInterceptor` du legacy-monolith
+> et n'ont pas été portées vers les microservices. Restauration via plugin
+> Kong `rate-limiting` ou lib partagée — follow-up tracké dans
+> [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md).
 
 ---
 
