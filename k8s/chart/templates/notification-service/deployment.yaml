@@ -50,6 +50,17 @@ spec:
             limits:
               memory: "256Mi"
               ephemeral-storage: "256Mi"
+          # K8S-001 finalization-ultimate Étape 7.1: parity with the
+          # 4 active service deployments — pod restart on liveness fail
+          # protects against degraded JVMs even on the placeholder.
+          livenessProbe:
+            httpGet:
+              path: /api/q/health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /api/q/health/ready
