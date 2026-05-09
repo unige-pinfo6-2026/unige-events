@@ -42,6 +42,20 @@
             <artifactId>shared-domain-enums</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-tracing</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+          REST client + fault-tolerance APIs are provided so the Quarkus
+          consumer brings the runtime; shared-domain-dtos hosts the
+          @RegisterRestClient interfaces (Étape 4.1–4.3) without forcing
+          a Quarkus runtime onto every consumer of the DTO records.
+        -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId><scope>provided</scope></dependency>
 
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     </dependencies>
