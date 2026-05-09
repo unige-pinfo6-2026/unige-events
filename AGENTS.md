@@ -9,7 +9,7 @@ Chaque sous-projet possède son propre `AGENTS.md` avec les conventions, command
 | Dossier | Stack | AGENTS.md |
 |---|---|---|
 | `frontend/` | React 19 · TypeScript · Vite · Nginx | [`frontend/AGENTS.md`](frontend/AGENTS.md) |
-| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 13 microservices Quarkus livrés au Sprint 8 | [`backend/AGENTS.md`](backend/AGENTS.md) |
+| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 13 microservices Quarkus livrés au Sprint 8 + 1 scaffold `notification-service` (replicas:0, follow-up SCRUM-99) + 10 shared libs (`shared-rate-limit`, `shared-storage`, `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform`) — cf. [`specs_archives/specs_claude/specs_microservices_migration_completion.md`](specs_archives/specs_claude/specs_microservices_migration_completion.md) | [`backend/AGENTS.md`](backend/AGENTS.md) |
 
 ### Architecture backend post-migration (Sprint 8)
 
