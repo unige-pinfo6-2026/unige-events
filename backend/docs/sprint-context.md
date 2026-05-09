@@ -46,7 +46,7 @@ sur pom-packaging), puis build `legacy-monolith` avec la même chaîne Quarkus
 qu'avant. La matrice de build par-service (CI step 17 de la spec) est **hors
 scope étape 1**.
 
-**Étapes 2..14 — 6 services réellement extraits, 7 restants DEFERRED.**
+**Étapes 2..14 — 8 services réellement extraits, 5 restants DEFERRED.**
 
 * ✅ **PR 1 — `share-service` extrait** (commit `b858196` + `e1d9f41` health
   probe fix). Module Quarkus complet (POM `<packaging>quarkus</packaging>`,
@@ -114,13 +114,49 @@ scope étape 1**.
   `unige-events-comment-service:<sha>`. Helm `replicas: 1`. Note : le
   rate-limit `comments.post` 10/min n'est pas porté (idem PR 3 / PR 5).
   Kafka `comments.created` producteur DEFERRED. CI Deploy à valider.
-* ⏳ **PR 7..13 — 7 extractions restantes** (co-organizer, attendance,
-  report, stats, me-aggregator, user, event) suivent le même pattern :
-  POM jar→quarkus, copy resources/services/entities depuis legacy avec
-  adaptations (stubs read-only pour les tables cross-domaine), Helm
-  replicas:1, Kong route flip. Documentées dans
+* ✅ **PR 7 — `co-organizer-service` extrait** (commit `c9f0e34`). Owns
+  `event_co_organizers` table. EventStub read-only avec creatorId + tous
+  les champs de EventDTO (le BFF `getMyInvitations` enrichit chaque
+  CoOrganizerInvitationDTO avec un EventDTO complet — counts via
+  AttendanceStub.countGroupedByStatus en bulk). Le helper `isAcceptedFor`
+  est exposé sur le service — futur endpoint interne
+  `GET /events/{eventId}/co-organizers/check?userId=` à câbler une fois
+  comment-service / attendance-service / stats-service / event-service
+  passent en REST clients. Kong routes
+  `/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$`,
+  `/api/events/(?:\d+)/co-organizers/[^/]+$`,
+  `/api/events/(?:\d+)/co-organizers$`,
+  `/api/users/me/co-organizer-invitations$` → `co-organizer-service:8080`.
+  Helm `replicas: 1`. Kafka producteurs DEFERRED. CI Deploy à valider.
+* ✅ **PR 8 — `attendance-service` extrait** (commit `eb5999a`). Owns
+  `attendances` table avec PESSIMISTIC_WRITE pour capacity gating +
+  idempotence + auto-promotion WAITLISTED→ATTENDING sur remove. EventStub
+  managed (le legacy fait `entityManager.find(Event.class, id,
+  PESSIMISTIC_WRITE)` — donc EventStub doit être JPA-managed même si on
+  n'écrit jamais dedans). Cascade SCRUM-136 inlinée. Compteurs grouped-by
+  pour `getMyParticipationEvents` + projection EventDTO préservés. Kong
+  routes `/api/events/(?:\d+)/attend$`, `/api/events/(?:\d+)/attendees$`,
+  `/api/users/me/attendances$`, `/api/users/me/participations$` →
+  `attendance-service:8080`. Helm `replicas: 1`. Note : rate-limit
+  `events.attend` 30/min non porté (idem PR 3). CI Deploy à valider.
+* ⏳ **PR 9..13 — 5 extractions restantes** (report, stats, me-aggregator,
+  user, event) suivent le même pattern : POM jar→quarkus, copy
+  resources/services/entities depuis legacy avec adaptations (stubs
+  read-only pour les tables cross-domaine), Helm replicas:1, Kong route
+  flip. Documentées dans
   [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md)
   avec file inventory exact + commit message template par PR.
+
+### Note CI : transient image-pull failure sur PR 4 (calendar-service)
+
+Le run CI de la PR 4 (commit `df19461`) a échoué au stage Deploy avec
+`ImagePullBackOff` sur `unige-events-calendar-service:df1946...` —
+l'image avait pourtant été pushée au stage Build. Cause probable :
+visibilité GHCR du package fraîchement créé (un nouveau package est
+techniquement pull-able via le `ghcr-secret` mais peut prendre 1-2 min à
+être propagé après son tout premier push). Les runs suivants (PR 5/6
+notamment) ont déployé sans souci avec leur propre tag, confirmant que
+c'était un transient. Pas d'action corrective requise.
 
 Les services restants sont **déjà scaffoldés** (POM placeholder
 `<packaging>jar</packaging>` avec endpoint `/api/__service` debug, Helm
