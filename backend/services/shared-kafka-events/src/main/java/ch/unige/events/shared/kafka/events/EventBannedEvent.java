@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Wire shape of the {@code events.banned} Kafka topic. Emitted by
- * report-service when an admin BAN decision lands or when
+ * moderation-service when an admin BAN decision lands or when
  * ModerationCleanupJob auto-bans an event past the threshold.
  * Consumed by event-service which applies {@code event.status = BANNED}
  * locally (idempotent).

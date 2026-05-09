@@ -6,7 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Cron @ 03:00 Europe/Zurich. Lives in report-service ; helm chart pins
+ * Cron @ 03:00 Europe/Zurich. Lives in moderation-service ; helm chart pins
  * {@code replicas: 1} strict (no leader election in S8).
  */
 @ApplicationScoped

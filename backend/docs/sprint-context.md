@@ -686,7 +686,7 @@ complétion ; les ❌ sont des items déférés DevOps S9+ formalisés dans
 | PR **non mergée** par l'agent | ✅ | Mergée par Elie après validation. |
 | `git diff --shortstat origin/main HEAD -- frontend/` = 0 lignes | ✅ | Invariant tenu. |
 | `git diff --shortstat origin/main HEAD -- openapi/` ≤ 32 lignes | ⚠ | **Déviation actée par Décision Q** : suppression du doublon `POST /events/{id}/view` (le bloc le plus pauvre en erreurs ; 32 lignes). Toute autre modification d'`openapi.yaml` lèverait un blocker. |
-| 0 JPA stub cross-service (`find backend/services -name '*Stub.java'` = vide) | ✅ | 35 stubs supprimés en complétion (Étape 5) — remplacés par REST clients `@RegisterRestClient` avec resilience (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback`). |
+| 0 JPA stub cross-service (`find backend/services -name '*Stub.java'` = vide) | ✅ | 35 stubs supprimés en complétion (Étape 5) puis les **13 stubs réintroduits par les extractions PR-3..PR-9 ont été supprimés en Étape 21 finalization-ultimate** (Vague 3 / STUB-001) — refactor `@ManyToOne XStub` → `@Column id` (Décision F) + REST clients `@RegisterRestClient` avec resilience (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback`). |
 | Observabilité : `quarkus-logging-json`, `micrometer-registry-prometheus`, `X-Request-ID` propagation | ✅ | 3 extensions Quarkus + lib `shared-tracing` consommée par les 13 services (Étape 9). Endpoint `/q/metrics` exposé (interne, non Kong). |
 
 **TL;DR** : la PR #158 livre les **fondations + structure Maven + scaffolds

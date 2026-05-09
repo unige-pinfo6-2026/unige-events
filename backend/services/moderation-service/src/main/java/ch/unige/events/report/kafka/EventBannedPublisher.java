@@ -9,7 +9,7 @@ import org.eclipse.microprofile.reactive.messaging.Emitter;
 
 /**
  * Producer for {@code events.banned} (Décision F + KAFKA-001/002 BLOCKER).
- * Emitted from report-service ; consumed by event-service which applies
+ * Emitted from moderation-service ; consumed by event-service which applies
  * {@code event.status = BANNED} locally — no more cross-schema mutation.
  */
 @ApplicationScoped

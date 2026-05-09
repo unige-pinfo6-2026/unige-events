@@ -46,7 +46,7 @@ le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.f
 
 Owned by **event-service**. Tables : `events` + `event_tags`.
 
-**Kafka** : `EventLifecyclePublisher` émet `events.{published, cancelled, expired}` post-commit via CDI `@Observes(AFTER_SUCCESS)` (Décision A/F de la spec de complétion). Consumer `events.banned` dans event-service (apply `event.status = BANNED` localement, idempotent — émis par `report-service` lors d'un BAN admin ou d'un auto-ban via `ModerationCleanupJob`).
+**Kafka** : `EventLifecyclePublisher` émet `events.{published, cancelled, expired}` post-commit via CDI `@Observes(AFTER_SUCCESS)` (Décision A/F de la spec de complétion). Consumer `events.banned` dans event-service (apply `event.status = BANNED` localement, idempotent — émis par `moderation-service` lors d'un BAN admin ou d'un auto-ban via `ModerationCleanupJob`).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|

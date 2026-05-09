@@ -232,8 +232,6 @@ public class EventCoOrganizerService {
             return null;
         }
     }
-        return Math.max(0L, capacity.longValue() - attendingCount);
-    }
 
     private static boolean isCreator(Event event, UUID userId) {
         return event != null && userId != null

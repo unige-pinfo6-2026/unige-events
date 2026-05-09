@@ -81,6 +81,4 @@ public class MyEventsService {
                 })
                 .toList();
     }
-        return Math.max(0L, capacity.longValue() - attendingCount);
-    }
 }

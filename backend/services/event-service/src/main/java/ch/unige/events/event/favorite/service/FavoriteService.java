@@ -94,18 +94,6 @@ public class FavoriteService {
                 .toList();
     }
 
-    /**
-     * Inlined from {@code EventService.computeAvailableSpots} — capacity null
-     * means unlimited (returns null), otherwise capacity minus current
-     * attending count clamped to zero.
-     */
-    static Long EventCapacity.computeAvailableSpots(Integer capacity, long attendingCount) {
-        if (capacity == null) {
-            return null;
-        }
-        return Math.max(0L, capacity.longValue() - attendingCount);
-    }
-
     private UUID resolveUserId() {
         UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
         if (userId == null) {
