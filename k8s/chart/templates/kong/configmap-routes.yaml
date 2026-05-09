@@ -115,6 +115,20 @@ data:
             strip_path: false
             preserve_host: true
 
+      # ───── PR 10 — stats-service (extracted) ────────────────────────────
+      # Routes /api/events/{id}/stats — per-event analytics counter.
+      - name: stats-service
+        url: http://stats-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: event-stats
+            paths:
+              - ~/api/events/(?:\d+)/stats$
+            strip_path: false
+            preserve_host: true
+
       # ───── PR 9 — report-service (extracted) ────────────────────────────
       # Routes the report endpoint + the admin moderation queue. Hosts the
       # ModerationCleanupJob scheduler (cron 03:00 Europe/Zurich).
@@ -292,11 +306,6 @@ data:
       #   url: http://view-service:8080
       #   routes:
       #     - { name: event-view,        paths: [/api/events/(?:\\d+)/view] }
-      #
-      # - name: stats-service
-      #   url: http://stats-service:8080
-      #   routes:
-      #     - { name: event-stats,       paths: [/api/events/(?:\\d+)/stats] }
       #
       # - name: share-service
       #   url: http://share-service:8080
