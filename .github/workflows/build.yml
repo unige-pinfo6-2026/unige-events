@@ -237,20 +237,25 @@ jobs:
           echo "Found $count jacoco.xml files"
           [ "$count" -ge 15 ] || (echo "FAIL: expected >= 15 jacoco files" && exit 1)
 
-      # Liste comma-séparée des paths jacoco passée au CLI Sonar (Décision B).
-      # IMPORTANT — pas de `-pl .` : avec `-pl .`, sonar-maven-plugin n'analyse
-      # QUE le pom parent (qui n'a aucune source Java post-migration) → 1 file
-      # indexed, 0 Java file analyzed, 0 new lines, gate vacuously PASSED. Sans
-      # `-pl .`, sonar:sonar parcourt tous les modules du reactor et soumet
-      # leurs sources sous le `sonar.projectKey` parent.
+      # IMPORTANT 1 — pas de `-pl .` : avec `-pl .`, sonar-maven-plugin
+      # n'analyse QUE le pom parent (aucune source Java post-migration) → 1
+      # file indexed, 0 Java file analyzed. Sans `-pl .`, sonar:sonar parcourt
+      # tous les modules du reactor et soumet leurs sources sous le
+      # sonar.projectKey parent.
+      #
+      # IMPORTANT 2 — pas de `-Dsonar.coverage.jacoco.xmlReportPaths=...` au
+      # CLI : ce flag s'applique GLOBALEMENT, et chaque module l'évalue
+      # contre SON propre basedir (`services/<X>-service/`), donc un path
+      # comme `services/moderation-service/target/jacoco-report/jacoco.xml`
+      # devient `services/<X>-service/services/moderation-service/...` —
+      # introuvable. Le pom parent définit déjà
+      # `<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/jacoco-report/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>`
+      # qui résout par-module à `<module>/target/jacoco-report/jacoco.xml` —
+      # exactement où chaque module a son rapport.
       - name: SonarQube Scan (aggregated)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          JACOCO_PATHS=$(find services contract-tests e2e -name jacoco.xml -path '*/jacoco-report/*' 2>/dev/null | paste -sd ',')
-          echo "Sonar coverage paths: $JACOCO_PATHS"
-          ./mvnw sonar:sonar -B \
-              -Dsonar.coverage.jacoco.xmlReportPaths=$JACOCO_PATHS
+        run: ./mvnw sonar:sonar -B
 
   build-frontend:
     name: Build Frontend
