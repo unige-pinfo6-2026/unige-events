@@ -34,9 +34,14 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -415,13 +420,36 @@ class EventDomainSentinelsTest {
         }
         em.flush();
 
-        eventService.delete(eventId, "auth0|sentinel-user");
-        em.flush();
-        em.clear();
+        // [EVENT_DELETE_CASCADE] (Étape 24.3.5, A9): capture audit log on cascade.
+        Logger jul = Logger.getLogger(EventService.class.getName());
+        Level originalLevel = jul.getLevel();
+        List<LogRecord> captured = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override public void publish(LogRecord r) { captured.add(r); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        jul.addHandler(handler);
+        jul.setLevel(Level.ALL);
+        try {
+            eventService.delete(eventId, "auth0|sentinel-user");
+            em.flush();
+            em.clear();
 
-        assertNull(Event.findById(eventId));
-        assertEquals(0L, EventCoOrganizer.count("eventId = ?1", eventId));
-        assertEquals(0L, Favorite.count("eventId = ?1", eventId));
-        assertEquals(0L, EventView.count("eventId = ?1", eventId));
+            assertNull(Event.findById(eventId));
+            assertEquals(0L, EventCoOrganizer.count("eventId = ?1", eventId));
+            assertEquals(0L, Favorite.count("eventId = ?1", eventId));
+            assertEquals(0L, EventView.count("eventId = ?1", eventId));
+
+            assertTrue(
+                captured.stream().anyMatch(r -> {
+                    String msg = r.getMessage();
+                    return msg != null && msg.contains("[EVENT_DELETE_CASCADE]");
+                }),
+                "expected an audit log record containing [EVENT_DELETE_CASCADE] but captured=" + captured);
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(originalLevel);
+        }
     }
 }

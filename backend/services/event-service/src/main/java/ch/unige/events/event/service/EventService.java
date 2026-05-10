@@ -21,6 +21,7 @@ import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import ch.unige.events.shared.storage.FileStorageService;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -448,13 +449,17 @@ public class EventService {
         // S9 if needed). EVENT-DELETE-001: purge event_co_organizers so
         // PENDING/ACCEPTED rows do not survive a deleted parent (the table
         // has no ON DELETE CASCADE FK in V8).
-        entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
+        int favs = entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
                 .setParameter("id", id).executeUpdate();
-        entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
+        int views = entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
                 .setParameter("id", id).executeUpdate();
-        entityManager.createQuery("DELETE FROM EventCoOrganizer co WHERE co.eventId = :id")
+        int coOrgs = entityManager.createQuery("DELETE FROM EventCoOrganizer co WHERE co.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         event.delete();
+        Log.infof(
+            "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d",
+            id, auth0Id, favs, views, coOrgs
+        );
     }
 
     @Transactional
