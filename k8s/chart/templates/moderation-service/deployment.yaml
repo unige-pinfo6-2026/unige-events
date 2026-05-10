@@ -11,6 +11,10 @@ spec:
   # routes /api/events/{id}/report + /api/admin/reports[/{id}] here.
   # ModerationCleanupJob (cron @ 03:00 Europe/Zurich) runs in this pod
   # — replicas: 1 strict (no leader-election in S8).
+  #
+  # ⚠ DO NOT scale-out without revisiting ADR-001
+  # (backend/docs/adr/ADR-001-moderation-cleanup-replicas-strict.md).
+  # Two replicas would duplicate every events.banned audit-trail emit.
   replicas: 1
   strategy:
     type: RollingUpdate
