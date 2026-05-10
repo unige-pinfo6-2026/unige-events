@@ -145,6 +145,17 @@ public class UserService {
         return user;
     }
 
+    /**
+     * MINOR-011 (Étape 5.5 finalization-complete): {@code saveImage} performs
+     * an S3 delete-then-upload of the previous object before the JPA flush
+     * commits the new {@code avatarUrl}. If the JPA flush fails after the
+     * S3 upload succeeded, the old S3 object is already deleted and the new
+     * one is left orphaned (URL never persisted on the entity). Known
+     * limitation inherited from the legacy monolith — acceptable for a
+     * pinfo6 project. A proper outbox / two-phase commit pattern is
+     * deferred to S9+ (would require a dedicated cleanup job scanning S3
+     * for objects without a referencing entity).
+     */
     @Transactional
     public User uploadImage(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
@@ -154,6 +165,7 @@ public class UserService {
         return user;
     }
 
+    /** Same S3 cleanup limitation as {@link #uploadImage} — see its JavaDoc. */
     @Transactional
     public User uploadBanner(String auth0Id, FileUpload fileUpload) {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);

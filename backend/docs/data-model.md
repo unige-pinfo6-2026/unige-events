@@ -710,10 +710,14 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
-- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
-- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
-- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
+- Migrations : redistribuées par service propriétaire post-Étape 1.1 finalization-complete (Décision A) sous `backend/services/<svc>-service/src/main/resources/db/migration/V<N>__<snake_case_description>.sql`. Mapping :
+  - `user-service` : V1 (`create_users`), V14 (`create_follows`).
+  - `event-service` : V2 (`create_events`), V4 (`create_favorites`), V5 (`create_event_views`), V7 (`reconcile_check_constraints`), V8 (`create_event_co_organizers`), V9 (`widen_event_description`), V11 (`allow_event_status_expired`), V12 (`add_featured_to_events`), V13 (`allow_event_status_banned`), V17 (`add_event_recurrence`).
+  - `engagement-service` : V3 (`create_attendances`), V15 (`create_comments`), V16 (`alter_comments_parent_fk_set_null`).
+  - `moderation-service` : V6 (`create_reports`), V10 (`add_report_reason_and_review_fields`).
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices et Flyway est désactivé (`%test.quarkus.flyway.enabled=false`).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0` + `out-of-order=true` + `validate-on-migrate=false`. Chaque service applique son sous-ensemble — la base partagée `public` voit l'union des V*.sql sans qu'aucun service ne réclame la totalité des versions.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…` dans le service propriétaire.
 
 ### V1 — Réconciliation des contraintes CHECK
 
