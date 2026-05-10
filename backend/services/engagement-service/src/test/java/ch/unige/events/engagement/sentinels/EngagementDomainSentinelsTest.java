@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -228,5 +229,33 @@ class EngagementDomainSentinelsTest {
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> commentService.delete("auth0|sentinel-user", 99999L));
         assertEquals(404, ex.getResponse().getStatus());
+    }
+
+    /**
+     * SCRUM-136 cascade — Décision G: CommentService consumes the
+     * {@code coOrganizerOf} flag from the REST client payload (resolved
+     * by event-service via {@code ?check-co-org-of=}). No local cross-
+     * domain JPA logic.
+     */
+    @Test
+    void cascadeScrum136_viaRestClient_noLocalLogic() {
+        // Caller is the userBId; event creator is userAId; userBId is
+        // marked as ACCEPTED co-organizer in the REST client payload —
+        // CommentService.post must succeed (the cascade reads the
+        // payload boolean, no local table lookup is performed).
+        EventDTO ev = new EventDTO(150L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null, userAId,
+                EventStatus.PUBLISHED, null, false, false, null,
+                0L, null, 0L, 0L, 0L,
+                null, null, null,
+                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                null, null, /* coOrganizerOf */ Boolean.TRUE);
+        when(eventClient.getByIdWithCoOrgCheck(eq(150L), any(UUID.class))).thenReturn(ev);
+
+        // Should not throw — the post is authorized via the REST-client
+        // boolean, never via a local cross-domain lookup.
+        assertDoesNotThrow(() -> commentService.post("auth0|sentinel-user", 150L,
+                new CreateCommentRequest("hi from a co-organizer", null)));
     }
 }
