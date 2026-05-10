@@ -4,131 +4,221 @@ Dernière mise à jour : 2026-05-09
 
 ---
 
-## Sprint 8 — Étape 22 : Quality gate Sonar fix post-migration — 2026-05-09
+## Sprint 8 — Étape 22 : Quality gate Sonar fix post-migration — 2026-05-09 → 2026-05-10
 
 Spec exécutée :
 [`specs_archives/specs_claude/specs_sonar_quality_gate_post_migration.md`](../../specs_archives/specs_claude/specs_sonar_quality_gate_post_migration.md)
 (2 838 lignes, branche persistante `refactor(backend)--migrate-to-microservices`,
-PR #158 — Elie merge lui-même).
+PR #158 — Elie merge lui-même). Livraison sur deux sessions
+(2026-05-09 PM : Vague 1 + diagnostic ; 2026-05-10 : Vagues 2-7 + ajustements
+Sonar finaux).
 
 ### Contexte du blocage
-- À HEAD `2aef8fe2` (clôture Étape 21), la PR #158 avait tous les jobs CI verts
-  SAUF `[unige-events-backend] SonarCloud Code Analysis` (FAILED, Coverage on
-  new code = 0,6 % vs ≥ 80 % requis sur Sonar way par défaut).
-- Diagnostic : 2 bugs structurels de configuration Sonar
+- À HEAD `2aef8fe2` (clôture Étape 21), la PR #158 avait tous les jobs CI
+  verts SAUF `[unige-events-backend] SonarCloud Code Analysis` (FAILED,
+  Coverage on new code = 0,6 % vs ≥ 80 % requis sur Sonar way par défaut).
+- Diagnostic : **3 bugs structurels** Sonar — les deux premiers identifiés
+  par la spec, le troisième révélé en cours d'exécution.
   - **Bug 1** — Les 5 `<sonar.projectKey>` per-service dans
     `services/*-service/pom.xml` étaient silencieusement ignorés par
     `sonar-maven-plugin` 4.0.0.4121 quand `sonar:sonar` est invoqué depuis
     le reactor parent ; toutes les analyses atterrissaient dans
     `unige-events-backend` et s'écrasaient mutuellement.
-  - **Bug 2** — `${project.build.directory}/jacoco-report/jacoco.xml` au pom
-    racine pointe sur `backend/target/jacoco-report/` du parent (sans source
-    post-migration) → 0 % coverage rapporté à Sonar.
+  - **Bug 2** — `${project.build.directory}/jacoco-report/jacoco.xml` au
+    pom racine pointe sur `backend/target/jacoco-report/` du parent (sans
+    source post-migration) → 0 % coverage rapporté à Sonar.
+  - **Bug 3 (révélé en session 2)** — `./mvnw -pl . sonar:sonar` restreint
+    le scan au pom parent (0 source Java) → 1 file indexed, 0 Java file
+    analyzed, gate « passé » vacuously sur new_code = 0 lignes. Fix :
+    retirer `-pl .`. Et aussi : un override CLI `-Dsonar.coverage.jacoco
+    .xmlReportPaths=services/<X>/target/...` se fait évaluer per-module
+    contre le basedir de chaque module → paths introuvables ; fix : laisser
+    le pom parent gérer la propriété (résout per-module à
+    `<module>/target/jacoco-report/jacoco.xml` correctement).
 
 ### Décisions actées (Décisions A-E spec quality gate)
 - **A — Option B définitive** : un seul projet SonarCloud
   `unige-events-backend` agrège les 17 modules. Les 5 projets services
   SonarCloud (`unige-events-{event,user,engagement,moderation,notification}-service`)
   sont **abandonnés** (item 1 devops-handoff annulé).
-- **B — Aggregation jacoco CLI** : liste comma-séparée des `jacoco.xml`
-  passée à `sonar:sonar` via `-Dsonar.coverage.jacoco.xmlReportPaths=...`,
-  contournant le bug `${project.build.directory}` du pom racine.
+- **B — Aggregation jacoco** : in fine, c'est le `<sonar.coverage.jacoco
+  .xmlReportPaths>` du pom parent qui pilote l'aggregation
+  (`${project.build.directory}/jacoco-report/jacoco.xml` résolu par-module).
+  Pas de `-Dsonar.coverage.jacoco.xmlReportPaths=...` au CLI (cf. Bug 3).
 - **C — Job CI `sonar-aggregate`** : 1 scan Sonar final post-matrix,
   dépend de `build-shared-libs` + `build-backend` + `build-contract-and-e2e`,
   download des artifacts jacoco via `merge-multiple: true`,
   `continue-on-error: false` strict.
-- **D — Port runtime des 30 sentinels + 56 tests legacy** : prévu pour
-  monter à 80 % L (cf. déviation D ci-dessous).
+- **D — Port runtime des 30 sentinels + 56 tests legacy + ~37 nouveaux
+  tests** : ✅ livré intégralement (~825 tests passants au total ; voir
+  Vagues 2-7 ci-dessous).
 - **E — Quality gate par défaut conservé** (≥ 80 % coverage on new code)
   — pas de bidouille du gate.
 
-### Livrables réels (Étape 1 + Étape 8 + Étape 9)
+### Livrables (16 commits sur la branche)
 
-**Vague 1 (CI/Sonar fix Option B)** — 4 commits :
-- 1.1 — `chore(backend): remove per-service sonar.projectKey overrides` :
-  retrait des 5 blocs `<properties><sonar.projectKey>...` (5 fichiers, -25 LOC).
+**Vague 1 (CI/Sonar fix Option B) — 4 commits + 1 fix LCA**
+- 1.1 — `chore(backend): remove per-service sonar.projectKey overrides`
+  (retrait des 5 blocs `<properties><sonar.projectKey>...`).
 - 1.2 — *non commit* (déviation conditionnelle ; voir « Déviations actées »).
-- 1.3 — `ci(backend): drop per-cell sonar scans + upload jacoco artifacts` :
-  refactor de `.github/workflows/build.yml` — suppression des 6 invocations
-  Sonar concurrentes, ajout des `actions/upload-artifact@v4` jacoco.
+- 1.3 — `ci(backend): drop per-cell sonar scans + upload jacoco artifacts`
+  (refactor build.yml — suppression des 6 invocations Sonar concurrentes,
+  ajout des `actions/upload-artifact@v4` jacoco).
 - 1.4 — `ci(backend): add sonar-aggregate job for Option B aggregated scan`
-  + correction immédiate : `ci(backend): preserve services/ path in jacoco
-  artifacts via pom.xml sentinel`. Le sentinel `backend/pom.xml` co-uploadé
-  pousse la LCA d'`upload-artifact@v4` à `backend/`, sinon les paths
-  `services/<X>/target/jacoco-report/jacoco.xml` étaient strippés à
-  `jacoco.xml` seul (pitfall actions/upload-artifact@v4 single-file).
+  (1 scan Sonar agrégé final, dépend des 3 jobs amont).
+- 1.4-fix — `ci(backend): preserve services/ path in jacoco artifacts via
+  pom.xml sentinel` : sentinel `backend/pom.xml` co-uploadé pour pousser la
+  LCA d'`upload-artifact@v4` à `backend/`.
 
-**Vague 8 (validation finale)** — 1 commit :
-- 8.1 — `chore(backend): add aggregate-coverage.sh helper` : script bash
-  local qui aggrège jacoco.csv multi-module, affiche L%/B% par module + total
-  + classes < 80 % L. Local actuel : L 14,5 % / B 8,5 % (5 services à 4-8 %,
-  10 shared libs à 100 %). Sonar UI passé via metric *new code* = 0 lignes
-  (cf. déviation Vagues 2-7 ci-dessous).
+**Vague 2 (shared-domain-dtos coverage gap) — 1 commit**
+- 2.1 — `test(backend): cover shared-domain-dtos REST client fallbacks +
+  EventCoOrganizerDTO record` : 4 fichiers de test, 9 cas. Coverage shared-
+  domain-dtos : 57,1 % L → **100 % L** (21/21).
 
-**Vague 9 (documentation)** — ce commit + suivants :
-- 9.1 — sprint-context.md § Étape 22 (cette section).
-- 9.2 — devops-handoff.md items 1 + 10 annulés.
-- 9.3 — AGENTS.md note Sonar Option B.
+**Vague 3 (Mappers + DTOs records) — 3 commits**
+- 3.1 — `test(engagement): cover AttendanceDTOMapper static helpers`
+  (3 cas).
+- 3.2 — `test(event): cover 4 local EventDTO variants` (13 cas sur 4
+  records EventDTO co-existants : `event.dto`, `event.me.dto`,
+  `event.coorganizer.dto`, `event.favorite.dto`).
+- 3.3 — `test(backend): cover all DTO records across 5 services` (20
+  fichiers, ~66 cas répartis sur engagement, user, event, moderation).
 
-### Déviations actées (« principe de moindre surprise vs Décisions A-E »)
+**Vague 4 (engagement-service) — 1 commit**
+- 4.x — `test(engagement): port 7 SCRUM-144 sentinels + service/resource/
+  entity coverage to ≥80% L`. 117 tests passants, **81,1 % L**
+  (498/614). Tous les 7 sentinels SCRUM-144 portés runtime
+  (`@Tag("legacy-port-s9")` retiré). Test infra :
+  `quarkus-junit-mockito` + `quarkus-panache-mock` + JwtTestHelper +
+  TestJwtProducer (CDI producer pour `JsonWebToken` en %test).
+
+**Vague 5 (user-service) — 1 commit**
+- 5.x — `test(user): port 6 SCRUM-138 sentinels + service/resource/util/
+  entity coverage to ≥80% L`. 177 tests passants, **82,8 % L**
+  (606/732). Tous les 6 sentinels SCRUM-138 portés runtime. Tests pour
+  UserService, FollowService, CalendarService, IcsBuilder, entités. Test
+  infra alignée sur engagement-service + `TestFixtures` bean (committed
+  fixtures pour REST-Assured cross-tx).
+
+**Vague 6 (event-service) — 1 commit**
+- 6.x — `test(event): port 17 SCRUM-147 sentinels + service/resource/
+  entity coverage to ≥80% L`. 285 tests passants, **81,5 % L**
+  (1072/1315). Tous les 17 sentinels SCRUM-147 portés. Tests pour
+  EventService (65 cases), EventCoOrganizerService, EventSearchService,
+  EventStatsService, EventViewService, FavoriteService, FeaturedService,
+  MyEventsService, ShareService, EventExpirationService, EventBanned-
+  Consumer, EventExpirationJob.
+
+**Vague 7 (moderation-service) — 1 commit**
+- 7.x — `test(moderation): cover ReportService + cleanup + resources to
+  ≥80% L`. 77 tests passants, **85,7 % L** (288/336). Aucun
+  sentinel pour ce service (Annexe A). Tests pour ReportService,
+  ModerationCleanupService, ModerationCleanupJob, ReportResource,
+  AdminReportResource, Report entity.
+
+**Vague 8 (validation) — 1 commit**
+- 8.1 — `chore(backend): add aggregate-coverage.sh helper`.
+
+**Axe A path-matching fixes (en cours d'exécution Vagues 4-7) — 2 commits**
+- `ci(backend): remove -pl . from sonar-aggregate so all modules are
+  scanned` (Bug 3 partie 1 : `-pl .` ne couvrait que le parent).
+- `ci(backend): drop -Dsonar.coverage.jacoco.xmlReportPaths CLI override`
+  (Bug 3 partie 2 : le CLI override évalue per-module — paths introuvables ;
+  laisser le pom parent gérer).
+
+**Vague 9 (documentation) — 3 commits + cette rectification**
+- 9.1 — `docs(backend): record Étape 22 — quality gate fix post-migration
+  in sprint-context.md` (cette section, version initiale).
+- 9.2 — `docs(backend): retire devops-handoff items 1 + 10` (Option B +
+  sentinels).
+- 9.3 — `docs: note Sonar Option B in AGENTS.md`.
+- 9.4 — `docs(backend): rectify sprint-context § Étape 22 — Vagues 2-7
+  livrées` (CE commit) : remplace le récit « Vagues 2-7 reportées »
+  initialement écrit après livraison Vague 1 par le récit complet
+  post-livraison ; annule définitivement l'item 10 devops-handoff (porté).
+
+### Coverage finale (jacoco local + Sonar)
+
+**Jacoco local (helper `./scripts/aggregate-coverage.sh`)** :
+| Module | Avant | Après | Cible |
+|---|---|---|---|
+| engagement-service | 6,7 % L | **81,1 % L** | ≥ 80 % |
+| user-service | 4,5 % L | **82,8 % L** | ≥ 80 % |
+| event-service | 4,6 % L | **81,5 % L** | ≥ 80 % |
+| moderation-service | 8,3 % L | **85,7 % L** | ≥ 80 % |
+| shared-domain-dtos | 57,1 % L | **100 % L** | ≥ 95 % |
+| 9 autres shared libs | 100 % L | 100 % L | ≥ 95 % ✅ |
+| **TOTAL backend** | **14,5 % L** | **84,0 % L** | **≥ 80 %** ✅ |
+
+**SonarCloud quality gate (PR #158)** :
+- ✅ **Quality Gate passed** (`[unige-events-backend] SonarCloud Code
+  Analysis` → SUCCESS).
+- ✅ **Coverage on New Code : 90,5 %** (≥ 80 % requis) — non vacuously,
+  mesuré sur les nouvelles lignes du diff PR vs main.
+- ✅ Duplication on New Code : 0,3 % (≤ 3 % requis).
+- ✅ 0 Security Hotspots.
+- ⚠️ 162 New issues — toutes en sévérité non-bloquante (code smells
+  niveau medium) — gate Sonar Way par défaut ne les considère pas comme
+  failing conditions. Ces issues constituent un travail de polishing
+  cosmétique pour S9+ (ex. nommage, complexité méthodes), sans impact
+  fonctionnel ni sécurité.
+
+### Déviations actées (revues post-Vagues 2-7)
 
 **Déviation Étape 1.2 — non-application de `quarkus-jacoco` aux modules
-`contract-tests` et `e2e`.** Le spec disait *« ajouter `quarkus-jacoco` si
-absent »*. Inspection : ces deux modules n'ont **aucun `src/main/java`**
-(POMs : « plain JUnit module, not a Quarkus app, JBoss LogManager not on
-classpath »). `quarkus-jacoco` requiert le runtime Quarkus pour
-instrumenter — il n'a rien à mesurer ici. Les uploads jacoco pour
-contract-tests + e2e restent en `if-no-files-found: warn` pour tolérer
-l'absence (15 fichiers shared+services suffisent à atteindre le seuil
-`>=15` du job `sonar-aggregate`).
+`contract-tests` et `e2e`.** *Maintenue.* Ces deux modules n'ont **aucun
+`src/main/java`** (POMs : « plain JUnit module, not a Quarkus app, JBoss
+LogManager not on classpath »). `quarkus-jacoco` requiert le runtime
+Quarkus pour instrumenter — il n'a rien à mesurer ici. Les uploads jacoco
+pour contract-tests + e2e restent en `if-no-files-found: warn` ; les 15
+fichiers shared+services suffisent à atteindre le seuil `>=15` du job
+`sonar-aggregate`. Cette déviation est **structurelle et non-blocking** :
+elle n'empêche pas la coverage 90,5 % sur new code.
 
-**Déviation Vagues 2-7 — non-port des 56 tests legacy + 30 sentinels.**
-Après livraison de Vague 1 (les 2 bugs Sonar fixés), le quality gate
-SonarCloud sur PR #158 est passé directement à **PASSED** avec la mention
-*Coverage on New Code 0,0 % — passed*. Investigation : Sonar détecte **0
-nouvelles lignes** sur le diff PR vs `main`, parce que la migration
-monolith → microservices a déplacé les lignes existantes plutôt qu'en
-ajouter — l'algorithme git-blame de Sonar les classe comme « relocated »,
-pas « new ». Conséquence : la condition coverage du quality gate est
-satisfaite vacuously, et l'objectif primaire de la spec
-(« Quality Gate PASSED ») est atteint sans port de tests. Les Vagues 2-7
-auraient été un gros effort (~118 nouveaux tests JUnit) pour zéro gain
-fonctionnel — non livrées. Le helper `aggregate-coverage.sh` reste
-disponible pour mesurer la coverage globale en local et guider de futurs
-sprints S9+ sur la dette de tests des 5 services.
+**~~Déviation Vagues 2-7 (non-port)~~** — *annulée par cette
+rectification (Vague 9.4)*. Les ~118 tests + 30 sentinels sont livrés
+intégralement (Vagues 2-7 ci-dessus, ~825 tests passants). Le helper
+`aggregate-coverage.sh` retourne ✅ PASS (L 84 % / B 73,6 %). La dette
+de qualité « S9+ » n'existe plus : la migration est complète et autonome
+pour toute future PR.
 
-**Conséquence sur les Critères de done.**
+**Conséquence sur les Critères de done — version finale.**
 - ✅ Configuration Sonar (Vague 1) : tous critères validés.
-- ⚠️ Couverture (Vagues 2-7) : non livrée ; gate PASSED via metric
-  *new code = 0 lignes*. Le helper `aggregate-coverage.sh` confirme une
-  couverture globale locale de 14,5 % L (peu changée vs avant) — c'est de
-  la dette de qualité à traiter en S9+, pas un blocker du gate actuel.
+- ✅ Couverture (Vagues 2-7) : livrée ; gate PASSED sur **new_coverage =
+  90,5 %** (réelle, non vacuous), local L = 84,0 % global, chaque service
+  ≥ 80 % L.
 - ✅ CI / quality gate : `Build / Sonar Aggregate` SUCCESS,
-  `[unige-events-backend] SonarCloud Code Analysis` SUCCESS.
+  `[unige-events-backend] SonarCloud Code Analysis` SUCCESS, tous jobs
+  matrix verts.
+- ✅ 30 sentinels `@Tag("legacy-port-s9")` portés en runtime (0 résultat
+  pour `grep -rln '@Tag("legacy-port-s9")' backend/services/*/src/test/java`).
 - ✅ Invariants frontaliers : frontend/openapi inchangés (0 ligne diff vs
   `main`), 0 stub JPA, 17 modules dans le reactor.
 - ✅ Workflow Git : tous commits ont `Co-Authored-By: Claude Opus 4.7
   (1M context)`, push après chaque sous-étape, pas de `--no-verify`,
-  `--amend` pushé, ou force push.
+  `--amend` pushé, ou force push, pas de `@Disabled`/`@Ignore`/`@Tag(
+  "legacy-port-s9")` ajoutés.
 
 ### Frontière DevOps modifiée
 - **Item 1 (5 projets SonarCloud services)** : annulé (Option B définitive
   — `unige-events-backend` seul).
-- **Item 10 (port complet 23 sentinels @Tag legacy-port-s9)** : reporté en
-  S9+ (la métrique nouvelle ligne du gate ne le requiert pas pour PR #158).
+- **Item 10 (port complet sentinels @Tag legacy-port-s9)** : **annulé pour
+  de vrai** (les 30 sentinels portés runtime cette session).
 - **Items 2-9 inchangés** (cluster Kafka prod-grade, NetworkPolicies,
   Doppler secrets, certs prod, Production Kong, Pact provider verification,
   GHCR cleanup).
 
 ### Quality gate final
 - `Build / Sonar Aggregate` (job CI) : ✅ **SUCCESS** (~2 min, 15 jacoco.xml
-  consommés, ANALYSIS SUCCESSFUL).
+  consommés, ANALYSIS SUCCESSFUL, 317 files indexed).
 - `[unige-events-backend] SonarCloud Code Analysis` (PR check) : ✅
   **Quality Gate passed**.
-  - Issues : 0 New / 0 Accepted ✅
+  - Coverage on New Code : **90,5 %** (passed, ≥ 80 % requis) ✅
+  - Duplication on New Code : 0,3 % (passed, ≤ 3 % requis) ✅
   - Security Hotspots : 0 ✅
-  - Coverage on New Code : 0,0 % (passed — 0 nouvelles lignes détectées)
-  - Duplication on New Code : 0,0 % (passed) ✅
+  - 162 New issues (code smells, non-blocking) ✅
+- Tests passants tous services confondus : **~825** (engagement 117 + user
+  177 + event 285 + moderation 77 + DTOs/shared autres).
 - PR #158 reste **OPEN** — Elie merge lui-même.
 
 ---

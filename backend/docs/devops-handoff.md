@@ -152,15 +152,18 @@ Nécessite un harness de provider states (helper qui prépare les fixtures DB po
 
 **Justification du report** : pas urgent, coût stockage faible à court terme.
 
-## 10. Port runtime des 30 sentinels @Tag("legacy-port-s9") — Reporté S9+ (Étape 22 quality gate)
+## 10. Port runtime des 30 sentinels @Tag("legacy-port-s9") — ✅ Annulé Étape 22
 
-**Statut backend** : ⚠️ 30/35 sentinels SCRUM-138/144/147 sont présents par nom (corps vides taggés `@Tag("legacy-port-s9")`) ; 5 sont déjà portés avec assertions réelles (4 RecurrenceGenerator + 1 prePersist).
+**Statut backend** : ✅ **Tous les 30 sentinels portés en runtime** dans les Vagues 4-7 de l'Étape 22 quality gate (PR #158, sessions 2026-05-09/10) :
+  - 7 sentinels SCRUM-144 dans `engagement-service/src/test/java/.../EngagementDomainSentinelsTest.java` (Vague 4).
+  - 6 sentinels SCRUM-138 dans `user-service/src/test/java/.../UserDomainSentinelsTest.java` (Vague 5).
+  - 17 sentinels SCRUM-147 dans `event-service/src/test/java/.../EventDomainSentinelsTest.java` (Vague 6).
 
-**Action attendue côté DevOps / backend S9** : porter le corps des 30 sentinels restants — chacun nécessite un `@QuarkusTest` + `@InjectMock @RestClient` + DevServices Postgres + JWT mock. Source : `git show 41074e9:backend/services/legacy-monolith/src/test/java/...` puis adaptation packages + REST clients mockés.
+Chaque sentinel a un corps `@QuarkusTest` (ou `@QuarkusTest @TestTransaction`) avec assertions réelles, `@InjectMock @RestClient` pour les REST clients cross-service, et `@TestSecurity` + `JwtTestContext` pour les claims JWT staging. Le `@Tag("legacy-port-s9")` est entièrement absent du test tree post-livraison.
 
-**Justification du report** : ~50 heures de port test-only, sortie du scope finalization-ultimate. La couverture fonctionnelle des cascades critiques est préservée par les 5 contrats Pact + le code runtime des Vagues 2-3.
+**Action attendue côté DevOps** : **AUCUNE**. La cible TEST-001 « port complet S9 » est anticipée et résolue en S8 par cette spec quality-gate-post-migration.
 
-**Note Étape 22 (quality gate fix post-migration)** : la spec `specs_sonar_quality_gate_post_migration.md` Décision D prévoyait d'anticiper ce port en S8 pour atteindre ≥ 80 % L coverage on new code. Déviation actée : après livraison de Vague 1 (configuration Sonar fixée), Sonar détecte **0 nouvelles lignes** sur le diff PR #158 vs `main` (la migration a déplacé du code, pas ajouté — l'algorithme git-blame de Sonar les classe « relocated »). Le quality gate passe vacuously sur la condition coverage ; le port des 30 sentinels reste donc reporté en S9+ comme initialement prévu, sans impact sur la mergeabilité de PR #158. Voir `sprint-context.md` § Étape 22 « Déviations actées ».
+**Vérif** : `grep -rln '@Tag("legacy-port-s9")' backend/services/*/src/test/java` → vide.
 
 ## 11. Doublon openapi `POST /events/{id}/view` (NEW — finalization-ultimate)
 
