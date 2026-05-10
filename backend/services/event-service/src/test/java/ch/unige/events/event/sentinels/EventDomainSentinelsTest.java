@@ -1,16 +1,20 @@
 package ch.unige.events.event.sentinels;
 
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
 import ch.unige.events.event.dto.UpdateEventRequest;
 import ch.unige.events.event.entity.Event;
+import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.event.service.EventService;
 import ch.unige.events.event.test.JwtTestContext;
 import ch.unige.events.event.test.JwtTestHelper;
+import ch.unige.events.event.view.entity.EventView;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
@@ -370,5 +374,54 @@ class EventDomainSentinelsTest {
         JwtTestContext.clear();
         assertThrows(NotFoundException.class,
                 () -> eventService.getOccurrences(parent.id, null, false, 0, 20));
+    }
+
+    // -----------------------------------------------------------
+    // 6. EVENT-DELETE-001 cascade sentinel (Étape 24.2.1, C1)
+    //    Pins the cascade fix from Étape 23.2.3: deleting a CANCELLED
+    //    event must purge EventCoOrganizer + Favorite + EventView rows
+    //    (none of these tables has ON DELETE CASCADE FK in V8).
+    // -----------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    void delete_cascadesAllChildRows() {
+        Event event = newPersisted(EventStatus.CANCELLED, creatorUuid, null);
+        Long eventId = event.id;
+
+        EventCoOrganizer pendingCoOrg = new EventCoOrganizer();
+        pendingCoOrg.eventId = eventId;
+        pendingCoOrg.userId = UUID.randomUUID();
+        pendingCoOrg.status = CoOrganizerStatus.PENDING;
+        pendingCoOrg.persist();
+
+        EventCoOrganizer acceptedCoOrg = new EventCoOrganizer();
+        acceptedCoOrg.eventId = eventId;
+        acceptedCoOrg.userId = UUID.randomUUID();
+        acceptedCoOrg.status = CoOrganizerStatus.ACCEPTED;
+        acceptedCoOrg.persist();
+
+        for (int i = 0; i < 3; i++) {
+            Favorite fav = new Favorite();
+            fav.eventId = eventId;
+            fav.userId = UUID.randomUUID();
+            fav.persist();
+        }
+        for (int i = 0; i < 5; i++) {
+            EventView v = new EventView();
+            v.eventId = eventId;
+            v.userId = UUID.randomUUID();
+            v.persist();
+        }
+        em.flush();
+
+        eventService.delete(eventId, "auth0|sentinel-user");
+        em.flush();
+        em.clear();
+
+        assertNull(Event.findById(eventId));
+        assertEquals(0L, EventCoOrganizer.count("eventId = ?1", eventId));
+        assertEquals(0L, Favorite.count("eventId = ?1", eventId));
+        assertEquals(0L, EventView.count("eventId = ?1", eventId));
     }
 }
