@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ApiErrorResponseTest {
 
@@ -31,5 +32,17 @@ class ApiErrorResponseTest {
         // We don't assert exact formatting (JDK-dependent) but require both fields to appear.
         assert s.contains("not_found");
         assert s.contains("missing");
+    }
+
+    @Test
+    void constructor_nullError_throws() {
+        assertThrows(NullPointerException.class,
+                () -> new ApiErrorResponse(null, "msg"));
+    }
+
+    @Test
+    void constructor_blankError_throws() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new ApiErrorResponse("   ", "msg"));
     }
 }
