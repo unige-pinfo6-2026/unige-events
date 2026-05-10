@@ -1,20 +1,29 @@
 package ch.unige.events.event.share.service;
 
+import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
+import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.share.config.AppConfig;
 import ch.unige.events.event.share.dto.ShareResponse;
-import ch.unige.events.event.entity.Event;
+import ch.unige.events.shared.domain.enums.EventStatus;
+import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.security.SecureRandom;
+import java.util.UUID;
 
 /**
- * Share token generator + resolver. Identical semantics to the legacy
- * monolith's ShareService (ch.unige.events.service.ShareService) — copied
- * here for the soft-extraction step (cf.
- * specs_archives/specs_claude/specs_microservices_migration.md decision 4).
+ * Share token generator + resolver. Co-located in event-service post-finalization.
+ *
+ * <p>Apply the ISSUE-92 anti-oracle cascade + creator/accepted-co-org/admin
+ * guard before generating or returning the share code so a non-authorized
+ * caller cannot probe an event's existence (404 indistinguishable from
+ * unknown id) nor mutate the database (no shareCode persisted on rollback).
  */
 @ApplicationScoped
 public class ShareService {
@@ -27,10 +36,55 @@ public class ShareService {
     @Inject
     AppConfig appConfig;
 
+    /**
+     * Lazy via {@link Instance} so unit tests that boot with
+     * {@code quarkus.oidc.enabled=false} can still resolve the bean.
+     */
+    @Inject Instance<JsonWebToken> jwt;
+
+    private JsonWebToken jwt() {
+        return jwt.isResolvable() ? jwt.get() : null;
+    }
+
+    /**
+     * Loads the event and authorizes the caller before generating / returning
+     * the share code.
+     *
+     * <p>ISSUE-92 anti-oracle cascade: events in {@code DRAFT}, {@code CANCELLED},
+     * {@code EXPIRED} or {@code BANNED} are 404'd for callers who are neither
+     * the creator, an accepted co-organizer, nor an admin — strictly identical
+     * to the unknown-id branch.
+     *
+     * <p>Authorization: even on a {@code PUBLISHED} event, only the creator,
+     * accepted co-organizers or admins receive the share code (others get 403).
+     * This prevents leaking the share secret to anonymous browsers and ensures
+     * no {@code event.shareCode} mutation is committed on the rollback path.
+     *
+     * @throws NotFoundException event not found, or in a non-public state and
+     *                           caller is not creator/co-org/admin (anti-oracle).
+     * @throws ForbiddenException event is PUBLISHED but caller is not authorized.
+     */
     @Transactional
-    public ShareResponse getShareInfo(Long eventId) {
+    public ShareResponse getShareInfo(Long eventId, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(eventId)
-                .orElseThrow(() -> new NotFoundException("Event not found"));
+                .orElseThrow(NotFoundException::new);
+
+        if (event.status == EventStatus.BANNED) {
+            throw new NotFoundException();
+        }
+
+        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        boolean isCreator = callerUuid != null && callerUuid.equals(event.creatorId);
+        boolean isAcceptedCoOrg = callerUuid != null
+                && EventCoOrganizer.isAcceptedFor(eventId, callerUuid);
+
+        if (event.status != EventStatus.PUBLISHED && !isAdmin && !isCreator && !isAcceptedCoOrg) {
+            throw new NotFoundException();
+        }
+        if (!isAdmin && !isCreator && !isAcceptedCoOrg) {
+            throw new ForbiddenException(
+                    "Only the creator, accepted co-organizers or admins can fetch share info.");
+        }
 
         if (event.shareCode == null) {
             event.shareCode = generateCode();
