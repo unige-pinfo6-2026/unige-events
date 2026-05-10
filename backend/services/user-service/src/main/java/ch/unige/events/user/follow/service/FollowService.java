@@ -140,10 +140,10 @@ public class FollowService {
      * is private and the caller isn't the owner. Same envelope as
      * "user does not exist" — closes the existence oracle.
      *
-     * <p>In the legacy monolith this lived in {@code UserService.getPublicProfile} ;
-     * user-service runs it (follow-service co-located post-finalization) inline so {@code GET /users/{id}/followers} and
-     * {@code /following} keep the same 404 semantics without a REST call to
-     * user-service (which doesn't exist yet — replaced at PR 12).
+     * <p>ISSUE-93 anti-oracle check inline: user-service hosts both Follow
+     * and User entities post-finalization (Étape 2.3 — cf.
+     * sprint-context.md § Étape 23), so this lookup is a local query, not
+     * a REST call.
      */
     public void assertProfileVisible(UUID targetId, String callerAuth0Id) {
         User target = User.<User>findByIdOptional(targetId)

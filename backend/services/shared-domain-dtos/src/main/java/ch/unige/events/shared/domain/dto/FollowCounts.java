@@ -4,8 +4,10 @@ import ch.unige.events.shared.domain.enums.FollowStatus;
 
 /**
  * Internal projection of a user's follow graph. Returned by
- * user-service's {@code GET (follow-service co-located post-finalization) /users/{id}/follow-counts} — consumed by
- * user-service to enrich {@code GET /users/{id}} payloads.
+ * user-service's {@code GET /users/{id}/follow-counts}
+ * (follow-service was absorbed into user-service post-finalization,
+ * cf. sprint-context.md § Étape 23) — consumed by user-service to
+ * enrich {@code GET /users/{id}} payloads.
  *
  * <p>{@code followStatus} reflects the caller's relationship to the
  * target (PENDING / ACCEPTED / null = not following / self).
