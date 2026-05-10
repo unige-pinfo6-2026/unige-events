@@ -23,8 +23,9 @@ import java.util.List;
 /**
  * {@code GET /api/users/me/co-organizer-invitations} — paginated list of
  * the caller's pending (or filtered-by-status) co-organizer invitations.
- * Lived on UserResource in legacy ; co-located with co-organizer-service
- * in the microservices topology.
+ * Owned by event-service (co-organizer-service was absorbed
+ * post-finalization, cf. sprint-context.md § Étape 23).
+ * Path = /api/users/me/co-organizer-invitations.
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)

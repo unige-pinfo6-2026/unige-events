@@ -42,10 +42,7 @@ data:
       # ───── PR 13 — event-service (extracted) ────────────────────────────
       # All /events/* and /admin/events/{id}/{,un}feature paths.
       # /events/search needs to win over /events/{digit-id} so it's
-      # listed first ; same for /featured. The /events/{id}/image upload
-      # is INTENTIONALLY not routed here — it stays on legacy-monolith
-      # via the catch-all because FileStorageService + S3 wiring isn't
-      # ported in S8 (cf. PR 12 user-service for the same trade-off).
+      # listed first ; same for /featured.
       # Hosts EventExpirationJob scheduler (every 1h).
       - name: event-service
         url: http://event-service:8080

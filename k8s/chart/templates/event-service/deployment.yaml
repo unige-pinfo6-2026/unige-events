@@ -10,9 +10,7 @@ spec:
   # event-service is now active (PR 13 of the extraction roadmap). Kong
   # routes /api/events* + /api/admin/events/{id}/{,un}feature here.
   # Hosts EventExpirationJob (every 1h) — replicas: 1 strict (no leader
-  # election in S8). The /events/{id}/image upload stays on legacy-monolith
-  # via the catch-all (FileStorageService not ported in S8 ; follow-up PR
-  # migrates it).
+  # election in S8).
   #
   # ─── Helm guard: replicas:1 strict (Étape 24.5.2, A3) ────────────────────
   # event-service hosts EventExpirationJob (@Scheduled every 1h). Without

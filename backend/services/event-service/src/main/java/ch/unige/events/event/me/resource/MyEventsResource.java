@@ -22,13 +22,9 @@ import java.util.List;
 
 /**
  * {@code GET /api/users/me/events} — paginated list of the events the
- * caller has created. Lived on UserResource in legacy ; in the
- * microservices topology it ships as the first BFF endpoint of
- * event-service (me-aggregator-service absorbed post-finalization).
- *
- * <p>The other /me/* paths (favorites, attendances, participations) stay
- * on their owning services until event-service ships and the BFF can
- * fan-out via REST clients.
+ * caller has created. Owned by event-service (me-aggregator-service was
+ * absorbed post-finalization, cf. sprint-context.md § Étape 23).
+ * Path = /api/users/me/events.
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)

@@ -19,10 +19,9 @@ import java.util.List;
 
 /**
  * {@code GET /api/users/me/favorites} — paginated list of events the
- * authenticated user has favorited. In the legacy monolith this method
- * lived on {@code UserResource} ; in the microservices topology it ships
- * with favorite-service so favorites stay co-located with the data they
- * project (cf. spec § "Découpage par bounded context").
+ * authenticated user has favorited. Owned by event-service (favorite-service
+ * was absorbed in finalization Étape 2.2.3, cf. sprint-context.md § Étape 23).
+ * Path = /api/users/me/favorites.
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
