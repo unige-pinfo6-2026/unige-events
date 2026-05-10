@@ -1,5 +1,6 @@
 package ch.unige.events.user.dto;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 import org.junit.jupiter.api.Test;
@@ -18,13 +19,13 @@ class UserPublicResponseTest {
         UUID id = UUID.randomUUID();
         List<String> interests = List.of("art");
         UserPublicResponse dto = new UserPublicResponse(
-            id, "Alice", "Sciences", "Master", "bio",
+            id, "Alice", Faculty.SCIENCES, "Master", "bio",
             interests, "https://av/a.png", "https://bn/a.png",
             12L, 5L, FollowStatus.ACCEPTED);
 
         assertEquals(id, dto.id());
         assertEquals("Alice", dto.displayName());
-        assertEquals("Sciences", dto.faculty());
+        assertEquals(Faculty.SCIENCES, dto.faculty());
         assertEquals("Master", dto.studyLevel());
         assertEquals("bio", dto.bio());
         assertEquals(interests, dto.interests());
@@ -86,11 +87,11 @@ class UserPublicResponseTest {
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         UserPublicResponse a = new UserPublicResponse(
-            id, "X", "f", "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
+            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
         UserPublicResponse b = new UserPublicResponse(
-            id, "X", "f", "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
+            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
         UserPublicResponse c = new UserPublicResponse(
-            id, "X", "f", "s", "b", List.of(), "av", "bn", 9L, 2L, FollowStatus.ACCEPTED);
+            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 9L, 2L, FollowStatus.ACCEPTED);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
@@ -101,7 +102,7 @@ class UserPublicResponseTest {
         User u = new User();
         u.id = UUID.randomUUID();
         u.displayName = "Bob";
-        u.faculty = "Lettres";
+        u.faculty = Faculty.LETTERS;
         u.studyLevel = "Bachelor";
         u.bio = "hello";
         u.interests = List.of("music");

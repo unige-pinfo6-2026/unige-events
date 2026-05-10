@@ -1,9 +1,12 @@
 package ch.unige.events.user.entity;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -37,7 +40,15 @@ public class User extends PanacheEntityBase {
     public String displayName;
     public String firstName;
     public String lastName;
-    public String faculty;
+
+    @Enumerated(EnumType.STRING)
+    public Faculty faculty;
+
+    /**
+     * Free-text study level until {@code StudyLevel} enum is introduced
+     * (deferred to S9+). Expected canonical values: {@code LICENCE},
+     * {@code MASTER}, {@code PHD}, {@code OTHER}.
+     */
     public String studyLevel;
 
     @Column(columnDefinition = "TEXT")

@@ -1,5 +1,6 @@
 package ch.unige.events.shared.domain.dto;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 
 import java.util.List;
@@ -15,11 +16,15 @@ import java.util.UUID;
  * {@code followStatus} fields are populated only when the request is
  * authenticated and the caller is allowed to see them ; otherwise the
  * record carries default zeros + null.
+ *
+ * <p>{@code studyLevel} stays free-text until a {@code StudyLevel} enum
+ * is introduced (deferred to S9+). Expected canonical values:
+ * {@code LICENCE}, {@code MASTER}, {@code PHD}, {@code OTHER}.
  */
 public record UserPublicResponse(
         UUID id,
         String displayName,
-        String faculty,
+        Faculty faculty,
         String studyLevel,
         String bio,
         List<String> interests,

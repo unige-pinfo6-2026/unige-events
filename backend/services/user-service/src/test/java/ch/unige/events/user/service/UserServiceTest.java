@@ -1,5 +1,6 @@
 package ch.unige.events.user.service;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.dto.PublicProfileView;
@@ -236,7 +237,7 @@ class UserServiceTest {
     void updateMyProfile_partialUpdate_appliesOnlyNonNullFields() {
         User user = persistUser("auth0|us-upd-partial", "us-upd-partial@example.com", false);
         user.displayName = "Old";
-        user.faculty = "Old Faculty";
+        user.faculty = Faculty.SCIENCES;
         entityManager.flush();
 
         UpdateProfileRequest req = new UpdateProfileRequest(
@@ -247,7 +248,7 @@ class UserServiceTest {
 
         assertEquals("New Name", updated.displayName);
         // faculty was null in request → unchanged
-        assertEquals("Old Faculty", updated.faculty);
+        assertEquals(Faculty.SCIENCES, updated.faculty);
         assertEquals("Master", updated.studyLevel);
         assertEquals("New bio", updated.bio);
         assertEquals(List.of("AI"), updated.interests);

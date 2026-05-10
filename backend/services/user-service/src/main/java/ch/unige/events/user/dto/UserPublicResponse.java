@@ -1,5 +1,6 @@
 package ch.unige.events.user.dto;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 
@@ -9,7 +10,7 @@ import java.util.UUID;
 public record UserPublicResponse(
     UUID id,
     String displayName,
-    String faculty,
+    Faculty faculty,
     String studyLevel,
     String bio,
     List<String> interests,

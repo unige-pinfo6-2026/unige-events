@@ -1,5 +1,6 @@
 package ch.unige.events.user.dto;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.user.entity.User;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -13,7 +14,8 @@ public record UserProfileResponse(
     @Schema(readOnly = true, description = "Auth0 user ID from JWT sub") String auth0Id,
     @Schema(readOnly = true) String email,
     String displayName,
-    String faculty,
+    Faculty faculty,
+    @Schema(description = "Free-text until StudyLevel enum lands (S9+). Expected: LICENCE | MASTER | PHD | OTHER")
     String studyLevel,
     String bio,
     List<String> interests,

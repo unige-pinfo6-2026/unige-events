@@ -1,5 +1,6 @@
 package ch.unige.events.user.entity;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -35,7 +36,7 @@ class UserTest {
         user.displayName = "Alice";
         user.firstName = "First";
         user.lastName = "Last";
-        user.faculty = "Science";
+        user.faculty = Faculty.SCIENCES;
         user.studyLevel = "Bachelor";
         user.bio = "Student at UNIGE";
         user.interests = List.of("AI", "Football");
@@ -52,7 +53,7 @@ class UserTest {
         assertEquals("Alice", user.displayName);
         assertEquals("First", user.firstName);
         assertEquals("Last", user.lastName);
-        assertEquals("Science", user.faculty);
+        assertEquals(Faculty.SCIENCES, user.faculty);
         assertEquals("Bachelor", user.studyLevel);
         assertEquals("Student at UNIGE", user.bio);
         assertEquals(List.of("AI", "Football"), user.interests);

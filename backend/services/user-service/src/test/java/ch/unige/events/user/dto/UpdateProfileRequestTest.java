@@ -1,5 +1,6 @@
 package ch.unige.events.user.dto;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,11 +16,11 @@ class UpdateProfileRequestTest {
     void canonicalConstructor_populatedFields_keepsAllValues() {
         List<String> interests = List.of("hiking", "music");
         UpdateProfileRequest req = new UpdateProfileRequest(
-            "Alice", "Sciences", "Master", "bio",
+            "Alice", Faculty.SCIENCES, "Master", "bio",
             interests, "https://avatars/a.png", true);
 
         assertEquals("Alice", req.displayName());
-        assertEquals("Sciences", req.faculty());
+        assertEquals(Faculty.SCIENCES, req.faculty());
         assertEquals("Master", req.studyLevel());
         assertEquals("bio", req.bio());
         assertEquals(interests, req.interests());
@@ -44,11 +45,11 @@ class UpdateProfileRequestTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UpdateProfileRequest a = new UpdateProfileRequest(
-            "X", "f", "s", "b", List.of("i"), "https://a", false);
+            "X", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
         UpdateProfileRequest b = new UpdateProfileRequest(
-            "X", "f", "s", "b", List.of("i"), "https://a", false);
+            "X", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
         UpdateProfileRequest c = new UpdateProfileRequest(
-            "Y", "f", "s", "b", List.of("i"), "https://a", false);
+            "Y", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
