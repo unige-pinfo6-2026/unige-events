@@ -1,5 +1,6 @@
 package ch.unige.events.user.service;
 
+import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.dto.PublicProfileView;
 import ch.unige.events.user.dto.UpdateProfileRequest;
@@ -18,6 +19,9 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
@@ -133,10 +137,10 @@ public class UserService {
         try {
             flushEntityManager();
         } catch (OptimisticLockException exception) {
-            throw new OptimisticLockException("Profile was updated by another request. Please retry.");
+            throw optimisticLockConflict(exception);
         } catch (PersistenceException exception) {
             if (isOptimisticLockConflict(exception)) {
-                throw new OptimisticLockException("Profile was updated by another request. Please retry.");
+                throw optimisticLockConflict(exception);
             }
             throw exception;
         }
@@ -220,5 +224,21 @@ public class UserService {
             current = current.getCause();
         }
         return false;
+    }
+
+    /**
+     * D20 (Étape 24.9.14) — wrap an {@link OptimisticLockException} in a
+     * 409 {@link WebApplicationException} carrying the canonical
+     * {@link ApiErrorResponse} envelope. The original exception is
+     * preserved as the cause so observability tooling (Sentry, Quarkus
+     * stack traces) can still trace back to the JPA layer.
+     */
+    private static WebApplicationException optimisticLockConflict(Throwable cause) {
+        Response response = Response.status(Response.Status.CONFLICT)
+                .entity(new ApiErrorResponse("optimistic_lock_conflict",
+                        "Profile was updated by another request. Please retry."))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+        return new WebApplicationException("optimistic_lock_conflict", cause, response);
     }
 }
