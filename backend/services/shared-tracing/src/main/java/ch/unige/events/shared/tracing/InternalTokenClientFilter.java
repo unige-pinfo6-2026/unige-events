@@ -1,5 +1,6 @@
 package ch.unige.events.shared.tracing;
 
+import ch.unige.events.shared.jaxrs.InternalTokenFilter;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.client.ClientRequestFilter;
@@ -23,7 +24,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @Provider
 public class InternalTokenClientFilter implements ClientRequestFilter {
 
-    public static final String HEADER = "X-Internal-Token";
+    // Re-use the canonical constant from shared-jaxrs.InternalTokenFilter to avoid drift.
+    public static final String HEADER = InternalTokenFilter.HEADER;
 
     @Inject
     @ConfigProperty(name = "unige.internal-token", defaultValue = "")
