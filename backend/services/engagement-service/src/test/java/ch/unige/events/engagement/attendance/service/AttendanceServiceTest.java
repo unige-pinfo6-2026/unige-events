@@ -27,6 +27,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -703,5 +705,36 @@ class AttendanceServiceTest {
                 "auth0|test-att-user", AttendanceStatus.ATTENDING, null);
         assertEquals(1, result.size());
         assertEquals(70L, result.get(0).id());
+    }
+
+    /**
+     * Sentinel for Étape 24.5.3 (A11): {@code acquireAdvisoryLock(null)}
+     * must fail fast with an {@link IllegalStateException} rather than
+     * silently {@code return} (the previous behaviour). A null eventId
+     * indicates a programming error in the calling path — the REST entry
+     * points always resolve event-id from the path parameter — and the
+     * old early-return would have bypassed the {@code pg_advisory_xact_lock}
+     * that gates concurrent capacity insertions, allowing two parallel
+     * inserts to race past {@code max_attendees}.
+     *
+     * <p>The method is {@code private}; reflection is the same pattern
+     * used by {@code ModerationDomainSentinelsTest} elsewhere in this
+     * codebase to exercise package-private invariants without leaking
+     * visibility for test-only access.
+     */
+    @Test
+    void acquireAdvisoryLock_nullEventId_throwsIllegalState() throws Exception {
+        Method method = AttendanceService.class.getDeclaredMethod("acquireAdvisoryLock", Long.class);
+        method.setAccessible(true);
+
+        InvocationTargetException wrapper = assertThrows(
+                InvocationTargetException.class,
+                () -> method.invoke(service, (Long) null));
+
+        Throwable cause = wrapper.getCause();
+        assertTrue(cause instanceof IllegalStateException,
+                "expected IllegalStateException, got " + (cause == null ? "null" : cause.getClass().getName()));
+        assertTrue(cause.getMessage().contains("acquireAdvisoryLock called with null eventId"),
+                "message must surface the null-eventId reason: " + cause.getMessage());
     }
 }

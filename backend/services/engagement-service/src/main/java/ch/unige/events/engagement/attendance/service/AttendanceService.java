@@ -342,7 +342,19 @@ public class AttendanceService {
 
     private void acquireAdvisoryLock(Long eventId) {
         if (eventId == null) {
-            return;
+            // Étape 24.5.3 (A11): a null eventId means upstream code skipped
+            // event resolution before reaching the capacity-gating path. The
+            // REST entry points (EventAttendanceResource) always resolve
+            // event-id from the path param before dispatching, and the
+            // service callers (markGoing, markInterested) require a non-null
+            // eventId by contract. Returning silently here would bypass the
+            // advisory lock and let two concurrent capacity-gated inserts
+            // race past max_attendees — a correctness bug masquerading as a
+            // defensive null check. Fail fast instead.
+            throw new IllegalStateException(
+                "acquireAdvisoryLock called with null eventId — capacity gating bypassed. " +
+                "This indicates a programming error upstream (REST path always passes a non-null eventId)."
+            );
         }
         entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(?1)")
                 .setParameter(1, eventId)
