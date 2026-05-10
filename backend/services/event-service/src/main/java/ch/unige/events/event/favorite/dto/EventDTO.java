@@ -10,14 +10,20 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Mirror of the legacy monolith's EventDTO record. favorite-service emits
- * this shape on {@code GET /users/me/favorites} to keep the OpenAPI
- * contract invariant during the soft-extraction (cf. roadmap PR 3).
+ * Consumer-shape projection of {@link Event} for the {@code favorite}
+ * sub-domain — emitted on {@code GET /users/me/favorites}. Intentionally
+ * co-exists with sibling {@code EventDTO} records in {@code event.dto}
+ * (master, carries {@code coOrganizerOf}), {@code event.me.dto},
+ * {@code event.coorganizer.dto} — each variant differs by nullability
+ * of count fields.
  *
  * <p>{@code viewCount} and {@code interestedCount} are nulled because
- * those metrics are owned by view-service / stats-service and aren't
- * fetched cross-service in S8 — the legacy monolith already passes
- * {@code null} for them on this endpoint, so the contract is preserved.
+ * those metrics are co-located in event-service post-finalization but
+ * not fetched on this endpoint to keep the legacy contract identical.
+ *
+ * <p>Décision E finalization-complete: consolidation was attempted and
+ * reverted to avoid regressing typing / coverage. DO NOT consolidate
+ * without revisiting the spec.
  */
 public record EventDTO(
         Long id,

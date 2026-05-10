@@ -9,6 +9,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Consumer-shape projection of {@link Event} for the {@code coorganizer}
+ * sub-domain. Intentionally co-exists with sibling {@code EventDTO}
+ * records in {@code event.dto} (master, carries {@code coOrganizerOf}),
+ * {@code event.me.dto}, {@code event.favorite.dto} — each variant
+ * differs by nullability of count fields.
+ *
+ * <p>Décision E finalization-complete: consolidation was attempted and
+ * reverted to avoid regressing typing / coverage. DO NOT consolidate
+ * without revisiting the spec.
+ */
 public record EventDTO(
         Long id,
         String title,
