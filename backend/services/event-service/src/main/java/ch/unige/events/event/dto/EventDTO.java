@@ -10,18 +10,24 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * MASTER {@code EventDTO} for the event-service public surface — the
- * variant carrying the SCRUM-136 cascade flag {@code coOrganizerOf}.
- * Sibling consumer-shape projections live in {@code event.me.dto},
- * {@code event.favorite.dto}, {@code event.coorganizer.dto} — each
- * is intentionally a separate record so individual sub-domains can
- * tighten field nullability without affecting siblings.
+ * MASTER {@code EventDTO} for the event-service public surface.
  *
- * <p>This duplication is INTENTIONAL post-finalization (Décision E
- * finalization-complete, prior pivot 0ee8623a). Consolidation was
- * attempted and reverted to avoid regressing typing / coverage. DO
- * NOT consolidate without revisiting the spec — the next maintainer
- * should treat this as a contract.
+ * <p>FR — Variant maître. Frères dupliqués intentionnellement post-Décision E
+ * (cf. Étape 23.4.4) dans {@code event.me.dto}, {@code event.favorite.dto},
+ * {@code event.coorganizer.dto} pour découpler les contrats sub-domain. Tous
+ * les variants portent désormais (Étape 24.6.5) le drapeau {@code coOrganizerOf}
+ * (SCRUM-136). La séparation est un point de variation contrôlé prêt à
+ * diverger sans casser les siblings. NE PAS consolider sans revisiter la
+ * spec — le mainteneur suivant doit traiter ceci comme un contrat.
+ *
+ * <p>EN — Master variant. Sibling consumer-shape projections live in
+ * {@code event.me.dto}, {@code event.favorite.dto}, {@code event.coorganizer.dto}
+ * — each is intentionally a separate record so individual sub-domains can
+ * tighten field nullability without affecting siblings. Every variant now
+ * carries the SCRUM-136 cascade flag {@code coOrganizerOf} since
+ * Étape 24.6.5 (B1). Consolidation was attempted and reverted to avoid
+ * regressing typing / coverage. DO NOT consolidate without revisiting the
+ * spec — the next maintainer should treat this as a contract.
  */
 public record EventDTO(
         Long id,

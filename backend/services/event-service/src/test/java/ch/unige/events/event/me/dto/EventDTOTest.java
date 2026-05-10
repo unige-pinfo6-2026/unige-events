@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 @SuppressWarnings("java:S100")
 class EventDTOTest {
@@ -27,7 +28,7 @@ class EventDTOTest {
                 creatorId, EventStatus.DRAFT, null,
                 true, false, null,
                 4L, 96L, 1L, 50L, 2L,
-                null, null, null, List.of(), start, end, null, null);
+                null, null, null, List.of(), start, end, null, null, null);
 
         assertEquals(10L, dto.id());
         assertEquals("MyEvent", dto.title());
@@ -50,6 +51,14 @@ class EventDTOTest {
         assertEquals(100L, dto.viewCount());
         assertEquals(4L, dto.interestedCount());
         assertEquals(List.of("x", "y"), dto.tags());
+        assertNull(dto.coOrganizerOf());
+    }
+
+    @Test
+    void from_withCoOrganizerOfFalse_propagatesValue() {
+        Event event = newEvent();
+        EventDTO dto = EventDTO.from(event, 7L, 93L, 3L, 100L, 4L, false);
+        assertEquals(false, dto.coOrganizerOf());
     }
 
     @Test
@@ -58,13 +67,13 @@ class EventDTOTest {
         LocalDateTime t = LocalDateTime.of(2026, 6, 1, 10, 0);
         EventDTO a = new EventDTO(1L, "T", null, "L", t, t, EventCategory.OTHER, null, null,
                 id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
         EventDTO b = new EventDTO(1L, "T", null, "L", t, t, EventCategory.OTHER, null, null,
                 id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
         EventDTO c = new EventDTO(1L, "OTHER_TITLE", null, "L", t, t, EventCategory.OTHER, null, null,
                 id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
         assertNotEquals(a, c);

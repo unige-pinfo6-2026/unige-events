@@ -62,6 +62,6 @@ class CoOrganizerInvitationDTOTest {
         LocalDateTime t = LocalDateTime.of(2026, 6, 1, 10, 0);
         return new EventDTO(id, "Title", null, "L", t, t, EventCategory.OTHER, null, null,
                 UUID.randomUUID(), EventStatus.PUBLISHED, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
     }
 }
