@@ -1,6 +1,100 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-09
+Dernière mise à jour : 2026-05-10 (Étape 23 — finalisation totale post-audit final)
+
+---
+
+## Sprint 8 — Étape 23 : Finalisation totale post-audit final — 2026-05-10
+
+Spec exécutée :
+[`specs_archives/specs_claude/specs_pr158_finalization_complete.md`](../../specs_archives/specs_claude/specs_pr158_finalization_complete.md)
+(branche persistante `refactor(backend)--migrate-to-microservices`,
+PR #158 — Elie merge lui-même). Audit source :
+[`specs_archives/specs_claude/audit_pr158_migration_microservices_final.md`](../../specs_archives/specs_claude/audit_pr158_migration_microservices_final.md)
+— 35 findings (9 BLOQUANTS + 14 IMPORTANTS + 12 MINEURS).
+
+### Résultat — 35/35 findings adressés
+
+| Sévérité | Total | Clos | Non-actionnables |
+|---|---|---|---|
+| BLOQUANT | 9 | 9 | 0 |
+| IMPORTANT | 14 | 14 | 0 |
+| MINEUR | 12 | 9 | 3 (MINOR-008/009/012, voir Annexe ci-dessous) |
+| **TOTAL** | **35** | **32** | **3** |
+
+### Vagues livrées (ordre strict respecté)
+
+**Vague 1 — BLOQUANTS infrastructure** (3 commits)
+- 1.1 `feat(backend): redistribute Flyway V1..V17 to owning services + activate Flyway` (Décision A) — closes MIGRATIONS-001 + MINOR-010.
+- 1.2 `docs(backend): refactor api-contract.md topology + endpoints to 5-service post-finalization` — closes API-CONTRACT-001.
+- 1.3 `test(moderation): add ModerationDomainSentinelsTest with 8 SCRUM-139 sentinels + bannedEvent fire mock` (Décision H) — closes MODERATION-SENTINELS-001 + REPORT-EVENT-FIRE-NOTEST.
+
+**Vague 2 — BLOQUANTS code** (4 commits + 1 verification no-op)
+- 2.1 `fix(engagement): add pg_advisory_xact_lock to attend + removeAttendance for capacity gating` (Décision B) — closes BUG-005-bis.
+- 2.2 `fix(event): make FavoriteService.addFavorite idempotent under concurrent double-tap` — closes BUG-006-bis.
+- 2.3 `fix(event): purge EventCoOrganizer rows in EventService.delete to avoid orphans` — closes EVENT-DELETE-001.
+- 2.4 `test(engagement): pin SCRUM-136 cascade via REST client + sentinel` (Décision G) — closes CASCADE-136-DRIFT (verified: cascade déjà via REST client, sentinel ajouté).
+- 2.5 — verified `find -name '*Stub.java' = 0` ; FAVORITE-STUB-REDUNDANT déjà résolu.
+
+**Vague 3 — BLOQUANTS observabilité + sécurité** (2 commits)
+- 3.1 `feat(shared-tracing): add MdcKafkaProducer/ConsumerInterceptor + wire on all channels` (Décision D) — closes KAFKA-002.
+- 3.2 `feat(backend): protect internal endpoints with X-Internal-Token filter + Kong strip` (Décision C) — closes SEC-002-bis.
+
+**Vague 4 — IMPORTANTS** (10 commits ; 4.2/4.3/4.7 verified no-op)
+- 4.1 `chore(backend): add read-timeout=5000 on REST clients in 4 consumers` — closes REST-TIMEOUT-001.
+- 4.2 — verified : tous les `.fire(...)` sur CDI Events, pas d'`Emitter.send(...)` direct hors bridges. KAFKA-PUBLISH-IN-TX OK.
+- 4.3 — verified : `UserServiceTest.getPublicProfile_privateProfile_adminCallerBypassesAntiOracle` ligne 144 + `_otherCaller_throwsNotFound` ligne 134 déjà présents. ADMIN-BYPASS-TEST OK.
+- 4.4 `docs(event): add class-level JavaDoc to 4 EventDTO variants documenting intentional duplication` (Décision E) — closes EVENT-DTO-DUPS.
+- 4.5 + 4.12 `chore(infra): pin TZ=Europe/Zurich on all 6 Deployments + add EventTzSmokeTest + web livenessProbe` (Décision F) — closes TZ-DRIFT + WEB-DEPLOY-PROBES.
+- 4.6 `docs(infra): ADR-001 moderation cleanup job replicas strict + Helm guard` — closes KAFKA-MOD-CLEANUP-IDEM.
+- 4.7 — couvert par 1.3 (`@InjectMock Event<EventBannedEvent>` via test-side `BannedEventCaptor`). REPORT-EVENT-FIRE-NOTEST OK.
+- 4.8 `chore(shared-api-error): add @Schema annotation to ApiErrorResponse for OpenAPI doc` — closes API-ERROR-SCHEMA.
+- 4.9 + 4.11 `docs(backend): align JavaDoc + sprint-context.md status table with 5-service post-finalization topology` (Décision I) — closes JAVADOC-DRIFT + SPRINT-CONTEXT-DRIFT + MINOR-001.
+- 4.10 `docs(backend): refactor architecture.md cross-service flow example to 5-service reality` — closes ARCHITECTURE-FLUX-DRIFT.
+- 4.13 `chore(infra): add PodDisruptionBudget for Kong (gated to prod replicas≥2)` — closes KONG-PDB-PREVIEW.
+
+**Vague 5 — MINEURS regroupés** (3 commits + 2 verified no-op)
+- 5.1 — couvert par 4.9 (sed batch JavaDoc + roadmap.md déjà archivé en haut du fichier). MINOR-001 + MINOR-002 OK.
+- 5.2 — verified : `ContractTestsScaffoldTest` + `E2EScaffoldTest` absents (déjà supprimés). MINOR-003 OK.
+- 5.3 `feat(shared-jaxrs): add generic EnumParamConverterProvider with tests` — closes MINOR-004 (invalid enum → 400 plutôt que 404).
+- 5.4 `docs(backend): finalize devops-handoff.md to 7 PINFO items only + deprecate aggregate-coverage.sh` — closes MINOR-005 + MINOR-006 + MINOR-007.
+- 5.5 `docs(backend): document S3 cleanup limitation + align data-model.md migration paths` — closes MINOR-010 (paths corrects post-1.1) + MINOR-011 (S3 cleanup hors-tx limitation documentée).
+
+### Findings non-actionnables (3)
+
+- **MINOR-008** (19 commits sans réf SCRUM/Étape) — process-only ; appliqué pour les commits de cette spec, pas de rebase rétroactif.
+- **MINOR-009** (16 commits scope `(infra)` ou `(ci)` mélangés à `(backend)`) — idem, process-only.
+- **MINOR-012** (frontend `searchApi.ts` `fetchSuggestions()` stub) — hors scope (invariant frontend ABSOLU `git diff origin/main HEAD -- frontend/` = 0). À tracker S9.
+
+### Décisions techniques tranchées (A → I)
+
+Toutes appliquées sans déviation :
+- **A** Schéma `public` partagé conservé, Flyway redistribué par owner — Étape 1.1.
+- **B** `pg_advisory_xact_lock(eventId)` pour le capacity gating — Étape 2.1.
+- **C** Header `X-Internal-Token` validé par filter shared-jaxrs — Étape 3.2.
+- **D** `MdcKafkaInterceptor` dans shared-tracing (producer + consumer) — Étape 3.1.
+- **E** `EventDTO` 4 sous-packages event-service : JavaDoc justificatif (pas de consolidation) — Étape 4.4.
+- **F** `TZ=Europe/Zurich` fixé dans Helm Deployments (pas de normalisation code) — Étape 4.5.
+- **G** CASCADE-136-DRIFT : vérification + remédiation conditionnelle (verified, no remediation needed) — Étape 2.4.
+- **H** `ModerationDomainSentinelsTest` SCRUM-139 : 8 tests pin — Étape 1.3.
+- **I** Doc + JavaDoc cleanup : sed batch ciblé + refonte 4 sections — Étapes 4.9 / 4.10 / 4.11 / 1.2.
+
+Adaptations marginales actées :
+- Étape 2.2 a basculé d'`ON CONFLICT DO NOTHING` natif (option recommandée par la spec) à try-catch JPA + ConstraintViolationException (option alternative explicitement acceptée par la spec — « ou aligner sur le pattern de FollowService.follow »). Raison : en `%test`, Hibernate `drop-and-create` ne pose pas le `DEFAULT nextval('favorites_seq')` que les migrations Flyway créent en prod, donc le INSERT natif sans colonne `id` casse le test. Le pattern try-catch est portable des deux côtés.
+- Étape 3.2 a renommé la propriété `app.internal.token` → `unige.internal-token` pour ne pas entrer en conflit avec les `@ConfigMapping(prefix = "app")` existants (validation strict SmallRye « does not map to any root »). Sémantique inchangée.
+- Étape 3.2 a déplacé `@Internal` du class-level vers method-level sur `UserAttendancesInternalResource` : RestEasy Reactive ne propageait pas le `@NameBinding` au routing pour le path `/users/{id}/attendances` quand un sibling `MyAttendancesResource` partageait `@Path("/users")`.
+- Étape 3.2 a remplacé `@Inject @ConfigProperty` par `ConfigProvider.getConfig().getOptionalValue(...)` lookup direct dans `InternalTokenFilter` — l'`@Inject` n'était pas honoré par RestEasy Reactive sur tous les `@Provider`.
+
+### Build local
+
+```
+cd backend && ./mvnw -B -DskipITs verify -T 1
+```
+SUCCESS sur 17 modules à chaque sous-étape. Total commits sur cette Étape 23 : ~21 (1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 4.1, 4.4, 4.5+4.12, 4.6, 4.8, 4.9+4.11, 4.10, 4.13, 5.3, 5.4, 5.5, 9.1).
+
+### CI
+
+`gh pr checks 158` — tous verts sauf SonarCloud (item DevOps PINFO #4).
 
 ---
 
