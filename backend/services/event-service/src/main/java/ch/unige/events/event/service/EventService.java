@@ -440,14 +440,19 @@ public class EventService {
             throw conflict("Only cancelled events can be permanently deleted. Cancel the event first.");
         }
 
-        // Local cleanup only: favorites + event_views are owned by event-
-        // service ; attendances + comments live in engagement-service —
-        // hard-delete cross-service is delegated to engagement (orphan
-        // attendance rows for cancelled-then-deleted events are handled
-        // by engagement-service's eventual GC ; deferred S9 if needed).
+        // Local cleanup: favorites + event_views + event_co_organizers are
+        // owned by event-service. attendances + comments live in
+        // engagement-service — hard-delete cross-service is delegated to
+        // engagement (orphan attendance rows for cancelled-then-deleted
+        // events are handled by engagement-service's eventual GC ; deferred
+        // S9 if needed). EVENT-DELETE-001: purge event_co_organizers so
+        // PENDING/ACCEPTED rows do not survive a deleted parent (the table
+        // has no ON DELETE CASCADE FK in V8).
         entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
+                .setParameter("id", id).executeUpdate();
+        entityManager.createQuery("DELETE FROM EventCoOrganizer co WHERE co.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         event.delete();
     }
