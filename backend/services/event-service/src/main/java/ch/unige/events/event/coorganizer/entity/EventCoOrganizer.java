@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Owned by co-organizer-service. Carbon-copy of legacy
+ * Owned by event-service (co-located post-finalization). Carbon-copy of legacy
  * ch.unige.events.entity.EventCoOrganizer — same constraint, same indexes,
  * same finders.
  */

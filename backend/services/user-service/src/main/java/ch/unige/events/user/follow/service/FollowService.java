@@ -141,7 +141,7 @@ public class FollowService {
      * "user does not exist" — closes the existence oracle.
      *
      * <p>In the legacy monolith this lived in {@code UserService.getPublicProfile} ;
-     * follow-service runs it inline so {@code GET /users/{id}/followers} and
+     * user-service runs it (follow-service co-located post-finalization) inline so {@code GET /users/{id}/followers} and
      * {@code /following} keep the same 404 semantics without a REST call to
      * user-service (which doesn't exist yet — replaced at PR 12).
      */

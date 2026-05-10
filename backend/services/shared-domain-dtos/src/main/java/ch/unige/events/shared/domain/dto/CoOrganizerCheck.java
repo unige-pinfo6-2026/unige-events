@@ -2,7 +2,7 @@ package ch.unige.events.shared.domain.dto;
 
 /**
  * Single-bit projection: is {@code userId} an ACCEPTED co-organizer of
- * {@code eventId}? Returned by co-organizer-service's internal
+ * {@code eventId}? Returned by event-service (co-located post-finalization)'s internal
  * {@code GET /events/{eventId}/co-organizers/check?userId=} — consumed
  * by event-service / comment-service / attendance-service /
  * moderation-service / stats-service to centralise the cascade SCRUM-136

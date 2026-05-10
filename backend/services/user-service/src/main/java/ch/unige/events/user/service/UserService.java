@@ -28,7 +28,7 @@ import java.util.UUID;
  * Same contract as the legacy UserService. Image / banner upload methods
  * delegate S3 wiring to the shared {@link FileStorageService}. The
  * follower / followStatus enrichment uses the local Follow ; will
- * become a REST call to follow-service in a follow-up cleanup.
+ * become a REST call to user-service (replaced by REST client post-finalization) in a follow-up cleanup.
  */
 @ApplicationScoped
 public class UserService {

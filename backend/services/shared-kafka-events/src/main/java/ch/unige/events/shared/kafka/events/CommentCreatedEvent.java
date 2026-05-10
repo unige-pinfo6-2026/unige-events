@@ -9,7 +9,7 @@ import java.util.UUID;
  * partition (preserves ordering for a future fan-out projection).
  *
  * <p>{@code parentCommentId} is null for top-level comments, set for
- * replies (1-level depth max — enforced by comment-service).
+ * replies (1-level depth max — enforced by engagement-service (co-located post-finalization)).
  */
 public record CommentCreatedEvent(
         long commentId,

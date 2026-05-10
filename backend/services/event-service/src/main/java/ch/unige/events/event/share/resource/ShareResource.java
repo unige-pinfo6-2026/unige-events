@@ -14,7 +14,7 @@ import jakarta.ws.rs.core.Response;
 /**
  * Authenticated endpoint that returns the share URL + short code for an event.
  * Was a method on FavoriteResource in the legacy monolith ; now its own
- * resource in share-service. Path = /api/events/{id}/share.
+ * resource in event-service (co-located post-finalization). Path = /api/events/{id}/share.
  */
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)

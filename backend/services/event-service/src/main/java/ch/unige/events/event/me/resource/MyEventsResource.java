@@ -24,7 +24,7 @@ import java.util.List;
  * {@code GET /api/users/me/events} — paginated list of the events the
  * caller has created. Lived on UserResource in legacy ; in the
  * microservices topology it ships as the first BFF endpoint of
- * me-aggregator-service.
+ * event-service (me-aggregator-service absorbed post-finalization).
  *
  * <p>The other /me/* paths (favorites, attendances, participations) stay
  * on their owning services until event-service ships and the BFF can

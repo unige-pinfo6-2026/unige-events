@@ -33,7 +33,7 @@ class EventDTOTest {
         assertEquals(33L, dto.id());
         assertEquals(EventCategory.CULTURAL, dto.category());
         assertEquals(Faculty.PSYCHOLOGY, dto.faculty());
-        // viewCount/interestedCount are nulled per favorite-service contract
+        // viewCount/interestedCount are nulled per event-service favorite contract (co-located post-finalization)
         assertNull(dto.viewCount());
         assertNull(dto.interestedCount());
     }

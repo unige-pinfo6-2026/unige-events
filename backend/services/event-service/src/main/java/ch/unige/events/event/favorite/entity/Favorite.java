@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * "User X favorited event Y" record. Owned by favorite-service. Carbon-copy
+ * "User X favorited event Y" record. Owned by event-service (co-located post-finalization). Carbon-copy
  * of the legacy monolith's ch.unige.events.entity.Favorite — same table,
  * same constraints, same finders.
  */

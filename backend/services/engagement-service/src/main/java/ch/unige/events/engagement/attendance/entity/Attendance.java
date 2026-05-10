@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Owned by attendance-service. Carbon-copy of legacy
+ * Owned by engagement-service (renamed post-finalization). Carbon-copy of legacy
  * ch.unige.events.entity.Attendance — same constraint, same finders, same
  * countGroupedByStatus bulk helper used by getMyParticipationEvents +
  * cross-service projections.

@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Owned by follow-service. Carbon-copy of the legacy monolith's
+ * Owned by user-service (co-located post-finalization). Carbon-copy of the legacy monolith's
  * ch.unige.events.entity.Follow — same constraints, indexes and finders.
  */
 @Entity

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Idempotent record of "user X viewed event Y". Owned by view-service.
+ * Idempotent record of "user X viewed event Y". Owned by event-service (co-located post-finalization).
  * Carbon-copy of the legacy monolith's
  * ch.unige.events.entity.EventView entity — same table, same constraints.
  */

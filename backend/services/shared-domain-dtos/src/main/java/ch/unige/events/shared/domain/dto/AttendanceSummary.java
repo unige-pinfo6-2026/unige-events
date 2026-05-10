@@ -2,7 +2,7 @@ package ch.unige.events.shared.domain.dto;
 
 /**
  * Internal projection of attendance counts on a single event. Returned
- * by attendance-service's {@code GET /events/{eventId}/attendance-summary}
+ * by engagement-service (renamed post-finalization)'s {@code GET /events/{eventId}/attendance-summary}
  * — consumed by event-service (capacity gating), co-organizer-service
  * (display), stats-service (aggregation).
  *
