@@ -24,7 +24,11 @@ public class EventBannedConsumer {
     public void onBanned(EventBannedEvent ev) {
         Event event = Event.<Event>findByIdOptional(ev.eventId()).orElse(null);
         if (event == null) {
-            Log.infof("events.banned: event %d not found locally — skipping (deleted before consume?)", ev.eventId());
+            // [MOD_BAN_LOST] elevated to WARN: legitimate when an event was deleted
+            // between the moderation ban and the consume, but also fires when the
+            // local DB diverges from the source of truth (replica drift, schema
+            // mismatch, wrong DB pointed). Operators should investigate volumes.
+            Log.warnf("[MOD_BAN_LOST] events.banned: event %d not found locally — skipping (deleted upstream or DB divergence?)", ev.eventId());
             return;
         }
         if (event.status == EventStatus.BANNED) {
