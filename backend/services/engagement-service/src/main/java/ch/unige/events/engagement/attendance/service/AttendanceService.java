@@ -75,6 +75,12 @@ public class AttendanceService {
             throw new BadRequestException("Only ATTENDING is accepted as a request status");
         }
 
+        // Décision B: serialise concurrent attend/remove on the same event so
+        // capacity gating + WAITLISTED auto-promotion stay consistent without
+        // re-introducing an EventStub. The advisory lock is per-eventId and
+        // released automatically at transaction end.
+        acquireAdvisoryLock(eventId);
+
         ch.unige.events.shared.domain.dto.EventDTO event = eventClient.getById(eventId);
         if (event == null) {
             throw new NotFoundException("Event not found");
@@ -130,6 +136,12 @@ public class AttendanceService {
 
     @Transactional
     public void removeAttendance(String auth0Id, Long eventId) {
+        // Décision B: same advisory lock as attend(...) — protects the
+        // delete + WAITLISTED→ATTENDING promotion from racing concurrent
+        // removes (each release would otherwise promote a different
+        // waitlisted row).
+        acquireAdvisoryLock(eventId);
+
         UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
         if (userId == null) {
             throw new NotFoundException("Attendance not found");
@@ -313,5 +325,14 @@ public class AttendanceService {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    private void acquireAdvisoryLock(Long eventId) {
+        if (eventId == null) {
+            return;
+        }
+        entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(?1)")
+                .setParameter(1, eventId)
+                .getSingleResult();
     }
 }
