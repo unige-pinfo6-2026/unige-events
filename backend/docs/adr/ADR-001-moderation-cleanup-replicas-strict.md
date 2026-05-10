@@ -35,6 +35,16 @@ The auto-hide trail is the historical record of moderation actions; doubling it 
 3. **HorizontalPodAutoscaler** is intentionally **not** declared for `moderation-service`.
 4. **`backend/docs/devops-handoff.md`** lists this constraint under the "Operational invariants" section.
 5. **CI guard (informational, not blocking)**: a `helm template` linter step in CI that fails if `replicas` for `moderation-service` ≠ 1.
+6. **`event-service` follows the same constraint** (since Étape 24.5.2,
+   A3) — `EventExpirationJob` is also a `@Scheduled` cron without leader
+   election. The Helm guard duplicated to `k8s/chart/templates/event-service/deployment.yaml`
+   uses `{{- if gt (int .Values.eventService.replicas | default 1) 1 }}{{- fail … }}{{- end }}`
+   to fail any `helm install` / `helm upgrade` attempting `replicas: 2+`.
+   `EventExpirationService.expireEvents()` additionally takes a
+   `pg_advisory_xact_lock(0)` as defense-in-depth against an in-cluster
+   `kubectl scale` that bypasses helm. Same Shedlock migration path
+   applies — when leader-election lands, both `moderation-service` and
+   `event-service` will be allowed to scale out together.
 
 ## Alternatives considered
 

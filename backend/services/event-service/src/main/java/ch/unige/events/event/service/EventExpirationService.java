@@ -35,6 +35,15 @@ public class EventExpirationService {
      */
     @Transactional
     public int expireEvents() {
+        // Defense in depth (Étape 24.5.2, A3): take a global advisory lock
+        // before scanning. The Helm guard in event-service/deployment.yaml
+        // already fails any install at replicas:2+, but an in-cluster
+        // `kubectl scale deploy event-service --replicas=2` bypasses helm.
+        // Lock key 0 = "global event expiration scheduler" (no eventId
+        // scope — the cron walks all PUBLISHED events). The lock is held
+        // for the lifetime of this @Transactional and released on commit
+        // or rollback, serializing concurrent crons across pods.
+        entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(0)").getSingleResult();
         LocalDateTime now = LocalDateTime.now();
         List<Event> candidates = entityManager.createQuery(
                 "SELECT e FROM Event e " +

@@ -13,6 +13,17 @@ spec:
   # election in S8). The /events/{id}/image upload stays on legacy-monolith
   # via the catch-all (FileStorageService not ported in S8 ; follow-up PR
   # migrates it).
+  #
+  # ─── Helm guard: replicas:1 strict (Étape 24.5.2, A3) ────────────────────
+  # event-service hosts EventExpirationJob (@Scheduled every 1h). Without
+  # leader-election, scaling out would double-fire events.expired Kafka
+  # events and double-update Event.status concurrently. Forbidden until
+  # Shedlock is wired (S9+). Cf. ADR-001 (originally moderation-cleanup,
+  # extended to event-service in Étape 24.5.2 — see ADR-001 § "How this
+  # is enforced" point 6).
+  {{- if gt (int .Values.eventService.replicas | default 1) 1 }}
+  {{- fail "event-service must run at replicas:1 strict — EventExpirationJob has no leader election. Cf. ADR-001." }}
+  {{- end }}
   replicas: 1
   strategy:
     type: RollingUpdate
