@@ -260,6 +260,24 @@ class EventCoOrganizerServiceTest {
         assertThrows(NotFoundException.class, () -> service.decline(e.id, "auth0|x"));
     }
 
+    @Test
+    @TestTransaction
+    void decline_acceptedInvitation_throws422() {
+        Event e = createEvent(creatorId);
+        EventCoOrganizer inv = new EventCoOrganizer();
+        inv.eventId = e.id;
+        inv.userId = creatorId;
+        inv.status = CoOrganizerStatus.ACCEPTED;
+        inv.persist();
+        em.flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.decline(e.id, "auth0|x"));
+        assertEquals(422, ex.getResponse().getStatus());
+        assertTrue(EventCoOrganizer.findByEventAndUser(e.id, creatorId).isPresent(),
+                "Accepted invitation must not be deleted by decline() — use DELETE /events/{id}/co-organizers/{userId}");
+    }
+
     // ---- remove ----
 
     @Test

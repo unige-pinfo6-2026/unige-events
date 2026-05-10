@@ -123,8 +123,10 @@ public class EventCoOrganizerService {
         }
 
         EventCoOrganizer invitation = EventCoOrganizer.findByEventAndUser(eventId, userId)
+                .filter(c -> c.status == CoOrganizerStatus.PENDING)
                 .orElseThrow(() -> unprocessable("no_pending_invitation",
-                        "No pending co-organizer invitation found for this event."));
+                        "No PENDING invitation found for this user/event combination. " +
+                        "Already accepted invitations must be removed via DELETE /events/{id}/co-organizers/{userId}."));
 
         invitation.delete();
     }
