@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# DEPRECATED (Étape 5.4 finalization-complete, MINOR-007): the aggregate
+# jacoco scan is now done by the sonar-aggregate CI job (Option B). This
+# script remains for LOCAL DEBUGGING ONLY — when you want a quick CLI
+# table of L%/B% per module without spinning up SonarCloud. It should
+# NOT be invoked from CI; the canonical aggregate flow lives in
+# `.github/workflows/backend-ci.yml` under the sonar-aggregate job.
+#
 # Étape 22 — agrégation coverage jacoco multi-module pour Sonar Option B.
 # Lance après `cd backend && ./mvnw verify -DskipITs`.
 #
