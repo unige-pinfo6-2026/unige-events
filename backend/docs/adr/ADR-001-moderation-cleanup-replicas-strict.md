@@ -30,7 +30,12 @@ The auto-hide trail is the historical record of moderation actions; doubling it 
 
 ## How this is enforced
 
-1. **Helm `values.yaml`** sets `moderationService.replicas: 1` and a comment forbidding scale-out without revisiting this ADR.
+1. **`k8s/chart/templates/moderation-service/deployment.yaml`** hard-codes
+   `replicas: 1` inline (not exposed in `values.yaml`) so the value cannot
+   be overridden per-environment without editing the chart and revisiting
+   this ADR. A `{{- fail }}` Helm guard above the spec block also rejects
+   any explicit `moderationService.replicas` override > 1 if one is added
+   later.
 2. **`k8s/chart/templates/moderation-service/deployment.yaml`** carries an inline comment `# replicas: 1 strict (no leader-election in S8)` next to the `replicas:` declaration.
 3. **HorizontalPodAutoscaler** is intentionally **not** declared for `moderation-service`.
 4. **`backend/docs/devops-handoff.md`** lists this constraint under the "Operational invariants" section.
