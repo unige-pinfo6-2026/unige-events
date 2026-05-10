@@ -20,8 +20,9 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Same semantics as the legacy monolith's FavoriteService — idempotent
@@ -126,9 +127,13 @@ public class FavoriteService {
             summaries = Map.of();
         }
         Map<Long, AttendanceSummary> finalSummaries = summaries;
+        // Étape 24.8.1 (E1): bulk-fetch all favorited events in a single SELECT
+        // instead of issuing one findByIdOptional per favorite (N+1).
+        Map<Long, Event> eventsById = Event.<Event>list("id IN ?1", eventIds).stream()
+                .collect(Collectors.toMap(e -> e.id, e -> e));
         return favorites.stream()
-                .map(f -> Event.<Event>findByIdOptional(f.eventId))
-                .flatMap(Optional::stream)
+                .map(f -> eventsById.get(f.eventId))
+                .filter(Objects::nonNull)
                 .map(e -> {
                     AttendanceSummary s = finalSummaries.getOrDefault(
                             e.id, AttendanceSummary.of(0L, 0L));

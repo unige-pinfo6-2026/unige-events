@@ -22,9 +22,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
+
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -161,6 +165,56 @@ class FavoriteServiceTest {
         JwtTestContext.clear();
         assertThrows(NotFoundException.class,
                 () -> service.getFavorites("auth0|x", 0, 20));
+    }
+
+    // -----------------------------------------------------------
+    // Étape 24.8.1 (E1) sentinel — pin the bulk-fetch path that
+    // replaces the per-favorite findByIdOptional. Counts JDBC
+    // prepared statements via Hibernate Statistics: with N=5
+    // favorites the listing must issue O(1) queries (Favorite list
+    // + Event bulk load), not 1 + N. Threshold is set generously
+    // (≤ 4) so the assertion stays robust against incidental
+    // metadata queries while still catching a regression to
+    // 1 + N = 6 SELECTs.
+    // -----------------------------------------------------------
+
+    @Test
+    @TestTransaction
+    @SuppressWarnings("java:S100")
+    void getFavorites_doesNotIssueNPlusOneQueries() {
+        int n = 5;
+        List<Long> eventIds = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            Event e = create(EventStatus.PUBLISHED);
+            eventIds.add(e.id);
+        }
+        for (Long id : eventIds) {
+            Favorite f = new Favorite();
+            f.userId = userId;
+            f.eventId = id;
+            f.persist();
+        }
+        em.flush();
+        em.clear();
+
+        SessionFactory sf = em.getEntityManagerFactory().unwrap(SessionFactory.class);
+        Statistics stats = sf.getStatistics();
+        boolean wasEnabled = stats.isStatisticsEnabled();
+        stats.setStatisticsEnabled(true);
+        try {
+            stats.clear();
+
+            List<EventDTO> result = service.getFavorites("auth0|x", 0, 20);
+
+            assertEquals(n, result.size());
+            long prepared = stats.getPrepareStatementCount();
+            assertTrue(prepared <= 4,
+                    "getFavorites must not issue N+1 queries; got " + prepared
+                            + " prepared statements for " + n
+                            + " favorites (expected ≤ 4: 1 favorite list + 1 event bulk + ≤ 2 overhead)");
+        } finally {
+            stats.setStatisticsEnabled(wasEnabled);
+        }
     }
 
     // -----------------------------------------------------------
