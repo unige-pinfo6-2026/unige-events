@@ -1,5 +1,6 @@
 package ch.unige.events.shared.domain.projections;
 
+import io.quarkus.logging.Log;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.UUID;
@@ -54,6 +55,10 @@ public final class Auth0IdResolver {
         try {
             return UUID.fromString(raw.toString());
         } catch (IllegalArgumentException e) {
+            Log.warnf(
+                "[AUTH0_UUID_MALFORMED] JWT claim 'uuid'=%s does not parse — caller treated as anonymous (sub=%s)",
+                raw, jwt.getName()
+            );
             return null;
         }
     }

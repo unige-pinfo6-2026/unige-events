@@ -3,10 +3,17 @@ package ch.unige.events.shared.domain.projections;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -49,5 +56,38 @@ class Auth0IdResolverTest {
         JsonWebToken jwt = mock(JsonWebToken.class);
         when(jwt.getClaim("uuid")).thenReturn("not-a-uuid");
         assertNull(Auth0IdResolver.resolveUserUuid(jwt));
+    }
+
+    @Test
+    void resolveUserUuid_malformedClaim_logsWarnAndReturnsNull() {
+        Logger jul = Logger.getLogger(Auth0IdResolver.class.getName());
+        Level originalLevel = jul.getLevel();
+        boolean originalUseParent = jul.getUseParentHandlers();
+        List<LogRecord> captured = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override public void publish(LogRecord r) { captured.add(r); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        jul.addHandler(handler);
+        jul.setLevel(Level.ALL);
+        try {
+            JsonWebToken jwt = mock(JsonWebToken.class);
+            when(jwt.getClaim("uuid")).thenReturn("not-a-uuid");
+            when(jwt.getName()).thenReturn("auth0|abc");
+
+            assertNull(Auth0IdResolver.resolveUserUuid(jwt));
+
+            assertTrue(
+                captured.stream().anyMatch(r -> {
+                    String msg = r.getMessage();
+                    return msg != null && msg.contains("[AUTH0_UUID_MALFORMED]");
+                }),
+                "expected a log record containing [AUTH0_UUID_MALFORMED] but captured=" + captured);
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(originalLevel);
+            jul.setUseParentHandlers(originalUseParent);
+        }
     }
 }
