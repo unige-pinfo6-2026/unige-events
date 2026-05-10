@@ -1,5 +1,6 @@
 package ch.unige.events.shared.tracing;
 
+import io.quarkus.logging.Log;
 import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -17,7 +18,7 @@ import java.util.Map;
  *
  * <p>Wired per outgoing channel via:
  * <pre>{@code
- * mp.messaging.outgoing.<channel>.kafka.interceptor.classes=ch.unige.events.shared.tracing.MdcKafkaProducerInterceptor
+ * mp.messaging.outgoing.<channel>.interceptor.classes=ch.unige.events.shared.tracing.MdcKafkaProducerInterceptor
  * }</pre>
  *
  * <p>Décision D — closes KAFKA-002 (BLOQUANT): the architecture doc had
@@ -49,7 +50,17 @@ public class MdcKafkaProducerInterceptor implements ProducerInterceptor<Object, 
 
     @Override
     public void onAcknowledgement(RecordMetadata metadata, Exception exception) {
-        // No-op — tracing only adds a header; ack/nack does not need MDC.
+        if (exception == null) {
+            return;
+        }
+        // Best-effort: the producer record is no longer available, but log
+        // explicitly so a Kafka publish failure is never silent. The MDC of
+        // the calling thread (if any) will be attached automatically.
+        Log.warnf(exception,
+            "[KAFKA_PRODUCE_FAIL] topic=%s partition=%d — record will not reach consumers",
+            metadata != null ? metadata.topic() : "(unknown)",
+            metadata != null ? metadata.partition() : -1
+        );
     }
 
     @Override

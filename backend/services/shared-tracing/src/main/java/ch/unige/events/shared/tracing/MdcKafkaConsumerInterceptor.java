@@ -17,7 +17,7 @@ import java.util.Map;
  *
  * <p>Wired per incoming channel via:
  * <pre>{@code
- * mp.messaging.incoming.<channel>.kafka.interceptor.classes=ch.unige.events.shared.tracing.MdcKafkaConsumerInterceptor
+ * mp.messaging.incoming.<channel>.interceptor.classes=ch.unige.events.shared.tracing.MdcKafkaConsumerInterceptor
  * }</pre>
  *
  * <p>Décision D — closes KAFKA-002 (BLOQUANT) on the consumer side.
