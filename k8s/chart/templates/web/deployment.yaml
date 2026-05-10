@@ -22,6 +22,10 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 80
+          # Étape 4.5 finalization-complete (TZ-DRIFT / Décision F)
+          env:
+            - name: TZ
+              value: "Europe/Zurich"
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
           readinessProbe:
@@ -30,3 +34,14 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
+          # Étape 4.12 finalization-complete (WEB-DEPLOY-PROBES): symmetric
+          # parity with the 5 backend services that already declare both
+          # readinessProbe and livenessProbe — silent nginx crashes (OOM,
+          # config typo) now lead to a pod restart instead of a black-hole.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3

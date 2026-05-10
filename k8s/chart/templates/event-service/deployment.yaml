@@ -37,6 +37,11 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            # Étape 4.5 finalization-complete (TZ-DRIFT / Décision F)
+            - name: TZ
+              value: "Europe/Zurich"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Duser.timezone=Europe/Zurich"
             - name: DB_HOST
               value: db
             - name: DB_PORT
