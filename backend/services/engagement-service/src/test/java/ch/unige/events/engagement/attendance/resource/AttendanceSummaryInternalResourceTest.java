@@ -4,6 +4,7 @@ import ch.unige.events.engagement.attendance.entity.Attendance;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -16,9 +17,16 @@ import static org.hamcrest.Matchers.equalTo;
 @QuarkusTest
 class AttendanceSummaryInternalResourceTest {
 
+    private static String token() {
+        return ConfigProvider.getConfig()
+                .getOptionalValue("unige.internal-token", String.class)
+                .orElse("");
+    }
+
     @Test
     void getAttendanceSummary_unknownEvent_returnsZeros() {
         given()
+            .header("X-Internal-Token", token())
             .when().get("/events/9999999/attendance-summary")
             .then()
             .statusCode(200)
@@ -30,6 +38,7 @@ class AttendanceSummaryInternalResourceTest {
     @Test
     void getBulkAttendanceSummary_emptyIds_returnsEmptyMap() {
         given()
+            .header("X-Internal-Token", token())
             .when().get("/events/_bulk-attendance-summary")
             .then()
             .statusCode(200)
@@ -53,6 +62,7 @@ class AttendanceSummaryInternalResourceTest {
         });
 
         given()
+            .header("X-Internal-Token", token())
             .when().get("/events/" + eventId + "/attendance-summary")
             .then()
             .statusCode(200)
@@ -70,11 +80,28 @@ class AttendanceSummaryInternalResourceTest {
         });
 
         given()
+            .header("X-Internal-Token", token())
             .when().get("/events/_bulk-attendance-summary?ids=" + e1 + "&ids=" + e2)
             .then()
             .statusCode(200)
             .body("'" + e1 + "'.attending", equalTo(1))
             .body("'" + e2 + "'.waitlisted", equalTo(1));
+    }
+
+    @Test
+    void getAttendanceSummary_missingInternalToken_returns404() {
+        given()
+            .when().get("/events/9999999/attendance-summary")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void getBulkAttendanceSummary_missingInternalToken_returns404() {
+        given()
+            .when().get("/events/_bulk-attendance-summary?ids=1&ids=2")
+            .then()
+            .statusCode(404);
     }
 
     private static void persist(UUID userId, Long eventId, AttendanceStatus status) {

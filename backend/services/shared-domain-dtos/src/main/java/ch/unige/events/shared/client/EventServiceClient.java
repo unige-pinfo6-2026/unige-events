@@ -39,6 +39,7 @@ import java.util.UUID;
  */
 @RegisterRestClient(configKey = "event-service")
 @RegisterProvider(RequestIdClientFilter.class)
+@RegisterProvider(ch.unige.events.shared.tracing.InternalTokenClientFilter.class)
 @Path("/events")
 public interface EventServiceClient {
 

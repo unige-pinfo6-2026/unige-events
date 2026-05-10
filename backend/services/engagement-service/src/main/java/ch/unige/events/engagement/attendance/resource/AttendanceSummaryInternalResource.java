@@ -3,6 +3,7 @@ package ch.unige.events.engagement.attendance.resource;
 import ch.unige.events.engagement.attendance.entity.Attendance;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.jaxrs.Internal;
 
 import jakarta.annotation.security.PermitAll;
 import jakarta.persistence.EntityManager;
@@ -42,6 +43,7 @@ public class AttendanceSummaryInternalResource {
     @GET
     @Path("/{eventId}/attendance-summary")
     @PermitAll
+    @Internal
     public AttendanceSummary getAttendanceSummary(@PathParam("eventId") long eventId) {
         long attending = Attendance.count("eventId = ?1 and status = ?2",
                 eventId, AttendanceStatus.ATTENDING);
@@ -53,6 +55,7 @@ public class AttendanceSummaryInternalResource {
     @GET
     @Path("/_bulk-attendance-summary")
     @PermitAll
+    @Internal
     public Map<Long, AttendanceSummary> getBulkAttendanceSummary(
             @QueryParam("ids") List<Long> ids) {
         if (ids == null || ids.isEmpty()) {

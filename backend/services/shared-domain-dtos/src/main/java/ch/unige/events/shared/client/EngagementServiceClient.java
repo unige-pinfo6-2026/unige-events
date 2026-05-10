@@ -35,6 +35,7 @@ import java.util.UUID;
  */
 @RegisterRestClient(configKey = "engagement-service")
 @RegisterProvider(RequestIdClientFilter.class)
+@RegisterProvider(ch.unige.events.shared.tracing.InternalTokenClientFilter.class)
 public interface EngagementServiceClient {
 
     /**

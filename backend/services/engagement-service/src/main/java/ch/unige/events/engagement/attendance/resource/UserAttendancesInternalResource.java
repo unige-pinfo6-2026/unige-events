@@ -2,6 +2,7 @@ package ch.unige.events.engagement.attendance.resource;
 
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
+import ch.unige.events.shared.jaxrs.Internal;
 import ch.unige.events.engagement.attendance.service.AttendanceService;
 
 import jakarta.annotation.security.PermitAll;
@@ -38,6 +39,7 @@ public class UserAttendancesInternalResource {
     @GET
     @Path("/{id}/attendances")
     @PermitAll
+    @Internal
     public List<AttendanceDTO> getUserAttendances(
             @PathParam("id") UUID userId,
             @QueryParam("status") AttendanceStatus status) {

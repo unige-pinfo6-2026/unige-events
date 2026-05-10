@@ -37,6 +37,7 @@ import java.util.UUID;
  */
 @RegisterRestClient(configKey = "user-service")
 @RegisterProvider(RequestIdClientFilter.class)
+@RegisterProvider(ch.unige.events.shared.tracing.InternalTokenClientFilter.class)
 @Path("/users")
 public interface UserServiceClient {
 

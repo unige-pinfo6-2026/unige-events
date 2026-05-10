@@ -443,3 +443,14 @@ data:
           latency_metrics: true
           bandwidth_metrics: true
           upstream_health_metrics: true
+      # Étape 3.2 finalization-complete (SEC-002-bis / Décision C):
+      # strip the X-Internal-Token header on every external request so a
+      # caller cannot inject a forged secret to reach @Internal endpoints.
+      # The header is RE-INJECTED inside the cluster by service-to-service
+      # REST clients via shared-tracing.InternalTokenClientFilter — Kong
+      # only sees outside traffic, so the strip is safe by construction.
+      - name: request-transformer
+        config:
+          remove:
+            headers:
+              - X-Internal-Token
