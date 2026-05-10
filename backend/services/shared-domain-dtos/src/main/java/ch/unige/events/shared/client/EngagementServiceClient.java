@@ -4,6 +4,7 @@ import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
+import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -51,6 +52,7 @@ public interface EngagementServiceClient {
     AttendanceSummary getAttendanceSummary(@PathParam("eventId") long eventId);
 
     default AttendanceSummary getAttendanceSummaryFallback(long eventId) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getAttendanceSummary(%d) — returning AttendanceSummary.of(0, 0) (counts will display as 0)", eventId);
         return AttendanceSummary.of(0L, 0L);
     }
 
@@ -68,6 +70,7 @@ public interface EngagementServiceClient {
                                             @QueryParam("status") String status);
 
     default List<AttendanceDTO> getUserAttendancesFallback(UUID id, String status) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getUserAttendances(%s, status=%s) — returning empty list (downstream unavailable, ICS feed degraded)", id, status);
         return List.of();
     }
 
@@ -89,6 +92,7 @@ public interface EngagementServiceClient {
     Map<Long, AttendanceSummary> getAttendanceSummariesBulk(@QueryParam("ids") List<Long> ids);
 
     default Map<Long, AttendanceSummary> getAttendanceSummariesBulkFallback(List<Long> ids) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getAttendanceSummariesBulk(ids=%d) — returning empty map (counts will display as 0)", ids.size());
         return Map.of();
     }
 }

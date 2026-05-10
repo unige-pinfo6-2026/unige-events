@@ -3,6 +3,7 @@ package ch.unige.events.shared.client;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
+import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -50,6 +51,7 @@ public interface UserServiceClient {
     UserPublicResponse getById(@PathParam("id") UUID id);
 
     default UserPublicResponse getByIdFallback(UUID id) {
+        Log.warnf("[REST_FALLBACK_user-service] getById(%s) — returning null (downstream unavailable, comments/reports will display anonymized author)", id);
         return null;
     }
 }

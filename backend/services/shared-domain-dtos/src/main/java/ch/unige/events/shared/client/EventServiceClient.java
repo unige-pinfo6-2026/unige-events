@@ -3,6 +3,7 @@ package ch.unige.events.shared.client;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
+import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -52,6 +53,7 @@ public interface EventServiceClient {
     EventDTO getById(@PathParam("id") long id);
 
     default EventDTO getByIdFallback(long id) {
+        Log.warnf("[REST_FALLBACK_event-service] getById(%d) — returning null (downstream unavailable, callers must treat as 404)", id);
         return null;
     }
 
@@ -72,6 +74,7 @@ public interface EventServiceClient {
                                     @QueryParam("check-co-org-of") UUID userId);
 
     default EventDTO getByIdWithCoOrgCheckFallback(long id, UUID userId) {
+        Log.warnf("[REST_FALLBACK_event-service] getByIdWithCoOrgCheck(%d, %s) — returning null (downstream unavailable)", id, userId);
         return null;
     }
 
@@ -84,6 +87,7 @@ public interface EventServiceClient {
                              @QueryParam("status") String status);
 
     default List<EventDTO> findByIdsFallback(List<Long> ids, String status) {
+        Log.warnf("[REST_FALLBACK_event-service] findByIds(ids=%d, status=%s) — returning empty list (downstream unavailable, enrichment degraded)", ids.size(), status);
         return List.of();
     }
 
@@ -107,6 +111,7 @@ public interface EventServiceClient {
     List<UUID> getOrganizerUuids(@PathParam("id") long id);
 
     default List<UUID> getOrganizerUuidsFallback(long id) {
+        Log.warnf("[REST_FALLBACK_event-service] getOrganizerUuids(%d) — returning empty list (downstream unavailable, organizer-only checks degraded)", id);
         return List.of();
     }
 }
