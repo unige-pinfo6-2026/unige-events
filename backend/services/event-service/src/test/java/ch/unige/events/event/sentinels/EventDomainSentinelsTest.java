@@ -541,4 +541,42 @@ class EventDomainSentinelsTest {
             deleteCommitted(draftId, bannedId);
         }
     }
+
+    // -----------------------------------------------------------
+    // 8. ADR-002 sentinel: GET /events/{id}/organizer-uuids must
+    //    NOT leak the organizer set when the event is BANNED, no
+    //    matter who's calling — anonymous, non-creator, or even
+    //    the creator themselves (Étape 24.7.4 — extension of A16,
+    //    Décision J).
+    // -----------------------------------------------------------
+
+    @Test
+    @DisplayName("ADR-002: GET /events/{id}/organizer-uuids returns 404 for BANNED, regardless of caller")
+    @TestSecurity(user = "auth0|adr002-caller")
+    void getOrganizerUuids_bannedEvent_doesNotLeakUuidsToAnyCaller() {
+        UUID bannedCreator = UUID.randomUUID();
+        Long bannedId = persistCommitted(EventStatus.BANNED, bannedCreator);
+
+        try {
+            // Anonymous caller (no JWT uuid claim).
+            JwtTestContext.clear();
+            Response anon = given().when().get("/events/" + bannedId + "/organizer-uuids");
+            assertEquals(404, anon.getStatusCode(),
+                    "anonymous caller must get 404 on BANNED");
+
+            // Authenticated non-creator caller.
+            JwtTestContext.set(JwtTestHelper.jwtFor(UUID.randomUUID()));
+            Response other = given().when().get("/events/" + bannedId + "/organizer-uuids");
+            assertEquals(404, other.getStatusCode(),
+                    "non-creator caller must get 404 on BANNED");
+
+            // Creator caller — must ALSO get 404 (consistent cascade with /events/{id}).
+            JwtTestContext.set(JwtTestHelper.jwtFor(bannedCreator));
+            Response creator = given().when().get("/events/" + bannedId + "/organizer-uuids");
+            assertEquals(404, creator.getStatusCode(),
+                    "creator caller must get 404 on BANNED (consistent with the event-getById cascade)");
+        } finally {
+            deleteCommitted(bannedId);
+        }
+    }
 }
