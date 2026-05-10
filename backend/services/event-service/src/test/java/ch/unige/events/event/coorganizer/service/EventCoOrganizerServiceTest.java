@@ -22,6 +22,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.AfterEach;
@@ -132,10 +133,12 @@ class EventCoOrganizerServiceTest {
     void invite_unknownTargetUser_throws404() {
         Event e = createEvent(creatorId);
         em.flush();
-        when(userClient.getById(inviteeId)).thenThrow(new RuntimeException("404"));
+        UUID missingId = UUID.randomUUID();
+        when(userClient.getById(missingId)).thenThrow(new NotFoundException("user not found"));
         assertThrows(NotFoundException.class,
-                () -> service.invite(e.id, "auth0|x", inviteeId, false));
+                () -> service.invite(e.id, "auth0|x", missingId, false));
     }
+
 
     @Test
     @TestTransaction

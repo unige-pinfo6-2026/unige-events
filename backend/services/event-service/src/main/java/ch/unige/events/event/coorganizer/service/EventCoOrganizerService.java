@@ -22,6 +22,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -73,10 +74,7 @@ public class EventCoOrganizerService {
                     "The event creator cannot invite themselves as co-organizer.");
         }
 
-        UserPublicResponse target = safeGetUser(targetUserId);
-        if (target == null) {
-            throw new NotFoundException("Target user not found");
-        }
+        UserPublicResponse target = lookupTargetUser(userClient, targetUserId, eventId);
 
         if (EventCoOrganizer.findByEventAndUser(eventId, targetUserId).isPresent()) {
             throw conflict("already_invited",
@@ -199,6 +197,32 @@ public class EventCoOrganizerService {
      */
     public boolean isAcceptedFor(Long eventId, UUID userId) {
         return EventCoOrganizer.isAcceptedFor(eventId, userId);
+    }
+
+    /**
+     * D19 (Étape 24.9.13) — distinguish "user not found" (404) from
+     * "user-service unreachable" (503). NotFoundException propagates as
+     * 404 ; any other RuntimeException (CB open, timeout, 5xx mapped to
+     * RuntimeException) propagates as 503. A null return (typically the
+     * {@code @Fallback} default on {@link UserServiceClient}) is treated
+     * as 404 from the caller's perspective. Extracted as a static helper
+     * so it can be unit-tested without the FT proxy that wraps the
+     * injected {@link UserServiceClient}.
+     */
+    static UserPublicResponse lookupTargetUser(UserServiceClient client, UUID targetUserId, Long eventId) {
+        UserPublicResponse target;
+        try {
+            target = client.getById(targetUserId);
+        } catch (NotFoundException e) {
+            throw new NotFoundException("Target user does not exist (or was deleted).");
+        } catch (RuntimeException e) {
+            Log.warnf(e, "[INVITE_USER_LOOKUP_FAIL] eventId=%d targetUserId=%s — user-service unreachable", eventId, targetUserId);
+            throw new ServiceUnavailableException("User lookup is temporarily unavailable. Please retry.");
+        }
+        if (target == null) {
+            throw new NotFoundException("Target user does not exist (or was deleted).");
+        }
+        return target;
     }
 
     private Map<Long, EventDTO> findByIdsAsDTO(List<Long> ids) {
