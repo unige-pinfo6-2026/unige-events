@@ -58,7 +58,10 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Services `@ApplicationScoped` + `@Transactional` sur toutes les mutations.
 - Resources JAX-RS, préfixe `/api` (configuré dans `application.properties`).
 - **Hibernate en `validate`** en dev/prod (Flyway pilote le schéma — historique V1..V17 partagé pour l'instant, cf. Décision C de la spec de complétion qui défère DB-per-service S9+). En `%test`, Hibernate `drop-and-create` pour les bases éphémères DevServices.
-- Soft-delete : champ `active` boolean sur Event, jamais de DELETE physique.
+- Soft-delete d'un Event : transition vers `EventStatus.CANCELLED` (le champ
+  `status` porte la sémantique soft-delete ; il n'y a pas de booléen
+  `active` séparé). Cf. `data-model.md`. Le DELETE physique d'un Event
+  annulé est autorisé via `EventService.delete()` (cascade documentée).
 - Auth : `quarkus-oidc` mode `service` en prod, `%test.quarkus.oidc.enabled=false`. Pas de defaults bidons (SEC-004) — les vars d'env sont posées par Doppler en preview/prod (cf. [`docs/devops-handoff.md`](docs/devops-handoff.md) item 6).
 
 ### Rôle ADMIN — claim Auth0, pas de champ DB
