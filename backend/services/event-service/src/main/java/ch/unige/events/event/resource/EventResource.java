@@ -158,14 +158,24 @@ public class EventResource {
         return Response.ok(event).build();
     }
 
+    /**
+     * Returns the creator + ACCEPTED co-organizers UUIDs for an event.
+     * Consumed cross-service by engagement-service / moderation-service to
+     * compute the cascade SCRUM-136 in a single call, replacing the legacy
+     * EventCoOrganizerStub.
+     *
+     * <p><b>@PermitAll by design (Décision J / ADR-002).</b> This endpoint is
+     * intentionally not annotated {@code @Internal}: the only consumer
+     * (engagement-service) has already passed the ISSUE-92 + SCRUM-136 guard
+     * via {@code getById?check-co-org-of=} upstream, and the response filters
+     * {@code BANNED} events (404). Cf.
+     * {@code backend/docs/adr/ADR-002-organizer-uuids-permitall.md} for the
+     * full rationale and the sentinel test pinning the BANNED filter.
+     */
     @GET
     @Path("/{id}/organizer-uuids")
     @PermitAll
     public List<UUID> getOrganizerUuids(@PathParam("id") Long id) {
-        // Internal endpoint (Décision G finalization-ultimate). Consumed
-        // cross-service by engagement-service / moderation-service to
-        // build the creator + ACCEPTED co-organizers set in a single
-        // call, replacing the legacy EventCoOrganizerStub.
         return eventService.getOrganizerUuids(id);
     }
 
