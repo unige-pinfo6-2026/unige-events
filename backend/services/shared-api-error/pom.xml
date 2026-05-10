@@ -25,6 +25,7 @@
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>org.eclipse.microprofile.openapi</groupId><artifactId>microprofile-openapi-api</artifactId><scope>provided</scope></dependency>
 
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     </dependencies>
