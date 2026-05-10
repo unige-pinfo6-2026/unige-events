@@ -8,43 +8,22 @@ Les endpoints authentifiés requièrent `Authorization: Bearer <jwt>` (Auth0/OID
 
 ---
 
-## Topologie — service amont par préfixe
+## Topologie — service propriétaire par préfixe
 
-Sprint 8 a découpé le backend en 5 services métiers ; Kong route chaque path vers
-le service propriétaire via une regex anchorée. Cf.
-[`architecture.md`](architecture.md) pour la table complète des Helm
-Deployments + endpoints owned.
+Post-finalisation Sprint 8 (consolidation 14→5), le backend est composé de
+**4 services métiers actifs** + 1 placeholder (`notification-service` `replicas:0`,
+SCRUM-99 hors scope). Kong DB-less route chaque path vers le service propriétaire
+via une regex anchorée — cf. [`k8s/chart/templates/kong/configmap-routes.yaml`](../../k8s/chart/templates/kong/configmap-routes.yaml)
+qui est la source de vérité runtime, et [`architecture.md`](architecture.md)
+pour la topologie détaillée + flux requête type.
 
-| Préfixe | Service amont | Notes |
-|---|---|---|
-| `/api/users/me` (sauf sous-paths) | **user-service** | GET / PUT |
-| `/api/users/me/image`, `/api/users/me/banner` | **user-service** | upload + delete (multipart) |
-| `/api/users/{uuid}` | **user-service** | profil public (anti-oracle 404) |
-| `/api/users/me/events` | **me-aggregator-service** | BFF |
-| `/api/users/me/favorites` | **favorite-service** | |
-| `/api/users/me/attendances`, `/api/users/me/participations` | **attendance-service** | |
-| `/api/users/me/calendar-token`, `/api/users/me/calendar-token/regenerate` | **calendar-service** | |
-| `/api/users/me/co-organizer-invitations` | **co-organizer-service** | BFF de leurs invitations |
-| `/api/users/me/follow-requests` | **follow-service** | |
-| `/api/users/{uuid}/follow`, `/api/users/{uuid}/{followers,following}` | **follow-service** | |
-| `/api/follow-requests/{id}/{accept,reject}` | **follow-service** | |
-| `/api/events` (list, create) | **event-service** | |
-| `/api/events/{id}` (GET, PUT, DELETE) | **event-service** | |
-| `/api/events/{id}/{cancel,restore,publish}` | **event-service** | |
-| `/api/events/{id}/occurrences` | **event-service** | recurrence SCRUM-147 |
-| `/api/events/{id}/image` | **event-service** | upload bannière |
-| `/api/events/featured` | **event-service** | |
-| `/api/events/search` | **event-service** | |
-| `/api/admin/events/{id}/{,un}feature` | **event-service** | `@RolesAllowed("ADMIN")` |
-| `/api/events/{id}/share`, `/api/s/{code}` | **share-service** | |
-| `/api/events/{id}/view` | **view-service** | |
-| `/api/events/{id}/favorite` | **favorite-service** | |
-| `/api/events/{id}/attend`, `/api/events/{id}/attendees` | **attendance-service** | |
-| `/api/events/{id}/co-organizers/*` | **co-organizer-service** | |
-| `/api/events/{id}/comments`, `/api/comments/{id}` | **comment-service** | |
-| `/api/events/{id}/report`, `/api/admin/reports/*` | **moderation-service** | + ModerationCleanupJob |
-| `/api/events/{id}/stats` | **stats-service** | |
-| `/api/calendar/{token}.ics` | **calendar-service** | |
+| Endpoint(s) | Service propriétaire |
+|---|---|
+| `/api/events`, `/api/events/{id}`, `/api/events/{id}/{cancel,restore,publish}`, `/api/events/{id}/occurrences`, `/api/events/{id}/image`, `/api/events/featured`, `/api/events/search`, `/api/admin/events/{id}/{,un}feature`, `/api/events/{id}/{share,view,favorite,co-organizers/*,stats}`, `/api/users/me/{events,favorites,co-organizer-invitations}`, `/api/s/{shortCode}` | **event-service** (absorbe share/view/favorite/co-organizer/stats/me-aggregator post-finalisation) |
+| `/api/users/me`, `/api/users/me/{image,banner,calendar-token,calendar-token/regenerate,follow-requests}`, `/api/users/{uuid}`, `/api/users/{uuid}/{follow,followers,following}`, `/api/follow-requests/{id}/{accept,reject}`, `/api/calendar/{token}.ics` | **user-service** (absorbe follow + calendar post-finalisation) |
+| `/api/events/{id}/{attend,attendees,comments}`, `/api/users/me/{attendances,participations}`, `/api/comments/{id}` | **engagement-service** (renommé/absorbe attendance + comment post-finalisation) |
+| `/api/events/{id}/report`, `/api/admin/reports*` | **moderation-service** (renommé depuis report-service post-finalisation) |
+| (placeholder, replicas:0, SCRUM-99) | **notification-service** |
 
 ---
 
@@ -73,41 +52,41 @@ Deployments + endpoints owned.
 | `GET` | `/events/search` | event-service | `@PermitAll` | Recherche full-text (q, category, faculty, facultyNone, tags [substring match case-insensitive], dateFrom, dateTo, page, size) | 200 |
 | `PATCH` | `/admin/events/{id}/feature` | event-service | `@RolesAllowed("ADMIN")` | Bascule un event en featured | 200, 401, 403, 404 |
 | `PATCH` | `/admin/events/{id}/unfeature` | event-service | `@RolesAllowed("ADMIN")` | Inverse | 200, 401, 403, 404 |
-| `POST` | `/events/{id}/favorite` | favorite-service | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
-| `DELETE` | `/events/{id}/favorite` | favorite-service | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
-| `GET` | `/users/me/favorites` | favorite-service | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
-| `GET` | `/users/me/events` | me-aggregator-service | `@Authenticated` | Mes events (BFF — fan-out vers event-service à terme) | 200, 401, 404 |
-| `GET` | `/events/{id}/share` | share-service | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
-| `GET` | `/s/{shortCode}` | share-service | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
-| `POST` | `/events/{id}/view` | view-service | `@Authenticated` | Marque l'event vu par l'utilisateur (idempotent — upsert) | 204, 401, 404 |
-| `GET` | `/users/me/calendar-token` | calendar-service | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
-| `POST` | `/users/me/calendar-token/regenerate` | calendar-service | `@Authenticated` | Révoquer et régénérer le token | 200, 401, 404 |
-| `GET` | `/calendar/{calendarToken}.ics` | calendar-service | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
-| `POST` | `/events/{id}/attend` | attendance-service | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si registration deadline dépassée | 200, 400, 401, 404, 409 |
-| `DELETE` | `/events/{id}/attend` | attendance-service | `@Authenticated` | Se désinscrire (auto-promotion WAITLISTED → ATTENDING si capacité libérée) | 204, 401, 404 |
-| `GET` | `/events/{id}/attendees` | attendance-service | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
-| `GET` | `/users/me/attendances` | attendance-service | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
-| `GET` | `/users/me/participations` | attendance-service | `@Authenticated` | Mes events ATTENDING/WAITLISTED (avec filtre `status` + `timeframe=upcoming\|past`) | 200, 400, 401 |
-| `POST` | `/events/{id}/co-organizers` | co-organizer-service | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
-| `GET` | `/events/{id}/co-organizers` | co-organizer-service | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
-| `DELETE` | `/events/{id}/co-organizers/{userId}` | co-organizer-service | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
-| `PATCH` | `/events/{id}/co-organizers/me/accept` | co-organizer-service | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
-| `PATCH` | `/events/{id}/co-organizers/me/decline` | co-organizer-service | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
-| `GET` | `/users/me/co-organizer-invitations` | co-organizer-service | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
-| `POST` | `/events/{id}/comments` | comment-service | `@Authenticated` + `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 10` | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422, 429 |
-| `GET` | `/events/{id}/comments` | comment-service | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
-| `DELETE` | `/comments/{id}` | comment-service | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
-| `POST` | `/users/{id}/follow` | follow-service | `@Authenticated` + `@PerUserRateLimit(name="follows.follow", max=30, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 30` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
-| `DELETE` | `/users/{id}/follow` | follow-service | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
-| `GET` | `/users/{id}/followers` | follow-service | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
-| `GET` | `/users/{id}/following` | follow-service | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
-| `GET` | `/users/me/follow-requests` | follow-service | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
-| `PATCH` | `/follow-requests/{followId}/accept` | follow-service | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
-| `PATCH` | `/follow-requests/{followId}/reject` | follow-service | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
+| `POST` | `/events/{id}/favorite` | event-service | `@Authenticated` | Ajouter aux favoris (idempotent — 200 même si déjà favori) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/favorite` | event-service | `@Authenticated` | Retirer des favoris | 204, 401, 404 |
+| `GET` | `/users/me/favorites` | event-service | `@Authenticated` | Liste paginée des événements favoris | 200, 401 |
+| `GET` | `/users/me/events` | event-service | `@Authenticated` | Mes events (BFF — fan-out vers event-service à terme) | 200, 401, 404 |
+| `GET` | `/events/{id}/share` | event-service | `@Authenticated` | Obtenir shareUrl + shortCode (idempotent) | 200, 401, 404 |
+| `GET` | `/s/{shortCode}` | event-service | `@PermitAll` | Redirection 302 vers la page de l'événement | 302, 404 |
+| `POST` | `/events/{id}/view` | event-service | `@Authenticated` | Marque l'event vu par l'utilisateur (idempotent — upsert) | 204, 401, 404 |
+| `GET` | `/users/me/calendar-token` | user-service | `@Authenticated` | Token webcal personnel — génère si absent (idempotent) | 200, 401 |
+| `POST` | `/users/me/calendar-token/regenerate` | user-service | `@Authenticated` | Révoquer et régénérer le token | 200, 401, 404 |
+| `GET` | `/calendar/{calendarToken}.ics` | user-service | `@PermitAll` | Flux iCalendar : événements en favori + événements ATTENDING (PUBLISHED, dédupliqués) | 200, 404 |
+| `POST` | `/events/{id}/attend` | engagement-service | `@Authenticated` | Upsert inscription (ATTENDING) — 400 si event non publié, 409 si registration deadline dépassée | 200, 400, 401, 404, 409 |
+| `DELETE` | `/events/{id}/attend` | engagement-service | `@Authenticated` | Se désinscrire (auto-promotion WAITLISTED → ATTENDING si capacité libérée) | 204, 401, 404 |
+| `GET` | `/events/{id}/attendees` | engagement-service | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
+| `GET` | `/users/me/attendances` | engagement-service | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
+| `GET` | `/users/me/participations` | engagement-service | `@Authenticated` | Mes events ATTENDING/WAITLISTED (avec filtre `status` + `timeframe=upcoming\|past`) | 200, 400, 401 |
+| `POST` | `/events/{id}/co-organizers` | event-service | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
+| `GET` | `/events/{id}/co-organizers` | event-service | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
+| `DELETE` | `/events/{id}/co-organizers/{userId}` | event-service | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |
+| `PATCH` | `/events/{id}/co-organizers/me/accept` | event-service | `@Authenticated` | Accepter sa propre invitation (idempotent) | 200, 401, 422 |
+| `PATCH` | `/events/{id}/co-organizers/me/decline` | event-service | `@Authenticated` | Décliner sa propre invitation (suppression de la row) | 204, 401, 422 |
+| `GET` | `/users/me/co-organizer-invitations` | event-service | `@Authenticated` | Mes invitations à co-organiser (default `status=PENDING`) | 200, 401, 404 |
+| `POST` | `/events/{id}/comments` | engagement-service | `@Authenticated` + `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 10` | Poster un commentaire (top-level ou reply 1 niveau max) | 201, 400, 401, 404, 422, 429 |
+| `GET` | `/events/{id}/comments` | engagement-service | `@PermitAll` | Lister les commentaires d'un event (top-level paginés DESC, replies imbriquées) | 200, 400, 404 |
+| `DELETE` | `/comments/{id}` | engagement-service | `@Authenticated` | Supprimer un commentaire (auteur, créateur, co-organisateur ACCEPTED ou ADMIN) | 204, 401, 403, 404 |
+| `POST` | `/users/{id}/follow` | user-service | `@Authenticated` + `@PerUserRateLimit(name="follows.follow", max=30, windowSeconds=60)` + Kong `rate-limiting` `policy: local` `minute: 30` | Suivre un user (auto-accept si `profilePublic=true`, sinon PENDING) | 201, 401, 404, 409, 422, 429 |
+| `DELETE` | `/users/{id}/follow` | user-service | `@Authenticated` | Se désabonner / annuler une demande (idempotent) | 204, 401 |
+| `GET` | `/users/{id}/followers` | user-service | `@Authenticated` | Liste paginée des followers (404 anti-oracle si privé non-owner) | 200, 401, 404 |
+| `GET` | `/users/{id}/following` | user-service | `@Authenticated` | Liste paginée des suivis | 200, 401, 404 |
+| `GET` | `/users/me/follow-requests` | user-service | `@Authenticated` | Demandes PENDING reçues | 200, 401, 404 |
+| `PATCH` | `/follow-requests/{followId}/accept` | user-service | `@Authenticated` | Accepter (target uniquement) | 200, 401, 403, 404, 409 |
+| `PATCH` | `/follow-requests/{followId}/reject` | user-service | `@Authenticated` | Refuser et supprimer la row | 204, 401, 403, 404, 409 |
 | `POST` | `/events/{id}/report` | moderation-service | `@Authenticated` | Signaler un event (raison + description) | 201, 400, 401, 404, 409, 422 |
 | `GET` | `/admin/reports` | moderation-service | `@RolesAllowed("ADMIN")` | Liste paginée des reports (default `status=PENDING`) | 200, 401, 403 |
 | `PATCH` | `/admin/reports/{id}` | moderation-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
-| `GET` | `/events/{id}/stats` | stats-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
+| `GET` | `/events/{id}/stats` | event-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
 
 > **Rate limit notice (post-completion)** : deux étages.
 > (1) **Lib `services/shared-rate-limit/`** — `@PerUserRateLimit`
