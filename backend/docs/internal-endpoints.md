@@ -26,6 +26,13 @@
 | 5 | `GET /events/{id}/organizer-uuids` | event-service | engagement-service (annotation `authorIsOrganizer:bool` sur listing comments), moderation-service (cascade reports) | `List<UUID>` (creator + ACCEPTED co-organizers) | Nouvel endpoint post Étape 3.4 finalization-ultimate (Décision G) — remplace l'ancien `EventCoOrganizerStub.findAcceptedUserIdsForEvent` cross-schéma. Single REST call, pas de N+1 self-check. `@PermitAll`, anti-oracle minimal (404 si BANNED). |
 | 6 | `GET /events/_bulk-attendance-summary?ids=42&ids=7` | engagement-service | event-service (bulk capacity gating + listings) | `Map<Long, AttendanceSummary>` | Nouvel endpoint post Étape 3.4 finalization-ultimate (Décision I) — remplace l'ancien `AttendanceStub.countGroupedByStatus(ids, status)` cross-schéma par event-service. Le préfixe `_bulk-` évite l'ambiguïté avec `/events/{eventId}/attendance-summary` (path param). |
 
+> **Note Décision J / ADR-002 — sur `GET /events/{id}/organizer-uuids` (entry #5).**
+> Cet endpoint reste annoté `@PermitAll` plutôt que `@Internal`.
+> Justification + mitigations : cf.
+> [`adr/ADR-002-organizer-uuids-permitall.md`](adr/ADR-002-organizer-uuids-permitall.md).
+> Sentinel test : `EventDomainSentinelsTest.getOrganizerUuids_bannedEvent_doesNotLeakUuidsToAnyCaller`
+> (Étape 24.7.4).
+
 ## Endpoints internes **disparus** post-finalization
 
 Les endpoints internes suivants existaient pré-finalization et **disparaissent** post-consolidation 14→5 (les services concernés ont été absorbés dans event-service ou user-service, donc l'accès devient local) :
