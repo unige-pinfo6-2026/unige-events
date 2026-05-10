@@ -24,8 +24,12 @@ public class CommentCreatedPublisher {
     public void send(CommentCreatedEvent ev) {
         try {
             emitter.send(ev);
-        } catch (Exception e) {
-            Log.warnf(e, "Failed to publish comments.created for comment %d ; downstream consumers will not see it", ev.commentId());
+        } catch (RuntimeException e) {
+            // Tightened from blanket Exception so checked failures still surface.
+            // Post-commit: no rollback possible — this log is the only operator signal.
+            Log.errorf(e,
+                    "[KAFKA_PUBLISH_FAIL_comments_created] Failed to publish comments.created for comment %d — downstream consumers will not see this transition",
+                    ev.commentId());
         }
     }
 }

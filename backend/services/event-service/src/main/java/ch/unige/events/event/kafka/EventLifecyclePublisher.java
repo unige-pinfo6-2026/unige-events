@@ -57,11 +57,12 @@ public class EventLifecyclePublisher {
     private void send(Emitter<EventLifecycleEvent> emitter, EventLifecycleEvent payload) {
         try {
             emitter.send(payload);
-        } catch (Exception e) {
-            // The DB row is the source of truth ; a Kafka outage must
-            // not propagate up to the caller's transaction.
-            Log.warnf(e,
-                    "Failed to publish %s for event %d ; downstream consumers will not see this transition",
+        } catch (RuntimeException e) {
+            // Tightened from blanket Exception so checked failures still surface.
+            // RejectedExecutionException (back-pressure overflow) is covered as a RuntimeException subtype.
+            // Post-commit: no rollback possible — this log is the only operator signal.
+            Log.errorf(e,
+                    "[KAFKA_PUBLISH_FAIL_events_lifecycle] Failed to publish %s for event %d — downstream consumers will not see this transition",
                     payload.type(), payload.eventId());
         }
     }

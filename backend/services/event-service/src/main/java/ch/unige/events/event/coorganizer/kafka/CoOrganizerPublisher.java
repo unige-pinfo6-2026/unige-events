@@ -31,8 +31,12 @@ public class CoOrganizerPublisher {
         };
         try {
             emitter.send(ev);
-        } catch (Exception e) {
-            Log.warnf(e, "Failed to publish co-organizers.%s for event %d / user %s", ev.type(), ev.eventId(), ev.userId());
+        } catch (RuntimeException e) {
+            // Tightened from blanket Exception so checked failures still surface.
+            // Post-commit: no rollback possible — this log is the only operator signal.
+            Log.errorf(e,
+                    "[KAFKA_PUBLISH_FAIL_events_co_organizer] Failed to publish co-organizers.%s for event %d / user %s — downstream consumers will not see this transition",
+                    ev.type(), ev.eventId(), ev.userId());
         }
     }
 }

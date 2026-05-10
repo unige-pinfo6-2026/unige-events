@@ -40,9 +40,11 @@ public class FollowLifecyclePublisher {
         };
         try {
             emitter.send(ev);
-        } catch (Exception e) {
-            Log.warnf(e,
-                    "Failed to publish %s for follow %s -> %s ; downstream consumers will not see this transition",
+        } catch (RuntimeException e) {
+            // Tightened from blanket Exception so checked failures still surface.
+            // Post-commit: no rollback possible — this log is the only operator signal.
+            Log.errorf(e,
+                    "[KAFKA_PUBLISH_FAIL_follow_lifecycle] Failed to publish %s for follow %s -> %s — downstream consumers will not see this transition",
                     ev.type(), ev.followerId(), ev.followedId());
         }
     }
