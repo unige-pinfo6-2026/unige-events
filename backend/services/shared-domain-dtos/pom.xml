@@ -15,12 +15,13 @@
       and / or shared between producer and consumer services. Cf.
       completion-spec Décision D (REFACTOR-006).
 
-      Includes only DTOs that are actually consumed cross-service:
-      - UserPublicResponse (consumed by follow-service)
-      - CapacitySummary    (event-service → attendance-service internal)
-      - AttendanceSummary  (attendance-service → event/co-org/stats)
-      - FollowCounts       (follow-service → user-service)
-      - EventCoOrganizerCheck (co-organizer-service → 5 consumers)
+      Includes only DTOs that are actually consumed cross-service in the
+      live 5-service topology (cf. sprint-context.md § Étape 23):
+      - UserPublicResponse  (user-service → event-service, engagement-service)
+      - CapacitySummary     (event-service → engagement-service internal)
+      - AttendanceSummary   (engagement-service → event-service)
+      - FollowCounts        (user-service internal projection)
+      - CoOrganizerCheck    (event-service → engagement-service)
 
       Service-private DTOs (UpdateProfileRequest, CreateEventRequest,
       CommentDTO, FollowDTO, RecurrenceRequest…) stay in their owning
