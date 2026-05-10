@@ -1,34 +1,61 @@
 package ch.unige.events.report.kafka;
 
+import ch.unige.events.report.outbox.EventBannedOutbox;
 import ch.unige.events.shared.kafka.events.EventBannedEvent;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@QuarkusTest
 class EventBannedPublisherTest {
 
-    @SuppressWarnings("unchecked")
-    private final Emitter<EventBannedEvent> emitter = mock(Emitter.class);
+    @Inject
+    EventBannedPublisher publisher;
 
-    @Test
-    void send_delegatesToEmitter() {
-        EventBannedPublisher p = new EventBannedPublisher(emitter);
-        EventBannedEvent ev = EventBannedEvent.banned(42L, UUID.randomUUID(), "spam");
-        p.send(ev);
-        verify(emitter).send(ev);
+    @AfterEach
+    @Transactional
+    void cleanup() {
+        EventBannedOutbox.deleteAll();
     }
 
     @Test
-    void send_emitterFails_swallows() {
-        doThrow(new RuntimeException("kafka down")).when(emitter).send(org.mockito.ArgumentMatchers.any(EventBannedEvent.class));
-        EventBannedPublisher p = new EventBannedPublisher(emitter);
-        EventBannedEvent ev = EventBannedEvent.banned(42L, null, "auto");
-        assertDoesNotThrow(() -> p.send(ev));
+    @Transactional
+    void persist_writesOutboxRowWithSerializedPayload() {
+        UUID admin = UUID.randomUUID();
+        EventBannedEvent ev = EventBannedEvent.banned(42L, admin, "spam");
+
+        publisher.persist(ev);
+
+        EventBannedOutbox row = EventBannedOutbox.<EventBannedOutbox>findAll().firstResult();
+        assertNotNull(row);
+        assertEquals(42L, row.eventId);
+        assertEquals(admin, row.bannedBy);
+        assertEquals(ev.bannedAt(), row.occurredAt);
+        assertNotNull(row.payloadJson);
+        assertTrue(row.payloadJson.contains("\"reason\":\"spam\""));
+        assertNull(row.publishedAt);
+        assertEquals(0, row.attempts);
+    }
+
+    @Test
+    @Transactional
+    void persist_nullBannedBy_isAccepted() {
+        EventBannedEvent ev = EventBannedEvent.banned(99L, null, "auto");
+
+        publisher.persist(ev);
+
+        EventBannedOutbox row = EventBannedOutbox.<EventBannedOutbox>findAll().firstResult();
+        assertNotNull(row);
+        assertNull(row.bannedBy);
+        assertTrue(row.payloadJson.contains("\"reason\":\"auto\""));
     }
 }

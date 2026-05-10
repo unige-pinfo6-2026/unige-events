@@ -1,32 +1,51 @@
 package ch.unige.events.report.kafka;
 
+import ch.unige.events.report.outbox.EventBannedOutbox;
 import ch.unige.events.shared.kafka.events.EventBannedEvent;
-import io.quarkus.logging.Log;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.eclipse.microprofile.reactive.messaging.Emitter;
+import jakarta.transaction.Transactional;
 
 /**
- * Producer for {@code events.banned} (Décision F + KAFKA-001/002 BLOCKER).
- * Emitted from moderation-service ; consumed by event-service which applies
- * {@code event.status = BANNED} locally — no more cross-schema mutation.
+ * Persists an {@link EventBannedEvent} into the transactional outbox
+ * (Decision K, ADR-003). The actual Kafka publication happens
+ * asynchronously in {@code EventBannedOutboxPoller}.
+ *
+ * <p>Refactored from a direct {@code Emitter.send(...)} caller in
+ * Etape 24.4.1-b: a Kafka outage when banning an event was previously
+ * a silent failure (event stays publicly visible while moderation has
+ * banned it). The outbox guarantees at-least-once delivery as long as
+ * the DB transaction commits.
  */
 @ApplicationScoped
 public class EventBannedPublisher {
 
-    private final Emitter<EventBannedEvent> emitter;
+    @Inject ObjectMapper objectMapper;
 
-    @Inject
-    public EventBannedPublisher(@Channel("events-banned") Emitter<EventBannedEvent> emitter) {
-        this.emitter = emitter;
-    }
-
-    public void send(EventBannedEvent ev) {
+    /**
+     * Persists a new outbox row for the given event. Joins the surrounding
+     * transaction (REQUIRED) — when called from the {@code @Transactional}
+     * caller that fired the CDI event, the row commits atomically with the
+     * moderation decision. Falls back to a fresh transaction when no caller
+     * transaction is active (e.g., direct unit-test reflection).
+     */
+    @Transactional
+    public void persist(EventBannedEvent ev) {
+        EventBannedOutbox row = new EventBannedOutbox();
+        row.eventId = ev.eventId();
+        row.bannedBy = ev.bannedBy();
+        row.occurredAt = ev.bannedAt();
         try {
-            emitter.send(ev);
-        } catch (Exception e) {
-            Log.warnf(e, "Failed to publish events.banned for event %d ; the ban will not propagate to event-service", ev.eventId());
+            row.payloadJson = objectMapper.writeValueAsString(ev);
+        } catch (JsonProcessingException e) {
+            // Should never happen — EventBannedEvent is a record of primitives + UUID + Instant.
+            // Re-throw so the surrounding @Transactional boundary rolls back the ban entirely.
+            throw new IllegalStateException(
+                    "Failed to serialize EventBannedEvent for outbox (eventId=" + ev.eventId() + ")", e);
         }
+        row.attempts = 0;
+        row.persist();
     }
 }
