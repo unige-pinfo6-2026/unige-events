@@ -28,10 +28,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -362,6 +367,64 @@ class AttendanceServiceTest {
         JwtTestContext.set(JwtTestHelper.anonymous());
         assertThrows(NotFoundException.class,
                 () -> service.removeAttendance("auth0|test-att-user", 25L));
+    }
+
+    @Test
+    void removeAttendance_eventClientReturnsNull_logsAndSkipsPromotion() {
+        // [WAITLIST_PROMOTION_SKIPPED] (Étape 24.3.6, A12): when event-service
+        // is unreachable the fallback returns null; the attendance row must
+        // still be deleted but waitlist promotion is deferred and a WARN is logged.
+        Attendance attendingRaw = new Attendance();
+        attendingRaw.id = 260L;
+        attendingRaw.userId = userId;
+        attendingRaw.eventId = 26L;
+        attendingRaw.status = AttendanceStatus.ATTENDING;
+        Attendance attending = spyDeletable(attendingRaw);
+
+        Attendance waitlisted = new Attendance();
+        waitlisted.id = 261L;
+        waitlisted.userId = otherUserId;
+        waitlisted.eventId = 26L;
+        waitlisted.status = AttendanceStatus.WAITLISTED;
+
+        PanacheMock.mock(Attendance.class);
+        PanacheQuery qFirst = queryWithFirst(Optional.of(attending));
+        when(Attendance.find(argThat((String s) -> s != null && s.startsWith("userId =")),
+                any(Object[].class)))
+                .thenReturn(qFirst);
+        PanacheQuery qSecond = queryWithFirst(Optional.of(waitlisted));
+        when(Attendance.find(argThat((String s) -> s != null && s.startsWith("eventId =")),
+                any(Object[].class)))
+                .thenReturn(qSecond);
+
+        when(eventClient.getById(26L)).thenReturn(null);
+
+        Logger jul = Logger.getLogger(AttendanceService.class.getName());
+        Level originalLevel = jul.getLevel();
+        List<LogRecord> captured = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override public void publish(LogRecord r) { captured.add(r); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        jul.addHandler(handler);
+        jul.setLevel(Level.ALL);
+        try {
+            service.removeAttendance("auth0|test-att-user", 26L);
+
+            assertEquals(AttendanceStatus.WAITLISTED, waitlisted.status,
+                    "waitlisted attendance must NOT be promoted when event-service is unreachable");
+            assertTrue(
+                captured.stream().anyMatch(r -> {
+                    String msg = r.getMessage();
+                    return msg != null && msg.contains("[WAITLIST_PROMOTION_SKIPPED]")
+                            && r.getLevel().intValue() >= Level.WARNING.intValue();
+                }),
+                "expected a WARN log record containing [WAITLIST_PROMOTION_SKIPPED] but captured=" + captured);
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(originalLevel);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────

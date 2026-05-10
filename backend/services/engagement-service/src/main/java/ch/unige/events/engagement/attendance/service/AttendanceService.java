@@ -158,8 +158,14 @@ public class AttendanceService {
 
         attendance.delete();
 
+        if (event == null) {
+            LOG.warnf(
+                "[WAITLIST_PROMOTION_SKIPPED] event-service unreachable for event=%d — promotion deferred until next attend/leave",
+                eventId
+            );
+            return;
+        }
         if (removed != AttendanceStatus.ATTENDING
-                || event == null
                 || event.capacity() == null
                 || event.status() == EventStatus.CANCELLED
                 || event.status() == EventStatus.EXPIRED
