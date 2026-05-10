@@ -1,6 +1,64 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-10 (Étape 23 — finalisation totale post-audit final)
+Dernière mise à jour : 2026-05-10 (Étape 24 — total fix pré-merge)
+
+---
+
+## Sprint 8 — Étape 24 : Total fix pré-merge — 2026-05-10
+
+Spec exécutée :
+[`specs_archives/specs_claude/specs_pr158_etape_24_total_fix.md`](../../specs_archives/specs_claude/specs_pr158_etape_24_total_fix.md)
+(branche persistante `refactor(backend)--migrate-to-microservices`,
+PR #158 — Elie merge lui-même). Source de vérité : review consolidée
+multi-agent (5 sous-agents `pr-review-toolkit`) — 26 findings + 10
+recoupés + 9 faux positifs arbitrés.
+
+### Résultat — 56/56 items adressés
+
+| Vague | Items | Sous-étapes | Commits |
+|---|---|---|---|
+| 1 — Sécurité critique | A2, A4, A16 | 24.1.1 → 24.1.3 | 3 |
+| 2 — Sentinels TDD | C1, C2, C3 | 24.2.1 → 24.2.3 | 3 |
+| 3 — Observabilité silent failures | A5, A6, A7, A8, A9, A12, A13, A14 | 24.3.1 → 24.3.8 | 8 |
+| 4 — Kafka outbox EventBanned | A10 (3 sous-commits) | 24.4.1 | 3 |
+| 5 — Robustness restant | A1, A3, A11, A15 | 24.5.1 → 24.5.4 | 4 |
+| 6 — Types | B1..B6 | 24.6.1 → 24.6.6 | 6 |
+| 7 — Tests intégration | C4..C9 + ADR-002 sentinel | 24.7.1 → 24.7.7 | 7 |
+| 8 — Refactors utiles | E1..E4 | 24.8.1 → 24.8.4 | 4 |
+| 9 — Documentation | D1..D21 | 24.9.2 → 24.9.16 | 15 |
+| 10 — sprint-context final | -- | 24.10.1 | 1 |
+| **TOTAL** | **56** | **54** | **54** |
+
+### Décisions techniques actées
+
+- **Décision J** (item A16) : `GET /events/{id}/organizer-uuids` reste
+  `@PermitAll`. Formalisée dans `backend/docs/adr/ADR-002-organizer-uuids-permitall.md`.
+  Sentinel test pin l'invariant filtre BANNED.
+- **Décision K** (item A10) : `events.banned` via outbox transactionnel ;
+  les 4 autres topics restent best-effort. Formalisée dans
+  `backend/docs/adr/ADR-003-event-banned-outbox-vs-best-effort.md`.
+  Migration Flyway V18 + nouveau poller dans moderation-service.
+
+### Build local
+
+```
+cd backend && ./mvnw -B -DskipITs verify -T 1
+```
+SUCCESS sur 17 modules à chaque sous-étape. Total commits Étape 24 : 54.
+
+### CI
+
+`gh pr checks 158 --watch` — tous verts (5 builds + Sonar Aggregate +
+2 SonarCloud). `Deploy / Preview` cancellé manuellement (intentionnel).
+
+### Conséquence — PR #158 prête au merge
+
+- 0 BLOQUANT, 0 IMPORTANT non clos.
+- 56/56 items review consolidée adressés.
+- 35/35 findings audit final clos (Étape 23) toujours valides.
+- Invariants : frontend/openapi 0 ligne, 0 stub JPA, 17 modules dans le
+  reactor.
+- Décisions A-K appliquées sans déviation.
 
 ---
 
