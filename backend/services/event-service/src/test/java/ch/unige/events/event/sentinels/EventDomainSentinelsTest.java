@@ -19,10 +19,12 @@ import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import io.restassured.response.Response;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.NotFoundException;
@@ -30,6 +32,7 @@ import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -43,6 +46,7 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -118,6 +122,43 @@ class EventDomainSentinelsTest {
         e.parentEventId = parentId;
         e.persist();
         return e;
+    }
+
+    /**
+     * Returns a fresh, transient {@link Event} with all NOT-NULL columns
+     * filled. Used by HTTP-level sentinels that must commit data outside
+     * {@code @TestTransaction} (so RestAssured can see the row) via
+     * {@code QuarkusTransaction.requiringNew()}.
+     */
+    private static Event bareEvent(EventStatus status, UUID creator) {
+        Event e = new Event();
+        e.title = "Title";
+        e.description = "desc";
+        e.location = "loc";
+        e.startDate = LocalDateTime.now().plusDays(2);
+        e.endDate = e.startDate.plusHours(2);
+        e.category = EventCategory.ACADEMIC;
+        e.creatorId = creator;
+        e.status = status;
+        return e;
+    }
+
+    private static Long persistCommitted(EventStatus status, UUID creator) {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            Event e = bareEvent(status, creator);
+            e.persist();
+            return e.id;
+        });
+    }
+
+    private static void deleteCommitted(Long... ids) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            for (Long id : ids) {
+                if (id != null) {
+                    Event.deleteById(id);
+                }
+            }
+        });
     }
 
     // -----------------------------------------------------------
@@ -456,6 +497,48 @@ class EventDomainSentinelsTest {
         } finally {
             jul.removeHandler(handler);
             jul.setLevel(originalLevel);
+        }
+    }
+
+    // -----------------------------------------------------------
+    // 7. ISSUE-92 anti-oracle body equivalence (Étape 24.7.1, C4)
+    //    A non-creator caller must not be able to distinguish an
+    //    unknown event id from a hidden one (DRAFT they don't own,
+    //    or BANNED) — same status code AND same response body.
+    // -----------------------------------------------------------
+
+    @Test
+    @DisplayName("ISSUE-92 anti-oracle: 404 body is identical for unknown event, DRAFT non-creator, and BANNED")
+    @TestSecurity(user = "auth0|antioracle-other")
+    void getById_anti_oracle_bodyEquivalence_acrossUnknownDraftBanned() {
+        UUID eventCreator = UUID.randomUUID();
+        UUID caller = UUID.randomUUID();
+        JwtTestContext.set(JwtTestHelper.jwtFor(caller));
+
+        Long draftId = persistCommitted(EventStatus.DRAFT, eventCreator);
+        Long bannedId = persistCommitted(EventStatus.BANNED, eventCreator);
+        long unknownId = 999_999_999L;
+
+        try {
+            Response unknown = given().when().get("/events/" + unknownId);
+            Response draftResp = given().when().get("/events/" + draftId);
+            Response bannedResp = given().when().get("/events/" + bannedId);
+
+            assertEquals(404, unknown.getStatusCode());
+            assertEquals(404, draftResp.getStatusCode());
+            assertEquals(404, bannedResp.getStatusCode());
+
+            String unknownBody = unknown.getBody().asString();
+            assertEquals(unknownBody, draftResp.getBody().asString(),
+                    "DRAFT-non-creator body must be byte-identical to unknown 404 body (anti-oracle)");
+            assertEquals(unknownBody, bannedResp.getBody().asString(),
+                    "BANNED body must be byte-identical to unknown 404 body (anti-oracle)");
+            assertEquals(unknown.getHeader("Content-Length"),
+                    draftResp.getHeader("Content-Length"));
+            assertEquals(unknown.getHeader("Content-Length"),
+                    bannedResp.getHeader("Content-Length"));
+        } finally {
+            deleteCommitted(draftId, bannedId);
         }
     }
 }
