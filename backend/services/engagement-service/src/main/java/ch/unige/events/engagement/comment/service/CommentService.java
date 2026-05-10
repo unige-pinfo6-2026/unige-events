@@ -11,6 +11,7 @@ import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
 
+import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -273,9 +274,14 @@ public class CommentService {
         }
         try {
             return userClient.getById(userId);
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            // Semantic absence: user was hard-deleted or never existed. Caller
+            // already treats null as "anonymous author" — no log needed.
+            return null;
         } catch (RuntimeException e) {
-            // Fallback returns null already; this catch is defense in depth
-            // for unexpected runtime issues during enrichment.
+            // Infra failure (timeout, CB open, JSON parse error, etc.). Log so
+            // ops can correlate degraded enrichment to a downstream incident.
+            Log.warnf(e, "[USER_ENRICHMENT_FAIL] safeGetUser(%s) — returning null (degraded enrichment due to downstream failure)", userId);
             return null;
         }
     }

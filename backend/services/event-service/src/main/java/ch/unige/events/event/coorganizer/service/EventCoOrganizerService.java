@@ -15,6 +15,7 @@ import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -228,7 +229,14 @@ public class EventCoOrganizerService {
         }
         try {
             return userClient.getById(userId);
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            // Semantic absence: user was hard-deleted or never existed. Caller
+            // already treats null as "anonymous author" — no log needed.
+            return null;
         } catch (RuntimeException e) {
+            // Infra failure (timeout, CB open, JSON parse error, etc.). Log so
+            // ops can correlate degraded enrichment to a downstream incident.
+            Log.warnf(e, "[USER_ENRICHMENT_FAIL] safeGetUser(%s) — returning null (degraded enrichment due to downstream failure)", userId);
             return null;
         }
     }
