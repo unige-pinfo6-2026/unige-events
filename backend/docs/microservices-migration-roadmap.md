@@ -1,5 +1,7 @@
 # Microservices Migration — Per-Service Roadmap
 
+> *Mentions of the dissolved-services (favorite/view/share/stats/me-aggregator/co-organizer → event-service co-located post-finalization ; follow/calendar → user-service co-located post-finalization ; attendance/comment → engagement-service renamed/co-located post-finalization ; report → moderation-service renamed post-finalization) are intentional historical references — see consolidation-plan.md for the 14→5 mapping.*
+
 > **[ARCHIVÉ — 2026-05-09]** Ce document trace l'historique de la
 > migration Sprint 8, désormais **livrée intégralement**. État final :
 > 5 services métiers + 10 shared libs + contract-tests + e2e = 17
