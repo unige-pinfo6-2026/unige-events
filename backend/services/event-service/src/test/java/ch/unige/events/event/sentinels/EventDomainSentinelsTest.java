@@ -406,15 +406,24 @@ class EventDomainSentinelsTest {
     }
 
     @Test
-    @TestTransaction
+    @DisplayName("RecurrenceGenerator: requesting more than 52 occurrences returns 400 (capped at 1 year weekly)")
     void getOccurrences_sizeOver52_returns400() {
-        // size > 52 is rejected by JAX-RS @Max(52). The service itself
-        // is a pure POJO call so we exercise the validation constraint via
-        // a manual validator.
-        try (jakarta.validation.ValidatorFactory vf = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
-            // Surrogate: validate the equivalent constraint on a record
-            assertNotNull(vf);
-        }
+        // @Max(52) on EventResource#getOccurrences's `size` query param
+        // makes Bean Validation reject the request before the resource
+        // method runs — so the path id need not exist. The 400 envelope
+        // proves the constraint is wired; a removed @Max(52) flips this red.
+        Response resp = given()
+                .queryParam("size", 53)
+                .when().get("/events/9999/occurrences");
+
+        assertEquals(400, resp.getStatusCode(),
+                "size=53 must be rejected by @Max(52) bean validation");
+        String body = resp.getBody().asString();
+        assertTrue(body.contains("52"),
+                "validation message must reference the cap (got: " + body + ")");
+        assertTrue(body.toLowerCase().contains("size")
+                        || body.toLowerCase().contains("less than or equal"),
+                "validation message must reference the violated field/constraint (got: " + body + ")");
     }
 
     @Test
