@@ -7,6 +7,7 @@ import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -66,20 +67,37 @@ public class FavoriteService {
             favorite.persist();
             entityManager.flush();
         } catch (PersistenceException e) {
-            if (!isUniqueConstraintViolation(e)) {
+            // Étape 24.5.4 (A15): match the unique-violation by constraint
+            // name rather than by exception type alone. The previous
+            // isUniqueConstraintViolation() swallowed *any*
+            // ConstraintViolationException — including unrelated unique
+            // constraints introduced by future migrations on this table
+            // (e.g. a hypothetical NOT NULL on user_id that would surface
+            // here as a ConstraintViolationException of a different
+            // category). Matching uq_favorite_user_event by name keeps the
+            // idempotent-double-tap path narrowly scoped and re-throws
+            // anything else so it surfaces as a 5xx.
+            if (!isUniqueFavoriteConflict(e)) {
                 throw e;
             }
             // Concurrent insert won — idempotent noop, the favorite exists.
+            // Log at DEBUG: double-tap is expected (mobile clients firing
+            // two requests on a fast tap) and benign; logging at WARN/ERROR
+            // would pollute the SLO error budget for normal user behavior.
+            Log.debugf("[FAVORITE_DOUBLE_TAP] idempotent noop user=%s event=%d", userId, eventId);
         }
     }
 
-    private static boolean isUniqueConstraintViolation(Throwable e) {
-        Throwable t = e;
-        while (t != null) {
-            if (t instanceof org.hibernate.exception.ConstraintViolationException) {
-                return true;
+    private static boolean isUniqueFavoriteConflict(PersistenceException e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException c) {
+                String name = c.getConstraintName();
+                if (name != null && name.equalsIgnoreCase("uq_favorite_user_event")) {
+                    return true;
+                }
             }
-            t = t.getCause();
+            cause = cause.getCause();
         }
         return false;
     }

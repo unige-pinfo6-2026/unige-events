@@ -22,6 +22,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -225,5 +227,47 @@ class FavoriteServiceTest {
                 Event.deleteById(eventId);
             });
         }
+    }
+
+    // -----------------------------------------------------------
+    // Étape 24.5.4 (A15) sentinels — pin the narrowing of the
+    // unique-violation catch in addFavorite() to the named constraint
+    // uq_favorite_user_event. The previous isUniqueConstraintViolation()
+    // matched any ConstraintViolationException, so a future migration
+    // adding another UNIQUE on the favorites table (or a stray FK / NOT
+    // NULL surfacing as a CCE in a sibling exception chain) would have
+    // been silently absorbed by the double-tap catch. Reflection on the
+    // private static helper is intentional: the goal is to lock the
+    // narrowing predicate, not to retest the public addFavorite path
+    // which is already covered by the C2 concurrent sentinel above.
+    // -----------------------------------------------------------
+
+    @Test
+    void isUniqueFavoriteConflict_namedConstraint_returnsTrue() throws Exception {
+        var hibCce = new org.hibernate.exception.ConstraintViolationException(
+                "duplicate", new SQLException("dup", "23505"), "uq_favorite_user_event");
+        var pe = new jakarta.persistence.PersistenceException("flush failed", hibCce);
+
+        Method method = FavoriteService.class.getDeclaredMethod(
+                "isUniqueFavoriteConflict", jakarta.persistence.PersistenceException.class);
+        method.setAccessible(true);
+        boolean result = (boolean) method.invoke(null, pe);
+
+        assertTrue(result, "uq_favorite_user_event must be matched as the double-tap conflict");
+    }
+
+    @Test
+    void isUniqueFavoriteConflict_otherConstraintName_returnsFalse_thusReThrown() throws Exception {
+        var hibCce = new org.hibernate.exception.ConstraintViolationException(
+                "duplicate", new SQLException("dup", "23505"), "uq_some_other_constraint");
+        var pe = new jakarta.persistence.PersistenceException("flush failed", hibCce);
+
+        Method method = FavoriteService.class.getDeclaredMethod(
+                "isUniqueFavoriteConflict", jakarta.persistence.PersistenceException.class);
+        method.setAccessible(true);
+        boolean result = (boolean) method.invoke(null, pe);
+
+        assertFalse(result,
+                "Other unique constraints must not be absorbed by the favorite double-tap catch");
     }
 }
