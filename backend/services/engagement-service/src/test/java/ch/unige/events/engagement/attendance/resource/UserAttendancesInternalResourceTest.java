@@ -37,4 +37,22 @@ class UserAttendancesInternalResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void getUserAttendances_tokenMismatch_returns404SameBodyAsMissing() {
+        // Anti-oracle: wrong X-Internal-Token returns the same 404 body
+        // as a missing one — otherwise "endpoint exists, token wrong" leaks.
+        UUID unknown = UUID.randomUUID();
+        io.restassured.response.Response missing = given()
+                .when().get("/users/" + unknown + "/attendances?status=ATTENDING");
+        io.restassured.response.Response wrong = given()
+                .header("X-Internal-Token", "wrong-token-value")
+                .when().get("/users/" + unknown + "/attendances?status=ATTENDING");
+
+        org.junit.jupiter.api.Assertions.assertEquals(404, missing.getStatusCode());
+        org.junit.jupiter.api.Assertions.assertEquals(404, wrong.getStatusCode());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                missing.getBody().asString(), wrong.getBody().asString(),
+                "Token-mismatch body must equal missing-route body (anti-oracle)");
+    }
 }

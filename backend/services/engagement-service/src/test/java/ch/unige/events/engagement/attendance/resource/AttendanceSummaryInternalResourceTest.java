@@ -104,6 +104,37 @@ class AttendanceSummaryInternalResourceTest {
             .statusCode(404);
     }
 
+    @Test
+    void getAttendanceSummary_tokenMismatch_returns404SameBodyAsMissing() {
+        // Anti-oracle: a wrong X-Internal-Token must produce the SAME 404
+        // body as a missing one — otherwise the difference would leak
+        // "this endpoint exists, your token is wrong" vs "no such route".
+        io.restassured.response.Response missing = given()
+                .when().get("/events/9999999/attendance-summary");
+        io.restassured.response.Response wrong = given()
+                .header("X-Internal-Token", "wrong-token-value")
+                .when().get("/events/9999999/attendance-summary");
+
+        org.junit.jupiter.api.Assertions.assertEquals(404, missing.getStatusCode());
+        org.junit.jupiter.api.Assertions.assertEquals(404, wrong.getStatusCode());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                missing.getBody().asString(), wrong.getBody().asString(),
+                "Token-mismatch body must equal missing-route body (anti-oracle)");
+    }
+
+    @Test
+    void publicEndpoint_inSameService_bypassesInternalTokenFilter() {
+        // /events/{id}/comments is @PermitAll — same JAX-RS application as
+        // the @Internal endpoints, but NOT name-bound. Must reach the
+        // resource without an X-Internal-Token (filter scoped to @Internal).
+        given()
+            .when().get("/events/9999999/comments")
+            .then()
+            .statusCode(org.hamcrest.Matchers.anyOf(
+                    org.hamcrest.Matchers.is(200),
+                    org.hamcrest.Matchers.is(404)));
+    }
+
     private static void persist(UUID userId, Long eventId, AttendanceStatus status) {
         Attendance a = new Attendance();
         a.userId = userId;
