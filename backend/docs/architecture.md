@@ -197,13 +197,12 @@ Exemple : `PUT /api/users/me` (mono-domaine)
 
 Exemple cross-service : `POST /api/events/{id}/comments`
 
-1. Kong route → `comment-service:8080`.
-2. `comment-service.CommentResource.create()` → `CommentService.post()` (`@Transactional`).
-3. `CommentService` appelle `eventServiceClient.getById(id)` (`@RegisterRestClient`) → `event-service` qui applique l'anti-oracle ISSUE-92 (404 si DRAFT/CANCELLED non-créateur). Le 404 est propagé tel quel par `comment-service`.
-4. `CommentService` appelle `coOrganizerServiceClient.check(eventId, userId)` → `co-organizer-service` (cascade SCRUM-136).
-5. La nouvelle entité Comment est persistée localement.
-6. `cdiEvent.fire(CommentCreatedEvent(...))` posté en transaction. Après commit JDBC, le bridge `CommentCreatedKafkaBridge` (`@Observes(during=AFTER_SUCCESS)`) invoque l'`Emitter` qui envoie un message `comments.created` (clé partition = `eventId`).
-7. Réponse `201 Created` au client.
+1. Kong route → `engagement-service:8080` (comment-service absorbé par engagement-service en Étape 2.4.1 finalization).
+2. `engagement-service.CommentResource.create()` → `CommentService.post()` (`@Transactional`).
+3. `CommentService` appelle `eventServiceClient.getByIdWithCoOrgCheck(id, callerUuid)` (`@RegisterRestClient`) → `event-service` qui applique l'anti-oracle ISSUE-92 (404 si DRAFT/CANCELLED non-créateur) **ET** la cascade SCRUM-136 server-side (le payload `EventDTO` retourné est enrichi de `coOrganizerOf:bool` post-2.2.4 — le co-organizer-service a été absorbé par event-service, la cascade est désormais une primitive locale exposée via le query param `?check-co-org-of=`). Single REST hop au lieu de deux.
+4. La nouvelle entité Comment est persistée localement (`Comment.eventId` est un `@Column Long`, pas un `@ManyToOne` cross-service).
+5. `commentEvent.fire(CommentCreatedEvent(...))` posté en transaction. Après commit JDBC, le bridge `CommentCreatedKafkaBridge` (`@Observes(during=AFTER_SUCCESS)`) invoque l'`Emitter` qui envoie un message `comments.created` (clé partition = `eventId`). Le `MdcKafkaProducerInterceptor` (post-Étape 3.1) attache un header `X-Request-ID` lifté depuis MDC pour le tracing distribué.
+6. Réponse `201 Created` au client.
 
 ---
 
