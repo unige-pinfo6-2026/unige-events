@@ -6,7 +6,6 @@ import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
 import ch.unige.events.event.dto.UpdateEventRequest;
-import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;

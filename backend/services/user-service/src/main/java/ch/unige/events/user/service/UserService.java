@@ -21,7 +21,6 @@ import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-import java.util.Objects;
 import java.util.UUID;
 
 /**
