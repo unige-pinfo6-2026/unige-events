@@ -1,5 +1,7 @@
 package ch.unige.events.shared.jaxrs;
 
+import jakarta.annotation.Priority;
+import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ParamConverter;
@@ -24,17 +26,23 @@ import java.lang.reflect.Type;
  * any future enum without per-type boilerplate. Discovered via Jandex,
  * no application.properties registration required.
  *
- * <p>Skips {@link Timeframe} so the existing
- * {@link TimeframeParamConverterProvider} remains authoritative for
- * that type (preserves backward compatibility on its corner cases).
+ * <p>Étape 24.8.3 (E3): the previous version hard-coded a
+ * {@code rawType == Timeframe.class} skip so the more specific
+ * {@link TimeframeParamConverterProvider} stayed authoritative. That
+ * coupling is replaced by {@link Priority} — this generic provider runs
+ * <em>after</em> the specific Timeframe provider, so JAX-RS picks the
+ * specific converter for {@link Timeframe} and falls back here for any
+ * other enum without the generic provider needing to know about
+ * Timeframe at all.
  */
 @Provider
+@Priority(Priorities.USER + 100)
 public class EnumParamConverterProvider implements ParamConverterProvider {
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> ParamConverter<T> getConverter(Class<T> rawType, Type genericType, Annotation[] annotations) {
-        if (rawType == null || !rawType.isEnum() || rawType == Timeframe.class) {
+        if (rawType == null || !rawType.isEnum()) {
             return null;
         }
         Class<? extends Enum> enumType = (Class<? extends Enum>) rawType;
