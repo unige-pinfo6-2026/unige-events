@@ -147,7 +147,7 @@ public class ReportService {
 
     @Transactional
     public ReportDTO handle(Long reportId, String adminAuth0Id, HandleReportRequest request) {
-        if (request.status() != ReportStatus.REVIEWED && request.status() != ReportStatus.DISMISSED) {
+        if (!request.status().isClosed()) {
             throw badRequest("invalid_status",
                     "Only REVIEWED or DISMISSED are accepted as a target status.");
         }

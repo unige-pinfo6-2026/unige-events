@@ -167,9 +167,7 @@ public class AttendanceService {
         }
         if (removed != AttendanceStatus.ATTENDING
                 || event.capacity() == null
-                || event.status() == EventStatus.CANCELLED
-                || event.status() == EventStatus.EXPIRED
-                || event.status() == EventStatus.BANNED) {
+                || event.status().isTerminal()) {
             return;
         }
 
