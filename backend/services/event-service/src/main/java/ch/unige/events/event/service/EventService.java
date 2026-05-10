@@ -132,7 +132,7 @@ public class EventService {
 
     @Transactional
     public EventDTO create(String auth0Id, CreateEventRequest request) {
-        if (request.recurrence != null) {
+        if (request.recurrence() != null) {
             return createRecurring(auth0Id, request);
         }
         Event event = persistParent(auth0Id, request);
@@ -141,14 +141,14 @@ public class EventService {
 
     @Transactional
     public EventDTO createRecurring(String auth0Id, CreateEventRequest request) {
-        RecurrenceRequest recurrence = request.recurrence;
+        RecurrenceRequest recurrence = request.recurrence();
         if (recurrence.endDate() == null && recurrence.maxOccurrences() == null) {
             throw badRequestRecurrence("recurrence_unbounded",
                     "At least one of recurrence.endDate or recurrence.maxOccurrences must be provided.");
         }
         if (recurrence.endDate() != null
-                && request.startDate != null
-                && recurrence.endDate().isBefore(request.startDate.toLocalDate())) {
+                && request.startDate() != null
+                && recurrence.endDate().isBefore(request.startDate().toLocalDate())) {
             throw badRequestRecurrence("recurrence_end_before_start",
                     "recurrence.endDate must be greater than or equal to startDate.");
         }
@@ -205,31 +205,31 @@ public class EventService {
         }
 
         Event event = new Event();
-        event.title = request.title;
-        event.description = request.description;
-        event.location = request.location;
-        event.startDate = request.startDate;
-        event.endDate = request.endDate;
-        event.category = request.category;
-        event.faculty = request.faculty;
-        event.bannerUrl = request.bannerUrl;
-        event.capacity = request.capacity;
-        event.allDay = Boolean.TRUE.equals(request.allDay);
-        event.websiteUrl = request.websiteUrl;
-        event.contactEmail = request.contactEmail;
-        event.registrationDeadline = request.registrationDeadline;
-        event.tags = normalizeTags(request.tags);
+        event.title = request.title();
+        event.description = request.description();
+        event.location = request.location();
+        event.startDate = request.startDate();
+        event.endDate = request.endDate();
+        event.category = request.category();
+        event.faculty = request.faculty();
+        event.bannerUrl = request.bannerUrl();
+        event.capacity = request.capacity();
+        event.allDay = Boolean.TRUE.equals(request.allDay());
+        event.websiteUrl = request.websiteUrl();
+        event.contactEmail = request.contactEmail();
+        event.registrationDeadline = request.registrationDeadline();
+        event.tags = normalizeTags(request.tags());
         event.creatorId = creatorId;
-        if (request.getStatus() == EventStatus.EXPIRED) {
+        if (request.status() == EventStatus.EXPIRED) {
             throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
         }
-        if (request.getStatus() == EventStatus.CANCELLED) {
+        if (request.status() == EventStatus.CANCELLED) {
             throw new BadRequestException("CANCELLED is not a valid initial status");
         }
-        if (request.getStatus() == EventStatus.BANNED) {
+        if (request.status() == EventStatus.BANNED) {
             throw new BadRequestException("BANNED is a moderation-only status and cannot be set manually");
         }
-        event.status = request.getStatus() != null ? request.getStatus() : EventStatus.DRAFT;
+        event.status = request.status() != null ? request.status() : EventStatus.DRAFT;
         event.persist();
         return event;
     }
@@ -397,28 +397,28 @@ public class EventService {
             throw conflict("Banned events cannot be modified.");
         }
 
-        event.title = request.title;
-        event.description = request.description;
-        event.location = request.location;
-        event.startDate = request.startDate;
-        event.endDate = request.endDate;
-        event.category = request.category;
-        event.faculty = request.faculty;
-        event.bannerUrl = request.bannerUrl;
-        event.capacity = request.capacity;
-        event.allDay = Boolean.TRUE.equals(request.allDay);
-        event.websiteUrl = request.websiteUrl;
-        event.contactEmail = request.contactEmail;
-        event.registrationDeadline = request.registrationDeadline;
-        event.tags = normalizeTags(request.tags);
-        if (request.status != null) {
-            if (request.status == EventStatus.EXPIRED) {
+        event.title = request.title();
+        event.description = request.description();
+        event.location = request.location();
+        event.startDate = request.startDate();
+        event.endDate = request.endDate();
+        event.category = request.category();
+        event.faculty = request.faculty();
+        event.bannerUrl = request.bannerUrl();
+        event.capacity = request.capacity();
+        event.allDay = Boolean.TRUE.equals(request.allDay());
+        event.websiteUrl = request.websiteUrl();
+        event.contactEmail = request.contactEmail();
+        event.registrationDeadline = request.registrationDeadline();
+        event.tags = normalizeTags(request.tags());
+        if (request.status() != null) {
+            if (request.status() == EventStatus.EXPIRED) {
                 throw new BadRequestException("EXPIRED is a system-only status and cannot be set manually");
             }
-            if (request.status == EventStatus.BANNED) {
+            if (request.status() == EventStatus.BANNED) {
                 throw new BadRequestException("BANNED is a moderation-only status and cannot be set manually");
             }
-            event.status = request.status;
+            event.status = request.status();
         }
 
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);

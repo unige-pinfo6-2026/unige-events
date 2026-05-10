@@ -82,14 +82,53 @@ class EventServiceTest {
     }
 
     private CreateEventRequest req(String title) {
-        CreateEventRequest req = new CreateEventRequest();
-        req.title = title;
-        req.description = "desc";
-        req.location = "loc";
-        req.startDate = LocalDateTime.now().plusDays(2);
-        req.endDate = req.startDate.plusHours(2);
-        req.category = EventCategory.ACADEMIC;
-        return req;
+        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        return new CreateEventRequest(
+                title, "desc", "loc", start, start.plusHours(2),
+                EventCategory.ACADEMIC, null, null,
+                null, null, null, null, null,
+                null, null, null);
+    }
+
+    private CreateEventRequest withStatus(CreateEventRequest r, EventStatus status) {
+        return new CreateEventRequest(
+                r.title(), r.description(), r.location(), r.startDate(), r.endDate(),
+                r.category(), r.faculty(), r.bannerUrl(),
+                r.capacity(), r.allDay(), r.websiteUrl(), r.contactEmail(), r.registrationDeadline(),
+                r.tags(), status, r.recurrence());
+    }
+
+    private CreateEventRequest withTags(CreateEventRequest r, List<String> tags) {
+        return new CreateEventRequest(
+                r.title(), r.description(), r.location(), r.startDate(), r.endDate(),
+                r.category(), r.faculty(), r.bannerUrl(),
+                r.capacity(), r.allDay(), r.websiteUrl(), r.contactEmail(), r.registrationDeadline(),
+                tags, r.status(), r.recurrence());
+    }
+
+    private CreateEventRequest withRecurrence(CreateEventRequest r, RecurrenceRequest recurrence) {
+        return new CreateEventRequest(
+                r.title(), r.description(), r.location(), r.startDate(), r.endDate(),
+                r.category(), r.faculty(), r.bannerUrl(),
+                r.capacity(), r.allDay(), r.websiteUrl(), r.contactEmail(), r.registrationDeadline(),
+                r.tags(), r.status(), recurrence);
+    }
+
+    private UpdateEventRequest updateReq(String title, LocalDateTime start, LocalDateTime end) {
+        return new UpdateEventRequest(
+                title, "desc", "loc", start, end,
+                EventCategory.ACADEMIC, null, null,
+                null, null, null, null, null,
+                null, null);
+    }
+
+    private UpdateEventRequest updateReqWith(String title, LocalDateTime start, LocalDateTime end,
+                                             List<String> tags, EventStatus status) {
+        return new UpdateEventRequest(
+                title, "desc", "loc", start, end,
+                EventCategory.ACADEMIC, null, null,
+                null, null, null, null, null,
+                tags, status);
     }
 
     private Event persistEvent(String title, EventStatus status, UUID creator) {
@@ -120,8 +159,7 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void create_explicitDraft_status() {
-        CreateEventRequest r = req("explicit");
-        r.setStatus(EventStatus.DRAFT);
+        CreateEventRequest r = withStatus(req("explicit"), EventStatus.DRAFT);
         EventDTO dto = service.create("auth0|x", r);
         assertEquals(EventStatus.DRAFT, dto.status());
     }
@@ -129,8 +167,7 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void create_explicitPublished_status() {
-        CreateEventRequest r = req("pub");
-        r.setStatus(EventStatus.PUBLISHED);
+        CreateEventRequest r = withStatus(req("pub"), EventStatus.PUBLISHED);
         EventDTO dto = service.create("auth0|x", r);
         assertEquals(EventStatus.PUBLISHED, dto.status());
     }
@@ -138,24 +175,21 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void create_expiredStatus_rejected() {
-        CreateEventRequest r = req("bad");
-        r.setStatus(EventStatus.EXPIRED);
+        CreateEventRequest r = withStatus(req("bad"), EventStatus.EXPIRED);
         assertThrows(BadRequestException.class, () -> service.create("auth0|x", r));
     }
 
     @Test
     @TestTransaction
     void create_cancelledStatus_rejected() {
-        CreateEventRequest r = req("bad");
-        r.setStatus(EventStatus.CANCELLED);
+        CreateEventRequest r = withStatus(req("bad"), EventStatus.CANCELLED);
         assertThrows(BadRequestException.class, () -> service.create("auth0|x", r));
     }
 
     @Test
     @TestTransaction
     void create_bannedStatus_rejected() {
-        CreateEventRequest r = req("bad");
-        r.setStatus(EventStatus.BANNED);
+        CreateEventRequest r = withStatus(req("bad"), EventStatus.BANNED);
         assertThrows(BadRequestException.class, () -> service.create("auth0|x", r));
     }
 
@@ -170,8 +204,7 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void create_normalizesTags() {
-        CreateEventRequest r = req("tagged");
-        r.tags = Arrays.asList("Foo", "  bar ", "FOO", "", null);
+        CreateEventRequest r = withTags(req("tagged"), Arrays.asList("Foo", "  bar ", "FOO", "", null));
         EventDTO dto = service.create("auth0|x", r);
         Event e = Event.findById(dto.id());
         assertEquals(List.of("foo", "bar"), e.tags);
@@ -182,9 +215,10 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void createRecurring_biweekly_endDate_generatesOccurrences() {
-        CreateEventRequest r = req("biweekly");
-        r.recurrence = new RecurrenceRequest(RecurrenceFrequency.BIWEEKLY,
-                r.startDate.toLocalDate().plusWeeks(8), null);
+        CreateEventRequest base = req("biweekly");
+        CreateEventRequest r = withRecurrence(base, new RecurrenceRequest(
+                RecurrenceFrequency.BIWEEKLY,
+                base.startDate().toLocalDate().plusWeeks(8), null));
         EventDTO parent = service.create("auth0|x", r);
         em.flush();
         long children = Event.count("parentEventId = ?1", parent.id());
@@ -194,8 +228,8 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void createRecurring_monthly() {
-        CreateEventRequest r = req("monthly");
-        r.recurrence = new RecurrenceRequest(RecurrenceFrequency.MONTHLY, null, 3);
+        CreateEventRequest r = withRecurrence(req("monthly"),
+                new RecurrenceRequest(RecurrenceFrequency.MONTHLY, null, 3));
         EventDTO parent = service.create("auth0|x", r);
         em.flush();
         assertEquals(2L, Event.count("parentEventId = ?1", parent.id()));
@@ -415,14 +449,7 @@ class EventServiceTest {
     void update_byCreator_updatesFields() {
         Event e = persistEvent("o", EventStatus.DRAFT, creatorId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "renamed";
-        u.description = "new";
-        u.location = "loc2";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
-        u.tags = List.of("Tag1");
+        UpdateEventRequest u = updateReqWith("renamed", e.startDate, e.endDate, List.of("Tag1"), null);
         EventDTO dto = service.update(e.id, "auth0|x", u);
         assertEquals("renamed", dto.title());
         assertEquals(List.of("tag1"), dto.tags());
@@ -433,13 +460,7 @@ class EventServiceTest {
     void update_byNonCreator_throws403() {
         Event e = persistEvent("o", EventStatus.DRAFT, otherId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
+        UpdateEventRequest u = updateReq("x", e.startDate, e.endDate);
         assertThrows(ForbiddenException.class, () -> service.update(e.id, "auth0|x", u));
     }
 
@@ -448,13 +469,7 @@ class EventServiceTest {
     void update_cancelled_throws409() {
         Event e = persistEvent("c", EventStatus.CANCELLED, creatorId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
+        UpdateEventRequest u = updateReq("x", e.startDate, e.endDate);
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.update(e.id, "auth0|x", u));
         assertEquals(409, ex.getResponse().getStatus());
@@ -465,13 +480,7 @@ class EventServiceTest {
     void update_banned_throws409() {
         Event e = persistEvent("b", EventStatus.BANNED, creatorId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
+        UpdateEventRequest u = updateReq("x", e.startDate, e.endDate);
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.update(e.id, "auth0|x", u));
         assertEquals(409, ex.getResponse().getStatus());
@@ -482,14 +491,7 @@ class EventServiceTest {
     void update_setExpiredStatus_rejected() {
         Event e = persistEvent("o", EventStatus.DRAFT, creatorId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
-        u.status = EventStatus.EXPIRED;
+        UpdateEventRequest u = updateReqWith("x", e.startDate, e.endDate, null, EventStatus.EXPIRED);
         assertThrows(BadRequestException.class, () -> service.update(e.id, "auth0|x", u));
     }
 
@@ -498,27 +500,14 @@ class EventServiceTest {
     void update_setBannedStatus_rejected() {
         Event e = persistEvent("o", EventStatus.DRAFT, creatorId);
         em.flush();
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = e.startDate;
-        u.endDate = e.endDate;
-        u.category = EventCategory.ACADEMIC;
-        u.status = EventStatus.BANNED;
+        UpdateEventRequest u = updateReqWith("x", e.startDate, e.endDate, null, EventStatus.BANNED);
         assertThrows(BadRequestException.class, () -> service.update(e.id, "auth0|x", u));
     }
 
     @Test
     @TestTransaction
     void update_unknown_throws404() {
-        UpdateEventRequest u = new UpdateEventRequest();
-        u.title = "x";
-        u.description = "x";
-        u.location = "x";
-        u.startDate = LocalDateTime.now().plusDays(1);
-        u.endDate = LocalDateTime.now().plusDays(2);
-        u.category = EventCategory.ACADEMIC;
+        UpdateEventRequest u = updateReq("x", LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2));
         assertThrows(NotFoundException.class,
                 () -> service.update(99999L, "auth0|x", u));
     }

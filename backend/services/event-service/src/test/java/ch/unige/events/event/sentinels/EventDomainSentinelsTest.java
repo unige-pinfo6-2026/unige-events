@@ -87,15 +87,22 @@ class EventDomainSentinelsTest {
     }
 
     private static CreateEventRequest baseRequest(String title, EventStatus status) {
-        CreateEventRequest req = new CreateEventRequest();
-        req.title = title;
-        req.description = "desc";
-        req.location = "loc";
-        req.startDate = LocalDateTime.now().plusDays(2);
-        req.endDate = req.startDate.plusHours(2);
-        req.category = EventCategory.ACADEMIC;
-        req.setStatus(status);
-        return req;
+        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        return new CreateEventRequest(
+                title, "desc", "loc", start, start.plusHours(2),
+                EventCategory.ACADEMIC, null, null,
+                null, null, null, null, null,
+                null, status, null);
+    }
+
+    private static CreateEventRequest baseRequestWithRecurrence(String title, EventStatus status,
+                                                                RecurrenceRequest recurrence) {
+        CreateEventRequest base = baseRequest(title, status);
+        return new CreateEventRequest(
+                base.title(), base.description(), base.location(), base.startDate(), base.endDate(),
+                base.category(), base.faculty(), base.bannerUrl(),
+                base.capacity(), base.allDay(), base.websiteUrl(), base.contactEmail(),
+                base.registrationDeadline(), base.tags(), base.status(), recurrence);
     }
 
     private Event newPersisted(EventStatus status, UUID creator, Long parentId) {
@@ -164,8 +171,8 @@ class EventDomainSentinelsTest {
     @Test
     @TestTransaction
     void createRecurring_weekly4Occurrences_persists1ParentAnd3Children() {
-        CreateEventRequest req = baseRequest("Weekly", EventStatus.DRAFT);
-        req.recurrence = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 4);
+        CreateEventRequest req = baseRequestWithRecurrence("Weekly", EventStatus.DRAFT,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 4));
 
         EventDTO parent = eventService.create("auth0|sentinel-user", req);
         em.flush();
@@ -177,8 +184,8 @@ class EventDomainSentinelsTest {
     @Test
     @TestTransaction
     void createRecurring_withoutEndDateOrMaxOccurrences_returns400_recurrenceUnbounded() {
-        CreateEventRequest req = baseRequest("Unbounded", EventStatus.DRAFT);
-        req.recurrence = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, null);
+        CreateEventRequest req = baseRequestWithRecurrence("Unbounded", EventStatus.DRAFT,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, null));
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> eventService.create("auth0|sentinel-user", req));
@@ -188,9 +195,10 @@ class EventDomainSentinelsTest {
     @Test
     @TestTransaction
     void createRecurring_endDateBeforeStart_returns400_recurrenceEndBeforeStart() {
-        CreateEventRequest req = baseRequest("Bad", EventStatus.DRAFT);
-        req.recurrence = new RecurrenceRequest(RecurrenceFrequency.WEEKLY,
-                req.startDate.toLocalDate().minusDays(5), null);
+        CreateEventRequest base = baseRequest("Bad", EventStatus.DRAFT);
+        CreateEventRequest req = baseRequestWithRecurrence("Bad", EventStatus.DRAFT,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY,
+                        base.startDate().toLocalDate().minusDays(5), null));
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> eventService.create("auth0|sentinel-user", req));
@@ -200,8 +208,8 @@ class EventDomainSentinelsTest {
     @Test
     @TestTransaction
     void createRecurring_inheritsParentStatusPublished() {
-        CreateEventRequest req = baseRequest("PubRec", EventStatus.PUBLISHED);
-        req.recurrence = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 3);
+        CreateEventRequest req = baseRequestWithRecurrence("PubRec", EventStatus.PUBLISHED,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 3));
 
         EventDTO parent = eventService.create("auth0|sentinel-user", req);
         em.flush();
@@ -272,13 +280,11 @@ class EventDomainSentinelsTest {
         Event child = newPersisted(EventStatus.DRAFT, creatorUuid, parent.id);
         em.flush();
 
-        UpdateEventRequest req = new UpdateEventRequest();
-        req.title = "NewTitle";
-        req.description = parent.description;
-        req.location = parent.location;
-        req.startDate = parent.startDate;
-        req.endDate = parent.endDate;
-        req.category = parent.category;
+        UpdateEventRequest req = new UpdateEventRequest(
+                "NewTitle", parent.description, parent.location, parent.startDate, parent.endDate,
+                parent.category, null, null,
+                null, null, null, null, null,
+                null, null);
 
         eventService.update(parent.id, "auth0|sentinel-user", req);
         em.flush();
@@ -324,8 +330,8 @@ class EventDomainSentinelsTest {
     @Test
     @TestTransaction
     void post_validRecurrenceWeekly_returns201_recurrenceRuleSetOnParent() {
-        CreateEventRequest req = baseRequest("Wk", EventStatus.DRAFT);
-        req.recurrence = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 4);
+        CreateEventRequest req = baseRequestWithRecurrence("Wk", EventStatus.DRAFT,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 4));
         EventDTO parent = eventService.create("auth0|sentinel-user", req);
         assertEquals("FREQ=WEEKLY;COUNT=4", parent.recurrenceRule());
     }
