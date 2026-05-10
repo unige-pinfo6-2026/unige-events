@@ -7,7 +7,8 @@ metadata:
     app: event-service
     migration-step: extracted
 spec:
-  # event-service is now active (PR 13 of the extraction roadmap). Kong
+  # event-service is now active (depuis Étape 2.2 event-service
+  # finalization, cf. backend/docs/sprint-context.md § Étape 23). Kong
   # routes /api/events* + /api/admin/events/{id}/{,un}feature here.
   # Hosts EventExpirationJob (every 1h) — replicas: 1 strict (no leader
   # election in S8).

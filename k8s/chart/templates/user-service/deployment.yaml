@@ -7,10 +7,11 @@ metadata:
     app: user-service
     migration-step: extracted
 spec:
-  # user-service is now active (PR 12 of the extraction roadmap). Kong
-  # routes /api/users/{id} (incl. /me) here. The /me/image and /me/banner
-  # uploads stay on legacy-monolith for now (FileStorageService + S3 deps
-  # live there ; migrated in a follow-up after PR 13).
+  # user-service is now active (depuis Étape 2.3 user-service finalization,
+  # cf. backend/docs/sprint-context.md § Étape 23). Kong routes
+  # /api/users/{id} (incl. /me) here. /me/image and /me/banner uploads
+  # land on user-service directly (FileStorageService + S3 wiring
+  # co-located post-finalization).
   replicas: 1
   strategy:
     type: RollingUpdate

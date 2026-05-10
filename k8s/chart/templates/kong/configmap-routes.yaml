@@ -14,10 +14,13 @@ data:
     # and no `api-catchall` route. Every /api/* path is matched by an
     # explicit per-service regex below ; an unmatched path now returns a
     # Kong 404 (correct behaviour — there's no legacy fallback to swallow
-    # bad URLs). The 13 service blocks below are listed in the historical
-    # extraction order (PR 1 ... PR 13), not in routing-priority order
-    # (Kong picks the longest matching regex regardless of declaration
-    # order).
+    # bad URLs). The service blocks below are listed in their historical
+    # extraction order ; after absorptions in Étape 2.X (cf.
+    # sprint-context.md § Étape 23), the live topology has 5 microservices
+    # (event-service, user-service, engagement-service, moderation-service,
+    # notification-service placeholder). Routing-priority order is not
+    # significant — Kong picks the longest matching regex regardless of
+    # declaration order.
     services:
       # NB: share-service was merged into event-service in finalization
       # Étape 2.2.1 (Décision A). Routes /api/events/{id}/share +
@@ -39,7 +42,7 @@ data:
       # calendar-regen, ics-feed sont désormais dans le bloc user-service
       # avec read_timeout dédié 60s.
 
-      # ───── PR 13 — event-service (extracted) ────────────────────────────
+      # ───── event-service (Étape 2.2 finalization) ───────────────────────
       # All /events/* and /admin/events/{id}/{,un}feature paths.
       # /events/search needs to win over /events/{digit-id} so it's
       # listed first ; same for /featured.
@@ -174,7 +177,7 @@ data:
                   fault_tolerant: true
                   hide_client_headers: false
 
-      # ───── PR 12 — user-service (extracted) ─────────────────────────────
+      # ───── user-service (Étape 2.3 finalization) ────────────────────────
       # GET/PUT /api/users/me + GET /api/users/{uuid} + POST/DELETE
       # /api/users/me/image + POST/DELETE /api/users/me/banner. The /me/image
       # and /me/banner regexes are listed BEFORE the /[^/]+$ catch so Kong
@@ -266,7 +269,7 @@ data:
       # local entities (Event, Attendance, Favorite, EventView,
       # EventCoOrganizer) — no more REST cross-service hops.
 
-      # ───── PR 9 — moderation-service (renamed from report-service) ─────
+      # ───── moderation-service (Étape 2.X extraction, renamed from report-service) ─────
       # Routes the report endpoint + the admin moderation queue. Hosts the
       # ModerationCleanupJob scheduler (cron 03:00 Europe/Zurich,
       # replicas:1 strict) and the events.banned Kafka producer.
@@ -292,7 +295,7 @@ data:
             strip_path: false
             preserve_host: true
 
-      # ───── PR 8 — engagement-service (renamed from attendance-service) ──
+      # ───── engagement-service (Étape 2.X extraction, renamed from attendance-service) ──
       # Routes the attend / attendees endpoints + /me/attendances and
       # /me/participations to engagement-service. After step 2.4.1 this
       # block also serves /api/events/{id}/comments and /api/comments/{id}.
