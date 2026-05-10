@@ -366,9 +366,9 @@ CHECK constraints :
   pas par une CHECK DB.
 - **`moderationNote`** : note libre saisie par l'admin au moment du PATCH (max 2000 chars).
 
-#### Consommation par `ModerationCleanupService`
+#### Consommation par `ModerationCleanupJob`
 
-Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/ModerationCleanupService.java)
+Le job [`ModerationCleanupJob`](../services/moderation-service/src/main/java/ch/unige/events/report/scheduler/ModerationCleanupJob.java)
 (cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
 lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
 
@@ -642,7 +642,7 @@ attendingCount, interestedCount, viewCount
 | Enum Java | Valeurs | Sprint | État |
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
-| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupService`) |
+| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupJob`) |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
@@ -729,3 +729,41 @@ Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus
 > (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
 > drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
 > muter une migration committée.
+
+## S3 cleanup hors-transaction (MINOR-010 + MINOR-011)
+
+### Préambule (FR / EN)
+
+- **FR** — Sur `UserService.uploadImage` / `uploadBanner`, l'objet S3 est
+  écrit AVANT le commit JDBC qui mémorise l'URL. Un crash entre les deux
+  laisse un orphelin S3. Idem pour les delete : la ligne JDBC est mise à
+  jour, l'objet S3 est supprimé après commit ; un crash entre les deux
+  laisse l'objet présent dans le bucket alors que la DB ne le référence
+  plus.
+- **EN** — On `UserService.uploadImage` / `uploadBanner`, the S3 object
+  is written BEFORE the JDBC commit that records the URL. A crash
+  between the two leaves an orphaned S3 object. Same for delete: the JDBC
+  row is updated, then the S3 object is deleted after commit; a crash in
+  between leaves the object in the bucket while the DB no longer
+  references it.
+
+### Limitation acceptée
+
+Pas d'outbox pattern sur S3 (cf. ADR-003 — outbox réservé aux topics
+Kafka critiques). La JavaDoc des méthodes concernées documente la
+tolérance aux orphelins. Un cleanup périodique S3 est reporté à S9+
+(devops-handoff item dédié).
+
+### Méthodes concernées
+
+- `user-service.UserService.uploadImage(...)` (avatar)
+- `user-service.UserService.uploadBanner(...)`
+- `user-service.UserService.deleteAvatar(...)` (delete S3 + reset URL)
+- `user-service.UserService.deleteBanner(...)` (NB: ne supprime PAS
+  l'objet S3 par dessein — cf. JavaDoc inline)
+
+### Mitigation
+
+- Bucket public read-only ; risque sécurité limité à un orphelin
+  inaccessible (URL perdue).
+- Bucket lifecycle policy S9+ : auto-delete after 30j d'inactivité.
