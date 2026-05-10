@@ -359,37 +359,6 @@ data:
       # follow-listings / follow-requests / my-follow-reqs sont désormais
       # dans le bloc user-service au-dessus.
 
-      # ───────────────────────────────────────────────────────────────────────
-      # Target topology — commented out, ready to flip per extraction PR
-      # ───────────────────────────────────────────────────────────────────────
-      # The blocks below describe where each path SHOULD route once the
-      # corresponding microservice has been extracted from legacy-monolith
-      # (cf. specs_microservices_migration.md § "Routage Kong"). To activate
-      # one of them: uncomment the block, narrow the `paths` of api-catchall
-      # above so it no longer matches the same path (or remove specific
-      # paths from the catchall), redeploy via helm upgrade.
-      #
-      # Service Kubernetes DNS naming: <service>.<namespace>.svc.cluster.local
-      # — the chart already provisions Service objects with replicas: 0 for
-      # each of these (see k8s/chart/templates/<service>/service.yaml).
-      #
-      # - name: view-service
-      #   url: http://view-service:8080
-      #   routes:
-      #     - { name: event-view,        paths: [/api/events/(?:\\d+)/view] }
-      #
-      # - name: share-service
-      #   url: http://share-service:8080
-      #   routes:
-      #     - { name: event-share,       paths: [/api/events/(?:\\d+)/share] }
-      #     - { name: shortlink,         paths: [/api/s/[^/]+$] }
-      #
-      # - name: notification-service
-      #   url: http://notification-service:8080
-      #   routes:
-      #     - { name: notifications,     paths: [/api/notifications] }
-      #     - { name: notification-read, paths: [/api/notifications/(?:\\d+)/read] }
-      #
 
     # ─────────────────────────────────────────────────────────────────────────
     # Global plugins (cf. spec decision 6)
