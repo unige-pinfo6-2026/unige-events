@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -14,6 +16,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -384,5 +390,45 @@ class FileStorageServiceTest {
         S3Client s3 = mock(S3Client.class);
         service(s3).deleteObject("https://cdn.auth0.com/avatars/alice.png", AVATARS_FOLDER);
         verify(s3, never()).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    // --- init: bucket policy apply failure (Étape 24.3.8, A14) ---
+
+    @Test
+    void init_policyFails_logsErrorWithS3_POLICY_APPLY_FAIL() {
+        S3Client s3 = mock(S3Client.class);
+        // createBucket: simulate the bucket already exists so we proceed to putBucketPolicy.
+        when(s3.createBucket(any(software.amazon.awssdk.services.s3.model.CreateBucketRequest.class)))
+                .thenThrow(BucketAlreadyOwnedByYouException.builder().message("exists").build());
+        when(s3.putBucketPolicy(any(PutBucketPolicyRequest.class)))
+                .thenThrow(new RuntimeException("Minio policy endpoint refused"));
+
+        FileStorageService svc = service(s3);
+
+        Logger jul = Logger.getLogger(FileStorageService.class.getName());
+        Level originalLevel = jul.getLevel();
+        List<LogRecord> captured = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override public void publish(LogRecord r) { captured.add(r); }
+            @Override public void flush() {}
+            @Override public void close() {}
+        };
+        jul.addHandler(handler);
+        jul.setLevel(Level.ALL);
+        try {
+            // init must swallow the failure (don't crash the JVM startup).
+            assertDoesNotThrow(() -> svc.init(null));
+
+            assertTrue(
+                captured.stream().anyMatch(r -> {
+                    String msg = r.getMessage();
+                    return msg != null && msg.contains("[S3_POLICY_APPLY_FAIL]")
+                            && r.getLevel().intValue() >= Level.SEVERE.intValue();
+                }),
+                "expected an ERROR log record containing [S3_POLICY_APPLY_FAIL] but captured=" + captured);
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(originalLevel);
+        }
     }
 }

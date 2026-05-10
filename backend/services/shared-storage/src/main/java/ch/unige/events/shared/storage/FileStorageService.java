@@ -80,7 +80,10 @@ public class FileStorageService {
                 .policy(policy)
                 .build());
         } catch (Exception e) {
-            Log.warnf(e, "Failed to apply bucket policy to '%s'", config.s3Bucket());
+            Log.errorf(e,
+                "[S3_POLICY_APPLY_FAIL] Failed to apply public-read bucket policy to '%s' — uploaded images will be private (403 on CDN). Operators must verify Minio/S3 access policy.",
+                config.s3Bucket()
+            );
         }
     }
 
