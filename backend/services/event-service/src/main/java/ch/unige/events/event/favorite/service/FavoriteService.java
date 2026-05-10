@@ -10,6 +10,8 @@ import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -34,6 +36,7 @@ public class FavoriteService {
 
     @Inject Instance<JsonWebToken> jwt;
     @Inject @RestClient EngagementServiceClient engagementClient;
+    @Inject EntityManager entityManager;
 
     private JsonWebToken jwt() {
         return jwt.isResolvable() ? jwt.get() : null;
@@ -46,15 +49,39 @@ public class FavoriteService {
 
         UUID userId = resolveUserId();
 
-        boolean alreadyExists = Favorite.findByUserAndEvent(userId, eventId).isPresent();
-        if (alreadyExists) {
+        // BUG-006-bis: tolerate concurrent double-tap idempotently. The
+        // pre-check covers the common idempotent path; the try / flush /
+        // unique-constraint catch handles the race where two transactions
+        // both observe alreadyExists=false and both reach persist(). The
+        // unique constraint uq_favorite_user_event on (user_id, event_id)
+        // turns the loser INSERT into a noop. Aligns with the FollowService
+        // pattern referenced by the spec (Décision B alternative path).
+        if (Favorite.findByUserAndEvent(userId, eventId).isPresent()) {
             return;
         }
+        try {
+            Favorite favorite = new Favorite();
+            favorite.userId = userId;
+            favorite.eventId = eventId;
+            favorite.persist();
+            entityManager.flush();
+        } catch (PersistenceException e) {
+            if (!isUniqueConstraintViolation(e)) {
+                throw e;
+            }
+            // Concurrent insert won — idempotent noop, the favorite exists.
+        }
+    }
 
-        Favorite favorite = new Favorite();
-        favorite.userId = userId;
-        favorite.eventId = eventId;
-        favorite.persist();
+    private static boolean isUniqueConstraintViolation(Throwable e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof org.hibernate.exception.ConstraintViolationException) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     @Transactional
