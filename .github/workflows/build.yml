@@ -78,7 +78,8 @@ jobs:
             -Dquarkus.container-image.group=${{ github.repository_owner }} \
             -Dquarkus.container-image.tag=${{ env.IMAGE_TAG }} \
             -Dquarkus.container-image.additional-tags=${{ env.IMAGE_ADDITIONAL_TAGS }} \
-            -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
+            -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre \
+            -Djib.serialize=true
 
       - name: Upload jacoco artifact
         uses: actions/upload-artifact@v4
