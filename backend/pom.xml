@@ -124,6 +124,10 @@
 
     <profiles>
         <profile>
+            <id>container-image</id>
+        </profile>
+
+        <profile>
             <id>native</id>
             <activation>
                 <property>

@@ -81,4 +81,18 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>container-image</id>
+            <properties>
+                <quarkus.container-image.build>true</quarkus.container-image.build>
+                <quarkus.container-image.push>${env.IMAGE_PUSH}</quarkus.container-image.push>
+                <quarkus.container-image.registry>${env.REGISTRY}</quarkus.container-image.registry>
+                <quarkus.container-image.group>${env.IMAGE_GROUP}</quarkus.container-image.group>
+                <quarkus.container-image.tag>${env.IMAGE_TAG}</quarkus.container-image.tag>
+                <quarkus.container-image.additional-tags>${env.IMAGE_ADDITIONAL_TAGS}</quarkus.container-image.additional-tags>
+                <quarkus.jib.base-jvm-image>eclipse-temurin:21-jre</quarkus.jib.base-jvm-image>
+            </properties>
+        </profile>
+    </profiles>
 </project>
