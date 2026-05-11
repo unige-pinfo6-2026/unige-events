@@ -1,8 +1,6 @@
 {
     "name": "UNIGE Events",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
-	"workspaceFolder": "/workspace",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
 
     "features": {
 		"ghcr.io/devcontainers/features/java:1": {
@@ -15,7 +13,7 @@
 		"ghcr.io/devcontainers/features/github-cli:1": {}
 	},
 
-	"forwardPorts": [8080, 5005, 5173, 9001],
+	"forwardPorts": [8080, 5005, 5173, 15432, 15433, 15434, 15435, 18001, 19000, 19001, 19092],
 
 	"postCreateCommand": "make install",
 	"customizations": {
@@ -27,7 +25,8 @@
 				"sonarsource.sonarlint-vscode",
 				"github.copilot",
 				"github.vscode-github-actions",
-				"anthropic.claude-code"
+				"anthropic.claude-code",
+				"openai.chatgpt"
 			]
 		},
         "jetbrains": {
