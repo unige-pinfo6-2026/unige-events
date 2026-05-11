@@ -91,7 +91,7 @@ pour la topologie détaillée + flux requête type.
 | `GET` | `/events/{id}/stats` | event-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
 
 > **Rate limit notice (post-completion)** : deux étages.
-> (1) **Lib `services/shared-rate-limit/`** — `@PerUserRateLimit`
+> (1) **Lib `backend/shared/shared-rate-limit/`** — `@PerUserRateLimit`
 > interceptor + state cache, restaurée au commit `446ea3e` ; 13 sites
 > annotés sur 6 services consommateurs (event, user, attendance,
 > comment, favorite, follow). 100 % couvert par tests unitaires.

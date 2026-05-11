@@ -578,7 +578,7 @@ DevServices PostgreSQL pour pessimistic lock, comportement assertion)
 suivent le port runtime de l'Étape 4.
 
 **Étape 6 (Pact + E2E — quasi complète, 4 commits) :**
-- 6.0 — modules `backend/contract-tests/` + `backend/e2e/` ajoutés au
+- 6.0 — modules `backend/tests/contract-tests/` + `backend/tests/e2e/` ajoutés au
   reactor (15 → **17 modules**). Override surefire pour bypasser la
   forced JBoss LogManager du parent (modules JUnit purs). Sentinel
   scaffold tests valident le boot surefire.
@@ -593,7 +593,7 @@ suivent le port runtime de l'Étape 4.
 - 6.5 — `E2EHappyPathTest` (create user → create event → publish → get).
   Gated by env var `UNIGE_EVENTS_E2E_BASE_URL` + token : skipped local,
   exécutable sur preview cluster.
-- 4 pact JSON générés dans `backend/contract-tests/target/pacts/` :
+- 4 pact JSON générés dans `backend/tests/contract-tests/target/pacts/` :
   `engagement-service-event-service.json`,
   `moderation-service-event-service.json`,
   `user-service-event-service.json`. Brokerless workflow.
@@ -880,7 +880,7 @@ d'image doivent migrer vers user-service / event-service. Livré ici :
   event-service). C'est la même tension que le reste de la
   soft-extraction ; les deux copies vivent dans `services/*-service/**`
   qui est déjà exclu par le glob Sonar. Une consolidation via lib
-  partagée (`services/shared-storage/`) sera proposée en
+  partagée (`backend/shared/shared-storage/`) sera proposée en
   post-migration s'il y a appétit.
 
 État après cette PR : **legacy-monolith ne sert plus aucun trafic via
@@ -944,7 +944,7 @@ Une fois les 13 extractions livrées + legacy-monolith supprimé, trois
 dettes héritées de la soft-extraction ont été remboursées sur la même
 branche persistante :
 
-* **`446ea3e` — Restauration de `@PerUserRateLimit` via `services/shared-rate-limit/`.**
+* **`446ea3e` — Restauration de `@PerUserRateLimit` via `backend/shared/shared-rate-limit/`.**
   Le PerUserRateLimit interceptor + RateLimitState (Caffeine) +
   RateLimitExceededException + son ExceptionMapper vivaient dans
   `legacy-monolith` ; sa suppression à `b570c1b` a fait perdre les 13
@@ -957,7 +957,7 @@ branche persistante :
   user-service ×3, attendance/comment/favorite/follow ×1 chacun) — mêmes
   noms et budgets que le monolith, donc Kong + frontend inchangés.
 
-* **`3f3dcd1` — Dédoublonnage `FileStorageService` via `services/shared-storage/`.**
+* **`3f3dcd1` — Dédoublonnage `FileStorageService` via `backend/shared/shared-storage/`.**
   `FileStorageService` + `ImageFormat` + 2 exceptions + 2 mappers
   étaient clonés dans user-service ET event-service (compromis explicite
   de la soft-extraction au commit `41074e9`). Avec la migration livrée,

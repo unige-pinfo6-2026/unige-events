@@ -7,7 +7,7 @@ Topologie complète + flux requête + table endpoints owned par service : [`docs
 
 ## Layout Maven (post-finalisation)
 
-`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare **17 modules** sous `backend/services/` (post-consolidation 14→5, Décision A de la spec finalization) :
+`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`). Les libs internes sont regroupées sous `backend/shared/` via `backend/shared/pom.xml`, les services déployables restent sous `backend/services/`, et les tests transverses vivent sous `backend/tests/` via `backend/tests/pom.xml` (post-consolidation 14→5, Décision A de la spec finalization) :
 
 | Catégorie | Modules | Packaging | Notes |
 |---|---|---|---|
@@ -15,11 +15,14 @@ Topologie complète + flux requête + table endpoints owned par service : [`docs
 | **Placeholder Notification (×1)** | `notification-service` | `jar` | replicas:0 ; SCRUM-99 hors scope S8 (formalisé dans [`docs/devops-handoff.md`](docs/devops-handoff.md)). |
 | **Shared libs Sprint 8 (×2)** | `shared-rate-limit` (`@PerUserRateLimit` + interceptor + state cache), `shared-storage` (`FileStorageService` S3) | `jar` | 100 % couverture tests. Hors glob `<sonar.coverage.exclusions>` du parent. |
 | **Shared libs complétion (×8)** | `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform` | `jar` | Cible ≥ 95 % L / ≥ 90 % B chacune. Décision D de la spec de complétion. |
+| **Tests transverses (×2)** | `contract-tests`, `e2e` | `jar` | Pact JVM consumer-driven contracts + happy path E2E. |
 
 ## Commandes
 
 ```bash
 cd backend && ./mvnw verify              # build + tests complets — 17 modules, ~3-4 min
+cd backend && ./mvnw -f shared/pom.xml install -B   # build + tests des 10 shared libs
+cd backend && ./mvnw -pl tests/contract-tests,tests/e2e -am install -B    # tests Pact + E2E avec deps
 cd backend/services/<svc>-service && ../../mvnw quarkus:dev   # dev local par service
 cd backend && ./mvnw -pl services/<svc>-service -am verify    # un service + ses deps
 ```
@@ -125,7 +128,7 @@ Chaque service métier (4 actifs post-consolidation) embarque :
 | Nouvelle entité JPA ou modification de champ | `docs/data-model.md` + schémas dans `openapi.yaml` |
 | Nouveau endpoint public ou modification de signature | `openapi/openapi.yaml` EN PREMIER, puis le code |
 | Nouvel endpoint **interne** service-to-service | `docs/internal-endpoints.md` (pas `openapi.yaml`) |
-| Modification d'un enum partagé | `services/shared-domain-enums/` + `docs/data-model.md` |
+| Modification d'un enum partagé | `backend/shared/shared-domain-enums/` + `docs/data-model.md` |
 | Changement d'architecture ou de convention | `docs/architecture.md` + section dans `AGENTS.md` |
 | Fin de sprint / tâche JIRA terminée | `docs/sprint-context.md` |
 

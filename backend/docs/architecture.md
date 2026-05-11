@@ -130,12 +130,13 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   par la spec § 4.5. **9 producteurs + 1 consommateur câblés en
   complétion** (cf. Notes inter-service ci-dessus).
 * **Multi-module Maven** ([`backend/pom.xml`](../pom.xml)) — parent
-  agrégateur, **15 modules enfants** post-consolidation : 4 microservices
-  métiers actifs (event, user, engagement, moderation) + 1 placeholder
-  (notification) + 10 shared libs (shared-rate-limit, shared-storage,
-  shared-api-error, shared-domain-enums, shared-domain-dtos,
-  shared-domain-projections, shared-jaxrs, shared-tracing,
-  shared-kafka-events, shared-platform).
+  agrégateur post-consolidation : 4 microservices métiers actifs (event,
+  user, engagement, moderation) + 1 placeholder (notification) sous
+  `services/`, et 10 shared libs regroupées sous `shared/`
+  (shared-rate-limit, shared-storage, shared-api-error,
+  shared-domain-enums, shared-domain-dtos, shared-domain-projections,
+  shared-jaxrs, shared-tracing, shared-kafka-events, shared-platform).
+  Les tests transverses Pact + E2E sont regroupés sous `tests/`.
 
 ---
 

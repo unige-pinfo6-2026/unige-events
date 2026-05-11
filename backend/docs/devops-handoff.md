@@ -12,7 +12,7 @@
 
 La PR #158 livre **côté code** un état entièrement post-migration et post-finalization, avec la totalité des findings de l'audit final résolus :
 
-* **5 services métiers** Quarkus (event, user, engagement, moderation + notification placeholder) + **10 shared libs** + `contract-tests` + `e2e` = **17 modules** dans le reactor.
+* **5 services métiers** Quarkus (event, user, engagement, moderation + notification placeholder) + **10 shared libs** + `tests/contract-tests` + `tests/e2e` = **17 modules** dans le reactor.
 * **17 migrations Flyway V1..V17** redistribuées sur les 4 services propriétaires (Étape 1.1 Décision A) — fresh deploys bootstrappent le schéma sans intervention manuelle.
 * **0 stub JPA cross-service** ; **3 REST clients** avec resilience complète couvrant **8 hops cross-service**.
 * Cascade SCRUM-136 + anti-oracles ISSUE-92 / ISSUE-93 centralisés ; envelope `ApiErrorResponse` annotée `@Schema` (Étape 4.8).
@@ -96,7 +96,7 @@ Pattern de référence : [GitHub Actions container-cleanup](https://github.com/s
 
 ## 7. Pact provider verification job harness
 
-**Statut backend** : ✅ 5 pacts JSON consumer-driven dans `contract-tests/target/pacts/` (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1). Aucun job CI ne les vérifie côté provider aujourd'hui.
+**Statut backend** : ✅ 5 pacts JSON consumer-driven dans `tests/contract-tests/target/pacts/` (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1). Aucun job CI ne les vérifie côté provider aujourd'hui.
 
 **Action attendue côté DevOps** : ajouter un job CI Pact provider verification qui :
 * Démarre un container du service provider (event-service, user-service, etc.) en mode test profile (`%test.quarkus.oidc.enabled=false`, etc.).
