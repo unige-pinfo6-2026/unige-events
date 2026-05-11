@@ -4,7 +4,7 @@ MODE=development
 
 # Installations
 install-backend:
-	cd backend && ./mvnw -U install -DskipTests -B
+	cd backend && ./mvnw clean dependency:resolve
 
 install-frontend:
 	cd frontend && npm install

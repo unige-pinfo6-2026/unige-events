@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -17,8 +17,9 @@
       (BUG-011, REFACTOR-018).
     -->
 
-    <artifactId>unige-events-shared-jaxrs</artifactId>
+    <artifactId>shared-jaxrs</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — shared-jaxrs</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>

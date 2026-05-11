@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -21,8 +21,9 @@
       without extra application.properties wiring.
     -->
 
-    <artifactId>unige-events-shared-rate-limit</artifactId>
+    <artifactId>shared-rate-limit</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — shared-rate-limit</name>
 
     <dependencies>
         <!-- Compile-time API surfaces. provided scope: every consuming

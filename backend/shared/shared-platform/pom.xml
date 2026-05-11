@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -17,8 +17,9 @@
       (REFACTOR-012).
     -->
 
-    <artifactId>unige-events-shared-platform</artifactId>
+    <artifactId>shared-platform</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — shared-platform</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>

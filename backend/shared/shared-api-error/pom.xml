@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -18,8 +18,9 @@
       forbidden/notFound private statics across services.
     -->
 
-    <artifactId>unige-events-shared-api-error</artifactId>
+    <artifactId>shared-api-error</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — shared-api-error</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>

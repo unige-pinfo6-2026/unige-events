@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -21,8 +21,9 @@
       - AttendanceCounts (record)
     -->
 
-    <artifactId>unige-events-shared-domain-projections</artifactId>
+    <artifactId>shared-domain-projections</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — shared-domain-projections</name>
 
     <dependencies>
         <dependency><groupId>org.eclipse.microprofile.jwt</groupId><artifactId>microprofile-jwt-auth-api</artifactId><scope>provided</scope></dependency>

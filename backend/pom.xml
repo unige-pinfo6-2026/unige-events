@@ -3,9 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>ch.unige.events</groupId>
-    <artifactId>unige-events</artifactId>
+    <artifactId>parent</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+    <name>UNIGE Events</name>
 
     <modules>
         <!-- Shared libs -->
@@ -33,7 +34,6 @@
         <quarkus.platform.version>3.35.1</quarkus.platform.version>
         
         <smallrye-reactive-messaging.version>4.34.0</smallrye-reactive-messaging.version>
-        <pact.version>4.6.5</pact.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
 
@@ -123,10 +123,6 @@
     </build>
 
     <profiles>
-        <profile>
-            <id>container-image</id>
-        </profile>
-
         <profile>
             <id>native</id>
             <activation>

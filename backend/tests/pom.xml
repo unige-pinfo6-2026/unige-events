@@ -6,13 +6,14 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>unige-events-tests</artifactId>
+    <artifactId>tests</artifactId>
     <packaging>pom</packaging>
+    <name>UNIGE Events — cross-service tests</name>
 
     <modules>
         <module>contract-tests</module>

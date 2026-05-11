@@ -6,13 +6,26 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>unige-events</artifactId>
+        <artifactId>parent</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>unige-events-e2e</artifactId>
+    <artifactId>e2e</artifactId>
     <packaging>jar</packaging>
+    <name>UNIGE Events — E2E tests</name>
+
+    <!--
+      Étape 6.5 of finalization spec. Hosts the cross-service E2E happy
+      path tests that exercise the full request flow through Kong /
+      Helm topology. Tests typically run as @QuarkusIntegrationTest or
+      against the live preview cluster (CI matrix step).
+    -->
+
+    <properties>
+        <sonar.projectKey>unige-pinfo6-2026_unige-events-e2e</sonar.projectKey>
+        <sonar.projectName>unige-events-e2e</sonar.projectName>
+    </properties>
 
     <dependencies>
         <dependency>
