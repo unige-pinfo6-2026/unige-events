@@ -11,19 +11,14 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>unige-events-shared</artifactId>
+    <artifactId>unige-events-services</artifactId>
     <packaging>pom</packaging>
 
     <modules>
-        <module>shared-rate-limit</module>
-        <module>shared-storage</module>
-        <module>shared-api-error</module>
-        <module>shared-domain-enums</module>
-        <module>shared-domain-dtos</module>
-        <module>shared-domain-projections</module>
-        <module>shared-jaxrs</module>
-        <module>shared-tracing</module>
-        <module>shared-kafka-events</module>
-        <module>shared-platform</module>
+        <module>user-service</module>
+        <module>event-service</module>
+        <module>moderation-service</module>
+        <module>engagement-service</module>
+        <module>notification-service</module>
     </modules>
 </project>

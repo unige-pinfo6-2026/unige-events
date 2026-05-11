@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -29,19 +29,18 @@
       a shared definition.
     -->
 
-    <artifactId>shared-domain-dtos</artifactId>
+    <artifactId>unige-events-shared-domain-dtos</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-domain-dtos</name>
 
     <dependencies>
         <dependency>
             <groupId>ch.unige.events</groupId>
-            <artifactId>shared-domain-enums</artifactId>
+            <artifactId>unige-events-shared-domain-enums</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.unige.events</groupId>
-            <artifactId>shared-tracing</artifactId>
+            <artifactId>unige-events-shared-tracing</artifactId>
             <version>${project.version}</version>
         </dependency>
 

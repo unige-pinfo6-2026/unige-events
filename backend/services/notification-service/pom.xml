@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -26,9 +26,8 @@
         5. carve resources / services / entities out of services/legacy-monolith/.
     -->
 
-    <artifactId>notification-service</artifactId>
+    <artifactId>unige-events-notification-service</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — notification-service</name>
 
     <dependencies>
         <dependency>
@@ -49,8 +48,8 @@
         </dependency>
         <!-- Étape 4.2 finalization-ultimate (DUP-002): adopt shared
              ServiceIdentityResource via shared-platform dep. -->
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-platform</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-jaxrs</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-platform</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-jaxrs</artifactId><version>${project.version}</version></dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>

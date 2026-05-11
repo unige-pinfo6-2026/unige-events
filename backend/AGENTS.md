@@ -1,7 +1,7 @@
 # AGENTS.md — unige-events backend
 
 ## Rôle
-Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 + finalisation — **5 services Quarkus 3** (4 actifs + 1 placeholder) + 10 shared libs sur PostgreSQL 16 partagé, fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
+Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 + finalisation — **5 services Quarkus 3** (4 actifs + 1 placeholder) + 10 shared libs sur PostgreSQL 16, fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
 
 Topologie complète + flux requête + table endpoints owned par service : [`docs/architecture.md`](docs/architecture.md). Spec originale : [`../specs_archives/specs_claude/specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md). Spec de complétion : [`../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../specs_archives/specs_claude/specs_microservices_migration_completion.md). Spec de finalisation (la plus à jour) : [`../specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
 
@@ -24,6 +24,7 @@ cd backend && ./mvnw verify              # build + tests complets — 17 modules
 cd backend && ./mvnw -f shared/pom.xml install -B   # build + tests des 10 shared libs
 cd backend && ./mvnw -pl tests/contract-tests,tests/e2e -am install -B    # tests Pact + E2E avec deps
 cd backend/services/<svc>-service && ../../mvnw quarkus:dev   # dev local par service
+make backend-compose-up                  # topologie locale Kong + services + db/minio/kafka
 cd backend && ./mvnw -pl services/<svc>-service -am verify    # un service + ses deps
 ```
 
@@ -60,7 +61,7 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Entités étendent `PanacheEntity` (pas de repository séparé).
 - Services `@ApplicationScoped` + `@Transactional` sur toutes les mutations.
 - Resources JAX-RS, préfixe `/api` (configuré dans `application.properties`).
-- **Hibernate en `validate`** en dev/prod (Flyway pilote le schéma — historique V1..V17 partagé pour l'instant, cf. Décision C de la spec de complétion qui défère DB-per-service S9+). En `%test`, Hibernate `drop-and-create` pour les bases éphémères DevServices.
+- **Hibernate en `validate`** en dev/prod (Flyway pilote le schéma par service ; le compose local fournit une DB par service). En `%test`, Hibernate `drop-and-create` pour les bases éphémères DevServices.
 - Soft-delete d'un Event : transition vers `EventStatus.CANCELLED` (le champ
   `status` porte la sémantique soft-delete ; il n'y a pas de booléen
   `active` séparé). Cf. `data-model.md`. Le DELETE physique d'un Event

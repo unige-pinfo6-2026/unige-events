@@ -6,41 +6,23 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>contract-tests</artifactId>
+    <artifactId>unige-events-contract-tests</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — contract tests (Pact JVM)</name>
-
-    <!--
-      Étape 6.0 of finalization spec. Hosts consumer-driven Pact JVM
-      contracts for every cross-service REST hop wired through the
-      @RegisterRestClient interfaces in shared-domain-dtos
-      (EventServiceClient, UserServiceClient, EngagementServiceClient).
-
-      The pact JSONs are emitted under ./target/pacts/ at test time;
-      brokerless workflow per Décision E of the spec — no broker upload,
-      file-based contract diff in CI.
-    -->
-
-    <properties>
-        <pact.version>4.6.5</pact.version>
-        <sonar.projectKey>unige-pinfo6-2026_unige-events-contract-tests</sonar.projectKey>
-        <sonar.projectName>unige-events-contract-tests</sonar.projectName>
-    </properties>
 
     <dependencies>
         <dependency>
             <groupId>ch.unige.events</groupId>
-            <artifactId>shared-domain-dtos</artifactId>
+            <artifactId>unige-events-shared-domain-dtos</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.unige.events</groupId>
-            <artifactId>shared-domain-enums</artifactId>
+            <artifactId>unige-events-shared-domain-enums</artifactId>
             <version>${project.version}</version>
         </dependency>
 

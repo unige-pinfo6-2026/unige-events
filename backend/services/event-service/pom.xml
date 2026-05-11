@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -18,9 +18,8 @@
       stay declared here so Quarkus discovers them at build time.
     -->
 
-    <artifactId>event-service</artifactId>
+    <artifactId>unige-events-event-service</artifactId>
     <packaging>quarkus</packaging>
-    <name>UNIGE Events — event-service</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId></dependency>
@@ -35,9 +34,9 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-openapi</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-logging-json</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-micrometer-registry-prometheus</artifactId></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-tracing</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-platform</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-jaxrs</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-tracing</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-platform</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-jaxrs</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-scheduler</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-container-image-jib</artifactId></dependency>
 
@@ -49,13 +48,13 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-messaging-kafka</artifactId></dependency>
 
         <!-- ── Shared libs ───────────────────────────────────────────────────── -->
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-storage</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-kafka-events</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-dtos</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-api-error</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-rate-limit</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-storage</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-kafka-events</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-domain-dtos</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-domain-enums</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-api-error</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-domain-projections</artifactId><version>${project.version}</version></dependency>
 
         <!-- ── REST client runtime (Étape 3.4 finalization-ultimate) ─────────── -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
@@ -84,4 +83,19 @@
             <plugin><artifactId>maven-failsafe-plugin</artifactId></plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>container-image</id>
+            <properties>
+                <quarkus.container-image.build>true</quarkus.container-image.build>
+                <quarkus.container-image.push>${env.IMAGE_PUSH}</quarkus.container-image.push>
+                <quarkus.container-image.registry>${env.REGISTRY}</quarkus.container-image.registry>
+                <quarkus.container-image.group>${env.IMAGE_GROUP}</quarkus.container-image.group>
+                <quarkus.container-image.tag>${env.IMAGE_TAG}</quarkus.container-image.tag>
+                <quarkus.container-image.additional-tags>${env.IMAGE_ADDITIONAL_TAGS}</quarkus.container-image.additional-tags>
+                <quarkus.jib.base-jvm-image>eclipse-temurin:21-jre</quarkus.jib.base-jvm-image>
+            </properties>
+        </profile>
+    </profiles>
 </project>

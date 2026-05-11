@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -24,9 +24,8 @@
       - CoOrganizerEvent    (co-organizers.{invited,accepted})
     -->
 
-    <artifactId>shared-kafka-events</artifactId>
+    <artifactId>unige-events-shared-kafka-events</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-kafka-events</name>
 
     <dependencies>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>

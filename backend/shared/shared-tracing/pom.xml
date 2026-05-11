@@ -4,22 +4,14 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
 
-    <!--
-      shared-tracing — X-Request-ID propagation via RequestIdFilter
-      (server-side, ContainerRequestFilter) + RequestIdClientFilter
-      (REST client, ClientRequestFilter). Cf. completion-spec
-      Décision D / Décision K (SPEC-013, SPEC-019 partial).
-    -->
-
-    <artifactId>shared-tracing</artifactId>
+    <artifactId>unige-events-shared-tracing</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-tracing</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
@@ -29,7 +21,7 @@
              shared-jaxrs.InternalTokenFilter (server-side counterpart of
              InternalTokenClientFilter). Provided scope: consuming services
              already pull shared-jaxrs at runtime. -->
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-jaxrs</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
+        <dependency><groupId>ch.unige.events</groupId><artifactId>unige-events-shared-jaxrs</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
 
         <!-- Kafka Producer/Consumer interceptors compile against the
              kafka-clients API. Scope=provided so consuming services

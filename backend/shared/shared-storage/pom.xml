@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>unige-events</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -23,9 +23,8 @@
       startup handler, and the JAX-RS @Provider mappers automatically.
     -->
 
-    <artifactId>shared-storage</artifactId>
+    <artifactId>unige-events-shared-storage</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-storage</name>
 
     <dependencyManagement>
         <dependencies>
