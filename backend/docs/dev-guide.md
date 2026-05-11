@@ -13,9 +13,7 @@
 
 Depuis Sprint 8 (Kong/Kafka extraction + complétion + finalisation),
 `backend/` est un projet **multi-module** avec parent POM agrégateur à
-la racine. Les services déployables vivent sous `backend/services/`, les
-libs internes sous `backend/shared/` via l'agrégateur `backend/shared/pom.xml`,
-et les tests transverses sous `backend/tests/` via `backend/tests/pom.xml`
+la racine et **15 modules enfants** sous `backend/services/`
 (post-consolidation 14→5, Décision A de la spec finalization) :
 - **4 microservices métiers Quarkus actifs** : `event-service`,
   `user-service`, `engagement-service`, `moderation-service`.
@@ -24,7 +22,6 @@ et les tests transverses sous `backend/tests/` via `backend/tests/pom.xml`
   + 8 complétion : `shared-api-error`, `shared-domain-enums`,
   `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`,
   `shared-tracing`, `shared-kafka-events`, `shared-platform`).
-- **2 modules de tests transverses** : `contract-tests`, `e2e`.
 
 Le legacy-monolith a été supprimé à step 15 (commit `b570c1b`). Voir
 [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven » et
@@ -33,9 +30,7 @@ par service. Le détail de la consolidation 14→5 est dans
 [`consolidation-plan.md`](consolidation-plan.md).
 
 **Conséquences pratiques pour le dev local** :
-- `cd backend && ./mvnw verify` build TOUS les modules (~3-4 min).
-- `cd backend && ./mvnw -f shared/pom.xml install -B` build les 10 shared libs.
-- `cd backend && ./mvnw -pl tests/contract-tests,tests/e2e -am install -B` build les tests Pact + E2E avec leurs dépendances shared.
+- `cd backend && ./mvnw verify` build TOUS les modules (~3-4 min sur 15 modules).
 - `cd backend && ./mvnw -pl services/<svc>-service -am verify` build un
   seul service avec ses dépendances shared lib transitivement.
 - `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par

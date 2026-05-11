@@ -127,4 +127,4 @@ ALTER ni DROP n'est généré par cette consolidation.
 - 10 shared libs (inchangées) : `shared-rate-limit`, `shared-storage`, `shared-api-error`,
   `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`,
   `shared-tracing`, `shared-kafka-events`, `shared-platform`.
-- Total reactor historique à ce stade : **15 modules** (vs 24 avant). Étape 6 ajoutera contract-tests + e2e = 17 ; les shared libs sont désormais regroupées sous `backend/shared/`.
+- Total reactor : **15 modules** (vs 24 avant). Étape 6 ajoutera contract-tests + e2e = 17.

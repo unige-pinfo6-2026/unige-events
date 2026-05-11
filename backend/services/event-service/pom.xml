@@ -14,7 +14,7 @@
       decision 4 + roadmap PR 13. Owns the `events` + `event_tags` tables.
       Hosts EventExpirationJob (every 1h, replicas:1 strict). The
       /events/{id}/image upload reuses the shared FileStorageService from
-      backend/shared/shared-storage/ ; the S3 client + URL connection client
+      services/shared-storage/ ; the S3 client + URL connection client
       stay declared here so Quarkus discovers them at build time.
     -->
 

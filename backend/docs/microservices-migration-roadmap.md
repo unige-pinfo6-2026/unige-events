@@ -152,7 +152,7 @@ Pour chaque service à extraire :
     + adaptés aux REST clients mockés via `@QuarkusTestResource`),
     integration tests `@QuarkusTest` avec DevServices PostgreSQL +
     Testcontainers Kafka, contract tests Pact JSON dans
-    `backend/tests/contract-tests/pacts/<consumer>-<provider>.json`.
+    `backend/contract-tests/pacts/<consumer>-<provider>.json`.
 
 11. **CI build.yml** — strategy matrix step 17 (cf. plus bas) PAS
     nécessaire pour la première extraction ; le build `cd backend &&
