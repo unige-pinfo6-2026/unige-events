@@ -1,19 +1,31 @@
-.PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
+SERVICES = event user engagement moderation notification
 
-MODE=development
+.PHONY: install-backend install-frontend install \
+        frontend backend dev $(SERVICES) \
+        test-backend test-frontend test \
+        build-backend build-frontend
 
-# Installations
+MODE = development
+
+# ─── Install ────────────────────────────────────────────────────────────────
+# Installe les shared libs dans le dépôt local Maven (~/.m2).
+# À lancer une fois avant make <service> ou make backend.
 install-backend:
-	cd backend && ./mvnw clean dependency:resolve
+	cd backend && ./mvnw -f shared/pom.xml install -DskipTests -B -q
 
 install-frontend:
 	cd frontend && npm install
 
 install: install-frontend install-backend
 
-# Dev
+# ─── Dev — services individuels ─────────────────────────────────────────────
+# make event | make user | make engagement | make moderation | make notification
+$(SERVICES):
+	cd backend && ./mvnw quarkus:dev -pl services/$@-service -am
+
+# ─── Dev — tous les services ─────────────────────────────────────────────────
 backend:
-	cd backend && ./mvnw clean quarkus:dev
+	$(MAKE) -j$(words $(SERVICES)) $(SERVICES)
 
 frontend:
 	cd frontend && npm run dev -- --mode $(MODE)
@@ -21,16 +33,16 @@ frontend:
 dev:
 	$(MAKE) -j2 frontend backend
 
-# Tests
+# ─── Tests ──────────────────────────────────────────────────────────────────
 test-backend:
-	cd backend && ./mvnw test -B
+	cd backend && ./mvnw install -B
 
 test-frontend: install-frontend
 	cd frontend && npm run lint && npm run test:coverage && npm run build
 
 test: test-backend test-frontend
 
-# Build
+# ─── Build ──────────────────────────────────────────────────────────────────
 build-backend:
 	cd backend && ./mvnw clean package -B
 
