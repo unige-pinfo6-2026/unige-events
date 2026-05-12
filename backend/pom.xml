@@ -75,13 +75,7 @@
                     <artifactId>quarkus-maven-plugin</artifactId>
                     <version>${quarkus.platform.version}</version>
                     <extensions>true</extensions>
-                    <configuration>
-                        <!-- Load global .env from the backend root into every service dev JVM.
-                             maven.multiModuleProjectDirectory always resolves to backend/ (where .mvn/ lives). -->
-                        <systemProperties>
-                            <smallrye.config.locations>${maven.multiModuleProjectDirectory}/.env</smallrye.config.locations>
-                        </systemProperties>
-                    </configuration>
+
                 </plugin>
                 <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
