@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS events (
     created_at            TIMESTAMP,
     updated_at            TIMESTAMP,
     CONSTRAINT pk_events PRIMARY KEY (id),
-    CONSTRAINT uq_events_share_code UNIQUE (share_code),
-    CONSTRAINT fk_events_creator FOREIGN KEY (creator_id) REFERENCES users(id)
+    CONSTRAINT uq_events_share_code UNIQUE (share_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_event_creator    ON events(creator_id);

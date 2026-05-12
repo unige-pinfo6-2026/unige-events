@@ -7,5 +7,6 @@ CREATE TABLE IF NOT EXISTS attendances (
     status     VARCHAR(255) NOT NULL,
     created_at TIMESTAMP,
     CONSTRAINT pk_attendances PRIMARY KEY (id),
-    CONSTRAINT uq_attendance_user_event UNIQUE (user_id, event_id)
+    CONSTRAINT uq_attendance_user_event UNIQUE (user_id, event_id),
+    CONSTRAINT attendances_status_check CHECK (status IN ('ATTENDING', 'WAITLISTED'))
 );

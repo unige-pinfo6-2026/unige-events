@@ -10,11 +10,3 @@ ALTER TABLE events ADD CONSTRAINT events_category_check
 ALTER TABLE events DROP CONSTRAINT IF EXISTS events_status_check;
 ALTER TABLE events ADD CONSTRAINT events_status_check
     CHECK (status IN ('DRAFT', 'PUBLISHED', 'CANCELLED'));
-
-ALTER TABLE attendances DROP CONSTRAINT IF EXISTS attendances_status_check;
-ALTER TABLE attendances ADD CONSTRAINT attendances_status_check
-    CHECK (status IN ('ATTENDING', 'WAITLISTED'));
-
-ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_status_check;
-ALTER TABLE reports ADD CONSTRAINT reports_status_check
-    CHECK (status IN ('PENDING', 'REVIEWED', 'DISMISSED'));
