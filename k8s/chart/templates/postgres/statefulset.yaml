@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: db
+  name: postgres
   namespace: {{ .Release.Namespace }}
 spec:
-  serviceName: db
+  serviceName: postgres
   replicas: 1
   selector:
     matchLabels:
-      app: db
+      app: postgres
   template:
     metadata:
       labels:
-        app: db
+        app: postgres
     spec:
       automountServiceAccountToken: false
       containers:

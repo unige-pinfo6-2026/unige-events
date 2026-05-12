@@ -42,7 +42,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-Duser.timezone=Europe/Zurich"
             - name: DB_HOST
-              value: db
+              value: postgres
             - name: DB_PORT
               value: "5432"
             - name: KAFKA_BOOTSTRAP_SERVERS
