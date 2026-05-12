@@ -1,40 +1,41 @@
 {
     "name": "UNIGE Events",
-	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/unige-events",
 
     "features": {
-		"ghcr.io/devcontainers/features/java:1": {
-			"version": "21"
-		},
-		"ghcr.io/devcontainers/features/node:1": {
+        "ghcr.io/devcontainers/features/java:1": {
+            "version": "21"
+        },
+        "ghcr.io/devcontainers/features/node:1": {
             "version": "24"
         },
-		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
-	},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
 
-	"forwardPorts": [8080, 5005, 5173],
+    "forwardPorts": [5173, 8081, 8082, 8083, 8084, 8085, 9001],
 
-	"postCreateCommand": "make install",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"redhat.java",
-				"vscjava.vscode-java-pack",
-				"vscjava.vscode-quarkus",
-				"sonarsource.sonarlint-vscode",
-				"github.copilot",
-				"github.vscode-github-actions",
-				"anthropic.claude-code",
-				"openai.chatgpt"
-			]
-		},
+    "postCreateCommand": "make install",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "redhat.java",
+                "vscjava.vscode-java-pack",
+                "vscjava.vscode-quarkus",
+                "sonarsource.sonarlint-vscode",
+                "github.copilot",
+                "github.vscode-github-actions",
+                "anthropic.claude-code",
+                "openai.chatgpt"
+            ]
+        },
         "jetbrains": {
-			"plugins": [
-				"com.intellij.quarkus",
-				"SonarLint"
-			]
-		}
-	},
-	"remoteUser": "vscode"
+            "plugins": [
+                "com.intellij.quarkus",
+                "SonarLint"
+            ]
+        }
+    },
+    "remoteUser": "vscode"
 }
