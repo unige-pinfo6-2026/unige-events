@@ -80,6 +80,7 @@
                              maven.multiModuleProjectDirectory always resolves to backend/ (where .mvn/ lives). -->
                         <systemProperties>
                             <smallrye.config.locations>${maven.multiModuleProjectDirectory}/.env</smallrye.config.locations>
+                            <quarkus.log.console.json>false</quarkus.log.console.json>
                         </systemProperties>
                     </configuration>
                 </plugin>
