@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pins the {@code @Fallback} wiring on every {@link EventServiceClient}
- * method (Étape 24.7.2, C5 — pr-test-analyzer I-2). Points the rest-client
+ * method. Points the rest-client
  * to a black-hole URL with sub-second timeouts so each call exercises the
  * MicroProfile FT layer; the test is red the moment {@code @Fallback} is
  * removed from the interface (the FT exception bubbles up instead of being

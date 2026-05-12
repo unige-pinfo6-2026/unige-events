@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Étape 5.1 of finalization spec — 4 SCRUM-147 sentinels for the pure
- * recurrence helper. Tests the canonical legacy assertions ported into
- * event-service (the helper is logic-pure, no Quarkus runtime needed).
+ * SCRUM-147 sentinels for the pure recurrence helper. Tests the canonical
+ * legacy assertions ported into event-service (the helper is logic-pure,
+ * no Quarkus runtime needed).
  */
 @SuppressWarnings("java:S100")
 class RecurrenceGeneratorTest {

@@ -17,10 +17,8 @@ import jakarta.ws.rs.core.MediaType;
  * the user's stable calendar token + the matching ICS / webcal URLs.
  * {@code POST /api/users/me/calendar-token/regenerate} — rotates it.
  *
- * <p>Calendar token rotation — co-located with user-service since
- * Étape 2.3.2 finalization (calendar-service was absorbed into user-service
- * because the token lives on users.calendar_token). Cf. sprint-context.md
- * § Étape 23 for the absorption rationale.
+ * <p>Calendar token rotation — co-located with user-service (calendar-service
+ * was absorbed because the token lives on users.calendar_token).
  */
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)

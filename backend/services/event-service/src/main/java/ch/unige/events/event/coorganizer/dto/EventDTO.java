@@ -12,20 +12,20 @@ import java.util.UUID;
 /**
  * EventDTO emitted by event-service for the {@code coorganizer} sub-domain.
  *
- * <p>FR — Variant intentionnellement dupliqué post-Décision E (cf. Étape 23.4.4)
- * pour découpler les contrats sub-domain. Ce variant porte actuellement les
- * MÊMES types que les autres variants — la séparation est un point de
- * variation contrôlé prêt à diverger sans casser les siblings, pas une
- * variation déjà exprimée. NE PAS consolider sans revisiter la spec.
+ * <p>FR — Variant intentionnellement dupliqué post-Décision E pour découpler
+ * les contrats sub-domain. Ce variant porte actuellement les MÊMES types que
+ * les autres variants — la séparation est un point de variation contrôlé prêt
+ * à diverger sans casser les siblings, pas une variation déjà exprimée. NE
+ * PAS consolider sans revisiter la spec.
  *
- * <p>EN — Variant intentionally duplicated per Decision E (cf. Étape 23.4.4)
- * to decouple sub-domain contracts. Currently carries the SAME types as the
- * other variants — the split is a controlled point of variation ready to
- * diverge without breaking siblings, not an already-expressed variation. DO
- * NOT consolidate without revisiting the spec.
+ * <p>EN — Variant intentionally duplicated per Decision E to decouple
+ * sub-domain contracts. Currently carries the SAME types as the other
+ * variants — the split is a controlled point of variation ready to diverge
+ * without breaking siblings, not an already-expressed variation. DO NOT
+ * consolidate without revisiting the spec.
  *
- * <p>Note: {@code coOrganizerOf} added in Étape 24.6.5 (B1) for cross-variant
- * uniformity — the SCRUM-136 cascade flag is now available on every variant.
+ * <p>Note: {@code coOrganizerOf} added for cross-variant uniformity — the
+ * SCRUM-136 cascade flag is now available on every variant.
  */
 public record EventDTO(
         Long id,

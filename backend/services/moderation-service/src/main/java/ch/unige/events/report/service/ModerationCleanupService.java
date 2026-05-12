@@ -18,8 +18,7 @@ import java.util.Map;
  * Hides events whose PENDING report count has reached the configured
  * auto-hide threshold.
  *
- * <p>Étape 3.2 finalization-ultimate (STUB-001 / Décision H): the
- * {@code EventStub} navigation is replaced by a Long event id; the
+ * <p>The {@code EventStub} navigation is replaced by a Long event id; the
  * auto-ban path fires {@code events.banned} via Kafka (consumer
  * event-service applies status=BANNED locally — no more cross-schema
  * mutation).

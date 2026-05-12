@@ -141,9 +141,8 @@ public class FollowService {
      * "user does not exist" — closes the existence oracle.
      *
      * <p>ISSUE-93 anti-oracle check inline: user-service hosts both Follow
-     * and User entities post-finalization (Étape 2.3 — cf.
-     * sprint-context.md § Étape 23), so this lookup is a local query, not
-     * a REST call.
+     * and User entities post-finalization, so this lookup is a local query,
+     * not a REST call.
      */
     public void assertProfileVisible(UUID targetId, String callerAuth0Id) {
         User target = User.<User>findByIdOptional(targetId)

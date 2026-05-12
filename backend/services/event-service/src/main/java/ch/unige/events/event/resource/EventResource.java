@@ -138,7 +138,7 @@ public class EventResource {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
         boolean isAdmin = !identity.isAnonymous() && identity.hasRole(ROLE_ADMIN);
 
-        // SEC-002 finalization-ultimate (Étape 6.1 / Décision C):
+        // SEC-002 finalization-ultimate (Décision C):
         // ?check-co-org-of= is only honored when:
         //   1. caller is authenticated, AND
         //   2. the value matches the caller's resolved UUID

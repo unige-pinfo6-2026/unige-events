@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 /**
  * Same contract as the legacy CommentService.
  *
- * <p>Étape 3.1 finalization-ultimate (STUB-001 / Décisions A, F, G):
- * the cascade SCRUM-136 + ISSUE-92 anti-oracle are now delegated to
+ * <p>STUB-001 / Décisions A, F, G: the cascade SCRUM-136 + ISSUE-92
+ * anti-oracle are now delegated to
  * event-service via {@link EventServiceClient#getByIdWithCoOrgCheck}
  * (self-check authentifié — SEC-002 / Décision C). The "is the author
  * an organizer?" annotation on listed comments is computed via

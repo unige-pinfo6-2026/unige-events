@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * {@code GET /api/users/me/favorites} — paginated list of events the
  * authenticated user has favorited. Owned by event-service (favorite-service
- * was absorbed in finalization Étape 2.2.3, cf. sprint-context.md § Étape 23).
+ * was absorbed post-finalization).
  * Path = /api/users/me/favorites.
  */
 @Path("/users")

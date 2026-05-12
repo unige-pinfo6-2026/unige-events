@@ -19,7 +19,7 @@ import java.util.UUID;
  * Owned by moderation-service. Carbon-copy of legacy
  * ch.unige.events.entity.Report.
  *
- * <p>Décision F finalization-ultimate (Étape 3.2, STUB-001): cross-service
+ * <p>Décision F finalization-ultimate (STUB-001): cross-service
  * navigations to {@code event} / {@code reporter} / {@code reviewedBy}
  * are replaced by id-only columns. Underlying foreign keys still point
  * at {@code events(id)} / {@code users(id)} of the shared schema —

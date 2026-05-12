@@ -9,9 +9,8 @@ import ch.unige.events.shared.domain.dto.UserPublicResponse;
  * (shared record). Lives in engagement-service (not in
  * shared-domain-dtos) because it imports the JPA entity.
  *
- * <p>Décision A finalization-ultimate (Étape 4.3): replaces the
- * service-local AttendanceDTO record with the shared one consumed
- * cross-service.
+ * <p>Décision A finalization-ultimate: replaces the service-local
+ * AttendanceDTO record with the shared one consumed cross-service.
  */
 public final class AttendanceDTOMapper {
 

@@ -29,13 +29,12 @@ public class EventExpirationService {
      * second SELECT to recover the IDs ; the cron runs hourly with
      * typically &lt; 100 candidates so the perf hit is negligible.
      *
-     * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décision F): the
-     * {@code JOIN FETCH e.creator} is gone — {@code Event.creatorId} is
+     * <p>The {@code JOIN FETCH e.creator} is gone — {@code Event.creatorId} is
      * now an id-only {@code UUID} column, no lazy proxy.
      */
     @Transactional
     public int expireEvents() {
-        // Defense in depth (Étape 24.5.2, A3): take a global advisory lock
+        // Defense in depth: take a global advisory lock
         // before scanning. The Helm guard in event-service/deployment.yaml
         // already fails any install at replicas:2+, but an in-cluster
         // `kubectl scale deploy event-service --replicas=2` bypasses helm.

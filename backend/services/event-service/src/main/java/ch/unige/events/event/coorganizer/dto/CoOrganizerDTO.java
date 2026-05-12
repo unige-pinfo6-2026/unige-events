@@ -8,9 +8,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Étape 3.4 finalization-ultimate (STUB-001 / Décision F): factory now
- * takes a {@link UserPublicResponse} (cross-service projection) instead
- * of the deleted local {@code UserStub}.
+ * Factory takes a {@link UserPublicResponse} (cross-service projection)
+ * instead of the deleted local {@code UserStub}.
  */
 public record CoOrganizerDTO(
         Long id,

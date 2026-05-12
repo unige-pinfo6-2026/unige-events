@@ -9,7 +9,7 @@ import jakarta.inject.Inject;
  * Hourly cron that flips elapsed {@code PUBLISHED} events to
  * {@code EXPIRED} and emits {@code events.expired} on Kafka.
  *
- * <p><strong>Replicas constraint</strong> (Étape 24.5.2, A3) — the SmallRye
+ * <p><strong>Replicas constraint</strong> — the SmallRye
  * scheduler has no built-in leader election, so every pod that runs
  * {@code event-service} fires this cron independently. Running at
  * {@code replicas: 2+} would double-fire {@code events.expired} on every

@@ -31,13 +31,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * SCRUM-138 sentinel suite — user-service (incl. follow + calendar
- * absorbed in Étape 2.3.1 / 2.3.2).
+ * SCRUM-138 sentinel suite — user-service (incl. absorbed follow + calendar
+ * functionality).
  *
- * <p>Étape 8.x finalization: ports the 6 sentinels to real
- * {@code @QuarkusTest} bodies. All run on the DevServices Postgres test
- * profile and are wrapped in {@link TestTransaction} so persisted
- * fixtures are rolled back at end-of-test.
+ * <p>The 6 sentinels run on the DevServices Postgres test profile and are
+ * wrapped in {@link TestTransaction} so persisted fixtures are rolled back
+ * at end-of-test.
  */
 @QuarkusTest
 @SuppressWarnings({"java:S100", "java:S2699"})

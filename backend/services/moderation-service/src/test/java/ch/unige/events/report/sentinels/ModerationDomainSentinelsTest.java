@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
 /**
  * SCRUM-139 sentinel suite — moderation-service.
  *
- * <p>Étape 1.3 finalization-complete (Décision H): pin the 8 SCRUM-139
+ * <p>Pins the 8 SCRUM-139
  * regression guards (report flow + admin handle + cleanup auto-ban). Names
  * mirror the SCRUM-138/144/147 sentinel naming convention. Drives
  * {@link ReportService} / {@link ModerationCleanupService} under a real

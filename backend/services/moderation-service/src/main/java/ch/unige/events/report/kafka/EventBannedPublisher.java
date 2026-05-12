@@ -13,9 +13,9 @@ import jakarta.transaction.Transactional;
  * (Decision K, ADR-003). The actual Kafka publication happens
  * asynchronously in {@code EventBannedOutboxPoller}.
  *
- * <p>Refactored from a direct {@code Emitter.send(...)} caller in
- * Etape 24.4.1-b: a Kafka outage when banning an event was previously
- * a silent failure (event stays publicly visible while moderation has
+ * <p>Refactored from a direct {@code Emitter.send(...)} caller: a Kafka
+ * outage when banning an event was previously a silent failure (event
+ * stays publicly visible while moderation has
  * banned it). The outbox guarantees at-least-once delivery as long as
  * the DB transaction commits.
  */

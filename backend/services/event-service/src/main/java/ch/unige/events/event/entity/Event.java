@@ -31,8 +31,8 @@ import java.util.UUID;
  * Owned by event-service. Carbon-copy of the legacy
  * ch.unige.events.entity.Event — same column layout, same indexes.
  *
- * <p>Décision F finalization-ultimate (Étape 3.4, STUB-001): the cross-
- * service {@code @ManyToOne UserStub creator} navigation is replaced
+ * <p>Décision F finalization-ultimate (STUB-001): the cross-service
+ * {@code @ManyToOne UserStub creator} navigation is replaced
  * by an id-only {@code @Column UUID creatorId}. The {@code creator_id}
  * column already exists in the {@code events} table — only the JPA
  * navigation goes away. Display-name / avatar enrichment is performed

@@ -40,8 +40,8 @@ import java.util.stream.Collectors;
  * Same contract as the legacy AttendanceService — capacity gating,
  * idempotent attend, WAITLISTED auto-promotion on remove.
  *
- * <p>Étape 3.1 finalization-ultimate (STUB-001 / Décisions A, F, G):
- * the legacy {@code EventStub} pessimistic-write lock is replaced by
+ * <p>STUB-001 / Décisions A, F, G: the legacy {@code EventStub}
+ * pessimistic-write lock is replaced by
  * a pragmatic applicative check on the local {@code attendances} count
  * (acceptable trade-off for a pinfo6 project per Annexe E of the spec —
  * a borderline simultaneous attend may end up WAITLISTED ; idempotent).
@@ -340,8 +340,8 @@ public class AttendanceService {
 
     private void acquireAdvisoryLock(Long eventId) {
         if (eventId == null) {
-            // Étape 24.5.3 (A11): a null eventId means upstream code skipped
-            // event resolution before reaching the capacity-gating path. The
+            // A null eventId means upstream code skipped event resolution before
+            // reaching the capacity-gating path. The
             // REST entry points (EventAttendanceResource) always resolve
             // event-id from the path param before dispatching, and the
             // service callers (markGoing, markInterested) require a non-null

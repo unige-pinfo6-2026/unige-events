@@ -29,9 +29,8 @@ import java.util.stream.Collectors;
  * add, NotFoundException on missing event / favorite, listing returns
  * EventDTOs enriched with attending / waitlisted counts.
  *
- * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décisions F, I): caller
- * UUID resolved via JWT claim, attendance counts via REST client to
- * engagement-service.
+ * <p>Caller UUID resolved via JWT claim, attendance counts via REST client
+ * to engagement-service.
  */
 @ApplicationScoped
 public class FavoriteService {
@@ -68,8 +67,8 @@ public class FavoriteService {
             favorite.persist();
             entityManager.flush();
         } catch (PersistenceException e) {
-            // Étape 24.5.4 (A15): match the unique-violation by constraint
-            // name rather than by exception type alone. The previous
+            // match the unique-violation by constraint name rather than by
+            // exception type alone. The previous
             // isUniqueConstraintViolation() swallowed *any*
             // ConstraintViolationException — including unrelated unique
             // constraints introduced by future migrations on this table
@@ -127,8 +126,8 @@ public class FavoriteService {
             summaries = Map.of();
         }
         Map<Long, AttendanceSummary> finalSummaries = summaries;
-        // Étape 24.8.1 (E1): bulk-fetch all favorited events in a single SELECT
-        // instead of issuing one findByIdOptional per favorite (N+1).
+        // bulk-fetch all favorited events in a single SELECT instead of
+        // issuing one findByIdOptional per favorite (N+1).
         Map<Long, Event> eventsById = Event.<Event>list("id IN ?1", eventIds).stream()
                 .collect(Collectors.toMap(e -> e.id, e -> e));
         return favorites.stream()

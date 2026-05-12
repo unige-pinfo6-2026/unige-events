@@ -7,8 +7,7 @@ import java.time.ZoneId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Étape 4.5 finalization-complete (TZ-DRIFT / Décision F): smoke test that
- * the runtime container honours the {@code TZ=Europe/Zurich} environment
+ * Smoke test that the runtime container honours the {@code TZ=Europe/Zurich} environment
  * variable when set. CI / local tests run without {@code TZ} set, so the
  * test is a no-op in that case — its real value materialises in the
  * Helm-deployed container where {@code TZ} is pinned via the Deployment

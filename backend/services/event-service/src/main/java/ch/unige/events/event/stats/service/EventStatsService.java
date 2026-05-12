@@ -21,8 +21,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import java.util.UUID;
 
 /**
- * Étape 3.4 finalization-ultimate (STUB-001 / Décisions F, I): caller
- * UUID resolved from JWT claim, attending count delegated to
+ * Caller UUID resolved from JWT claim, attending count delegated to
  * engagement-service via REST. Local Favorite + EventView entities
  * (no more local Stubs).
  */

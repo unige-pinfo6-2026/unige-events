@@ -438,9 +438,9 @@ class EventDomainSentinelsTest {
     }
 
     // -----------------------------------------------------------
-    // 6. EVENT-DELETE-001 cascade sentinel (Étape 24.2.1, C1)
-    //    Pins the cascade fix from Étape 23.2.3: deleting a CANCELLED
-    //    event must purge EventCoOrganizer + Favorite + EventView rows
+    // 6. EVENT-DELETE-001 cascade sentinel
+    //    Pins the cascade fix: deleting a CANCELLED event must purge
+    //    EventCoOrganizer + Favorite + EventView rows
     //    (none of these tables has ON DELETE CASCADE FK in V8).
     // -----------------------------------------------------------
 
@@ -476,7 +476,7 @@ class EventDomainSentinelsTest {
         }
         em.flush();
 
-        // [EVENT_DELETE_CASCADE] (Étape 24.3.5, A9): capture audit log on cascade.
+        // [EVENT_DELETE_CASCADE]: capture audit log on cascade.
         Logger jul = Logger.getLogger(EventService.class.getName());
         Level originalLevel = jul.getLevel();
         List<LogRecord> captured = new ArrayList<>();
@@ -510,7 +510,7 @@ class EventDomainSentinelsTest {
     }
 
     // -----------------------------------------------------------
-    // 7. ISSUE-92 anti-oracle body equivalence (Étape 24.7.1, C4)
+    // 7. ISSUE-92 anti-oracle body equivalence
     //    A non-creator caller must not be able to distinguish an
     //    unknown event id from a hidden one (DRAFT they don't own,
     //    or BANNED) — same status code AND same response body.
@@ -555,8 +555,7 @@ class EventDomainSentinelsTest {
     // 8. ADR-002 sentinel: GET /events/{id}/organizer-uuids must
     //    NOT leak the organizer set when the event is BANNED, no
     //    matter who's calling — anonymous, non-creator, or even
-    //    the creator themselves (Étape 24.7.4 — extension of A16,
-    //    Décision J).
+    //    the creator themselves (Décision J).
     // -----------------------------------------------------------
 
     @Test

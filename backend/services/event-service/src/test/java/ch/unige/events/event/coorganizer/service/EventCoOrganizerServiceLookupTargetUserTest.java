@@ -23,8 +23,8 @@ import static org.mockito.Mockito.when;
  * proxy that owns the {@code @Fallback} on
  * {@link UserServiceClient#getById}. The FT layer would otherwise swallow
  * every {@link RuntimeException} and return null, collapsing the 503
- * branch into the 404 branch — pinning D19 (Étape 24.9.13) requires
- * exercising the {@code catch (RuntimeException)} path directly.
+ * branch into the 404 branch — pinning D19 requires exercising the
+ * {@code catch (RuntimeException)} path directly.
  */
 class EventCoOrganizerServiceLookupTargetUserTest {
 

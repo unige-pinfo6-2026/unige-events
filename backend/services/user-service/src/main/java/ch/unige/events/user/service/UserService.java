@@ -82,8 +82,7 @@ public class UserService {
         User user = User.<User>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
         boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
-        // Admin bypass aligns with UserServiceClient javadoc (Étape 2.4
-        // finalization-ultimate REST-003 / ISSUE-93): admins read private
+        // Admin bypass (REST-003 / ISSUE-93): admins read private
         // profiles for moderation/support. Anti-oracle ISSUE-93 stays for
         // anonymous + non-admin non-self callers.
         if (!user.profilePublic && !isOwner && !isAdmin) {
@@ -149,7 +148,7 @@ public class UserService {
     }
 
     /**
-     * MINOR-011 (Étape 5.5 finalization-complete): {@code saveImage} performs
+     * MINOR-011: {@code saveImage} performs
      * an S3 delete-then-upload of the previous object before the JPA flush
      * commits the new {@code avatarUrl}. If the JPA flush fails after the
      * S3 upload succeeded, the old S3 object is already deleted and the new
@@ -227,7 +226,7 @@ public class UserService {
     }
 
     /**
-     * D20 (Étape 24.9.14) — wrap an {@link OptimisticLockException} in a
+     * D20 — wrap an {@link OptimisticLockException} in a
      * 409 {@link WebApplicationException} carrying the canonical
      * {@link ApiErrorResponse} envelope. The original exception is
      * preserved as the cause so observability tooling (Sentry, Quarkus

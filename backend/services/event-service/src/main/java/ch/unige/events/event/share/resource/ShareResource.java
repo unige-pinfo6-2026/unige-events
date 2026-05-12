@@ -14,7 +14,7 @@ import jakarta.ws.rs.core.Response;
 
 /**
  * Authenticated endpoint that returns the share URL + short code for an event.
- * Co-located in event-service post-finalization (cf. sprint-context.md § Étape 23).
+ * Co-located in event-service post-finalization.
  * Path = /api/events/{id}/share.
  *
  * <p>The cascade ISSUE-92 (anti-oracle) + creator/co-organizer/admin guard is

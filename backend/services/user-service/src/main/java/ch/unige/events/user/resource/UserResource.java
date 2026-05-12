@@ -69,7 +69,7 @@ public class UserResource {
     public Response getProfile(@PathParam("id") UUID id) {
         boolean anonymous = identity.isAnonymous();
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
-        // REST-003 / ISSUE-93 (Étape 2.4 finalization-ultimate): admins read
+        // REST-003 / ISSUE-93: admins read
         // private profiles for moderation/support. Anti-oracle 404 stays for
         // anonymous + non-admin non-self callers.
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);

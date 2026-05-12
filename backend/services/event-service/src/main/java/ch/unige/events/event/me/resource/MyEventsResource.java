@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * {@code GET /api/users/me/events} — paginated list of the events the
  * caller has created. Owned by event-service (me-aggregator-service was
- * absorbed post-finalization, cf. sprint-context.md § Étape 23).
+ * absorbed post-finalization).
  * Path = /api/users/me/events.
  */
 @Path("/users")

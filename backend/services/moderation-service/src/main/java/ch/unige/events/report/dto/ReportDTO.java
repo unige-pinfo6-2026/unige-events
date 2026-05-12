@@ -16,8 +16,7 @@ import java.util.UUID;
  * avatarUrl post-consolidation, so the "first last" / email fallbacks
  * become null when the cross-service projection has no display name).
  *
- * <p>Étape 3.2 finalization-ultimate (STUB-001 / Décision F): no more
- * UserStub / EventStub navigation — enrichment is fed in by the
+ * <p>no more UserStub / EventStub navigation — enrichment is fed in by the
  * service layer via REST clients to event-service and user-service.
  */
 public record ReportDTO(

@@ -43,13 +43,12 @@ import static org.mockito.Mockito.when;
 /**
  * SCRUM-144 sentinel suite — engagement-service.
  *
- * <p>Étape 5.2 finalization-ultimate: the 7 anti-oracle / depth-limit /
- * authorization sentinels are now ported to real {@code @QuarkusTest}
- * bodies. They drive {@link CommentService} directly (rather than going
- * through REST-Assured) which gives the same coverage surface as a
- * full HTTP round trip without the overhead of a JWT signing setup —
- * the SecurityIdentity is provided by {@link TestSecurity} and the
- * {@code uuid} claim is staged via {@link JwtTestContext}.
+ * <p>The 7 anti-oracle / depth-limit / authorization sentinels drive
+ * {@link CommentService} directly (rather than going through REST-Assured)
+ * which gives the same coverage surface as a full HTTP round trip without
+ * the overhead of a JWT signing setup — the SecurityIdentity is provided by
+ * {@link TestSecurity} and the {@code uuid} claim is staged via
+ * {@link JwtTestContext}.
  */
 @QuarkusTest
 @TestSecurity(user = "auth0|sentinel-user")

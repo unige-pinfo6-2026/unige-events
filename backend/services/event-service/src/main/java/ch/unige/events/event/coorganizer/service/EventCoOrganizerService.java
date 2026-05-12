@@ -36,8 +36,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Same contract as the legacy EventCoOrganizerService. Étape 3.4
- * finalization-ultimate (STUB-001 / Décisions F, I): caller UUID via
+ * Same contract as the legacy EventCoOrganizerService. Caller UUID via
  * JWT claim, target user enrichment via UserServiceClient, bulk
  * attendance counts via EngagementServiceClient.
  */
@@ -200,7 +199,7 @@ public class EventCoOrganizerService {
     }
 
     /**
-     * D19 (Étape 24.9.13) — distinguish "user not found" (404) from
+     * D19 — distinguish "user not found" (404) from
      * "user-service unreachable" (503). NotFoundException propagates as
      * 404 ; any other RuntimeException (CB open, timeout, 5xx mapped to
      * RuntimeException) propagates as 503. A null return (typically the

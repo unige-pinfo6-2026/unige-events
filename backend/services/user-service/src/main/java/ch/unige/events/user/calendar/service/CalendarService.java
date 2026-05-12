@@ -22,9 +22,9 @@ import java.util.UUID;
  * Same semantics as the legacy monolith's CalendarService — token rotation
  * (lazy create on first read, regenerate on POST) and ICS feed assembly.
  *
- * <p>Étape 3.3 finalization-ultimate (STUB-001 / Décisions A, B, F):
- * the legacy {@code FavoriteStub} / {@code AttendanceStub} /
- * {@code EventStub} navigations are replaced by REST clients to
+ * <p>STUB-001 / Décisions A, B, F: the legacy {@code FavoriteStub} /
+ * {@code AttendanceStub} / {@code EventStub} navigations are replaced by
+ * REST clients to
  * engagement-service ({@code GET /users/{id}/attendances?status=ATTENDING}
  * — Décision B) and event-service ({@code GET /events?ids=...}). The
  * favorites projection is dropped from the ICS feed: the favorites

@@ -54,7 +54,7 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-api-error</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
 
-        <!-- ── REST client runtime (Étape 3.3 finalization-ultimate) ─────────── -->
+        <!-- ── REST client runtime ───────────────────────────────────────────── -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId></dependency>

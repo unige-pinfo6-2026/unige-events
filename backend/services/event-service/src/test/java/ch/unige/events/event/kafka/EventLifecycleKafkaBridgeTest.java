@@ -9,8 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 /**
- * Étape 5.1.b finalization-ultimate (TEST-003 / KAFKA-001). Pattern
- * aligned with the 4 sibling bridge tests (CommentCreatedKafkaBridge,
+ * Pattern aligned with the 4 sibling bridge tests (CommentCreatedKafkaBridge,
  * CoOrganizerKafkaBridge, FollowLifecycleKafkaBridge, EventBannedKafka
  * Bridge): one observation per discriminated event type.
  */

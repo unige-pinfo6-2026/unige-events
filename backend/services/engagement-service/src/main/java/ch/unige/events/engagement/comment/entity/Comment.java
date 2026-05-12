@@ -20,8 +20,8 @@ import java.util.UUID;
  * ch.unige.events.entity.Comment — same FKs, same indexes, same
  * column-name conventions.
  *
- * <p>Décision F finalization-ultimate (Étape 3.1, STUB-001): the
- * cross-service navigations to {@code event} / {@code author} that
+ * <p>Décision F finalization-ultimate (STUB-001): the cross-service
+ * navigations to {@code event} / {@code author} that
  * existed in the original Comment entity have been replaced by id-only
  * columns ({@code eventId Long}, {@code authorId UUID}). The underlying
  * foreign keys still reference {@code events(id)} / {@code users(id)}

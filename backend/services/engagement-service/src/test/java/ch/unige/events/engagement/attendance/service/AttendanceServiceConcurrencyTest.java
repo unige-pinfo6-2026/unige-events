@@ -37,7 +37,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 
 /**
- * BUG-005-bis sentinel — advisory lock + capacity gating (Étape 24.2.3, C3).
+ * BUG-005-bis sentinel — advisory lock + capacity gating.
  *
  * <p>FR — Pin l'invariant que sur un burst concurrent de N attend() avec
  * capacity=K, exactement K placements ATTENDING et N-K placements WAITLISTED

@@ -12,10 +12,9 @@ import java.util.UUID;
  * Mirror of the legacy CommentDTO. {@code likedByMe} stays {@code false}
  * in S6/S8 — wired by SCRUM-144 at S7+ when {@code CommentLike} ships.
  *
- * <p>Étape 3.1 finalization-ultimate: the {@code authorDisplayName} /
- * {@code authorAvatarUrl} fields are now populated from a
- * {@link UserPublicResponse} fetched cross-service, not from a local
- * {@code UserStub} navigation.
+ * <p>The {@code authorDisplayName} / {@code authorAvatarUrl} fields are
+ * populated from a {@link UserPublicResponse} fetched cross-service, not
+ * from a local {@code UserStub} navigation.
  */
 public record CommentDTO(
         Long id,

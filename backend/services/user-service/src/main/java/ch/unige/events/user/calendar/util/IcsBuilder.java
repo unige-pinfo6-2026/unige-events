@@ -12,10 +12,9 @@ import java.util.List;
  * {@link EventDTO} (shared record) projected by event-service via the
  * {@code GET /events?ids=...} bulk endpoint.
  *
- * <p>Étape 3.3 finalization-ultimate (STUB-001 / Décision F): the
- * legacy {@code EventStub} navigation has been replaced by the shared
- * EventDTO record. Field accessors are now method calls (e.g.
- * {@code event.title()} instead of {@code event.title}).
+ * <p>STUB-001 / Décision F: the legacy {@code EventStub} navigation has
+ * been replaced by the shared EventDTO record. Field accessors are now
+ * method calls (e.g. {@code event.title()} instead of {@code event.title}).
  */
 public final class IcsBuilder {
 

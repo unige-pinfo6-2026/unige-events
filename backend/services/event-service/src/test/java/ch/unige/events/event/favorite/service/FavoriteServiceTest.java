@@ -168,8 +168,8 @@ class FavoriteServiceTest {
     }
 
     // -----------------------------------------------------------
-    // Étape 24.8.1 (E1) sentinel — pin the bulk-fetch path that
-    // replaces the per-favorite findByIdOptional. Counts JDBC
+    // sentinel — pin the bulk-fetch path that replaces the
+    // per-favorite findByIdOptional. Counts JDBC
     // prepared statements via Hibernate Statistics: with N=5
     // favorites the listing must issue O(1) queries (Favorite list
     // + Event bulk load), not 1 + N. Threshold is set generously
@@ -218,7 +218,7 @@ class FavoriteServiceTest {
     }
 
     // -----------------------------------------------------------
-    // BUG-006-bis sentinel (Étape 24.2.2, C2)
+    // BUG-006-bis sentinel
     // Pins the catch (PersistenceException) idempotence branch:
     // when two transactions race past the pre-check and both reach
     // persist+flush, the unique constraint uq_favorite_user_event
@@ -284,8 +284,8 @@ class FavoriteServiceTest {
     }
 
     // -----------------------------------------------------------
-    // Étape 24.5.4 (A15) sentinels — pin the narrowing of the
-    // unique-violation catch in addFavorite() to the named constraint
+    // sentinels — pin the narrowing of the unique-violation catch in
+    // addFavorite() to the named constraint
     // uq_favorite_user_event. The previous isUniqueConstraintViolation()
     // matched any ConstraintViolationException, so a future migration
     // adding another UNIQUE on the favorites table (or a stray FK / NOT

@@ -36,7 +36,7 @@ import java.util.UUID;
 /**
  * Same contract as the legacy ReportService.
  *
- * <p>Étape 3.2 finalization-ultimate (STUB-001 / Décisions F, H):
+ * <p>Stub-001 / Décisions F, H:
  * <ul>
  *   <li>Cross-service navigations (EventStub, UserStub,
  *       EventCoOrganizerStub) are replaced by REST clients to

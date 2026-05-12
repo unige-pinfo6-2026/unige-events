@@ -23,8 +23,7 @@ import java.util.UUID;
 
 /**
  * BFF endpoint for {@code GET /users/me/events} — events created by the
- * caller. Étape 3.4 finalization-ultimate (STUB-001 / Décisions F, I):
- * UserStub navigation replaced by JWT-claim resolution + bulk
+ * caller. UserStub navigation replaced by JWT-claim resolution + bulk
  * attendance count delegated to engagement-service.
  */
 @ApplicationScoped

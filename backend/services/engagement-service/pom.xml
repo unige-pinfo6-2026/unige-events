@@ -11,7 +11,7 @@
 
     <!--
       engagement-service — renamed from attendance-service per spec
-      finalization Décision A (consolidation 14→5) Étape 2.1.1. Owns
+      finalization Décision A (consolidation 14→5). Owns
       the `attendances` table (ATTENDING / WAITLISTED with auto-promotion
       on remove). Will absorb the comments table + comments.created
       Kafka producer from comment-service in sub-step 2.4.1. The
@@ -41,7 +41,7 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-api-error</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
-        <!-- ── REST client runtime (Étape 3.1 finalization-ultimate) ─────────── -->
+        <!-- ── REST client runtime ───────────────────────────────────────────── -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId></dependency>

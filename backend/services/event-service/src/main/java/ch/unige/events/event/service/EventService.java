@@ -51,7 +51,6 @@ import java.util.UUID;
 /**
  * Same contract as the legacy ch.unige.events.service.EventService.
  *
- * <p>Étape 3.4 finalization-ultimate (STUB-001 / Décisions A, F, G, I):
  * <ul>
  *   <li>Décision F: {@code Event.creator} {@code @ManyToOne UserStub}
  *       replaced by {@code Event.creatorId UUID}.</li>

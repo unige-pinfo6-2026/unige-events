@@ -373,7 +373,7 @@ class AttendanceServiceTest {
 
     @Test
     void removeAttendance_eventClientReturnsNull_logsAndSkipsPromotion() {
-        // [WAITLIST_PROMOTION_SKIPPED] (Étape 24.3.6, A12): when event-service
+        // [WAITLIST_PROMOTION_SKIPPED]: when event-service
         // is unreachable the fallback returns null; the attendance row must
         // still be deleted but waitlist promotion is deferred and a WARN is logged.
         Attendance attendingRaw = new Attendance();
@@ -708,8 +708,8 @@ class AttendanceServiceTest {
     }
 
     /**
-     * Sentinel for Étape 24.5.3 (A11): {@code acquireAdvisoryLock(null)}
-     * must fail fast with an {@link IllegalStateException} rather than
+     * Sentinel for {@code acquireAdvisoryLock(null)}: must fail fast with
+     * an {@link IllegalStateException} rather than
      * silently {@code return} (the previous behaviour). A null eventId
      * indicates a programming error in the calling path — the REST entry
      * points always resolve event-id from the path parameter — and the
