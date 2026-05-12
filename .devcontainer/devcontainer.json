@@ -2,7 +2,7 @@
     "name": "UNIGE Events",
     "dockerComposeFile": "../docker-compose.yml",
     "service": "devcontainer",
-    "workspaceFolder": "/workspaces/unige-events",
+    "workspaceFolder": "/workspace",
 
     "features": {
         "ghcr.io/devcontainers/features/java:1": {
