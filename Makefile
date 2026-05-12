@@ -1,5 +1,8 @@
 SERVICES = event user engagement moderation notification
 
+-include backend/.env
+export
+
 .PHONY: install-backend install-frontend install \
         frontend backend dev $(addprefix backend-,$(SERVICES)) \
         test-backend test-frontend test \
