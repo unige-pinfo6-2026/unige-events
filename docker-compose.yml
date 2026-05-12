@@ -2,7 +2,7 @@ services:
   devcontainer:
     image: mcr.microsoft.com/devcontainers/base:ubuntu
     volumes:
-      - .:/workspaces/unige-events:cached
+      - .:/workspace/:cached
     command: sleep infinity
     depends_on:
       - postgres
