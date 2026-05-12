@@ -4,32 +4,33 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>shared</artifactId>
         <version>1.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
 
     <!--
-      shared-kafka-events — payload records for the 10 Kafka topics
-      provisioned in S8. Cf. completion-spec Décision D / Décision F
-      (KAFKA-007). Producer + consumer reference the same record so
-      drift is structurally impossible.
+      shared-domain-projections — pure-function helpers shared across
+      services. Cf. completion-spec Décision D (REFACTOR-005,
+      REFACTOR-013).
 
-      Records:
-      - EventLifecycleEvent (events.{published,cancelled,expired})
-      - EventBannedEvent    (events.banned)
-      - FollowLifecycleEvent (users.{followed,follow-requested,follow-accepted})
-      - CommentCreatedEvent (comments.created)
-      - CoOrganizerEvent    (co-organizers.{invited,accepted})
+      Today's contents:
+      - EventCapacity.computeAvailableSpots(capacity, attending)
+      - Auth0IdResolver.resolveUserId(jwt)
+      - AttendanceCounts (record)
     -->
 
-    <artifactId>shared-kafka-events</artifactId>
+    <artifactId>shared-domain-projections</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-kafka-events</name>
+    <name>UNIGE Events — shared-domain-projections</name>
 
     <dependencies>
+        <dependency><groupId>org.eclipse.microprofile.jwt</groupId><artifactId>microprofile-jwt-auth-api</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-core</artifactId><scope>provided</scope></dependency>
+
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>

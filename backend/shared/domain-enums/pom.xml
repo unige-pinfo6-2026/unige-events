@@ -4,30 +4,31 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>shared</artifactId>
         <version>1.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
 
     <!--
-      shared-jaxrs — Timeframe enum + Jakarta ParamConverter so JAX-RS
-      query params bind directly to the enum (instead of a String parsed
-      with parseTimeframe). Cf. completion-spec Décision D
-      (BUG-011, REFACTOR-018).
+      shared-domain-enums — 9 cross-projected enums (EventStatus,
+      EventCategory, Faculty, AttendanceStatus, CoOrganizerStatus,
+      FollowStatus, RecurrenceFrequency, ReportReason, ReportStatus).
+      Cf. completion-spec Décision D (REFACTOR-003). Each enum was
+      previously duplicated 5–8× across services.
+
+      Risk: any divergence in @Enumerated(STRING) values across
+      services would break Hibernate hydration. The sentinel test
+      EnumValuesSentinelTest pins the exact values to prevent silent
+      drift.
     -->
 
-    <artifactId>shared-jaxrs</artifactId>
+    <artifactId>shared-domain-enums</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-jaxrs</name>
+    <name>UNIGE Events — shared-domain-enums</name>
 
     <dependencies>
-        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
-        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId><scope>provided</scope></dependency>
-        <dependency><groupId>org.eclipse.microprofile.config</groupId><artifactId>microprofile-config-api</artifactId><scope>provided</scope></dependency>
-
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
-        <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
     </dependencies>
 
     <build>

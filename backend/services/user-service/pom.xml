@@ -15,7 +15,7 @@
       tables. Serves GET /users/me + PUT /users/me + GET /users/{id} +
       POST/DELETE /users/me/image + POST/DELETE /users/me/banner.
       The image/banner endpoints reuse the shared FileStorageService
-      from services/shared-storage/ ; the S3 client + URL connection
+      from shared/storage/ ; the S3 client + URL connection
       client stay declared here so Quarkus discovers them at build time.
     -->
 

@@ -2,18 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-      Multi-module Maven layout. Sprint 8 migration documented in
-      specs_archives/specs_claude/specs_microservices_migration.md
-      (decision 4). After step 15 (PR 14 of the roadmap), the legacy
-      Quarkus monolith is gone — every reactor module is a Quarkus
-      microservice owning a bounded-context endpoint group.
-
-      `cd backend && ./mvnw verify` builds every <module> declared below
-      with the same Quarkus chain ; each service POMs its own image name
-      via application.properties.
-    -->
-
     <groupId>ch.unige.events</groupId>
     <artifactId>parent</artifactId>
     <version>1.0-SNAPSHOT</version>
@@ -21,27 +9,17 @@
     <name>UNIGE Events — backend parent</name>
 
     <modules>
-        <!-- Shared libs (jar packaging, hors `services/*-service/` glob
-             d'exclusion Sonar — leur couverture est comptée). -->
-        <module>services/shared-rate-limit</module>
-        <module>services/shared-storage</module>
-        <module>services/shared-api-error</module>
-        <module>services/shared-domain-enums</module>
-        <module>services/shared-jaxrs</module>
-        <module>services/shared-tracing</module>
-        <module>services/shared-kafka-events</module>
-        <module>services/shared-platform</module>
-        <module>services/shared-domain-dtos</module>
-        <module>services/shared-domain-projections</module>
+        <!-- Shared libs -->
+        <module>shared</module>
 
-        <!-- Microservices Quarkus extraits — un par bounded context. -->
+        <!-- Microservices -->
         <module>services/user-service</module>
         <module>services/event-service</module>
         <module>services/engagement-service</module>
         <module>services/moderation-service</module>
         <module>services/notification-service</module>
 
-        <!-- Étape 6 — Pact JVM consumer-driven contract tests + E2E happy path. -->
+        <!-- Pact JVM consumer-driven contract tests + E2E happy path. -->
         <module>contract-tests</module>
         <module>e2e</module>
     </modules>

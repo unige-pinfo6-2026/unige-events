@@ -4,38 +4,27 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>shared</artifactId>
         <version>1.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
 
     <!--
-      shared-tracing — X-Request-ID propagation via RequestIdFilter
-      (server-side, ContainerRequestFilter) + RequestIdClientFilter
-      (REST client, ClientRequestFilter). Cf. completion-spec
-      Décision D / Décision K (SPEC-013, SPEC-019 partial).
+      shared-jaxrs — Timeframe enum + Jakarta ParamConverter so JAX-RS
+      query params bind directly to the enum (instead of a String parsed
+      with parseTimeframe). Cf. completion-spec Décision D
+      (BUG-011, REFACTOR-018).
     -->
 
-    <artifactId>shared-tracing</artifactId>
+    <artifactId>shared-jaxrs</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-tracing</name>
+    <name>UNIGE Events — shared-jaxrs</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
-        <dependency><groupId>org.jboss.logmanager</groupId><artifactId>jboss-logmanager</artifactId><scope>provided</scope></dependency>
-
-        <!-- Re-use the canonical X-Internal-Token constant defined in
-             shared-jaxrs.InternalTokenFilter (server-side counterpart of
-             InternalTokenClientFilter). Provided scope: consuming services
-             already pull shared-jaxrs at runtime. -->
-        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-jaxrs</artifactId><version>${project.version}</version><scope>provided</scope></dependency>
-
-        <!-- Kafka Producer/Consumer interceptors compile against the
-             kafka-clients API. Scope=provided so consuming services
-             pull the runtime via quarkus-messaging-kafka — the
-             provided scope is also visible on the test classpath. -->
-        <dependency><groupId>org.apache.kafka</groupId><artifactId>kafka-clients</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>org.eclipse.microprofile.config</groupId><artifactId>microprofile-config-api</artifactId><scope>provided</scope></dependency>
 
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>

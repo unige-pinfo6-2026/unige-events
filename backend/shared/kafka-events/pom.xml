@@ -4,28 +4,29 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>shared</artifactId>
         <version>1.0-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
 
     <!--
-      shared-domain-enums — 9 cross-projected enums (EventStatus,
-      EventCategory, Faculty, AttendanceStatus, CoOrganizerStatus,
-      FollowStatus, RecurrenceFrequency, ReportReason, ReportStatus).
-      Cf. completion-spec Décision D (REFACTOR-003). Each enum was
-      previously duplicated 5–8× across services.
+      shared-kafka-events — payload records for the 10 Kafka topics
+      provisioned in S8. Cf. completion-spec Décision D / Décision F
+      (KAFKA-007). Producer + consumer reference the same record so
+      drift is structurally impossible.
 
-      Risk: any divergence in @Enumerated(STRING) values across
-      services would break Hibernate hydration. The sentinel test
-      EnumValuesSentinelTest pins the exact values to prevent silent
-      drift.
+      Records:
+      - EventLifecycleEvent (events.{published,cancelled,expired})
+      - EventBannedEvent    (events.banned)
+      - FollowLifecycleEvent (users.{followed,follow-requested,follow-accepted})
+      - CommentCreatedEvent (comments.created)
+      - CoOrganizerEvent    (co-organizers.{invited,accepted})
     -->
 
-    <artifactId>shared-domain-enums</artifactId>
+    <artifactId>shared-kafka-events</artifactId>
     <packaging>jar</packaging>
-    <name>UNIGE Events — shared-domain-enums</name>
+    <name>UNIGE Events — shared-kafka-events</name>
 
     <dependencies>
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
