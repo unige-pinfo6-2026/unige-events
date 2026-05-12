@@ -21,7 +21,7 @@
         2. add the missing extensions (jdbc-postgresql, hibernate-orm-panache,
            flyway, rest-client-reactive, smallrye-reactive-messaging-kafka,
            smallrye-fault-tolerance, micrometer-registry-prometheus),
-        3. add quarkus-container-image-jib + override container-image-name,
+        3. add the remaining Quarkus extensions and a Dockerfile.jvm,
         4. flip the matching Kong route from api:8080 to notification-service:8080,
         5. carve resources / services / entities out of services/legacy-monolith/.
     -->
