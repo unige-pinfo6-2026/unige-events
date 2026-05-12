@@ -1,8 +1,6 @@
 services:
   devcontainer:
     image: mcr.microsoft.com/devcontainers/base:ubuntu
-    env_file:
-      - ./backend/.env
     volumes:
       - .:/workspace/:cached
     command: sleep infinity
