@@ -5,7 +5,7 @@ import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
-import ch.unige.events.user.calendar.config.AppConfig;
+import ch.unige.events.user.config.AppConfig;
 import ch.unige.events.user.calendar.dto.CalendarTokenResponse;
 import ch.unige.events.user.calendar.util.IcsBuilder;
 import ch.unige.events.user.entity.User;
