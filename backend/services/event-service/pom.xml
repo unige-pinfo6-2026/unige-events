@@ -4,7 +4,7 @@
 
     <parent>
         <groupId>ch.unige.events</groupId>
-        <artifactId>parent</artifactId>
+        <artifactId>backend</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
@@ -20,7 +20,6 @@
 
     <artifactId>event-service</artifactId>
     <packaging>quarkus</packaging>
-    <name>UNIGE Events — event-service</name>
 
     <dependencies>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId></dependency>
