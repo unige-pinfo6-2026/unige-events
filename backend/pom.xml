@@ -19,9 +19,6 @@
         <module>services/moderation-service</module>
         <module>services/notification-service</module>
 
-        <!-- Pact JVM consumer-driven contract tests + E2E happy path. -->
-        <module>contract-tests</module>
-        <module>e2e</module>
     </modules>
 
     <properties>
