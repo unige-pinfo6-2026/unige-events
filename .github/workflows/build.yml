@@ -128,12 +128,6 @@ jobs:
           pattern: jacoco-*
           merge-multiple: true
 
-      - name: List jacoco files
-        run: |
-          find shared services -name jacoco.xml -path '*/jacoco-report/*' 2>/dev/null | sort
-          count=$(find shared services -name jacoco.xml -path '*/jacoco-report/*' 2>/dev/null | wc -l)
-          echo "Found $count jacoco.xml files"
-
       - name: SonarQube Scan (aggregated)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
