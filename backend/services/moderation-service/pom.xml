@@ -11,7 +11,7 @@
 
     <!--
       moderation-service — renamed from report-service per spec finalization
-      Décision A (consolidation 14→5) Étape 2.1.2. Owns the `reports`
+      Décision A (consolidation 14→5). Owns the `reports`
       table + the ModerationCleanupJob scheduler (cron @ 03:00
       Europe/Zurich, replicas:1 strict) + the events.banned Kafka
       producer. The new name clarifies the role: reports + auto-ban =
@@ -34,7 +34,6 @@
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-orm-panache</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-hibernate-validator</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-openapi</artifactId></dependency>
-        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-logging-json</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-micrometer-registry-prometheus</artifactId></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-tracing</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-platform</artifactId><version>${project.version}</version></dependency>
@@ -43,7 +42,7 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-api-error</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
-        <!-- ── REST client runtime (Étape 3.2 finalization-ultimate) ─────────── -->
+        <!-- ── REST client runtime ───────────────────────────────────────────── -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId></dependency>
