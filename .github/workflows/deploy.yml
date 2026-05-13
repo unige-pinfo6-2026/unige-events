@@ -106,25 +106,6 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v5
 
-      # Preview-only: nuke any stuck Kafka StatefulSet + PVC from prior
-      # failed deploys before running helm upgrade. KRaft writes voter
-      # metadata into meta.properties at format time; if the chart's
-      # KAFKA_CONTROLLER_QUORUM_VOTERS changes between deploys, the broker
-      # refuses to start with stale metadata and the pod stays in BackOff
-      # forever — Helm then sees `StatefulSet status: Failed` on the next
-      # upgrade and bails out without trying to converge. This step makes
-      # preview deploys idempotent regardless of prior state. Production
-      # never runs this — durability matters there.
-      - name: Reset Kafka state in preview namespace
-        run: |
-          set +e
-          kubectl -n "${{ env.PR_NAMESPACE }}" delete statefulset kafka --ignore-not-found --wait=true --timeout=60s
-          kubectl -n "${{ env.PR_NAMESPACE }}" delete pvc -l app=kafka --ignore-not-found --wait=true --timeout=60s
-          # Belt-and-suspenders: also remove any orphan kafka pod that
-          # outlived the StatefulSet (shouldn't happen, but cleanup is
-          # cheap).
-          kubectl -n "${{ env.PR_NAMESPACE }}" delete pod -l app=kafka --ignore-not-found --grace-period=5
-
       - name: Deploy
         run: |
           helm upgrade --install ${{ env.PR_NAMESPACE }} ./k8s/chart \
@@ -138,8 +119,7 @@ jobs:
             --wait
 
       # Surface pod state on deploy failure to make root-cause analysis
-      # tractable from the CI logs (cf. PR #158 step 0 of microservices
-      # migration — Kong+Kafka rollout debugging).
+      # tractable from the CI logs
       - name: Diagnose deploy on failure
         if: failure()
         run: |
