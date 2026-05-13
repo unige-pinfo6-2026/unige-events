@@ -13,15 +13,10 @@ spec:
       labels:
         app: kong
       annotations:
-        # Force pod restart when the routing ConfigMap changes — Kong picks up
-        # the new declarative config on container restart, not via API reload
-        # (DB-less + no admin API exposed).
+        # DB-less Kong reloads declarative config on pod restart.
         checksum/routes: {{ include (print $.Template.BasePath "/kong/configmap-routes.yaml") . | sha256sum }}
     spec:
       automountServiceAccountToken: false
-      # Fast termination on failed deploys — if a previous helm upgrade left
-      # a partially-started Kong pod, we want it gone within seconds so the
-      # next upgrade can converge inside its --timeout budget.
       terminationGracePeriodSeconds: 5
       containers:
         - name: kong
@@ -42,9 +37,6 @@ spec:
             - name: KONG_PROXY_LISTEN
               value: "0.0.0.0:8000"
             - name: KONG_ADMIN_LISTEN
-              # Bound to localhost only — admin API is never exposed via Service.
-              # DB-less mode reads the declarative config from the ConfigMap,
-              # so the admin API is read-only and not strictly needed by ops.
               value: "127.0.0.1:8001"
             - name: KONG_STATUS_LISTEN
               value: "0.0.0.0:8100"

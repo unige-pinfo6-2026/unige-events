@@ -1,10 +1,3 @@
-{{- /*
-  Étape 4.13 finalization-complete (KONG-PDB-PREVIEW IMPORTANT):
-  guarantee at least one Kong replica stays available during a node
-  drain when prod runs ≥ 2 replicas. Gated so preview environments
-  (replicas=1) skip the PDB entirely — a PDB with minAvailable=1 on a
-  single-replica deployment would block any voluntary disruption.
-*/ -}}
 {{- if gt (int .Values.kong.replicas) 1 }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget

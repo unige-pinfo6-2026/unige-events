@@ -12,7 +12,5 @@ spec:
       port: 8000
       targetPort: 8000
     - name: status
-      # Internal status / metrics endpoint — kept inside the cluster.
-      # Exposed for Prometheus scrapes and the in-cluster readiness probes.
       port: 8100
       targetPort: 8100

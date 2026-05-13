@@ -14,24 +14,11 @@ spec:
       labels:
         app: kafka
       annotations:
-        # Force a pod-template-hash bump on every helm upgrade. Without
-        # this, a kafka-0 pod stuck in CrashLoopBackOff (e.g. PR #158
-        # retries 1-4 with the wrong KAFKA_CONTROLLER_QUORUM_VOTERS) is
-        # never replaced by the StatefulSet controller — RollingUpdate
-        # waits indefinitely for the old pod to become Ready, even though
-        # the spec has been patched to a working config. Tying the
-        # annotation to .Values.image.tag (= github.sha) guarantees
-        # a fresh hash on every PR commit, which forces deletion of the
-        # old pod and creation of a new one with the latest spec.
+        # Bump the pod-template-hash on each image tag to replace failed Kafka pods during upgrades.
         unige-events.io/release-sha: {{ .Values.image.tag | quote }}
     spec:
       automountServiceAccountToken: false
-      # apache/kafka:3.7.0 runs as the non-root user `appuser` (UID 1000).
-      # Without fsGroup, the PVC is mounted root:root and the broker
-      # crashes with "Permission denied" on /var/lib/kafka/data — exactly
-      # the failure mode of PR #158 retry 2 (StatefulSet status: Failed,
-      # 1 pods have failed). Setting fsGroup=1000 makes the volume
-      # group-writable for the kafka user.
+      # apache/kafka runs as UID 1000 and needs group write access on the PVC.
       securityContext:
         fsGroup: 1000
         runAsUser: 1000
@@ -46,11 +33,6 @@ spec:
             - name: controller
               containerPort: 9093
           env:
-            # ─── KRaft single-node mode (no Zookeeper) ──────────────────────
-            # In S8 we deploy a single Kafka broker that is also its own
-            # controller (combined process role). Cluster ID is hard-coded;
-            # rotating it requires a fresh PVC. Replication factor is 1 —
-            # acceptable for a course/demo, not production.
             - name: KAFKA_NODE_ID
               value: "1"
             - name: KAFKA_PROCESS_ROLES
@@ -66,15 +48,7 @@ spec:
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              # Single-node KRaft with combined process roles (broker AND
-              # controller in the same JVM): the voter MUST be reachable
-              # before the headless service has a stable DNS record for the
-              # pod. Using `kafka-0.kafka` failed in PR #158 retry 3 with
-              # "fatal error while waiting for the controller to acknowledge"
-              # because the broker self-references a name that won't resolve
-              # until the StatefulSet pod is registered with the headless
-              # service (chicken-and-egg at first boot). localhost trivially
-              # resolves and is correct for a combined single-node setup.
+              # localhost is valid for this single-node combined broker/controller KRaft setup.
               value: "1@localhost:9093"
             - name: KAFKA_LOG_DIRS
               value: "/var/lib/kafka/data"
@@ -92,10 +66,6 @@ spec:
               value: "1"
             - name: KAFKA_MIN_INSYNC_REPLICAS
               value: "1"
-            # CLUSTER_ID must be a stable 22-char base64 UUID. Generated once
-            # via `kafka-storage.sh random-uuid`. Rotating it implies dropping
-            # the PVC. Persisted in the ConfigMap below to allow re-creation
-            # of the StatefulSet on the same volume.
             - name: CLUSTER_ID
               valueFrom:
                 configMapKeyRef:
@@ -107,10 +77,6 @@ spec:
           resources:
             {{- toYaml .Values.kafka.resources | nindent 12 }}
           readinessProbe:
-            # First-time KRaft format on a fresh PVC + JVM startup typically
-            # takes 30-60s; binding 9092 only happens after that. Pre-PR #158
-            # deploy fail: probe started at 15s and went 6×10s = 75s ceiling,
-            # which was hit before Kafka was ready in some preview namespaces.
             tcpSocket:
               port: 9092
             initialDelaySeconds: 30
@@ -138,8 +104,5 @@ metadata:
   name: kafka-cluster-id
   namespace: {{ .Release.Namespace }}
 data:
-  # Stable 22-char base64 UUID. Treat as immutable: rotating this id requires
-  # also dropping the data PVC (kraft-mode cluster id is encoded in the log
-  # directory metadata). Generated via:
-  #   kafka-storage.sh random-uuid
+  # Immutable KRaft cluster id: rotating it requires dropping the Kafka data PVC.
   clusterId: "MkU3OEVBNTcwNTJENDM2Qk"

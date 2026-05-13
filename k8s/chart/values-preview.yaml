@@ -37,9 +37,6 @@ web:
 kong:
   replicas: 1
   resources:
-    # Kong on alpine needs ~150-200 MiB just to start the nginx/lua workers
-    # before any traffic — the previous 64Mi was tight enough to OOM during
-    # boot. Bumped to match the production profile (cf. PR #158 deploy fail).
     requests:
       cpu: "50m"
       memory: "192Mi"
@@ -51,9 +48,6 @@ kong:
 kafka:
   storageSize: 1Gi
   resources:
-    # KRaft format on a fresh PVC + JVM startup needs >= 512MiB to avoid GC
-    # thrashing. The previous 256Mi/512Mi caused readiness misses on cold
-    # PVCs (cf. PR #158 deploy fail).
     requests:
       cpu: "100m"
       memory: "512Mi"

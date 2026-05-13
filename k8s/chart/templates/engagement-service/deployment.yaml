@@ -7,9 +7,6 @@ metadata:
     app: engagement-service
     migration-step: extracted
 spec:
-  # engagement-service is now active (PR 8 of the extraction roadmap).
-  # Kong routes /api/events/{id}/attend, /attendees +
-  # /api/users/me/attendances, /me/participations here.
   replicas: 1
   strategy:
     type: RollingUpdate
@@ -34,7 +31,6 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Étape 4.5 finalization-complete (TZ-DRIFT / Décision F)
             - name: TZ
               value: "Europe/Zurich"
             - name: JAVA_TOOL_OPTIONS

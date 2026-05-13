@@ -7,15 +7,6 @@ metadata:
     app: moderation-service
     migration-step: extracted
 spec:
-  # moderation-service is now active (depuis Étape 2.X moderation
-  # extraction, cf. backend/docs/sprint-context.md § Étape 23). Kong
-  # routes /api/events/{id}/report + /api/admin/reports[/{id}] here.
-  # ModerationCleanupJob (cron @ 03:00 Europe/Zurich) runs in this pod
-  # — replicas: 1 strict (no leader-election in S8).
-  #
-  # ⚠ DO NOT scale-out without revisiting ADR-001
-  # (backend/docs/adr/ADR-001-moderation-cleanup-replicas-strict.md).
-  # Two replicas would duplicate every events.banned audit-trail emit.
   replicas: 1
   strategy:
     type: RollingUpdate
@@ -40,7 +31,6 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Étape 4.5 finalization-complete (TZ-DRIFT / Décision F)
             - name: TZ
               value: "Europe/Zurich"
             - name: JAVA_TOOL_OPTIONS

@@ -4,8 +4,7 @@ metadata:
   name: kafka
   namespace: {{ .Release.Namespace }}
 spec:
-  # Headless service — required for StatefulSet pod DNS
-  # (kafka-0.kafka.<namespace>.svc.cluster.local).
+  # Headless — required for StatefulSet pod DNS (kafka-0.kafka.<ns>.svc.cluster.local).
   clusterIP: None
   selector:
     app: kafka

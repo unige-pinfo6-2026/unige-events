@@ -7,53 +7,13 @@ data:
   kong.yml: |
     _format_version: "3.0"
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Routing table — post-migration (PR 14, legacy-monolith removed)
-    # ─────────────────────────────────────────────────────────────────────────
-    # The strangler-fig is complete : there is no `monolith-api` upstream
-    # and no `api-catchall` route. Every /api/* path is matched by an
-    # explicit per-service regex below ; an unmatched path now returns a
-    # Kong 404 (correct behaviour — there's no legacy fallback to swallow
-    # bad URLs). The service blocks below are listed in their historical
-    # extraction order ; after absorptions in Étape 2.X (cf.
-    # sprint-context.md § Étape 23), the live topology has 5 microservices
-    # (event-service, user-service, engagement-service, moderation-service,
-    # notification-service placeholder). Routing-priority order is not
-    # significant — Kong picks the longest matching regex regardless of
-    # declaration order.
     services:
-      # NB: share-service was merged into event-service in finalization
-      # Étape 2.2.1 (Décision A). Routes /api/events/{id}/share +
-      # /api/s/{shortCode} are now declared in the event-service block
-      # below (look for `event-share` and `shortlink`).
-
-      # NB: view-service was merged into event-service in finalization
-      # Étape 2.2.2. Route /api/events/{id}/view is now in the
-      # event-service block below (look for `event-view`).
-
-      # NB: favorite-service was merged into event-service in
-      # finalization Étape 2.2.3. Routes /api/events/{id}/favorite +
-      # /api/users/me/favorites are now in the event-service block below
-      # (look for `favorite-actions` and `my-favorites`).
-
-      # NB: calendar-service was merged into user-service in finalization
-      # Étape 2.3.2 (Décision A — la feed ICS est strictement user-centric,
-      # le token vit sur users.calendar_token). Routes calendar-token,
-      # calendar-regen, ics-feed sont désormais dans le bloc user-service
-      # avec read_timeout dédié 60s.
-
-      # ───── event-service (Étape 2.2 finalization) ───────────────────────
-      # All /events/* and /admin/events/{id}/{,un}feature paths.
-      # /events/search needs to win over /events/{digit-id} so it's
-      # listed first ; same for /featured.
-      # Hosts EventExpirationJob scheduler (every 1h).
       - name: event-service
         url: http://event-service:8080
         connect_timeout: 5000
         read_timeout: 30000
         write_timeout: 30000
         routes:
-          # Absorbed from share-service in finalization Étape 2.2.1.
           - name: event-share
             paths:
               - ~/api/events/(?:\d+)/share$
@@ -64,13 +24,11 @@ data:
               - ~/api/s/[^/]+$
             strip_path: false
             preserve_host: true
-          # Absorbed from view-service in finalization Étape 2.2.2.
           - name: event-view
             paths:
               - ~/api/events/(?:\d+)/view$
             strip_path: false
             preserve_host: true
-          # Absorbed from favorite-service in finalization Étape 2.2.3.
           - name: favorite-actions
             paths:
               - ~/api/events/(?:\d+)/favorite$
@@ -81,7 +39,6 @@ data:
               - ~/api/users/me/favorites$
             strip_path: false
             preserve_host: true
-          # Absorbed from co-organizer-service in finalization Étape 2.2.4.
           - name: co-organizer-me
             paths:
               - ~/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$
@@ -102,13 +59,11 @@ data:
               - ~/api/users/me/co-organizer-invitations$
             strip_path: false
             preserve_host: true
-          # Absorbed from stats-service in finalization Étape 2.2.5.
           - name: event-stats
             paths:
               - ~/api/events/(?:\d+)/stats$
             strip_path: false
             preserve_host: true
-          # Absorbed from me-aggregator-service in finalization Étape 2.2.6 (Décision H).
           - name: my-events
             paths:
               - ~/api/users/me/events$
@@ -165,32 +120,12 @@ data:
             strip_path: false
             preserve_host: true
             plugins:
-              # spec décision 6 / completion-spec Étape 10 — bucket
-              # `events.create=10/min`. policy=local : compteur par
-              # instance Kong (acceptable en S8, single-cluster). Le
-              # `@PerUserRateLimit` Java côté event-service couvre
-              # l'UX (max=10, windowSeconds=60) — Kong protège l'edge.
               - name: rate-limiting
                 config:
                   minute: 10
                   policy: local
                   fault_tolerant: true
                   hide_client_headers: false
-
-      # ───── user-service (Étape 2.3 finalization) ────────────────────────
-      # GET/PUT /api/users/me + GET /api/users/{uuid} + POST/DELETE
-      # /api/users/me/image + POST/DELETE /api/users/me/banner. The /me/image
-      # and /me/banner regexes are listed BEFORE the /[^/]+$ catch so Kong
-      # matches them first (regex specificity : an explicit literal beats
-      # a single-segment wildcard). The other /me/* paths (calendar-token,
-      # follow-requests, co-organizer-invitations, events, attendances,
-      # participations, favorites) keep their per-service routes via even
-      # more specific regexes.
-      #
-      # NB: the regex /api/users/[^/]+$ ALSO matches /api/users/me, but
-      # that's intentional — both targets land on user-service which
-      # handles /me (Authenticated) and /{uuid} (PermitAll) on the same
-      # @Path("/users") class.
       - name: user-service
         url: http://user-service:8080
         connect_timeout: 5000
@@ -212,14 +147,12 @@ data:
               - ~/api/users/[^/]+$
             strip_path: false
             preserve_host: true
-          # Absorbed from follow-service in finalization Étape 2.3.1.
           - name: follow-actions
             paths:
               - ~/api/users/[^/]+/follow$
             strip_path: false
             preserve_host: true
             plugins:
-              # bucket `follows.follow=30/min` (completion-spec Étape 10).
               - name: rate-limiting
                 config:
                   minute: 30
@@ -241,7 +174,6 @@ data:
               - ~/api/users/me/follow-requests$
             strip_path: false
             preserve_host: true
-          # Absorbed from calendar-service in finalization Étape 2.3.2.
           - name: calendar-token
             paths:
               - ~/api/users/me/calendar-token$
@@ -257,22 +189,6 @@ data:
               - ~/api/calendar/[^/]+\.ics$
             strip_path: false
             preserve_host: true
-
-      # NB: me-aggregator-service was merged into event-service in
-      # finalization Étape 2.2.6 (Décision H — BFF dissous, le path
-      # /users/me/events est strictement event-domain). Route my-events
-      # est désormais dans le bloc event-service au-dessus.
-
-      # NB: stats-service was merged into event-service in
-      # finalization Étape 2.2.5. Route /api/events/{id}/stats is now
-      # in the event-service block above. Read-only aggregator now uses
-      # local entities (Event, Attendance, Favorite, EventView,
-      # EventCoOrganizer) — no more REST cross-service hops.
-
-      # ───── moderation-service (Étape 2.X extraction, renamed from report-service) ─────
-      # Routes the report endpoint + the admin moderation queue. Hosts the
-      # ModerationCleanupJob scheduler (cron 03:00 Europe/Zurich,
-      # replicas:1 strict) and the events.banned Kafka producer.
       - name: moderation-service
         url: http://moderation-service:8080
         connect_timeout: 5000
@@ -294,11 +210,6 @@ data:
               - ~/api/admin/reports/(?:\d+)$
             strip_path: false
             preserve_host: true
-
-      # ───── engagement-service (Étape 2.X extraction, renamed from attendance-service) ──
-      # Routes the attend / attendees endpoints + /me/attendances and
-      # /me/participations to engagement-service. After step 2.4.1 this
-      # block also serves /api/events/{id}/comments and /api/comments/{id}.
       - name: engagement-service
         url: http://engagement-service:8080
         connect_timeout: 5000
@@ -325,14 +236,12 @@ data:
               - ~/api/users/me/participations$
             strip_path: false
             preserve_host: true
-          # Absorbed from comment-service in finalization Étape 2.4.1.
           - name: event-comments
             paths:
               - ~/api/events/(?:\d+)/comments$
             strip_path: false
             preserve_host: true
             plugins:
-              # bucket `comments.post=10/min` (completion-spec Étape 10).
               - name: rate-limiting
                 config:
                   minute: 10
@@ -344,36 +253,6 @@ data:
               - ~/api/comments/(?:\d+)$
             strip_path: false
             preserve_host: true
-
-      # NB: co-organizer-service was merged into event-service in
-      # finalization Étape 2.2.4. Routes /api/events/{id}/co-organizers/*
-      # + /api/users/me/co-organizer-invitations are now in the
-      # event-service block above. Cascade SCRUM-136 is now a local
-      # method call in event-service (no more REST hop).
-
-      # NB: comment-service was merged into engagement-service in
-      # finalization Étape 2.4.1 (Décision A). Routes event-comments
-      # (avec rate-limiting 10/min) + comment-direct sont désormais dans
-      # le bloc engagement-service au-dessus.
-
-      # NB: follow-service was merged into user-service in finalization
-      # Étape 2.3.1 (Décision A — follow est une propriété de l'identité
-      # utilisateur, social graph user×user). Routes follow-actions /
-      # follow-listings / follow-requests / my-follow-reqs sont désormais
-      # dans le bloc user-service au-dessus.
-
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Global plugins (cf. spec decision 6)
-    # ─────────────────────────────────────────────────────────────────────────
-    # cors          : allow the SPA running on pinfo6 hosts; permissive enough
-    #                 to cover preview namespaces (pr-N.pinfo6.p-info.net) and
-    #                 cloudflared tunnel domains used in PR previews.
-    # correlation-id: generate (or echo) X-Request-ID — preserves the existing
-    #                 RequestIdFilter MDC convention from the monolith
-    #                 (application.properties lines 67-69).
-    # prometheus    : expose metrics on the kong-proxy /metrics path; scrape
-    #                 endpoint kept internal to the cluster.
     plugins:
       - name: cors
         config:
@@ -412,12 +291,6 @@ data:
           latency_metrics: true
           bandwidth_metrics: true
           upstream_health_metrics: true
-      # Étape 3.2 finalization-complete (SEC-002-bis / Décision C):
-      # strip the X-Internal-Token header on every external request so a
-      # caller cannot inject a forged secret to reach @Internal endpoints.
-      # The header is RE-INJECTED inside the cluster by service-to-service
-      # REST clients via shared-tracing.InternalTokenClientFilter — Kong
-      # only sees outside traffic, so the strip is safe by construction.
       - name: request-transformer
         config:
           remove:

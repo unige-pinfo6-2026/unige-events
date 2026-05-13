@@ -7,11 +7,7 @@ metadata:
     app: notification-service
     migration-step: scaffold
 spec:
-  # Scaffold lives at replicas: 0 until the follow-up extraction PR
-  # populates the Quarkus module under backend/services/notification-service/ and flips
-  # the Kong route. Until then, no pod is scheduled, no image is pulled,
-  # and the Deployment costs nothing on the cluster — but the Service /
-  # DNS name notification-service.{{ .Release.Namespace }}.svc.cluster.local is reserved.
+  # Placeholder service kept at replicas 0 until notification extraction is implemented.
   replicas: 0
   selector:
     matchLabels:
@@ -31,7 +27,6 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # Étape 4.5 finalization-complete (TZ-DRIFT / Décision F)
             - name: TZ
               value: "Europe/Zurich"
             - name: JAVA_TOOL_OPTIONS
@@ -55,9 +50,6 @@ spec:
             limits:
               memory: "256Mi"
               ephemeral-storage: "256Mi"
-          # K8S-001 finalization-ultimate Étape 7.1: parity with the
-          # 4 active service deployments — pod restart on liveness fail
-          # protects against degraded JVMs even on the placeholder.
           livenessProbe:
             httpGet:
               path: /api/q/health/live

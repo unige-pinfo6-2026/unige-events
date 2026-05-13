@@ -4,7 +4,7 @@ metadata:
   name: kafka-topics-init
   namespace: {{ .Release.Namespace }}
   annotations:
-    # Re-run on every helm upgrade — the script is idempotent (`--if-not-exists`).
+    # Re-run on every helm upgrade — idempotent (--if-not-exists).
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-weight: "10"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
@@ -21,15 +21,19 @@ spec:
       containers:
         - name: kafka-topics-init
           image: {{ .Values.kafka.image }}
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+              ephemeral-storage: "128Mi"
+            limits:
+              memory: "512Mi"
+              ephemeral-storage: "256Mi"
           command:
             - /bin/sh
             - -c
             - |
               set -e
-              # Wait for the broker to accept connections before issuing
-              # topic create commands. The StatefulSet readiness probe just
-              # checks the TCP socket — at that point the broker may still
-              # be starting up internal coordinators.
               echo "Waiting for kafka:9092..."
               for i in $(seq 1 60); do
                 if /opt/kafka/bin/kafka-broker-api-versions.sh \
@@ -40,10 +44,6 @@ spec:
                 sleep 2
               done
 
-              # All topics are created with --if-not-exists so the Job is
-              # idempotent across helm upgrades. Partitions=1 / RF=1 in S8;
-              # increase later if scaling is required (cf. spec § 4.5 + §
-              # decision 26 of specs_microservices_migration.md).
               create_topic() {
                 /opt/kafka/bin/kafka-topics.sh \
                   --bootstrap-server kafka:9092 \
