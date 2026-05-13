@@ -19,7 +19,7 @@ install: install-frontend install-backend
 # ─── Dev — services individuels ─────────────────────────────────────────────
 # make backend-event | make backend-user | make backend-engagement | ...
 $(addprefix backend-,$(SERVICES)):
-	cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -am
+	set -a && . backend/.env && set +a && cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -am
 
 # ─── Dev — tous les services ─────────────────────────────────────────────────
 backend:
