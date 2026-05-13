@@ -39,6 +39,8 @@ spec:
               value: postgres
             - name: DB_PORT
               value: "5432"
+            - name: DB_NAME
+              value: unige_events_moderation
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: kafka:9092
             - name: S3_ENDPOINT
