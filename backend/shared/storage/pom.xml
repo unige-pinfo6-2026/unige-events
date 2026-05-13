@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>shared-libs</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+
+    <!--
+      shared-storage — S3-backed image storage primitives shared between
+      user-service (avatar + banner) and event-service (event banner).
+      Originated as carbon-copies of the legacy monolith FileStorageService
+      (cf. commit 41074e9 — image upload migration). The duplication was
+      accepted as a soft-extraction trade-off ; this module consolidates
+      both copies so a single bug fix or pentest hardening lands in one place.
+
+      Plain jar with a Jandex index : Quarkus apps that depend on this
+      module discover its @ApplicationScoped service, the @Observes
+      startup handler, and the JAX-RS @Provider mappers automatically.
+    -->
+
+    <artifactId>shared-storage</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.quarkiverse.amazonservices</groupId>
+                <artifactId>quarkus-amazon-services-bom</artifactId>
+                <version>${quarkus.amazon.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Compile-time API surfaces. provided scope: every consuming
+             Quarkus app brings these via its own deps. -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkiverse.amazonservices</groupId><artifactId>quarkus-amazon-s3</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>software.amazon.awssdk</groupId><artifactId>url-connection-client</artifactId><scope>provided</scope></dependency>
+
+        <!-- Tests : pure JUnit + Mockito (the FileStorageService logic
+             runs without a Quarkus runtime once S3Client / StorageConfig
+             are mocked). -->
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <!-- Jacoco direct (no quarkus-jacoco extension). prepare-agent
+                 fills the parent's surefire `@{argLine}` placeholder ;
+                 outputDirectory matches the parent's
+                 `sonar.coverage.jacoco.xmlReportPaths`. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jacoco-report</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Jandex index : Quarkus discovers @ApplicationScoped /
+                 @Observes / @Provider beans in this JAR via the index
+                 file at META-INF/jandex.idx. -->
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <id>make-index</id>
+                        <goals>
+                            <goal>jandex</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

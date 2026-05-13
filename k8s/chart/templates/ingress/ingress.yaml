@@ -14,9 +14,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: api
+                name: kong-proxy
                 port:
-                  number: 8080
+                  number: 8000
           - path: /
             pathType: Prefix
             backend:

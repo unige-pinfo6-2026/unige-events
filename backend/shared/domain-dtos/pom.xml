@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>shared-libs</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+
+    <!--
+      shared-domain-dtos — cross-projected DTOs consumed by REST clients
+      and / or shared between producer and consumer services. Cf.
+      completion-spec Décision D (REFACTOR-006).
+
+      Includes only DTOs that are actually consumed cross-service in the
+      live 5-service topology (cf. sprint-context.md § Étape 23):
+      - UserPublicResponse  (user-service → event-service, engagement-service)
+      - CapacitySummary     (event-service → engagement-service internal)
+      - AttendanceSummary   (engagement-service → event-service)
+      - FollowCounts        (user-service internal projection)
+      - CoOrganizerCheck    (event-service → engagement-service)
+
+      Service-private DTOs (UpdateProfileRequest, CreateEventRequest,
+      CommentDTO, FollowDTO, RecurrenceRequest…) stay in their owning
+      service and are reified by Jackson on the consumer side without
+      a shared definition.
+    -->
+
+    <artifactId>shared-domain-dtos</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-domain-enums</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-tracing</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+          REST client + fault-tolerance APIs are provided so the Quarkus
+          consumer brings the runtime; shared-domain-dtos hosts the
+          @RegisterRestClient interfaces (Étape 4.1–4.3) without forcing
+          a Quarkus runtime onto every consumer of the DTO records.
+        -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>org.eclipse.microprofile.jwt</groupId><artifactId>microprofile-jwt-auth-api</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-annotations</artifactId><scope>provided</scope></dependency>
+
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin><artifactId>maven-compiler-plugin</artifactId></plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration><outputDirectory>${project.build.directory}/jacoco-report</outputDirectory></configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions><execution><id>make-index</id><goals><goal>jandex</goal></goals></execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,24 +1,141 @@
-# Architecture — unige-events-api
+# Architecture — unige-events backend
 
-## Vue d'ensemble microservices
+> *Mentions of the dissolved-services (favorite/view/share/stats/me-aggregator/co-organizer → event-service co-located post-finalization ; follow/calendar → user-service co-located post-finalization ; attendance/comment → engagement-service renamed/co-located post-finalization ; report → moderation-service renamed post-finalization) are intentional historical references — see consolidation-plan.md for the 14→5 mapping.*
 
-UNIGE Events est décomposé en **3 services** déployés indépendamment dans Kubernetes (namespace `unige-events`) :
+> **Sprint 8 — migration vers microservices LIVRÉE + complétion + finalisation**
+> (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`).
+> **5 services métiers** (4 actifs + notification placeholder SCRUM-99) + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
+> Kong gateway DB-less + Kafka broker (10 topics, 9 producteurs + 1 consumer) +
+> observabilité (logs JSON + Prometheus + X-Request-ID).
+> Plan archivé : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
+> Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md).
+> Spec de complétion : [`specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md).
+> Spec de finalisation : [`specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
+> Plan de consolidation 14→5 : [`consolidation-plan.md`](consolidation-plan.md).
+> Détail des PRs d'extraction : [`microservices-migration-roadmap.md`](microservices-migration-roadmap.md).
 
-| Service | Repo | Image | Tech |
+## Vue d'ensemble — topologie microservices
+
+UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
+`unige-events-pr-N` en preview). Topologie post-finalisation :
+
+| Composant | Type | Réplicas (prod / preview) | Rôle |
 |---|---|---|---|
-| **web** | `unige-events-web` | `ghcr.io/.../web:latest` | React 19 / Nginx |
-| **api** | `unige-events-api` | `ghcr.io/.../api:latest` | Java 21 / Quarkus 3.32 |
-| **db** | défini dans `api/k8s/db.yml` | `postgres:16` | PostgreSQL 16 |
+| **web** | Deployment | 1 / 1 | React 19 SPA servie par Nginx |
+| **kong** | Deployment | 2 / 1 | API Gateway DB-less, route `/api/*` vers le bon service via une table de routes déclarative |
+| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, 10 topics provisionnés. **9 producteurs câblés** (event-service ×5 events.{published,cancelled,expired} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×1 comments.created, moderation-service ×1 events.banned) + **1 consommateur** (event-service ← `events.banned`). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
+| **db** | StatefulSet | 1 / 1 | PostgreSQL 16, schéma `public` partagé (le découpage en schémas par service est **différé S9+** par Décision C de la spec de complétion — l'isolation est matérialisée au niveau code via les REST clients) |
+| **minio** | StatefulSet | 1 / 1 | S3 compatible — bucket `unige-events-dev` pour les uploads avatar/banner d'user-service + bannières d'event-service |
+| **cloudflared** | Deployment | 1 / 1 | Tunnel preview (mode quick) |
+| **5 microservices** | Deployment ×5 | 1 / 1 (notification 0/0) | Quarkus 3.35, image `ghcr.io/unige-pinfo6-2026/unige-events-<svc>:<sha>`, `quarkus-oidc` pour l'auth Auth0. notification-service replicas:0 (placeholder SCRUM-99) |
 
-Flux de trafic :
+### Microservices — endpoints owned (post-consolidation)
+
+| Service | @Path racines | Tables possédées | Notes |
+|---|---|---|---|
+| **event-service** | `/events*`, `/admin/events/{id}/{,un}feature`, `/events/search`, `/events/featured`, `/events/{id}/image`, `/events/{id}/share`, `/s/{shortCode}`, `/events/{id}/view`, `/events/{id}/favorite`, `/users/me/favorites`, `/events/{id}/co-organizers/*`, `/users/me/co-organizer-invitations`, `/events/{id}/stats`, `/users/me/events` | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` | + EventExpirationJob (every 1h, replicas:1 strict). Sous-packages: share, view, favorite, coorganizer, stats, me. Producteur Kafka events.{published,cancelled,expired} + co-organizers.{invited,accepted} ; consumer events.banned (idempotent ban apply) |
+| **user-service** | `/users/me`, `/users/{id}`, `/users/me/image`, `/users/me/banner`, `/users/{id}/follow*`, `/follow-requests/*`, `/users/me/follow-requests`, `/users/me/calendar-token*`, `/calendar/{token}.ics` | `users`, `user_interests`, `follows` | Sous-packages: follow, calendar. Auto-create depuis claims JWT + S3 upload avatar/banner. Producteur Kafka users.{followed,follow-requested,follow-accepted} |
+| **engagement-service** | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations`, `/events/{id}/comments`, `/comments/{id}` | `attendances`, `comments` | Sous-packages: attendance, comment. PESSIMISTIC_WRITE pour capacity gating + auto-promotion WAITLISTED ; replies comments max 1 niveau ; cascade ISSUE-92 + SCRUM-136. Producteur Kafka comments.created |
+| **moderation-service** | `/events/{id}/report`, `/admin/reports*` | `reports` | + ModerationCleanupJob (cron 03:00 Europe/Zurich, replicas:1 strict). Producteur Kafka events.banned |
+| **notification-service** | (placeholder, replicas:0, scope SCRUM-99) | aucune | Sentinel `ServiceIdentityResource` only |
+
+### Flux de trafic
+
 ```
 Utilisateur → HTTPS → Ingress Nginx
-                        ├─ /        → Pod web (Nginx + SPA React)
-                        └─ /api/*   → Pod api (Quarkus JVM, port 8080)
-                                          └─ JDBC → Pod db (PostgreSQL 16)
+                        ├─ /        → Service web (Nginx + SPA React)
+                        ├─ /api/*   → Service kong-proxy:8000
+                        └─ /s3/*    → Service minio:9000
+
+   Kong DB-less → 4 routes regex anchorées par service métier actif (cf.
+                  k8s/chart/templates/kong/configmap-routes.yaml)
+                  → Service <svc>-service:8080 (Quarkus pod)
+                  → Service db:5432 (PostgreSQL 16)
+                  + Service kafka:9092 (producteurs/consommateurs)
+                  + Service minio:9000 (uploads via user/event-service)
 ```
 
-Auth0 (externe) émet les JWT — le backend les valide via OIDC Discovery sans appel inter-service.
+Tout le déploiement passe par un chart Helm umbrella unique
+(`k8s/chart/`). Chaque service a son sous-template `templates/<svc>/`
+(Deployment + Service ClusterIP) avec `livenessProbe` sur
+`/api/q/health/live` (ajoutée en complétion Étape 11 — INFRA-006).
+`helm upgrade` reçoit `--set image.tag=<github.sha>` (renommé depuis
+`image.api.tag` en complétion Étape 12 — INFRA-007 / SPEC-008) qui
+propage le SHA à tous les Deployments — chacun construit son nom
+d'image en `unige-events-<svc>:<sha>`.
+
+Auth0 (externe) émet les JWT — chaque service les valide via OIDC
+Discovery sans appel inter-service. Kong **ne valide pas** le JWT (cf.
+spec décision 7) : il forwarde simplement le header `Authorization:
+Bearer <jwt>` vers le service amont qui le revalide localement via
+`quarkus-oidc`.
+
+### Notes inter-service (post-completion)
+
+* **REST clients post-finalization** : 8 couples consumer/provider
+  (vs 35 stubs JPA pré-finalization). Liste exhaustive : event ↔ user,
+  event ↔ engagement (attendance-summary), user ↔ event (bulk
+  events?ids=…), user ↔ engagement (user attendances), engagement ↔
+  event (avec `?check-co-org-of=` pour cascade SCRUM-136), engagement ↔
+  user, moderation ↔ event, moderation ↔ user. Resilience standard sur
+  tous les clients : `@Retry(maxRetries=3, delay=200)` + `@Timeout(2000)` +
+  `@CircuitBreaker(failureRatio=0.5, requestVolumeThreshold=10)` +
+  `@Fallback`. Endpoints **internes** (non Kong) documentés dans
+  [`internal-endpoints.md`](internal-endpoints.md) — pas dans
+  `openapi.yaml` (Décision G : annulation de la dérogation Q —
+  `git diff openapi/` reste à 0).
+* **Kafka post-consolidation** : 10 topics provisionnés.
+  Producteurs livrés : `event-service` (`events.{published,cancelled,
+  expired}` + `co-organizers.{invited,accepted}` post-2.2.4) +
+  `moderation-service` (`events.banned`, moderation-service post-2.1.2) +
+  `user-service` (`users.{followed,follow-requested,follow-accepted}`,
+  ex-follow-service post-2.3.1) + `engagement-service` (`comments.created`,
+  ex-comment-service post-2.4.1). Consommateur : `event-service` ←
+  `events.banned` (apply `event.status = BANNED`, idempotent).
+  Pattern : CDI `@Observes(during = AFTER_SUCCESS)` + bridge
+  `<Domain>KafkaBridge` qui appelle l'`Emitter` (Décision A — évite
+  BUG-001/002 events fantômes sur rollback).
+* **Rate limiting** : 2 étages.
+  (1) Lib `shared-rate-limit` (`@PerUserRateLimit` interceptor +
+  state cache) couvre 13 sites annotés sur 6 services consommateurs.
+  (2) Plugin Kong `rate-limiting` (`policy: local`) sur 3 routes :
+  `events.create=10/min`, `comments.post=10/min`,
+  `follows.follow=30/min`. La migration vers `policy: redis`
+  cluster-wide est un item DevOps S9+ (cf. [`devops-handoff.md`](devops-handoff.md) item 7).
+* **Anti-oracles + cascade** : règle unique côté service propriétaire,
+  propagation 404 native via REST clients.
+  `event-service.EventService.getById` (ISSUE-92), `user-service.UserService.getPublicProfile`
+  (ISSUE-93), `event-service.GET /events/{id}?check-co-org-of={uuid}`
+  (cascade SCRUM-136 — endpoint interne unique post-consolidation, plus
+  besoin du sub-call dédié co-organizer-service car co-organizer absorbé
+  dans event-service en Étape 2.2.4).
+* **Observabilité** : 3 extensions Quarkus (`quarkus-logging-json`,
+  `quarkus-micrometer-registry-prometheus`, `quarkus-rest-client-reactive`)
+  + lib `shared-tracing` (X-Request-ID propagé MDC + REST clients +
+  Kafka producers).
+
+## Briques d'infrastructure introduites au Sprint 8
+
+* **Kong** ([`k8s/chart/templates/kong/`](../../k8s/chart/templates/kong/))
+  — DB-less, 2 replicas prod / 1 preview, ConfigMap `kong-config` porte
+  la table de routes déclarative (4 blocs services métiers actifs
+  post-consolidation : event, user, engagement, moderation). Plugins
+  globaux : `cors`, `correlation-id` (X-Request-ID propagé),
+  `prometheus`. Plugins par-route : `rate-limiting` `policy: local`
+  sur 3 routes (events.create=10/min, comments.post=10/min,
+  follows.follow=30/min).
+* **Kafka** ([`k8s/chart/templates/kafka/`](../../k8s/chart/templates/kafka/))
+  — KRaft single-broker, PVC sized via values, `clusterId` immutable.
+  Job `kafka-topics-init` post-install/upgrade crée les 10 topics figés
+  par la spec § 4.5. **9 producteurs + 1 consommateur câblés en
+  complétion** (cf. Notes inter-service ci-dessus).
+* **Multi-module Maven** ([`backend/pom.xml`](../pom.xml)) — parent
+  agrégateur, **15 modules enfants** post-consolidation : 4 microservices
+  métiers actifs (event, user, engagement, moderation) + 1 placeholder
+  (notification) + 10 shared libs (shared-rate-limit, shared-storage,
+  shared-api-error, shared-domain-enums, shared-domain-dtos,
+  shared-domain-projections, shared-jaxrs, shared-tracing,
+  shared-kafka-events, shared-platform).
 
 ---
 
@@ -65,18 +182,29 @@ Le backend suit une **architecture en couches stricte** — jamais de saut de co
 
 ## Flux d'une requête type
 
-Exemple : `PUT /api/users/me`
+Exemple : `PUT /api/users/me` (mono-domaine)
 
 1. Le client envoie `PUT /api/users/me` avec `Authorization: Bearer <jwt>` et un body JSON.
-2. **Nginx** (pod web) intercepte `/api/*` et proxie vers le pod `api` sur le port 8080.
-3. **quarkus-oidc** (filtre automatique) valide le JWT via OIDC Discovery Auth0 (signature + expiration + audience).
-4. `UserResource.updateMyProfile()` est invoqué — `SecurityIdentity` injecte le `principal.getName()` = `auth0Id`.
-5. Le body est désérialisé en `UpdateProfileRequest` et validé par Hibernate Validator (`@Valid`).
-6. `UserService.updateMyProfile()` est appelé via `@Inject` — la logique métier s'exécute `@Transactional`.
-7. `User.findByAuth0Id()` (Panache Active Record) génère le SQL via Hibernate/JDBC vers PostgreSQL.
-8. L'entité est mutée, le flush est explicite, les conflits optimistic lock sont capturés.
-9. `UserProfileResponse.from(user)` convertit l'entité en DTO.
-10. Jackson sérialise en JSON camelCase → réponse `200 OK`.
+2. **Ingress Nginx** intercepte le trafic public et le proxie vers le service `kong-proxy:8000`.
+3. **Kong** (DB-less) résout la route `/api/users/me$` → service amont `user-service:8080`. Plugins globaux appliqués (`correlation-id` pose `X-Request-ID`, `cors`, `prometheus`).
+4. **`shared-tracing.RequestIdFilter`** lit le `X-Request-ID` posé par Kong et le pose dans le MDC.
+5. **`quarkus-oidc`** valide le JWT via OIDC Discovery Auth0 (signature + expiration + audience). En `%test`, OIDC est désactivé et `@TestSecurity` mocke l'identity.
+6. `UserResource.updateMyProfile()` est invoqué — `SecurityIdentity` injecte le `principal.getName()` = `auth0Id`.
+7. Le body est désérialisé en `UpdateProfileRequest` et validé par Hibernate Validator (`@Valid`).
+8. `UserService.updateMyProfile()` est appelé via `@Inject` — la logique métier s'exécute `@Transactional`.
+9. `User.findByAuth0Id()` (Panache Active Record) génère le SQL via Hibernate/JDBC vers PostgreSQL.
+10. L'entité est mutée, le flush est explicite, les conflits optimistic lock sont capturés.
+11. `UserProfileResponse.from(user)` convertit l'entité en DTO.
+12. Jackson sérialise en JSON camelCase → réponse `200 OK`.
+
+Exemple cross-service : `POST /api/events/{id}/comments`
+
+1. Kong route → `engagement-service:8080` (comment-service absorbé par engagement-service en Étape 2.4.1 finalization).
+2. `engagement-service.CommentResource.create()` → `CommentService.post()` (`@Transactional`).
+3. `CommentService` appelle `eventServiceClient.getByIdWithCoOrgCheck(id, callerUuid)` (`@RegisterRestClient`) → `event-service` qui applique l'anti-oracle ISSUE-92 (404 si DRAFT/CANCELLED non-créateur) **ET** la cascade SCRUM-136 server-side (le payload `EventDTO` retourné est enrichi de `coOrganizerOf:bool` post-2.2.4 — le co-organizer-service a été absorbé par event-service, la cascade est désormais une primitive locale exposée via le query param `?check-co-org-of=`). Single REST hop au lieu de deux.
+4. La nouvelle entité Comment est persistée localement (`Comment.eventId` est un `@Column Long`, pas un `@ManyToOne` cross-service).
+5. `commentEvent.fire(CommentCreatedEvent(...))` posté en transaction. Après commit JDBC, le bridge `CommentCreatedKafkaBridge` (`@Observes(during=AFTER_SUCCESS)`) invoque l'`Emitter` qui envoie un message `comments.created` (clé partition = `eventId`). Le `MdcKafkaProducerInterceptor` (post-Étape 3.1) attache un header `X-Request-ID` lifté depuis MDC pour le tracing distribué.
+6. Réponse `201 Created` au client.
 
 ---
 
@@ -119,30 +247,28 @@ Event ────────────────────────�
 
 ---
 
-## Composants par couche (état actuel)
+## Composants par couche (récap post-completion)
 
-### Resources (JAX-RS)
-- `UserResource` — `@Path("/users")` : `GET /{id}`, `GET /me`, `PUT /me`
-- `EventResource` — `@Path("/events")` : `GET`, `POST`
+Cette section listait l'état Étape-1 (un seul `Service api`). Le code
+applicatif est désormais distribué sur/  4 services métiers + notification placeholder /Quarkus — voir la
+table « Microservices — endpoints owned » plus haut pour la
+ventilation par-service.
 
-### Services
-- `UserService` : provisionnement (first-login), profil public, update profil avec optimistic locking
-- `EventService` : `getAll()`, `create()`
+### Patterns transversaux (mis en commun via shared libs)
 
-### Entités
-- `User` extends `PanacheEntityBase<UUID>` — UUID comme PK
-- `Event` extends `PanacheEntity` — Long comme PK
-
-### Exception Mappers
-- `ConflictExceptionMapper` → 409
-- `BadRequestExceptionMapper` → 400
-- `NotFoundExceptionMapper` → 404
-- `ForbiddenExceptionMapper` → 403
-- `UnauthorizedExceptionMapper` → 401
-- `ConstraintViolationExceptionMapper` → 400 avec détails par champ
-
-### Configuration
-- `OpenApiSecurityConfig` : définit le `SecurityScheme` bearerAuth pour Swagger UI
+| Pattern | Lib | Consommé par |
+|---|---|---|
+| `ApiErrorResponse` + factory helpers (`badRequest`/`conflict`/`unprocessable`/`forbidden`/`notFound`) | `shared-api-error` |/  4 services métiers + notification placeholder /|
+| Exception Mapper générique pour `WebApplicationException` | `shared-api-error` |/  4 services métiers + notification placeholder /|
+| Enums métier (`EventStatus`, `AttendanceStatus`, `EventCategory`, `Faculty`, `CoOrganizerStatus`, `FollowStatus`, `RecurrenceFrequency`, `ReportReason`, `ReportStatus`) | `shared-domain-enums` | 8-12 services chacun |
+| DTOs cross-projetés (`UserPublicResponse`, `EventDTO`, `AttendanceDTO`, `EventCoOrganizerDTO`, `CapacitySummary`, `AttendanceSummary`, `FollowCounts`) | `shared-domain-dtos` | 10+ services |
+| `ParamConverter`s (Timeframe, AttendanceStatus, EventStatus, …) + `JsonWebTokenLazy` | `shared-jaxrs` |/  4 services métiers + notification placeholder /|
+| `ServiceIdentityResource` paramétrisable + health-check helpers | `shared-platform` | 5 services (incl. notification placeholder) |
+| `RequestIdFilter` + `RequestIdClientFilter` + `MdcKafkaInterceptor` | `shared-tracing` |/  4 services métiers + notification placeholder /|
+| Kafka payload records (`EventLifecycleEvent`, `EventBannedEvent`, `FollowLifecycleEvent`, `CommentCreatedEvent`, `CoOrganizerEvent`) | `shared-kafka-events` | 5 services producteurs + event-service consumer |
+| `@PerUserRateLimit` interceptor + state cache | `shared-rate-limit` | 6 services consommateurs (event, user, attendance, comment, favorite, follow) |
+| `FileStorageService` S3 | `shared-storage` | 2 services (user, event) |
+| `EventCapacity.computeAvailableSpots`, `CallerIdentity` | `shared-domain-projections` | 6 services |
 
 ---
 
@@ -165,19 +291,24 @@ Quarkus  → injecte JsonWebToken → `UserResource.me()` lit les claims profil 
 
 ---
 
-## Infrastructure Kubernetes
+## Infrastructure Kubernetes (post-migration)
 
 ```
-Ingress Nginx (path: /)
-  ├── Service web (ClusterIP:80)  → Pod web (Nginx + React SPA)
-  │     └── reverse proxy /api/* → Service api
-  ├── Service api (ClusterIP:8080) → Pod api (Quarkus JVM)
-  │     └── JDBC → Service db
-  └── Service db (ClusterIP:5432) → Pod db (PostgreSQL 16)
-        └── PVC 1Gi
+Ingress Nginx (path: /, /s3/*)
+  ├── Service web (ClusterIP:80)         → Pod web (Nginx + React SPA)
+  │      └── reverse proxy /api/*        → Service kong-proxy
+  ├── Service kong-proxy (ClusterIP:8000)→ 2 pods Kong DB-less
+  │      └── route /api/<rule>           → Service <svc>-service:8080
+  │                                         (5 services métiers consolidés post-Étape 2)
+  ├── Service kafka (ClusterIP:9092)     → Pod kafka (KRaft, 1 replica)
+  │      └── 10 topics provisionnés
+  ├── Service db (ClusterIP:5432)        → Pod db (PostgreSQL 16, 1 PVC)
+  └── Service minio (ClusterIP:9000)     → Pod minio (S3 compat, 1 PVC)
 ```
 
-Secrets K8s : `ghcr-secret` (accès GHCR), `db-secret` (credentials PostgreSQL).
+Secrets K8s : `ghcr-secret` (accès GHCR), `app-secrets` (DB / OIDC /
+S3 credentials, Doppler-synced), TZ=`Europe/Zurich` injecté par
+Deployment env.
 
 ---
 
@@ -185,18 +316,20 @@ Secrets K8s : `ghcr-secret` (accès GHCR), `db-secret` (credentials PostgreSQL).
 
 Le backend exécute des jobs de fond via `quarkus-scheduler`.
 
-| Classe | Cron | Rôle |
-|---|---|---|
-| `ModerationCleanupJob` | `0 0 3 * * ?` (03h00 chaque nuit) | Masque automatiquement les événements dépassant le seuil de signalements en attente |
+| Classe | Service | Cron | Réplicas | Rôle |
+|---|---|---|---|---|
+| `EventExpirationJob` | `event-service` | `0 0 * * * ?` (toutes les heures) | 1 strict | Marque `EXPIRED` les events publiés dont `endDate` est passé. Émet `events.expired` Kafka post-commit. |
+| `ModerationCleanupJob` | `moderation-service` | `0 0 3 * * ?` (03h00 chaque nuit) | 1 strict | Auto-bannit les events dépassant le seuil de signalements `PENDING`. Émet `events.banned` Kafka — event-service consomme et applique `event.status = BANNED` localement. |
 
-### ModerationCleanupJob / ModerationCleanupService
+### ModerationCleanupJob / ModerationCleanupService (moderation-service)
 
-Déclenchement quotidien à 03h00. Délègue toute la logique à `ModerationCleanupService.runCleanup()` :
+Déclenchement quotidien à 03h00. Délègue à `ModerationCleanupService.runCleanup()` :
 
-1. Requête JPA : récupère les paires `(Event, nbSignalementsEnAttente)` pour tous les rapports `PENDING`.
-2. Filtre Java : retient les événements dont le compte ≥ `app.moderation.auto-hide-threshold` (défaut : 3).
-3. Mutation : passe le `status` de chaque événement sélectionné à `CANCELLED`.
-4. Log INFO : `ModerationCleanup: {n} event(s) auto-hidden. IDs: [...]`
+1. Requête JPA : paires `(eventId, nbSignalementsEnAttente)` pour les rapports `PENDING`.
+2. Filtre Java : retient les eventIds dont le compte ≥ `app.moderation.auto-hide-threshold` (défaut : 3).
+3. Mutation Kafka (post-commit, via `cdiEvent.fire(EventBannedEvent.banned(...))`) — pas de mutation cross-schema sur la table `events` (les anciens stubs JPA ont été supprimés en complétion Étape 5).
+4. Log INFO : `ModerationCleanup: {n} event(s) auto-banned. IDs: [...]`.
+5. event-service consume `events.banned` (`@Incoming`, `@Transactional`), idempotent : `if (event.status == BANNED) return;` puis `event.status = BANNED`.
 
 **Configuration :**
 ```properties
@@ -207,10 +340,11 @@ app.moderation.auto-hide-threshold=3
 
 ## CI/CD (GitHub Actions)
 
-**CI (`ci.yml`) :** Sur chaque PR → main
-- API : `./mvnw verify` + build image Docker via `quarkus-container-image-docker` + push GHCR (conditionnel push main)
-- Web : `npm ci` + lint + tests + build Vite + Docker build/push GHCR
+**CI (`build.yml`) :** Sur chaque PR
+- Backend : `strategy.matrix.service: [share, view, favorite, calendar, follow, comment, co-organizer, attendance, report, stats, me-aggregator, user, event]` — chaque cellule fait `./mvnw -pl services/${{ matrix.service }}-service -am verify` + Sonar avec `sonar.projectKey=unige-pinfo6-2026_unige-events-${{ matrix.service }}-service`. Job parallèle pour les 10 shared libs.
+- Frontend : `npm ci` + lint + tests + build Vite + image Docker.
+- **Pré-requis** : 13 SonarCloud projects créés côté DevOps (item 1 de [`devops-handoff.md`](devops-handoff.md)).
 
-**CD (`cd.yml`) :** Après CI verte sur main (`workflow_run`)
-- `kubectl apply -f k8s/` + rollout restart (timeout 180s)
-- Secret `ghcr-secret` créé dynamiquement via `azure/k8s-create-secret`
+**CD (`deploy.yml`) :** Après CI verte sur la branche
+- `helm upgrade --set image.tag="${{ github.sha }}"` (renommé depuis `image.api.tag` en complétion Étape 12).
+- Secrets K8s synchronisés via Doppler (item 6 de [`devops-handoff.md`](devops-handoff.md)).

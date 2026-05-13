@@ -10,57 +10,149 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_TAG: ${{ github.sha }}
-  IMAGE_ADDITIONAL_TAGS: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
 
 jobs:
-  build-backend:
-    name: Build Backend
+  build-shared-libs:
+    name: Build All Shared Libs
     runs-on: ubuntu-latest
-    env:
-      JAVA_VERSION: 21
-      JAVA_DISTRIBUTION: "temurin"
-      BACKEND_IMAGE: unige-events-api
-
     defaults:
       run:
         working-directory: backend
-
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # Nécessaire pour SonarQube
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+      - name: Build & Test all shared libs
+        run: |
+          ./mvnw -f shared/pom.xml install -B
+      - name: Upload jacoco artifacts (shared libs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-shared-libs
+          path: |
+            backend/pom.xml
+            backend/shared/*/target/jacoco-report/jacoco.xml
+          if-no-files-found: error
+          retention-days: 1
+
+  build-backend:
+    name: Build Backend (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: build-shared-libs
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - event
+          - user
+          - engagement
+          - moderation
+          - notification
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: 21
+          distribution: temurin
           cache: maven
 
       - name: Build & Test
-        env:
-          QUARKUS_CONTAINER_IMAGE_USERNAME: ${{ github.actor }}
-          QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./mvnw verify -B \
-            -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=${{ github.event_name == 'push' || github.event_name == 'pull_request' }} \
-            -Dquarkus.container-image.registry=${{ env.REGISTRY }} \
-            -Dquarkus.container-image.group=${{ github.repository_owner }} \
-            -Dquarkus.container-image.name=${{ env.BACKEND_IMAGE }} \
-            -Dquarkus.container-image.tag=${{ env.IMAGE_TAG }} \
-            -Dquarkus.container-image.additional-tags=${{ env.IMAGE_ADDITIONAL_TAGS }} \
-            -Dquarkus.jib.base-jvm-image=eclipse-temurin:21-jre
+          ./mvnw -pl .,services/${{ matrix.service }}-service -am install -B
 
-      - name: SonarQube Scan
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./mvnw sonar:sonar -B
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/unige-events-${{ matrix.service }}-service
+          tags: |
+            type=raw,value=${{ env.IMAGE_TAG }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: backend/services/${{ matrix.service }}-service
+          file: backend/Dockerfile.jvm
+          push: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload jacoco artifact (${{ matrix.service }}-service)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-${{ matrix.service }}-service
+          path: |
+            backend/pom.xml
+            backend/services/${{ matrix.service }}-service/target/jacoco-report/jacoco.xml
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Cleanup Docker images
         if: always()
         run: |
           docker volume prune -f
           docker image prune -f
+
+  sonar-aggregate:
+    name: Sonar Aggregate
+    runs-on: ubuntu-latest
+    needs:
+      - build-shared-libs
+      - build-backend
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # fetch-depth: 0 nécessaire pour Sonar PR analysis (blame git history).
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Re-compile reactor (skip tests)
+        run: ./mvnw install -DskipTests -B
+
+      - name: Download all jacoco artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: backend
+          pattern: jacoco-*
+          merge-multiple: true
+
+      - name: SonarQube Scan (aggregated)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./mvnw sonar:sonar -B
 
   build-frontend:
     name: Build Frontend

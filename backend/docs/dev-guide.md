@@ -9,6 +9,39 @@
 
 ---
 
+## Layout Maven (multi-module — post-finalization)
+
+Depuis Sprint 8 (Kong/Kafka extraction + complétion + finalisation),
+`backend/` est un projet **multi-module** avec parent POM agrégateur à
+la racine et **15 modules enfants** sous `backend/services/`
+(post-consolidation 14→5, Décision A de la spec finalization) :
+- **4 microservices métiers Quarkus actifs** : `event-service`,
+  `user-service`, `engagement-service`, `moderation-service`.
+- **1 placeholder** `notification-service` (replicas:0, scaffold SCRUM-99).
+- **10 shared libs** (2 Sprint-8 — `shared-rate-limit`, `shared-storage` —
+  + 8 complétion : `shared-api-error`, `shared-domain-enums`,
+  `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`,
+  `shared-tracing`, `shared-kafka-events`, `shared-platform`).
+
+Le legacy-monolith a été supprimé à step 15 (commit `b570c1b`). Voir
+[`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven » et
+[`architecture.md`](architecture.md) pour la table des endpoints owned
+par service. Le détail de la consolidation 14→5 est dans
+[`consolidation-plan.md`](consolidation-plan.md).
+
+**Conséquences pratiques pour le dev local** :
+- `cd backend && ./mvnw verify` build TOUS les modules (~3-4 min sur 15 modules).
+- `cd backend && ./mvnw -pl services/<svc>-service -am verify` build un
+  seul service avec ses dépendances shared lib transitivement.
+- `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par
+  service. Exemple :
+  `cd backend/services/event-service && ../../mvnw quarkus:dev`.
+- Pour faire tourner plusieurs services en même temps il faut leur
+  attribuer des ports HTTP distincts (par défaut tous écoutent
+  `:8080`) via `-Dquarkus.http.port=8082` etc.
+
+---
+
 ## Lancement en développement local
 
 ```bash
@@ -16,17 +49,27 @@
 cp .env.example .env
 # Éditer .env avec les vraies valeurs Auth0 (OIDC_AUTH_SERVER_URL, OIDC_CLIENT_ID, etc.)
 
-# Lancer l'API en mode dev (hot reload + PostgreSQL auto via DevServices)
-./mvnw quarkus:dev
+# Lancer un service en mode dev (hot reload + PostgreSQL auto via DevServices)
+cd backend/services/event-service
+../../mvnw quarkus:dev
 ```
 
-L'API est accessible sur `http://localhost:8080/api`.
+L'API du service est accessible sur `http://localhost:8080/api`.
 Swagger UI : `http://localhost:8080/api/swagger-ui`
 OpenAPI JSON : `http://localhost:8080/api/openapi`
 
+Pour reproduire la topologie complète (Kong + 4 services métiers actifs
++ notification placeholder + db + minio + kafka), passer par le chart
+Helm via Minikube ou un cluster preview ; il n'y a pas de
+`docker-compose.dev.yml` qui orchestre les pods en local — le coût
+démarrage est élevé et le dev se fait service par service avec
+DevServices. Post-consolidation 14→5, le runtime preview tourne
+typiquement avec ~10 pods (4 services × 1 replica + Kong ×1 + db + kafka
++ minio + web + cloudflared) au lieu de ~20 avant.
+
 **DevServices :** Quarkus lance automatiquement un PostgreSQL éphémère via Testcontainers en mode dev. Aucune DB externe n'est requise si `quarkus.datasource.jdbc.url` n'est pas défini pour le profil dev.
 
-**Hibernate update :** Le schéma est géré automatiquement par Hibernate en mode `update` en dev. Toute modification d'entité est répercutée en DB sans migration manuelle.
+**Hibernate validate + Flyway :** En dev/prod, Hibernate est en mode `validate` — Flyway pilote le schéma via les migrations historiques `V1..V17` (toutes appliquées dans la base partagée `unige_events.public`). En `%test`, Hibernate passe en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les V1..V17 s'y appliquent via `baseline-on-migrate=true`. Les changements de schéma se font via un nouveau fichier Flyway (`V<N+1>__...sql`) — jamais en modifiant un fichier déjà committé. Cf. [`AGENTS.md`](../AGENTS.md) § Schéma de base de données.
 
 ---
 
@@ -61,7 +104,8 @@ L'ordre est impératif — **spec d'abord, code ensuite**.
 
 4. **Mettre à jour / créer l'Entity** si nécessaire (`src/main/java/.../entity/`)
    Ajouter les champs en camelCase. Annoter avec les contraintes JPA.
-   → Hibernate applique le changement automatiquement au démarrage.
+   → Si le schéma change, créer une nouvelle migration Flyway
+   `V<N+1>__…sql` (cf. § « Workflow : modifier le schéma »).
 
 5. **Écrire les tests** (`src/test/java/`)
    Annoter la classe avec `@QuarkusTest`.
@@ -76,11 +120,21 @@ L'ordre est impératif — **spec d'abord, code ensuite**.
 
 ## Workflow : modifier le schéma de base de données
 
-Le schéma est géré exclusivement par Hibernate en mode `update`. Pour modifier le schéma :
+Hibernate est en mode `validate` (Flyway pilote le schéma). Pour modifier :
 
-1. Modifier l'entité JPA concernée dans `src/main/java/**/entity/`
-2. Hibernate applique les changements automatiquement au démarrage
-3. Mettre à jour `docs/data-model.md` pour refléter le nouveau schéma
+1. Créer une nouvelle migration `V<N+1>__<snake_case_description>.sql`
+   (description courte, 2-4 mots, snake_case ; ex. `V18__add_event_archived.sql`).
+   Localisation : `backend/services/<owning-service>/src/main/resources/db/migration/`
+   (à terme, post-migration DB-per-service S9+ ; pour l'instant les
+   migrations restent dans le module owner historique).
+2. Modifier l'entité JPA correspondante dans le service propriétaire.
+3. Quarkus boot lance Flyway → applique la migration → Hibernate valide
+   que les entités matchent.
+4. Mettre à jour `docs/data-model.md` pour refléter le nouveau schéma.
+
+**Règle d'or** : une migration committée est **immutable**. Tout
+changement va dans un nouveau fichier `V<N+1>__…`. Pas de
+`quarkus.flyway.clean-*` (destructif).
 
 ---
 

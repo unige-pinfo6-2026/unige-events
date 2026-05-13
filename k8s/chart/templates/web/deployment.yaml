@@ -22,6 +22,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 80
+          env:
+            - name: TZ
+              value: "Europe/Zurich"
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
           readinessProbe:
@@ -30,3 +33,10 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3

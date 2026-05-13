@@ -1,0 +1,125 @@
+# DevOps Handoff — Sprint 8 microservices migration
+
+> Document formel de transition entre l'équipe backend et l'équipe
+> DevOps après la complétion de PR #158
+> ([branche `refactor(backend)--migrate-to-microservices`](https://github.com/unige-pinfo6-2026/unige-events/pull/158)).
+>
+> Source de vérité originale : [`../../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../../specs_archives/specs_claude/specs_microservices_migration_completion.md), Décision V.
+>
+> Source de vérité finale : [`../../specs_archives/specs_claude/specs_pr158_finalization_complete.md`](../../specs_archives/specs_claude/specs_pr158_finalization_complete.md) — l'audit final a clôturé tous les findings backend ; ce handoff a été réduit aux **7 items machine PINFO** explicitement hors scope code.
+
+## TL;DR — état post-finalization-complete
+
+La PR #158 livre **côté code** un état entièrement post-migration et post-finalization, avec la totalité des findings de l'audit final résolus :
+
+* **5 services métiers** Quarkus (event, user, engagement, moderation + notification placeholder) + **10 shared libs** + `contract-tests` + `e2e` = **17 modules** dans le reactor.
+* **17 migrations Flyway V1..V17** redistribuées sur les 4 services propriétaires (Étape 1.1 Décision A) — fresh deploys bootstrappent le schéma sans intervention manuelle.
+* **0 stub JPA cross-service** ; **3 REST clients** avec resilience complète couvrant **8 hops cross-service**.
+* Cascade SCRUM-136 + anti-oracles ISSUE-92 / ISSUE-93 centralisés ; envelope `ApiErrorResponse` annotée `@Schema` (Étape 4.8).
+* Capacity gating sécurisé par `pg_advisory_xact_lock` (Étape 2.1 Décision B).
+* `FavoriteService.addFavorite` idempotent sous concurrent double-tap (Étape 2.2).
+* `EventService.delete` purge `EventCoOrganizer` (Étape 2.3).
+* `MdcKafkaProducer/ConsumerInterceptor` propagent `X-Request-ID` cross-Kafka (Étape 3.1 Décision D — closes KAFKA-002).
+* `InternalTokenFilter` + `@Internal` annotation sur les endpoints internes + Kong strip (Étape 3.2 Décision C — closes SEC-002-bis).
+* TZ=Europe/Zurich pinné sur les 6 Deployments + EventTzSmokeTest (Étape 4.5 Décision F).
+* ADR-001 ModerationCleanupJob replicas:1 strict (Étape 4.6).
+* PodDisruptionBudget Kong gated prod replicas≥2 (Étape 4.13).
+* Sentinels SCRUM-138/139/144/147 sur 4/4 services métiers (`ModerationDomainSentinelsTest` 8-méthodes ajouté Étape 1.3 Décision H).
+* `EnumParamConverterProvider` générique (Étape 5.3) — invalid enum → 400 plutôt que 404.
+* Frontend invariant `git diff --shortstat origin/main HEAD -- frontend/` = 0. OpenAPI invariant idem.
+
+**Côté infra**, **7 items machine PINFO** restent à acter par DevOps. Ils sont **explicitement hors scope code** (cf. spec finalization-complete § Frontière DevOps) — le backend a livré sa moitié quand applicable.
+
+---
+
+## 1. Cluster Kafka prod-grade (RF=3, partitions ≥ 3, ISR ≥ 2, durabilité acks=all)
+
+**Statut backend** : ✅ Helm chart single-broker KRaft livré ; producteurs et consommateurs câblés ; tracing `X-Request-ID` propagé via `MdcKafkaProducer/ConsumerInterceptor` (Étape 3.1).
+
+**Action attendue côté DevOps** :
+* Provisionner un cluster Kafka **3 brokers** minimum, KRaft (pas de Zookeeper).
+* Topics existants : `events.{published,cancelled,expired,banned}`, `comments.created`, `co-organizers.{invited,accepted}`, `users.{followed,follow-requested,follow-accepted}` — tous re-créer en prod avec **partitions ≥ 3** et **replication factor = 3**, **ISR ≥ 2** côté broker config (`min.insync.replicas=2`).
+* Producers existants utilisent `acks=all` côté Quarkus (vérifier `application.properties` post-handoff). Si non, ajouter `mp.messaging.outgoing.<channel>.acks=all` sur les 4 services métiers.
+* **NB** : `MdcKafkaProducerInterceptor` (post-Étape 3.1) doit fonctionner contre le cluster prod sans config additionnelle — il s'attache via `interceptor.classes` et n'a pas de tunables.
+
+## 2. Certificats TLS + DNS production
+
+**Statut backend** : ✅ Helm chart prêt à recevoir les secrets via `envFrom: secretRef`.
+
+**Action attendue côté DevOps** :
+* Provisionner / valider le DNS `pinfo6.p-info.net` + `*.pinfo6.p-info.net`.
+* Provisionner les certificats TLS via cert-manager (Let's Encrypt prod, pas staging).
+* Configurer l'Ingress / Cloudflare Tunnel pour route HTTPS → Kong upstream.
+* Vérifier que les origins CORS Kong (`k8s/chart/templates/kong/configmap-routes.yaml`) couvrent le DNS final.
+
+## 3. Doppler secrets — toutes les variables d'env runtime
+
+**Statut backend** : ✅ Aucun default bidon dans le code (SEC-004 closé). Toute variable absente lève au démarrage Quarkus.
+
+**Action attendue côté DevOps** : provisionner dans Doppler (par environnement) :
+* `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`
+* `OIDC_AUTH_SERVER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_AUDIENCE`, `OIDC_ROLE_NAMESPACE`
+* `KAFKA_BOOTSTRAP_SERVERS`
+* `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_URL`, `S3_BUCKET`
+* `EVENT_SERVICE_URL`, `USER_SERVICE_URL`, `ENGAGEMENT_SERVICE_URL` (URLs cluster-internes des REST clients).
+* **`INTERNAL_TOKEN`** (post-Étape 3.2 Décision C) — secret partagé par les 4 services métiers pour valider le header `X-Internal-Token` sur les endpoints `@Internal`. **Doit être identique sur les 4 services**, généré aléatoirement (≥ 32 octets) et roulé périodiquement.
+* `MODERATION_AUTO_HIDE_THRESHOLD` (default 5).
+* `FRONTEND_URL` (URL publique pour les share URLs).
+
+## 4. SonarCloud quality gate — exception sur le « new code » du code migré
+
+**Statut backend** : ✅ Aggregation Option B livrée (Étape 22 + Sonar specs Étape 1.x). Le projet `unige-events-backend` reçoit les scans agrégés des 17 modules.
+
+**Action attendue côté DevOps** : configurer côté SonarCloud une **exception sur la métrique « Coverage on New Code »** pour la PR #158 et toute PR de la branche `refactor(backend)--migrate-to-microservices`. Le code « migré » (services extraits depuis legacy-monolith) est détecté comme « new code » bien qu'il s'agisse d'un déplacement, faussant la métrique. Soit :
+* Marquer manuellement la PR #158 comme « not new code » (admin SonarCloud).
+* Ou configurer la « New Code Definition » sur une référence antérieure à la migration (option « Specific Date » → date pré-PR #158).
+* Ou désactiver temporairement la quality gate stricte sur cette PR.
+
+Tous les autres seuils (Coverage on Overall Code ≥ 80 %, Maintainability A, Security A, etc.) doivent rester actifs.
+
+## 5. NetworkPolicies Kubernetes — complément à SEC-002-bis
+
+**Statut backend** : ✅ `InternalTokenFilter` + `@Internal` annotation + Kong strip livrés (Étape 3.2 Décision C). La sécurité défensive ne dépend plus uniquement du périmètre K8s.
+
+**Action attendue côté DevOps** : ajouter dans `k8s/chart/templates/networkpolicies/` (à créer) des règles qui ferment l'ingress sur le port 8080 des 4 services métiers sauf depuis les pods avec label `app in (event-service, user-service, moderation-service, engagement-service, kong)`. Defense-in-depth — `INTERNAL_TOKEN` reste la barrière principale, NetworkPolicies est la défense périmétrique complémentaire.
+
+## 6. Cleanup GHCR PR-tagged images
+
+**Statut backend** : ✅ CI publie 5 images backend × tag `pr-N` + `latest` à chaque push. Pas de cleanup automatique aujourd'hui — coût stockage GHCR notable à terme.
+
+**Action attendue côté DevOps** : ajouter un job CI scheduled (cron weekly) qui :
+* Liste tous les tags `pr-*` sur `ghcr.io/unige-pinfo6-2026/unige-events-{event,user,engagement,moderation,notification}-service`.
+* Supprime ceux dont la PR référencée est closed/merged depuis ≥ 7 jours.
+* Garde tous les tags `main`, `latest`, semver, et les 5 derniers tags `pr-*` actifs.
+
+Pattern de référence : [GitHub Actions container-cleanup](https://github.com/snok/container-retention-policy) ou équivalent.
+
+## 7. Pact provider verification job harness
+
+**Statut backend** : ✅ 5 pacts JSON consumer-driven dans `contract-tests/target/pacts/` (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1). Aucun job CI ne les vérifie côté provider aujourd'hui.
+
+**Action attendue côté DevOps** : ajouter un job CI Pact provider verification qui :
+* Démarre un container du service provider (event-service, user-service, etc.) en mode test profile (`%test.quarkus.oidc.enabled=false`, etc.).
+* Lance la verification Pact (`mvn pact:verify` ou équivalent JVM Pact provider plugin) contre le contract local.
+* Bloque le merge si une assertion contractuelle échoue.
+
+Provider states (`@State`) sont déjà exprimés dans les pacts ; le harness côté infra doit fournir l'orchestration du DB seed + JWT pré-staged.
+
+---
+
+## Operational invariants (à respecter en prod)
+
+* **moderation-service replicas: 1 strict** (cf. [`adr/ADR-001-moderation-cleanup-replicas-strict.md`](adr/ADR-001-moderation-cleanup-replicas-strict.md)). Ne pas scaler avant qu'un mécanisme de leader-election soit câblé. Sinon le ModerationCleanupJob duplique chaque entrée de l'audit trail Kafka `events.banned`.
+* **TZ=Europe/Zurich** sur tous les Deployments (Étape 4.5 Décision F). Ne pas retirer `TZ` ni `JAVA_TOOL_OPTIONS=-Duser.timezone=Europe/Zurich` ; les events « du 12 mai 14h » deviendraient invisibles aux searches en cas d'UTC default.
+* **`INTERNAL_TOKEN` identique sur les 4 services** (Étape 3.2 Décision C). Toute désynchronisation casse les hops service-to-service vers les endpoints `@Internal`.
+* **Frontend invariant**: `git diff --shortstat origin/main HEAD -- frontend/` doit rester à 0 sur cette branche.
+* **OpenAPI invariant**: `git diff --shortstat origin/main HEAD -- openapi/` doit rester à 0 sur cette branche.
+
+---
+
+## Référence audit final
+
+- 35 findings audit final (`audit_pr158_migration_microservices_final.md`) → tous adressés post-Étape 9.4 (cf. spec `specs_pr158_finalization_complete.md` Annexe A).
+- 3 findings non-actionnables (MINOR-008/009 process-only commit hygiene rétroactif ; MINOR-012 frontend searchApi.ts hors scope invariant frontend).
+
+Pour le détail technique de chaque résolution, voir le commit log de la branche post-`3cc32ef8` ou le récap `sprint-context.md` § Étape 23.

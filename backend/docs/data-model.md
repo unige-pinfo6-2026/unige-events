@@ -4,7 +4,7 @@
 
 ### User
 
-Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
+Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollection).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -44,7 +44,9 @@ le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.f
 
 ### Event
 
-Table : `events`
+Owned by **event-service**. Tables : `events` + `event_tags`.
+
+**Kafka** : `EventLifecyclePublisher` émet `events.{published, cancelled, expired}` post-commit via CDI `@Observes(AFTER_SUCCESS)` (Décision A/F de la spec de complétion). Consumer `events.banned` dans event-service (apply `event.status = BANNED` localement, idempotent — émis par `moderation-service` lors d'un BAN admin ou d'un auto-ban via `ModerationCleanupJob`).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -112,7 +114,7 @@ Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les
 
 ### Favorite
 
-Table : `favorites`
+Owned by **event-service** (sous-package event/favorite, post-consolidation Étape 2.2.3). Table : `favorites`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -131,7 +133,7 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ### EventView
 
-Table : `event_views`
+Owned by **event-service** (sous-package event/view, post-consolidation Étape 2.2.2). Table : `event_views`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -142,13 +144,17 @@ Table : `event_views`
 
 Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
 
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
+
 Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
 
 ---
 
 ### Attendance
 
-Table : `attendances`
+Owned by **engagement-service** (sous-package engagement/attendance, post-rename Étape 2.1.1). Table : `attendances`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -172,26 +178,9 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 ---
 
-### EventView
-
-Table : `event_views`
-
-| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
-|---|---|---|---|---|
-| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
-| `eventId` | `eventId` | `Long` | `event_id` | not null |
-| `userId` | `userId` | `UUID` | `user_id` | not null |
-| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
-
-Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
-
-L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
-
-Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
-
----
-
 ### EventCoOrganizer
+
+Owned by **event-service** (sous-package event/coorganizer, post-consolidation Étape 2.2.4). Table : `event_co_organizers`.
 
 Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
 
@@ -251,6 +240,8 @@ du JWT — pas de spoofing).
 ---
 
 ### Follow
+
+Owned by **user-service** (sous-package user/follow, post-consolidation Étape 2.3.1). Table : `follows`.
 
 Table : `follows` (créée par la migration `V14__create_follows.sql` en SCRUM-138).
 
@@ -337,6 +328,8 @@ ISSUE-93).
 
 ### Report
 
+Owned by **moderation-service** (post-rename Étape 2.1.2). Table : `reports`.
+
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
 enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
 
@@ -373,9 +366,9 @@ CHECK constraints :
   pas par une CHECK DB.
 - **`moderationNote`** : note libre saisie par l'admin au moment du PATCH (max 2000 chars).
 
-#### Consommation par `ModerationCleanupService`
+#### Consommation par `ModerationCleanupJob`
 
-Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/ModerationCleanupService.java)
+Le job [`ModerationCleanupJob`](../services/moderation-service/src/main/java/ch/unige/events/report/scheduler/ModerationCleanupJob.java)
 (cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
 lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
 
@@ -411,6 +404,8 @@ Quand `ReportService.handle()` reçoit `status=REVIEWED` :
 ---
 
 ### Comment
+
+Owned by **engagement-service** (sous-package engagement/comment, post-consolidation Étape 2.4.1). Table : `comments`.
 
 Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM-139).
 
@@ -647,7 +642,7 @@ attendingCount, interestedCount, viewCount
 | Enum Java | Valeurs | Sprint | État |
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
-| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupService`) |
+| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupJob`) |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
@@ -715,10 +710,14 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
-- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
-- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
-- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
+- Migrations : redistribuées par service propriétaire post-Étape 1.1 finalization-complete (Décision A) sous `backend/services/<svc>-service/src/main/resources/db/migration/V<N>__<snake_case_description>.sql`. Mapping :
+  - `user-service` : V1 (`create_users`), V14 (`create_follows`).
+  - `event-service` : V2 (`create_events`), V4 (`create_favorites`), V5 (`create_event_views`), V7 (`reconcile_check_constraints`), V8 (`create_event_co_organizers`), V9 (`widen_event_description`), V11 (`allow_event_status_expired`), V12 (`add_featured_to_events`), V13 (`allow_event_status_banned`), V17 (`add_event_recurrence`).
+  - `engagement-service` : V3 (`create_attendances`), V15 (`create_comments`), V16 (`alter_comments_parent_fk_set_null`).
+  - `moderation-service` : V6 (`create_reports`), V10 (`add_report_reason_and_review_fields`).
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices et Flyway est désactivé (`%test.quarkus.flyway.enabled=false`).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0` + `out-of-order=true` + `validate-on-migrate=false`. Chaque service applique son sous-ensemble — la base partagée `public` voit l'union des V*.sql sans qu'aucun service ne réclame la totalité des versions.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…` dans le service propriétaire.
 
 ### V1 — Réconciliation des contraintes CHECK
 
@@ -730,3 +729,41 @@ Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus
 > (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
 > drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
 > muter une migration committée.
+
+## S3 cleanup hors-transaction (MINOR-010 + MINOR-011)
+
+### Préambule (FR / EN)
+
+- **FR** — Sur `UserService.uploadImage` / `uploadBanner`, l'objet S3 est
+  écrit AVANT le commit JDBC qui mémorise l'URL. Un crash entre les deux
+  laisse un orphelin S3. Idem pour les delete : la ligne JDBC est mise à
+  jour, l'objet S3 est supprimé après commit ; un crash entre les deux
+  laisse l'objet présent dans le bucket alors que la DB ne le référence
+  plus.
+- **EN** — On `UserService.uploadImage` / `uploadBanner`, the S3 object
+  is written BEFORE the JDBC commit that records the URL. A crash
+  between the two leaves an orphaned S3 object. Same for delete: the JDBC
+  row is updated, then the S3 object is deleted after commit; a crash in
+  between leaves the object in the bucket while the DB no longer
+  references it.
+
+### Limitation acceptée
+
+Pas d'outbox pattern sur S3 (cf. ADR-003 — outbox réservé aux topics
+Kafka critiques). La JavaDoc des méthodes concernées documente la
+tolérance aux orphelins. Un cleanup périodique S3 est reporté à S9+
+(devops-handoff item dédié).
+
+### Méthodes concernées
+
+- `user-service.UserService.uploadImage(...)` (avatar)
+- `user-service.UserService.uploadBanner(...)`
+- `user-service.UserService.deleteAvatar(...)` (delete S3 + reset URL)
+- `user-service.UserService.deleteBanner(...)` (NB: ne supprime PAS
+  l'objet S3 par dessein — cf. JavaDoc inline)
+
+### Mitigation
+
+- Bucket public read-only ; risque sécurité limité à un orphelin
+  inaccessible (URL perdue).
+- Bucket lifecycle policy S9+ : auto-delete after 30j d'inactivité.

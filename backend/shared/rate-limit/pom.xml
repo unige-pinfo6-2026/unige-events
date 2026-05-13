@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>shared-libs</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+
+    <!--
+      shared-rate-limit — per-user rate limit primitives shared across
+      microservices. Restores the @PerUserRateLimit interceptor that lived
+      in services/legacy-monolith/ before its removal at b570c1b
+      (Sprint 8 step 15). Pentest 2026-04-17 finding 4.14, issue #98.
+
+      Plain jar with a Jandex index so consuming Quarkus apps discover
+      the @Singleton bean, the CDI interceptor and the JAX-RS ExceptionMapper
+      without extra application.properties wiring.
+    -->
+
+    <artifactId>shared-rate-limit</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <!-- Compile-time API surfaces. provided scope: every consuming
+             Quarkus app already brings these via its own quarkus-arc /
+             quarkus-rest / quarkus-security / quarkus-oidc deps. -->
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-arc</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-jackson</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-security</artifactId><scope>provided</scope></dependency>
+
+        <!-- Runtime: Caffeine (bucket store). Managed by the Quarkus BOM. -->
+        <dependency><groupId>com.github.ben-manes.caffeine</groupId><artifactId>caffeine</artifactId></dependency>
+
+        <!-- Tests : provided-scope deps above are also available at test
+             time, so we don't repeat quarkus-arc / quarkus-rest /
+             quarkus-security here. -->
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <!-- Jacoco direct : this lib has no `quarkus-jacoco` extension
+                 (it's a plain JAR, not a Quarkus app), so we wire the
+                 vanilla Jacoco agent ourselves. prepare-agent fills the
+                 `argLine` property the parent surefire config references
+                 via `@{argLine}` — no need to override surefire here.
+                 The `outputDirectory` must match the parent's
+                 `sonar.coverage.jacoco.xmlReportPaths` for Sonar to find
+                 the report. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jacoco-report</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Jandex index : Quarkus discovers @Singleton / @Interceptor /
+                 @Provider beans in this JAR via the index file at
+                 META-INF/jandex.idx. Without it, the consuming app must
+                 register an explicit `quarkus.index-dependency.*` entry. -->
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <id>make-index</id>
+                        <goals>
+                            <goal>jandex</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

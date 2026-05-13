@@ -23,7 +23,7 @@ export default defineConfig(() => {
       // Dev-only proxy: replaced by nginx in production (docker compose)
       proxy: {
         '/api': {
-          target: `http://localhost:8080/`,
+          target: `http://kong:8000/`,
           changeOrigin: true
         }
       }

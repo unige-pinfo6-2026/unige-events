@@ -1,0 +1,298 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: {{ .Release.Namespace }}
+data:
+  kong.yml: |
+    _format_version: "3.0"
+
+    services:
+      - name: event-service
+        url: http://event-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: event-share
+            paths:
+              - ~/api/events/(?:\d+)/share$
+            strip_path: false
+            preserve_host: true
+          - name: shortlink
+            paths:
+              - ~/api/s/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: event-view
+            paths:
+              - ~/api/events/(?:\d+)/view$
+            strip_path: false
+            preserve_host: true
+          - name: favorite-actions
+            paths:
+              - ~/api/events/(?:\d+)/favorite$
+            strip_path: false
+            preserve_host: true
+          - name: my-favorites
+            paths:
+              - ~/api/users/me/favorites$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizer-me
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/me/(?:accept|decline)$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizer-userid
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: co-organizers
+            paths:
+              - ~/api/events/(?:\d+)/co-organizers$
+            strip_path: false
+            preserve_host: true
+          - name: my-co-org-invites
+            paths:
+              - ~/api/users/me/co-organizer-invitations$
+            strip_path: false
+            preserve_host: true
+          - name: event-stats
+            paths:
+              - ~/api/events/(?:\d+)/stats$
+            strip_path: false
+            preserve_host: true
+          - name: my-events
+            paths:
+              - ~/api/users/me/events$
+            strip_path: false
+            preserve_host: true
+          - name: events-search
+            paths:
+              - ~/api/events/search$
+            strip_path: false
+            preserve_host: true
+          - name: events-featured
+            paths:
+              - ~/api/events/featured$
+            strip_path: false
+            preserve_host: true
+          - name: admin-event-feature
+            paths:
+              - ~/api/admin/events/(?:\d+)/(?:un)?feature$
+            strip_path: false
+            preserve_host: true
+          - name: events-occurrences
+            paths:
+              - ~/api/events/(?:\d+)/occurrences$
+            strip_path: false
+            preserve_host: true
+          - name: events-cancel
+            paths:
+              - ~/api/events/(?:\d+)/cancel$
+            strip_path: false
+            preserve_host: true
+          - name: events-restore
+            paths:
+              - ~/api/events/(?:\d+)/restore$
+            strip_path: false
+            preserve_host: true
+          - name: events-publish
+            paths:
+              - ~/api/events/(?:\d+)/publish$
+            strip_path: false
+            preserve_host: true
+          - name: events-image
+            paths:
+              - ~/api/events/(?:\d+)/image$
+            strip_path: false
+            preserve_host: true
+          - name: events-by-id
+            paths:
+              - ~/api/events/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+          - name: events-list
+            paths:
+              - ~/api/events$
+            strip_path: false
+            preserve_host: true
+            plugins:
+              - name: rate-limiting
+                config:
+                  minute: 10
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
+      - name: user-service
+        url: http://user-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: user-image
+            paths:
+              - ~/api/users/me/image$
+            strip_path: false
+            preserve_host: true
+          - name: user-banner
+            paths:
+              - ~/api/users/me/banner$
+            strip_path: false
+            preserve_host: true
+          - name: user-by-id
+            paths:
+              - ~/api/users/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: follow-actions
+            paths:
+              - ~/api/users/[^/]+/follow$
+            strip_path: false
+            preserve_host: true
+            plugins:
+              - name: rate-limiting
+                config:
+                  minute: 30
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
+          - name: follow-listings
+            paths:
+              - ~/api/users/[^/]+/(?:followers|following)$
+            strip_path: false
+            preserve_host: true
+          - name: follow-requests
+            paths:
+              - ~/api/follow-requests/(?:\d+)/(?:accept|reject)$
+            strip_path: false
+            preserve_host: true
+          - name: my-follow-reqs
+            paths:
+              - ~/api/users/me/follow-requests$
+            strip_path: false
+            preserve_host: true
+          - name: calendar-token
+            paths:
+              - ~/api/users/me/calendar-token$
+            strip_path: false
+            preserve_host: true
+          - name: calendar-regen
+            paths:
+              - ~/api/users/me/calendar-token/regenerate$
+            strip_path: false
+            preserve_host: true
+          - name: ics-feed
+            paths:
+              - ~/api/calendar/[^/]+\.ics$
+            strip_path: false
+            preserve_host: true
+      - name: moderation-service
+        url: http://moderation-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: report-event
+            paths:
+              - ~/api/events/(?:\d+)/report$
+            strip_path: false
+            preserve_host: true
+          - name: admin-reports
+            paths:
+              - ~/api/admin/reports$
+            strip_path: false
+            preserve_host: true
+          - name: admin-report-id
+            paths:
+              - ~/api/admin/reports/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+      - name: engagement-service
+        url: http://engagement-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: attend-actions
+            paths:
+              - ~/api/events/(?:\d+)/attend$
+            strip_path: false
+            preserve_host: true
+          - name: event-attendees
+            paths:
+              - ~/api/events/(?:\d+)/attendees$
+            strip_path: false
+            preserve_host: true
+          - name: my-attendances
+            paths:
+              - ~/api/users/me/attendances$
+            strip_path: false
+            preserve_host: true
+          - name: my-participations
+            paths:
+              - ~/api/users/me/participations$
+            strip_path: false
+            preserve_host: true
+          - name: event-comments
+            paths:
+              - ~/api/events/(?:\d+)/comments$
+            strip_path: false
+            preserve_host: true
+            plugins:
+              - name: rate-limiting
+                config:
+                  minute: 10
+                  policy: local
+                  fault_tolerant: true
+                  hide_client_headers: false
+          - name: comment-direct
+            paths:
+              - ~/api/comments/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "https://pinfo6.p-info.net"
+            - "https://*.pinfo6.p-info.net"
+            - "https://*.trycloudflare.com"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Accept
+            - Origin
+            - X-Requested-With
+            - X-Request-ID
+          exposed_headers:
+            - X-Request-ID
+            - Retry-After
+          credentials: true
+          max_age: 3600
+      - name: correlation-id
+        config:
+          header_name: X-Request-ID
+          generator: uuid
+          echo_downstream: true
+      - name: prometheus
+        config:
+          per_consumer: false
+          status_code_metrics: true
+          latency_metrics: true
+          bandwidth_metrics: true
+          upstream_health_metrics: true
+      - name: request-transformer
+        config:
+          remove:
+            headers:
+              - X-Internal-Token

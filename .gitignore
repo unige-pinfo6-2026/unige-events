@@ -36,3 +36,6 @@ docs/superpowers/
 
 # Figma
 .figma
+
+# Temporary files
+tmp/
