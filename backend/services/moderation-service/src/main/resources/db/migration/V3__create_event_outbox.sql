@@ -1,5 +1,7 @@
+CREATE SEQUENCE event_banned_outbox_seq START WITH 1 INCREMENT BY 50;
+
 CREATE TABLE event_banned_outbox (
-    id            BIGSERIAL PRIMARY KEY,
+    id            BIGINT DEFAULT nextval('event_banned_outbox_seq') PRIMARY KEY,
     event_id      BIGINT NOT NULL,
     banned_by     UUID,
     occurred_at   TIMESTAMP WITH TIME ZONE NOT NULL,
