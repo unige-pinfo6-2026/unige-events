@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres
+  name: postgres-engagement
   namespace: {{ .Release.Namespace }}
 spec:
-  serviceName: postgres
+  serviceName: postgres-engagement
   replicas: 1
   selector:
     matchLabels:
-      app: postgres
+      app: postgres-engagement
   template:
     metadata:
       labels:
-        app: postgres
+        app: postgres-engagement
     spec:
       automountServiceAccountToken: false
       containers:
@@ -22,10 +22,7 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_NAME
+              value: unige_events_engagement
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:

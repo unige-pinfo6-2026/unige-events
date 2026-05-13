@@ -7,8 +7,12 @@ metadata:
     app: notification-service
     migration-step: scaffold
 spec:
-  # Placeholder service kept at replicas 0 until notification extraction is implemented.
-  replicas: 0
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: notification-service
@@ -32,7 +36,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-Duser.timezone=Europe/Zurich"
             - name: DB_HOST
-              value: postgres
+              value: postgres-notification
             - name: DB_PORT
               value: "5432"
             - name: DB_NAME
