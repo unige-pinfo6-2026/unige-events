@@ -10,10 +10,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Test-only helper to produce {@link JsonWebToken} instances that drive
- * {@code Auth0IdResolver.resolveUserUuid} via the {@code uuid} custom
- * claim. Pairs with {@link TestJwtProducer} (CDI bean) and
- * {@link JwtTestContext} (static handoff).
+ * Test-only helper to produce {@link JsonWebToken} instances for
+ * {@link TestCallerIdentity}. Pairs with {@link TestJwtProducer} (CDI bean)
+ * and {@link JwtTestContext} (static handoff).
  */
 public final class JwtTestHelper {
 

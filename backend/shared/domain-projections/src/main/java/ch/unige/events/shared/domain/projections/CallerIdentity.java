@@ -1,6 +1,7 @@
 package ch.unige.events.shared.domain.projections;
 
 import ch.unige.events.shared.client.UserMeClient;
+import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
@@ -31,10 +32,13 @@ public class CallerIdentity {
     public UUID requireUuid() {
         if (cachedUuid != null) return cachedUuid;
         try {
-            cachedUuid = userMeClient.getMe().id();
+            UserPublicResponse me = userMeClient.getMe();
+            if (me == null || me.id() == null) {
+                throw new NotFoundException("User profile not found");
+            }
+            cachedUuid = me.id();
             return cachedUuid;
         } catch (WebApplicationException e) {
-            e.printStackTrace();
             throw new NotFoundException("User profile not found");
         }
     }

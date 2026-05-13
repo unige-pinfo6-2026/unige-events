@@ -35,7 +35,7 @@ import java.util.UUID;
 
 /**
  * Same contract as the legacy EventCoOrganizerService. Caller UUID via
- * JWT claim, target user enrichment via UserServiceClient, bulk
+ * CallerIdentity, target user enrichment via UserServiceClient, bulk
  * attendance counts via EngagementServiceClient.
  */
 @ApplicationScoped

@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  * add, NotFoundException on missing event / favorite, listing returns
  * EventDTOs enriched with attending / waitlisted counts.
  *
- * <p>Caller UUID resolved via JWT claim, attendance counts via REST client
+ * <p>Caller UUID resolved via CallerIdentity, attendance counts via REST client
  * to engagement-service.
  */
 @ApplicationScoped

@@ -59,8 +59,7 @@ import java.util.UUID;
  *       {@code EventView} / {@code Favorite} entities (same tables) —
  *       call sites use the local entities directly.</li>
  *   <li>{@code isCreator(event, auth0Id)} switches from
- *       UserStub.findByAuth0Id to a JWT-claim check
- *       ({@link Auth0IdResolver#resolveUserUuid}).</li>
+ *       UserStub.findByAuth0Id to CallerIdentity.</li>
  * </ul>
  */
 @ApplicationScoped

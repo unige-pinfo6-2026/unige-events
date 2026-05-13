@@ -17,8 +17,7 @@ import java.time.temporal.ChronoUnit;
  * caller's own Bearer token (propagated by {@link BearerTokenClientFilter}).
  *
  * <p>Used by {@link ch.unige.events.shared.domain.projections.CallerIdentity}
- * to resolve the caller's internal UUID without requiring a custom JWT claim
- * injected by an Auth0 Action.
+ * to resolve the caller's internal UUID.
  *
  * <p>Uses the same {@code user-service} config key as {@link UserServiceClient}.
  */

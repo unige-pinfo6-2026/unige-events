@@ -34,8 +34,7 @@ public final class JwtTestHelper {
     }
 
     /**
-     * Returns a {@link JsonWebToken} carrying the {@code uuid} custom
-     * claim used by {@code Auth0IdResolver.resolveUserUuid(...)} +
+     * Returns a {@link JsonWebToken} carrying the test caller UUID and
      * {@code sub} (the auth0Id) wired to {@code "auth0|<uuid>"}. Roles
      * are empty.
      */

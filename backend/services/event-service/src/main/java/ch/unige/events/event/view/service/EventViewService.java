@@ -17,8 +17,7 @@ import java.util.UUID;
  * monolith's EventViewService. Refreshing viewed_at gives "most recent
  * view" semantics.
  *
- * <p>Caller UUID is resolved from the JWT {@code uuid} claim
- * ({@link Auth0IdResolver#resolveUserUuid}) — no more
+ * <p>Caller UUID is resolved via CallerIdentity, with no
  * {@code UserStub.findByAuth0Id} cross-schema query.
  */
 @ApplicationScoped

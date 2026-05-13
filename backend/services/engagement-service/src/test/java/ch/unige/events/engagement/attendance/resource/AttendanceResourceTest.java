@@ -35,9 +35,8 @@ import static org.mockito.Mockito.when;
 /**
  * REST-layer integration tests for {@link AttendanceResource} via
  * REST-Assured. The {@code @TestSecurity} annotation drives the
- * {@code SecurityIdentity}; the JWT {@code uuid} claim is staged via
- * {@link JwtTestContext} so {@code Auth0IdResolver.resolveUserUuid} reads
- * the configured user UUID.
+ * {@code SecurityIdentity}; {@link JwtTestContext} stages the test caller
+ * UUID used by TestCallerIdentity.
  */
 @QuarkusTest
 @TestSecurity(user = "auth0|test-attendance-resource")

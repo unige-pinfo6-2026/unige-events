@@ -403,8 +403,8 @@ de changement de schéma DB). Endpoints providers ajoutés : `GET
 /events/{id}/organizer-uuids` (Décision G), `GET
 /events/_bulk-attendance-summary` (Décision I). Mutation `events.banned`
 déléguée au consumer Kafka (Décision H — fini la mutation cross-schéma).
-Auth0IdResolver gagne `resolveUserUuid(jwt)` lisant le claim `uuid` —
-DevOps doit le configurer côté Auth0 (devops-handoff item 6).
+CallerIdentity résout désormais l'UUID interne via `GET /users/me`, sans
+claim `uuid` custom ni action Auth0 dédiée.
 
 **Vague 4 — Bascule shared libs (3 commits).** DUP-001 + DUP-004
 (4 ApiErrorResponse + 16 enums locaux supprimés, sed sur les imports).

@@ -130,8 +130,7 @@ public class EventResource {
         // SEC-002 finalization-ultimate (Décision C):
         // ?check-co-org-of= is only honored when:
         //   1. caller is authenticated, AND
-        //   2. the value matches the caller's resolved UUID
-        //      (Auth0IdResolver.resolveUserUuid → uuid claim).
+        //   2. the value matches the caller's resolved UUID.
         // Otherwise the param is silently ignored (coOrganizerOf=null in
         // the response) — closes the membership oracle for anonymous /
         // cross-user lookups.

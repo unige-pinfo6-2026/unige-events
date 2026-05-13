@@ -31,10 +31,9 @@ import java.util.UUID;
  *  ${USER_SERVICE_URL:http://user-service:8080}}.
  *
  * <p>Note: there is no {@code /users/by-auth0/{auth0Id}} endpoint
- * post-finalization (cf. internal-endpoints.md). Consumers resolve the
- * auth0 sub locally via {@link
- * ch.unige.events.shared.domain.projections.Auth0IdResolver} and call
- * {@link #getById(UUID)} with the resolved UUID.
+ * post-finalization (cf. internal-endpoints.md). Consumers use
+ * {@code GET /users/me} when they need the current caller UUID, then call
+ * {@link #getById(UUID)} for profile enrichment.
  */
 @RegisterRestClient(configKey = "user-service")
 @RegisterProvider(RequestIdClientFilter.class)

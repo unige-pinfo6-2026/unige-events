@@ -16,7 +16,6 @@ import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 import ch.unige.events.shared.domain.enums.ReportReason;
 import ch.unige.events.shared.domain.enums.ReportStatus;
 import ch.unige.events.shared.domain.projections.AttendanceCounts;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.error.ApiErrors;
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
@@ -31,16 +30,12 @@ import ch.unige.events.shared.storage.InvalidFileTypeException;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,8 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Coverage exercises for the small shared classes (enums, DTO records,
- * factory helpers, JWT resolver) reachable from user-service's runtime
- * classpath but otherwise untouched by the in-module tests.
+ * factory helpers) reachable from user-service's runtime classpath but
+ * otherwise untouched by the in-module tests.
  */
 @QuarkusTest
 class SharedCoverageTest {
@@ -168,38 +163,6 @@ class SharedCoverageTest {
         RateLimitExceededException ex = new RateLimitExceededException("rate exceeded", 30L);
         assertEquals(30L, ex.getRetryAfterSeconds());
         assertEquals(429, ex.getResponse().getStatus());
-    }
-
-    @Test
-    void auth0IdResolver_handlesNullJwt() {
-        assertNull(Auth0IdResolver.resolveUserId(null));
-        assertNull(Auth0IdResolver.resolveUserUuid(null));
-    }
-
-    @Test
-    void auth0IdResolver_resolvesSubAndUuidClaims() {
-        UUID userUuid = UUID.randomUUID();
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("uuid", userUuid.toString());
-        JsonWebToken jwt = JwtTestHelper.jwtFor("auth0|abc", claims);
-
-        assertEquals("auth0|abc", Auth0IdResolver.resolveUserId(jwt));
-        assertEquals(userUuid, Auth0IdResolver.resolveUserUuid(jwt));
-    }
-
-    @Test
-    void auth0IdResolver_invalidUuidClaim_returnsNull() {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("uuid", "not-a-uuid");
-        JsonWebToken jwt = JwtTestHelper.jwtFor("auth0|bad", claims);
-
-        assertNull(Auth0IdResolver.resolveUserUuid(jwt));
-    }
-
-    @Test
-    void auth0IdResolver_missingUuidClaim_returnsNull() {
-        JsonWebToken jwt = JwtTestHelper.jwtFor("auth0|nouuid", Map.of());
-        assertNull(Auth0IdResolver.resolveUserUuid(jwt));
     }
 
     @Test

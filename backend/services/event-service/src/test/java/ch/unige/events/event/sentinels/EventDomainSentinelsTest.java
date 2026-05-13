@@ -397,9 +397,8 @@ class EventDomainSentinelsTest {
         Event parent = newPersisted(EventStatus.PUBLISHED, creatorUuid, null);
         em.flush();
 
-        // Simulate an anonymous caller — no JWT (cleared) means
-        // Auth0IdResolver returns null, and PUBLISHED events are visible
-        // to anonymous callers.
+        // Simulate an anonymous caller: the test identity is cleared, and
+        // PUBLISHED events are visible to anonymous callers.
         JwtTestContext.clear();
         List<EventDTO> occ = eventService.getOccurrences(parent.id, null, false, 0, 20);
         assertNotNull(occ);
@@ -566,7 +565,7 @@ class EventDomainSentinelsTest {
         Long bannedId = persistCommitted(EventStatus.BANNED, bannedCreator);
 
         try {
-            // Anonymous caller (no JWT uuid claim).
+            // Anonymous caller.
             JwtTestContext.clear();
             Response anon = given().when().get("/events/" + bannedId + "/organizer-uuids");
             assertEquals(404, anon.getStatusCode(),

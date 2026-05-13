@@ -50,9 +50,8 @@ import static org.mockito.Mockito.lenient;
  * K+1 ATTENDING.
  *
  * <p>Tests use DevServices Postgres (real DB, real lock); each worker thread
- * activates its own CDI request context and stages a per-thread JWT via
- * {@link JwtTestContext#setForThread} so {@code Auth0IdResolver.resolveUserUuid}
- * returns a different UUID per concurrent attend.
+ * activates its own CDI request context and stages a per-thread test
+ * identity via {@link JwtTestContext#setForThread}.
  */
 @QuarkusTest
 @TestSecurity(user = "auth0|concurrency-test")

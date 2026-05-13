@@ -19,7 +19,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import java.util.UUID;
 
 /**
- * Caller UUID resolved from JWT claim, attending count delegated to
+ * Caller UUID resolved via CallerIdentity, attending count delegated to
  * engagement-service via REST. Local Favorite + EventView entities
  * (no more local Stubs).
  */

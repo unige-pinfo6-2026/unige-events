@@ -13,7 +13,6 @@ import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 import ch.unige.events.shared.domain.enums.ReportReason;
 import ch.unige.events.shared.domain.enums.ReportStatus;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
 import ch.unige.events.shared.error.ApiErrors;
 import ch.unige.events.shared.jaxrs.Timeframe;
 import ch.unige.events.shared.jaxrs.TimeframeParamConverter;
@@ -26,14 +25,11 @@ import jakarta.ws.rs.client.ClientRequestContext;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.ext.ParamConverter;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logmanager.MDC;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -130,28 +126,6 @@ class SharedCoverageTest {
         assertNotNull(c);
         // Other types return null.
         assertNull(p.getConverter(String.class, String.class, new java.lang.annotation.Annotation[0]));
-    }
-
-    @Test
-    void auth0IdResolver_handlesNullsAndInvalid() {
-        assertNull(Auth0IdResolver.resolveUserId(null));
-        assertNull(Auth0IdResolver.resolveUserUuid(null));
-
-        // JWT without uuid claim → null
-        JsonWebToken jwtNoUuid = new JwtTestHelper.FakeJsonWebToken("auth0|x", Map.of(), Set.of());
-        assertNull(Auth0IdResolver.resolveUserUuid(jwtNoUuid));
-
-        // JWT with malformed uuid → null
-        JsonWebToken jwtBad = new JwtTestHelper.FakeJsonWebToken("auth0|x",
-                Map.of("uuid", "not-a-uuid"), Set.of());
-        assertNull(Auth0IdResolver.resolveUserUuid(jwtBad));
-
-        // Valid path
-        UUID id = UUID.randomUUID();
-        JsonWebToken jwtGood = new JwtTestHelper.FakeJsonWebToken("auth0|x",
-                Map.of("uuid", id.toString()), Set.of());
-        assertEquals(id, Auth0IdResolver.resolveUserUuid(jwtGood));
-        assertEquals("auth0|x", Auth0IdResolver.resolveUserId(jwtGood));
     }
 
     @Test

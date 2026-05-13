@@ -268,7 +268,7 @@ ventilation par-service.
 | Kafka payload records (`EventLifecycleEvent`, `EventBannedEvent`, `FollowLifecycleEvent`, `CommentCreatedEvent`, `CoOrganizerEvent`) | `shared-kafka-events` | 5 services producteurs + event-service consumer |
 | `@PerUserRateLimit` interceptor + state cache | `shared-rate-limit` | 6 services consommateurs (event, user, attendance, comment, favorite, follow) |
 | `FileStorageService` S3 | `shared-storage` | 2 services (user, event) |
-| `EventCapacity.computeAvailableSpots`, `Auth0IdResolver.resolveUserId` | `shared-domain-projections` | 6 services |
+| `EventCapacity.computeAvailableSpots`, `CallerIdentity` | `shared-domain-projections` | 6 services |
 
 ---
 

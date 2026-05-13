@@ -15,9 +15,9 @@
       services. Cf. completion-spec Décision D (REFACTOR-005,
       REFACTOR-013).
 
-      Today's contents:
+      Current contents:
       - EventCapacity.computeAvailableSpots(capacity, attending)
-      - Auth0IdResolver.resolveUserId(jwt)
+      - CallerIdentity
       - AttendanceCounts (record)
     -->
 
