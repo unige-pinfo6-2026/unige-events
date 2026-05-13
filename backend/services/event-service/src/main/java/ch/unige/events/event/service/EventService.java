@@ -170,7 +170,7 @@ public class EventService {
                 parentId
         ).page(page, size).list();
 
-        UUID callerUuid = callerIdentity.requireUuid();
+        UUID callerUuid = callerIdentity.getUuid();
         List<Event> visible = occurrences.stream()
                 .filter(o -> isOccurrenceVisible(o, callerUuid, isAdmin))
                 .toList();
