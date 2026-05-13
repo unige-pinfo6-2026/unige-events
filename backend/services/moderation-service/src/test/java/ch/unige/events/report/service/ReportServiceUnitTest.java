@@ -13,24 +13,20 @@ import ch.unige.events.shared.kafka.events.EventBannedEvent;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import io.quarkus.panache.mock.PanacheMock;
 import io.quarkus.test.junit.QuarkusTest;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
+
 import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
 import jakarta.ws.rs.WebApplicationException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -79,19 +75,17 @@ class ReportServiceUnitTest {
         return r;
     }
 
-    @SuppressWarnings("unchecked")
     private static ReportService buildService(Event<EventBannedEvent> bannedEvent,
                                               EventServiceClient eventClient,
                                               UserServiceClient userClient,
-                                              JsonWebToken jwt) throws Exception {
+                                              UUID callerUuid) throws Exception {
         ReportService svc = new ReportService();
         setField(svc, "bannedEvent", bannedEvent);
         setField(svc, "eventClient", eventClient);
         setField(svc, "userClient", userClient);
-        Instance<JsonWebToken> jwtInstance = mock(Instance.class);
-        when(jwtInstance.isResolvable()).thenReturn(true);
-        when(jwtInstance.get()).thenReturn(jwt);
-        setField(svc, "jwt", jwtInstance);
+        CallerIdentity callerIdentity = mock(CallerIdentity.class);
+        when(callerIdentity.requireUuid()).thenReturn(callerUuid);
+        setField(svc, "callerIdentity", callerIdentity);
         return svc;
     }
 
@@ -99,14 +93,6 @@ class ReportServiceUnitTest {
         Field f = ReportService.class.getDeclaredField(name);
         f.setAccessible(true);
         f.set(target, value);
-    }
-
-    private static JsonWebToken adminJwt(UUID userId) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("sub", "auth0|" + userId);
-        claims.put("uuid", userId.toString());
-        return new ch.unige.events.report.test.JwtTestHelper.FakeJsonWebToken(
-                "auth0|" + userId, claims, Set.of("ADMIN"));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -120,7 +106,7 @@ class ReportServiceUnitTest {
         EventServiceClient eventClient = mock(EventServiceClient.class);
         UserServiceClient userClient = mock(UserServiceClient.class);
 
-        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminJwt(adminId));
+        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminId);
 
         PanacheMock.mock(Report.class);
         when(Report.findByIdOptional(50L)).thenReturn(Optional.of(target));
@@ -154,7 +140,7 @@ class ReportServiceUnitTest {
         EventServiceClient eventClient = mock(EventServiceClient.class);
         UserServiceClient userClient = mock(UserServiceClient.class);
 
-        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminJwt(adminId));
+        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminId);
 
         PanacheMock.mock(Report.class);
         when(Report.findByIdOptional(60L)).thenReturn(Optional.of(target));
@@ -182,7 +168,7 @@ class ReportServiceUnitTest {
         EventServiceClient eventClient = mock(EventServiceClient.class);
         UserServiceClient userClient = mock(UserServiceClient.class);
 
-        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminJwt(adminId));
+        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminId);
 
         PanacheMock.mock(Report.class);
         when(Report.findByIdOptional(70L)).thenReturn(Optional.of(target));
@@ -211,7 +197,7 @@ class ReportServiceUnitTest {
         Event<EventBannedEvent> bannedEvent = mock(Event.class);
         EventServiceClient eventClient = mock(EventServiceClient.class);
         UserServiceClient userClient = mock(UserServiceClient.class);
-        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminJwt(adminId));
+        ReportService svc = buildService(bannedEvent, eventClient, userClient, adminId);
 
         PanacheMock.mock(Report.class);
         when(Report.findByIdOptional(999L)).thenReturn(Optional.empty());

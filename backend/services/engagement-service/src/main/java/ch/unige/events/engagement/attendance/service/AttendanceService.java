@@ -176,7 +176,7 @@ public class AttendanceService {
 
     @Transactional
     public List<AttendanceDTO> getAttendees(String auth0Id, Long eventId, int page, int size) {
-        UUID callerUuid = callerIdentity.requireUuid();
+        UUID callerUuid = callerIdentity.getUuid();
         ch.unige.events.shared.domain.dto.EventDTO event = (callerUuid != null)
                 ? eventClient.getByIdWithCoOrgCheck(eventId, callerUuid)
                 : eventClient.getById(eventId);
@@ -212,7 +212,7 @@ public class AttendanceService {
 
     @Transactional
     public List<AttendanceDTO> getMyAttendances(String auth0Id) {
-        UUID userId = callerIdentity.requireUuid();
+        UUID userId = callerIdentity.getUuid();
         if (userId == null) {
             return List.of();
         }
@@ -244,7 +244,7 @@ public class AttendanceService {
     @Transactional
     public List<ch.unige.events.shared.domain.dto.EventDTO> getMyParticipationEvents(
             String auth0Id, AttendanceStatus statusFilter, Timeframe timeframeFilter) {
-        UUID userId = callerIdentity.requireUuid();
+        UUID userId = callerIdentity.getUuid();
         if (userId == null) {
             return List.of();
         }

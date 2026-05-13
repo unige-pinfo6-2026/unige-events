@@ -287,7 +287,7 @@ public class EventService {
             throw new NotFoundException();
         }
 
-        UUID callerUuid = callerIdentity.requireUuid();
+        UUID callerUuid = callerIdentity.getUuid();
         if (event.status != EventStatus.PUBLISHED && !isAdmin
                 && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new NotFoundException();
