@@ -10,11 +10,10 @@ import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.domain.projections.EventCapacity;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -24,7 +23,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
@@ -55,19 +53,10 @@ public class AttendanceService {
     private static final Logger LOG = Logger.getLogger(AttendanceService.class);
 
     @Inject EntityManager entityManager;
-    /**
-     * Lazy via {@link Instance} so {@code @QuarkusTest} runs (which set
-     * {@code quarkus.oidc.enabled=false}) don't have to resolve the
-     * JsonWebToken bean at startup.
-     */
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
@@ -101,7 +90,7 @@ public class AttendanceService {
                             .build());
         }
 
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             throw new NotFoundException("User profile not found — call GET /users/me first");
         }
@@ -142,7 +131,7 @@ public class AttendanceService {
         // waitlisted row).
         acquireAdvisoryLock(eventId);
 
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             throw new NotFoundException("Attendance not found");
         }
@@ -187,7 +176,7 @@ public class AttendanceService {
 
     @Transactional
     public List<AttendanceDTO> getAttendees(String auth0Id, Long eventId, int page, int size) {
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         ch.unige.events.shared.domain.dto.EventDTO event = (callerUuid != null)
                 ? eventClient.getByIdWithCoOrgCheck(eventId, callerUuid)
                 : eventClient.getById(eventId);
@@ -223,7 +212,7 @@ public class AttendanceService {
 
     @Transactional
     public List<AttendanceDTO> getMyAttendances(String auth0Id) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             return List.of();
         }
@@ -255,7 +244,7 @@ public class AttendanceService {
     @Transactional
     public List<ch.unige.events.shared.domain.dto.EventDTO> getMyParticipationEvents(
             String auth0Id, AttendanceStatus statusFilter, Timeframe timeframeFilter) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             return List.of();
         }

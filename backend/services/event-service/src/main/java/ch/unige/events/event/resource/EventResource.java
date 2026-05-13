@@ -9,14 +9,12 @@ import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.event.service.EventService;
 import ch.unige.events.event.service.FeaturedService;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -59,21 +57,12 @@ public class EventResource {
     private final SecurityIdentity identity;
 
     @Inject FeaturedService featuredService;
-    /**
-     * Lazy via {@link Instance} so the @QuarkusTest scaffolds (which
-     * boot with quarkus.oidc.enabled=false) can resolve the bean
-     * without a real OIDC context.
-     */
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     @Inject
     public EventResource(EventService eventService, SecurityIdentity identity) {
         this.eventService = eventService;
         this.identity = identity;
-    }
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
     }
 
     @GET
@@ -148,7 +137,7 @@ public class EventResource {
         // cross-user lookups.
         UUID effectiveCheck = null;
         if (checkCoOrgOf != null && auth0Id != null) {
-            UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+            UUID callerUuid = callerIdentity.getUuid();
             if (callerUuid != null && callerUuid.equals(checkCoOrgOf)) {
                 effectiveCheck = checkCoOrgOf;
             }

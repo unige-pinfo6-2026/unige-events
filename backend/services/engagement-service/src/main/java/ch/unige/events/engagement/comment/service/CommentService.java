@@ -8,20 +8,18 @@ import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
 
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.HashMap;
@@ -54,15 +52,11 @@ public class CommentService {
      * JsonWebToken bean at startup. Same pattern as user-service's
      * UserResource.
      */
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
     @Inject jakarta.enterprise.event.Event<CommentCreatedEvent> commentCreatedEvent;
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public CommentDTO post(String auth0Id, Long eventId, CreateCommentRequest request) {
@@ -82,7 +76,7 @@ public class CommentService {
                     "Cannot comment an expired event.");
         }
 
-        UUID authorId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID authorId = callerIdentity.requireUuid();
         if (authorId == null) {
             throw new NotFoundException(
                     "User profile not found — call GET /users/me first");
@@ -127,7 +121,7 @@ public class CommentService {
                         "The comment does not exist."));
 
         boolean isAdmin = identity.hasRole("ADMIN");
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         boolean isAuthor = callerUuid != null
                 && comment.authorId != null
                 && callerUuid.equals(comment.authorId);
@@ -223,7 +217,7 @@ public class CommentService {
      */
     private ch.unige.events.shared.domain.dto.EventDTO assertEventVisibleAndLoad(
             Long eventId, String auth0Id, boolean isAdmin) {
-        UUID callerUuid = (auth0Id != null) ? Auth0IdResolver.resolveUserUuid(jwt()) : null;
+        UUID callerUuid = (auth0Id != null) ? callerIdentity.getUuid() : null;
         ch.unige.events.shared.domain.dto.EventDTO event = (callerUuid != null)
                 ? eventClient.getByIdWithCoOrgCheck(eventId, callerUuid)
                 : eventClient.getById(eventId);

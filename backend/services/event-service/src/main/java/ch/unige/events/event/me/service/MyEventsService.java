@@ -6,14 +6,11 @@ import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.HashMap;
@@ -29,20 +26,12 @@ import java.util.UUID;
 @ApplicationScoped
 public class MyEventsService {
 
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
     @Inject @RestClient EngagementServiceClient engagementClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public List<EventDTO> getMyEvents(String auth0Id, EventStatus status, int page, int size) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
-        if (userId == null) {
-            throw new NotFoundException(
-                    "User profile not found — call GET /users/me first");
-        }
+        UUID userId = callerIdentity.requireUuid();
 
         StringBuilder jpql = new StringBuilder("SELECT e FROM Event e WHERE e.creatorId = :creatorId");
         Map<String, Object> params = new HashMap<>();

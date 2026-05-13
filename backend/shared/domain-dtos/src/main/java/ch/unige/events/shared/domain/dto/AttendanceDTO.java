@@ -1,9 +1,12 @@
 package ch.unige.events.shared.domain.dto;
 
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 
 /**
  * Cross-service projection of an Attendance row. engagement-service is

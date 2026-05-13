@@ -7,15 +7,13 @@ import ch.unige.events.event.view.entity.EventView;
 import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.UUID;
@@ -28,22 +26,15 @@ import java.util.UUID;
 @ApplicationScoped
 public class EventStatsService {
 
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
     @Inject @RestClient EngagementServiceClient engagementClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public EventStatsDTO getStats(String auth0Id, Long eventId) {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
-        if (callerUuid == null) {
-            throw new NotFoundException("User profile not found");
-        }
+        UUID callerUuid = callerIdentity.requireUuid();
 
         if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can view stats");

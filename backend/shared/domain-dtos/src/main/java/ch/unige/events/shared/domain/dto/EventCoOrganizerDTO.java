@@ -1,6 +1,7 @@
 package ch.unige.events.shared.domain.dto;
 
 import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import java.util.UUID;
  * the only producer (since the {@code event_co_organizers} table moved
  * into event-service in consolidation Étape 2.2.4).
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record EventCoOrganizerDTO(
         Long id,
         Long eventId,

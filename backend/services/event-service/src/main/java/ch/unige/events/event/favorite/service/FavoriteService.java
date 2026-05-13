@@ -6,16 +6,14 @@ import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
@@ -35,13 +33,9 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class FavoriteService {
 
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
     @Inject @RestClient EngagementServiceClient engagementClient;
     @Inject EntityManager entityManager;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public void addFavorite(String auth0Id, Long eventId) {
@@ -144,10 +138,6 @@ public class FavoriteService {
     }
 
     private UUID resolveUserId() {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
-        if (userId == null) {
-            throw new NotFoundException("User profile not found");
-        }
-        return userId;
+        return callerIdentity.requireUuid();
     }
 }

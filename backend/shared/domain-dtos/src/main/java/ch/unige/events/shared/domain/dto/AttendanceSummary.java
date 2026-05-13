@@ -1,5 +1,7 @@
 package ch.unige.events.shared.domain.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * Internal projection of attendance counts on a single event. Returned
  * by engagement-service's {@code GET /events/{eventId}/attendance-summary}
@@ -12,6 +14,7 @@ package ch.unige.events.shared.domain.dto;
  * model — INTERESTED is no longer a persisted attendance status. Kept
  * in the record for backwards compatibility in case it's reintroduced.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AttendanceSummary(
         long attending,
         long waitlisted,

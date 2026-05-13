@@ -27,6 +27,12 @@
     <dependencies>
         <dependency><groupId>org.eclipse.microprofile.jwt</groupId><artifactId>microprofile-jwt-auth-api</artifactId><scope>provided</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-core</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId><scope>provided</scope></dependency>
+        <dependency>
+            <groupId>ch.unige.events</groupId>
+            <artifactId>shared-domain-dtos</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><scope>test</scope></dependency>

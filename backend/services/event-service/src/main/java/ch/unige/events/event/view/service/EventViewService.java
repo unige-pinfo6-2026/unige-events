@@ -1,14 +1,12 @@
 package ch.unige.events.event.view.service;
 
 import ch.unige.events.event.entity.Event;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -28,14 +26,10 @@ public class EventViewService {
 
     private final EntityManager entityManager;
 
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     public EventViewService(EntityManager entityManager) {
         this.entityManager = entityManager;
-    }
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
     }
 
     @Transactional
@@ -44,10 +38,7 @@ public class EventViewService {
             throw new NotFoundException("Event not found");
         }
 
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
-        if (userId == null) {
-            throw new NotFoundException("User profile not found");
-        }
+        UUID userId = callerIdentity.requireUuid();
 
         // Native upsert: ON CONFLICT closes the concurrent-insert race.
         // event_views_seq is created by Hibernate's drop-and-create in test

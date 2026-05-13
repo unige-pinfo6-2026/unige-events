@@ -10,19 +10,17 @@ import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.kafka.events.EventBannedEvent;
 
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
@@ -55,18 +53,14 @@ import java.util.UUID;
 public class ReportService {
 
     @Inject jakarta.enterprise.event.Event<EventBannedEvent> bannedEvent;
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
 
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
-
     @Transactional
     public ReportDTO create(Long eventId, String reporterAuth0Id, CreateReportRequest request) {
-        UUID reporterId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID reporterId = callerIdentity.requireUuid();
         if (reporterId == null) {
             throw new NotFoundException(
                     "User profile not found — call GET /users/me first");
@@ -161,7 +155,7 @@ public class ReportService {
                             + " — only PENDING reports can be transitioned.");
         }
 
-        UUID adminId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID adminId = callerIdentity.requireUuid();
         if (adminId == null) {
             throw new NotFoundException(
                     "Admin profile not found — call GET /users/me first");

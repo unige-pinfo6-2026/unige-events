@@ -2,9 +2,12 @@ package ch.unige.events.shared.domain.dto;
 
 import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.List;
 import java.util.UUID;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 
 /**
  * Public projection of a user — produced by user-service, consumed by

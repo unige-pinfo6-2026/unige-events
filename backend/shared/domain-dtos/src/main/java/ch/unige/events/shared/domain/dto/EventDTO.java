@@ -3,10 +3,13 @@ package ch.unige.events.shared.domain.dto;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.Faculty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 
 /**
  * Cross-service projection of an Event row. event-service is the only

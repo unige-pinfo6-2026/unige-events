@@ -51,7 +51,9 @@
           a Quarkus runtime onto every consumer of the DTO records.
         -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>org.eclipse.microprofile.jwt</groupId><artifactId>microprofile-jwt-auth-api</artifactId><scope>provided</scope></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-smallrye-fault-tolerance</artifactId><scope>provided</scope></dependency>
+        <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-annotations</artifactId><scope>provided</scope></dependency>
 
         <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     </dependencies>

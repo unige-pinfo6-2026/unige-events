@@ -5,14 +5,12 @@ import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.share.config.AppConfig;
 import ch.unige.events.event.share.dto.ShareResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.security.SecureRandom;
 import java.util.UUID;
@@ -36,15 +34,7 @@ public class ShareService {
     @Inject
     AppConfig appConfig;
 
-    /**
-     * Lazy via {@link Instance} so unit tests that boot with
-     * {@code quarkus.oidc.enabled=false} can still resolve the bean.
-     */
-    @Inject Instance<JsonWebToken> jwt;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
+    @Inject CallerIdentity callerIdentity;
 
     /**
      * Loads the event and authorizes the caller before generating / returning
@@ -73,7 +63,7 @@ public class ShareService {
             throw new NotFoundException();
         }
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.getUuid();
         boolean isCreator = callerUuid != null && callerUuid.equals(event.creatorId);
         boolean isAcceptedCoOrg = callerUuid != null
                 && EventCoOrganizer.isAcceptedFor(eventId, callerUuid);

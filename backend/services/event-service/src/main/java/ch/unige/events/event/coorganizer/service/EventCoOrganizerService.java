@@ -12,12 +12,11 @@ import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
 
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ForbiddenException;
@@ -26,7 +25,6 @@ import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.HashMap;
@@ -44,21 +42,17 @@ import java.util.UUID;
 public class EventCoOrganizerService {
 
     @Inject jakarta.enterprise.event.Event<CoOrganizerEvent> coOrgEvent;
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     @Inject @RestClient UserServiceClient userClient;
     @Inject @RestClient EngagementServiceClient engagementClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     public CoOrganizerDTO invite(Long eventId, String inviterAuth0Id, UUID targetUserId, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UUID inviterId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID inviterId = callerIdentity.requireUuid();
         if (inviterId == null) {
             throw new NotFoundException("User profile not found — call GET /users/me first");
         }
@@ -94,7 +88,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public CoOrganizerDTO accept(Long eventId, String userAuth0Id) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             throw new NotFoundException("User profile not found — call GET /users/me first");
         }
@@ -114,7 +108,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public void decline(Long eventId, String userAuth0Id) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             throw new NotFoundException("User profile not found — call GET /users/me first");
         }
@@ -133,7 +127,7 @@ public class EventCoOrganizerService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        UUID requesterId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID requesterId = callerIdentity.requireUuid();
         if (!isAdmin && !isCreator(event, requesterId)) {
             throw new ForbiddenException("Only the event creator (or an admin) can remove co-organizers");
         }
@@ -166,7 +160,7 @@ public class EventCoOrganizerService {
 
     @Transactional
     public List<CoOrganizerInvitationDTO> getMyInvitations(String auth0Id, CoOrganizerStatus status, int page, int size) {
-        UUID userId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID userId = callerIdentity.requireUuid();
         if (userId == null) {
             throw new NotFoundException("User profile not found — call GET /users/me first");
         }

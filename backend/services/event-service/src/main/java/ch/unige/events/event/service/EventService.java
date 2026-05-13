@@ -17,12 +17,11 @@ import ch.unige.events.event.view.entity.EventView;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
-import ch.unige.events.shared.domain.projections.Auth0IdResolver;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 import ch.unige.events.shared.storage.FileStorageService;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -32,7 +31,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
@@ -71,14 +69,10 @@ public class EventService {
     @Inject FileStorageService fileStorageService;
     @Inject EntityManager entityManager;
     @Inject jakarta.enterprise.event.Event<EventLifecycleEvent> lifecycleEvent;
-    @Inject Instance<JsonWebToken> jwt;
+    @Inject CallerIdentity callerIdentity;
 
     @Inject @RestClient EngagementServiceClient engagementClient;
     @Inject @RestClient UserServiceClient userClient;
-
-    private JsonWebToken jwt() {
-        return jwt.isResolvable() ? jwt.get() : null;
-    }
 
     @Transactional
     @SuppressWarnings("java:S107")
@@ -177,7 +171,7 @@ public class EventService {
                 parentId
         ).page(page, size).list();
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         List<Event> visible = occurrences.stream()
                 .filter(o -> isOccurrenceVisible(o, callerUuid, isAdmin))
                 .toList();
@@ -196,7 +190,7 @@ public class EventService {
     }
 
     private Event persistParent(String auth0Id, CreateEventRequest request) {
-        UUID creatorId = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID creatorId = callerIdentity.requireUuid();
         if (creatorId == null) {
             throw new NotFoundException(
                     "User profile not found — call GET /users/me first");
@@ -294,7 +288,7 @@ public class EventService {
             throw new NotFoundException();
         }
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (event.status != EventStatus.PUBLISHED && !isAdmin
                 && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new NotFoundException();
@@ -383,7 +377,7 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can update this event");
         }
@@ -430,7 +424,7 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isCreator(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator can delete this event");
         }
@@ -465,7 +459,7 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can cancel this event");
         }
@@ -495,7 +489,7 @@ public class EventService {
         Event event = Event.<Event>findByIdOptional(id)
                 .orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator or an accepted co-organizer can restore this event");
         }
@@ -522,7 +516,7 @@ public class EventService {
     public EventDTO publish(Long id, String auth0Id, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can publish this event");
         }
@@ -556,7 +550,7 @@ public class EventService {
     public EventDTO uploadImage(Long id, String auth0Id, FileUpload fileUpload, boolean isAdmin) {
         Event event = Event.<Event>findByIdOptional(id).orElseThrow(NotFoundException::new);
 
-        UUID callerUuid = Auth0IdResolver.resolveUserUuid(jwt());
+        UUID callerUuid = callerIdentity.requireUuid();
         if (!isAdmin && !isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can upload a banner");
         }
@@ -659,6 +653,6 @@ public class EventService {
      */
     @SuppressWarnings("unused")
     private boolean isCreatorOrAcceptedCoOrganizer(Event event, String auth0Id) {
-        return isCreatorOrAcceptedCoOrganizer(event, Auth0IdResolver.resolveUserUuid(jwt()));
+        return isCreatorOrAcceptedCoOrganizer(event, callerIdentity.requireUuid());
     }
 }
