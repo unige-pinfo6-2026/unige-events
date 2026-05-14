@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -26,7 +27,18 @@ import java.util.UUID;
  * {@code ON CONFLICT ... DO UPDATE}.
  */
 @Entity
-@Table(name = "event_views")
+@Table(
+    name = "event_views",
+    uniqueConstraints = {
+        // Real CONSTRAINTs (not partial indexes) so that ON CONFLICT works.
+        // PostgreSQL NULL-distinctness handles the "anon row has user_id NULL"
+        // case naturally — multiple NULLs never collide.
+        @UniqueConstraint(name = "uq_event_view_user_event",
+                          columnNames = {"event_id", "user_id"}),
+        @UniqueConstraint(name = "uq_event_view_event_session",
+                          columnNames = {"event_id", "session_id"})
+    }
+)
 public class EventView extends PanacheEntity {
 
     @Column(name = "event_id", nullable = false)
