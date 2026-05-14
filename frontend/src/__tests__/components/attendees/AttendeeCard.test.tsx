@@ -21,6 +21,7 @@ const attendance: Attendance = {
 
 const profile: UserPublicResponse = {
   id: 'user-1',
+  username: 'alice.martin',
   displayName: 'Alice Martin',
   faculty: 'SCIENCES',
   studyLevel: 'MASTER',
@@ -40,14 +41,25 @@ function renderCard(...args: Parameters<typeof AttendeeCard>) {
 }
 
 describe('AttendeeCard', () => {
-  it('renders profile and links to /profile/:id', () => {
+  it('renders profile and links to /profile/:username (SCRUM-169)', () => {
     renderCard({ attendance, profile })
 
     const link = screen.getByRole('link') as HTMLAnchorElement
-    expect(link.getAttribute('href')).toBe('/profile/user-1')
+    expect(link.getAttribute('href')).toBe('/profile/alice.martin')
     expect(screen.getByText('Alice Martin')).toBeTruthy()
     expect(screen.getByText(/Master/)).toBeTruthy()
     expect(screen.getByText(/Sciences/)).toBeTruthy()
+  })
+
+  it('falls back to /profile/:uuid when username is missing (orphan row, SCRUM-169)', () => {
+    // Orphan attendance rows can land with username=null after the user was
+    // deleted. ProfilePage's UUID-redirect catches that case downstream.
+    renderCard({
+      attendance,
+      profile: { ...profile, username: null as unknown as string },
+    })
+    const link = screen.getByRole('link') as HTMLAnchorElement
+    expect(link.getAttribute('href')).toBe('/profile/user-1')
   })
 
   it('renders only the meta values that are present', () => {
