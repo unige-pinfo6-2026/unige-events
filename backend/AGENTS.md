@@ -64,7 +64,9 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Auth : `quarkus-oidc` mode `service` en prod, `%test.quarkus.oidc.enabled=false`. Pas de defaults bidons (SEC-004) — les vars d'env sont posées par Doppler en preview/prod (cf. [`docs/devops-handoff.md`](docs/devops-handoff.md) item 6).
 
 ### Rôle ADMIN — claim Auth0, pas de champ DB
-Le rôle ADMIN est porté **exclusivement** par la claim Auth0 (`https://quarkus-security.com/roles`, configurée via `quarkus.oidc.roles.role-claim-path`) et consommé via `@RolesAllowed("ADMIN")` ou `identity.hasRole("ADMIN")`. **Pas de champ `admin: boolean` sur l'entité `User`** — décision SCRUM-94. Une seule source de vérité (Auth0).
+Le rôle ADMIN est porté **exclusivement** par la claim Auth0 (`https://unige-events/roles`, configurée via `quarkus.oidc.roles.role-claim-path` + variable d'env `OIDC_ROLE_NAMESPACE`) et consommé via `@RolesAllowed("ADMIN")` ou `identity.hasRole("ADMIN")`. **Pas de champ `admin: boolean` sur l'entité `User`** — décision SCRUM-94. Une seule source de vérité (Auth0).
+
+> **Alignement frontend.** Le frontend (`VITE_AUTH0_ROLES_CLAIM` consommé dans `AuthContext.tsx`) doit pointer sur **exactement la même URL**. Les guillemets sont déjà dans le `application.properties` (`"${OIDC_ROLE_NAMESPACE}"`) — ne pas en ajouter dans le `.env`.
 
 ### Cascade SCRUM-136 + anti-oracles ISSUE-92 / ISSUE-93
 
