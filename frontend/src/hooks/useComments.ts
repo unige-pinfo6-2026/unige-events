@@ -8,6 +8,13 @@ import type { Comment } from '@/types/comment'
 
 const DEFAULT_PAGE_SIZE = 20
 
+/** Returns the list with `commentId` removed from top-level OR from any parent's replies. */
+function withCommentRemoved(prev: Comment[], commentId: number): Comment[] {
+  return prev
+    .filter((c) => c.id !== commentId)
+    .map((c) => ({ ...c, replies: c.replies.filter((r) => r.id !== commentId) }))
+}
+
 interface UseCommentsResult {
   comments: Comment[]
   hasMore: boolean
@@ -126,11 +133,7 @@ export function useComments(eventId: number, pageSize = DEFAULT_PAGE_SIZE): UseC
   // exist in the UI.
   const remove = useCallback(async (commentId: number) => {
     const previous = comments
-    setComments((prev) =>
-      prev
-        .filter((c) => c.id !== commentId)
-        .map((c) => ({ ...c, replies: c.replies.filter((r) => r.id !== commentId) })),
-    )
+    setComments((prev) => withCommentRemoved(prev, commentId))
     try {
       await deleteComment(commentId)
     } catch {

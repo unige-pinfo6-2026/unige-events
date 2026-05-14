@@ -70,13 +70,15 @@ public class EventViewService {
     }
 
     private void upsertAuthenticated(Long eventId, UUID userId) {
-        // ON CONFLICT target = partial unique index uq_event_view_user_event
-        // (WHERE user_id IS NOT NULL). PostgreSQL requires explicit conflict
-        // column list matching the index expression.
+        // ON CONFLICT target = unique constraint uq_event_view_user_event.
+        // No WHERE clause: PostgreSQL only recognizes real CONSTRAINTs (not
+        // partial indexes) for ON CONFLICT, so V11 was migrated to full
+        // UNIQUE constraints. NULL distinctness ensures rows with user_id
+        // NULL never collide here.
         entityManager.createNativeQuery(
                 "INSERT INTO event_views (id, event_id, user_id, viewed_at) " +
                 "VALUES (nextval('event_views_seq'), :eventId, :userId, :viewedAt) " +
-                "ON CONFLICT (event_id, user_id) WHERE user_id IS NOT NULL " +
+                "ON CONFLICT (event_id, user_id) " +
                 "DO UPDATE SET viewed_at = EXCLUDED.viewed_at")
                 .setParameter("eventId", eventId)
                 .setParameter("userId", userId)
@@ -85,11 +87,11 @@ public class EventViewService {
     }
 
     private void upsertAnonymous(Long eventId, UUID sessionId) {
-        // ON CONFLICT target = partial unique index uq_event_view_event_session.
+        // ON CONFLICT target = unique constraint uq_event_view_event_session.
         entityManager.createNativeQuery(
                 "INSERT INTO event_views (id, event_id, session_id, viewed_at) " +
                 "VALUES (nextval('event_views_seq'), :eventId, :sessionId, :viewedAt) " +
-                "ON CONFLICT (event_id, session_id) WHERE session_id IS NOT NULL " +
+                "ON CONFLICT (event_id, session_id) " +
                 "DO UPDATE SET viewed_at = EXCLUDED.viewed_at")
                 .setParameter("eventId", eventId)
                 .setParameter("sessionId", sessionId)

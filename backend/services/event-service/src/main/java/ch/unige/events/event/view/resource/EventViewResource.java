@@ -17,7 +17,6 @@ import java.util.UUID;
 
 @Path("/events")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class EventViewResource {
 
     private final EventViewService eventViewService;
@@ -29,9 +28,18 @@ public class EventViewResource {
         this.identity = identity;
     }
 
+    /**
+     * Records a view of an event. Body is optional — both anonymous (no JWT,
+     * no body, no session) and authenticated calls are accepted.
+     *
+     * <p>{@code @Consumes(WILDCARD)} on the method (not the class) so that
+     * empty POSTs without {@code Content-Type: application/json} don't trip
+     * a 415 before reaching the handler.
+     */
     @POST
     @Path("/{id}/view")
     @PermitAll
+    @Consumes(MediaType.WILDCARD)
     public Response recordView(@PathParam("id") Long id, RecordViewRequest body) {
         String auth0Id = identity.isAnonymous() ? null : identity.getPrincipal().getName();
         UUID sessionId = body != null ? body.sessionId() : null;
