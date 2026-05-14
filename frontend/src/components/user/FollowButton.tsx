@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { followUser, unfollowUser } from '@/services/followApi'
 import { useToast } from '@/hooks/useToast'
 import type { FollowStatus } from '@/types/user'
@@ -52,6 +52,19 @@ export default function FollowButton({
   const toast = useToast()
   const [state, setState] = useState<LocalState>(toLocalState(followStatus))
   const [pending, setPending] = useState(false)
+
+  // Sync local state from the parent's followStatus prop while no mutation is
+  // in flight. The optimistic flip in handleClick takes priority *during* the
+  // round-trip (pending=true), then the parent's refetch lands and this
+  // effect adopts the server-truthy value — important for the auto-ACCEPT
+  // case where the user clicks "Suivre" on a public profile: local state
+  // optimistically becomes PENDING, the server resolves to ACCEPTED, the
+  // parent refetches, and we need to flip to ACCEPTED here without the user
+  // having to re-render the page.
+  useEffect(() => {
+    if (pending) return
+    setState(toLocalState(followStatus))
+  }, [followStatus, pending])
 
   // The button is idempotent on the server, but the UI carries an in-flight
   // guard so a double-click during the network round-trip can't queue two

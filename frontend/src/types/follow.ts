@@ -1,4 +1,4 @@
-import type { FollowStatus } from './user'
+import type { FollowStatus } from '@/types/user'
 
 /**
  * Row `Follow` returned by the SCRUM-138 follow endpoints. Id-only payload —

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('@/services/followApi', () => ({
   followUser: vi.fn(),
@@ -128,6 +128,43 @@ describe('FollowButton', () => {
       await waitFor(() => expect(screen.getByText('Suivre')).toBeTruthy())
       expect(mockUnfollow).toHaveBeenCalledWith(TARGET)
       await waitFor(() => expect(onMutated).toHaveBeenCalled())
+    })
+  })
+
+  describe('prop sync (real bug from Copilot review)', () => {
+    it('adopts the parent followStatus when it changes (e.g. auto-ACCEPT on public target)', async () => {
+      // User clicks Suivre on a public profile → optimistic PENDING →
+      // server auto-ACCEPTs → parent refetches → followStatus prop flips to
+      // 'ACCEPTED'. Before the fix the button stayed stuck on PENDING.
+      const { rerender } = render(<FollowButton targetId={TARGET} followStatus={null} />)
+      expect(screen.getByText('Suivre')).toBeTruthy()
+
+      rerender(<FollowButton targetId={TARGET} followStatus="ACCEPTED" />)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Se désabonner' })).toBeTruthy())
+    })
+
+    it('does NOT clobber the optimistic state while a mutation is in flight', async () => {
+      let resolveFn: () => void = () => {}
+      mockFollow.mockImplementation(() => new Promise<unknown>(resolve => {
+        resolveFn = () => resolve({
+          id: 1, followerId: 'me', followedId: TARGET, status: 'PENDING', createdAt: 'x',
+        })
+      }))
+
+      const { rerender } = render(<FollowButton targetId={TARGET} followStatus={null} />)
+      fireEvent.click(screen.getByRole('button'))
+      // Optimistic flip to PENDING ("Demande envoyée") happens immediately.
+      await waitFor(() => expect(screen.getByText('Demande envoyée')).toBeTruthy())
+
+      // Parent re-renders with the still-stale `null` prop mid-flight — the
+      // optimistic state must NOT be reset to "Suivre" while we're waiting
+      // for the API.
+      rerender(<FollowButton targetId={TARGET} followStatus={null} />)
+      expect(screen.getByText('Demande envoyée')).toBeTruthy()
+
+      // Once the mutation settles, prop sync re-engages.
+      act(() => { resolveFn() })
+      await waitFor(() => expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false))
     })
   })
 

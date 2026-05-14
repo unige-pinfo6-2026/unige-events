@@ -637,7 +637,7 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 
 - `followUser(targetId): Promise<FollowDTO>` : `POST /api/users/{id}/follow` — status auto-résolu côté backend (`ACCEPTED` si cible publique, `PENDING` si privée). Erreurs : `409 already_following`, `422 cannot_follow_self`, `429 rate_limited` propagées.
 - `unfollowUser(targetId): Promise<void>` : `DELETE /api/users/{id}/follow` — **idempotent**, le backend renvoie 204 même sans row. Pas de 404 sur cancel/unfollow.
-- `getMyFollowRequests(): Promise<FollowDTO[]>` : `GET /api/users/me/follow-requests` — liste paginée des demandes PENDING reçues.
+- `getMyFollowRequests(): Promise<FollowDTO[]>` : `GET /api/users/me/follow-requests` — première page (défaut backend `page=0&size=20`) des demandes PENDING reçues. Le wrapper ne propage pas (encore) les query params de pagination ; à étendre si une UI "Voir plus" / archive est ajoutée.
 - `acceptFollowRequest(followId): Promise<FollowDTO>` : `PATCH /api/follow-requests/{followId}/accept` — bascule la row vers ACCEPTED. 403 si caller ≠ target, 409 `invalid_transition` si déjà ACCEPTED.
 - `rejectFollowRequest(followId): Promise<void>` : `PATCH /api/follow-requests/{followId}/reject` — supprime physiquement la row (re-follow ultérieur possible sans 409). 204.
 

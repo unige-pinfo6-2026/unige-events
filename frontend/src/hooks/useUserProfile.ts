@@ -75,8 +75,12 @@ export function useUserProfile(id: string | undefined): UseUserProfileResult {
   }, [id, reloadKey])
 
   const refetch = useCallback(() => {
+    // True no-op when there is no id to fetch: don't bump reloadKey, otherwise
+    // the effect re-runs and resets state (setLoading(true), clears profile)
+    // even though no request is going to fire.
+    if (!id) return
     setReloadKey(k => k + 1)
-  }, [])
+  }, [id])
 
   return { profile, isNotFound, loading, error, refetch }
 }

@@ -45,15 +45,20 @@ function EmptyState() {
 
 interface RowProps {
   row: FollowRequestRow
-  pendingId: number | null
+  /**
+   * `true` when *any* row has an in-flight accept / reject — disables every
+   * action button across the list, not only the in-flight one. Prevents the
+   * UX glitch where clicks on other rows appeared interactive but were
+   * silently ignored by the outer `pendingId !== null` guard.
+   */
+  busy: boolean
   onAccept: (id: number) => void
   onReject: (id: number) => void
 }
 
-function FollowRequestRowItem({ row, pendingId, onAccept, onReject }: Readonly<RowProps>) {
+function FollowRequestRowItem({ row, busy, onAccept, onReject }: Readonly<RowProps>) {
   const { request, follower } = row
   const displayName = follower?.displayName ?? 'Utilisateur'
-  const isPending = pendingId === request.id
   const profileHref = `/profile/${request.followerId}`
 
   return (
@@ -70,7 +75,7 @@ function FollowRequestRowItem({ row, pendingId, onAccept, onReject }: Readonly<R
       <button
         type="button"
         onClick={() => onAccept(request.id)}
-        disabled={isPending}
+        disabled={busy}
         aria-label={`Accepter la demande de ${displayName}`}
         className={acceptButtonClass}
       >
@@ -80,7 +85,7 @@ function FollowRequestRowItem({ row, pendingId, onAccept, onReject }: Readonly<R
       <button
         type="button"
         onClick={() => onReject(request.id)}
-        disabled={isPending}
+        disabled={busy}
         aria-label={`Refuser la demande de ${displayName}`}
         className={rejectButtonClass}
       >
@@ -94,12 +99,18 @@ function FollowRequestRowItem({ row, pendingId, onAccept, onReject }: Readonly<R
 /**
  * Owner-only section on `/profile/me` listing PENDING follow requests
  * received by the caller (SCRUM-110 — US-21). Each row renders the
- * requester's avatar + displayName (resolved via `useUserProfile` per id),
- * plus Accept / Reject buttons.
+ * requester's avatar + displayName (resolved per row in
+ * {@link useMyFollowRequests} via `getPublicProfile` with `Promise.allSettled`
+ * so a single 404 doesn't fail the whole batch), plus Accept / Reject buttons.
  *
  * Optimistic UI: clicked row disappears immediately; rolls back on error.
  * After the API call succeeds, the list is refreshed in case other rows
  * appeared concurrently.
+ *
+ * While one accept / reject is in flight, every Accept / Reject button across
+ * every row is disabled (not just the in-flight row's) — the outer
+ * `pendingId !== null` guard silently early-returns clicks on other rows,
+ * so signaling "busy" globally is the honest UX.
  *
  * Counter staleness — known limitation: when the owner accepts a request,
  * their `followerCount` on `/profile/{ownUuid}` (public view) goes up
@@ -159,7 +170,7 @@ export default function FollowRequestsPanel() {
             <FollowRequestRowItem
               key={row.request.id}
               row={row}
-              pendingId={pendingId}
+              busy={pendingId !== null}
               onAccept={handleAccept}
               onReject={handleReject}
             />

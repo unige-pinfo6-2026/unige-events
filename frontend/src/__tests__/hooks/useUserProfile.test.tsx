@@ -110,14 +110,24 @@ describe('useUserProfile', () => {
     expect(mockGetPublicProfile).toHaveBeenCalledTimes(2)
   })
 
-  it('refetch() is a no-op while id is undefined (no fetch fires)', async () => {
+  it('refetch() is a true no-op while id is undefined (no fetch, no state churn)', async () => {
     const { result } = renderHook(() => useUserProfile(undefined))
     await new Promise(r => setTimeout(r, 10))
+
+    // Baseline: no fetch, hook is in "waiting for id" state.
+    expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    expect(result.current.loading).toBe(true)
+    expect(result.current.profile).toBeNull()
+    const renderCountBefore = result.current
 
     act(() => { result.current.refetch() })
     await new Promise(r => setTimeout(r, 10))
 
+    // No fetch fired, AND the hook result is still the same object shape —
+    // the effect should not have re-run and reset state.
     expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    expect(result.current.loading).toBe(renderCountBefore.loading)
+    expect(result.current.profile).toBe(renderCountBefore.profile)
   })
 
   it('discards a stale response when id changes mid-flight', async () => {
