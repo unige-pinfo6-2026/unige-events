@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getPublicProfile } from '@/services/userService'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -8,6 +8,13 @@ export interface UseUserProfileResult {
   isNotFound: boolean
   loading: boolean
   error: string | null
+  /**
+   * Re-fetches `/users/{id}` and updates the local profile state. Used by
+   * `FollowButton` after a follow / unfollow mutation so the
+   * `followStatus` + `followerCount` re-render with fresh values (SCRUM-110).
+   * No-op while `id` is undefined.
+   */
+  refetch: () => void
 }
 
 /**
@@ -27,6 +34,9 @@ export function useUserProfile(id: string | undefined): UseUserProfileResult {
   const [isNotFound, setIsNotFound] = useState(false)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+  // Monotonic counter bumped by `refetch()` to re-run the effect without
+  // changing `id` (matches the pattern used by useMyEvents and friends).
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     if (!id) {
@@ -62,7 +72,11 @@ export function useUserProfile(id: string | undefined): UseUserProfileResult {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, reloadKey])
 
-  return { profile, isNotFound, loading, error }
+  const refetch = useCallback(() => {
+    setReloadKey(k => k + 1)
+  }, [])
+
+  return { profile, isNotFound, loading, error, refetch }
 }

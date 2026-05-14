@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 vi.mock('@/services/userService', () => ({
   getPublicProfile: vi.fn(),
@@ -92,6 +92,32 @@ describe('useUserProfile', () => {
 
     await waitFor(() => expect(result.current.profile?.displayName).toBe('Bob'))
     expect(mockGetPublicProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('refetch() re-fetches the same id without changing the URL param (SCRUM-110 follow flow)', async () => {
+    mockGetPublicProfile
+      .mockResolvedValueOnce(profile)
+      .mockResolvedValueOnce({ ...profile, followStatus: 'PENDING', followerCount: 13 })
+
+    const { result } = renderHook(() => useUserProfile(profile.id))
+
+    await waitFor(() => expect(result.current.profile?.followerCount).toBe(12))
+
+    act(() => { result.current.refetch() })
+
+    await waitFor(() => expect(result.current.profile?.followerCount).toBe(13))
+    expect(result.current.profile?.followStatus).toBe('PENDING')
+    expect(mockGetPublicProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('refetch() is a no-op while id is undefined (no fetch fires)', async () => {
+    const { result } = renderHook(() => useUserProfile(undefined))
+    await new Promise(r => setTimeout(r, 10))
+
+    act(() => { result.current.refetch() })
+    await new Promise(r => setTimeout(r, 10))
+
+    expect(mockGetPublicProfile).not.toHaveBeenCalled()
   })
 
   it('discards a stale response when id changes mid-flight', async () => {
