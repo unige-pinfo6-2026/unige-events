@@ -1036,7 +1036,10 @@ describe('EventDetailPage', () => {
       expect(mockRecordEventView).toHaveBeenCalledTimes(1)
     })
 
-    it('does not call recordEventView for anonymous (no user) viewers', async () => {
+    it('calls recordEventView for anonymous viewers too (post-V11 anon support)', async () => {
+      // Post-2026-05-14 (Axe 4 PR) : la vue est enregistrée même pour les
+      // utilisateurs anonymes — le backend déduplique par sessionId UUID
+      // envoyé en body par statsApi.recordEventView.
       mockUseAuth.mockReturnValue({ user: null })
       mockUseEvent.mockReturnValue({
         event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
@@ -1045,9 +1048,7 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // wait long enough for the effect to have run if it were going to
-      await new Promise(r => setTimeout(r, 0))
-      expect(mockRecordEventView).not.toHaveBeenCalled()
+      await waitFor(() => expect(mockRecordEventView).toHaveBeenCalledWith(1))
     })
 
     it('does not call recordEventView when eventId is invalid', async () => {

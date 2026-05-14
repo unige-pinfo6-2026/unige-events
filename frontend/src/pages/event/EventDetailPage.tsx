@@ -236,9 +236,13 @@ export default function EventDetailPage() {
   }, [])
 
   useEffect(() => {
-    if (!eventId || !user) return
+    // Post-V11 schema (2026-05-14) : la vue est enregistrée même pour les
+    // utilisateurs anonymes, via un sessionId UUID généré côté client. La
+    // dédup serveur évite le spam ((eventId, userId) pour auth, (eventId,
+    // sessionId) pour anon). Cf. spec Axe 4.
+    if (!eventId) return
     recordEventView(eventId).catch(() => {})
-  }, [eventId, user])
+  }, [eventId])
 
   useEffect(() => {
     if (!event) { setOrganizer(null); return }
