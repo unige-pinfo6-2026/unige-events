@@ -22,6 +22,7 @@ import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
 import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
+import CommentSection from '@/components/event/CommentSection'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
@@ -660,6 +661,14 @@ export default function EventDetailPage() {
 
         </div>
 
+      </div>
+
+      <div className="mt-10">
+        <CommentSection
+          eventId={event.id}
+          eventCreatorId={event.creatorId}
+          eventStatus={event.status}
+        />
       </div>
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}
