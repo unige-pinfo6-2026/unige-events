@@ -11,6 +11,12 @@ export interface Comment {
   authorId: string | null
   authorDisplayName: string | null
   authorAvatarUrl: string | null
+  /**
+   * Username public-facing de l'auteur (SCRUM-169). Permet à `CommentItem`
+   * d'afficher `@username` en fallback de `displayName` sans round-trip.
+   * `null` uniquement sur ligne orpheline (user supprimé sans cascade).
+   */
+  authorUsername: string | null
   authorIsOrganizer: boolean
   likeCount: number
   likedByMe: boolean

@@ -22,6 +22,7 @@ const sample: Comment = {
   authorId: 'author-uuid',
   authorDisplayName: 'Alice',
   authorAvatarUrl: null,
+  authorUsername: 'alice',
   authorIsOrganizer: false,
   likeCount: 0,
   likedByMe: false,

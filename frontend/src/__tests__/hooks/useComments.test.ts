@@ -26,6 +26,7 @@ function makeComment(id: number, content = 'Hi', replies: Comment[] = []): Comme
     authorId: 'a',
     authorDisplayName: 'A',
     authorAvatarUrl: null,
+    authorUsername: 'a',
     authorIsOrganizer: false,
     likeCount: 0,
     likedByMe: false,

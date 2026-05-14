@@ -1105,6 +1105,16 @@ components:
           type: string
           nullable: true
           description: URL absolue de l'avatar de l'auteur.
+        authorUsername:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          nullable: true
+          description: |
+            Username public-facing de l'auteur (SCRUM-169). Permet à `CommentItem`
+            d'afficher `@username` en fallback de `displayName` sans round-trip.
+            `null` uniquement pour les rows orphelines (user supprimé).
         authorIsOrganizer:
           type: boolean
           description: |

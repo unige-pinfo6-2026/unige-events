@@ -16,6 +16,7 @@ function makeComment(overrides: Partial<Comment> = {}): Comment {
     authorId: 'author-uuid',
     authorDisplayName: 'Alice',
     authorAvatarUrl: null,
+    authorUsername: 'alice',
     authorIsOrganizer: false,
     likeCount: 0,
     likedByMe: false,
@@ -248,5 +249,44 @@ describe('CommentItem', () => {
       />,
     )
     expect(screen.getByText('Une réponse')).toBeTruthy()
+  })
+
+  // SCRUM-169 — author label fallback order : displayName -> @username ->
+  // UUID prefix. Pre-2026-05-14 the @username step did not exist
+  // (CommentDTO didn't carry authorUsername), so the helper would land
+  // directly on the UUID prefix.
+
+  it('falls back to @username when displayName is null', () => {
+    render(
+      <CommentItem
+        comment={makeComment({ authorDisplayName: null, authorUsername: 'alice.martin' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.getByText('@alice.martin')).toBeTruthy()
+  })
+
+  it('falls back to UUID prefix when displayName and username are both null', () => {
+    render(
+      <CommentItem
+        comment={makeComment({
+          authorDisplayName: null,
+          authorUsername: null,
+          authorId: '19f3ab78-0fbf-4cfb-896e-5c0346fabed5',
+        })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.getByText('19f3ab78')).toBeTruthy()
   })
 })

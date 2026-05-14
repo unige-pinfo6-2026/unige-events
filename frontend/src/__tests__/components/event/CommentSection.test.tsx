@@ -62,6 +62,7 @@ function makeComment(id: number, content = 'Hi'): Comment {
     authorId: 'author',
     authorDisplayName: 'Alice',
     authorAvatarUrl: null,
+    authorUsername: 'alice',
     authorIsOrganizer: false,
     likeCount: 0,
     likedByMe: false,
