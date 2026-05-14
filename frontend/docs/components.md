@@ -360,6 +360,34 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Gère les états loading, error et regenerating.
 - Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
 
+### ProfileStats (SCRUM-141)
+
+- Composant `src/components/profile/ProfileStats.tsx` rendu sous le header de `ProfilePage` pour tout profil public.
+- Props : `followerCount: number`, `followingCount: number`.
+- Affiche deux tuiles compteur (followers / abonnements) avec valeur formatée fr-CH (séparateur U+202F entre milliers) + icône `Users`.
+- Pas de liens vers les listes followers / abonnements (SCRUM-142 / SCRUM-110 follow-ups).
+- Singulier `follower` quand `followerCount === 1`, sinon pluriel `followers`. `abonnements` toujours au pluriel.
+
+### ProfileEventsList (SCRUM-141)
+
+- Composant `src/components/profile/ProfileEventsList.tsx` rendu en bas de `ProfilePage` (colonne gauche du grid 2-colonnes événements + participations).
+- Props : `events: Event[]`, `loading: boolean`, `error: string | null`.
+- Réutilise `PreviewRow` pour la cohérence visuelle avec `MyPublicationsPreview`.
+- États : skeleton de chargement (3 lignes), empty state ("Aucun événement organisé pour le moment.") avec icône `CalendarOff`, message d'erreur.
+- Consomme `useOrganizerEvents(id)` côté `ProfilePage` (qui appelle `GET /events?organizerId=…&status=PUBLISHED`).
+
+### ProfileParticipations (SCRUM-141)
+
+- Composant `src/components/profile/ProfileParticipations.tsx` rendu en bas de `ProfilePage` (colonne droite du grid événements + participations).
+- Placeholder uniquement — affiche "Aucune participation publique à afficher." avec icône `Ticket`.
+- **TODO (follow-up ticket)** : le backend n'expose pas encore d'endpoint listant les participations publiques d'un utilisateur arbitraire (`/users/me/participations` existe mais est restreint au caller). Quand l'endpoint atterrira, brancher un hook `useUserParticipations(id)` qui appelle `/users/{id}/participations` (à créer côté backend, avec filtre de confidentialité miroir de `GET /events/{id}/attendees`).
+
+### ProfilePrivateState (SCRUM-141)
+
+- Composant `src/components/profile/ProfilePrivateState.tsx` rendu par `ProfilePage` quand `getPublicProfile(id)` retourne `null` (404 backend — couvre indistinctement "user inexistant" et "profil privé non accessible", anti-oracle ISSUE-93).
+- Props : `followStatus?: FollowStatus | null`. Affiche un badge désactivé "Demande de suivi envoyée" uniquement si `followStatus === 'PENDING'` (le backend retourne actuellement 404 sans body sur le profil privé, donc ce cas est pour évolution future du contrat).
+- Layout : bannière placeholder dégradée + card centrée avec icône `Lock` + titre "Ce profil est privé" + description.
+
 ### MyPublicationsPreview
 
 - Composant `src/components/profile/MyPublicationsPreview.tsx` rendu uniquement pour `isOwnProfile` dans `ProfilePage`, en colonne gauche sous la card "À propos".
@@ -536,6 +564,21 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Retourne : `attendees: Attendance[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `refetch()`.
 - Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
 
+### useUserProfile (SCRUM-141)
+
+- Charge le profil public d'un utilisateur via `GET /api/users/{id}` (cf. `getPublicProfile`).
+- Signature : `useUserProfile(id: string | undefined)`. Avec `id === undefined`, aucun fetch.
+- Retourne : `profile: UserPublicResponse | null`, `isNotFound: boolean`, `loading: boolean`, `error: string | null`.
+- 404 backend → `isNotFound = true` (l'anti-oracle ISSUE-93 confond "user inexistant" et "profil privé non accessible" — la page rend la même UI privée pour les deux). Autre erreur → `error` rempli.
+- Discard automatique des réponses stales sur changement de prop `id` ou unmount via flag `cancelled`.
+
+### useOrganizerEvents (SCRUM-141)
+
+- Liste les événements publiés organisés par un utilisateur via `GET /api/events?organizerId={id}&status=PUBLISHED`.
+- Signature : `useOrganizerEvents(organizerId: string | undefined)`. Avec `organizerId === undefined`, aucun fetch.
+- Retourne : `events: Event[]`, `loading: boolean`, `error: string | null`.
+- Le backend force `status=PUBLISHED` quand `organizerId` est présent — pas de risque de fuiter des brouillons / annulés vers les viewers tiers.
+
 ### useAttendance
 
 - Gère l'état d'inscription d'un utilisateur à un événement.
@@ -549,7 +592,8 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 ### userService.ts
 
 - `getMe()` : `GET /api/users/me` — profil complet de l'utilisateur connecté.
-- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur.
+- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur (legacy ; rethrow sur erreur).
+- `getPublicProfile(id)` : `GET /api/users/{id}` côté `ProfilePage` (SCRUM-141) — retourne `UserPublicResponse | null` ; le 404 (privé ou inexistant, ISSUE-93 anti-oracle) devient `null`, les autres erreurs sont rethrown.
 - `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
 - `uploadPhoto(file)` : `POST /api/users/me/image` — upload de la photo de profil (multipart).
 - `uploadBanner(file)` : `POST /api/users/me/banner` — upload de la bannière de profil (multipart).

@@ -143,18 +143,27 @@ Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCT
 
 ### UserPublicResponse
 
-Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+Profil public retourné par `GET /api/users/{id}` quand le profil est public OU que le caller est owner/admin. Si le profil est privé et que le caller n'est ni owner ni admin, le backend retourne **404** (anti-oracle ISSUE-93, indistinguable d'un user inexistant).
 
-| Champ       | Type                      | Requis |
-|-------------|---------------------------|--------|
-| id          | string                    | oui    |
-| displayName | string \| null            | non    |
-| faculty     | string \| null            | non    |
-| studyLevel  | string \| null            | non    |
-| bio         | string \| null            | non    |
-| interests   | string[]                  | non    |
-| avatarUrl   | string \| null            | non    |
-| bannerUrl   | string \| null            | non    |
+| Champ          | Type                          | Requis | Notes |
+|----------------|-------------------------------|--------|-------|
+| id             | string                        | oui    | UUID |
+| displayName    | string \| null                | non    | |
+| faculty        | string \| null                | non    | |
+| studyLevel     | string \| null                | non    | |
+| bio            | string \| null                | non    | |
+| interests      | string[]                      | non    | |
+| avatarUrl      | string \| null                | non    | |
+| bannerUrl      | string \| null                | non    | |
+| followerCount  | number                        | oui    | Nombre de followers ACCEPTED (toujours présent, `0` pour anonyme). |
+| followingCount | number                        | oui    | Nombre d'abonnements ACCEPTED (toujours présent, `0` pour anonyme). |
+| followStatus   | FollowStatus \| null          | non    | État de la relation caller → cible. `null` si anonyme, sur son propre profil, ou aucune row `Follow`. |
+
+### FollowStatus
+
+`'PENDING' | 'ACCEPTED'`
+
+Cf. SCRUM-138. `PENDING` = demande de suivi envoyée par le caller, profil cible privé. `ACCEPTED` = suivi actif (mutuel ou non).
 
 ---
 
