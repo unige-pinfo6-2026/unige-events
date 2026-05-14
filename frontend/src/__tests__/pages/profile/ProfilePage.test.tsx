@@ -35,6 +35,9 @@ vi.mock('@/services/followApi', () => ({
     id: 1, followerId: 'me', followedId: 'tgt', status: 'PENDING', createdAt: 'x',
   }),
   unfollowUser: vi.fn().mockResolvedValue(undefined),
+  getMyFollowRequests: vi.fn().mockResolvedValue([]),
+  acceptFollowRequest: vi.fn(),
+  rejectFollowRequest: vi.fn(),
 }))
 
 const mockShowToast = vi.fn()
@@ -387,6 +390,36 @@ describe('ProfilePage — private profile PENDING badge', () => {
     // No badge today since 404 doesn't carry followStatus — verified by the
     // dedicated ProfilePrivateState test.
     expect(screen.queryByText('Demande de suivi envoyée')).toBeNull()
+  })
+})
+
+describe('ProfilePage — FollowRequestsPanel on /profile/me (SCRUM-110)', () => {
+  it('renders the panel only on /profile/me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('heading', { name: 'Demandes de suivi reçues' })).toBeTruthy()
+  })
+
+  it('does NOT render the panel on /profile/<uuid>', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue(otherProfile)
+
+    renderProfilePage(OTHER_UUID)
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.queryByRole('heading', { name: 'Demandes de suivi reçues' })).toBeNull()
+  })
+
+  it('does NOT render the panel on /profile/<own-uuid> (rendered as public view)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue({ ...otherProfile, id: OWN_UUID, displayName: 'Test User' })
+
+    renderProfilePage(OWN_UUID)
+
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(screen.queryByRole('heading', { name: 'Demandes de suivi reçues' })).toBeNull()
   })
 })
 

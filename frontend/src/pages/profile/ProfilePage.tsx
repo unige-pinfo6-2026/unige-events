@@ -10,7 +10,8 @@ import ProfileStats from '@/components/profile/ProfileStats'
 import ProfileEventsList from '@/components/profile/ProfileEventsList'
 import ProfileParticipations from '@/components/profile/ProfileParticipations'
 import ProfilePrivateState from '@/components/profile/ProfilePrivateState'
-import { STUDY_LEVELS, type StudyLevel } from '@/types/user'
+import FollowRequestsPanel from '@/components/profile/FollowRequestsPanel'
+import { STUDY_LEVELS, type StudyLevel, type User, type UserPublicResponse } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
@@ -18,7 +19,6 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
-import type { User, UserPublicResponse } from '@/types/user'
 
 function ProfileFixture() {
   return (
@@ -204,6 +204,7 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             </div>
 
             {isMeRoute && <MyPublicationsPreview />}
+            {isMeRoute && <FollowRequestsPanel />}
           </div>
 
           {isMeRoute && <CalendarSubscribeButton />}
