@@ -31,6 +31,7 @@ const event: Event = {
   capacity: 50,
   attendingCount: 0,
   createdAt: '2026-05-01T10:00:00.000Z',
+  allDay: false,
 }
 
 describe('useOrganizerEvents', () => {

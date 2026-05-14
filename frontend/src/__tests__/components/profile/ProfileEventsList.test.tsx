@@ -22,6 +22,7 @@ const event: Event = {
   capacity: 50,
   attendingCount: 3,
   createdAt: '2026-05-01T10:00:00.000Z',
+  allDay: false,
 }
 
 function renderList(props: Parameters<typeof ProfileEventsList>[0]) {
