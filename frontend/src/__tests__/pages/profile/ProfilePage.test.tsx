@@ -215,13 +215,14 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
 
-  it('on /me, defaults follower/following counters to 0 (UserProfileResponse does not carry them)', async () => {
+  it('hides ProfileStats on /me (self payload UserProfileResponse does not carry follower counts)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     renderProfilePage('me')
     await screen.findByRole('heading', { level: 1, name: 'Test User' })
 
-    // Both counters render "0"
-    expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2)
+    // Stats wrapper is not labelled when absent — its aria-label is unique
+    // to the ProfileStats component, so its absence is the assertion.
+    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
   })
 })
 
@@ -275,10 +276,9 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
     renderProfilePage(OTHER_UUID)
 
     expect(await screen.findByRole('heading', { name: 'Événements organisés' })).toBeTruthy()
-    await waitFor(() => expect(mockGetAllEvents).toHaveBeenCalledWith({
-      organizerId: OTHER_UUID,
-      status: 'PUBLISHED',
-    }))
+    await waitFor(() => expect(mockGetAllEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ organizerId: OTHER_UUID, status: 'PUBLISHED' }),
+    ))
   })
 
   it('renders the "Participations publiques" placeholder section', async () => {
@@ -288,7 +288,7 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
     renderProfilePage(OTHER_UUID)
 
     expect(await screen.findByRole('heading', { name: 'Participations publiques' })).toBeTruthy()
-    expect(screen.getByText('Aucune participation publique à afficher.')).toBeTruthy()
+    expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
   })
 
   it('renders the private-state card when getPublicProfile returns null (private OR missing)', async () => {

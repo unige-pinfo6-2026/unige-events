@@ -213,12 +213,21 @@ public class AttendanceService {
 
         boolean isAdmin = identity.hasRole(ROLE_ADMIN);
         boolean isCreator = callerUuid != null && callerUuid.equals(event.creatorId());
-        boolean isCoOrganizer = Boolean.TRUE.equals(event.coOrganizerOf());
-        // Defense in depth: if coOrganizerOf came back null (anonymous caller or
-        // self-check ignored), confirm via the organizer-uuids endpoint so an
-        // ACCEPTED co-organizer is never demoted to non-organizer view.
-        if (!isCreator && !isCoOrganizer && callerUuid != null) {
+        // coOrganizerOf is a tri-state: TRUE / FALSE / null. The
+        // getByIdWithCoOrgCheck call honors the self-check only for
+        // authenticated callers whose uuid matches the query param
+        // (SEC-002 / Décision C) — non-null values are authoritative.
+        // Fall back to the organizer-uuids endpoint only when the self-check
+        // wasn't honored (null), so the hot path for ordinary authenticated
+        // viewers doesn't pay a needless cross-service round-trip.
+        Boolean coOrgOf = event.coOrganizerOf();
+        boolean isCoOrganizer;
+        if (coOrgOf != null) {
+            isCoOrganizer = coOrgOf;
+        } else if (!isCreator && callerUuid != null) {
             isCoOrganizer = eventClient.getOrganizerUuids(eventId).contains(callerUuid);
+        } else {
+            isCoOrganizer = false;
         }
         boolean isOrganizerView = isCreator || isCoOrganizer || isAdmin;
 

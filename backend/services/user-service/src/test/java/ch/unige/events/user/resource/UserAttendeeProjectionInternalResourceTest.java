@@ -69,7 +69,7 @@ class UserAttendeeProjectionInternalResourceTest {
     }
 
     @Test
-    void droppsUnknownIdsSilently() {
+    void dropsUnknownIdsSilently() {
         User pub = fixtures.persistUser("auth0|aiap-known", "aiap-known@example.com", true);
         UUID ghost = UUID.randomUUID();
 

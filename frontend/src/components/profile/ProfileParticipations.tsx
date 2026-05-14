@@ -26,7 +26,10 @@ export default function ProfileParticipations() {
       <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
         <Ticket className="w-10 h-10 text-foreground/20" />
         <p className="text-foreground/50 text-sm font-medium">
-          Aucune participation publique à afficher.
+          Bientôt disponible.
+        </p>
+        <p className="text-foreground/40 text-xs leading-relaxed max-w-xs">
+          La liste des participations publiques sera affichée ici dès qu'elle sera prise en charge par le backend.
         </p>
       </div>
     </section>

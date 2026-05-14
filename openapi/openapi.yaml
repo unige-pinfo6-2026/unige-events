@@ -3057,7 +3057,7 @@ paths:
           `userId=null`. L'UUID est volontairement masqué afin que l'appelant ne puisse
           pas sonder `GET /users/{id}` pour désanonymiser le participant.
         - **Utilisateur supprimé** (référence orpheline) : anonymisé de la même façon
-          quelle que soit le rôle de l'appelant — il n'y a aucune identité réelle à exposer.
+          quel que soit le rôle de l'appelant — il n'y a aucune identité réelle à exposer.
 
         L'endpoint requiert d'être authentifié ; il ne renvoie plus 403 aux non-organisateurs
         (la confidentialité est garantie par la projection ci-dessus, pas par un gate

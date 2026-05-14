@@ -16,6 +16,10 @@ describe('ProfileParticipations', () => {
   it('renders the placeholder copy until the backend endpoint lands', () => {
     render(<ProfileParticipations />)
 
-    expect(screen.getByText('Aucune participation publique à afficher.')).toBeTruthy()
+    // The copy intentionally signals "not implemented yet" rather than
+    // "no participations" — accounts that DO have public participations
+    // would otherwise be misrepresented as having none.
+    expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
+    expect(screen.getByText(/dès qu'elle sera prise en charge par le backend/)).toBeTruthy()
   })
 })

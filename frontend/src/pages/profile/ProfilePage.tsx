@@ -126,13 +126,20 @@ function PublicProfileView({ profile, isMeRoute }: Readonly<PublicProfileViewPro
           )}
         </div>
 
-        {/* Stats row directly below the header */}
-        <div className="mb-8">
-          <ProfileStats
-            followerCount={profile.followerCount}
-            followingCount={profile.followingCount}
-          />
-        </div>
+        {/* Stats row directly below the header.
+            Hidden on /profile/me — the self payload (UserProfileResponse)
+            doesn't carry followerCount / followingCount, so rendering the
+            tiles would display 0/0 for accounts that actually have real
+            follows. Owners get their counters via the dedicated followers /
+            following pages (SCRUM-142 / SCRUM-110 follow-ups) instead. */}
+        {!isMeRoute && (
+          <div className="mb-8">
+            <ProfileStats
+              followerCount={profile.followerCount}
+              followingCount={profile.followingCount}
+            />
+          </div>
+        )}
 
         {/* Content grid: about/bio (left) + calendar (right, /me only). When
             not on /me the layout collapses to a single column so the events

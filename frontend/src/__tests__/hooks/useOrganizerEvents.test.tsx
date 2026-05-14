@@ -8,7 +8,7 @@ vi.mock('@/services/eventApi', () => ({
 }))
 
 import { getAll } from '@/services/eventApi'
-import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
+import { ORGANIZER_EVENTS_FETCH_SIZE, useOrganizerEvents } from '@/hooks/useOrganizerEvents'
 import type { Event } from '@/types/event'
 
 const mockGetAll = getAll as ReturnType<typeof vi.fn>
@@ -45,19 +45,35 @@ describe('useOrganizerEvents', () => {
     expect(result.current.events).toEqual([])
   })
 
-  it('GETs /events with organizerId + status=PUBLISHED and surfaces the array', async () => {
+  it('GETs /events with organizerId + status=PUBLISHED + explicit size and surfaces the array', async () => {
     mockGetAll.mockResolvedValueOnce([event])
 
     const { result } = renderHook(() => useOrganizerEvents(event.creatorId))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(mockGetAll).toHaveBeenCalledWith({ organizerId: event.creatorId, status: 'PUBLISHED' })
+    expect(mockGetAll).toHaveBeenCalledWith({
+      organizerId: event.creatorId,
+      status: 'PUBLISHED',
+      size: ORGANIZER_EVENTS_FETCH_SIZE,
+    })
     expect(result.current.events).toEqual([event])
     expect(result.current.error).toBeNull()
+    expect(result.current.hasMore).toBe(false)
   })
 
-  it('returns empty array + French error on failure', async () => {
+  it('flags hasMore when the API returned exactly ORGANIZER_EVENTS_FETCH_SIZE rows (could be more)', async () => {
+    const fullPage = Array.from({ length: ORGANIZER_EVENTS_FETCH_SIZE }, (_, i) => ({ ...event, id: i + 1 }))
+    mockGetAll.mockResolvedValueOnce(fullPage)
+
+    const { result } = renderHook(() => useOrganizerEvents(event.creatorId))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.hasMore).toBe(true)
+    expect(result.current.events.length).toBe(ORGANIZER_EVENTS_FETCH_SIZE)
+  })
+
+  it('returns empty array + French error on failure and resets hasMore', async () => {
     mockGetAll.mockRejectedValueOnce(new Error('boom'))
 
     const { result } = renderHook(() => useOrganizerEvents(event.creatorId))
@@ -66,6 +82,7 @@ describe('useOrganizerEvents', () => {
 
     expect(result.current.events).toEqual([])
     expect(result.current.error).toBe('Impossible de charger les événements organisés.')
+    expect(result.current.hasMore).toBe(false)
   })
 
   it('refetches on organizerId change', async () => {
