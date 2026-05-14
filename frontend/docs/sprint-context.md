@@ -1,6 +1,21 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + view anonyme)
+Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + view anonyme + polish post-test-manuel)
+
+---
+
+## 2026-05-14 (suite) — Polish post-test-manuel PR #170
+
+Après ouverture de la PR #170 + tests manuels en local (devcontainer + Postgres dédiés), 4 ajustements UX/produit livrés sur la même branche :
+
+- **Cap commentaires 2000 → 500 chars** (axe 1, `fix(scrum-146)`). Trop laxiste pour des commentaires d'événement universitaire. OpenAPI + backend `@Size(max=500)` + frontend `MAX_LENGTH=500`. Pas de migration Flyway (`content` reste `TEXT`).
+- **Signalement de commentaire** (axe 2) : vérifié dans le backlog — **SCRUM-144 (`[BACK][S9]`) reste prévu pour Sprint 9**. Décision B de la spec (toast informatif "bientôt disponible") confirmée. Aucun code modifié.
+- **Fallback displayName** (axe 4, `fix(scrum-146)`). Quand `displayName` est `null` (Auth0 sans claim `name`), l'UI affichait "Utilisateur" partout — impossible de distinguer les comptes non-provisionnés. Nouveau util `@/utils/displayName.ts` (helpers `userDisplayLabel` + `userInitials`) avec fallback chain `trimmedDisplayName > UUID.slice(0,8) > "Utilisateur"`. Adopté par `CommentItem` et `EventOrganizerTeam`. **Follow-up** : remplacer le UUID prefix par un @username une fois le système username livré (post-PR #170).
+- **UI co-organisateurs** (axe 5, `fix(scrum-137)`) :
+  - Le placeholder historique `EventForm.tsx` "Alice Martin / Bob Chen" + champ "Inviter un collaborateur…" (bande 5) est supprimé.
+  - Le vrai `<CoOrganizersEditor>` est désormais injecté **dans** le flow du formulaire via une nouvelle prop `coOrganizersSection?: React.ReactNode` (avant la barre CTA Annuler/Enregistrer), au lieu d'être placé après `</EventForm>` dans `EventEditPage`. Ordre visuel cohérent.
+
+Tests : 1388/1388 ✅. Spec inchangée, décisions A→D toujours valides.
 
 ---
 

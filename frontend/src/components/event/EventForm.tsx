@@ -5,7 +5,7 @@ import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
-import { ImagePlus, MapPin, Globe, Mail, Repeat, Paperclip, Users, Search } from 'lucide-react'
+import { ImagePlus, MapPin, Globe, Mail, Repeat, Paperclip } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import CategorySelect from '@/components/event/CategorySelect'
 import ImageCropper from '@/components/utils/ImageCropper'
@@ -40,6 +40,13 @@ interface EventFormProps {
   onDelete?: () => void | Promise<void>
   deleting?: boolean
   deleteLabel?: string
+  /**
+   * Optional slot rendered just before the CTA bar (Save/Cancel). Used by
+   * `EventEditPage` to inject the real `<CoOrganizersEditor>` directly inside
+   * the form flow, replacing the historical placeholder. Visible in `edit`
+   * mode only.
+   */
+  coOrganizersSection?: React.ReactNode
 }
 
 interface DateTimeParts {
@@ -125,6 +132,7 @@ export default function EventForm({
   onDelete,
   deleting = false,
   deleteLabel = 'Supprimer',
+  coOrganizersSection,
 }: Readonly<EventFormProps>) {
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
@@ -472,40 +480,12 @@ export default function EventForm({
 
       </div>
 
-      {/* Bande 5 — Shell co-organisateurs (SCRUM-137) — edit only */}
-      {mode === 'edit' && (
-        <div className="flex flex-col gap-3 border-t border-border/30 pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-foreground/30">
-              <Users className="w-4 h-4" />
-              <span className="text-sm">Co-organisateurs</span>
-            </div>
-            <span className={comingSoonVariants.badge}>S8</span>
-          </div>
-
-          {/* Mock champ de recherche */}
-          <div className="pointer-events-none select-none opacity-40 max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30 pointer-events-none" />
-              <div className="w-full rounded-xl border border-dashed border-border/40 bg-transparent px-4 py-2.5 pl-10 text-sm text-foreground/20">
-                Inviter un collaborateur…
-              </div>
-            </div>
-          </div>
-
-          {/* Mock chips */}
-          <div className="flex flex-wrap gap-2 pointer-events-none select-none opacity-35">
-            {[
-              { name: 'Alice Martin', status: 'Accepté' },
-              { name: 'Bob Chen', status: 'En attente' },
-            ].map((co) => (
-              <span key={co.name} className="inline-flex items-center gap-2 px-3 py-1 rounded-xl border border-dashed border-border/40 text-sm text-foreground/25">
-                <span>{co.name}</span>
-                <span className="text-xs text-foreground/20">{co.status}</span>
-                <span className="text-foreground/20">×</span>
-              </span>
-            ))}
-          </div>
+      {/* Bande 5 — Co-organisateurs (SCRUM-137) — edit only. The real
+          CoOrganizersEditor is injected via the `coOrganizersSection` prop
+          by EventEditPage (the historical placeholder has been removed). */}
+      {mode === 'edit' && coOrganizersSection && (
+        <div className="border-t border-border/30 pt-6">
+          {coOrganizersSection}
         </div>
       )}
 

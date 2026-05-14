@@ -4,6 +4,18 @@ Dernière mise à jour : 2026-05-14 (post-merge PR #158 + reprise dev fonctionne
 
 ---
 
+## 2026-05-14 (suite) — Polish post-test-manuel PR #170
+
+Suite à l'ouverture PR #170 + tests manuels Elie en local, 1 ajustement backend :
+
+- **Cap `Comment.content` 2000 → 500 chars** : `@Size(max=500)` sur `Comment.java` + `CreateCommentRequest.java` (engagement-service). Pas de migration Flyway — `content` reste `TEXT` côté DB, seul le Bean Validation cap change. OpenAPI `CommentDTO.content.maxLength` + `CreateCommentRequest.content.maxLength` également à 500.
+
+Confirmation **SCRUM-144** (likes + report comment) reste **planifié S9** d'après le backlog — pas d'implémentation backend "signalement commentaire" dans cette PR.
+
+Doc : `backend/docs/data-model.md` ligne `content` ajusté à `@Size(max=500)`.
+
+---
+
 ## 2026-05-14 — État post-merge PR #158 + fixes infra + reprise dev fonctionnel
 
 PR #158 (`refactor(backend)--migrate-to-microservices`) mergée à `ad6d422f` le 2026-05-13.

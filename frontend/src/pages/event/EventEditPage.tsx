@@ -219,11 +219,8 @@ export default function EventEditPage() {
         onDelete={draftMode ? () => setShowDeleteConfirm(true) : undefined}
         deleting={deleting}
         deleteLabel={draftMode ? 'Supprimer le brouillon' : undefined}
+        coOrganizersSection={<CoOrganizersEditor eventId={event.id} />}
       />
-
-      <div className="mt-8">
-        <CoOrganizersEditor eventId={event.id} />
-      </div>
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
