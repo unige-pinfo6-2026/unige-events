@@ -388,6 +388,28 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Props : `followStatus?: FollowStatus | null`. Affiche un badge désactivé "Demande de suivi envoyée" uniquement si `followStatus === 'PENDING'` (le backend retourne actuellement 404 sans body sur le profil privé, donc ce cas est pour évolution future du contrat).
 - Layout : bannière placeholder dégradée + card centrée avec icône `Lock` + titre "Ce profil est privé" + description.
 
+### FollowButton (SCRUM-110)
+
+- Composant `src/components/user/FollowButton.tsx` — bouton à trois états piloté par `followStatus` de la cible.
+- Props : `targetId: string`, `followStatus?: FollowStatus | null`, `onMutated?: () => void`.
+- Variantes (const map typée `followButtonVariants`) :
+  - `idle` (followStatus = `null`) → bouton primary "Suivre" (gradient pink → accent) ; click `POST /api/users/{id}/follow`. Optimiste : passe immédiatement en `PENDING`. Le parent refetch via `onMutated` resynchronise le vrai statut (auto-ACCEPTED pour profil public, PENDING pour profil privé).
+  - `pending` → bouton muté "Demande envoyée" avec tooltip natif `title="Cliquer pour annuler"` ; click `DELETE /api/users/{id}/follow` (idempotent côté backend — pas de 404 sur cancel).
+  - `accepted` → bouton secondaire "Abonné" par défaut, swap CSS via `group` / `group-hover:hidden` → "Se désabonner" au survol ; click `DELETE`.
+- Accessibilité : `aria-pressed` (toggle pattern WAI-ARIA), `aria-label` distinct par état, `title` pour le tooltip natif.
+- Concurrence : guard `pending` local empêche le double-click pendant le round-trip.
+- Erreurs : toast `error` "Impossible de mettre à jour le suivi." + rollback de l'état local.
+- Intégré dans `ProfilePage.tsx` : rendu **uniquement** sur `/profile/<uuid>` quand l'appelant est authentifié ET `uuid !== currentUser.id`. Pas affiché sur `/profile/me`, ni sur `/profile/<own-uuid>` (rendu en vue publique standard sans widgets owner), ni pour les viewers anonymes.
+
+### FollowRequestsPanel (SCRUM-110)
+
+- Composant `src/components/profile/FollowRequestsPanel.tsx` rendu uniquement sur `/profile/me`, après `MyPublicationsPreview` dans la colonne gauche.
+- Section card glassmorphism standard, heading "Demandes de suivi reçues" + badge compteur quand ≥ 1 demande.
+- Pour chaque ligne : avatar + displayName du demandeur (résolu via `getPublicProfile` par row côté hook — voir `useMyFollowRequests`) + boutons `Accepter` (emerald) / `Refuser` (neutre).
+- États : skeleton de chargement initial (2 lignes), empty state "Aucune demande de suivi en attente." avec icône `UserPlus`, error state, toasts d'erreur sur accept/reject.
+- Accept / Reject sont optimistes (suppression immédiate de la row), rollback si l'API échoue.
+- Limite connue (suivi follow-up) : après accept, le `followerCount` propre de l'owner sur `/profile/<own-uuid>` reste stale jusqu'au prochain reload — `useAuth` n'expose pas de `refresh` pour le `User` mis en cache.
+
 ### MyPublicationsPreview
 
 - Composant `src/components/profile/MyPublicationsPreview.tsx` rendu uniquement pour `isOwnProfile` dans `ProfilePage`, en colonne gauche sous la card "À propos".
@@ -564,13 +586,21 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Retourne : `attendees: Attendance[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `refetch()`.
 - Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
 
-### useUserProfile (SCRUM-141)
+### useUserProfile (SCRUM-141 + SCRUM-110)
 
 - Charge le profil public d'un utilisateur via `GET /api/users/{id}` (cf. `getPublicProfile`).
 - Signature : `useUserProfile(id: string | undefined)`. Avec `id === undefined`, aucun fetch.
-- Retourne : `profile: UserPublicResponse | null`, `isNotFound: boolean`, `loading: boolean`, `error: string | null`.
+- Retourne : `profile: UserPublicResponse | null`, `isNotFound: boolean`, `loading: boolean`, `error: string | null`, `refetch: () => void` (SCRUM-110 — bump d'un compteur monotone qui re-déclenche l'effect, utilisé par `FollowButton` après une mutation pour resynchroniser `followStatus` + `followerCount`).
 - 404 backend → `isNotFound = true` (l'anti-oracle ISSUE-93 confond "user inexistant" et "profil privé non accessible" — la page rend la même UI privée pour les deux). Autre erreur → `error` rempli.
 - Discard automatique des réponses stales sur changement de prop `id` ou unmount via flag `cancelled`.
+
+### useMyFollowRequests (SCRUM-110)
+
+- Charge les demandes de suivi `PENDING` reçues par l'utilisateur connecté via `GET /api/users/me/follow-requests`, puis résout `GET /users/{followerId}` par row pour afficher avatar + displayName (le backend renvoie un `FollowDTO` id-only — voir OpenAPI `FollowDTO`).
+- Retourne : `rows: FollowRequestRow[]` (`{ request: FollowDTO, follower: UserPublicResponse | null }`), `loading`, `error`, `accept(id)`, `reject(id)`, `refresh()`.
+- Per-row resolve via `Promise.allSettled` — un 404 / network failure sur un profil ne casse pas la liste, le row a `follower: null` et le composant affiche un fallback neutre "Utilisateur".
+- `accept(id)` / `reject(id)` : optimistes (suppression immédiate de la row), refresh sur succès, rollback si l'API échoue (re-throw pour que le composant toast).
+- Stale-response guard via `requestIdRef` monotone bumpé à chaque refresh / unmount.
 
 ### useOrganizerEvents (SCRUM-141)
 
@@ -600,6 +630,16 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
 - `getCalendarToken()` : `GET /api/users/me/calendar-token`.
 - `regenerateCalendarToken()` : `POST /api/users/me/calendar-token/regenerate`.
+
+### followApi.ts (SCRUM-110)
+
+Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
+
+- `followUser(targetId): Promise<FollowDTO>` : `POST /api/users/{id}/follow` — status auto-résolu côté backend (`ACCEPTED` si cible publique, `PENDING` si privée). Erreurs : `409 already_following`, `422 cannot_follow_self`, `429 rate_limited` propagées.
+- `unfollowUser(targetId): Promise<void>` : `DELETE /api/users/{id}/follow` — **idempotent**, le backend renvoie 204 même sans row. Pas de 404 sur cancel/unfollow.
+- `getMyFollowRequests(): Promise<FollowDTO[]>` : `GET /api/users/me/follow-requests` — liste paginée des demandes PENDING reçues.
+- `acceptFollowRequest(followId): Promise<FollowDTO>` : `PATCH /api/follow-requests/{followId}/accept` — bascule la row vers ACCEPTED. 403 si caller ≠ target, 409 `invalid_transition` si déjà ACCEPTED.
+- `rejectFollowRequest(followId): Promise<void>` : `PATCH /api/follow-requests/{followId}/reject` — supprime physiquement la row (re-follow ultérieur possible sans 409). 204.
 
 ### attendeesApi.ts
 

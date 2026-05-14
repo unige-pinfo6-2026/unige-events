@@ -2,6 +2,35 @@
 
 Dernière mise à jour : 2026-05-14
 
+## Sprint 7 — FollowButton + panneau demandes reçues (SCRUM-110 — feature/s7-follow-button) — 2026-05-14
+
+Livré (branche parallèle empilée sur `feature/s7-profile-public`).
+
+Deux livrables frontend, aucun backend touché (les endpoints SCRUM-138 sont déjà en place).
+
+- **`FollowButton`** (`src/components/user/FollowButton.tsx`) : bouton à 3 états piloté par `followStatus`, variantes en const map typée :
+  - `null` → "Suivre" (gradient primary, `POST /users/{id}/follow`)
+  - `PENDING` → "Demande envoyée" muté + tooltip natif "Cliquer pour annuler" (`DELETE` idempotent)
+  - `ACCEPTED` → "Abonné" / "Se désabonner" au hover via `group` + `group-hover:hidden` (CSS uniquement, pas d'animation lib)
+  Optimiste avec rollback + toast d'erreur, `aria-pressed` toggle pattern, `aria-label` par état, guard de double-click. Intégré dans `ProfilePage` sur le slot header (à côté de "Modifier" sur `/me`) uniquement pour viewer authentifié ≠ owner.
+- **`useUserProfile.refetch()`** : ajout d'un `refetch` (compteur monotone) au hook SCRUM-141 pour que la mutation du bouton resynchronise `followStatus` + `followerCount` en place.
+- **Panneau "Demandes de suivi reçues"** (`src/components/profile/FollowRequestsPanel.tsx` + `useMyFollowRequests`) : section owner-only sur `/profile/me`, après `MyPublicationsPreview`. Liste les rows `FollowDTO` PENDING via `GET /users/me/follow-requests` puis résout `getPublicProfile(followerId)` par row pour afficher avatar + displayName (le DTO backend est id-only, contrat explicite dans l'OpenAPI). Per-row fallback `follower: null` → label "Utilisateur" si la résolution échoue, sans casser la liste. Accepter / Refuser optimistes avec rollback + toasts d'erreur.
+- **Service `followApi.ts`** : wrap des 5 endpoints SCRUM-138 (`POST /users/{id}/follow`, `DELETE /users/{id}/follow`, `GET /users/me/follow-requests`, `PATCH /follow-requests/{id}/accept|reject`) via l'instance axios partagée.
+- **Types** : nouveau `FollowDTO` dans `src/types/follow.ts` matching l'OpenAPI exactement.
+
+Tests : 1380/1380 frontend verts (+47 net depuis SCRUM-141). Couverture sur les fichiers nouveaux :
+- `FollowButton.tsx` : 100% lines/branches via 10 cas (chaque état + erreurs + concurrence)
+- `FollowRequestsPanel.tsx` : 11 cas
+- `useMyFollowRequests.ts` : 8 cas incl. stale-resolve discard
+- `followApi.ts` : 8 cas
+- `ProfilePage.tsx` : +10 cas (3 panel + 7 button wiring)
+
+Limite connue (follow-up) : après accept d'une demande sur `/profile/me`, le `followerCount` de l'owner sur sa propre vue publique (`/profile/<own-uuid>`) reste stale jusqu'au prochain reload — `useAuth` n'expose pas de `refresh` pour le `User` mis en cache. Patterns identiques à ceux de `MyPublicationsPreview` et `CalendarSubscribeButton` aujourd'hui ; non-bloquant.
+
+Déviation déclarée : la spec Jira mentionne TanStack Query ; on garde le pattern bespoke `useState`+`useEffect` comme SCRUM-141 (AGENTS.md → suivre les conventions du codebase). Si introduit plus tard, refactor cross-cutting.
+
+---
+
 ## Sprint 7 — Public Profile Page (SCRUM-141 — feature/s7-profile-public) — 2026-05-14
 
 Livré (sur la même branche que la mise à jour participants list ci-dessous).
