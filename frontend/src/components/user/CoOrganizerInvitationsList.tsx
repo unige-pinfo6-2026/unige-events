@@ -32,7 +32,7 @@ export default function CoOrganizerInvitationsList() {
       </header>
 
       {loading && (
-        <Skeleton name="co-organizer-invitations">
+        <Skeleton name="co-organizer-invitations" loading={true}>
           <div className="space-y-3">
             <div className="h-24 rounded-2xl" />
             <div className="h-24 rounded-2xl" />

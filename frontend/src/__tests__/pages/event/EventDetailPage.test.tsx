@@ -30,6 +30,30 @@ const mockReportSubmit = vi.fn()
 vi.mock('@/hooks/useReport', () => ({
   useReport: vi.fn(),
 }))
+vi.mock('@/hooks/useCoOrganizers', () => ({
+  useCoOrganizers: vi.fn(() => ({
+    coOrganizers: [],
+    loading: false,
+    error: null,
+    invite: vi.fn(),
+    remove: vi.fn(),
+    refresh: vi.fn(),
+  })),
+}))
+vi.mock('@/hooks/useComments', () => ({
+  useComments: vi.fn(() => ({
+    comments: [],
+    hasMore: false,
+    loading: false,
+    posting: false,
+    error: null,
+    post: vi.fn().mockResolvedValue({ ok: true }),
+    postReply: vi.fn().mockResolvedValue({ ok: true }),
+    remove: vi.fn().mockResolvedValue(undefined),
+    loadMore: vi.fn(),
+    refresh: vi.fn(),
+  })),
+}))
 vi.mock('@/components/event/ReportModal', () => ({
   default: ({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => Promise<void> }) => (
     <div data-testid="report-modal">
@@ -280,7 +304,9 @@ describe('EventDetailPage', () => {
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
     expect(screen.getByText('200 places au total')).toBeTruthy()
-    await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
+    // Post-SCRUM-137 PR : le créateur apparaît à 2 endroits — bloc organizer
+    // historique + nouveau panneau "Équipe organisatrice" (EventOrganizerTeam).
+    await waitFor(() => expect(screen.getAllByText(/Jean Dupont/).length).toBeGreaterThan(0))
   })
 
   it('shows organizer-only actions with the final edit route on PUBLISHED', () => {

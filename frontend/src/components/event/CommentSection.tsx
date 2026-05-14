@@ -57,6 +57,12 @@ export default function CommentSection({
     return outcome
   }
 
+  function handleLoadMore() {
+    loadMore().catch(() => {
+      /* fetchPage already surfaces the error via the `error` state. */
+    })
+  }
+
   return (
     <section
       aria-label="Commentaires"
@@ -96,7 +102,7 @@ export default function CommentSection({
 
       {/* List area */}
       {loading && comments.length === 0 && (
-        <Skeleton name="comments">
+        <Skeleton name="comments" loading={true}>
           <div className="space-y-3">
             <div className="h-24 rounded-2xl" />
             <div className="h-24 rounded-2xl" />
@@ -134,7 +140,7 @@ export default function CommentSection({
 
       {hasMore && (
         <div className="mt-4 flex justify-center">
-          <ButtonNeutral onClick={() => void loadMore()} disabled={loading} size="sm">
+          <ButtonNeutral onClick={handleLoadMore} disabled={loading} size="sm">
             Charger plus de commentaires
           </ButtonNeutral>
         </div>

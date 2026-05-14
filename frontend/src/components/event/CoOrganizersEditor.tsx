@@ -90,7 +90,7 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
 
       <div className="mt-5">
         {loading && (
-          <Skeleton name="co-organizers-section">
+          <Skeleton name="co-organizers-section" loading={true}>
             <div className="space-y-2">
               <div className="h-14 rounded-2xl" />
               <div className="h-14 rounded-2xl" />

@@ -2,7 +2,6 @@ import { Users } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
 import { useCoOrganizers } from '@/hooks/useCoOrganizers'
-import type { CoOrganizer } from '@/types/coOrganizer'
 
 interface Props {
   eventId: number
@@ -49,7 +48,7 @@ export default function EventOrganizerTeam({
         />
         {loading && (
           <li>
-            <Skeleton name="event-organizer-team">
+            <Skeleton name="event-organizer-team" loading={true}>
               <div className="space-y-2">
                 <div className="h-10 rounded-xl" />
                 <div className="h-10 rounded-xl" />
@@ -114,4 +113,4 @@ function OrganizerRow({
 }
 
 // Re-exports for tests that need to type the CoOrganizer subset.
-export type { CoOrganizer }
+export type { CoOrganizer } from '@/types/coOrganizer'
