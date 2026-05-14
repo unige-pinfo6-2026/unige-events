@@ -59,6 +59,17 @@ public class UserService {
             newUser.firstName = jwt.getClaim("given_name");
             newUser.lastName = jwt.getClaim("family_name");
             newUser.avatarUrl = jwt.getClaim("picture");
+            // SCRUM-169 — auto-generate a public-facing username from the
+            // JWT identity claims at signup. The slug logic mirrors the V3
+            // migration back-fill so legacy and new accounts share the same
+            // shape. Collision resolution probes the DB in the same
+            // transaction.
+            newUser.username = UsernameGenerator.generate(
+                    newUser.displayName,
+                    newUser.firstName,
+                    newUser.lastName,
+                    candidate -> User.findByUsername(candidate).isPresent()
+            );
             newUser.persist();
 
             flushEntityManager();

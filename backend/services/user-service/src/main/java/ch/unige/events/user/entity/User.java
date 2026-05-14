@@ -37,6 +37,20 @@ public class User extends PanacheEntityBase {
     @Column(nullable = false, unique = true, updatable = false)
     public String email;
 
+    /**
+     * Public-facing identifier — used in {@code /profile/{username}} URLs and
+     * exposed in the OpenAPI schema (SCRUM-169). Stored strictly lowercase, the
+     * lookup {@link #findByUsername(String)} is case-insensitive. Generated
+     * automatically at first signup via
+     * {@code UserService.generateUsername(...)} and mutable through {@code
+     * PATCH /users/me/username}. The pattern {@code ^[a-z0-9._-]{3,30}$} and
+     * uniqueness are enforced at the DB level (V3 migration) ; this field
+     * intentionally carries no Bean Validation annotations because every write
+     * path produces a normalised value before persist.
+     */
+    @Column(nullable = false, unique = true, length = 30)
+    public String username;
+
     public String displayName;
     public String firstName;
     public String lastName;
@@ -83,5 +97,19 @@ public class User extends PanacheEntityBase {
 
     public static Optional<User> findByCalendarToken(UUID calendarToken) {
         return find("calendarToken", calendarToken).firstResultOptional();
+    }
+
+    /**
+     * Case-insensitive lookup (SCRUM-169). The input is lowered before the
+     * SELECT — usernames are stored strictly lowercase so a column-level
+     * {@code LOWER(username)} would be redundant, but normalising the
+     * argument keeps {@code GET /by-username/Jean.Dupont} matching the
+     * persisted {@code jean.dupont}.
+     */
+    public static Optional<User> findByUsername(String username) {
+        if (username == null) {
+            return Optional.empty();
+        }
+        return find("username", username.toLowerCase()).firstResultOptional();
     }
 }
