@@ -32,7 +32,7 @@ Model : src/hooks, src/contexts et src/types
 | /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
 | /profile | redirect | — | redirect → /profile/me |
 | /profile/me/edit | ProfileEditPage | pages/profile/ProfileEditPage.tsx | PrivateRoute |
-| /profile/:id | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute |
+| /profile/:username | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute. SCRUM-169 — param renommé `username` (au lieu de `id`). Détection regex UUID v4 dans le composant + `<Navigate replace to=`/profile/${username}`>` pour résoudre les liens legacy en cache. L'alias `/profile/me` est résolu côté composant via la blocklist. |
 | /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute |
 | /my-events/favorites | MyFavoritesPage | pages/my-events/MyFavoritesPage.tsx | PrivateRoute |
 | /my-events/participations | MyParticipationsPage | pages/my-events/MyParticipationsPage.tsx | PrivateRoute |
@@ -41,7 +41,7 @@ Model : src/hooks, src/contexts et src/types
 | /403 | ForbiddenPage | pages/ForbiddenPage.tsx | publique |
 | * | NotFoundPage | pages/NotFoundPage.tsx | publique |
 
-Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter que me soit capturé comme paramètre dynamique.
+Note : /profile/me/edit doit rester déclaré avant /profile/:username pour éviter que `me` soit capturé comme paramètre dynamique. Le username `me` est par ailleurs dans la blocklist backend (`UsernameGenerator.RESERVED`), donc aucun utilisateur humain ne peut le revendiquer.
 
 ## Couche services
 

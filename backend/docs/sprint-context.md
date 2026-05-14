@@ -1,6 +1,74 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-14 (post-merge PR #158 + reprise dev fonctionnel)
+Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-169 usernames)
+
+---
+
+## 2026-05-14 (suite 2) — SCRUM-169 livré (profile usernames)
+
+PR stacked sur `feature/scrum-137-146-doc-and-views` (#170 ouverte). Branche
+`feature/scrum-169-profile-username-url`, cible `main`. Couvre fullstack.
+
+**Backend** :
+- Entité `User` enrichie d'un champ `username` (`@Column(nullable=false, unique=true, length=30)`)
+  + finder statique `findByUsername(String)` case-insensitive.
+- Migration `V3__add_user_username.sql` atomique : `CREATE EXTENSION IF NOT EXISTS unaccent`,
+  `ADD COLUMN username VARCHAR(30)`, back-fill PL/pgSQL (slug `displayName` ASCII-fold,
+  fallback `firstName.lastName`, fallback `user`, suffixe numérique anti-collision,
+  blocklist `me/admin/api/login/logout/signup/register/settings`), puis
+  `SET NOT NULL` + `UNIQUE` + `CHECK (^[a-z0-9._-]{3,30}$)`.
+- `UsernameGenerator` (util Java pur) mirrore la logique SQL pour `getOrCreateUser` à
+  l'inscription Auth0. Pre-translation Latin-extended (Đ/Ł/Ø/Æ/Œ/ß/Þ/Ð) pour aligner
+  avec `unaccent` côté SQL. 23 sentinels `UsernameGeneratorTest` pinnent les rules.
+- 3 nouveaux endpoints :
+  - `PATCH /api/users/me/username` (body `UpdateUsernameRequest`, codes
+    `username_invalid` 400 / `username_reserved` 400 / `username_taken` 409,
+    `@PerUserRateLimit(users.updateUsername, max=5)`).
+  - `GET /api/users/by-username/{u}` (`@PermitAll`, case-insensitive, anti-oracle 404
+    ISSUE-93 strict, stripping anonyme avec `username` toujours exposé).
+  - `HEAD /api/users/by-username/{u}` (`@PermitAll`, sémantique inversée — 200 = pris,
+    404 = libre — pour le debounce frontend).
+- DTOs enrichis : `UserPublicResponse` (shared + local) + `UserProfileResponse` + nouveau
+  `UpdateUsernameRequest`. Constructeur backward-compat 11-arg sur le shared
+  `UserPublicResponse` pour ne pas casser les ~20 mocks cross-service.
+- Cross-service (Décision K) : `AttendanceDTO` (shared) et `CoOrganizerDTO` (event-service)
+  gagnent un champ `username` nullable — permet à `AttendeeCard` et `EventOrganizerTeam`
+  de construire `/profile/{username}` sans N+1.
+
+**Frontend** :
+- `User.username` passe de optional à required. `Attendance.username` + `CoOrganizer.username`
+  ajoutés. Exports `RESERVED_USERNAMES` + `USERNAME_PATTERN` + min/max length.
+- `userService.ts` : `getUserByUsername`, `updateUsername`, `checkUsernameAvailable`.
+  `useDebounce` hook (nouveau, minimaliste) pour les usages forms.
+- Route `/profile/:id` → `/profile/:username`. ProfilePage : `useParams<{username}>`,
+  `isOwnProfile` corrigé (compare désormais à `currentUser.username` au lieu de
+  `auth0Id` — incohérence pré-existante levée), redirect transitoire UUID v4 → username
+  permanent via `<Navigate replace>` (cf. Décision I).
+- ProfileEditPage : nouveau champ "Nom d'utilisateur" en tête du form, validation client
+  miroir backend, debounced live-check 400ms via `useDebounce` + `checkUsernameAvailable`,
+  feedback inline ✅/❌/⏳ (icônes Lucide + couleurs sémantiques), `updateUsername` appelé
+  séparément avant `updateProfile` pour granularité d'erreur 409.
+- Liens internes migrés (4 sites) : `UserIdentity`, `EventDetailPage` organizer,
+  `EventOrganizerTeam` (prop `creatorUsername` + `username` sur OrganizerRow),
+  `AttendeeCard` (`profile.username ?? profile.id` fallback). `CommentItem` garde
+  `userDisplayLabel(displayName, null, authorId)` — `Comment.authorUsername` reste
+  un follow-up engagement-service hors scope.
+- `displayName.ts` : nouvelle signature `userDisplayLabel(displayName, username?, userId?)`.
+  Order de fallback : displayName → `@username` → UUID-prefix → `Utilisateur`. UUID-prefix
+  conservé comme soft-fallback pour les call sites pas encore wirés (CommentItem).
+- Nettoyage : `// TODO: SPRINT 5 : Username` retiré de `UserIdentity.tsx:64`, follow-up
+  comment retiré de `displayName.ts`.
+
+**OpenAPI** : `username` ajouté à `User` + `UserPublicResponse` (required, pattern,
+min/max), à `Attendance` + `CoOrganizer` (nullable). Nouveau schéma
+`UpdateUsernameRequest`. 3 nouveaux paths. Sémantique inversée HEAD documentée
+explicitement.
+
+Tests : 1418/1418 frontend ✅ localement. Backend UsernameGeneratorTest 23/23 ✅
+localement (pur Java, sans Docker). UserResourceTest + UserServiceTest étendus avec
+~28 nouveaux cas — validation CI obligatoire car DevServices Docker requis.
+
+Spec détaillée : [`../../specs_archives/specs_claude/specs_scrum-169.md`](../../specs_archives/specs_claude/specs_scrum-169.md).
 
 ---
 

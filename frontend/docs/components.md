@@ -550,8 +550,11 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 ### userService.ts
 
 - `getMe()` : `GET /api/users/me` — profil complet de l'utilisateur connecté.
-- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur.
+- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur. Conservé pour le redirect transitoire UUID → username (SCRUM-169).
+- `getUserByUsername(username)` : `GET /api/users/by-username/{username}` — lookup case-insensitive (SCRUM-169). Retourne `null` sur 404 (introuvable ou privé non-autorisé), propage les autres erreurs.
 - `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
+- `updateUsername(username)` : `PATCH /api/users/me/username` — change le username (SCRUM-169). Endpoint dédié pour granularité d'erreur (409 `username_taken`, 400 `username_invalid`/`username_reserved`).
+- `checkUsernameAvailable(username)` : `HEAD /api/users/by-username/{username}` — check d'unicité pour le debounce frontend (SCRUM-169). **Inverse la sémantique HTTP** : retourne `true` sur 404 (libre), `false` sur 200 (pris).
 - `uploadPhoto(file)` : `POST /api/users/me/image` — upload de la photo de profil (multipart).
 - `uploadBanner(file)` : `POST /api/users/me/banner` — upload de la bannière de profil (multipart).
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).

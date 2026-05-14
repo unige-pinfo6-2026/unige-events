@@ -125,6 +125,7 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | id            | string     | oui    |
 | auth0Id       | string     | oui    |
 | email         | string     | oui    |
+| username      | string     | oui (SCRUM-169 — pattern `^[a-z0-9._-]{3,30}$`, lowercase, modifiable via `PATCH /users/me/username`) |
 | displayName   | string     | non    |
 | firstName     | string     | non    |
 | lastName      | string     | non    |
@@ -137,17 +138,23 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | profilePublic | boolean    | oui    |
 | createdAt     | string     | oui    |
 
+Constantes exportées (SCRUM-169) :
+- `RESERVED_USERNAMES: Set<string>` — miroir de `UsernameGenerator.RESERVED` backend (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`). Permet le live-check `reserved` côté form sans round-trip.
+- `USERNAME_PATTERN: RegExp` — `/^[a-z0-9._-]{3,30}$/` (pattern miroir backend).
+- `USERNAME_MIN_LENGTH = 3`, `USERNAME_MAX_LENGTH = 30`.
+
 ### StudyLevel
 
 Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
 
 ### UserPublicResponse
 
-Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+Profil public retourné par `GET /api/users/{id}` et `GET /api/users/by-username/{username}` quand `profilePublic = true`.
 
 | Champ       | Type                      | Requis |
 |-------------|---------------------------|--------|
 | id          | string                    | oui    |
+| username    | string                    | oui (SCRUM-169 — toujours exposé, même aux appelants anonymes) |
 | displayName | string \| null            | non    |
 | faculty     | string \| null            | non    |
 | studyLevel  | string \| null            | non    |
@@ -205,6 +212,7 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 | createdAt   | string           | oui    | |
 | displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
 | avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
+| username    | string \| null   | oui    | SCRUM-169 — username public-facing du participant. Permet à `AttendeeCard` de construire `/profile/{username}` sans N+1. `null` uniquement sur ligne orpheline. |
 
 Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
 

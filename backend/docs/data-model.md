@@ -23,6 +23,7 @@ Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollectio
 | `id` | `id` | `UUID` | `id` | PK, auto-généré (`@GeneratedValue`) |
 | `auth0Id` | `auth0Id` | `String` | `auth0_id` | unique, not updatable |
 | `email` | `email` | `String` | `email` | unique, not updatable |
+| `username` | `username` | `String` | `username` | `@Column(nullable=false, unique=true, length=30)` — SCRUM-169. Stocké lowercase, lookup case-insensitive. Pattern DB-CHECK `^[a-z0-9._-]{3,30}$`. Généré automatiquement à la création du compte par `UsernameGenerator.generate(...)` (slug `displayName` ASCII-fold → fallback `firstName.lastName` → fallback `user`, suffixe numérique sur collision). Modifiable via `PATCH /users/me/username`. Blocklist : `me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`. |
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
@@ -36,7 +37,20 @@ Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollectio
 | `version` | `version` | `Long` | `version` | `@Version` (optimistic locking) |
 | `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
-Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
+Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`,
+`User.findByUsername(String)` (case-insensitive — SCRUM-169).
+
+#### Stratégie de génération de username (SCRUM-169)
+
+La logique vit dans `UsernameGenerator` (`backend/services/user-service/src/main/java/ch/unige/events/user/service/UsernameGenerator.java`) :
+
+1. **Source** : `displayName` (trim) > `firstName.lastName` (skip dot si l'un des deux est vide) > literal `"user"`.
+2. **Normalisation** : pré-translation Latin-extended (Đ→D, Ł→L, Ø→O, Æ→AE, Œ→OE, ß→ss, Þ→TH, Ð→D + minuscules) + NFD ASCII-fold + lowercase + whitespace → `.` + drop chars hors `[a-z0-9._-]` + collapse `.` + trim leading/trailing `._-`.
+3. **Troncature** : max 30 chars (puis re-trim trailing punct). Si < 3 chars résultat → fallback `"user"`.
+4. **Blocklist** : si le résultat appartient à `{me, admin, api, login, logout, signup, register, settings}`, on commence directement au suffixe `2`.
+5. **Anti-collision** : boucle `while EXISTS` avec suffixe numérique incrémental (`jean.dupont`, `jean.dupont2`, …). La base est trimmée si `base + suffix > 30 chars`.
+
+La même logique est dupliquée en PL/pgSQL dans `V3__add_user_username.sql` pour le back-fill atomique des comptes pré-existants. Toute modification de l'algorithme Java doit être miroir dans la migration suivante (`V4__...`) — la V3 reste immutable. Les sentinels `UsernameGeneratorTest` (23 cas) pin la sémantique côté Java.
 
 #### Règle de visibilité du profil (hotfix pentest 2026-04-17)
 
@@ -51,6 +65,14 @@ Le champ `profilePublic` contrôle deux dimensions simultanément sur `GET /api/
 
 La règle d'autorisation vit dans `UserService.getPublicProfile(UUID, String auth0Id)` ;
 le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.fromAnonymous`.
+
+**SCRUM-169 — exposition du `username`.** Le champ `username` est **toujours**
+projeté dans la réponse, y compris pour les appelants anonymes (contrairement
+aux autres champs strippés). Justification : c'est l'identifiant public-facing
+du profil (utilisé dans l'URL `/profile/{username}`) — le nullifier casserait
+l'usage premier du champ. Le lookup par username (`GET /api/users/by-username/{username}`)
+applique la même règle d'autorisation et le même stripping ;
+`HEAD /api/users/by-username/{username}` reste léger et `@PermitAll`.
 
 ---
 

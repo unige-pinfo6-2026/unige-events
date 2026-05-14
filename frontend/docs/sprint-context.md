@@ -1,6 +1,49 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + view anonyme + polish post-test-manuel)
+Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + SCRUM-169 usernames)
+
+---
+
+## 2026-05-14 (suite 2) — SCRUM-169 livré (profile usernames)
+
+PR stacked sur `feature/scrum-137-146-doc-and-views` (#170 ouverte). Branche
+`feature/scrum-169-profile-username-url`, cible `main`. Fullstack.
+
+**Frontend** :
+- Types (`src/types/user.ts`) : `User.username` passe de `string?` à `string` (required).
+  Constantes exportées `RESERVED_USERNAMES`, `USERNAME_PATTERN`, min/max length.
+  `Attendance.username` + `CoOrganizer.username` ajoutés (nullable seulement sur
+  rows orphelines).
+- Services (`src/services/userService.ts`) :
+  - `getUserByUsername(u)` → `GET /api/users/by-username/{u}` (returns `null` sur 404).
+  - `updateUsername(u)` → `PATCH /api/users/me/username`.
+  - `checkUsernameAvailable(u)` → `HEAD /api/users/by-username/{u}` (inverse 200 → false,
+    404 → true).
+- Hook (`src/hooks/useDebounce.ts`) : nouveau hook minimaliste pour le debounce du form.
+- Routing (`src/router/AppRouter.tsx`) : `/profile/:id` → `/profile/:username`. `/profile/me`
+  alias résolu côté composant (`me` est dans la blocklist backend, pas de collision).
+- `ProfilePage` (`src/pages/profile/ProfilePage.tsx`) : `useParams<{username}>` + redirect
+  permanent UUID v4 → username via `<Navigate replace>` (cf. spec Décision I — robuste aux
+  liens en cache externes). Redressement de l'incohérence pré-existante `isOwnProfile`
+  (comparaît à `auth0Id` au lieu de `id`).
+- `ProfileEditPage` (`src/pages/profile/ProfileEditPage.tsx`) : nouveau champ "Nom
+  d'utilisateur" en tête du form, prefix `@`, validation client miroir backend, debounced
+  live-check 400 ms via `useDebounce` + `checkUsernameAvailable`. Statuts visuels inline
+  (icônes Lucide + couleurs sémantiques) : `idle`, `unchanged`, `invalid`, `reserved`,
+  `checking`, `available`, `taken`, `error`. `updateUsername` appelé séparément avant
+  `updateProfile` (granularité 409). `aria-live="polite"` sur le helper row.
+- Liens internes (4 sites) : `UserIdentity` (drop du `// TODO: SPRINT 5 : Username`),
+  `EventDetailPage` organizer, `EventOrganizerTeam` (nouvelle prop `creatorUsername`,
+  prop `username` sur OrganizerRow, fallback UUID pour rows orphelines),
+  `AttendeeCard` (`profile.username ?? profile.id`). `CommentItem` garde le UUID-prefix
+  fallback en attendant `Comment.authorUsername` (follow-up engagement-service).
+- `displayName.ts` : nouvelle signature `userDisplayLabel(displayName, username?, userId?)`.
+  Order : `displayName > @username > UUID-prefix > "Utilisateur"`. Drop du commentaire
+  "Follow-up post-PR-170".
+
+Tests : 1418/1418 ✅ localement (`npm run test`). Lint et TypeScript verts.
+
+Spec détaillée : [`../../specs_archives/specs_claude/specs_scrum-169.md`](../../specs_archives/specs_claude/specs_scrum-169.md).
 
 ---
 
