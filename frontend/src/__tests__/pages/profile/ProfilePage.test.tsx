@@ -30,6 +30,18 @@ vi.mock('@/services/eventApi', () => ({
   getMyEvents: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('@/services/followApi', () => ({
+  followUser: vi.fn().mockResolvedValue({
+    id: 1, followerId: 'me', followedId: 'tgt', status: 'PENDING', createdAt: 'x',
+  }),
+  unfollowUser: vi.fn().mockResolvedValue(undefined),
+}))
+
+const mockShowToast = vi.fn()
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showToast: mockShowToast, toasts: [], dismiss: vi.fn() }),
+}))
+
 vi.mock('@/hooks/useMyEvents', () => ({
   useMyEvents: vi.fn(() => ({
     events: [],
@@ -46,6 +58,7 @@ vi.mock('@/hooks/useMyEvents', () => ({
 import { useAuth } from '@/hooks/useAuth'
 import { getCalendarToken, getPublicProfile } from '@/services/userService'
 import { getAll as getAllEvents } from '@/services/eventApi'
+import { followUser, unfollowUser } from '@/services/followApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
@@ -53,6 +66,8 @@ const mockGetPublicProfile = getPublicProfile as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
+const mockFollowUser = followUser as ReturnType<typeof vi.fn>
+const mockUnfollowUser = unfollowUser as ReturnType<typeof vi.fn>
 
 const OTHER_UUID = 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c'
 const OWN_UUID   = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
@@ -372,6 +387,85 @@ describe('ProfilePage — private profile PENDING badge', () => {
     // No badge today since 404 doesn't carry followStatus — verified by the
     // dedicated ProfilePrivateState test.
     expect(screen.queryByText('Demande de suivi envoyée')).toBeNull()
+  })
+})
+
+describe('ProfilePage — FollowButton wiring (SCRUM-110)', () => {
+  it('renders the FollowButton for an authenticated viewer on another user profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue(otherProfile)
+
+    renderProfilePage(OTHER_UUID)
+
+    expect(await screen.findByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
+  })
+
+  it('does NOT render the FollowButton for an unauthenticated viewer', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue(otherProfile)
+
+    renderProfilePage(OTHER_UUID)
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.queryByRole('button', { name: /Suivre|Demande envoyée|Abonné|Se désabonner/ })).toBeNull()
+  })
+
+  it('does NOT render the FollowButton when the viewer is looking at their own UUID', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue({ ...otherProfile, id: OWN_UUID, displayName: 'Test User' })
+
+    renderProfilePage(OWN_UUID)
+
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(screen.queryByRole('button', { name: /Suivre/ })).toBeNull()
+  })
+
+  it('does NOT render the FollowButton on /profile/me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
+    renderProfilePage('me')
+
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(screen.queryByRole('button', { name: /Suivre/ })).toBeNull()
+  })
+
+  it('reflects followStatus="PENDING" on the FollowButton when the profile carries it', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue({ ...otherProfile, followStatus: 'PENDING' })
+
+    renderProfilePage(OTHER_UUID)
+
+    expect(await screen.findByRole('button', { name: 'Annuler la demande de suivi' })).toBeTruthy()
+  })
+
+  it('clicking Suivre triggers a refetch (counters update via useUserProfile reload)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    // First call: initial render. Second call after refetch: same shape but
+    // followStatus flipped to PENDING and followerCount bumped.
+    mockGetPublicProfile
+      .mockResolvedValueOnce(otherProfile)
+      .mockResolvedValueOnce({ ...otherProfile, followStatus: 'PENDING', followerCount: 13 })
+
+    renderProfilePage(OTHER_UUID)
+
+    const followBtn = await screen.findByRole('button', { name: 'Suivre cet utilisateur' })
+    ;(followBtn as HTMLButtonElement).click()
+
+    await waitFor(() => expect(mockFollowUser).toHaveBeenCalledWith(OTHER_UUID))
+    // Refetch fired → second getPublicProfile call.
+    await waitFor(() => expect(mockGetPublicProfile).toHaveBeenCalledTimes(2))
+  })
+
+  it('forwards unfollow to the service when clicking an ACCEPTED button', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetPublicProfile.mockResolvedValue({ ...otherProfile, followStatus: 'ACCEPTED' })
+
+    renderProfilePage(OTHER_UUID)
+
+    const btn = await screen.findByRole('button', { name: 'Se désabonner' })
+    ;(btn as HTMLButtonElement).click()
+
+    await waitFor(() => expect(mockUnfollowUser).toHaveBeenCalledWith(OTHER_UUID))
   })
 })
 

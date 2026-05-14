@@ -5,6 +5,7 @@ import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
 import { isUuid } from '@/utils/uuid'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
+import FollowButton from '@/components/user/FollowButton'
 import ProfileStats from '@/components/profile/ProfileStats'
 import ProfileEventsList from '@/components/profile/ProfileEventsList'
 import ProfileParticipations from '@/components/profile/ProfileParticipations'
@@ -72,6 +73,17 @@ function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; childre
 interface PublicProfileViewProps {
   profile: UserPublicResponse
   isMeRoute: boolean
+  /**
+   * `true` when the viewer is logged in AND looking at someone else's UUID
+   * profile (not their own UUID, not the /me route). Drives the
+   * FollowButton render — SCRUM-110.
+   */
+  canFollow: boolean
+  /**
+   * Triggers a refetch of the parent useUserProfile so the FollowButton
+   * mutation flips followStatus and bumps followerCount in place.
+   */
+  onProfileMutated?: () => void
 }
 
 /**
@@ -81,7 +93,7 @@ interface PublicProfileViewProps {
  * `/profile/me` (the `/me` route adds owner-only widgets — edit button,
  * calendar subscription, MyPublicationsPreview).
  */
-function PublicProfileView({ profile, isMeRoute }: Readonly<PublicProfileViewProps>) {
+function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: Readonly<PublicProfileViewProps>) {
   const { events, loading: eventsLoading, error: eventsError } = useOrganizerEvents(profile.id)
 
   const studyLevelName = profile.studyLevel
@@ -123,6 +135,13 @@ function PublicProfileView({ profile, isMeRoute }: Readonly<PublicProfileViewPro
             >
               Modifier
             </Link>
+          )}
+          {canFollow && (
+            <FollowButton
+              targetId={profile.id}
+              followStatus={profile.followStatus}
+              onMutated={onProfileMutated}
+            />
           )}
         </div>
 
@@ -223,7 +242,8 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
     followingCount: 0,
     followStatus: null,
   }
-  return <PublicProfileView profile={profile} isMeRoute={true} />
+  // /me never renders the FollowButton — owner of the page.
+  return <PublicProfileView profile={profile} isMeRoute={true} canFollow={false} />
 }
 
 export default function ProfilePage() {
@@ -236,7 +256,7 @@ export default function ProfilePage() {
   // Only call the public-profile fetch when the route is a UUID — `me` is
   // served from useAuth, malformed ids short-circuit to an error message.
   const targetId = !isMeRoute && isUuid(id) ? id : undefined
-  const { profile, isNotFound, loading: profileLoading, error: profileError } = useUserProfile(targetId)
+  const { profile, isNotFound, loading: profileLoading, error: profileError, refetch } = useUserProfile(targetId)
 
   // /profile/me + authenticated → render owner view from cached user
   if (isMeRoute) {
@@ -277,5 +297,16 @@ export default function ProfilePage() {
     return <ProfilePrivateState followStatus={profile?.followStatus ?? null} />
   }
 
-  return <PublicProfileView profile={profile} isMeRoute={false} />
+  // canFollow: authenticated viewer AND looking at someone else's UUID.
+  // /profile/<own-uuid> is rendered as a regular public profile per SCRUM-141,
+  // but the viewer is the owner, so no FollowButton (you can't follow yourself).
+  const canFollow = currentUser !== null && currentUser.id !== profile.id
+  return (
+    <PublicProfileView
+      profile={profile}
+      isMeRoute={false}
+      canFollow={canFollow}
+      onProfileMutated={refetch}
+    />
+  )
 }
