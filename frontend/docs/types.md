@@ -199,14 +199,16 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 | Champ       | Type             | Requis | Notes |
 |-------------|------------------|--------|-------|
 | id          | number           | oui    | |
-| userId      | string           | oui    | |
+| userId      | string \| null   | oui    | `null` sur `GET /events/{id}/attendees` quand la ligne est anonymisée pour un appelant non-organisateur (profil privé). Non-nul sur les autres routes. |
 | eventId     | number           | oui    | |
 | status      | AttendanceStatus | oui    | |
 | createdAt   | string           | oui    | |
-| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
-| avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
+| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` pour les lignes anonymisées par le filtre de confidentialité (SCRUM-S7) ou pour les inscriptions orphelines (user supprimé). |
+| avatarUrl   | string \| null   | oui    | URL d'avatar si défini ; `null` quand anonymisée. |
 
-Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`).
+
+**Filtre de confidentialité (SCRUM-S7) sur `GET /events/{id}/attendees`** : appliqué côté backend au niveau du DTO. Les créateurs, co-organisateurs ACCEPTED et admins reçoivent l'identité réelle pour toutes les lignes (y compris les profils privés). Les autres utilisateurs authentifiés reçoivent l'identité réelle pour les profils publics, et `userId=null`/`displayName=null`/`avatarUrl=null` pour les profils privés — l'UUID est volontairement masqué pour empêcher tout sondage de `GET /users/{id}` qui désanonymiserait le participant via le pattern 404. Les autres routes (`/users/me/attendances`, etc.) ne renvoient que des inscriptions appartenant au caller — `userId` y est toujours non-nul.
 
 ### AttendanceRequest
 

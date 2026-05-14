@@ -5,11 +5,10 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AttendeeCard from '@/components/attendees/AttendeeCard'
 import type { Attendance } from '@/types/attendance'
-import type { UserPublicResponse } from '@/types/user'
 
 afterEach(() => { cleanup() })
 
-const attendance: Attendance = {
+const publicRow: Attendance = {
   id: 1,
   userId: 'user-1',
   eventId: 42,
@@ -19,88 +18,63 @@ const attendance: Attendance = {
   avatarUrl: null,
 }
 
-const profile: UserPublicResponse = {
-  id: 'user-1',
-  displayName: 'Alice Martin',
-  faculty: 'SCIENCES',
-  studyLevel: 'MASTER',
-  bio: null,
-  interests: [],
+// SCRUM-S7 — backend returns userId=null + displayName=null for private rows
+// seen by a non-organizer caller. Same shape for orphan rows (deleted users).
+const anonymizedRow: Attendance = {
+  id: 2,
+  userId: null,
+  eventId: 42,
+  status: 'ATTENDING',
+  createdAt: '2026-04-08T10:00:00.000Z',
+  displayName: null,
   avatarUrl: null,
-  bannerUrl: null,
 }
 
-function renderCard(...args: Parameters<typeof AttendeeCard>) {
-  const [props] = args
+function renderCard(attendance: Attendance) {
   return render(
     <MemoryRouter>
-      <AttendeeCard {...props} />
+      <AttendeeCard attendance={attendance} />
     </MemoryRouter>,
   )
 }
 
 describe('AttendeeCard', () => {
-  it('renders profile and links to /profile/:id', () => {
-    renderCard({ attendance, profile })
+  it('renders the displayName and links to /profile/{userId} when identity is exposed', () => {
+    renderCard(publicRow)
 
     const link = screen.getByRole('link') as HTMLAnchorElement
     expect(link.getAttribute('href')).toBe('/profile/user-1')
     expect(screen.getByText('Alice Martin')).toBeTruthy()
-    expect(screen.getByText(/Master/)).toBeTruthy()
-    expect(screen.getByText(/Sciences/)).toBeTruthy()
   })
 
-  it('renders only the meta values that are present', () => {
-    renderCard({
-      attendance,
-      profile: { ...profile, faculty: null, studyLevel: 'BACHELOR' },
-    })
-
-    expect(screen.getByText('Bachelor')).toBeTruthy()
-  })
-
-  it('uses fallback name when displayName is null', () => {
-    renderCard({
-      attendance,
-      profile: { ...profile, displayName: null },
-    })
-
-    expect(screen.getByText('Utilisateur')).toBeTruthy()
-  })
-
-  it('renders anonymous variant without a link when profile is null', () => {
-    renderCard({ attendance, profile: null })
+  it('renders anonymous variant without a link when displayName is null', () => {
+    renderCard(anonymizedRow)
 
     expect(screen.queryByRole('link')).toBeNull()
     expect(screen.getByText('Utilisateur anonyme')).toBeTruthy()
+    expect(screen.getByText('Profil privé')).toBeTruthy()
     expect(screen.getByLabelText('Avatar anonyme')).toBeTruthy()
   })
 
-  it('renders a waitlist badge when status is WAITLISTED', () => {
-    renderCard({
-      attendance: { ...attendance, status: 'WAITLISTED' },
-      profile,
-    })
+  it('renders a waitlist badge on the identity variant', () => {
+    renderCard({ ...publicRow, status: 'WAITLISTED' })
 
     expect(screen.getByText("Liste d'attente")).toBeTruthy()
   })
 
-  it('renders a waitlist badge on anonymous variant too', () => {
-    renderCard({
-      attendance: { ...attendance, status: 'WAITLISTED' },
-      profile: null,
-    })
+  it('renders a waitlist badge on the anonymous variant too', () => {
+    renderCard({ ...anonymizedRow, status: 'WAITLISTED' })
 
     expect(screen.getByText("Liste d'attente")).toBeTruthy()
   })
 
-  it('does not render meta when both faculty and studyLevel are null', () => {
-    renderCard({
-      attendance,
-      profile: { ...profile, faculty: null, studyLevel: null },
-    })
+  it('does NOT render a link when displayName is present but userId is null (defensive)', () => {
+    // Currently unreachable from the backend contract (userId and displayName
+    // are nulled together), but the component must never produce
+    // /profile/null. This guards against future contract drift.
+    renderCard({ ...publicRow, userId: null })
 
-    expect(screen.queryByText(/Master/)).toBeNull()
-    expect(screen.queryByText(/Sciences/)).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText('Alice Martin')).toBeTruthy()
   })
 })

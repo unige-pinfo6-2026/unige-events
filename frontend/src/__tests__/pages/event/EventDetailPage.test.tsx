@@ -109,7 +109,6 @@ const defaultAttendeesState = {
   hasMore: false,
   loadMore: vi.fn(),
   refetch: vi.fn(),
-  isForbidden: false,
 }
 
 const defaultAttendanceState = {
@@ -612,8 +611,9 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('heading', { name: 'Participants' })).toBeTruthy()
     })
 
-    it('calls useAttendees with enabled=false for a non-organizer', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other' } })
+    // SCRUM-S7 — useAttendees now runs for every authenticated user.
+    it('calls useAttendees with enabled=false for an unauthenticated viewer', () => {
+      mockUseAuth.mockReturnValue({ user: null })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 4 },
         loading: false,
@@ -627,6 +627,27 @@ describe('EventDetailPage', () => {
       renderPage()
 
       expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: false })
+      // Compact summary, no tablist.
+      expect(screen.queryByRole('tablist')).toBeNull()
+    })
+
+    it('calls useAttendees with enabled=true for an authenticated non-organizer', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 4 },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: true })
+      // Full list — tablist is rendered for every authenticated viewer.
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('calls useAttendees with enabled=true for the organizer', () => {
@@ -647,11 +668,11 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
-    it('onAfterSuccess refetches event AND attendees for the organizer', () => {
+    it('onAfterSuccess refetches event AND attendees for any authenticated user', () => {
       const refetchEvent = vi.fn()
       const refetchAttendees = vi.fn()
       mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
-      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
@@ -664,45 +685,21 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // Capture the onAfterSuccess option passed into useAttendance and invoke it.
       const lastCall = mockUseAttendance.mock.calls.at(-1)
       expect(lastCall).toBeTruthy()
       const options = lastCall?.[4] as { onAfterSuccess?: () => void }
       options.onAfterSuccess?.()
 
       expect(refetchEvent).toHaveBeenCalledTimes(1)
+      // SCRUM-S7: attendees refetch is no longer gated on organizer status — any
+      // authenticated viewer who attends/unattends should see the list refresh.
       expect(refetchAttendees).toHaveBeenCalledTimes(1)
     })
 
-    it('onAfterSuccess refetches event but NOT attendees for non-organizer', () => {
-      const refetchEvent = vi.fn()
-      const refetchAttendees = vi.fn()
-      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({
-        event: { ...mockEvent, attendingCount: 0 },
-        loading: false,
-        isInitialLoad: false,
-        isRefetching: false,
-        refetch: refetchEvent,
-        error: null,
-      })
-      mockGetUserById.mockResolvedValue(null)
-
-      renderPage()
-
-      const lastCall = mockUseAttendance.mock.calls.at(-1)
-      const options = lastCall?.[4] as { onAfterSuccess?: () => void }
-      options.onAfterSuccess?.()
-
-      expect(refetchEvent).toHaveBeenCalledTimes(1)
-      expect(refetchAttendees).not.toHaveBeenCalled()
-    })
-
-    it('passes the lifted attendees hook to AttendeesList for the organizer', () => {
+    it('passes the lifted attendees hook to AttendeesList for any authenticated viewer', () => {
       const refetch = vi.fn()
       mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch })
-      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
@@ -715,7 +712,6 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // Tabs render → confirms OrganizerView received the lifted hook.
       expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 

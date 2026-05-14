@@ -324,19 +324,19 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 ### AttendeesList
 
 - Section "Participants" insérée dans la **colonne principale** de `EventDetailPage`, immédiatement sous le bloc "À propos". Mêmes primitives de card que les autres blocs de la colonne (glassmorphism, heading `text-xs font-bold uppercase tracking-widest text-foreground/30`).
-- Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
-- **Vue non-organisateur (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Padding vertical réduit (`px-6 py-4`). Aucun appel API. La compacité est dérivée automatiquement de `!isOrganizer` (const map `sectionVariants`).
-- **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
-- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`) — la colonne de contenu est étroite, un layout vertical scanne mieux qu'une grille 2 colonnes. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- Props : `isAuthenticated: boolean`, `attendingCount: number`, `attendeesHook: UseAttendeesResult`.
+- **Vue non-authentifiée (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X participant(s)"`. Padding vertical réduit (`px-6 py-4`). **Aucun appel API.** La compacité est dérivée automatiquement de `!isAuthenticated` (const map `sectionVariants`).
+- **Vue authentifiée (SCRUM-S7)** : rendue pour **tous** les utilisateurs connectés (créateurs, co-organisateurs, admins, et autres comptes). Deux onglets accessibles au clavier — `"Participants"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
+- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`). Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
 - États gérés : skeleton de chargement initial (4 placeholders empilés), message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
-- Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
+- Le filtre de confidentialité est appliqué **côté backend** (cf. spec `GET /events/{id}/attendees`). Les lignes anonymisées (profil privé vu par un non-organisateur) arrivent avec `displayName=null`/`userId=null` et sont rendues par `AttendeeCard` comme "Utilisateur anonyme" — pas de logique de confidentialité côté frontend, pas de N+1 vers `/users/{id}`.
 
 ### AttendeeCard
 
 - Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
-- Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
-- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
-- Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
+- Prop unique : `attendance: Attendance` (l'enrichissement de profil est déjà projeté dans le DTO côté backend, plus de prop `profile` séparée).
+- Si `attendance.displayName !== null` (identité exposée) : avatar (`UserAvatar`) + `displayName`. Lien vers `/profile/{attendance.userId}` si `userId` est non-null.
+- Si `attendance.displayName === null` (ligne anonymisée par le backend : profil privé vu par un non-organisateur, ou inscription orpheline) : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" / sous-titre "Profil privé" — non cliquable.
 - Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
 
 ### WaitlistBadge
@@ -530,12 +530,11 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### useAttendees
 
-- Charge la liste paginée des participants d'un événement pour la vue organisateur.
-- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch.
-- Pour chaque `Attendance` retournée, fetch `getPublicUser(userId)` en parallèle via `Promise.allSettled` — un 403/404 sur un profil n'invalide pas le batch, le profil est mappé à `null`.
-- Retourne : `attendees: AttendeeWithProfile[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `isForbidden`.
+- Charge la liste paginée des participants d'un événement pour tout utilisateur authentifié (SCRUM-S7 — la confidentialité est filtrée côté backend, plus de gate par rôle côté frontend).
+- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch — utilisé pour les viewers non-authentifiés sur `EventDetailPage`.
+- **Pas** de N+1 vers `/users/{id}` : le DTO `Attendance` renvoyé par `GET /events/{id}/attendees` porte déjà `displayName`/`avatarUrl`/`userId`, anonymisés à `null` pour les profils privés vus par un non-organisateur. Le composant `AttendeeCard` interprète les nuls.
+- Retourne : `attendees: Attendance[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `refetch()`.
 - Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
-- Réponse 403 sur `/attendees` → `isForbidden = true`, pas de retry.
 
 ### useAttendance
 
@@ -560,8 +559,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### attendeesApi.ts
 
-- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — réservé au créateur (403 sinon).
-- `getPublicUser(userId)` : `GET /api/users/{id}` — retourne `null` sur 403 (profil privé) et 404 (introuvable). Toute autre erreur est rethrown.
+- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — accessible à tout utilisateur authentifié (SCRUM-S7). Le filtre de confidentialité est appliqué côté backend au niveau du DTO : pour un appelant non-organisateur, les lignes correspondant à un profil privé reviennent avec `userId=null`, `displayName=null`, `avatarUrl=null` (empêche le caller de sonder `/users/{id}` pour désanonymiser). Les créateurs / co-organisateurs ACCEPTED / admins reçoivent l'identité réelle pour toutes les lignes.
 
 ### attendanceApi.ts
 

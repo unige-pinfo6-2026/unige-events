@@ -1,6 +1,24 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-07
+Dernière mise à jour : 2026-05-14
+
+## Sprint 7 — Liste des participants visible à tout utilisateur authentifié sur `/events/:id` (feature/s7-profile-public) — 2026-05-14
+
+Livré.
+
+Sur la page détail d'un événement, la liste des participants n'était jusqu'ici visible qu'au créateur (qui voyait les vrais noms même pour les profils privés, via la projection `displayName` côté DTO). Les autres utilisateurs authentifiés ne voyaient qu'un compteur compact.
+
+Nouveau contrat (SCRUM-S7) : **tout utilisateur authentifié** voit la liste complète, avec une privacy-projection appliquée côté backend.
+
+- Backend (engagement-service) : `AttendanceService.getAttendees` n'expulse plus les non-organisateurs (drop de la branche `ForbiddenException`). Un filtre confidentialité est appliqué côté DTO :
+  - vue organisateur (créateur, co-organisateur ACCEPTED, ou admin) → identité réelle pour toutes les lignes y compris profils privés ;
+  - autre utilisateur authentifié → identité réelle pour `profilePublic=true`, `displayName=null` + `avatarUrl=null` + **`userId=null`** pour `profilePublic=false`. Le nullage de `userId` empêche le caller de sonder `GET /users/{id}` pour désanonymiser via l'anti-oracle ISSUE-93.
+- Nouveau endpoint interne `GET /users/_internal-attendee-projections?ids=...` (user-service, `@Internal` + `@PermitAll`) — bulk projection `(id, displayName, avatarUrl, profilePublic)` bypassant l'anti-oracle ISSUE-93 (interne uniquement). Consommé par `AttendanceService.getAttendees` via `UserServiceClient.getAttendeeProjections`. Une seule requête cross-service par page, pas de N+1.
+- OpenAPI : `GET /events/{id}/attendees` retire le 403, documente la règle ; `Attendance` schema marque `userId`/`displayName`/`avatarUrl` nullable.
+- Frontend : `useAttendees` ne fait plus le N+1 vers `/users/{id}` (drop de `getPublicUser`, drop de `fetchProfilesFor`). Le hook surface directement les `Attendance[]` du backend. `enabled` est désormais piloté par `isAuthenticated` (pas par `isOrganizer`) sur `EventDetailPage` — les viewers non-authentifiés gardent leur résumé compact sans appel API. `AttendeeCard` consomme `Attendance` directement (prop `profile` supprimée) : si `displayName === null` → rendu "Utilisateur anonyme" ; sinon lien `/profile/{userId}` (avec garde défensive si `userId === null`). `AttendeesList` renommé `isOrganizer` → `isAuthenticated`. Type `Attendance.userId` devient `string | null`.
+- Tests : 1287 frontend verts. `AttendanceServiceTest` enrichi de 7 cas couvrant créateur / co-organisateur / non-organisateur / admin / utilisateur supprimé / user-service indisponible / anonyme. `AttendanceResourceTest` remplace le test `403_non_organizer` par `anonymizesPrivateRowsOnly`. Nouveau `UserAttendeeProjectionInternalResourceTest` (4 cas : bypass ISSUE-93, drop des ids inconnus, empty list, mauvais token → 404). `AttendanceDTOMapperTest` enrichi de 4 cas pour la projection `fromWithPrivacy`. `AttendeeProjectionTest` ajoutée côté shared-domain-dtos. `useAttendees.test`, `AttendeeCard.test`, `AttendeesList.test`, `attendeesApi.test`, `EventDetailPage.test` réécrits/ajustés autour du nouveau contrat.
+
+
 
 ## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03 (corrigé 2026-05-07)
 

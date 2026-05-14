@@ -1,41 +1,23 @@
 import { Link } from 'react-router-dom'
 import UserAvatar from '@/components/user/UserAvatar'
-import { STUDY_LEVELS, type StudyLevel, type UserPublicResponse } from '@/types/user'
-import { FACULTIES, type Faculty } from '@/types/faculty'
 import type { Attendance } from '@/types/attendance'
 import WaitlistBadge from './WaitlistBadge'
 
 interface AttendeeCardProps {
   attendance: Attendance
-  profile: UserPublicResponse | null
 }
 
 const cardClass =
   'flex items-center gap-3 rounded-2xl border border-border bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl p-3 transition-colors hover:border-foreground/30 no-underline'
 
-function getProfileMeta(profile: UserPublicResponse) {
-  const studyLevelName = profile.studyLevel
-    ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name
-    : null
-  const facultyName = profile.faculty
-    ? FACULTIES[profile.faculty as Faculty]?.abbr
-    : null
-  return [studyLevelName, facultyName].filter(Boolean).join(' · ')
-}
-
-function ProfileBody({ profile }: Readonly<{ profile: UserPublicResponse }>) {
-  const subtitle = getProfileMeta(profile)
-  const displayName = profile.displayName ?? 'Utilisateur'
+function IdentityBody({ attendance }: Readonly<{ attendance: Attendance }>) {
   return (
     <>
-      <UserAvatar user={profile} className="size-10" />
+      <UserAvatar user={attendance} className="size-10" />
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm font-semibold text-foreground truncate">
-          {displayName}
+          {attendance.displayName}
         </span>
-        {subtitle && (
-          <span className="text-xs text-foreground/50 truncate">{subtitle}</span>
-        )}
       </div>
     </>
   )
@@ -58,10 +40,18 @@ function AnonymousBody() {
   )
 }
 
-export default function AttendeeCard({ attendance, profile }: Readonly<AttendeeCardProps>) {
+// Anonymized rows (private profiles seen by non-organizers + orphan rows from
+// deleted users) arrive with displayName=null from the backend. We render the
+// anonymous body in both cases — there's no real identity to expose. Rows with
+// a known userId AND a displayName link to /profile/{userId}; admins/organizers
+// who legitimately see a private profile reach the linked page where the user
+// profile resource enforces its own visibility cascade.
+export default function AttendeeCard({ attendance }: Readonly<AttendeeCardProps>) {
   const isWaitlisted = attendance.status === 'WAITLISTED'
+  const hasIdentity = attendance.displayName !== null
+  const hasLinkableProfile = hasIdentity && attendance.userId !== null
 
-  if (profile === null) {
+  if (!hasIdentity) {
     return (
       <div className={cardClass}>
         <AnonymousBody />
@@ -70,9 +60,21 @@ export default function AttendeeCard({ attendance, profile }: Readonly<AttendeeC
     )
   }
 
+  if (!hasLinkableProfile) {
+    // Edge case: displayName present but userId null — currently unreachable in
+    // the backend contract, but guard against it so we never produce
+    // `/profile/null`.
+    return (
+      <div className={cardClass}>
+        <IdentityBody attendance={attendance} />
+        {isWaitlisted && <WaitlistBadge />}
+      </div>
+    )
+  }
+
   return (
-    <Link to={`/profile/${profile.id}`} className={cardClass}>
-      <ProfileBody profile={profile} />
+    <Link to={`/profile/${attendance.userId}`} className={cardClass}>
+      <IdentityBody attendance={attendance} />
       {isWaitlisted && <WaitlistBadge />}
     </Link>
   )
