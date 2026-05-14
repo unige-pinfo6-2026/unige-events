@@ -7,6 +7,7 @@ import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
 import { ThemeToggle } from '@/components/utils/ThemeToggle'
 import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
+import CoOrganizerInvitationsBadge from '@/components/user/CoOrganizerInvitationsBadge'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
@@ -170,6 +171,7 @@ function DesktopNav() {
         ))}
         <ThemeToggle />
         <NotificationsDropdown />
+        {user && <CoOrganizerInvitationsBadge />}
       </div>
       {isLoading && <UserIdentity user={null} loading />}
       {!isLoading && (user

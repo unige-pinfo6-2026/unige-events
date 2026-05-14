@@ -21,6 +21,7 @@ import ReportModal from '@/components/event/ReportModal'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
+import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
@@ -580,6 +581,16 @@ export default function EventDetailPage() {
               viewCount={event.viewCount}
               interestedCount={event.interestedCount}
               attendingCount={event.attendingCount}
+            />
+          </div>
+
+          {/* Équipe organisatrice (SCRUM-137) — créateur + co-organisateurs ACCEPTED */}
+          <div className="max-lg:order-8">
+            <EventOrganizerTeam
+              eventId={event.id}
+              creatorId={event.creatorId}
+              creatorDisplayName={organizer?.displayName ?? null}
+              creatorAvatarUrl={organizer?.avatarUrl ?? null}
             />
           </div>
 

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
 import EventForm from '@/components/event/EventForm'
+import CoOrganizersEditor from '@/components/event/CoOrganizersEditor'
 import { deleteEvent, getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
@@ -219,6 +220,10 @@ export default function EventEditPage() {
         deleting={deleting}
         deleteLabel={draftMode ? 'Supprimer le brouillon' : undefined}
       />
+
+      <div className="mt-8">
+        <CoOrganizersEditor eventId={event.id} />
+      </div>
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">

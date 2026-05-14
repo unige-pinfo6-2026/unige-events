@@ -12,6 +12,7 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
+import CoOrganizerInvitationsList from '@/components/user/CoOrganizerInvitationsList'
 
 function ProfileFixture() {
   return (
@@ -235,8 +236,13 @@ export default function ProfilePage() {
             {isOwnProfile && <MyPublicationsPreview />}
           </div>
 
-          {/* Right column: calendar subscription (own profile only) */}
-          {isOwnProfile && <CalendarSubscribeButton />}
+          {/* Right column: calendar + co-organizer invitations (own profile only) */}
+          {isOwnProfile && (
+            <div className="flex flex-col gap-6">
+              <CalendarSubscribeButton />
+              <CoOrganizerInvitationsList />
+            </div>
+          )}
         </div>
 
       </div>
