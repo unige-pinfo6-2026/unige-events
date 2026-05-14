@@ -16,6 +16,12 @@ export interface Attendance {
   displayName: string | null
   /** URL d'avatar du participant, ou null. */
   avatarUrl: string | null
+  /**
+   * Username public-facing du participant (SCRUM-169). Permet à `AttendeeCard`
+   * de construire `/profile/{username}` sans N+1. `null` uniquement sur ligne
+   * orpheline (user supprimé).
+   */
+  username: string | null
 }
 
 export interface AttendanceRequest {

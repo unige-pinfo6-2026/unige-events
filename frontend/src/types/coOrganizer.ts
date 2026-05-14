@@ -14,12 +14,16 @@ export type CoOrganizerStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED'
 /**
  * Representation of a co-organizer inside `GET /events/{id}/co-organizers`.
  * Privacy: `email`, `bio`, `faculty`, `studyLevel` are NOT exposed.
+ *
+ * SCRUM-169 — `username` ajouté pour que `EventOrganizerTeam` puisse
+ * construire `/profile/{username}` sans N+1.
  */
 export interface CoOrganizer {
   id: number
   userId: string
   displayName: string | null
   avatarUrl: string | null
+  username: string | null
   status: CoOrganizerStatus
   invitedAt: string
 }
