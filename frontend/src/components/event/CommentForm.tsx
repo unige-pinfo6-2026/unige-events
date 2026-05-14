@@ -3,7 +3,7 @@ import { Send, X } from 'lucide-react'
 import { Textarea } from '@/components/utils/FormField'
 import { ButtonNeutral, ButtonPrimary } from '@/components/utils/Buttons'
 
-const MAX_LENGTH = 2000
+const MAX_LENGTH = 500
 
 interface Props {
   onSubmit: (content: string) => Promise<{ ok: boolean }>

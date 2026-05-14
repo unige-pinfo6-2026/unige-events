@@ -667,7 +667,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 - `src/components/event/CommentForm.tsx` — formulaire textarea + bouton Envoyer.
 - Props : `eventId`, `parentCommentId?`, `onPost(content)`, `onCancel?` (pour le mode reply).
-- Compteur live de caractères (max 2000). Bouton désactivé si vide ou loading.
+- Compteur live de caractères (max 500). Bouton désactivé si vide ou loading.
 - Affichage conditionnel : si user anonyme, remplace le form par un message "Connectez-vous pour commenter" + lien vers `/login`.
 
 ### CommentItem

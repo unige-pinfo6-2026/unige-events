@@ -1022,8 +1022,8 @@ components:
           description: PK séquentielle (Long, sequence `comments_seq`).
         content:
           type: string
-          maxLength: 2000
-          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service).
+          maxLength: 500
+          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service). Cap à 500 chars depuis 2026-05-14 (auparavant 2000) — ajustement produit après test manuel SCRUM-146.
         authorId:
           type: string
           format: uuid
@@ -1086,8 +1086,8 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 2000
-          description: Texte du commentaire. Trimmé côté service avant persistance.
+          maxLength: 500
+          description: Texte du commentaire. Trimmé côté service avant persistance. Cap à 500 chars depuis 2026-05-14.
         parentCommentId:
           type: integer
           format: int64

@@ -27,7 +27,7 @@ Cette PR (`feature/scrum-137-146-doc-and-views`) reprend le développement fonct
     n'existe pas côté backend ; follow-up S9+).
 
 - **SCRUM-146** — Section commentaires dans `EventDetailPage` :
-  - `CommentSection` (wrapper liste + form), `CommentForm` (textarea + compteur 2000 chars,
+  - `CommentSection` (wrapper liste + form), `CommentForm` (textarea + compteur 500 chars,
     masqué pour anonymes), `CommentItem` (replies 1 niveau, badge "Organisateur",
     actions Répondre/Supprimer/Signaler).
   - Hook `useComments` (optimistic post + delete + rollback).

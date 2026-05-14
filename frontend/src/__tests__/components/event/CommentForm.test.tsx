@@ -71,6 +71,6 @@ describe('CommentForm', () => {
 
   it('shows the character counter', () => {
     render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting={false} />)
-    expect(screen.getByText(/2000 caractères restants/)).toBeTruthy()
+    expect(screen.getByText(/500 caractères restants/)).toBeTruthy()
   })
 })
