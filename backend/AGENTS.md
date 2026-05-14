@@ -1,30 +1,29 @@
 # AGENTS.md — unige-events backend
 
 ## Rôle
-Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 + finalisation — **5 services Quarkus 3** (4 actifs + 1 placeholder) + 10 shared libs sur PostgreSQL 16 partagé, fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
+Backend REST API de UNIGE Events. **Architecture microservices** post-Sprint 8 + finalisation + fixes infra mai 2026 — **5 services Quarkus 3 tous actifs**, **chacun avec sa propre instance PostgreSQL 16 dédiée** (DB-per-service livré post-PR #158), fronté par Kong DB-less, événementiel via Kafka KRaft. Java 21 · Hibernate Panache · Auth0/OIDC.
 
-Topologie complète + flux requête + table endpoints owned par service : [`docs/architecture.md`](docs/architecture.md). Spec originale : [`../specs_archives/specs_claude/specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md). Spec de complétion : [`../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../specs_archives/specs_claude/specs_microservices_migration_completion.md). Spec de finalisation (la plus à jour) : [`../specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
+Topologie complète + flux requête + table endpoints owned par service : [`docs/architecture.md`](docs/architecture.md). Spec originale : [`../specs_archives/specs_claude/specs_microservices_migration.md`](../specs_archives/specs_claude/specs_microservices_migration.md). Spec de complétion : [`../specs_archives/specs_claude/specs_microservices_migration_completion.md`](../specs_archives/specs_claude/specs_microservices_migration_completion.md). Spec de finalisation : [`../specs_archives/specs_claude/specs_microservices_migration_finalization.md`](../specs_archives/specs_claude/specs_microservices_migration_finalization.md).
 
-## Layout Maven (post-finalisation)
+## Layout Maven (post-refactor `fab270e0`)
 
-`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare **17 modules** sous `backend/services/` (post-consolidation 14→5, Décision A de la spec finalization) :
+`backend/` est un projet **multi-module**. Le parent POM agrégateur vit à `backend/pom.xml` (`packaging=pom`) et déclare 2 sous-aggregators : `<module>shared</module>` (10 libs leaf) et `<module>services</module>` (5 services leaf). Total : **15 modules leaf** dans le reactor (les modules historiques `contract-tests` et `e2e` ont été retirés du reactor après PR #158 — cf. commit `fab270e0` `refactor(backend): regroup shared libs under backend/shared/`).
 
-| Catégorie | Modules | Packaging | Notes |
-|---|---|---|---|
-| **Microservices Quarkus actifs (×4)** | `event-service` (sous-packages share, view, favorite, coorganizer, stats, me), `user-service` (sous-packages follow, calendar), `engagement-service` (sous-packages attendance, comment), `moderation-service` | `quarkus` | Owned schema(s) + REST endpoints + Kafka producers/consumers. Cf. `architecture.md` table par-service. |
-| **Placeholder Notification (×1)** | `notification-service` | `jar` | replicas:0 ; SCRUM-99 hors scope S8 (formalisé dans [`docs/devops-handoff.md`](docs/devops-handoff.md)). |
-| **Shared libs Sprint 8 (×2)** | `shared-rate-limit` (`@PerUserRateLimit` + interceptor + state cache), `shared-storage` (`FileStorageService` S3) | `jar` | 100 % couverture tests. Hors glob `<sonar.coverage.exclusions>` du parent. |
-| **Shared libs complétion (×8)** | `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform` | `jar` | Cible ≥ 95 % L / ≥ 90 % B chacune. Décision D de la spec de complétion. |
+| Catégorie | Localisation | Modules | Packaging | Notes |
+|---|---|---|---|---|
+| **Microservices Quarkus actifs (×5)** | `backend/services/<svc>-service/` | `event-service` (sous-packages share, view, favorite, coorganizer, stats, me), `user-service` (sous-packages follow, calendar), `engagement-service` (sous-packages attendance, comment), `moderation-service`, `notification-service` (actif depuis `f4b5968e`) | `quarkus` | Chacun a sa propre Postgres dédiée (`postgres-<svc>`), owns ses tables Flyway, REST endpoints + Kafka producers/consumers. Cf. `architecture.md` table par-service. |
+| **Shared libs (×10)** | `backend/shared/<lib>/` | `rate-limit` (`@PerUserRateLimit` + interceptor + state cache), `storage` (`FileStorageService` S3), `api-error`, `domain-enums`, `domain-dtos`, `domain-projections`, `jaxrs`, `tracing`, `kafka-events`, `platform` | `jar` | `rate-limit` + `storage` à 100 % L. Les 8 autres : ≥ 95 % L / ≥ 90 % B (Décision D spec complétion). Les artefacts Maven gardent leur `artifactId` historique `shared-<lib>` pour compatibilité GAV (cf. `aee13d4e refactor(backend): rename Maven artifactIds and drop <name> tags`). |
 
 ## Commandes
 
 ```bash
-cd backend && ./mvnw verify              # build + tests complets — 17 modules, ~3-4 min
+cd backend && ./mvnw verify              # build + tests complets — 15 modules, ~3-4 min
 cd backend/services/<svc>-service && ../../mvnw quarkus:dev   # dev local par service
 cd backend && ./mvnw -pl services/<svc>-service -am verify    # un service + ses deps
+cd backend && ./mvnw -pl shared/<lib>     -am verify          # une shared lib seule
 ```
 
-`quarkus:dev` ne fonctionne pas depuis le parent multi-module — il s'exécute dans le contexte d'UN module Quarkus. Les tests nécessitent Docker-in-Docker (Quarkus DevServices lance un PostgreSQL éphémère par service, plus Kafka in-memory).
+`quarkus:dev` ne fonctionne pas depuis le parent multi-module — il s'exécute dans le contexte d'UN module Quarkus. Les tests nécessitent Docker-in-Docker (Quarkus DevServices lance un PostgreSQL éphémère par service, plus Kafka in-memory). En prod / preview, chaque service se connecte à **sa propre Postgres** (`postgres-event`, `postgres-user`, etc.).
 
 ## Architecture en couches (par service)
 
@@ -57,7 +56,7 @@ Jamais de saut de couche. La Resource ne touche pas aux entités directement. La
 - Entités étendent `PanacheEntity` (pas de repository séparé).
 - Services `@ApplicationScoped` + `@Transactional` sur toutes les mutations.
 - Resources JAX-RS, préfixe `/api` (configuré dans `application.properties`).
-- **Hibernate en `validate`** en dev/prod (Flyway pilote le schéma — historique V1..V17 partagé pour l'instant, cf. Décision C de la spec de complétion qui défère DB-per-service S9+). En `%test`, Hibernate `drop-and-create` pour les bases éphémères DevServices.
+- **Hibernate en `validate`** en dev/prod. **Flyway redistribué par service** : chaque service possède ses propres migrations sous `services/<svc>-service/src/main/resources/db/migration/V*.sql`, appliquées sur **sa Postgres dédiée** (`postgres-<svc>`). Plus de schéma `public` partagé — l'isolation DB-per-service a été livrée post-PR #158 (commit `f4b5968e`). En `%test`, Hibernate `drop-and-create` pour les bases éphémères DevServices.
 - Soft-delete d'un Event : transition vers `EventStatus.CANCELLED` (le champ
   `status` porte la sémantique soft-delete ; il n'y a pas de booléen
   `active` séparé). Cf. `data-model.md`. Le DELETE physique d'un Event

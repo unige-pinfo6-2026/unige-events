@@ -1,5 +1,17 @@
 # Data Model — unige-events-api
 
+> **Mise à jour 2026-05-14 — DB-per-service livré.** Chaque service possède sa propre instance PostgreSQL dédiée (commit `f4b5968e`). Le schéma `public` partagé n'existe plus. Mapping table → DB physique :
+>
+> | Service propriétaire | DB physique (host:port) | Tables possédées |
+> |---|---|---|
+> | `event-service` | `postgres-event:5432` / DB `unige_events_events` | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
+> | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `follows` |
+> | `engagement-service` | `postgres-engagement:5432` / DB `unige_events_engagement` | `attendances`, `comments` |
+> | `moderation-service` | `postgres-moderation:5432` / DB `unige_events_moderation` | `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
+> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notification` | (aucune table métier active — provisionné par parité topologique) |
+>
+> Les migrations Flyway sont **redistribuées par service propriétaire** sous `backend/services/<svc>-service/src/main/resources/db/migration/V*.sql`. La numérotation V est **locale** à chaque service (deux services peuvent avoir une `V1__...sql` chacun). Plus jamais de migration cross-service.
+
 ## Entités JPA
 
 ### User
