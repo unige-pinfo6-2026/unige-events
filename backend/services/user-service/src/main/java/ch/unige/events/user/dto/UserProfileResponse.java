@@ -13,6 +13,8 @@ public record UserProfileResponse(
     @Schema(readOnly = true) UUID id,
     @Schema(readOnly = true, description = "Auth0 user ID from JWT sub") String auth0Id,
     @Schema(readOnly = true) String email,
+    @Schema(description = "Public-facing handle (SCRUM-169) — used in /profile/{username} URLs.")
+    String username,
     String displayName,
     Faculty faculty,
     @Schema(description = "Free-text until StudyLevel enum lands (S9+). Expected: LICENCE | MASTER | PHD | OTHER")
@@ -29,6 +31,7 @@ public record UserProfileResponse(
                 user.id,
                 user.auth0Id,
                 user.email,
+                user.username,
                 user.displayName,
                 user.faculty,
                 user.studyLevel,

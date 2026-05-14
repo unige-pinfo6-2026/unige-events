@@ -19,11 +19,12 @@ class UserPublicResponseTest {
         UUID id = UUID.randomUUID();
         List<String> interests = List.of("art");
         UserPublicResponse dto = new UserPublicResponse(
-            id, "Alice", Faculty.SCIENCES, "Master", "bio",
+            id, "alice.martin", "Alice", Faculty.SCIENCES, "Master", "bio",
             interests, "https://av/a.png", "https://bn/a.png",
             12L, 5L, FollowStatus.ACCEPTED);
 
         assertEquals(id, dto.id());
+        assertEquals("alice.martin", dto.username());
         assertEquals("Alice", dto.displayName());
         assertEquals(Faculty.SCIENCES, dto.faculty());
         assertEquals("Master", dto.studyLevel());
@@ -42,6 +43,7 @@ class UserPublicResponseTest {
         UserPublicResponse dto = UserPublicResponse.from(user);
 
         assertEquals(user.id, dto.id());
+        assertEquals(user.username, dto.username());
         assertEquals(user.displayName, dto.displayName());
         assertEquals(user.faculty, dto.faculty());
         assertEquals(user.studyLevel, dto.studyLevel());
@@ -60,17 +62,21 @@ class UserPublicResponseTest {
         UserPublicResponse dto = UserPublicResponse.from(user, 7L, 3L, FollowStatus.PENDING);
 
         assertEquals(user.id, dto.id());
+        assertEquals(user.username, dto.username());
         assertEquals(7L, dto.followerCount());
         assertEquals(3L, dto.followingCount());
         assertEquals(FollowStatus.PENDING, dto.followStatus());
     }
 
     @Test
-    void fromAnonymous_stripsSensitiveFields() {
+    void fromAnonymous_keepsUsername_stripsSensitiveFields() {
+        // SCRUM-169 Décision E — username MUST be exposed even to anonymous
+        // callers because it is the public-facing identifier of the profile.
         User user = newUser();
         UserPublicResponse dto = UserPublicResponse.fromAnonymous(user);
 
         assertEquals(user.id, dto.id());
+        assertEquals(user.username, dto.username());
         assertEquals(user.displayName, dto.displayName());
         assertNull(dto.faculty());
         assertNull(dto.studyLevel());
@@ -87,11 +93,11 @@ class UserPublicResponseTest {
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         UserPublicResponse a = new UserPublicResponse(
-            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
         UserPublicResponse b = new UserPublicResponse(
-            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 1L, 2L, FollowStatus.ACCEPTED);
         UserPublicResponse c = new UserPublicResponse(
-            id, "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 9L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", 9L, 2L, FollowStatus.ACCEPTED);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
@@ -101,6 +107,7 @@ class UserPublicResponseTest {
     private static User newUser() {
         User u = new User();
         u.id = UUID.randomUUID();
+        u.username = "bob.smith";
         u.displayName = "Bob";
         u.faculty = Faculty.LETTERS;
         u.studyLevel = "Bachelor";

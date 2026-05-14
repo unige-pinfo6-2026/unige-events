@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public record UserPublicResponse(
     UUID id,
+    String username,
     String displayName,
     Faculty faculty,
     String studyLevel,
@@ -24,6 +25,7 @@ public record UserPublicResponse(
     public static UserPublicResponse from(User user) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 user.faculty,
                 user.studyLevel,
@@ -44,6 +46,7 @@ public record UserPublicResponse(
             FollowStatus followStatus) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 user.faculty,
                 user.studyLevel,
@@ -57,9 +60,16 @@ public record UserPublicResponse(
         );
     }
 
+    /**
+     * Anonymous projection — keeps id, username, displayName, avatarUrl,
+     * nullifies the rest (cf. SCRUM-169 Décision E : {@code username} is
+     * exposed even to anonymous callers since it is the public-facing
+     * identifier of the profile).
+     */
     public static UserPublicResponse fromAnonymous(User user) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 null,
                 null,
