@@ -5,31 +5,34 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Idempotent record of "user X viewed event Y". Owned by event-service (co-located post-finalization).
- * Carbon-copy of the legacy monolith's
- * ch.unige.events.entity.EventView entity — same table, same constraints.
+ * Idempotent record of "user X viewed event Y" or "anonymous session S viewed event Y".
+ * Owned by event-service (co-located post-finalization).
+ *
+ * <p>Post-V11 schema (2026-05-14): exactly one of (userId, sessionId) is populated.
+ * Partial unique indexes enforce dedup separately per branch:
+ * <ul>
+ *   <li>{@code uq_event_view_user_event}: UNIQUE(event_id, user_id) WHERE user_id IS NOT NULL</li>
+ *   <li>{@code uq_event_view_event_session}: UNIQUE(event_id, session_id) WHERE session_id IS NOT NULL</li>
+ * </ul>
+ * A CHECK constraint forbids orphan rows where both columns are NULL.
  */
 @Entity
-@Table(
-    name = "event_views",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uq_event_view_user_event",
-        columnNames = {"event_id", "user_id"}
-    )
-)
+@Table(name = "event_views")
 public class EventView extends PanacheEntity {
 
     @Column(name = "event_id", nullable = false)
     public Long eventId;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     public UUID userId;
+
+    @Column(name = "session_id")
+    public UUID sessionId;
 
     @Column(name = "viewed_at")
     public LocalDateTime viewedAt;
