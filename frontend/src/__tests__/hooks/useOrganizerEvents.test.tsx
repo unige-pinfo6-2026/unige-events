@@ -83,4 +83,34 @@ describe('useOrganizerEvents', () => {
     await waitFor(() => expect(result.current.events.length).toBe(0))
     expect(mockGetAll).toHaveBeenCalledTimes(2)
   })
+
+  it('discards a stale resolve when the hook unmounts mid-flight', async () => {
+    let resolveFn: (v: unknown) => void = () => {}
+    mockGetAll.mockImplementationOnce(() => new Promise(resolve => { resolveFn = resolve }))
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = renderHook(() => useOrganizerEvents(event.creatorId))
+
+    unmount()
+    resolveFn([event]) // stale resolve, must not trigger state update
+
+    await new Promise(r => setTimeout(r, 20))
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('discards a stale reject when the hook unmounts mid-flight', async () => {
+    let rejectFn: (e: Error) => void = () => {}
+    mockGetAll.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFn = reject }))
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { unmount } = renderHook(() => useOrganizerEvents(event.creatorId))
+
+    unmount()
+    rejectFn(new Error('boom'))
+
+    await new Promise(r => setTimeout(r, 20))
+    expect(errorSpy).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
 })
