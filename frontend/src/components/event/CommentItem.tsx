@@ -4,6 +4,7 @@ import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { userDisplayLabel, userInitials } from '@/utils/displayName'
 import { useToast } from '@/hooks/useToast'
 import CommentForm from '@/components/event/CommentForm'
+import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { Comment } from '@/types/comment'
 
 interface Props {
@@ -38,6 +39,8 @@ export default function CommentItem({
   posting,
 }: Readonly<Props>) {
   const [showReplyForm, setShowReplyForm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { showToast } = useToast()
 
   const isAuthor = currentUserId !== null && comment.authorId === currentUserId
@@ -48,9 +51,15 @@ export default function CommentItem({
   const initials = userInitials(comment.authorDisplayName)
   const authorLabel = userDisplayLabel(comment.authorDisplayName, comment.authorId)
 
-  async function handleDelete() {
-    if (!globalThis.confirm('Supprimer ce commentaire ?')) return
-    await onDelete(comment.id)
+  async function confirmDelete() {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await onDelete(comment.id)
+    } finally {
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   async function handleReplySubmit(content: string) {
@@ -111,7 +120,7 @@ export default function CommentItem({
             {canDelete && (
               <button
                 type="button"
-                onClick={() => void handleDelete()}
+                onClick={() => setShowDeleteConfirm(true)}
                 className="inline-flex items-center gap-1 text-foreground/50 hover:text-error transition-colors bg-transparent border-0 p-0 cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
@@ -160,6 +169,16 @@ export default function CommentItem({
             />
           ))}
         </ul>
+      )}
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Supprimer ce commentaire ?"
+          message="Cette action est irréversible — le commentaire et ses réponses éventuelles seront définitivement supprimés."
+          confirmLabel={deleting ? 'Suppression…' : 'Confirmer'}
+          pending={deleting}
+          onConfirm={() => { void confirmDelete() }}
+          onClose={() => setShowDeleteConfirm(false)}
+        />
       )}
     </li>
   )

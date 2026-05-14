@@ -127,6 +127,50 @@ describe('CommentItem', () => {
     expect(screen.getByRole('button', { name: /supprimer/i })).toBeTruthy()
   })
 
+  it('opens a ConfirmDialog (not browser confirm) when Supprimer is clicked', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    render(
+      <CommentItem
+        comment={makeComment({ id: 7, authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={onDelete}
+        posting={false}
+      />,
+    )
+    // Click the inline Supprimer link — opens the modal, does NOT call onDelete yet.
+    fireEvent.click(screen.getByRole('button', { name: /^supprimer$/i }))
+    expect(onDelete).not.toHaveBeenCalled()
+    // Modal title is visible.
+    expect(screen.getByText(/supprimer ce commentaire/i)).toBeTruthy()
+    // Click Confirmer.
+    fireEvent.click(screen.getByRole('button', { name: /^confirmer$/i }))
+    // Wait for the async onDelete to fire.
+    await vi.waitFor(() => expect(onDelete).toHaveBeenCalledWith(7))
+  })
+
+  it('closes the ConfirmDialog without calling onDelete when Annuler is clicked', () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    render(
+      <CommentItem
+        comment={makeComment({ authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={onDelete}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^supprimer$/i }))
+    expect(screen.getByText(/supprimer ce commentaire/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^annuler$/i }))
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(screen.queryByText(/supprimer ce commentaire/i)).toBeNull()
+  })
+
   it('shows Supprimer for the event creator', () => {
     render(
       <CommentItem
