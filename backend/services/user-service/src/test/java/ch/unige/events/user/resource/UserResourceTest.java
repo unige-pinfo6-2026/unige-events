@@ -206,4 +206,190 @@ class UserResourceTest {
             .then()
             .statusCode(200);
     }
+
+    // ─── SCRUM-169 — username endpoints ──────────────────────────────────
+
+    @Test
+    @TestSecurity(user = "auth0|ur-uname-happy")
+    void patchUsername_happyPath_returns200WithUpdatedUsername() {
+        fixtures.persistUser("auth0|ur-uname-happy", "ur-uname-happy@example.com", false,
+                "old.username");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-uname-happy"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"new.username\"}")
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("new.username"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-uname-conflict")
+    void patchUsername_alreadyTakenByOther_returns409() {
+        fixtures.persistUser("auth0|ur-uname-conflict-other", "other@example.com", false,
+                "taken.handle");
+        fixtures.persistUser("auth0|ur-uname-conflict", "self@example.com", false,
+                "self.handle");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-uname-conflict"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"taken.handle\"}")
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(409)
+            .body("error", equalTo("username_taken"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-uname-invalid")
+    void patchUsername_invalidPattern_returns400() {
+        fixtures.persistUser("auth0|ur-uname-invalid", "ur-inv@example.com", false,
+                "ok.handle");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-uname-invalid"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"Jean Dupont\"}") // uppercase + space → invalid
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-uname-reserved")
+    void patchUsername_reservedWord_returns400_usernameReserved() {
+        fixtures.persistUser("auth0|ur-uname-reserved", "ur-res@example.com", false,
+                "ok.handle2");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-uname-reserved"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"admin\"}")
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(400)
+            .body("error", equalTo("username_reserved"));
+    }
+
+    @Test
+    void patchUsername_unauthenticated_returns401() {
+        given()
+            .contentType("application/json")
+            .body("{\"username\":\"any.thing\"}")
+            .when().patch("/users/me/username")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    void getByUsername_publicProfile_anonymous_returns200() {
+        fixtures.persistUser("auth0|ur-byuname-pub", "ur-byuname-pub@example.com", true,
+                "public.alice");
+
+        given()
+            .when().get("/users/by-username/public.alice")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("public.alice"));
+    }
+
+    @Test
+    void getByUsername_caseInsensitive_findsLowercased() {
+        fixtures.persistUser("auth0|ur-byuname-case", "case@example.com", true,
+                "case.alice");
+
+        given()
+            .when().get("/users/by-username/Case.Alice")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("case.alice"));
+    }
+
+    @Test
+    void getByUsername_privateProfile_anonymous_returns404() {
+        fixtures.persistUser("auth0|ur-byuname-priv-anon", "priv-anon@example.com", false,
+                "priv.alice");
+
+        given()
+            .when().get("/users/by-username/priv.alice")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-byuname-other")
+    void getByUsername_privateProfile_otherUser_returns404() {
+        fixtures.persistUser("auth0|ur-byuname-priv-target", "target@example.com", false,
+                "priv.target");
+        fixtures.persistUser("auth0|ur-byuname-other", "caller@example.com", false,
+                "caller.handle");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-byuname-other"));
+
+        given()
+            .when().get("/users/by-username/priv.target")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void getByUsername_notFound_returns404() {
+        given()
+            .when().get("/users/by-username/no.such.user")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void getByUsername_anonymous_payloadIncludesUsername() {
+        // SCRUM-169 Décision E — username MUST be exposed even when the
+        // payload is otherwise stripped for an anonymous caller.
+        fixtures.persistUser("auth0|ur-byuname-anon", "anon@example.com", true,
+                "anon.target");
+
+        given()
+            .when().get("/users/by-username/anon.target")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("anon.target"));
+    }
+
+    @Test
+    void headByUsername_taken_returns200() {
+        fixtures.persistUser("auth0|ur-head-taken", "head-t@example.com", true,
+                "head.taken");
+
+        given()
+            .when().head("/users/by-username/head.taken")
+            .then()
+            .statusCode(200);
+    }
+
+    @Test
+    void headByUsername_available_returns404() {
+        // Inversion sémantique : 404 = libre.
+        given()
+            .when().head("/users/by-username/never.exists.xyz")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void headByUsername_caseInsensitive_findsLowercased() {
+        fixtures.persistUser("auth0|ur-head-case", "head-c@example.com", true,
+                "head.case");
+
+        given()
+            .when().head("/users/by-username/Head.Case")
+            .then()
+            .statusCode(200);
+    }
+
+    /** Unused argument suppression for {@link UUID} import retention. */
+    @SuppressWarnings("unused")
+    private void _keepUuidImport(UUID u) {
+        // Used by older tests above ; placeholder so the import survives if those tests are pruned.
+    }
 }

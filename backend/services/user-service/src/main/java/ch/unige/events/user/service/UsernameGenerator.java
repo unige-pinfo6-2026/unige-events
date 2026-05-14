@@ -63,6 +63,25 @@ public final class UsernameGenerator {
     private static final Pattern LEADING_PUNCT = Pattern.compile("^[._-]+");
     private static final Pattern TRAILING_PUNCT = Pattern.compile("[._-]+$");
 
+    /**
+     * Pre-translation for Latin-extended characters that NFD does NOT
+     * decompose (they encode structural modifications, not diacritics).
+     * Mirrors the PostgreSQL {@code unaccent} extension default rules used
+     * by the V3 migration so Java auto-gen and SQL back-fill stay aligned
+     * for international names (Eastern European Đ/Ł, Scandinavian Ø/Æ,
+     * German ß).
+     */
+    private static final java.util.Map<Character, String> LATIN_EXT_PRETRANSLATE = java.util.Map.ofEntries(
+            java.util.Map.entry('Đ', "D"), java.util.Map.entry('đ', "d"),
+            java.util.Map.entry('Ł', "L"), java.util.Map.entry('ł', "l"),
+            java.util.Map.entry('Ø', "O"), java.util.Map.entry('ø', "o"),
+            java.util.Map.entry('Æ', "AE"), java.util.Map.entry('æ', "ae"),
+            java.util.Map.entry('Œ', "OE"), java.util.Map.entry('œ', "oe"),
+            java.util.Map.entry('ß', "ss"),
+            java.util.Map.entry('Þ', "TH"), java.util.Map.entry('þ', "th"),
+            java.util.Map.entry('Ð', "D"), java.util.Map.entry('ð', "d")
+    );
+
     private UsernameGenerator() {
         // util class — no instances
     }
@@ -92,8 +111,11 @@ public final class UsernameGenerator {
                 "user"
         );
 
-        // ASCII-fold (NFD then drop combining marks) + lowercase.
-        String folded = Normalizer.normalize(source, Normalizer.Form.NFD);
+        // Pre-translate Latin-extended characters (Đ, Ł, Ø, ß, ...) that NFD
+        // cannot decompose. Then NFD-fold the rest of the diacritics and
+        // lowercase.
+        String folded = preTranslateLatinExt(source);
+        folded = Normalizer.normalize(folded, Normalizer.Form.NFD);
         folded = DIACRITICS.matcher(folded).replaceAll("");
         folded = folded.toLowerCase();
 
@@ -154,6 +176,23 @@ public final class UsernameGenerator {
         int budget = MAX_LENGTH - suffixStr.length();
         String trimmedBase = (base.length() <= budget) ? base : base.substring(0, budget);
         return trimmedBase + suffixStr;
+    }
+
+    private static String preTranslateLatinExt(String source) {
+        if (source == null || source.isEmpty()) {
+            return source;
+        }
+        StringBuilder sb = new StringBuilder(source.length() + 8);
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.charAt(i);
+            String mapped = LATIN_EXT_PRETRANSLATE.get(c);
+            if (mapped != null) {
+                sb.append(mapped);
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private static String pickFirstNonBlank(String first, String second, String fallback) {
