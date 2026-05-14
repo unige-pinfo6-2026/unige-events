@@ -1,5 +1,6 @@
+import axios from 'axios'
 import api from './api'
-import type { User } from '@/types/user'
+import type { User, UserPublicResponse } from '@/types/user'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
 
 export async function getMe(): Promise<User> {
@@ -10,6 +11,28 @@ export async function getMe(): Promise<User> {
 export async function getUserById(id: string): Promise<User | null> {
   const response = await api.get<User>(`/users/${id}`)
   return response.data
+}
+
+/**
+ * Public profile fetch for `/profile/:id` (SCRUM-141). Returns `null` on 404,
+ * which on the backend covers both "user does not exist" and "profile is
+ * private and caller is neither owner nor admin" (anti-oracle ISSUE-93 —
+ * the two cases are indistinguishable by design). The caller renders a
+ * unified "Ce profil est privé ou introuvable" UI for `null`.
+ *
+ * Other HTTP errors (5xx, network) are rethrown so the hook can surface a
+ * retryable error state.
+ */
+export async function getPublicProfile(id: string): Promise<UserPublicResponse | null> {
+  try {
+    const response = await api.get<UserPublicResponse>(`/users/${id}`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null
+    }
+    throw error
+  }
 }
 
 export async function updateProfile(data: Partial<User>): Promise<User> {
