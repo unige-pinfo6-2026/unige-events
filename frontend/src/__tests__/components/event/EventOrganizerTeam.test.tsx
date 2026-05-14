@@ -44,6 +44,7 @@ describe('EventOrganizerTeam', () => {
       <EventOrganizerTeam
         eventId={42}
         creatorId={CREATOR_UUID}
+        creatorUsername="charlie"
         creatorDisplayName="Charlie"
         creatorAvatarUrl={null}
       />,
@@ -58,6 +59,7 @@ describe('EventOrganizerTeam', () => {
       userId: '00000000-0000-0000-0000-000000000002',
       displayName: 'Alice',
       avatarUrl: null,
+      username: 'alice',
       status: 'ACCEPTED',
       invitedAt: '2026-05-14T10:00:00',
     }
@@ -66,6 +68,7 @@ describe('EventOrganizerTeam', () => {
       <EventOrganizerTeam
         eventId={42}
         creatorId={CREATOR_UUID}
+        creatorUsername="charlie"
         creatorDisplayName="Charlie"
         creatorAvatarUrl={null}
       />,
@@ -80,6 +83,7 @@ describe('EventOrganizerTeam', () => {
       userId: '00000000-0000-0000-0000-000000000010',
       displayName: 'Pending',
       avatarUrl: null,
+      username: 'pending',
       status: 'PENDING',
       invitedAt: '2026-05-14T10:00:00',
     }
@@ -88,6 +92,7 @@ describe('EventOrganizerTeam', () => {
       userId: '00000000-0000-0000-0000-000000000011',
       displayName: 'Declined',
       avatarUrl: null,
+      username: 'declined',
       status: 'DECLINED',
       invitedAt: '2026-05-14T10:00:00',
     }
@@ -96,6 +101,7 @@ describe('EventOrganizerTeam', () => {
       <EventOrganizerTeam
         eventId={42}
         creatorId={CREATOR_UUID}
+        creatorUsername="charlie"
         creatorDisplayName="Charlie"
         creatorAvatarUrl={null}
       />,
@@ -104,15 +110,16 @@ describe('EventOrganizerTeam', () => {
     expect(screen.queryByText('Declined')).toBeNull()
   })
 
-  it('falls back to the UUID prefix when displayName is null', () => {
-    // Post-2026-05-14 polish: userDisplayLabel uses the first 8 chars of the
-    // UUID instead of the literal "Utilisateur" so admin/dev can identify
-    // unprovisioned accounts. CREATOR_UUID starts with "00000000-".
+  it('falls back to the UUID prefix when displayName and username are null', () => {
+    // SCRUM-169 — userDisplayLabel order : displayName > @username > UUID prefix.
+    // Here both are absent → falls to the first 8 chars of CREATOR_UUID.
+    // CREATOR_UUID starts with "00000000-".
     setupHook()
     renderWithRouter(
       <EventOrganizerTeam
         eventId={42}
         creatorId={CREATOR_UUID}
+        creatorUsername={null as unknown as string}
         creatorDisplayName={null}
         creatorAvatarUrl={null}
       />,

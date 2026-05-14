@@ -34,6 +34,7 @@ const a1 = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Alice',
   avatarUrl: null,
+  username: 'alice',
 }
 
 const a2 = {
@@ -44,6 +45,7 @@ const a2 = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Bob',
   avatarUrl: null,
+  username: 'bob',
 }
 
 const profile1 = {

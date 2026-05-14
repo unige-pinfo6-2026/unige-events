@@ -17,6 +17,7 @@ const attendance: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Alice Martin',
   avatarUrl: null,
+  username: 'alice.martin',
 }
 
 const profile: UserPublicResponse = {

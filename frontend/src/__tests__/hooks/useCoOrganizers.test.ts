@@ -27,6 +27,7 @@ const alice: CoOrganizer = {
   userId: UUID_ALICE,
   displayName: 'Alice',
   avatarUrl: null,
+  username: 'alice',
   status: 'PENDING',
   invitedAt: '2026-05-14T10:00:00',
 }
@@ -36,6 +37,7 @@ const bob: CoOrganizer = {
   userId: UUID_BOB,
   displayName: 'Bob',
   avatarUrl: null,
+  username: 'bob',
   status: 'ACCEPTED',
   invitedAt: '2026-05-14T10:00:00',
 }

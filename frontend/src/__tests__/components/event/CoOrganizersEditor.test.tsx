@@ -93,6 +93,7 @@ describe('CoOrganizersEditor', () => {
       userId: UUID_VALID,
       displayName: 'Alice',
       avatarUrl: null,
+      username: 'alice',
       status: 'PENDING',
       invitedAt: '2026-05-14T10:00:00',
     }
@@ -110,6 +111,7 @@ describe('CoOrganizersEditor', () => {
       userId: UUID_VALID,
       displayName: 'Alice',
       avatarUrl: null,
+      username: 'alice',
       status: 'ACCEPTED',
       invitedAt: '2026-05-14T10:00:00',
     }

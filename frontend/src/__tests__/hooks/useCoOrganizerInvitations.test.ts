@@ -84,6 +84,7 @@ describe('useCoOrganizerInvitations', () => {
       userId: 'me',
       displayName: 'Me',
       avatarUrl: null,
+      username: 'me.user',
       status: 'ACCEPTED',
       invitedAt: '2026-05-14T10:00:00',
     })

@@ -208,6 +208,15 @@ class CalendarServiceTest {
         User user = new User();
         user.auth0Id = auth0Id;
         user.email = email;
+        // SCRUM-169 — derive a unique username so the entity satisfies the
+        // NOT NULL + UNIQUE constraint. The local helper mirrors the pattern
+        // used in TestFixtures and UserServiceTest.
+        user.username = ch.unige.events.user.service.UsernameGenerator.resolveAvailable(
+                ch.unige.events.user.service.UsernameGenerator.slugify(null,
+                        email.contains("@") ? email.substring(0, email.indexOf('@')) : email,
+                        null),
+                candidate -> ch.unige.events.user.entity.User.findByUsername(candidate).isPresent()
+        );
         user.profilePublic = true;
         user.createdAt = LocalDateTime.now();
         entityManager.persist(user);

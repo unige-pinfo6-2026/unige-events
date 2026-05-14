@@ -32,6 +32,7 @@ const sampleCoOrg: CoOrganizer = {
   userId: USER_UUID,
   displayName: 'Alice',
   avatarUrl: null,
+  username: 'alice',
   status: 'PENDING',
   invitedAt: '2026-05-14T10:00:00',
 }
