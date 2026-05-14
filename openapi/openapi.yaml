@@ -798,6 +798,28 @@ components:
           peut pas être posé via l'API utilisateur.
       enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED, BANNED]
 
+    RecordViewRequest:
+      type: object
+      description: |
+        Body optionnel pour `POST /events/{id}/view`. Permet à un appelant anonyme
+        (sans JWT) de fournir un identifiant de session opaque pour la déduplication
+        côté serveur (`(eventId, sessionId)` unique).
+
+        Ignoré si JWT présent dans l'en-tête `Authorization` — l'identité user prime
+        et la dédup utilise `(eventId, userId)`.
+
+        L'absence simultanée de JWT et de `sessionId` produit `204` sans écrire de row
+        (silent skip).
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID v4 généré et persisté côté client (clé `localStorage`
+            `unige_session_id`). Pas d'information personnelle ; rotatif si l'utilisateur
+            efface son `localStorage`.
+
     RecurrenceFrequency:
       type: string
       description: |
@@ -3481,14 +3503,17 @@ paths:
 
   /events/{id}/view:
     post:
-      summary: Enregistrer une vue unique d'un événement
+      summary: Enregistrer une vue d'un événement (anonyme ou authentifié)
       description: |
-        Appelé depuis le frontend à l'ouverture de la page détail.
-        Idempotent — une seule vue enregistrée par utilisateur par événement.
+        Appelé depuis le frontend à l'ouverture de la page détail. Idempotent.
+        - Authentifié : déduplication par `(eventId, userId)`.
+        - Anonyme : déduplication par `(eventId, sessionId)` — le frontend envoie un
+          UUID v4 stable persisté en `localStorage` (clé `unige_session_id`).
+        Body optionnel. Si ni JWT ni `sessionId` fourni, l'appel est ignoré
+        silencieusement (`204`) — pas de row écrite.
       operationId: recordEventView
       tags: [events]
-      security:
-        - BearerAuth: []
+      security: []
       parameters:
         - name: id
           in: path
@@ -3496,17 +3521,19 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordViewRequest'
       responses:
         '204':
-          description: Vue enregistrée (ou déjà existante — idempotent)
-        '401':
-          description: Token absent ou invalide
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+          description: |
+            Vue enregistrée (ou silencieusement ignorée si dédupliquée, ou si ni
+            JWT ni `sessionId` fourni).
         '404':
-          description: Événement introuvable ou profil utilisateur non provisionné
+          description: Événement introuvable.
           content:
             application/json:
               schema:
@@ -3552,33 +3579,6 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement ou profil utilisateur introuvable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-
-  /events/{id}/view:
-    post:
-      summary: Enregistrer une vue unique d'un événement
-      description: |
-        Appelé depuis le frontend à l'ouverture de la page détail.
-        Idempotent — une seule vue enregistrée par utilisateur par événement.
-      operationId: recordEventView
-      tags: [events]
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '204':
-          description: Vue enregistrée (ou déjà existante — idempotent)
-        '404':
-          description: Événement introuvable
           content:
             application/json:
               schema:
