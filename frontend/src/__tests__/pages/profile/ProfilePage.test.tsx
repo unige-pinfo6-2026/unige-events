@@ -15,6 +15,7 @@ vi.mock('@/contexts/ThemeContext', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
+  getUserByUsername: vi.fn(),
   getCalendarToken: vi.fn().mockResolvedValue({
     calendarToken: 'test-token',
     webcalUrl: 'webcal://example.com/cal.ics',
@@ -37,11 +38,12 @@ vi.mock('@/hooks/useMyEvents', () => ({
 }))
 
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById, getCalendarToken } from '@/services/userService'
+import { getUserById, getUserByUsername, getCalendarToken } from '@/services/userService'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
@@ -49,6 +51,7 @@ const mockUser = {
   id: '123',
   auth0Id: 'auth0|123',
   email: 'test@example.com',
+  username: 'test.user',
   displayName: 'Test User',
   profilePublic: true,
   createdAt: '2024-01-01',
@@ -67,11 +70,12 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function renderProfilePage(id: string) {
+function renderProfilePage(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/profile/${id}`]}>
+    <MemoryRouter initialEntries={[`/profile/${slug}`]}>
       <Routes>
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/profile/:username" element={<ProfilePage />} />
+        <Route path="*" element={<div data-testid="post-redirect-route">redirected</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -102,45 +106,48 @@ describe('ProfilePage', () => {
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
   })
 
-  it('fetches and renders another user profile', async () => {
+  it('fetches and renders another user profile by username (SCRUM-169)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
+    mockGetUserByUsername.mockResolvedValue({
       id: '456',
       auth0Id: 'auth0|456',
       email: 'other@example.com',
+      username: 'other.user',
       displayName: 'Other User',
       profilePublic: true,
       createdAt: '2024-01-01',
     })
-    renderProfilePage('auth0|456')
+    renderProfilePage('other.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+    expect(mockGetUserByUsername).toHaveBeenCalledWith('other.user')
   })
 
-  it('shows not found when getUserById returns null', async () => {
+  it('shows not found when getUserByUsername returns null (SCRUM-169)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue(null)
-    renderProfilePage('auth0|456')
+    mockGetUserByUsername.mockResolvedValue(null)
+    renderProfilePage('ghost.handle')
     expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
   })
 
-  it('shows error when getUserById rejects', async () => {
+  it('shows error when getUserByUsername rejects', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockRejectedValue(new Error('Network error'))
-    renderProfilePage('auth0|456')
+    mockGetUserByUsername.mockRejectedValue(new Error('Network error'))
+    renderProfilePage('other.user')
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
   })
 
   it('shows private profile message for non-public profiles', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
+    mockGetUserByUsername.mockResolvedValue({
       id: '789',
       auth0Id: 'auth0|789',
       email: 'private@example.com',
+      username: 'private.user',
       displayName: 'Private User',
       profilePublic: false,
       createdAt: '2024-01-01',
     })
-    renderProfilePage('auth0|789')
+    renderProfilePage('private.user')
     expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
   })
 
@@ -170,11 +177,42 @@ describe('ProfilePage', () => {
     expect(screen.getByText('Coding')).toBeTruthy()
   })
 
-  it('loads own profile when id matches currentUser.auth0Id', async () => {
+  it('loads own profile when username matches currentUser.username', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    renderProfilePage('auth0|123')
+    renderProfilePage('test.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
     expect(screen.getByText('Modifier')).toBeTruthy()
+  })
+
+  // SCRUM-169 — transient UUID v4 redirect (cf. Décision I, permanent).
+
+  it('redirects legacy /profile/<uuid> to /profile/<username>', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    const legacyUser = {
+      id: '19f3ab78-0fbf-4cfb-896e-5c0346fabed5',
+      auth0Id: 'auth0|legacy',
+      email: 'legacy@example.com',
+      username: 'jean.dupont',
+      displayName: 'Jean Dupont',
+      profilePublic: true,
+      createdAt: '2024-01-01',
+    }
+    mockGetUserById.mockResolvedValue(legacyUser)
+    // After the <Navigate replace>, ProfilePage re-mounts with the new
+    // username and resolves the profile via getUserByUsername.
+    mockGetUserByUsername.mockResolvedValue(legacyUser)
+
+    renderProfilePage('19f3ab78-0fbf-4cfb-896e-5c0346fabed5')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jean Dupont' })).toBeTruthy()
+    expect(mockGetUserById).toHaveBeenCalledWith('19f3ab78-0fbf-4cfb-896e-5c0346fabed5')
+    expect(mockGetUserByUsername).toHaveBeenCalledWith('jean.dupont')
+  })
+
+  it('shows Profil introuvable when legacy UUID lookup returns null', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockGetUserById.mockResolvedValue(null)
+    renderProfilePage('19f3ab78-0fbf-4cfb-896e-5c0346fabed5')
+    expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
   })
 
   it('renders avatar image when profile has avatarUrl', async () => {
@@ -247,15 +285,16 @@ describe('ProfilePage', () => {
 
   it('does not render the Mes publications preview on another user profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
+    mockGetUserByUsername.mockResolvedValue({
       id: '456',
       auth0Id: 'auth0|456',
       email: 'other@example.com',
+      username: 'other.user',
       displayName: 'Other User',
       profilePublic: true,
       createdAt: '2024-01-01',
     })
-    renderProfilePage('auth0|456')
+    renderProfilePage('other.user')
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
     expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
   })
