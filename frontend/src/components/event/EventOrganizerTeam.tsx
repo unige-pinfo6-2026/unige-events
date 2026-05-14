@@ -7,6 +7,7 @@ import { userDisplayLabel, userInitials } from '@/utils/displayName'
 interface Props {
   eventId: number
   creatorId: string
+  creatorUsername: string
   creatorDisplayName?: string | null
   creatorAvatarUrl?: string | null
 }
@@ -23,6 +24,7 @@ interface Props {
 export default function EventOrganizerTeam({
   eventId,
   creatorId,
+  creatorUsername,
   creatorDisplayName,
   creatorAvatarUrl,
 }: Readonly<Props>) {
@@ -42,6 +44,7 @@ export default function EventOrganizerTeam({
       <ul className="space-y-2">
         <OrganizerRow
           userId={creatorId}
+          username={creatorUsername}
           displayName={creatorDisplayName ?? null}
           avatarUrl={creatorAvatarUrl ?? null}
           badgeLabel="Organisateur"
@@ -62,6 +65,7 @@ export default function EventOrganizerTeam({
             <OrganizerRow
               key={co.id}
               userId={co.userId}
+              username={co.username}
               displayName={co.displayName}
               avatarUrl={co.avatarUrl}
               badgeLabel="Co-organisateur"
@@ -75,23 +79,29 @@ export default function EventOrganizerTeam({
 
 function OrganizerRow({
   userId,
+  username,
   displayName,
   avatarUrl,
   badgeLabel,
   badgeClass,
 }: Readonly<{
   userId: string
+  username: string | null
   displayName: string | null
   avatarUrl: string | null
   badgeLabel: string
   badgeClass: string
 }>) {
   const initials = userInitials(displayName)
-  const label = userDisplayLabel(displayName, userId)
+  // SCRUM-169 — label fallback order: displayName -> @username -> UUID prefix.
+  const label = userDisplayLabel(displayName, username, userId)
+  // Link by username when available ; fall back to UUID which the
+  // ProfilePage UUID-redirect will resolve (cf. Décision I).
+  const profileSlug = username ?? userId
   return (
     <li>
       <Link
-        to={`/profile/${userId}`}
+        to={`/profile/${profileSlug}`}
         className="flex items-center gap-3 p-2 rounded-xl hover:bg-foreground/5 transition-colors"
       >
         <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden">

@@ -49,7 +49,10 @@ export default function CommentItem({
   const canReply = !isReply && currentUserId !== null
 
   const initials = userInitials(comment.authorDisplayName)
-  const authorLabel = userDisplayLabel(comment.authorDisplayName, comment.authorId)
+  // SCRUM-169 — Comment payload doesn't yet carry an `authorUsername`
+  // (separate follow-up against engagement-service). Pass `null` for
+  // username so the helper falls back to UUID prefix → "Utilisateur".
+  const authorLabel = userDisplayLabel(comment.authorDisplayName, null, comment.authorId)
 
   async function confirmDelete() {
     if (deleting) return

@@ -518,7 +518,7 @@ export default function EventDetailPage() {
             {/* Organisateur */}
             {organizer && (
               <Link
-                to={`/profile/${organizer.id}`}
+                to={`/profile/${organizer.username}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
               >
                 <UserAvatar user={organizer} className="size-8 shrink-0" />
@@ -594,6 +594,7 @@ export default function EventDetailPage() {
             <EventOrganizerTeam
               eventId={event.id}
               creatorId={event.creatorId}
+              creatorUsername={organizer?.username ?? event.creatorId}
               creatorDisplayName={organizer?.displayName ?? null}
               creatorAvatarUrl={organizer?.avatarUrl ?? null}
             />
