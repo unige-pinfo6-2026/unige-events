@@ -581,22 +581,16 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### eventApi.ts
 
-- getAll(params) : liste paginée d'événements.
-- getById(id) : détail d'un événement.
-- createEvent(data) : création d'événement.
-- updateEvent(id, data) : mise à jour d'événement.
-- uploadEventImage(id, file) : upload de bannière et retour de l'événement mis à jour.
-- deleteEvent(id) : annulation soft-delete d'un événement.
-- getMyDrafts(organizerId, limit = 5) : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
-- getFeatured(limit) : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
-- getAll(params) : liste paginée d’événements.
-- getById(id) : détail d’un événement.
-- createEvent(data) : création d’événement.
-- updateEvent(id, data) : mise à jour d’événement.
-- uploadEventImage(id, file) : upload de bannière et retour de l’événement mis à jour.
-- deleteEvent(id) : annulation soft-delete d’un événement.
-- publishEvent(id) : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
-- getMyEvents(params) : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
+- `getAll(params)` : liste paginée d'événements.
+- `getById(id)` : détail d'un événement.
+- `createEvent(data)` : création d'événement.
+- `updateEvent(id, data)` : mise à jour d'événement.
+- `uploadEventImage(id, file)` : upload de bannière et retour de l'événement mis à jour.
+- `deleteEvent(id)` : annulation soft-delete d'un événement.
+- `publishEvent(id)` : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
+- `getMyDrafts(organizerId, limit = 5)` : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
+- `getMyEvents(params)` : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
+- `getFeatured(limit)` : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
 
 ### searchApi.ts
 
@@ -608,3 +602,102 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
 - addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
 - removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.
+
+### coOrganizerApi.ts (SCRUM-137)
+
+- `inviteCoOrganizer(eventId, userId)` : `POST /api/events/{id}/co-organizers` avec body `{ userId }`. Retourne le `CoOrganizer` créé (status `PENDING`). 404 si l'UUID utilisateur n'existe pas (cf. Décision A de la spec — invitation par UUID, pas par search).
+- `listCoOrganizers(eventId)` : `GET /api/events/{id}/co-organizers`. Retourne la liste des co-organisateurs (PENDING + ACCEPTED).
+- `removeCoOrganizer(eventId, userId)` : `DELETE /api/events/{id}/co-organizers/{userId}`. Idempotent.
+- `acceptInvitation(eventId)` : `PATCH /api/events/{id}/co-organizers/me/accept`. Retourne le `CoOrganizer` mis à jour (status `ACCEPTED`).
+- `declineInvitation(eventId)` : `PATCH /api/events/{id}/co-organizers/me/decline`. Supprime physiquement la row (re-invitation possible).
+- `getMyInvitations(status?, page?, size?)` : `GET /api/users/me/co-organizer-invitations`. Retourne la liste paginée des invitations.
+
+### commentApi.ts (SCRUM-146)
+
+- `getEventComments(eventId, page = 0, size = 20)` : `GET /api/events/{eventId}/comments`. Retourne `List<CommentDTO>` paginée sur les top-level avec leurs replies incluses.
+- `postComment(eventId, content, parentCommentId?)` : `POST /api/events/{eventId}/comments`. Retourne le `CommentDTO` créé (replies vide).
+- `deleteComment(commentId)` : `DELETE /api/comments/{commentId}`. 204 No Content. 403 si non-autorisé (ni auteur, ni créateur, ni co-org ACCEPTED, ni admin).
+
+### sessionId.ts (vue anonyme)
+
+- `getOrCreateSessionId()` : retourne un UUID v4 lu depuis `localStorage['unige_session_id']`, créé et persisté à la première invocation. Utilisé par `statsApi.recordEventView` pour dédupliquer les vues anonymes côté serveur via un `INSERT ... ON CONFLICT (event_id, session_id) DO UPDATE SET viewed_at = ...`.
+
+## Composants SCRUM-137 (co-organisateurs UI)
+
+### CoOrganizersEditor
+
+- `src/components/event/CoOrganizersEditor.tsx` — section "Co-organisateurs" dans `EventForm` mode édition.
+- Props : `eventId: number`.
+- Champ texte UUID + bouton "Inviter" (validation regex UUID v4 côté client + 404 mapping côté serveur si l'utilisateur n'existe pas).
+- Liste des co-orgs avec chip statut (`PENDING` orange / `ACCEPTED` vert) + bouton × pour retirer.
+- Skeleton `co-organizers-section.bones.json` pendant chargement initial.
+
+### EventOrganizerTeam
+
+- `src/components/event/EventOrganizerTeam.tsx` — section "Équipe organisatrice" dans la sidebar de `EventDetailPage`.
+- Affiche le créateur principal (badge "Organisateur") + co-organisateurs ACCEPTED (badge "Co-organisateur"), chacun cliquable vers `/profile/{id}`.
+- Charge `listCoOrganizers(eventId)` au montage. Skeleton `event-organizer-team.bones.json` pendant loading.
+
+### CoOrganizerInvitationsBadge
+
+- `src/components/user/CoOrganizerInvitationsBadge.tsx` — petit badge rouge dans le dropdown user de la `Navbar`.
+- Affiche le compteur des invitations `PENDING` (issue de `useCoOrganizerInvitations`). Masqué si compteur = 0.
+- Clic → ouvre la liste (modale ou redirige vers `/profile/me`).
+
+### CoOrganizerInvitationsList
+
+- `src/components/user/CoOrganizerInvitationsList.tsx` — liste des invitations PENDING.
+- Une card par invitation : titre event + date + boutons Accepter / Décliner.
+- Optimistic update : retire la row de la liste avant confirmation serveur, rollback sur erreur.
+- Skeleton `co-organizer-invitations.bones.json` pendant loading.
+- Monté dans `ProfilePage` (uniquement si `isOwnProfile`) et potentiellement dans une modale navbar.
+
+## Composants SCRUM-146 (commentaires UI)
+
+### CommentSection
+
+- `src/components/event/CommentSection.tsx` — section principale insérée dans `EventDetailPage`.
+- Props : `eventId: number`, `eventStatus: EventStatus`.
+- Charge `getEventComments(eventId)` via `useComments`. Affiche le `CommentForm` (caché pour anonymes ou statut ≠ PUBLISHED) + liste de `CommentItem`.
+- État vide : "Aucun commentaire — soyez le premier."
+- Pagination "Charger plus" via `useComments.loadMore()`.
+- Skeleton `comments.bones.json` pendant loading initial.
+
+### CommentForm
+
+- `src/components/event/CommentForm.tsx` — formulaire textarea + bouton Envoyer.
+- Props : `eventId`, `parentCommentId?`, `onPost(content)`, `onCancel?` (pour le mode reply).
+- Compteur live de caractères (max 2000). Bouton désactivé si vide ou loading.
+- Affichage conditionnel : si user anonyme, remplace le form par un message "Connectez-vous pour commenter" + lien vers `/login`.
+
+### CommentItem
+
+- `src/components/event/CommentItem.tsx` — card commentaire avec avatar, displayName, badge "Organisateur" si `authorIsOrganizer`, contenu, date relative (`formatRelativeDate`), compteur likes (read-only en S8, mutation prévue SCRUM-144).
+- Actions : "Répondre" (toggle un sous-formulaire `CommentForm`), "Supprimer" (visible si user est auteur OR créateur event OR co-org ACCEPTED OR admin — `ConfirmModal` avant), "Signaler" (toast informatif `Bientôt disponible` — cf. Décision B de la spec).
+- Replies imbriquées **max 1 niveau** : un `CommentItem` rend ses replies via `CommentItem` enfants, mais sans bouton "Répondre" sur les enfants (limite SCRUM-139 backend).
+
+## Hooks SCRUM-137 / SCRUM-146
+
+### useCoOrganizers
+
+- `src/hooks/useCoOrganizers.ts`.
+- Params : `eventId: number | null` (null = pas de chargement).
+- Charge `listCoOrganizers(eventId)` au montage. Retourne `{ coOrganizers, loading, error, invite, remove, refresh }`.
+- `invite(userId)` appelle `inviteCoOrganizerApi` puis refresh ; gère 404, 409 (déjà co-org), 422 (own event).
+- `remove(userId)` appelle `removeCoOrganizerApi` optimistic puis refresh sur erreur.
+
+### useCoOrganizerInvitations
+
+- `src/hooks/useCoOrganizerInvitations.ts`.
+- Charge `getMyInvitations({ status: 'PENDING' })` au montage (uniquement si user connecté).
+- Retourne `{ invitations, pendingCount, loading, error, accept, decline, refresh }`.
+- `accept(eventId)` / `decline(eventId)` : mutation optimistic + refresh.
+
+### useComments
+
+- `src/hooks/useComments.ts`.
+- Params : `eventId: number`, `pageSize?: number = 20`.
+- Charge `getEventComments(eventId, 0, pageSize)`. Pagination cumulative via `loadMore()`.
+- `post(content, parentCommentId?)` : optimistic add + rollback sur erreur API.
+- `remove(commentId)` : optimistic remove + rollback sur erreur API.
+- Retourne `{ comments, hasMore, loading, posting, error, post, remove, loadMore, refresh }`.

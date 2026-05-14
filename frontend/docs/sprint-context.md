@@ -1,6 +1,63 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-07
+Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + view anonyme)
+
+---
+
+## 2026-05-14 — Post-merge PR #158 : reprise développement front
+
+Backend migration vers microservices mergée à `ad6d422f` (cf.
+[`backend/docs/sprint-context.md`](../../backend/docs/sprint-context.md)).
+**Aucun impact frontend** sur la PR #158 (invariant `git diff frontend/` = 0).
+
+Cette PR (`feature/scrum-137-146-doc-and-views`) reprend le développement fonctionnel :
+
+- **SCRUM-137** — UI co-organisateurs (frontend) :
+  - `CoOrganizersEditor` dans `EventForm` mode édition (champ UUID + invitation, liste
+    avec chips statut, bouton retirer).
+  - `EventOrganizerTeam` dans la sidebar de `EventDetailPage` (créateur + co-orgs ACCEPTED).
+  - `CoOrganizerInvitationsBadge` dans la `Navbar` + `CoOrganizerInvitationsList` dans
+    `ProfilePage` (self).
+  - Hook `useCoOrganizers` + `useCoOrganizerInvitations` (pas de TanStack Query, pattern
+    `useFavorite`/`useAttendance`).
+  - Service `coOrganizerApi.ts`, types `src/types/coOrganizer.ts`.
+  - 3 skeletons manuels : `co-organizers-section`, `event-organizer-team`,
+    `co-organizer-invitations`.
+  - **Décision A** : invitation par UUID, pas par search libre (`GET /users/search`
+    n'existe pas côté backend ; follow-up S9+).
+
+- **SCRUM-146** — Section commentaires dans `EventDetailPage` :
+  - `CommentSection` (wrapper liste + form), `CommentForm` (textarea + compteur 2000 chars,
+    masqué pour anonymes), `CommentItem` (replies 1 niveau, badge "Organisateur",
+    actions Répondre/Supprimer/Signaler).
+  - Hook `useComments` (optimistic post + delete + rollback).
+  - Service `commentApi.ts`, types `src/types/comment.ts`.
+  - Skeleton manuel `comments`.
+  - **Décision B** : bouton "Signaler un commentaire" présent mais affiche un toast
+    informatif (SCRUM-144 S9+ pour la fonction réelle).
+
+- **Fix vue anonyme + dédup** :
+  - `services/sessionId.ts` : UUID v4 généré + persisté en `localStorage` clé
+    `unige_session_id`.
+  - `statsApi.recordEventView(eventId)` envoie `{ sessionId }` en body.
+  - `EventDetailPage` enregistre la vue **inconditionnellement** au montage (plus de
+    guard `if (user)`).
+  - Côté backend : migration `V11__add_event_views_session.sql`, `EventViewService` étendu,
+    `EventViewResource` passe en `@PermitAll`. Dédup par `(eventId, sessionId)` pour anon,
+    `(eventId, userId)` pour authentifié — partial unique indexes.
+
+- **Documentation** :
+  - `frontend/docs/architecture.md` : routes manquantes ajoutées (`/admin`,
+    `/events/:id/stats`, `/403`) ; table services complétée (`adminApi`, `attendanceApi`,
+    `attendeesApi`, `reportApi`, `statsApi`, `coOrganizerApi`, `commentApi`,
+    `sessionId.ts`).
+  - `frontend/docs/components.md` : déduplication des entrées `eventApi` ; ajout des
+    nouveaux composants SCRUM-137/146.
+  - `frontend/AGENTS.md` : ajout des 4 nouveaux skeletons.
+
+Spec détaillée : [`../../specs_archives/specs_claude/specs_scrum-137-146-views-docs.md`](../../specs_archives/specs_claude/specs_scrum-137-146-views-docs.md).
+
+---
 
 ## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03 (corrigé 2026-05-07)
 
