@@ -104,7 +104,10 @@ describe('EventOrganizerTeam', () => {
     expect(screen.queryByText('Declined')).toBeNull()
   })
 
-  it('falls back gracefully when displayName is null', () => {
+  it('falls back to the UUID prefix when displayName is null', () => {
+    // Post-2026-05-14 polish: userDisplayLabel uses the first 8 chars of the
+    // UUID instead of the literal "Utilisateur" so admin/dev can identify
+    // unprovisioned accounts. CREATOR_UUID starts with "00000000-".
     setupHook()
     renderWithRouter(
       <EventOrganizerTeam
@@ -114,6 +117,6 @@ describe('EventOrganizerTeam', () => {
         creatorAvatarUrl={null}
       />,
     )
-    expect(screen.getByText('Utilisateur')).toBeTruthy()
+    expect(screen.getByText(CREATOR_UUID.slice(0, 8))).toBeTruthy()
   })
 })

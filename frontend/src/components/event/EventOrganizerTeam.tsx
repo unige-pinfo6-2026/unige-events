@@ -2,6 +2,7 @@ import { Users } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
 import { useCoOrganizers } from '@/hooks/useCoOrganizers'
+import { userDisplayLabel, userInitials } from '@/utils/displayName'
 
 interface Props {
   eventId: number
@@ -85,7 +86,8 @@ function OrganizerRow({
   badgeLabel: string
   badgeClass: string
 }>) {
-  const initials = (displayName ?? '??').slice(0, 2).toUpperCase()
+  const initials = userInitials(displayName)
+  const label = userDisplayLabel(displayName, userId)
   return (
     <li>
       <Link
@@ -101,7 +103,7 @@ function OrganizerRow({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
-            {displayName ?? 'Utilisateur'}
+            {label}
           </p>
         </div>
         <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${badgeClass}`}>

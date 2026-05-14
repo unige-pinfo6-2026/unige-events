@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Flag, MessageSquare, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
+import { userDisplayLabel, userInitials } from '@/utils/displayName'
 import { useToast } from '@/hooks/useToast'
 import CommentForm from '@/components/event/CommentForm'
 import type { Comment } from '@/types/comment'
@@ -44,7 +45,8 @@ export default function CommentItem({
   const canDelete = isAuthor || isEventCreator || isAdmin
   const canReply = !isReply && currentUserId !== null
 
-  const initials = (comment.authorDisplayName ?? '??').slice(0, 2).toUpperCase()
+  const initials = userInitials(comment.authorDisplayName)
+  const authorLabel = userDisplayLabel(comment.authorDisplayName, comment.authorId)
 
   async function handleDelete() {
     if (!globalThis.confirm('Supprimer ce commentaire ?')) return
@@ -81,7 +83,7 @@ export default function CommentItem({
         <div className="flex-1 min-w-0">
           <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-1">
             <span className="text-sm font-semibold text-foreground">
-              {comment.authorDisplayName ?? 'Utilisateur'}
+              {authorLabel}
             </span>
             {comment.authorIsOrganizer && (
               <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-accent/15 text-accent border border-accent/30">
@@ -133,7 +135,7 @@ export default function CommentItem({
               <CommentForm
                 onSubmit={handleReplySubmit}
                 submitting={posting}
-                placeholder={`Répondre à ${comment.authorDisplayName ?? 'ce commentaire'}…`}
+                placeholder={`Répondre à ${authorLabel}…`}
                 onCancel={() => setShowReplyForm(false)}
                 autoFocus
                 submitLabel="Répondre"
