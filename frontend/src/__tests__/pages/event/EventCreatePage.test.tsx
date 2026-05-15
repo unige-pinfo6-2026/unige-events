@@ -398,6 +398,47 @@ describe('CreateEventPage', () => {
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
     })
 
+    it('dispatches pending invitations even when the event is saved as a draft', async () => {
+      // Copilot review: a DRAFT submit used to early-return before the invite
+      // dispatch, silently dropping the staged list. The fix moves the
+      // dispatch before the draft branch.
+      mockCreateEvent.mockResolvedValue({ ...createdEvent, status: 'DRAFT' })
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockResolvedValue({
+        id: 1,
+        userId: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        displayName: 'Alice',
+        avatarUrl: null,
+        username: 'alice.martin',
+        status: 'PENDING',
+        invitedAt: '2026-05-14T10:00:00',
+      })
+
+      renderPage()
+
+      fillRequiredFields()
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+      await waitFor(() =>
+        expect(mockInviteCoOrganizer).toHaveBeenCalledWith(42, 'aa11bb22-cc33-dd44-ee55-ff6677889900'),
+      )
+      expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy()
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    })
+
     it('still navigates and toasts the failure when one invitation fails', async () => {
       mockCreateEvent.mockResolvedValue(createdEvent)
       mockGetUserByUsername.mockResolvedValue({

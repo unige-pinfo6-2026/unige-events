@@ -202,4 +202,51 @@ class UsernameGeneratorTest {
         String result = UsernameGenerator.generate(null, null, null, taken::contains);
         assertEquals("user3", result);
     }
+
+    // ─── Latin-extended pre-translation (mirrors `unaccent`) ─────────────────
+    // Sentinel coverage for every entry in LATIN_EXT_PRETRANSLATE. NFD alone
+    // does NOT decompose these structural ligatures/strokes — drift would
+    // silently break international usernames at signup time.
+
+    @Test
+    void slugify_latinExtendedLetters_translateToAscii() {
+        assertEquals("dorde", UsernameGenerator.slugify("Đorđe", null, null));
+        assertEquals("lukasz", UsernameGenerator.slugify("Łukasz", null, null));
+        assertEquals("oystein", UsernameGenerator.slugify("Øystein", null, null));
+        assertEquals("aether", UsernameGenerator.slugify("Æther", null, null));
+        assertEquals("oeuvre", UsernameGenerator.slugify("Œuvre", null, null));
+        assertEquals("strasse", UsernameGenerator.slugify("Straße", null, null));
+        assertEquals("thor", UsernameGenerator.slugify("Þor", null, null));
+        // Lowercase ð inside a longer string — translates to 'd' before NFD.
+        assertEquals("hedge", UsernameGenerator.slugify("heðge", null, null));
+    }
+
+    @Test
+    void resolveAvailable_baseTrimmingPreservesValidity_withMultiDigitSuffix() {
+        // Force the suffix to grow to 2 digits while the base is already at
+        // MAX_LENGTH — exercises buildCandidate's trimmed-base branch with a
+        // wider suffix.
+        String longBase = "a".repeat(30);
+        Set<String> taken = new HashSet<>();
+        for (int i = 1; i <= 12; i++) {
+            taken.add(longBase.substring(0, 30 - String.valueOf(i).length()) + i);
+        }
+        taken.add(longBase);
+        String resolved = UsernameGenerator.resolveAvailable(longBase, taken::contains);
+        assertEquals(30, resolved.length());
+        assertTrue(resolved.endsWith("13"));
+        assertTrue(UsernameGenerator.isValid(resolved));
+    }
+
+    @Test
+    void slugify_displayNameWithOnlyDroppedChars_fallsBackToFirstLast() {
+        // The displayName "***!!!" collapses to "" after charset stripping —
+        // pickFirstNonBlank returned "***!!!" (non-blank by trim semantics)
+        // and yields a too-short slug, which triggers the second fallback to
+        // firstName.lastName.
+        // NB: pickFirstNonBlank only checks for "blank" (whitespace) so the
+        // displayName is selected ; the subsequent length check then bumps
+        // the result to the "user" fallback.
+        assertEquals("user", UsernameGenerator.slugify("***!!!", null, null));
+    }
 }
