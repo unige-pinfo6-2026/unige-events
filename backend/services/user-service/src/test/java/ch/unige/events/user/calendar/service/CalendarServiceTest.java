@@ -14,6 +14,7 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -202,6 +204,104 @@ class CalendarServiceTest {
         String ics = calendarService.generateIcsFeed(token);
         assertTrue(ics.contains("BEGIN:VCALENDAR"));
         assertFalse(ics.contains("BEGIN:VEVENT"));
+    }
+
+    /**
+     * SCRUM-169 — simulate the ProfileEditPage race: a concurrent PUT
+     * /users/me has bumped {@code users.version} between our read and
+     * flush, so the first attempt's commit fails with
+     * {@link OptimisticLockException}. The retry loop must recover and
+     * return a valid token without surfacing the exception to the caller.
+     *
+     * <p>The test uses {@link CalendarService#withOptimisticLockRetry}
+     * directly with a controlled supplier — we cannot inject a transient
+     * version conflict via Mockito on Panache static methods, but the
+     * retry contract is the same regardless of where the exception
+     * originates (commit-time flush, manual flush, etc.) since the loop
+     * unwraps via {@code isOptimisticLockConflict}.
+     */
+    @Test
+    void withOptimisticLockRetry_recoversFromTransientConflict() {
+        AtomicInteger attempts = new AtomicInteger();
+        UUID expected = UUID.randomUUID();
+
+        CalendarTokenResponse stub = new CalendarTokenResponse(expected,
+                "webcal://example/" + expected + ".ics",
+                "https://example/" + expected + ".ics");
+
+        CalendarTokenResponse result = calendarService.withOptimisticLockRetry(
+                "test", () -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new OptimisticLockException("simulated race on users.version");
+                    }
+                    return stub;
+                });
+
+        assertEquals(expected, result.calendarToken());
+        assertEquals(2, attempts.get(),
+                "retry loop must invoke the supplier twice: once failing, once succeeding");
+    }
+
+    /**
+     * SCRUM-169 — bound the retry. After
+     * {@link CalendarService#MAX_TOKEN_WRITE_ATTEMPTS} consecutive
+     * {@link OptimisticLockException}s the loop gives up and re-throws
+     * the last failure (a useful signal for ops dashboards), rather than
+     * spinning forever.
+     */
+    @Test
+    void withOptimisticLockRetry_givesUpAfterMaxAttempts() {
+        AtomicInteger attempts = new AtomicInteger();
+
+        OptimisticLockException thrown = assertThrows(OptimisticLockException.class,
+                () -> calendarService.withOptimisticLockRetry("test", () -> {
+                    attempts.incrementAndGet();
+                    throw new OptimisticLockException("persistent contention");
+                }));
+
+        assertEquals(CalendarService.MAX_TOKEN_WRITE_ATTEMPTS, attempts.get(),
+                "loop must stop at MAX_TOKEN_WRITE_ATTEMPTS");
+        assertTrue(thrown.getMessage().contains("persistent contention"),
+                "must surface the last underlying exception, not a wrapped placeholder");
+    }
+
+    /**
+     * SCRUM-169 — non-retryable failures (e.g. the user doesn't exist)
+     * propagate immediately without burning the attempt budget. Important
+     * so a missing user still returns a clean 404, not a 500 after three
+     * slow retries.
+     */
+    @Test
+    void withOptimisticLockRetry_doesNotRetryNotFound() {
+        AtomicInteger attempts = new AtomicInteger();
+
+        assertThrows(NotFoundException.class,
+                () -> calendarService.withOptimisticLockRetry("test", () -> {
+                    attempts.incrementAndGet();
+                    throw new NotFoundException("missing user");
+                }));
+
+        assertEquals(1, attempts.get(),
+                "NotFoundException must short-circuit the retry loop");
+    }
+
+    /**
+     * SCRUM-169 — unrelated runtime exceptions (NPE, IllegalState, …) are
+     * not OptimisticLock conflicts and must propagate on the first
+     * attempt — masking them as transient would hide real bugs.
+     */
+    @Test
+    void withOptimisticLockRetry_doesNotRetryUnrelatedException() {
+        AtomicInteger attempts = new AtomicInteger();
+
+        assertThrows(IllegalStateException.class,
+                () -> calendarService.withOptimisticLockRetry("test", () -> {
+                    attempts.incrementAndGet();
+                    throw new IllegalStateException("unrelated bug");
+                }));
+
+        assertEquals(1, attempts.get(),
+                "non-OptimisticLock RuntimeException must short-circuit the retry loop");
     }
 
     private User persistUser(String auth0Id, String email) {
