@@ -1,5 +1,5 @@
 import { type ChangeEvent, type ComponentProps } from 'react'
-import type { EventFormErrors, EventFormValues } from '@/hooks/useEventForm'
+import type { EventFormErrors, EventFormValues, RecurrenceFormValues } from '@/hooks/useEventForm'
 import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB } from '@/hooks/useEventForm'
 
 type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
@@ -15,6 +15,9 @@ import {
   EVENT_TAG_MAX_LENGTH,
   EVENT_TAGS_MAX_ITEMS,
   EVENT_WEBSITE_URL_MAX_LENGTH,
+  RECURRENCE_FREQUENCIES,
+  RECURRENCE_MAX_OCCURRENCES,
+  type RecurrenceFrequency,
 } from '@/types/event'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 
@@ -75,6 +78,116 @@ const comingSoonVariants = {
   badge:     'text-[10px] font-semibold tracking-widest uppercase text-foreground/20 bg-foreground/5 px-2 py-0.5 rounded-full border border-border/30 shrink-0',
   body:      'mt-3 pointer-events-none select-none opacity-30',
 } as const
+
+interface RecurrenceSectionProps {
+  recurrence: RecurrenceFormValues
+  error?: string
+  onChange: (patch: Partial<RecurrenceFormValues>) => void
+}
+
+const recurrenceEndModes = [
+  { value: 'date' as const, label: 'Date de fin' },
+  { value: 'count' as const, label: "Nombre d'occurrences" },
+]
+
+function RecurrenceSection({ recurrence, error, onChange }: RecurrenceSectionProps) {
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-foreground/[0.015] px-4 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-foreground/60 flex items-center gap-2">
+          <Repeat className="w-4 h-4" />
+          Récurrence
+        </span>
+        <label htmlFor="event-recurrence-enabled" className="inline-flex items-center gap-2.5 text-xs font-normal text-foreground/60 hover:text-foreground cursor-pointer select-none">
+          <span>Événement récurrent</span>
+          <span className="relative inline-block w-10 h-5.5">
+            <input
+              id="event-recurrence-enabled"
+              type="checkbox"
+              role="switch"
+              checked={recurrence.enabled}
+              onChange={(e) => onChange({ enabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <span className="absolute inset-0 rounded-full border border-border bg-foreground/10 peer-checked:bg-accent peer-checked:border-accent transition-colors" aria-hidden="true" />
+            <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4.5" aria-hidden="true" />
+          </span>
+        </label>
+      </div>
+
+      {recurrence.enabled && (
+        <div className="flex flex-col gap-4 mt-1">
+          <FormField label="Fréquence" htmlFor="event-recurrence-frequency">
+            <Select
+              id="event-recurrence-frequency"
+              value={recurrence.frequency}
+              onChange={(e) => onChange({ frequency: e.target.value as RecurrenceFrequency })}
+            >
+              {Object.entries(RECURRENCE_FREQUENCIES).map(([key, { name }]) => (
+                <option key={key} value={key}>{name}</option>
+              ))}
+            </Select>
+          </FormField>
+
+          <fieldset className="flex flex-col gap-2.5">
+            <legend className="text-sm font-semibold text-foreground/60 mb-1">Fin de la récurrence</legend>
+            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1" role="radiogroup" aria-label="Type de fin de récurrence">
+              {recurrenceEndModes.map(({ value, label }) => {
+                const checked = recurrence.endMode === value
+                return (
+                  <label
+                    key={value}
+                    className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl border text-sm cursor-pointer transition-colors ${
+                      checked
+                        ? 'bg-accent/10 border-accent text-foreground'
+                        : 'bg-background border-border text-foreground/60 hover:border-accent/40 hover:text-foreground'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="event-recurrence-endMode"
+                      value={value}
+                      checked={checked}
+                      onChange={() => onChange({ endMode: value })}
+                      className="accent-accent"
+                    />
+                    {label}
+                  </label>
+                )
+              })}
+            </div>
+            {recurrence.endMode === 'date' ? (
+              <Input
+                id="event-recurrence-endDate"
+                aria-label="Date de fin de récurrence"
+                type="date"
+                value={recurrence.endDate}
+                onChange={(e) => onChange({ endDate: e.target.value })}
+                error={error}
+              />
+            ) : (
+              <Input
+                id="event-recurrence-maxOccurrences"
+                aria-label="Nombre d'occurrences"
+                type="number"
+                min={1}
+                max={RECURRENCE_MAX_OCCURRENCES}
+                step={1}
+                value={recurrence.maxOccurrences}
+                onChange={(e) => onChange({ maxOccurrences: e.target.value })}
+                error={error}
+                placeholder={`1 à ${RECURRENCE_MAX_OCCURRENCES}`}
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            )}
+          </fieldset>
+
+          {error && <p className="text-xs text-error">{error}</p>}
+        </div>
+      )}
+    </section>
+  )
+}
 
 function ComingSoonBlock({ icon: Icon, label, sprint, children }: ComingSoonBlockProps) {
   return (
@@ -461,14 +574,13 @@ export default function EventForm({
 
         <div className="border-t border-border/20" />
 
-        {/* Récurrence — create mode uniquement */}
+        {/* Récurrence — create mode uniquement (Décision E) */}
         {mode === 'create' && (
-          <ComingSoonBlock icon={Repeat} label="Répéter cet événement" sprint="S8">
-            <div className="flex gap-3 mt-2 flex-wrap opacity-100">
-              <div className="flex-1 min-w-36 rounded-xl border border-dashed border-border/30 px-3 py-2 text-xs text-foreground/20">Toutes les semaines ▾</div>
-              <div className="flex-1 min-w-36 rounded-xl border border-dashed border-border/30 px-3 py-2 text-xs text-foreground/20">Répéter jusqu'au…</div>
-            </div>
-          </ComingSoonBlock>
+          <RecurrenceSection
+            recurrence={values.recurrence}
+            error={errors.recurrence}
+            onChange={(patch) => onFieldChange('recurrence', { ...values.recurrence, ...patch })}
+          />
         )}
 
         {/* Pièces jointes — toujours visible */}
