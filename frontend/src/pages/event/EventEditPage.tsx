@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEventForm } from '@/hooks'
+import { useAuth } from '@/hooks/useAuth'
 import EventForm from '@/components/event/EventForm'
 import CoOrganizersEditor from '@/components/event/CoOrganizersEditor'
 import { deleteEvent, getById } from '@/services/eventApi'
@@ -77,16 +78,22 @@ export default function EventEditPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { id } = useParams<{ id: string }>()
+  const { user } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
+  const callerId = user?.id ?? null
 
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // SCRUM-137 — the creator can manage co-organizers + delete the event ;
+  // accepted co-organizers can edit but not invite, remove, or delete.
+  const isCreator = event !== null && callerId !== null && event.creatorId === callerId
 
   useEffect(() => {
     if (eventId === null) { setLoading(false); return }
@@ -97,7 +104,9 @@ export default function EventEditPage() {
       setLoading(true)
       setError(null)
       try {
-        const response = await getById(eventId!)
+        // Pass `check-co-org-of=<caller>` so the backend fills coOrganizerOf
+        // and downstream consumers know to keep the co-org-aware UI.
+        const response = await getById(eventId!, callerId)
         if (!cancelled) setEvent(response)
       } catch {
         if (!cancelled) setError('Impossible de charger cet événement.')
@@ -111,7 +120,7 @@ export default function EventEditPage() {
     return () => {
       cancelled = true
     }
-  }, [eventId])
+  }, [eventId, callerId])
 
   const draftMode = event?.status === 'DRAFT'
 
@@ -216,10 +225,14 @@ export default function EventEditPage() {
         }}
         onSaveDraft={draftMode ? form.triggerDraftSave : undefined}
         saveDraftLabel={draftMode ? 'Enregistrer' : undefined}
-        onDelete={draftMode ? () => setShowDeleteConfirm(true) : undefined}
+        // Draft delete is creator-only (backend EventService.delete forbids co-orgs).
+        onDelete={draftMode && isCreator ? () => setShowDeleteConfirm(true) : undefined}
         deleting={deleting}
         deleteLabel={draftMode ? 'Supprimer le brouillon' : undefined}
-        coOrganizersSection={<CoOrganizersEditor eventId={event.id} />}
+        // Inviting / removing co-organizers requires the creator role too
+        // (EventCoOrganizerService.invite / remove). Co-organizers still see
+        // the form fields, just not the management panel.
+        coOrganizersSection={isCreator ? <CoOrganizersEditor eventId={event.id} /> : undefined}
       />
 
       {showDeleteConfirm && (

@@ -337,6 +337,36 @@ describe('EventDetailPage', () => {
     expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
   })
 
+  it('shows edit/cancel/stats for accepted co-organizers (SCRUM-137)', () => {
+    // Co-organizer = non-creator user with coOrganizerOf=true in the response.
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'co-org-user' } })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: true },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('link', { name: /Modifier l'événement/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Annuler l'événement/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les statistiques/ })).toBeTruthy()
+  })
+
+  it('hides Supprimer for co-organizers on CANCELLED events (creator-only delete)', () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'co-org-user' } })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, status: 'CANCELLED' as const, coOrganizerOf: true },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('button', { name: /Remettre en brouillon/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
+  })
+
   it('CANCELLED event shows Remettre en brouillon (Undo2) and Supprimer (Trash2) and hides Modifier/Annuler', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})

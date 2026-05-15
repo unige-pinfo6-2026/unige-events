@@ -204,8 +204,14 @@ export default function EventDetailPage() {
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
-  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
-  const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId, user?.id ?? null)
+  // SCRUM-137 — "isOrganizer" widens to include accepted co-organizers, who
+  // share the edit/cancel/restore/stats permissions with the creator (cf.
+  // EventService.update / cancel / restore). `coOrganizerOf` comes back from
+  // the backend when we pass `?check-co-org-of=<caller>` on the fetch.
+  const isAcceptedCoOrganizer = event !== null && event.coOrganizerOf === true
+  const isCreator = user !== null && event !== null && user.id === event.creatorId
+  const isOrganizer = isCreator || isAcceptedCoOrganizer
   const reportHook = useReport(eventId ?? 0)
   const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
@@ -257,7 +263,10 @@ export default function EventDetailPage() {
     if (!event || !user) return
     if (event.status !== 'DRAFT') return
     if (isAdmin) return
-    if (user.id !== event.creatorId) return
+    // Drafts redirect to /edit for anyone who can edit the event — both the
+    // creator and any accepted co-organizer.
+    const canEditDraft = user.id === event.creatorId || event.coOrganizerOf === true
+    if (!canEditDraft) return
     navigate(`/events/${event.id}/edit`, { replace: true })
   }, [event, user, isAdmin, navigate])
 
@@ -634,24 +643,26 @@ export default function EventDetailPage() {
                     <Undo2 className="w-4 h-4 shrink-0" />
                     Remettre en brouillon
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(true)}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4 shrink-0" />
-                    Supprimer l'événement
-                  </button>
+                  {/* Delete stays creator-only — `EventService.delete`
+                      explicitly forbids co-organizers (cf. line 428). */}
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(true)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 shrink-0" />
+                      Supprimer l'événement
+                    </button>
+                  )}
                 </>
               )}
             </div>
           )}
 
-          {/* Lien statistiques organisateur — S6.
-              Caveat: shown only to the creator. The backend authorizes ACCEPTED
-              co-organizers too, but the frontend has no co-organizer
-              integration yet, so they currently lack an in-app entry point
-              to /events/:id/stats. Same dette as in EventStatsPage. */}
+          {/* Lien statistiques organisateur — S6. Visible to both the creator
+              and accepted co-organizers (same authorisation set as the edit /
+              cancel / restore actions ; cf. EventStatsService). */}
           {isOrganizer && (
             <div className="max-lg:order-10">
               <Link

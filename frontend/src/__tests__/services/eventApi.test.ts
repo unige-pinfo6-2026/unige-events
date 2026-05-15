@@ -62,8 +62,18 @@ describe('eventApi', () => {
 
     const response = await getById(42)
 
-    expect(mockApiGet).toHaveBeenCalledWith('/events/42')
+    expect(mockApiGet).toHaveBeenCalledWith('/events/42', { params: undefined })
     expect(response).toEqual(sampleEvent)
+  })
+
+  it('forwards check-co-org-of when given the caller uuid (SCRUM-137)', async () => {
+    mockApiGet.mockResolvedValue({ data: sampleEvent } as Awaited<ReturnType<typeof api.get>>)
+
+    await getById(42, 'aa11bb22-cc33-dd44-ee55-ff6677889900')
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events/42', {
+      params: { 'check-co-org-of': 'aa11bb22-cc33-dd44-ee55-ff6677889900' },
+    })
   })
 
   it('creates an event', async () => {

@@ -27,6 +27,15 @@ export type Event = {
   tags?: string[]
   createdAt: string
   updatedAt?: string
+  /**
+   * SCRUM-136 — set to `true` when the request carried `?check-co-org-of=<callerId>`
+   * and the caller is an ACCEPTED co-organizer of this event. `false` when the
+   * caller is authenticated but not a co-organizer, `null`/absent when the
+   * param wasn't sent (or was rejected by the membership-oracle guard). The
+   * frontend uses this to widen "isOrganizer" beyond `creatorId` so co-organizers
+   * see the edit/cancel/stats actions.
+   */
+  coOrganizerOf?: boolean | null
 }
 
 export const EVENT_WEBSITE_URL_MAX_LENGTH = 500
