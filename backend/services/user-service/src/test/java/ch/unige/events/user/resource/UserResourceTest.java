@@ -15,7 +15,11 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
@@ -428,6 +432,228 @@ class UserResourceTest {
             .when().head("/users/by-username/Head.Case")
             .then()
             .statusCode(200);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SCRUM-137 polish — GET /users/search (username autocomplete)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    void searchByUsername_anonymous_returns401() {
+        // @Authenticated guard — anti-enumeration.
+        given()
+            .when().get("/users/search?q=al")
+            .then()
+            .statusCode(401);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-caller")
+    void searchByUsername_prefixMatches_returns200_sortedAscending() {
+        fixtures.persistUser("auth0|ur-search-caller", "caller@example.com", true, "search.caller");
+        fixtures.persistUser("auth0|ur-search-1",  "a1@example.com", true,  "alpha.one");
+        fixtures.persistUser("auth0|ur-search-2",  "a2@example.com", false, "alpha.two");
+        fixtures.persistUser("auth0|ur-search-3",  "z@example.com",  true,  "zeta.three");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-caller"));
+
+        given()
+            .when().get("/users/search?q=alpha")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(2))
+            .body("username", contains("alpha.one", "alpha.two"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-caller-2")
+    void searchByUsername_excludesCaller() {
+        fixtures.persistUser("auth0|ur-search-caller-2", "me@example.com", true, "alpha.caller");
+        fixtures.persistUser("auth0|ur-search-other",    "other@example.com", true, "alpha.other");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-caller-2"));
+
+        given()
+            .when().get("/users/search?q=alpha")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("username", contains("alpha.other"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-case-caller")
+    void searchByUsername_caseInsensitive_findsLowercased() {
+        // Usernames are stored lowercase ; the resource lowers q before the
+        // prefix scan so "NEX" still matches "nexiumito".
+        fixtures.persistUser("auth0|ur-search-case-caller", "c@example.com", true, "case.caller");
+        fixtures.persistUser("auth0|ur-search-case-target", "n@example.com", true, "nexiumito");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-case-caller"));
+
+        given()
+            .when().get("/users/search?q=NEX")
+            .then()
+            .statusCode(200)
+            .body("username", contains("nexiumito"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-limit-caller")
+    void searchByUsername_honoursLimit() {
+        fixtures.persistUser("auth0|ur-search-limit-caller", "c@example.com", true, "lim.caller");
+        for (int i = 0; i < 5; i++) {
+            fixtures.persistUser(
+                    "auth0|ur-search-lim-" + i,
+                    "lim" + i + "@example.com",
+                    true,
+                    "limit." + i);
+        }
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-limit-caller"));
+
+        given()
+            .when().get("/users/search?q=limit&limit=3")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(3))
+            .body("username", contains("limit.0", "limit.1", "limit.2"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-limit-default-caller")
+    void searchByUsername_defaultsLimitTo8() {
+        fixtures.persistUser("auth0|ur-search-limit-default-caller", "c@example.com", true, "def.caller");
+        for (int i = 0; i < 12; i++) {
+            // Two-digit suffix so the lexicographic order matches the numeric one.
+            String suffix = i < 10 ? "0" + i : Integer.toString(i);
+            fixtures.persistUser(
+                    "auth0|ur-search-def-" + suffix,
+                    "def" + suffix + "@example.com",
+                    true,
+                    "def.row" + suffix);
+        }
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-limit-default-caller"));
+
+        given()
+            .when().get("/users/search?q=def.row")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(8));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-tooshort-caller")
+    void searchByUsername_qTooShort_returns400() {
+        fixtures.persistUser("auth0|ur-search-tooshort-caller", "c@example.com", true, "short.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-tooshort-caller"));
+
+        given()
+            .when().get("/users/search?q=a")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-toolong-caller")
+    void searchByUsername_qTooLong_returns400() {
+        fixtures.persistUser("auth0|ur-search-toolong-caller", "c@example.com", true, "long.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-toolong-caller"));
+
+        given()
+            .when().get("/users/search?q=" + "a".repeat(31))
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-bad-char-caller")
+    void searchByUsername_qInvalidChar_returns400() {
+        // Belt-and-suspenders: the @Pattern blocks SQL wildcards (%, etc.)
+        // even though the entity finder escapes the underscore separately.
+        fixtures.persistUser("auth0|ur-search-bad-char-caller", "c@example.com", true, "char.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-bad-char-caller"));
+
+        given()
+            .when().get("/users/search?q=al%25")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-limit-overflow-caller")
+    void searchByUsername_limitAbove20_returns400() {
+        fixtures.persistUser("auth0|ur-search-limit-overflow-caller", "c@example.com", true, "over.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-limit-overflow-caller"));
+
+        given()
+            .when().get("/users/search?q=al&limit=21")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-limit-zero-caller")
+    void searchByUsername_limitZero_returns400() {
+        fixtures.persistUser("auth0|ur-search-limit-zero-caller", "c@example.com", true, "zero.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-limit-zero-caller"));
+
+        given()
+            .when().get("/users/search?q=al&limit=0")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-priv-caller")
+    void searchByUsername_includesPrivateProfilesButStripsPrivateFields() {
+        // SCRUM-169 E: username is a public-facing identifier even for private
+        // profiles ; the search must surface them so an organizer can invite
+        // anyone they know the handle of. But the payload uses the
+        // fromAnonymous projection, so bio / faculty / banner stay null.
+        fixtures.persistUser("auth0|ur-search-priv-caller", "c@example.com", true, "priv.caller");
+        fixtures.persistUser("auth0|ur-search-priv-target", "t@example.com", false, "priv.target");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-priv-caller"));
+
+        given()
+            .when().get("/users/search?q=priv.t")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("[0].username", equalTo("priv.target"))
+            .body("[0].profilePublic", equalTo(false))
+            .body("[0].bio", nullValue())
+            .body("[0].faculty", nullValue())
+            .body("[0].bannerUrl", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-no-match-caller")
+    void searchByUsername_noMatches_returnsEmptyArray() {
+        fixtures.persistUser("auth0|ur-search-no-match-caller", "c@example.com", true, "nm.caller");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-no-match-caller"));
+
+        given()
+            .when().get("/users/search?q=zzz.never")
+            .then()
+            .statusCode(200)
+            .body("$", empty());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-search-escape-caller")
+    void searchByUsername_underscoreWildcardIsEscaped() {
+        // The username regex allows '_', which is also the LIKE single-char
+        // wildcard. The finder escapes it so 'al_' must match literal "al_"
+        // prefixes only, not "ali", "alo", etc.
+        fixtures.persistUser("auth0|ur-search-escape-caller", "c@example.com", true, "escape.caller");
+        fixtures.persistUser("auth0|ur-search-escape-1", "u@example.com", true, "al_underscore");
+        fixtures.persistUser("auth0|ur-search-escape-2", "v@example.com", true, "alice.runner");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-search-escape-caller"));
+
+        given()
+            .when().get("/users/search?q=al_")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(1))
+            .body("username", contains("al_underscore"))
+            .body("username", not(contains("alice.runner")));
     }
 
     /** Unused argument suppression for {@link UUID} import retention. */
