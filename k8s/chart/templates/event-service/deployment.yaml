@@ -41,7 +41,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-Duser.timezone=Europe/Zurich"
             - name: DB_HOST
-              value: {{ if .Values.postgres.shared }}postgres-shared{{ else }}postgres-event{{ end }}
+              value: {{ if .Values.postgres.shared }}postgres{{ else }}postgres-event{{ end }}
             - name: DB_PORT
               value: "5432"
             - name: DB_NAME

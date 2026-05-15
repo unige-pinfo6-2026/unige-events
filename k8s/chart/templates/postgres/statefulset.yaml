@@ -2,18 +2,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres-shared
+  name: postgres
   namespace: {{ .Release.Namespace }}
 spec:
-  serviceName: postgres-shared
+  serviceName: postgres
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-shared
+      app: postgres
   template:
     metadata:
       labels:
-        app: postgres-shared
+        app: postgres
     spec:
       automountServiceAccountToken: false
       containers:
@@ -49,7 +49,7 @@ spec:
       volumes:
         - name: init
           configMap:
-            name: postgres-shared-init
+            name: postgres-init
   volumeClaimTemplates:
     - metadata:
         name: data
