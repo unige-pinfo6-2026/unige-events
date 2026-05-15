@@ -2,7 +2,6 @@ import { Skeleton } from 'boneyard-js/react'
 import { useFeaturedEvents } from '@/hooks/useFeaturedEvents'
 import { useTheme } from '@/contexts/ThemeContext'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
-import { BlobsSubtle } from '@/components/utils/Blobs'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import EventCard from './EventCard'
 
@@ -54,7 +53,7 @@ export default function FeaturedEventsSection() {
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   if (loading) return (
-    <SectionWrapper id="events" background={<BlobsSubtle />}>
+    <SectionWrapper id="events">
       <SectionHeader heading="xl" title="À la une" />
       <Skeleton name="event-cards" loading animate="pulse" color={skeletonColor}>
         <FeaturedEventsFixture />
@@ -63,7 +62,7 @@ export default function FeaturedEventsSection() {
   )
 
   if (error) return (
-    <SectionWrapper id="events" background={<BlobsSubtle />}>
+    <SectionWrapper id="events">
       <SectionHeader heading="xl" title="À la une" />
       <InfoMessage type="error" message={error} />
     </SectionWrapper>
@@ -72,7 +71,7 @@ export default function FeaturedEventsSection() {
   if (events.length === 0) return null
 
   return (
-    <SectionWrapper id="events" background={<BlobsSubtle />}>
+    <SectionWrapper id="events">
       <SectionHeader heading="xl" title="À la une" />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,320px))] justify-center gap-5">
         {events.slice(0, MAX_FEATURED).map(event => (

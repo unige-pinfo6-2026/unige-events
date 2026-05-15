@@ -15,6 +15,7 @@ const user: User = {
   id: '1',
   auth0Id: 'auth0|1',
   email: 'user@example.com',
+  username: 'bob.dupont',
   displayName: 'Bob Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',

@@ -70,8 +70,12 @@ export default function AttendeeCard({ attendance, profile }: Readonly<AttendeeC
     )
   }
 
+  // SCRUM-169 — link by `username` when available ; fall back to UUID
+  // (UUID v4 path gets caught by ProfilePage's transient redirect — cf.
+  // Décision I — so the link still resolves for cached/orphan rows).
+  const profileSlug = profile.username ?? profile.id
   return (
-    <Link to={`/profile/${profile.id}`} className={cardClass}>
+    <Link to={`/profile/${profileSlug}`} className={cardClass}>
       <ProfileBody profile={profile} />
       {isWaitlisted && <WaitlistBadge />}
     </Link>

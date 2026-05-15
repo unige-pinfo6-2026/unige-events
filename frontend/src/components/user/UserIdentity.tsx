@@ -39,7 +39,9 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
   const { user: currentUser } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
-  const profileUrl = currentUser?.id === user?.id ? '/profile/me' : `/profile/${user?.id}`
+  // SCRUM-169 — link by `username` instead of UUID. `/profile/me` shortcut
+  // preserved when the rendered identity is the current user.
+  const profileUrl = currentUser?.id === user?.id ? '/profile/me' : `/profile/${user?.username}`
 
   if (loading) {
     return (
@@ -60,8 +62,7 @@ export default function UserIdentity({ user, loading = false, variant = 'inline'
 
         {variant === 'card' && (
           <span className="text-sm text-foreground/40 font-light">
-            {/* TODO: SPRINT 5 : Username */}
-            @{user.username ?? "username"}
+            @{user.username}
           </span>
         )}
       </div>

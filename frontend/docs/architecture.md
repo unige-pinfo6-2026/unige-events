@@ -1,5 +1,7 @@
 # docs/architecture.md — Architecture Frontend
 
+> **Mise à jour 2026-05-14 — post-merge PR #158.** Routes manquantes dans la table : `/admin` (AdminRoute), `/events/:id/stats` (PrivateRoute), `/403` (publique). Services manquants dans la table « Couche services » : `adminApi`, `attendanceApi`, `attendeesApi`, `reportApi`, `statsApi`. Cette PR (`feature/scrum-137-146-doc-and-views`) ajoute en plus `coOrganizerApi` (SCRUM-137) et `commentApi` (SCRUM-146).
+
 ## Rôle dans le système global
 
 unige-events-web est la SPA du projet UNIGE Events. Elle est servie par Nginx en production et communique avec unige-events-api via des appels REST JSON sur /api.
@@ -22,6 +24,7 @@ Model : src/hooks, src/contexts et src/types
 | /events/:id | EventDetailPage | pages/event/EventDetailPage.tsx | publique |
 | /events/new | EventCreatePage | pages/event/EventCreatePage.tsx | PrivateRoute |
 | /events/:id/edit | EventEditPage | pages/event/EventEditPage.tsx | PrivateRoute |
+| /events/:id/stats | EventStatsPage | pages/event/EventStatsPage.tsx | PrivateRoute (créateur ou co-org ACCEPTED) |
 | /events/favorites | FavoritesPage | pages/event/favorites/FavoritesPage.tsx | PrivateRoute |
 | /calendar | CalendarPage | pages/calendar/CalendarPage.tsx | publique |
 | /legal | redirect | — | redirect → /legal/privacy |
@@ -29,14 +32,16 @@ Model : src/hooks, src/contexts et src/types
 | /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
 | /profile | redirect | — | redirect → /profile/me |
 | /profile/me/edit | ProfileEditPage | pages/profile/ProfileEditPage.tsx | PrivateRoute |
-| /profile/:id | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute |
+| /profile/:username | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute. SCRUM-169 — param renommé `username` (au lieu de `id`). Détection regex UUID v4 dans le composant + `<Navigate replace to=`/profile/${username}`>` pour résoudre les liens legacy en cache. L'alias `/profile/me` est résolu côté composant via la blocklist. |
 | /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute |
 | /my-events/favorites | MyFavoritesPage | pages/my-events/MyFavoritesPage.tsx | PrivateRoute |
 | /my-events/participations | MyParticipationsPage | pages/my-events/MyParticipationsPage.tsx | PrivateRoute |
 | /my-events/publications | MyPublicationsPage | pages/my-events/MyPublicationsPage.tsx | PrivateRoute |
+| /admin | AdminPage | pages/admin/AdminPage.tsx | AdminRoute (claim Auth0 `ADMIN`) |
+| /403 | ForbiddenPage | pages/ForbiddenPage.tsx | publique |
 | * | NotFoundPage | pages/NotFoundPage.tsx | publique |
 
-Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter que me soit capturé comme paramètre dynamique.
+Note : /profile/me/edit doit rester déclaré avant /profile/:username pour éviter que `me` soit capturé comme paramètre dynamique. Le username `me` est par ailleurs dans la blocklist backend (`UsernameGenerator.RESERVED`), donc aucun utilisateur humain ne peut le revendiquer.
 
 ## Couche services
 
@@ -44,10 +49,18 @@ Note : /profile/me/edit doit rester déclaré avant /profile/:id pour éviter qu
 |---|---|---|
 | services/api.ts | Instance Axios centrale et intercepteur Bearer | — |
 | services/tokenStore.ts | Lecture et écriture du token access_token | — |
+| services/sessionId.ts | Génération + persistance d'un UUID v4 anonyme en `localStorage` pour la déduplication des vues anonymes | — |
 | services/userService.ts | Lecture et mise à jour du profil utilisateur | GET /api/users/me, GET /api/users/{id}, PUT /api/users/me |
 | services/eventApi.ts | Liste, détail, création, édition, annulation, upload de bannière et publication DRAFT→PUBLISHED | GET /api/events, GET /api/events/{id}, POST /api/events, PUT /api/events/{id}, DELETE /api/events/{id}, POST /api/events/{id}/image, PATCH /api/events/{id}/publish |
 | services/searchApi.ts | Recherche full-text d'événements ; stub suggestions | GET /api/events/search |
 | services/favoriteApi.ts | Liste, ajout et retrait des favoris | GET /api/users/me/favorites, POST/DELETE /api/events/{id}/favorite |
+| services/attendanceApi.ts | Inscription / désinscription / liste des participations | POST/DELETE /api/events/{id}/attend, GET /api/users/me/attendances, GET /api/users/me/participations |
+| services/attendeesApi.ts | Liste paginée des participants côté organisateur + lookup user public | GET /api/events/{id}/attendees, GET /api/users/{id} |
+| services/statsApi.ts | Stats organisateur + enregistrement de vue (anonyme OK, dédup par `sessionId`) | GET /api/events/{id}/stats, POST /api/events/{id}/view |
+| services/reportApi.ts | Signalement d'événement | POST /api/events/{id}/report |
+| services/adminApi.ts | Dashboard modération + featured | GET/PATCH /api/admin/reports, POST/DELETE /api/admin/events/{id}/feature |
+| services/coOrganizerApi.ts | Invitation / acceptation / refus de co-organisateur (SCRUM-137) | POST/GET/DELETE /api/events/{id}/co-organizers, PATCH /api/events/{id}/co-organizers/me/{accept,decline}, GET /api/users/me/co-organizer-invitations |
+| services/commentApi.ts | CRUD commentaires (SCRUM-146) | POST/GET /api/events/{id}/comments, DELETE /api/comments/{id} |
 
 ## Convention URL — filtre faculty
 

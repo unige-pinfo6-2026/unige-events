@@ -12,9 +12,15 @@ import java.util.UUID;
  * Mirror of the legacy CommentDTO. {@code likedByMe} stays {@code false}
  * in S6/S8 — wired by SCRUM-144 at S7+ when {@code CommentLike} ships.
  *
- * <p>The {@code authorDisplayName} / {@code authorAvatarUrl} fields are
- * populated from a {@link UserPublicResponse} fetched cross-service, not
- * from a local {@code UserStub} navigation.
+ * <p>The {@code authorDisplayName} / {@code authorAvatarUrl} /
+ * {@code authorUsername} fields are populated from a {@link
+ * UserPublicResponse} fetched cross-service, not from a local
+ * {@code UserStub} navigation.
+ *
+ * <p>SCRUM-169 — {@code authorUsername} added (nullable) so
+ * {@code CommentItem} on the frontend renders {@code @username} as the
+ * fallback label when {@code authorDisplayName} is absent, before falling
+ * back to the UUID prefix.
  */
 public record CommentDTO(
         Long id,
@@ -22,6 +28,7 @@ public record CommentDTO(
         UUID authorId,
         String authorDisplayName,
         String authorAvatarUrl,
+        String authorUsername,
         boolean authorIsOrganizer,
         int likeCount,
         boolean likedByMe,
@@ -37,6 +44,7 @@ public record CommentDTO(
                 c.authorId,
                 author != null ? author.displayName() : null,
                 author != null ? author.avatarUrl() : null,
+                author != null ? author.username() : null,
                 authorIsOrganizer,
                 c.likeCount,
                 false,
@@ -66,6 +74,7 @@ public record CommentDTO(
                 top.authorId,
                 topAuthor != null ? topAuthor.displayName() : null,
                 topAuthor != null ? topAuthor.avatarUrl() : null,
+                topAuthor != null ? topAuthor.username() : null,
                 topAuthorIsOrganizer,
                 top.likeCount,
                 false,

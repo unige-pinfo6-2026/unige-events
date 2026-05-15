@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: postgres-shared-init
+  name: postgres-init
   namespace: {{ .Release.Namespace }}
 data:
   init.sql: |

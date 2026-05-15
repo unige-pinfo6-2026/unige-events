@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById } from '@/services/userService'
+import { getUserById, getUserByUsername } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
 import { STUDY_LEVELS, type StudyLevel, type User } from '@/types/user'
@@ -12,6 +12,14 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
+import CoOrganizerInvitationsList from '@/components/user/CoOrganizerInvitationsList'
+
+/**
+ * UUID v4 regex — used to detect legacy `/profile/<uuid>` URLs still in
+ * external caches, emails, bookmarks, etc. They are redirected to
+ * `/profile/<username>` (cf. spec Décision I — redirect permanent).
+ */
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function ProfileFixture() {
   return (
@@ -70,21 +78,43 @@ function AboutRow({ icon: Icon, children }: Readonly<{ icon: LucideIcon; childre
 }
 
 export default function ProfilePage() {
-  const { id } = useParams<{ id: string }>()
+  const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [redirectTarget, setRedirectTarget] = useState<string | null>(null)
 
-  const isOwnProfile = id === 'me' || (currentUser !== null && id === currentUser.auth0Id)
+  // SCRUM-169 — `me` alias + match by username (lowercased server-side).
+  const isOwnProfile =
+    username === 'me' ||
+    (currentUser !== null && username !== undefined && username === currentUser.username)
+
+  // SCRUM-169 — transient UUID v4 redirect (cf. Décision I, permanent).
+  const isLegacyUuid = username !== undefined && UUID_V4_REGEX.test(username)
 
   useEffect(() => {
-    if (!id || authLoading) return
+    if (!username || authLoading) return
 
     setLoading(true)
     setError(null)
+    setRedirectTarget(null)
+
+    if (isLegacyUuid) {
+      getUserById(username)
+        .then((data) => {
+          if (data === null) {
+            setError('Profil introuvable.')
+          } else {
+            setRedirectTarget(`/profile/${data.username}`)
+          }
+        })
+        .catch(() => setError('Impossible de charger le profil.'))
+        .finally(() => setLoading(false))
+      return
+    }
 
     if (isOwnProfile) {
       if (currentUser) {
@@ -94,7 +124,7 @@ export default function ProfilePage() {
       }
       setLoading(false)
     } else {
-      getUserById(id)
+      getUserByUsername(username)
         .then((data) => {
           if (data === null) {
             setError('Profil introuvable.')
@@ -105,7 +135,7 @@ export default function ProfilePage() {
         .catch(() => setError('Impossible de charger le profil.'))
         .finally(() => setLoading(false))
     }
-  }, [id, isOwnProfile, currentUser, authLoading])
+  }, [username, isOwnProfile, isLegacyUuid, currentUser, authLoading])
 
   if (loading) return (
     <Skeleton
@@ -115,6 +145,7 @@ export default function ProfilePage() {
       color={skeletonColor}
     ><ProfileFixture /></Skeleton>
   )
+  if (redirectTarget) return <Navigate to={redirectTarget} replace />
   if (error) return <InfoMessage type="error" message={error} />
   if (!profile) return null
 
@@ -235,8 +266,13 @@ export default function ProfilePage() {
             {isOwnProfile && <MyPublicationsPreview />}
           </div>
 
-          {/* Right column: calendar subscription (own profile only) */}
-          {isOwnProfile && <CalendarSubscribeButton />}
+          {/* Right column: calendar + co-organizer invitations (own profile only) */}
+          {isOwnProfile && (
+            <div className="flex flex-col gap-6">
+              <CalendarSubscribeButton />
+              <CoOrganizerInvitationsList />
+            </div>
+          )}
         </div>
 
       </div>

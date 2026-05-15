@@ -90,12 +90,22 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | tags                    | string[]       | non |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
+| parentEventId   | number \| null | non    |
+| recurrenceRule  | string \| null | non    |
+
+`parentEventId` et `recurrenceRule` (SCRUM-151) sont remplis par le backend SCRUM-147 :
+- `parentEventId != null` → l'événement est une **occurrence** d'un cycle ; pointe vers l'event parent.
+- `recurrenceRule != null` → l'événement est le **parent** d'un cycle (chaîne RFC 5545, ex. `FREQ=WEEKLY;UNTIL=20260601`).
+- Les deux à `null` → événement standalone.
+
+Le frontend ne **mute jamais** ces champs (lecture seule consommée par `EventCard` pour le badge `Récurrent` et par `EventDetailPage` pour la section repliable des occurrences).
 
 **Constantes de validation frontend** (`src/types/event.ts`) :
 - `EVENT_WEBSITE_URL_MAX_LENGTH = 500` — longueur max de `websiteUrl`
 - `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
 - `EVENT_TAG_MAX_LENGTH = 16` — longueur max d'un tag individuel
 - `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
+- `RECURRENCE_MAX_OCCURRENCES = 52` — borne haute du nombre d'occurrences (miroir du `@Max(52)` backend SCRUM-147)
 
 **Compteurs publics `viewCount` / `interestedCount`** : renseignés uniquement
 sur `GET /events/{id}` (page détail). Les endpoints de liste/recherche
@@ -106,13 +116,39 @@ composant `EventStatsPanel` affiche `—` quand la valeur est `null` /
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`, `recurrence`.
 
 `websiteUrl`, `contactEmail`, `registrationDeadline` acceptent `null` pour effacer la valeur ; `tags` accepte `null` ou `string[]`. Le frontend envoie `null` plutôt qu'une chaîne vide lorsque l'utilisateur laisse le champ vide.
 
+`recurrence` (SCRUM-151) est envoyé **uniquement** quand le switch « Récurrence » de `EventForm` est activé. Cf. `RecurrenceRequest` ci-dessous.
+
 ### UpdateEventRequest
 
-Le backend utilise un PUT à sémantique de remplacement complet. Le frontend envoie systématiquement un payload complet avec les mêmes champs que `CreateEventRequest`.
+Le backend utilise un PUT à sémantique de remplacement complet. Le frontend envoie systématiquement un payload complet avec les mêmes champs que `CreateEventRequest`, **à l'exception** de `recurrence` qui est toujours absent — Décision E SCRUM-151 (la section n'est pas exposée en edit, le PUT ne propage rien aux occurrences côté backend SCRUM-147 D17).
+
+### RecurrenceFrequency, RECURRENCE_FREQUENCIES, RecurrenceRequest
+
+Const map typée (`src/types/event.ts`) miroir du backend SCRUM-147 :
+
+```ts
+export const RECURRENCE_FREQUENCIES = {
+  WEEKLY:   { name: 'Chaque semaine' },
+  BIWEEKLY: { name: 'Toutes les 2 semaines' },
+  MONTHLY:  { name: 'Chaque mois' },
+} as const
+
+export type RecurrenceFrequency = keyof typeof RECURRENCE_FREQUENCIES
+```
+
+`RecurrenceRequest` :
+
+| Champ           | Type              | Notes |
+|-----------------|-------------------|-------|
+| frequency       | RecurrenceFrequency | toujours présent |
+| endDate         | string \| null    | format `YYYY-MM-DD` ; exclusif avec `maxOccurrences` (Décision B) |
+| maxOccurrences  | number \| null    | entier ∈ `[1, 52]` ; exclusif avec `endDate` |
+
+Le frontend impose la **mutex** `endDate ↔ maxOccurrences` au niveau du form. Le payload sortant n'a jamais les deux champs renseignés en même temps.
 
 ---
 
@@ -125,6 +161,7 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | id            | string     | oui    |
 | auth0Id       | string     | oui    |
 | email         | string     | oui    |
+| username      | string     | oui (SCRUM-169 — pattern `^[a-z0-9._-]{3,30}$`, lowercase, modifiable via `PATCH /users/me/username`) |
 | displayName   | string     | non    |
 | firstName     | string     | non    |
 | lastName      | string     | non    |
@@ -137,17 +174,23 @@ Le backend utilise un PUT à sémantique de remplacement complet. Le frontend en
 | profilePublic | boolean    | oui    |
 | createdAt     | string     | oui    |
 
+Constantes exportées (SCRUM-169) :
+- `RESERVED_USERNAMES: Set<string>` — miroir de `UsernameGenerator.RESERVED` backend (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`). Permet le live-check `reserved` côté form sans round-trip.
+- `USERNAME_PATTERN: RegExp` — `/^[a-z0-9._-]{3,30}$/` (pattern miroir backend).
+- `USERNAME_MIN_LENGTH = 3`, `USERNAME_MAX_LENGTH = 30`.
+
 ### StudyLevel
 
 Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
 
 ### UserPublicResponse
 
-Profil public retourné par `GET /api/users/{id}` quand `profilePublic = true`.
+Profil public retourné par `GET /api/users/{id}` et `GET /api/users/by-username/{username}` quand `profilePublic = true`.
 
 | Champ       | Type                      | Requis |
 |-------------|---------------------------|--------|
 | id          | string                    | oui    |
+| username    | string                    | oui (SCRUM-169 — toujours exposé, même aux appelants anonymes) |
 | displayName | string \| null            | non    |
 | faculty     | string \| null            | non    |
 | studyLevel  | string \| null            | non    |
@@ -205,6 +248,7 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 | createdAt   | string           | oui    | |
 | displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
 | avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
+| username    | string \| null   | oui    | SCRUM-169 — username public-facing du participant. Permet à `AttendeeCard` de construire `/profile/{username}` sans N+1. `null` uniquement sur ligne orpheline. |
 
 Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
 

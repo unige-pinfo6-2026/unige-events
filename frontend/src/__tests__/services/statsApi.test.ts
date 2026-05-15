@@ -34,15 +34,27 @@ describe('getEventStats', () => {
 })
 
 describe('recordEventView', () => {
-  it('calls POST /events/:id/view', async () => {
+  it('calls POST /events/:id/view with a sessionId body', async () => {
     mockPost.mockResolvedValue({})
     await recordEventView(42)
-    expect(mockPost).toHaveBeenCalledWith('/events/42/view')
+    expect(mockPost).toHaveBeenCalledWith(
+      '/events/42/view',
+      expect.objectContaining({ sessionId: expect.any(String) }),
+    )
+  })
+
+  it('reuses the same sessionId across calls (persistent via localStorage)', async () => {
+    mockPost.mockResolvedValue({})
+    await recordEventView(1)
+    await recordEventView(2)
+    const firstCall = mockPost.mock.calls[0]
+    const secondCall = mockPost.mock.calls[1]
+    expect(firstCall[1].sessionId).toBe(secondCall[1].sessionId)
   })
 
   it('propagates errors from the API', async () => {
-    mockPost.mockRejectedValue(new Error('Unauthorized'))
-    await expect(recordEventView(1)).rejects.toThrow('Unauthorized')
+    mockPost.mockRejectedValue(new Error('Network error'))
+    await expect(recordEventView(1)).rejects.toThrow('Network error')
   })
 })
 
