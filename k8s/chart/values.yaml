@@ -64,13 +64,14 @@ kong:
 kafka:
   image: apache/kafka:3.7.0
   storageSize: 5Gi
+  heapOpts: "-Xmx384m -Xms384m"
   resources:
     requests:
       cpu: "100m"
       memory: "512Mi"
       ephemeral-storage: "256Mi"
     limits:
-      memory: "1Gi"
+      memory: "640Mi"
       ephemeral-storage: "1Gi"
 
 engagementService:
