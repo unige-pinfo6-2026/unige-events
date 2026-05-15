@@ -262,11 +262,21 @@ public class UserService {
     /**
      * Factored projection used by both {@link #getPublicProfile} and
      * {@link #getByUsername}.
+     *
+     * <p>SCRUM-169 revision — the original strict anti-oracle (404 when
+     * {@code !profilePublic && !isOwner && !isAdmin}) broke cross-service
+     * enrichment (engagement-service comments dropped the
+     * {@code authorUsername} and the frontend fell back to the raw UUID).
+     * The branch now returns a {@code restricted} projection that the
+     * resource layer serialises as the anonymous payload — exposing only
+     * the public-facing identifier (id, username, displayName, avatarUrl)
+     * and stripping every other field. Owner self-view and admin bypass
+     * fall through to the full projection unchanged.
      */
     private PublicProfileView enrichPublicProfile(User user, String callerAuth0Id, boolean isAdmin) {
         boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
         if (!user.profilePublic && !isOwner && !isAdmin) {
-            throw new NotFoundException();
+            return PublicProfileView.restricted(user);
         }
 
         if (callerAuth0Id == null) {

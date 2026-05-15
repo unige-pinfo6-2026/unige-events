@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * REST-layer tests for {@link UserResource}. Fixtures are persisted via
@@ -88,13 +89,28 @@ class UserResourceTest {
     }
 
     @Test
-    void getProfile_privateUser_anonymousCaller_returns404() {
+    void getProfile_privateUser_anonymousCaller_returnsRestrictedProjection() {
+        // SCRUM-169 revision — private profile + non-self non-admin caller
+        // (here anonymous) used to 404 ; we now return the stripped
+        // anonymous projection so cross-service enrichment keeps the
+        // public-facing identifier visible (id, username, displayName,
+        // avatarUrl). The private fields stay null + counters stay zero.
         User user = fixtures.persistUser("auth0|ur-priv-anon", "ur-priv-anon@example.com", false);
 
         given()
             .when().get("/users/" + user.id)
             .then()
-            .statusCode(404);
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("username", equalTo(user.username))
+            .body("bio", nullValue())
+            .body("faculty", nullValue())
+            .body("studyLevel", nullValue())
+            .body("interests", nullValue())
+            .body("bannerUrl", nullValue())
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0))
+            .body("followStatus", nullValue());
     }
 
     @Test
@@ -309,19 +325,31 @@ class UserResourceTest {
     }
 
     @Test
-    void getByUsername_privateProfile_anonymous_returns404() {
+    void getByUsername_privateProfile_anonymous_returnsRestrictedProjection() {
+        // SCRUM-169 revision — see getProfile_privateUser_anonymousCaller_
+        // returnsRestrictedProjection for the rationale.
         fixtures.persistUser("auth0|ur-byuname-priv-anon", "priv-anon@example.com", false,
                 "priv.alice");
 
         given()
             .when().get("/users/by-username/priv.alice")
             .then()
-            .statusCode(404);
+            .statusCode(200)
+            .body("username", equalTo("priv.alice"))
+            .body("bio", nullValue())
+            .body("faculty", nullValue())
+            .body("bannerUrl", nullValue())
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0))
+            .body("followStatus", nullValue());
     }
 
     @Test
     @TestSecurity(user = "auth0|ur-byuname-other")
-    void getByUsername_privateProfile_otherUser_returns404() {
+    void getByUsername_privateProfile_otherUser_returnsRestrictedProjection() {
+        // SCRUM-169 revision — authenticated non-self non-admin caller
+        // accessing a private profile now sees the stripped projection
+        // instead of a 404.
         fixtures.persistUser("auth0|ur-byuname-priv-target", "target@example.com", false,
                 "priv.target");
         fixtures.persistUser("auth0|ur-byuname-other", "caller@example.com", false,
@@ -331,7 +359,14 @@ class UserResourceTest {
         given()
             .when().get("/users/by-username/priv.target")
             .then()
-            .statusCode(404);
+            .statusCode(200)
+            .body("username", equalTo("priv.target"))
+            .body("bio", nullValue())
+            .body("faculty", nullValue())
+            .body("bannerUrl", nullValue())
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0))
+            .body("followStatus", nullValue());
     }
 
     @Test

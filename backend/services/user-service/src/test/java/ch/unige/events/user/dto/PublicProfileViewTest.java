@@ -7,9 +7,11 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PublicProfileViewTest {
 
@@ -25,6 +27,7 @@ class PublicProfileViewTest {
         assertEquals(4L, view.followerCount());
         assertEquals(2L, view.followingCount());
         assertEquals(FollowStatus.ACCEPTED, view.followStatus());
+        assertFalse(view.restricted(), "4-arg overload defaults restricted=false");
     }
 
     @Test
@@ -36,6 +39,25 @@ class PublicProfileViewTest {
         PublicProfileView view = PublicProfileView.anonymous(user);
 
         assertSame(user, view.user());
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
+        assertFalse(view.restricted());
+    }
+
+    @Test
+    void restricted_factory_flagsRestrictedAndZerosCounters() {
+        // SCRUM-169 revision — private profile + non-self non-admin caller.
+        User user = new User();
+        user.id = UUID.randomUUID();
+        user.username = "alice.handle";
+        user.displayName = "Alice";
+
+        PublicProfileView view = PublicProfileView.restricted(user);
+
+        assertSame(user, view.user());
+        assertTrue(view.restricted(),
+                "restricted() factory must set the flag so the resource layer strips the payload");
         assertEquals(0L, view.followerCount());
         assertEquals(0L, view.followingCount());
         assertNull(view.followStatus());
@@ -53,5 +75,18 @@ class PublicProfileViewTest {
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
         assertNotEquals(a, c);
+    }
+
+    @Test
+    void recordEquals_restrictedFlagIsPartOfTheContract() {
+        // Two views with otherwise identical components must NOT be equal
+        // when one is restricted=true and the other is restricted=false.
+        User user = new User();
+        user.id = UUID.randomUUID();
+
+        PublicProfileView open = new PublicProfileView(user, 0L, 0L, null, false);
+        PublicProfileView locked = new PublicProfileView(user, 0L, 0L, null, true);
+
+        assertNotEquals(open, locked);
     }
 }

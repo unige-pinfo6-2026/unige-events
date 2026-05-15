@@ -72,12 +72,15 @@ public class UserResource {
     public Response getProfile(@PathParam("id") UUID id) {
         boolean anonymous = identity.isAnonymous();
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
-        // REST-003 / ISSUE-93: admins read
-        // private profiles for moderation/support. Anti-oracle 404 stays for
-        // anonymous + non-admin non-self callers.
+        // REST-003 / ISSUE-93: admins read private profiles for
+        // moderation/support. SCRUM-169 revision: non-self non-admin
+        // callers of a private profile receive a restricted projection
+        // (id + username + displayName + avatarUrl) instead of the
+        // historical 404, so cross-service enrichment (comments,
+        // organizer team) keeps the public-facing identifier visible.
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getPublicProfile(id, auth0Id, isAdmin);
-        UserPublicResponse body = anonymous
+        UserPublicResponse body = (anonymous || view.restricted())
                 ? UserPublicResponse.fromAnonymous(view.user())
                 : UserPublicResponse.from(
                         view.user(),
@@ -176,9 +179,10 @@ public class UserResource {
     /**
      * SCRUM-169 — public profile lookup by username. Mirrors the security
      * model of {@link #getProfile(UUID)} : {@code @PermitAll} entry point,
-     * anti-oracle 404 for private profiles seen by non-owner non-admin,
      * stripped payload for anonymous callers (with {@code username} kept —
-     * cf. spec Décision E).
+     * cf. spec Décision E). SCRUM-169 revision: private profiles viewed by
+     * non-self non-admin callers now return the same stripped payload via
+     * the {@code restricted} flag, instead of the historical 404.
      */
     @GET
     @Path("/by-username/{username}")
@@ -188,7 +192,7 @@ public class UserResource {
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getByUsername(username, auth0Id, isAdmin);
-        UserPublicResponse body = anonymous
+        UserPublicResponse body = (anonymous || view.restricted())
                 ? UserPublicResponse.fromAnonymous(view.user())
                 : UserPublicResponse.from(
                         view.user(),

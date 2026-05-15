@@ -123,21 +123,36 @@ class UserServiceTest {
 
     @Test
     @TestTransaction
-    void getPublicProfile_privateProfile_anonymousCaller_throwsNotFound() {
+    void getPublicProfile_privateProfile_anonymousCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — private profile seen by a non-self non-admin
+        // caller (here anonymous) no longer 404s; it returns a restricted
+        // PublicProfileView so the resource layer can surface the
+        // public-facing identifier (id, username, displayName, avatarUrl)
+        // through the anonymous projection.
         User user = persistUser("auth0|us-priv-anon", "us-priv-anon@example.com", false);
 
-        assertThrows(NotFoundException.class,
-                () -> userService.getPublicProfile(user.id, null));
+        PublicProfileView view = userService.getPublicProfile(user.id, null);
+        assertEquals(user.id, view.user().id);
+        assertTrue(view.restricted(), "restricted flag must be set so the resource strips the payload");
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
     }
 
     @Test
     @TestTransaction
-    void getPublicProfile_privateProfile_otherCaller_throwsNotFound() {
+    void getPublicProfile_privateProfile_otherCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — authenticated non-self non-admin caller of
+        // a private profile gets the restricted projection instead of 404.
         User user = persistUser("auth0|us-priv-tgt", "us-priv-tgt@example.com", false);
         persistUser("auth0|us-priv-other", "us-priv-other@example.com", true);
 
-        assertThrows(NotFoundException.class,
-                () -> userService.getPublicProfile(user.id, "auth0|us-priv-other"));
+        PublicProfileView view = userService.getPublicProfile(user.id, "auth0|us-priv-other");
+        assertEquals(user.id, view.user().id);
+        assertTrue(view.restricted());
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
     }
 
     @Test
@@ -457,14 +472,19 @@ class UserServiceTest {
 
     @Test
     @TestTransaction
-    void getByUsername_privateProfile_otherCaller_throwsNotFound() {
+    void getByUsername_privateProfile_otherCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — username lookup of a private profile by a
+        // non-self non-admin caller no longer 404s; it returns the
+        // restricted projection (id+username+displayName+avatarUrl).
         User target = persistUser("auth0|us-gbun-priv", "us-gbun-priv@example.com", false);
         target.username = "priv.bun";
         entityManager.flush();
         persistUser("auth0|us-gbun-other", "us-gbun-other@example.com", false);
 
-        assertThrows(NotFoundException.class,
-                () -> userService.getByUsername("priv.bun", "auth0|us-gbun-other", false));
+        PublicProfileView view = userService.getByUsername("priv.bun", "auth0|us-gbun-other", false);
+        assertEquals(target.id, view.user().id);
+        assertTrue(view.restricted());
+        assertNull(view.followStatus());
     }
 
     @Test
