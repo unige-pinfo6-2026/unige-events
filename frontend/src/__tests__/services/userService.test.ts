@@ -9,6 +9,7 @@ import {
   getUserById,
   getUserByUsername,
   regenerateCalendarToken,
+  searchUsernames,
   updateProfile,
   updateUsername,
   uploadBanner,
@@ -176,6 +177,32 @@ describe('userService', () => {
       ;(conflict as unknown as { response: { status: number } }).response = { status: 409 }
       mockApiPatch.mockRejectedValue(conflict)
       await expect(updateUsername('taken.handle')).rejects.toBe(conflict)
+    })
+  })
+
+  describe('searchUsernames (SCRUM-137 autocomplete)', () => {
+    const matches = [
+      { id: 'u1', username: 'nexiumito', displayName: 'Nexium Ito', avatarUrl: null },
+      { id: 'u2', username: 'nexus.dev', displayName: 'Nexus Dev', avatarUrl: null },
+    ]
+
+    it('calls GET /users/search with q (no explicit limit) and returns the array', async () => {
+      mockApiGet.mockResolvedValue({ data: matches })
+      const result = await searchUsernames('nex')
+      expect(result).toEqual(matches)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/search', { params: { q: 'nex' } })
+    })
+
+    it('propagates the explicit limit parameter', async () => {
+      mockApiGet.mockResolvedValue({ data: matches.slice(0, 1) })
+      await searchUsernames('nex', 1)
+      expect(mockApiGet).toHaveBeenCalledWith('/users/search', { params: { q: 'nex', limit: 1 } })
+    })
+
+    it('rethrows the axios error so the caller can surface a search-failed state', async () => {
+      const boom = new Error('boom')
+      mockApiGet.mockRejectedValue(boom)
+      await expect(searchUsernames('nex')).rejects.toBe(boom)
     })
   })
 

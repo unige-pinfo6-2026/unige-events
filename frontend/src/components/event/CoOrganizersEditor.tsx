@@ -44,10 +44,11 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
   // autocomplete dropdown. The backend already excludes the caller, but
   // the existing co-organizers must be filtered client-side.
   const excludeUsernames = useMemo<string[]>(() => {
-    const list = coOrganizers.map((co) => co.username).filter((u): u is string => Boolean(u))
+    const rows = Array.isArray(coOrganizers) ? coOrganizers : []
+    const list = rows.map((co) => co.username).filter((u): u is string => Boolean(u))
     if (user?.username) list.push(user.username)
     return list
-  }, [coOrganizers, user?.username])
+  }, [coOrganizers, user])
 
   async function handleInvite() {
     setFieldError(null)

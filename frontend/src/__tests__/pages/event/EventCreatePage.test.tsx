@@ -18,6 +18,32 @@ vi.mock('@/services/coOrganizerApi', () => ({
 
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
+  // SCRUM-137 autocomplete — never resolves so the dropdown stays idle ;
+  // these tests drive the manual submit flow (typed username), not the picker.
+  searchUsernames: vi.fn().mockResolvedValue([]),
+}))
+
+// SCRUM-137 autocomplete — PendingCoOrganizersEditor now reads useAuth() to
+// build the excludeUsernames list. Provide a stable authenticated stub so
+// the editor mounts without throwing.
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'caller-id',
+      auth0Id: 'auth0|caller',
+      email: 'caller@example.com',
+      username: 'caller.handle',
+      profilePublic: true,
+      createdAt: '2026-05-15T10:00:00',
+    },
+    isAuthenticated: true,
+    isAdmin: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    updateUser: vi.fn(),
+  }),
 }))
 
 vi.mock('@/components/event/DraftsResumeStrip', () => ({

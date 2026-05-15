@@ -3,15 +3,80 @@ import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/re
 
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
+  searchUsernames: vi.fn().mockResolvedValue([]),
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
+
+// Stub the autocomplete: input + programmatic onSelect button + hidden
+// error indicator. Mirror of the one in CoOrganizersEditor.test.tsx.
+vi.mock('@/components/user/UsernameAutocomplete', () => ({
+  default: function MockAutocomplete({
+    value,
+    onChange,
+    onSelect,
+    inputId,
+    error,
+    disabled,
+    excludeUsernames,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    onSelect: (u: { id: string; username: string; displayName: string | null; avatarUrl: string | null; profilePublic: boolean }) => void
+    inputId?: string
+    error?: string
+    disabled?: boolean
+    excludeUsernames?: string[]
+  }) {
+    return (
+      <div>
+        <input
+          id={inputId}
+          aria-label="username-input-stub"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          data-testid="pick-suggestion"
+          onClick={() => onSelect({
+            id: '00000000-0000-0000-0000-000000000333',
+            username: 'picked.user',
+            displayName: 'Picked User',
+            avatarUrl: null,
+            profilePublic: true,
+          })}
+        >
+          pick
+        </button>
+        <span data-testid="exclude-len">{excludeUsernames?.length ?? 0}</span>
+        {error && <input type="hidden" data-testid="autocomplete-error" value={error} readOnly />}
+      </div>
+    )
+  },
 }))
 
 import { getUserByUsername } from '@/services/userService'
+import { useAuth } from '@/hooks/useAuth'
 import PendingCoOrganizersEditor, {
   type PendingCoOrganizer,
 } from '@/components/event/PendingCoOrganizersEditor'
 import type { User } from '@/types/user'
 
 const mockGetUserByUsername = vi.mocked(getUserByUsername)
+const mockUseAuth = vi.mocked(useAuth)
+
+const CALLER_USER: User = {
+  id: '00000000-0000-0000-0000-000000000999',
+  auth0Id: 'auth0|caller',
+  email: 'caller@example.com',
+  username: 'caller.handle',
+  profilePublic: true,
+  createdAt: '2026-05-15T10:00:00',
+}
 
 function resolved(overrides: Partial<User> = {}): User {
   return {
@@ -43,6 +108,16 @@ afterEach(() => {
 
 beforeEach(() => {
   mockGetUserByUsername.mockReset()
+  mockUseAuth.mockReturnValue({
+    user: CALLER_USER,
+    isAuthenticated: true,
+    isAdmin: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    updateUser: vi.fn(),
+  })
 })
 
 describe('PendingCoOrganizersEditor', () => {
@@ -156,5 +231,39 @@ describe('PendingCoOrganizersEditor', () => {
     expect(screen.getByText('alice.martin')).toBeTruthy()
     expect(screen.getByText('@alice.martin')).toBeTruthy()
     expect(screen.getByText('AL')).toBeTruthy()
+  })
+
+  // ─── SCRUM-137 polish — username autocomplete ────────────────────────
+
+  it('feeds the picked suggestion to the existing add flow', async () => {
+    mockGetUserByUsername.mockResolvedValue(resolved({ id: '00000000-0000-0000-0000-000000000333', username: 'picked.user' }))
+    const onAdd = vi.fn()
+    render(<PendingCoOrganizersEditor pending={[]} onAdd={onAdd} onRemove={vi.fn()} />)
+
+    fireEvent.click(screen.getByTestId('pick-suggestion'))
+    const input = screen.getByLabelText('username-input-stub') as HTMLInputElement
+    expect(input.value).toBe('picked.user')
+
+    fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledWith('picked.user'))
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith({
+      userId: '00000000-0000-0000-0000-000000000333',
+      username: 'picked.user',
+      displayName: 'Alice',
+      avatarUrl: null,
+    }))
+  })
+
+  it('passes the caller handle + already-staged entries to excludeUsernames', () => {
+    render(
+      <PendingCoOrganizersEditor
+        pending={[entry()]}
+        onAdd={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    )
+    // 1 caller + 1 staged → 2 handles passed to the dropdown.
+    expect(screen.getByTestId('exclude-len').textContent).toBe('2')
   })
 })

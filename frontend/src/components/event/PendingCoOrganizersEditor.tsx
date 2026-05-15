@@ -50,7 +50,7 @@ export default function PendingCoOrganizersEditor({
     const list = pending.map((p) => p.username)
     if (user?.username) list.push(user.username)
     return list
-  }, [pending, user?.username])
+  }, [pending, user])
 
   async function handleAdd() {
     setFieldError(null)

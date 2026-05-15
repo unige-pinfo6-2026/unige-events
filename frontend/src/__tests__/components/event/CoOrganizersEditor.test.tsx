@@ -5,18 +5,85 @@ vi.mock('@/hooks/useCoOrganizers', () => ({
   useCoOrganizers: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
+
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
+  searchUsernames: vi.fn().mockResolvedValue([]),
+}))
+
+// Mock the autocomplete with a stub that mirrors the controlled contract
+// (value + onChange) and exposes a programmatic onSelect trigger via a
+// hidden test-id button. Lets us assert the parent's submit flow on both
+// "user typed manually" and "user picked a suggestion".
+vi.mock('@/components/user/UsernameAutocomplete', () => ({
+  default: function MockAutocomplete({
+    value,
+    onChange,
+    onSelect,
+    inputId,
+    error,
+    disabled,
+    excludeUsernames,
+  }: {
+    value: string
+    onChange: (v: string) => void
+    onSelect: (u: { id: string; username: string; displayName: string | null; avatarUrl: string | null; profilePublic: boolean }) => void
+    inputId?: string
+    error?: string
+    disabled?: boolean
+    excludeUsernames?: string[]
+  }) {
+    return (
+      <div>
+        <input
+          id={inputId}
+          aria-label="username-input-stub"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          data-testid="pick-suggestion"
+          onClick={() => onSelect({
+            id: '00000000-0000-0000-0000-000000000222',
+            username: 'picked.user',
+            displayName: 'Picked User',
+            avatarUrl: null,
+            profilePublic: true,
+          })}
+        >
+          pick
+        </button>
+        <span data-testid="exclude-len">{excludeUsernames?.length ?? 0}</span>
+        {error && <input type="hidden" data-testid="autocomplete-error" value={error} readOnly />}
+      </div>
+    )
+  },
 }))
 
 import { useCoOrganizers } from '@/hooks/useCoOrganizers'
+import { useAuth } from '@/hooks/useAuth'
 import { getUserByUsername } from '@/services/userService'
 import CoOrganizersEditor from '@/components/event/CoOrganizersEditor'
 import type { CoOrganizer } from '@/types/coOrganizer'
 import type { User } from '@/types/user'
 
 const mockUseCoOrganizers = vi.mocked(useCoOrganizers)
+const mockUseAuth = vi.mocked(useAuth)
 const mockGetUserByUsername = vi.mocked(getUserByUsername)
+
+const CALLER_USER: User = {
+  id: '00000000-0000-0000-0000-000000000999',
+  auth0Id: 'auth0|caller',
+  email: 'caller@example.com',
+  username: 'caller.handle',
+  profilePublic: true,
+  createdAt: '2026-05-15T10:00:00',
+}
 
 const UUID_VALID = '00000000-0000-0000-0000-000000000111'
 
@@ -55,6 +122,16 @@ afterEach(() => {
 beforeEach(() => {
   mockUseCoOrganizers.mockReset()
   mockGetUserByUsername.mockReset()
+  mockUseAuth.mockReturnValue({
+    user: CALLER_USER,
+    isAuthenticated: true,
+    isAdmin: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    updateUser: vi.fn(),
+  })
 })
 
 describe('CoOrganizersEditor', () => {
@@ -172,5 +249,39 @@ describe('CoOrganizersEditor', () => {
     render(<CoOrganizersEditor eventId={42} />)
     fireEvent.click(screen.getByRole('button', { name: /retirer/i }))
     expect(remove).toHaveBeenCalledWith(UUID_VALID)
+  })
+
+  // ─── SCRUM-137 polish — username autocomplete ────────────────────────
+
+  it('feeds the picked suggestion to the manual submit flow (autocomplete + invite)', async () => {
+    mockGetUserByUsername.mockResolvedValue(resolvedUser({ id: '00000000-0000-0000-0000-000000000222', username: 'picked.user' }))
+    const hook = setupHook()
+    render(<CoOrganizersEditor eventId={42} />)
+
+    // 1. User picks a suggestion → fills the input via onSelect.
+    fireEvent.click(screen.getByTestId('pick-suggestion'))
+    const input = screen.getByLabelText('username-input-stub') as HTMLInputElement
+    expect(input.value).toBe('picked.user')
+
+    // 2. Submit flow resolves the picked handle and invites by UUID.
+    fireEvent.click(screen.getByRole('button', { name: /inviter/i }))
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledWith('picked.user'))
+    await waitFor(() => expect(hook.invite).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000222'))
+  })
+
+  it('passes the caller handle + accepted co-organizers to excludeUsernames', () => {
+    const alice: CoOrganizer = {
+      id: 1,
+      userId: UUID_VALID,
+      displayName: 'Alice',
+      avatarUrl: null,
+      username: 'alice.martin',
+      status: 'ACCEPTED',
+      invitedAt: '2026-05-14T10:00:00',
+    }
+    setupHook({ coOrganizers: [alice] })
+    render(<CoOrganizersEditor eventId={42} />)
+    // 1 caller + 1 existing co-org → 2 excluded handles passed to the dropdown.
+    expect(screen.getByTestId('exclude-len').textContent).toBe('2')
   })
 })
