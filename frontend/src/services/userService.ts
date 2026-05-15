@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios'
 import api from './api'
-import type { User } from '@/types/user'
+import type { User, UserPublicResponse } from '@/types/user'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
 
 export async function getMe(): Promise<User> {
@@ -60,6 +60,25 @@ export async function updateUsername(username: string): Promise<User> {
  * Une erreur réseau ou un 5xx propage l'exception — le caller affiche
  * un état "erreur de vérification" plutôt qu'un faux "disponible".
  */
+/**
+ * SCRUM-137 polish — username autocomplete. Calls
+ * `GET /users/search?q=<prefix>&limit=<n>` and returns the lightweight
+ * projection (id + username + displayName + avatarUrl + profilePublic) used
+ * by `UsernameAutocomplete` to render a dropdown of suggestions on the
+ * co-organizer invitation field.
+ *
+ * The backend caps `limit` at 20 and validates `q` server-side (2-30 chars,
+ * charset `[a-zA-Z0-9._-]`). This wrapper does not duplicate the validation —
+ * the caller is the autocomplete component which trims to `>= 2` before
+ * firing.
+ */
+export async function searchUsernames(q: string, limit?: number): Promise<UserPublicResponse[]> {
+  const params: { q: string; limit?: number } = { q }
+  if (limit !== undefined) params.limit = limit
+  const response = await api.get<UserPublicResponse[]>('/users/search', { params })
+  return response.data
+}
+
 export async function checkUsernameAvailable(username: string): Promise<boolean> {
   try {
     await api.head(`/users/by-username/${encodeURIComponent(username)}`)

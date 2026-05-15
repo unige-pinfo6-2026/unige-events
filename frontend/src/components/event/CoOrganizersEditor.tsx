@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Mail, UserPlus, X } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { useCoOrganizers } from '@/hooks/useCoOrganizers'
+import { useAuth } from '@/hooks/useAuth'
 import { ButtonPrimary } from '@/components/utils/Buttons'
-import FormField, { Input } from '@/components/utils/FormField'
+import FormField from '@/components/utils/FormField'
+import UsernameAutocomplete from '@/components/user/UsernameAutocomplete'
 import { getUserByUsername } from '@/services/userService'
 import { USERNAME_PATTERN } from '@/types/user'
 import type { CoOrganizer, CoOrganizerStatus } from '@/types/coOrganizer'
@@ -33,9 +35,19 @@ interface Props {
  */
 export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
   const { coOrganizers, loading, error, invite, remove } = useCoOrganizers(eventId)
+  const { user } = useAuth()
   const [username, setUsername] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<string | null>(null)
+
+  // Hide the caller's own handle + already-invited handles from the
+  // autocomplete dropdown. The backend already excludes the caller, but
+  // the existing co-organizers must be filtered client-side.
+  const excludeUsernames = useMemo<string[]>(() => {
+    const list = coOrganizers.map((co) => co.username).filter((u): u is string => Boolean(u))
+    if (user?.username) list.push(user.username)
+    return list
+  }, [coOrganizers, user?.username])
 
   async function handleInvite() {
     setFieldError(null)
@@ -82,17 +94,19 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
       </header>
 
       <FormField label="Username de l'utilisateur à inviter" htmlFor="co-org-username" error={fieldError ?? undefined}>
-        <div className="flex gap-2">
-          <Input
-            id="co-org-username"
-            type="text"
-            placeholder="alice.martin"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            error={fieldError ?? undefined}
-            disabled={submitting}
-            autoComplete="off"
-          />
+        <div className="flex gap-2 items-start">
+          <div className="flex-1 min-w-0">
+            <UsernameAutocomplete
+              inputId="co-org-username"
+              value={username}
+              onChange={(next) => { setUsername(next); if (fieldError) setFieldError(null) }}
+              onSelect={(picked) => setUsername(picked.username)}
+              placeholder="alice.martin"
+              error={fieldError ?? undefined}
+              excludeUsernames={excludeUsernames}
+              disabled={submitting}
+            />
+          </div>
           <ButtonPrimary onClick={handleInvite} disabled={submitting || username.trim() === ''} size="sm">
             <Mail className="w-4 h-4" />
             Inviter
