@@ -1691,6 +1691,90 @@ paths:
         '404':
           description: Username libre — disponible (corps vide).
 
+  /users/search:
+    get:
+      summary: Recherche d'utilisateurs par préfixe d'username (SCRUM-137 autocomplete)
+      description: |
+        Prefix-scan sur le champ `username` destiné à alimenter l'autocomplete
+        du champ d'invitation co-organisateur dans `CoOrganizersEditor` et
+        `PendingCoOrganizersEditor`. L'organisateur tape un début d'username
+        (`nex`) et la dropdown lui propose les utilisateurs correspondants
+        (`nexiumito`, `nexus.dev`, ...) avec avatar + displayName.
+
+        **Autorisation** : `@Authenticated` (anti-énumération). Les appelants
+        anonymes reçoivent `401`. Le rate-limit applicatif limite à
+        60 requêtes/minute par utilisateur authentifié.
+
+        **Projection** : chaque entrée retournée est la projection anonymous
+        de `UserPublicResponse` — uniquement `id`, `username`, `displayName`,
+        `avatarUrl` et `profilePublic` peuplés ; `bio`, `interests`, `faculty`,
+        `bannerUrl`, etc. sont systématiquement `null` / `0` indépendamment du
+        flag `profilePublic` de la cible. Cohérent avec SCRUM-169 Décision E
+        revised (le username reste un identifiant public-facing).
+
+        **Exclusion de l'appelant** : la ligne correspondant à l'utilisateur
+        authentifié est filtrée — la dropdown ne propose jamais de
+        s'auto-inviter en tant que co-organisateur.
+
+        **Tri** : `username ASC` (ordre lexicographique). Le frontend rend
+        donc les suggestions dans un ordre stable et prévisible.
+      operationId: searchUsers
+      tags: [users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 30
+            pattern: '^[a-zA-Z0-9._-]+$'
+          description: |
+            Préfixe à matcher contre `username`. Normalisé en lowercase
+            côté serveur avant la requête (donc `NEX` matche `nexiumito`).
+            Le caractère `_` est échappé pour ne pas être interprété comme
+            wildcard SQL.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 8
+          description: Nombre maximal de suggestions retournées (default 8, cap 20).
+      responses:
+        '200':
+          description: |
+            Tableau des utilisateurs dont le username commence par `q`, trié
+            ascendant, max `limit` entrées. Tableau vide si aucun match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPublicResponse'
+        '400':
+          description: Paramètres invalides (`q` trop court / long / charset, `limit` hors borne).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Appelant non authentifié.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          description: Rate-limit applicatif dépassé (60 req/min par utilisateur).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /users/{id}:
     get:
       summary: Profil public d'un utilisateur
