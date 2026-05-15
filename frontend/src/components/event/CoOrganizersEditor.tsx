@@ -108,7 +108,7 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
               disabled={submitting}
             />
           </div>
-          <ButtonPrimary onClick={handleInvite} disabled={submitting || username.trim() === ''} size="sm">
+          <ButtonPrimary onClick={handleInvite} disabled={submitting || username.trim() === ''} size="md">
             <Mail className="w-4 h-4" />
             Inviter
           </ButtonPrimary>

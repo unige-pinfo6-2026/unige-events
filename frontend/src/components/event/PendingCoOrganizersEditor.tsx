@@ -115,7 +115,7 @@ export default function PendingCoOrganizersEditor({
               disabled={submitting}
             />
           </div>
-          <ButtonPrimary onClick={handleAdd} disabled={submitting || username.trim() === ''} size="sm">
+          <ButtonPrimary onClick={handleAdd} disabled={submitting || username.trim() === ''} size="md">
             <Mail className="w-4 h-4" />
             Ajouter
           </ButtonPrimary>
