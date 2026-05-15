@@ -26,6 +26,13 @@ const baseValues: EventFormValues = {
   contactEmail: '',
   registrationDeadline: '',
   tags: [],
+  recurrence: {
+    enabled: false,
+    frequency: 'WEEKLY',
+    endMode: 'date',
+    endDate: '',
+    maxOccurrences: '',
+  },
 }
 
 const cropDefaults = {
