@@ -1,19 +1,19 @@
-{{- if not .Values.postgres.shared }}
+{{- if .Values.postgres.shared }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: postgres-user
+  name: postgres-shared
   namespace: {{ .Release.Namespace }}
 spec:
-  serviceName: postgres-user
+  serviceName: postgres-shared
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-user
+      app: postgres-shared
   template:
     metadata:
       labels:
-        app: postgres-user
+        app: postgres-shared
     spec:
       automountServiceAccountToken: false
       containers:
@@ -22,8 +22,6 @@ spec:
           ports:
             - containerPort: 5432
           env:
-            - name: POSTGRES_DB
-              value: unige_events_users
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -34,9 +32,13 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: DB_PASSWORD
+            - name: POSTGRES_DB
+              value: postgres
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
           resources:
             {{- toYaml .Values.postgres.resources | nindent 12 }}
           readinessProbe:
@@ -44,6 +46,10 @@ spec:
               command: ["sh", "-c", "pg_isready -U $POSTGRES_USER"]
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-shared-init
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -53,5 +59,4 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgres.storageSize }}
-
 {{- end }}
