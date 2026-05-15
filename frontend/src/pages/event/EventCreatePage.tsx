@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useEventForm } from '@/hooks'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import EventForm from '@/components/event/EventForm'
 import DraftsResumeStrip from '@/components/event/DraftsResumeStrip'
+import PendingCoOrganizersEditor, {
+  type PendingCoOrganizer,
+} from '@/components/event/PendingCoOrganizersEditor'
+import { inviteCoOrganizer } from '@/services/coOrganizerApi'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -18,15 +22,39 @@ export default function EventCreatePage() {
   const [template, setTemplate] = useState<Event | null>(
     () => (location.state as { template?: Event } | null)?.template ?? null
   )
+  const [pendingCoOrganizers, setPendingCoOrganizers] = useState<PendingCoOrganizer[]>([])
+
+  const addPendingCoOrganizer = useCallback((entry: PendingCoOrganizer) => {
+    setPendingCoOrganizers((prev) => [...prev, entry])
+  }, [])
+
+  const removePendingCoOrganizer = useCallback((userId: string) => {
+    setPendingCoOrganizers((prev) => prev.filter((p) => p.userId !== userId))
+  }, [])
 
   const form = useEventForm({
     mode: 'create',
     templateEvent: template,
-    onSuccess: (event) => {
+    onSuccess: async (event) => {
       if (event.status === 'DRAFT') {
         showToast('success', 'Brouillon enregistré.')
         navigate('/')
         return
+      }
+      // SCRUM-137 — dispatch the staged co-organizer invitations now that the
+      // event id is known. Failures are surfaced as individual toasts (the
+      // event itself is already persisted, so we don't block navigation).
+      if (pendingCoOrganizers.length > 0) {
+        const results = await Promise.allSettled(
+          pendingCoOrganizers.map((p) => inviteCoOrganizer(event.id, p.userId)),
+        )
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const entry = pendingCoOrganizers[index]
+            const label = entry.displayName ?? `@${entry.username}`
+            showToast('error', `Impossible d'inviter ${label} comme co-organisateur.`)
+          }
+        })
       }
       showToast('success', 'Événement créé avec succès.')
       navigate(`/events/${event.id}`)
@@ -85,6 +113,13 @@ export default function EventCreatePage() {
           navigate('/')
         }}
         onSaveDraft={form.triggerDraftSave}
+        coOrganizersSection={
+          <PendingCoOrganizersEditor
+            pending={pendingCoOrganizers}
+            onAdd={addPendingCoOrganizer}
+            onRemove={removePendingCoOrganizer}
+          />
+        }
       />
     </SectionWrapper>
   )

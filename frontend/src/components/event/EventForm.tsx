@@ -41,10 +41,11 @@ interface EventFormProps {
   deleting?: boolean
   deleteLabel?: string
   /**
-   * Optional slot rendered just before the CTA bar (Save/Cancel). Used by
-   * `EventEditPage` to inject the real `<CoOrganizersEditor>` directly inside
-   * the form flow, replacing the historical placeholder. Visible in `edit`
-   * mode only.
+   * Optional slot rendered just before the CTA bar (Save/Cancel). `EventEditPage`
+   * injects the live `<CoOrganizersEditor>` (talks to the API directly);
+   * `EventCreatePage` injects a deferred `<PendingCoOrganizersEditor>` that
+   * stages invitations client-side until the event is created. Rendered in
+   * both `create` and `edit` modes.
    */
   coOrganizersSection?: React.ReactNode
 }
@@ -480,10 +481,10 @@ export default function EventForm({
 
       </div>
 
-      {/* Bande 5 — Co-organisateurs (SCRUM-137) — edit only. The real
-          CoOrganizersEditor is injected via the `coOrganizersSection` prop
-          by EventEditPage (the historical placeholder has been removed). */}
-      {mode === 'edit' && coOrganizersSection && (
+      {/* Bande 5 — Co-organisateurs (SCRUM-137). Live in edit mode, deferred
+          (staged client-side) in create mode. The host page (EventEditPage or
+          EventCreatePage) injects the matching editor via `coOrganizersSection`. */}
+      {coOrganizersSection && (
         <div className="border-t border-border/30 pt-6">
           {coOrganizersSection}
         </div>

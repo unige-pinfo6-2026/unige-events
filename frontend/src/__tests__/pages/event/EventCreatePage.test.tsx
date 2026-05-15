@@ -12,6 +12,14 @@ vi.mock('@/services/eventApi', () => ({
   uploadEventImage: vi.fn(),
 }))
 
+vi.mock('@/services/coOrganizerApi', () => ({
+  inviteCoOrganizer: vi.fn(),
+}))
+
+vi.mock('@/services/userService', () => ({
+  getUserByUsername: vi.fn(),
+}))
+
 vi.mock('@/components/event/DraftsResumeStrip', () => ({
   default: () => null,
 }))
@@ -49,11 +57,15 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { inviteCoOrganizer } from '@/services/coOrganizerApi'
+import { getUserByUsername } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
+const mockInviteCoOrganizer = inviteCoOrganizer as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 
 const createdEvent = {
   id: 42,
@@ -343,6 +355,77 @@ describe('CreateEventPage', () => {
     unmount()
 
     expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  describe('pending co-organizers (SCRUM-137 from create page)', () => {
+    it('stages a co-organizer by username and dispatches the invite after the event is created', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockResolvedValue({
+        id: 1,
+        userId: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        displayName: 'Alice',
+        avatarUrl: null,
+        username: 'alice.martin',
+        status: 'PENDING',
+        invitedAt: '2026-05-14T10:00:00',
+      })
+
+      renderPage()
+
+      fillRequiredFields()
+
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() => expect(mockCreateEvent).toHaveBeenCalled())
+      await waitFor(() =>
+        expect(mockInviteCoOrganizer).toHaveBeenCalledWith(42, 'aa11bb22-cc33-dd44-ee55-ff6677889900'),
+      )
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
+
+    it('still navigates and toasts the failure when one invitation fails', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockRejectedValue(new Error('409 already invited'))
+
+      renderPage()
+
+      fillRequiredFields()
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() =>
+        expect(screen.getByText(/Impossible d'inviter Alice/i)).toBeTruthy(),
+      )
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
   })
 
   describe('template pre-fill (location.state.template)', () => {

@@ -1,47 +1,55 @@
 import { useState } from 'react'
 import { Mail, UserPlus, X } from 'lucide-react'
-import { Skeleton } from 'boneyard-js/react'
-import { useCoOrganizers } from '@/hooks/useCoOrganizers'
 import { ButtonPrimary } from '@/components/utils/Buttons'
 import FormField, { Input } from '@/components/utils/FormField'
 import { getUserByUsername } from '@/services/userService'
 import { USERNAME_PATTERN } from '@/types/user'
-import type { CoOrganizer, CoOrganizerStatus } from '@/types/coOrganizer'
 
-const statusChip: Record<CoOrganizerStatus, string> = {
-  PENDING: 'bg-warning/10 text-warning border-warning/30',
-  ACCEPTED: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  DECLINED: 'bg-foreground/10 text-foreground/60 border-border',
-}
-
-const statusLabel: Record<CoOrganizerStatus, string> = {
-  PENDING: 'En attente',
-  ACCEPTED: 'Accepté',
-  DECLINED: 'Refusé',
+/**
+ * SCRUM-137 — co-organizer entry staged client-side in `EventCreatePage` before
+ * the event exists in the backend. After `POST /events` succeeds the parent
+ * page dispatches one `POST /events/{id}/co-organizers` per entry. Mirror of
+ * `CoOrganizerDTO` minus the row id + status (everything is PENDING until the
+ * invitee accepts).
+ */
+export interface PendingCoOrganizer {
+  userId: string
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
 }
 
 interface Props {
-  eventId: number
+  pending: PendingCoOrganizer[]
+  onAdd: (entry: PendingCoOrganizer) => void
+  onRemove: (userId: string) => void
 }
 
 /**
- * "Co-organisateurs" section embedded in `EventForm` edit mode. Since SCRUM-169
- * the invitation is by **username** (the user-facing handle) — the editor
- * resolves it to a UUID via `GET /users/by-username/{u}` before hitting the
- * existing `POST /events/{id}/co-organizers` endpoint (which still expects a
- * UUID, cf. SCRUM-137 Décision A on the backend side).
+ * "Co-organisateurs" section embedded in `EventForm` create mode. Unlike the
+ * edit-mode `CoOrganizersEditor`, this variant cannot call
+ * `POST /events/{id}/co-organizers` (no event yet) — it stages entries client
+ * side and exposes them through `onAdd`/`onRemove` so `EventCreatePage` can
+ * dispatch the invites after the event is created.
  */
-export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
-  const { coOrganizers, loading, error, invite, remove } = useCoOrganizers(eventId)
+export default function PendingCoOrganizersEditor({
+  pending,
+  onAdd,
+  onRemove,
+}: Readonly<Props>) {
   const [username, setUsername] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<string | null>(null)
 
-  async function handleInvite() {
+  async function handleAdd() {
     setFieldError(null)
     const trimmed = username.trim().toLowerCase()
     if (!USERNAME_PATTERN.test(trimmed)) {
       setFieldError('Username invalide (3-30 caractères, a-z, 0-9, ._-).')
+      return
+    }
+    if (pending.some((p) => p.username === trimmed)) {
+      setFieldError('Cet utilisateur est déjà dans la liste.')
       return
     }
     setSubmitting(true)
@@ -51,12 +59,13 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
         setFieldError('Utilisateur introuvable.')
         return
       }
-      const outcome = await invite(resolved.id)
-      if (outcome.ok) {
-        setUsername('')
-      } else {
-        setFieldError(outcome.error ?? 'Erreur lors de l\'invitation.')
-      }
+      onAdd({
+        userId: resolved.id,
+        username: resolved.username,
+        displayName: resolved.displayName ?? null,
+        avatarUrl: resolved.avatarUrl ?? null,
+      })
+      setUsername('')
     } catch {
       setFieldError('Erreur réseau lors de la résolution du username.')
     } finally {
@@ -76,15 +85,15 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
         <div>
           <h3 className="text-lg font-semibold text-foreground">Co-organisateurs</h3>
           <p className="text-xs text-foreground/60">
-            Invitez d'autres personnes à gérer cet événement avec vous.
+            Les invitations seront envoyées après la création de l'événement.
           </p>
         </div>
       </header>
 
-      <FormField label="Username de l'utilisateur à inviter" htmlFor="co-org-username" error={fieldError ?? undefined}>
+      <FormField label="Username de l'utilisateur à inviter" htmlFor="pending-co-org-username" error={fieldError ?? undefined}>
         <div className="flex gap-2">
           <Input
-            id="co-org-username"
+            id="pending-co-org-username"
             type="text"
             placeholder="alice.martin"
             value={username}
@@ -93,32 +102,20 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
             disabled={submitting}
             autoComplete="off"
           />
-          <ButtonPrimary onClick={handleInvite} disabled={submitting || username.trim() === ''} size="sm">
+          <ButtonPrimary onClick={handleAdd} disabled={submitting || username.trim() === ''} size="sm">
             <Mail className="w-4 h-4" />
-            Inviter
+            Ajouter
           </ButtonPrimary>
         </div>
       </FormField>
 
       <div className="mt-5">
-        {loading && (
-          <Skeleton name="co-organizers-section" loading={true}>
-            <div className="space-y-2">
-              <div className="h-14 rounded-2xl" />
-              <div className="h-14 rounded-2xl" />
-            </div>
-          </Skeleton>
-        )}
-        {!loading && error && (
-          <p className="text-sm text-error">{error}</p>
-        )}
-        {!loading && !error && coOrganizers.length === 0 && (
+        {pending.length === 0 ? (
           <p className="text-sm text-foreground/50 italic">Aucun co-organisateur pour l'instant.</p>
-        )}
-        {!loading && coOrganizers.length > 0 && (
+        ) : (
           <ul className="space-y-2">
-            {coOrganizers.map((co) => (
-              <CoOrganizerRow key={co.id} coOrganizer={co} onRemove={() => remove(co.userId)} />
+            {pending.map((entry) => (
+              <PendingRow key={entry.userId} entry={entry} onRemove={() => onRemove(entry.userId)} />
             ))}
           </ul>
         )}
@@ -127,30 +124,27 @@ export default function CoOrganizersEditor({ eventId }: Readonly<Props>) {
   )
 }
 
-function CoOrganizerRow({
-  coOrganizer,
+function PendingRow({
+  entry,
   onRemove,
-}: Readonly<{ coOrganizer: CoOrganizer; onRemove: () => void }>) {
-  const fallbackLabel = coOrganizer.displayName ?? coOrganizer.username ?? coOrganizer.userId
-  const initials = (coOrganizer.displayName ?? coOrganizer.username ?? '??').slice(0, 2).toUpperCase()
-  const handle = coOrganizer.username ? `@${coOrganizer.username}` : coOrganizer.userId
+}: Readonly<{ entry: PendingCoOrganizer; onRemove: () => void }>) {
+  const fallbackLabel = entry.displayName ?? entry.username
+  const initials = (entry.displayName ?? entry.username).slice(0, 2).toUpperCase()
   return (
     <li className="flex items-center gap-3 p-3 rounded-2xl border border-border bg-background/30">
       <div className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden">
-        {coOrganizer.avatarUrl ? (
-          <img src={coOrganizer.avatarUrl} alt="" className="w-full h-full object-cover" />
+        {entry.avatarUrl ? (
+          <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" />
         ) : (
           <span className="text-xs font-semibold text-foreground/60">{initials}</span>
         )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{fallbackLabel}</p>
-        <p className="text-xs text-foreground/50 truncate">{handle}</p>
+        <p className="text-xs text-foreground/50 truncate">@{entry.username}</p>
       </div>
-      <span
-        className={`px-2 py-1 rounded-lg text-xs font-medium border ${statusChip[coOrganizer.status]}`}
-      >
-        {statusLabel[coOrganizer.status]}
+      <span className="px-2 py-1 rounded-lg text-xs font-medium border bg-warning/10 text-warning border-warning/30">
+        À inviter
       </span>
       <button
         type="button"
