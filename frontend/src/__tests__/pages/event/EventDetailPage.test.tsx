@@ -71,6 +71,7 @@ vi.mock('@/hooks/useToast', () => ({
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
 import { useOccurrences } from '@/hooks/useOccurrences'
+import type { Event } from '@/types/event'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useAttendance } from '@/hooks/useAttendance'
 import { useReport } from '@/hooks/useReport'
@@ -1327,7 +1328,10 @@ describe('EventDetailPage', () => {
   })
 
   describe('occurrences section (SCRUM-151)', () => {
-    function setupEvent(overrides: Partial<typeof mockEvent>) {
+    // Cast to Partial<Event> to widen the narrow literal types from `mockEvent`
+    // (status: 'PUBLISHED' as const) — allows tests to inject status: 'CANCELLED'
+    // and the new parentEventId / recurrenceRule fields.
+    function setupEvent(overrides: Partial<Event>) {
       mockUseAuth.mockReturnValue({ user: null })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, ...overrides },
