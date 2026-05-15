@@ -111,6 +111,19 @@ components:
         createdAt:
           type: string
           format: date-time
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          description: |
+            Identifiant public lisible de l'utilisateur (SCRUM-169), unique en base et
+            utilisé dans l'URL `/profile/{username}`. Stocké strictement lowercase ;
+            le lookup `GET /users/by-username/{username}` est case-insensitive. Généré
+            automatiquement à la création du compte (slug du `displayName` avec ASCII fold,
+            fallback `firstName.lastName`, fallback `user`, suffixe numérique sur
+            collision). Modifiable via `PATCH /users/me/username`. Blocklist : `me`,
+            `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`.
       example:
         id: "550e8400-e29b-41d4-a716-446655440000"
         auth0Id: "auth0|abc123"
@@ -126,17 +139,35 @@ components:
         bannerUrl: null
         profilePublic: true
         createdAt: "2026-03-01T09:00:00"
+        username: "alice.martin"
 
     UserPublicResponse:
       type: object
       description: |
         Profil public d'un utilisateur.
 
-        **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
-        appelant sans JWT, seuls `id`, `displayName` et `avatarUrl` sont renseignés ;
-        `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont systématiquement
-        `null`. Les compteurs `followerCount` et `followingCount` sont à `0` et
-        `followStatus` est `null` pour les anonymes (cf. SCRUM-138).
+        **Projection restreinte** — payload `id` + `username` + `displayName` +
+        `avatarUrl` uniquement, autres champs `null` / `0` — appliquée dans deux cas :
+
+        1. **Appelant anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : caller
+           sans JWT sur `GET /users/{id}` ou `GET /users/by-username/{username}`.
+        2. **Profil privé vu par non-owner non-admin** (SCRUM-169 Décision E revised,
+           de867a15) : caller authentifié mais ni propriétaire ni admin, sur une
+           cible avec `profilePublic = false`. Auparavant ce cas répondait `404`
+           (anti-oracle ISSUE-93) ; depuis de867a15 c'est `200` + projection
+           restreinte sur `GET /users/{id}` ET `GET /users/by-username/{username}`.
+
+        Dans les deux cas, `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl`
+        sont `null` ; `followerCount` et `followingCount` sont `0` ; `followStatus`
+        est `null`. Le `404` est désormais réservé à l'absence réelle (UUID ou
+        username inexistant en base). Le listing `GET /users/{id}/followers` reste
+        en `404` pour les profils privés non-owner — protection distincte
+        intentionnelle.
+
+        **Note SCRUM-169.** Le champ `username` est exposé même en projection
+        restreinte — c'est l'identifiant public-facing du profil (utilisé dans
+        `/profile/{username}`) et donc le nullifier casserait l'usage premier du
+        champ.
 
         **Compteurs et état de suivi** (SCRUM-138) : pour un appelant authentifié,
         `followerCount` et `followingCount` reflètent les rows `Follow` ACCEPTED
@@ -149,6 +180,14 @@ components:
         id:
           type: string
           format: uuid
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          description: |
+            Identifiant public lisible (SCRUM-169). Toujours présent — exposé même aux
+            anonymes (contrairement aux autres champs strippés). Stocké lowercase.
         displayName:
           type: string
           nullable: true
@@ -174,6 +213,15 @@ components:
           type: string
           format: uri
           nullable: true
+        profilePublic:
+          type: boolean
+          description: |
+            Indique si le profil cible est public. Toujours présent dans
+            `UserPublicResponse`. Vaut la valeur réelle du flag pour la projection
+            complète, et `false` pour la projection restreinte (caller anonyme OU
+            non-owner non-admin sur `profilePublic = false`) : le frontend l'utilise
+            pour afficher le placeholder « profil privé » sans avoir à deviner la
+            visibilité à partir de l'absence d'autres champs.
         followerCount:
           type: integer
           format: int64
@@ -196,7 +244,7 @@ components:
             l'utilisateur cible. `null` si l'appelant est anonyme, sur son propre profil,
             ou s'il n'existe aucune row `Follow` pour le couple `(callerId, targetId)`.
             `PENDING` ou `ACCEPTED` sinon.
-      required: [id, followerCount, followingCount]
+      required: [id, username, profilePublic, followerCount, followingCount]
 
     UpdateProfileRequest:
       type: object
@@ -232,6 +280,23 @@ components:
         profilePublic:
           type: boolean
           nullable: true
+
+    UpdateUsernameRequest:
+      type: object
+      description: |
+        Body pour `PATCH /users/me/username` (SCRUM-169). Le username doit respecter
+        le pattern `^[a-z0-9._-]{3,30}$` (3 à 30 caractères, lettres minuscules,
+        chiffres, `.`, `_`, `-`). Les usernames de la blocklist (`me`, `admin`, `api`,
+        `login`, `logout`, `signup`, `register`, `settings`) sont rejetés en `400
+        username_reserved`. Un username déjà pris par un autre user provoque `409
+        username_taken`.
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
 
     Event:
       type: object
@@ -551,18 +616,19 @@ components:
       description: |
         Inscription d'un utilisateur à un événement (statut `ATTENDING` ou `WAITLISTED`).
 
-        Les champs `displayName` et `avatarUrl` projettent le profil du user lié, pour que
-        les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui renvoie 404
-        pour les profils `profilePublic = false`, hotfix pentest 4.1).
+        les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui, pour les
+        profils `profilePublic = false`, renvoie depuis SCRUM-169 (Décision E revised) une
+        projection restreinte — `id`, `username`, `displayName`, `avatarUrl` uniquement —
+        au lieu du 404 strict d'avant).
 
         **Filtre de confidentialité sur `GET /events/{id}/attendees`** (SCRUM-S7) : pour un
         appelant non-organisateur authentifié, les lignes correspondant à un profil privé
         (`profilePublic=false`) sont retournées avec `displayName=null`, `avatarUrl=null`,
-        **et `userId=null`** afin de masquer l'UUID du participant. Le créateur, les
-        co-organisateurs ACCEPTED et les administrateurs reçoivent l'identité réelle pour
-        toutes les lignes. Sur les autres routes (`/users/me/attendances`, etc.) qui ne
-        renvoient que des inscriptions appartenant au caller, exposer le nom reste sûr y
-        compris pour les profils privés.
+        `username=null`, **et `userId=null`** afin de masquer l'UUID du participant. Le
+        créateur, les co-organisateurs ACCEPTED et les administrateurs reçoivent l'identité
+        réelle pour toutes les lignes. Sur les autres routes (`/users/me/attendances`, etc.)
+        qui ne renvoient que des inscriptions appartenant au caller, exposer le nom reste
+        sûr y compris pour les profils privés.
       properties:
         id:
           type: integer
@@ -597,6 +663,17 @@ components:
           description: |
             URL de l'avatar du participant, si défini. `null` pour les inscriptions
             orphelines ou pour les lignes anonymisées par le filtre de confidentialité.
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          nullable: true
+          description: |
+            Username public-facing du participant (SCRUM-169). Permet à `AttendeeCard`
+            de pointer vers `/profile/{username}` sans N+1 vers `GET /users/{id}`.
+            `null` pour les inscriptions orphelines (user supprimé) ou pour les lignes
+            anonymisées par le filtre de confidentialité SCRUM-S7.
       required: [id, eventId, status, createdAt]
 
     AttendanceRequest:
@@ -812,6 +889,28 @@ components:
           peut pas être posé via l'API utilisateur.
       enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED, BANNED]
 
+    RecordViewRequest:
+      type: object
+      description: |
+        Body optionnel pour `POST /events/{id}/view`. Permet à un appelant anonyme
+        (sans JWT) de fournir un identifiant de session opaque pour la déduplication
+        côté serveur (`(eventId, sessionId)` unique).
+
+        Ignoré si JWT présent dans l'en-tête `Authorization` — l'identité user prime
+        et la dédup utilise `(eventId, userId)`.
+
+        L'absence simultanée de JWT et de `sessionId` produit `204` sans écrire de row
+        (silent skip).
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID v4 généré et persisté côté client (clé `localStorage`
+            `unige_session_id`). Pas d'information personnelle ; rotatif si l'utilisateur
+            efface son `localStorage`.
+
     RecurrenceFrequency:
       type: string
       description: |
@@ -898,6 +997,16 @@ components:
           type: string
           format: uri
           nullable: true
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          nullable: true
+          description: |
+            Username public-facing du co-organisateur (SCRUM-169). Permet à
+            `EventOrganizerTeam` de pointer vers `/profile/{username}` sans N+1.
+            `null` uniquement pour les rows orphelines (user supprimé).
         status:
           $ref: '#/components/schemas/CoOrganizerStatus'
         invitedAt:
@@ -1014,8 +1123,8 @@ components:
           description: PK séquentielle (Long, sequence `comments_seq`).
         content:
           type: string
-          maxLength: 2000
-          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service).
+          maxLength: 500
+          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service). Cap à 500 chars depuis 2026-05-14 (auparavant 2000) — ajustement produit après test manuel SCRUM-146.
         authorId:
           type: string
           format: uuid
@@ -1034,6 +1143,16 @@ components:
           type: string
           nullable: true
           description: URL absolue de l'avatar de l'auteur.
+        authorUsername:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9._-]{3,30}$'
+          nullable: true
+          description: |
+            Username public-facing de l'auteur (SCRUM-169). Permet à `CommentItem`
+            d'afficher `@username` en fallback de `displayName` sans round-trip.
+            `null` uniquement pour les rows orphelines (user supprimé).
         authorIsOrganizer:
           type: boolean
           description: |
@@ -1078,8 +1197,8 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 2000
-          description: Texte du commentaire. Trimmé côté service avant persistance.
+          maxLength: 500
+          description: Texte du commentaire. Trimmé côté service avant persistance. Cap à 500 chars depuis 2026-05-14.
         parentCommentId:
           type: integer
           format: int64
@@ -1411,20 +1530,286 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /users/me/username:
+    patch:
+      summary: Mise à jour du username de l'utilisateur connecté (SCRUM-169)
+      description: |
+        Met à jour le `username` (identifiant public-facing) de l'utilisateur authentifié.
+        Endpoint dédié séparé de `PUT /users/me` pour granularité d'erreur (409, 400
+        spécifiques) et pour permettre un live-check d'unicité debouncé côté frontend sans
+        bloquer le reste du formulaire profil.
+
+        Le username est normalisé (`toLowerCase().trim()`) avant validation et persist.
+        Une row update incrémente `User.version` (optimistic locking).
+
+        Codes d'erreur applicatifs :
+        - `username_invalid` (400) : pattern non respecté (`^[a-z0-9._-]{3,30}$`).
+        - `username_reserved` (400) : appartient à la blocklist.
+        - `username_taken` (409) : déjà attribué à un autre utilisateur (race possible
+          entre le debounced `HEAD /by-username/{u}` et le submit — le frontend gère
+          ce cas sans blocage du reste).
+      operationId: updateMyUsername
+      tags: [users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUsernameRequest'
+      responses:
+        '200':
+          description: |
+            Username mis à jour. Retourne le profil complet (`User`) pour permettre au
+            frontend de rafraîchir l'état global (`useAuth.updateUser`) sans refetch.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: |
+            Validation échouée. Codes possibles :
+            - `username_invalid` (`ApiErrorResponse`) : pattern non respecté.
+            - `username_reserved` (`ApiErrorResponse`) : blocklist hit.
+            - `validation_error` (`ValidationErrorResponse`) : body malformé ou champ absent.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur courant non provisionné (appeler `GET /users/me` d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: |
+            Username déjà pris par un autre utilisateur. Code `username_taken`. Peut
+            survenir sur une race entre le debounced uniqueness check et la
+            soumission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /users/by-username/{username}:
+    get:
+      summary: Profil public d'un utilisateur par username (SCRUM-169)
+      description: |
+        Lookup d'un profil par son `username` public-facing. Identique à
+        `GET /users/{id}` du point de vue de l'autorisation, mais permet l'accès via
+        l'identifiant lisible utilisé dans l'URL `/profile/{username}`.
+
+        **Autorisation (SCRUM-169 Décision E revised, de867a15) :**
+        - Profil `profilePublic = true` : payload complet pour appelant authentifié,
+          payload réduit (`id`, `username`, `displayName`, `avatarUrl` uniquement)
+          pour appelant anonyme.
+        - Profil `profilePublic = false`, caller = owner ou admin : payload complet.
+        - Profil `profilePublic = false`, caller ≠ owner ≠ admin : **projection
+          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
+          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
+          public-facing sans leak du reste du profil.
+        - Username inexistant : `404 not_found`.
+
+        Le lookup est **case-insensitive** : `/by-username/Jean.Dupont` matche
+        `jean.dupont` en base (les usernames sont stockés strictement lowercase).
+      operationId: getUserByUsername
+      tags: [users]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 30
+            pattern: '^[a-zA-Z0-9._-]{3,30}$'
+          description: Case-insensitive — normalisé en lowercase côté serveur avant lookup.
+      responses:
+        '200':
+          description: |
+            Profil public de l'utilisateur. Payload complet pour les appelants
+            authentifiés non-restreints (owner, admin, ou cible avec
+            `profilePublic = true`) ; payload réduit (`id`, `username`,
+            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
+            appelants anonymes.
+
+            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
+            quand `profilePublic` de la cible est `false` et que l'appelant n'est
+            ni le user lui-même ni un admin, la réponse est une **projection
+            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
+            peuplés ; les autres champs sont `null` / `0`. Cela expose
+            l'identifiant public-facing sans leak du reste du profil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicResponse'
+        '404':
+          description: |
+            Username introuvable (absence réelle en base). Depuis le hotfix
+            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
+            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            (cf. description du `200`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+    head:
+      summary: Check d'existence d'un username (SCRUM-169)
+      description: |
+        Endpoint léger pour le live-check d'unicité côté frontend (debounce 400 ms dans
+        `ProfileEditPage`). Pas de body, headers uniquement.
+
+        **Sémantique inversée — attention** :
+        - `200 OK` : username **pris** (déjà attribué à un utilisateur en base).
+        - `404 Not Found` : username **libre** (disponible pour l'attribution).
+
+        Cette inversion est volontaire : la sémantique REST de HEAD reflète l'existence
+        de la ressource `/by-username/{u}`, pas la disponibilité du username. La couche
+        `checkUsernameAvailable` côté frontend traduit `404 → true (disponible)`,
+        `200 → false (pris)`.
+
+        Pas de rate-limit anonyme spécifique (`@PermitAll`). Une harvest agressive serait
+        détectable et ré-évaluée en S9+ si nécessaire.
+      operationId: existsUsername
+      tags: [users]
+      security:
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 30
+            pattern: '^[a-zA-Z0-9._-]{3,30}$'
+      responses:
+        '200':
+          description: Username déjà pris (corps vide).
+        '404':
+          description: Username libre — disponible (corps vide).
+
+  /users/search:
+    get:
+      summary: Recherche d'utilisateurs par préfixe d'username (SCRUM-137 autocomplete)
+      description: |
+        Prefix-scan sur le champ `username` destiné à alimenter l'autocomplete
+        du champ d'invitation co-organisateur dans `CoOrganizersEditor` et
+        `PendingCoOrganizersEditor`. L'organisateur tape un début d'username
+        (`nex`) et la dropdown lui propose les utilisateurs correspondants
+        (`nexiumito`, `nexus.dev`, ...) avec avatar + displayName.
+
+        **Autorisation** : `@Authenticated` (anti-énumération). Les appelants
+        anonymes reçoivent `401`. Le rate-limit applicatif limite à
+        60 requêtes/minute par utilisateur authentifié.
+
+        **Projection** : chaque entrée retournée est la projection anonymous
+        de `UserPublicResponse` — uniquement `id`, `username`, `displayName`,
+        `avatarUrl` et `profilePublic` peuplés ; `bio`, `interests`, `faculty`,
+        `bannerUrl`, etc. sont systématiquement `null` / `0` indépendamment du
+        flag `profilePublic` de la cible. Cohérent avec SCRUM-169 Décision E
+        revised (le username reste un identifiant public-facing).
+
+        **Exclusion de l'appelant** : la ligne correspondant à l'utilisateur
+        authentifié est filtrée — la dropdown ne propose jamais de
+        s'auto-inviter en tant que co-organisateur.
+
+        **Tri** : `username ASC` (ordre lexicographique). Le frontend rend
+        donc les suggestions dans un ordre stable et prévisible.
+      operationId: searchUsers
+      tags: [users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 30
+            pattern: '^[a-zA-Z0-9._-]+$'
+          description: |
+            Préfixe à matcher contre `username`. Normalisé en lowercase
+            côté serveur avant la requête (donc `NEX` matche `nexiumito`).
+            Le caractère `_` est échappé pour ne pas être interprété comme
+            wildcard SQL.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 8
+          description: Nombre maximal de suggestions retournées (default 8, cap 20).
+      responses:
+        '200':
+          description: |
+            Tableau des utilisateurs dont le username commence par `q`, trié
+            ascendant, max `limit` entrées. Tableau vide si aucun match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPublicResponse'
+        '400':
+          description: Paramètres invalides (`q` trop court / long / charset, `limit` hors borne).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Appelant non authentifié.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          description: Rate-limit applicatif dépassé (60 req/min par utilisateur).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /users/{id}:
     get:
       summary: Profil public d'un utilisateur
       description: |
         Retourne le profil public d'un utilisateur.
 
-        **Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.1 + 4.1b) :
+        **Règle d'autorisation** (hotfix pentest 2026-04-17 findings 4.1 + 4.1b,
+        révisé SCRUM-169 Décision E le 2026-05-15 / commit de867a15) :
         - Profil avec `profilePublic=true` : accessible en lecture. Un appelant **anonyme**
-          reçoit un payload **réduit** (seuls `id`, `displayName`, `avatarUrl` sont renseignés ;
-          les autres champs sont `null`). Un appelant **authentifié** reçoit le payload complet.
-        - Profil avec `profilePublic=false` : visible uniquement par son propriétaire
-          (`auth0Id` du JWT matche `user.auth0Id`). Tout autre appelant — anonyme, user
-          différent — reçoit `404 not_found`, envelope identique à celle d'un UUID inexistant
-          (ferme l'oracle d'existence exploité via `creatorId` leaké par `GET /events`).
+          reçoit un payload **réduit** (seuls `id`, `username`, `displayName`, `avatarUrl`
+          sont renseignés ; les autres champs sont `null`). Un appelant **authentifié**
+          reçoit le payload complet.
+        - Profil avec `profilePublic=false`, caller = owner ou admin : payload complet.
+        - Profil avec `profilePublic=false`, caller ≠ owner ≠ admin : **projection
+          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
+          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
+          public-facing utilisé par `/profile/{username}` sans leak du reste du profil.
+          Auparavant cet endpoint renvoyait `404 not_found` dans ce cas
+          (anti-oracle strict ISSUE-93) — comportement aligné sur
+          `GET /users/by-username/{username}` depuis de867a15.
+        - UUID inexistant : `404 not_found` (absence réelle, inchangé).
       operationId: getPublicProfile
       tags: [users]
       security:
@@ -1440,17 +1825,28 @@ paths:
       responses:
         '200':
           description: |
-            Profil public de l'utilisateur. Payload complet pour les appelants authentifiés ;
-            payload réduit (`id`, `displayName`, `avatarUrl` uniquement, autres champs `null`)
-            pour les appelants anonymes.
+            Profil public de l'utilisateur. Payload complet pour les appelants
+            authentifiés non-restreints (owner, admin, ou cible avec
+            `profilePublic = true`) ; payload réduit (`id`, `username`,
+            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
+            appelants anonymes.
+
+            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
+            quand `profilePublic` de la cible est `false` et que l'appelant n'est
+            ni le user lui-même ni un admin, la réponse est une **projection
+            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
+            peuplés ; les autres champs sont `null` / `0`. Cela expose
+            l'identifiant public-facing sans leak du reste du profil.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
         '404':
           description: |
-            Utilisateur introuvable, OU profil privé demandé par un appelant qui n'en est pas
-            le propriétaire. Le corps est identique dans les deux cas (pas d'oracle d'existence).
+            Utilisateur introuvable (UUID inexistant en base). Depuis le hotfix
+            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
+            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            (cf. description du `200`).
           content:
             application/json:
               schema:
@@ -3507,14 +3903,17 @@ paths:
 
   /events/{id}/view:
     post:
-      summary: Enregistrer une vue unique d'un événement
+      summary: Enregistrer une vue d'un événement (anonyme ou authentifié)
       description: |
-        Appelé depuis le frontend à l'ouverture de la page détail.
-        Idempotent — une seule vue enregistrée par utilisateur par événement.
+        Appelé depuis le frontend à l'ouverture de la page détail. Idempotent.
+        - Authentifié : déduplication par `(eventId, userId)`.
+        - Anonyme : déduplication par `(eventId, sessionId)` — le frontend envoie un
+          UUID v4 stable persisté en `localStorage` (clé `unige_session_id`).
+        Body optionnel. Si ni JWT ni `sessionId` fourni, l'appel est ignoré
+        silencieusement (`204`) — pas de row écrite.
       operationId: recordEventView
       tags: [events]
-      security:
-        - BearerAuth: []
+      security: []
       parameters:
         - name: id
           in: path
@@ -3522,17 +3921,19 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordViewRequest'
       responses:
         '204':
-          description: Vue enregistrée (ou déjà existante — idempotent)
-        '401':
-          description: Token absent ou invalide
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+          description: |
+            Vue enregistrée (ou silencieusement ignorée si dédupliquée, ou si ni
+            JWT ni `sessionId` fourni).
         '404':
-          description: Événement introuvable ou profil utilisateur non provisionné
+          description: Événement introuvable.
           content:
             application/json:
               schema:
@@ -3578,33 +3979,6 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement ou profil utilisateur introuvable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-
-  /events/{id}/view:
-    post:
-      summary: Enregistrer une vue unique d'un événement
-      description: |
-        Appelé depuis le frontend à l'ouverture de la page détail.
-        Idempotent — une seule vue enregistrée par utilisateur par événement.
-      operationId: recordEventView
-      tags: [events]
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '204':
-          description: Vue enregistrée (ou déjà existante — idempotent)
-        '404':
-          description: Événement introuvable
           content:
             application/json:
               schema:

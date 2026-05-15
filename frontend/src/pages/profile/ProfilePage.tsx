@@ -1,8 +1,8 @@
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useUserProfile } from '@/hooks/useUserProfile'
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
-import { isUuid } from '@/utils/uuid'
+import { getUserById, getUserByUsername } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
 import FollowButton from '@/components/user/FollowButton'
@@ -11,6 +11,7 @@ import ProfileEventsList from '@/components/profile/ProfileEventsList'
 import ProfileParticipations from '@/components/profile/ProfileParticipations'
 import ProfilePrivateState from '@/components/profile/ProfilePrivateState'
 import FollowRequestsPanel from '@/components/profile/FollowRequestsPanel'
+import CoOrganizerInvitationsList from '@/components/user/CoOrganizerInvitationsList'
 import { STUDY_LEVELS, type StudyLevel, type User, type UserPublicResponse } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { GraduationCap, type LucideIcon } from 'lucide-react'
@@ -19,6 +20,13 @@ import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
+
+/**
+ * UUID v4 regex — used to detect legacy `/profile/<uuid>` URLs still in
+ * external caches, emails, bookmarks, etc. They are redirected to
+ * `/profile/<username>` (cf. SCRUM-169 spec Décision I — redirect permanent).
+ */
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function ProfileFixture() {
   return (
@@ -87,11 +95,12 @@ interface PublicProfileViewProps {
 }
 
 /**
- * Renders the full public profile (SCRUM-141): banner, overlapping avatar,
- * displayName + faculté/niveau, bio, follower/following counters, events
- * organised, public participations. Reused for both `/profile/<uuid>` and
- * `/profile/me` (the `/me` route adds owner-only widgets — edit button,
- * calendar subscription, MyPublicationsPreview).
+ * Renders the full public profile (SCRUM-141 + SCRUM-169): banner, overlapping
+ * avatar, displayName + faculté/niveau, bio, follower/following counters,
+ * events organised, public participations. Reused for both
+ * `/profile/<username>` and `/profile/me` (the `/me` route adds owner-only
+ * widgets — edit button, calendar subscription, MyPublicationsPreview,
+ * co-organizer invitations).
  */
 function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: Readonly<PublicProfileViewProps>) {
   const { events, loading: eventsLoading, error: eventsError } = useOrganizerEvents(profile.id)
@@ -160,8 +169,8 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
           </div>
         )}
 
-        {/* Content grid: about/bio (left) + calendar (right, /me only). When
-            not on /me the layout collapses to a single column so the events
+        {/* Content grid: about/bio (left) + calendar+invitations (right, /me only).
+            When not on /me the layout collapses to a single column so the events
             and participations sections below get the full width. */}
         <div className={`grid grid-cols-1 items-start gap-6 ${isMeRoute ? 'lg:grid-cols-2' : ''}`}>
 
@@ -207,7 +216,13 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             {isMeRoute && <FollowRequestsPanel />}
           </div>
 
-          {isMeRoute && <CalendarSubscribeButton />}
+          {/* Right column: calendar + co-organizer invitations (own profile only) */}
+          {isMeRoute && (
+            <div className="flex flex-col gap-6">
+              <CalendarSubscribeButton />
+              <CoOrganizerInvitationsList />
+            </div>
+          )}
         </div>
 
         {/* Events organised + public participations, full-width below the grid */}
@@ -232,6 +247,7 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
 function MeProfileView({ user }: Readonly<{ user: User }>) {
   const profile: UserPublicResponse = {
     id: user.id,
+    username: user.username,
     displayName: user.displayName,
     faculty: user.faculty,
     studyLevel: user.studyLevel,
@@ -248,46 +264,103 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
 }
 
 export default function ProfilePage() {
-  const { id } = useParams<{ id: string }>()
+  const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+  const [profile, setProfile] = useState<UserPublicResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [redirectTarget, setRedirectTarget] = useState<string | null>(null)
+  const [isNotFound, setIsNotFound] = useState(false)
+  // Monotonic counter bumped by `refetch()` (SCRUM-110 — FollowButton invokes
+  // it after follow/unfollow so followStatus + followerCount resync from the
+  // server). Re-runs the username-fetch effect without changing the URL param.
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const isMeRoute = id === 'me'
-  // Only call the public-profile fetch when the route is a UUID — `me` is
-  // served from useAuth, malformed ids short-circuit to an error message.
-  const targetId = !isMeRoute && isUuid(id) ? id : undefined
-  const { profile, isNotFound, loading: profileLoading, error: profileError, refetch } = useUserProfile(targetId)
+  // SCRUM-169 — `me` alias + match by username (lowercased server-side).
+  const isMeRoute =
+    username === 'me' ||
+    (currentUser !== null && username !== undefined && username === currentUser.username)
 
-  // /profile/me + authenticated → render owner view from cached user
-  if (isMeRoute) {
-    if (authLoading) {
-      return (
-        <Skeleton name="profile" loading={true} animate="pulse" color={skeletonColor}>
-          <ProfileFixture />
-        </Skeleton>
-      )
+  // SCRUM-169 — transient UUID v4 redirect (cf. Décision I, permanent). External
+  // links / bookmarks pointing to the old `/profile/<uuid>` URLs land here, get
+  // the user's username from the API, and `<Navigate replace>` to the canonical
+  // `/profile/<username>` slug. AttendeeCard prefers username slugs but falls
+  // back to UUID for orphan/cached rows — that fallback path triggers this.
+  const isLegacyUuid = username !== undefined && UUID_V4_REGEX.test(username)
+
+  useEffect(() => {
+    if (!username || authLoading) return
+
+    setLoading(true)
+    setError(null)
+    setRedirectTarget(null)
+    setIsNotFound(false)
+    setProfile(null)
+
+    if (isLegacyUuid) {
+      getUserById(username)
+        .then((data) => {
+          if (data === null) {
+            setIsNotFound(true)
+          } else {
+            setRedirectTarget(`/profile/${data.username}`)
+          }
+        })
+        .catch(() => setError('Impossible de charger le profil.'))
+        .finally(() => setLoading(false))
+      return
     }
-    if (currentUser === null) {
-      return <InfoMessage type="error" message="Impossible de charger le profil." />
+
+    if (isMeRoute) {
+      if (!currentUser) {
+        setError('Impossible de charger le profil.')
+      }
+      // Don't write to `profile` here — MeProfileView reads currentUser
+      // directly through useAuth. We just exit the loading state.
+      setLoading(false)
+      return
     }
-    return <MeProfileView user={currentUser} />
+
+    getUserByUsername(username)
+      .then((data) => {
+        if (data === null) {
+          setIsNotFound(true)
+        } else {
+          // getUserByUsername is typed as `User | null` for backward-compat
+          // with SCRUM-169 callers, but the runtime response is actually a
+          // UserPublicResponse (carries follower counts / follow status —
+          // verified against OpenAPI). Cast at the boundary.
+          setProfile(data as unknown as UserPublicResponse)
+        }
+      })
+      .catch(() => setError('Impossible de charger le profil.'))
+      .finally(() => setLoading(false))
+  }, [username, isMeRoute, isLegacyUuid, currentUser, authLoading, reloadKey])
+
+  // SCRUM-110 — invoked by FollowButton.onMutated after a successful follow /
+  // unfollow so `followStatus` + `followerCount` resync from the server.
+  // Bumping `reloadKey` re-runs the effect above (cheaper than rebuilding the
+  // whole hook), but only when we actually have a profile to refetch.
+  const refetch = () => {
+    if (!username || isMeRoute || isLegacyUuid) return
+    setReloadKey(k => k + 1)
   }
 
-  if (!isUuid(id)) {
-    return <InfoMessage type="error" message="Profil introuvable." />
-  }
-
-  if (profileLoading) {
+  if (loading || authLoading) {
     return (
       <Skeleton name="profile" loading={true} animate="pulse" color={skeletonColor}>
         <ProfileFixture />
       </Skeleton>
     )
   }
+  if (redirectTarget) return <Navigate to={redirectTarget} replace />
+  if (error) return <InfoMessage type="error" message={error} />
 
-  if (profileError) {
-    return <InfoMessage type="error" message={profileError} />
+  if (isMeRoute) {
+    if (!currentUser) return <InfoMessage type="error" message="Impossible de charger le profil." />
+    return <MeProfileView user={currentUser} />
   }
 
   // 404 from the backend covers both "user does not exist" and "profile is

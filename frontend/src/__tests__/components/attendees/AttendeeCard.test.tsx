@@ -16,10 +16,12 @@ const publicRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Alice Martin',
   avatarUrl: null,
+  username: 'alice.martin',
 }
 
-// SCRUM-S7 — backend returns userId=null + displayName=null for private rows
-// seen by a non-organizer caller. Same shape for orphan rows (deleted users).
+// SCRUM-S7 — backend returns userId=null + displayName=null (+ username=null
+// after the SCRUM-169 merge) for private rows seen by a non-organizer caller.
+// Same shape for orphan rows (deleted users).
 const anonymizedRow: Attendance = {
   id: 2,
   userId: null,
@@ -28,6 +30,7 @@ const anonymizedRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: null,
   avatarUrl: null,
+  username: null,
 }
 
 function renderCard(attendance: Attendance) {
@@ -39,8 +42,16 @@ function renderCard(attendance: Attendance) {
 }
 
 describe('AttendeeCard', () => {
-  it('renders the displayName and links to /profile/{userId} when identity is exposed', () => {
+  it('renders the displayName and links to /profile/{username} when identity is exposed (SCRUM-169)', () => {
     renderCard(publicRow)
+
+    const link = screen.getByRole('link') as HTMLAnchorElement
+    expect(link.getAttribute('href')).toBe('/profile/alice.martin')
+    expect(screen.getByText('Alice Martin')).toBeTruthy()
+  })
+
+  it('falls back to /profile/{userId} when username is null but userId is present (orphan-ish)', () => {
+    renderCard({ ...publicRow, username: null })
 
     const link = screen.getByRole('link') as HTMLAnchorElement
     expect(link.getAttribute('href')).toBe('/profile/user-1')
@@ -68,11 +79,12 @@ describe('AttendeeCard', () => {
     expect(screen.getByText("Liste d'attente")).toBeTruthy()
   })
 
-  it('does NOT render a link when displayName is present but userId is null (defensive)', () => {
-    // Currently unreachable from the backend contract (userId and displayName
-    // are nulled together), but the component must never produce
-    // /profile/null. This guards against future contract drift.
-    renderCard({ ...publicRow, userId: null })
+  it('does NOT render a link when displayName is present but both username AND userId are null (defensive)', () => {
+    // Currently unreachable from the backend contract — username + userId +
+    // displayName are nulled together for anonymized rows. This guards
+    // against future contract drift where a displayName lands without any
+    // linkable slug (we'd otherwise produce /profile/null).
+    renderCard({ ...publicRow, userId: null, username: null })
 
     expect(screen.queryByRole('link')).toBeNull()
     expect(screen.getByText('Alice Martin')).toBeTruthy()

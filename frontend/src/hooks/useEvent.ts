@@ -12,7 +12,7 @@ interface UseEventResult {
   refetch: () => Promise<void>
 }
 
-export function useEvent(id: number | null): UseEventResult {
+export function useEvent(id: number | null, checkCoOrgOf?: string | null): UseEventResult {
   const [event, setEvent] = useState<Event | null>(null)
   // True only on the very first fetch (when no event has been loaded yet).
   // Flips to false permanently as soon as the first response arrives so
@@ -28,7 +28,7 @@ export function useEvent(id: number | null): UseEventResult {
   // after the first response use `isRefetching` instead of `isInitialLoad`.
   const hasLoadedOnceRef = useRef(false)
 
-  const fetchEvent = useCallback((targetId: number): Promise<void> => {
+  const fetchEvent = useCallback((targetId: number, coOrgCheck: string | null | undefined): Promise<void> => {
     requestIdRef.current += 1
     const myRequestId = requestIdRef.current
     const isCurrent = () => requestIdRef.current === myRequestId
@@ -38,7 +38,7 @@ export function useEvent(id: number | null): UseEventResult {
       setIsInitialLoad(true)
     }
     setError(null)
-    return getById(targetId)
+    return getById(targetId, coOrgCheck ?? null)
       .then((data) => {
         if (!isCurrent()) return
         setEvent(data)
@@ -57,16 +57,16 @@ export function useEvent(id: number | null): UseEventResult {
 
   const refetch = useCallback((): Promise<void> => {
     if (id === null) return Promise.resolve()
-    return fetchEvent(id)
-  }, [id, fetchEvent])
+    return fetchEvent(id, checkCoOrgOf)
+  }, [id, checkCoOrgOf, fetchEvent])
 
   useEffect(() => {
     if (id === null) return
-    void fetchEvent(id)
+    void fetchEvent(id, checkCoOrgOf)
     return () => {
       requestIdRef.current += 1
     }
-  }, [id, fetchEvent])
+  }, [id, checkCoOrgOf, fetchEvent])
 
   return {
     event,

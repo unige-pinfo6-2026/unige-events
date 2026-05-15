@@ -13,6 +13,8 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   updateProfile: vi.fn(),
+  updateUsername: vi.fn(),
+  checkUsernameAvailable: vi.fn(),
   uploadPhoto: vi.fn(),
   uploadBanner: vi.fn(),
   deleteBanner: vi.fn(),
@@ -53,11 +55,21 @@ function mockFileReader(result: string) {
 }
 
 import { useAuth } from '@/hooks/useAuth'
-import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
+import {
+  checkUsernameAvailable,
+  deleteBanner,
+  getMe,
+  updateProfile,
+  updateUsername,
+  uploadBanner,
+  uploadPhoto,
+} from '@/services/userService'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetMe = getMe as ReturnType<typeof vi.fn>
 const mockUpdateProfile = updateProfile as ReturnType<typeof vi.fn>
+const mockUpdateUsername = updateUsername as ReturnType<typeof vi.fn>
+const mockCheckUsernameAvailable = checkUsernameAvailable as ReturnType<typeof vi.fn>
 const mockUploadPhoto = uploadPhoto as ReturnType<typeof vi.fn>
 const mockUploadBanner = uploadBanner as ReturnType<typeof vi.fn>
 const mockDeleteBanner = deleteBanner as ReturnType<typeof vi.fn>
@@ -66,6 +78,7 @@ const mockUser = {
   id: '123',
   auth0Id: 'auth0|123',
   email: 'test@example.com',
+  username: 'test.user',
   displayName: 'Test User',
   bio: 'My bio',
   interests: ['coding'],
@@ -467,7 +480,7 @@ describe('ProfileEditPage', () => {
 
   it('uses empty fallbacks when user fields are undefined', async () => {
     const sparseUser = {
-      id: '123', auth0Id: 'auth0|123', email: 'test@example.com',
+      id: '123', auth0Id: 'auth0|123', email: 'test@example.com', username: 'test.user',
       displayName: undefined, bio: undefined, interests: undefined,
       profilePublic: undefined, createdAt: '2024-01-01',
     }
@@ -475,5 +488,123 @@ describe('ProfileEditPage', () => {
     renderProfileEditPage()
     const nameInput = await screen.findByPlaceholderText('Votre nom complet')
     expect((nameInput as HTMLInputElement).value).toBe('')
+  })
+
+  // ─── SCRUM-169 — username field ──────────────────────────────────────
+
+  describe('username field', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
+    })
+
+    it('pre-fills the username input from user.username', async () => {
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      expect((input as HTMLInputElement).value).toBe('test.user')
+    })
+
+    it('forces lowercase on keystroke', async () => {
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'NEW.Handle' } })
+      expect((input as HTMLInputElement).value).toBe('new.handle')
+    })
+
+    it('shows "Ce nom est réservé." when typing a blocklist entry', async () => {
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'admin' } })
+      expect(await screen.findByText('Ce nom est réservé.')).toBeTruthy()
+      expect(mockCheckUsernameAvailable).not.toHaveBeenCalled()
+    })
+
+    it('shows the format error when pattern does not match', async () => {
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'ab' } }) // too short (the lowercase coerce makes this match-able otherwise)
+      expect(await screen.findByText(/Format invalide/)).toBeTruthy()
+      expect(mockCheckUsernameAvailable).not.toHaveBeenCalled()
+    })
+
+    it('debounces the live availability check and shows "Disponible." on 404', async () => {
+      mockCheckUsernameAvailable.mockResolvedValue(true)
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+
+      fireEvent.change(input, { target: { value: 'new.handle' } })
+      // The debounce of 400 ms is real here — `waitFor` polls until the
+      // network call lands (default 1 s budget is plenty).
+      await waitFor(() => {
+        expect(mockCheckUsernameAvailable).toHaveBeenCalledWith('new.handle')
+      })
+      expect(await screen.findByText('Disponible.')).toBeTruthy()
+    })
+
+    it('shows "Déjà pris." when HEAD returns 200', async () => {
+      mockCheckUsernameAvailable.mockResolvedValue(false)
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+
+      fireEvent.change(input, { target: { value: 'pris.handle' } })
+      await waitFor(() => {
+        expect(mockCheckUsernameAvailable).toHaveBeenCalledWith('pris.handle')
+      })
+      expect(await screen.findByText('Déjà pris.')).toBeTruthy()
+    })
+
+    it('skips the API call when username is unchanged on submit', async () => {
+      mockUpdateProfile.mockResolvedValue(mockUser)
+      mockGetMe.mockResolvedValue(mockUser)
+      renderProfileEditPage()
+      await screen.findByDisplayValue('Test User')
+
+      fireEvent.submit(document.querySelector('form')!)
+
+      await waitFor(() => {
+        expect(mockUpdateProfile).toHaveBeenCalled()
+      })
+      expect(mockUpdateUsername).not.toHaveBeenCalled()
+    })
+
+    it('submits updateUsername before updateProfile when username changed', async () => {
+      const fresh = { ...mockUser, username: 'new.handle' }
+      mockUpdateUsername.mockResolvedValue(fresh)
+      mockUpdateProfile.mockResolvedValue(fresh)
+      mockGetMe.mockResolvedValue(fresh)
+      renderProfileEditPage()
+
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'new.handle' } })
+      fireEvent.submit(document.querySelector('form')!)
+
+      await waitFor(() => {
+        expect(mockUpdateUsername).toHaveBeenCalledWith('new.handle')
+      })
+      expect(mockUpdateProfile).toHaveBeenCalled()
+    })
+
+    it('stops on 409 from updateUsername — no updateProfile call, no navigate', async () => {
+      const conflict = Object.assign(new Error('Conflict'), {
+        isAxiosError: true,
+        response: { status: 409 },
+        name: 'AxiosError',
+      })
+      // Make it pass the `instanceof AxiosError` check too.
+      const { AxiosError } = await import('axios')
+      Object.setPrototypeOf(conflict, AxiosError.prototype)
+
+      mockUpdateUsername.mockRejectedValue(conflict)
+      renderProfileEditPage()
+
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'taken.handle' } })
+      fireEvent.submit(document.querySelector('form')!)
+
+      await waitFor(() => {
+        expect(mockUpdateUsername).toHaveBeenCalledWith('taken.handle')
+      })
+      expect(mockUpdateProfile).not.toHaveBeenCalled()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
   })
 })

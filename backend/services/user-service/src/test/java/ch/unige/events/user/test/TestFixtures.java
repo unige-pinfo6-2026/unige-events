@@ -3,6 +3,7 @@ package ch.unige.events.user.test;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.follow.entity.Follow;
+import ch.unige.events.user.service.UsernameGenerator;
 
 import io.quarkus.arc.Unremovable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,9 +33,25 @@ public class TestFixtures {
 
     @Transactional
     public User persistUser(String auth0Id, String email, boolean profilePublic) {
+        // SCRUM-169 — derive a unique username from the email local-part so
+        // existing tests that don't care about username keep working out of
+        // the box. Tests that DO care can call the
+        // {@link #persistUser(String, String, boolean, String)} overload.
+        String localPart = email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
+        String base = UsernameGenerator.slugify(null, localPart, null);
+        String username = UsernameGenerator.resolveAvailable(
+                base,
+                candidate -> User.findByUsername(candidate).isPresent()
+        );
+        return persistUser(auth0Id, email, profilePublic, username);
+    }
+
+    @Transactional
+    public User persistUser(String auth0Id, String email, boolean profilePublic, String username) {
         User user = new User();
         user.auth0Id = auth0Id;
         user.email = email;
+        user.username = username;
         user.profilePublic = profilePublic;
         user.createdAt = LocalDateTime.now();
         em.persist(user);

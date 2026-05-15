@@ -1,10 +1,13 @@
 # Architecture — unige-events backend
 
+> **Mise à jour 2026-05-14 — post-merge PR #158 + fixes infra.** Topologie consolidée : **5 services métiers tous actifs** (notification-service activé `replicas: 1` lors du switch DB-per-service, commit `f4b5968e`) + 10 shared libs sous `backend/shared/<lib>` (refactor `fab270e0`) = **15 modules leaf** dans le reactor (`contract-tests` et `e2e` droppés). **DB-per-service livré** — chaque service possède sa propre Postgres dédiée (`postgres-event`, `postgres-user`, `postgres-engagement`, `postgres-moderation`, `postgres-notification`). Plus de schéma `public` partagé.
+
 > *Mentions of the dissolved-services (favorite/view/share/stats/me-aggregator/co-organizer → event-service co-located post-finalization ; follow/calendar → user-service co-located post-finalization ; attendance/comment → engagement-service renamed/co-located post-finalization ; report → moderation-service renamed post-finalization) are intentional historical references — see consolidation-plan.md for the 14→5 mapping.*
 
-> **Sprint 8 — migration vers microservices LIVRÉE + complétion + finalisation**
-> (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`).
-> **5 services métiers** (4 actifs + notification placeholder SCRUM-99) + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
+> **Sprint 8 — migration vers microservices LIVRÉE + complétion + finalisation + DB-per-service**
+> (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`,
+> puis fixes infra post-merge `f4b5968e`, `dd8ca635`, `60991692`).
+> **5 services métiers** tous actifs + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
 > Kong gateway DB-less + Kafka broker (10 topics, 9 producteurs + 1 consumer) +
 > observabilité (logs JSON + Prometheus + X-Request-ID).
 > Plan archivé : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
@@ -17,17 +20,21 @@
 ## Vue d'ensemble — topologie microservices
 
 UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
-`unige-events-pr-N` en preview). Topologie post-finalisation :
+`unige-events-pr-N` en preview). Topologie post-finalisation + DB-per-service :
 
 | Composant | Type | Réplicas (prod / preview) | Rôle |
 |---|---|---|---|
 | **web** | Deployment | 1 / 1 | React 19 SPA servie par Nginx |
 | **kong** | Deployment | 2 / 1 | API Gateway DB-less, route `/api/*` vers le bon service via une table de routes déclarative |
 | **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, 10 topics provisionnés. **9 producteurs câblés** (event-service ×5 events.{published,cancelled,expired} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×1 comments.created, moderation-service ×1 events.banned) + **1 consommateur** (event-service ← `events.banned`). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
-| **db** | StatefulSet | 1 / 1 | PostgreSQL 16, schéma `public` partagé (le découpage en schémas par service est **différé S9+** par Décision C de la spec de complétion — l'isolation est matérialisée au niveau code via les REST clients) |
+| **postgres-event** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `event-service`, DB `unige_events_events`. Owns : `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
+| **postgres-user** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `user-service`, DB `unige_events_users`. Owns : `users`, `user_interests`, `follows` |
+| **postgres-engagement** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `engagement-service`, DB `unige_events_engagement`. Owns : `attendances`, `comments` |
+| **postgres-moderation** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `moderation-service`, DB `unige_events_moderation`. Owns : `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
+| **postgres-notification** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `notification-service`. Owns : aucune table métier active (sentinel `ServiceIdentityResource`). Provisionné lors du switch DB-per-service `f4b5968e` pour parité topologique |
 | **minio** | StatefulSet | 1 / 1 | S3 compatible — bucket `unige-events-dev` pour les uploads avatar/banner d'user-service + bannières d'event-service |
 | **cloudflared** | Deployment | 1 / 1 | Tunnel preview (mode quick) |
-| **5 microservices** | Deployment ×5 | 1 / 1 (notification 0/0) | Quarkus 3.35, image `ghcr.io/unige-pinfo6-2026/unige-events-<svc>:<sha>`, `quarkus-oidc` pour l'auth Auth0. notification-service replicas:0 (placeholder SCRUM-99) |
+| **5 microservices** | Deployment ×5 | 1 / 1 (tous actifs) | Quarkus 3.35, image `ghcr.io/unige-pinfo6-2026/unige-events-<svc>:<sha>`, `quarkus-oidc` pour l'auth Auth0. Notification-service `replicas: 1` depuis `f4b5968e` (mai 2026, parité avec les 4 autres). Strategy `RollingUpdate maxUnavailable:0 maxSurge:1` sur les 5. event-service reste **replicas:1 strict** (ADR-001 — `EventExpirationJob` sans leader election). moderation-service idem (`ModerationCleanupJob`). |
 
 ### Microservices — endpoints owned (post-consolidation)
 
@@ -50,7 +57,7 @@ Utilisateur → HTTPS → Ingress Nginx
    Kong DB-less → 4 routes regex anchorées par service métier actif (cf.
                   k8s/chart/templates/kong/configmap-routes.yaml)
                   → Service <svc>-service:8080 (Quarkus pod)
-                  → Service db:5432 (PostgreSQL 16)
+                  → Service postgres-<svc>:5432 (DB dédiée par service)
                   + Service kafka:9092 (producteurs/consommateurs)
                   + Service minio:9000 (uploads via user/event-service)
 ```
@@ -291,7 +298,7 @@ Quarkus  → injecte JsonWebToken → `UserResource.me()` lit les claims profil 
 
 ---
 
-## Infrastructure Kubernetes (post-migration)
+## Infrastructure Kubernetes (post-migration + DB-per-service)
 
 ```
 Ingress Nginx (path: /, /s3/*)
@@ -299,12 +306,21 @@ Ingress Nginx (path: /, /s3/*)
   │      └── reverse proxy /api/*        → Service kong-proxy
   ├── Service kong-proxy (ClusterIP:8000)→ 2 pods Kong DB-less
   │      └── route /api/<rule>           → Service <svc>-service:8080
-  │                                         (5 services métiers consolidés post-Étape 2)
+  │                                         (5 services métiers tous actifs)
   ├── Service kafka (ClusterIP:9092)     → Pod kafka (KRaft, 1 replica)
   │      └── 10 topics provisionnés
-  ├── Service db (ClusterIP:5432)        → Pod db (PostgreSQL 16, 1 PVC)
+  ├── Service postgres-event (ClusterIP:5432)        → Pod (PostgreSQL 16, 1 PVC) — DB unige_events_events
+  ├── Service postgres-user (ClusterIP:5432)         → Pod (PostgreSQL 16, 1 PVC) — DB unige_events_users
+  ├── Service postgres-engagement (ClusterIP:5432)   → Pod (PostgreSQL 16, 1 PVC) — DB unige_events_engagement
+  ├── Service postgres-moderation (ClusterIP:5432)   → Pod (PostgreSQL 16, 1 PVC) — DB unige_events_moderation
+  ├── Service postgres-notification (ClusterIP:5432) → Pod (PostgreSQL 16, 1 PVC) — DB unige_events_notification
   └── Service minio (ClusterIP:9000)     → Pod minio (S3 compat, 1 PVC)
 ```
+
+Migration vers DB-per-service livrée post-PR #158 par commit `f4b5968e` : les
+collisions `flyway_schema_history` quand les services partageaient une même DB
+faisaient échouer Flyway sur les démarrages successifs. Le switch a aussi élevé
+`notification-service` à `replicas: 1` (parité avec les 4 autres).
 
 Secrets K8s : `ghcr-secret` (accès GHCR), `app-secrets` (DB / OIDC /
 S3 credentials, Doppler-synced), TZ=`Europe/Zurich` injecté par

@@ -22,13 +22,14 @@ class UserProfileResponseTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 10, 0);
         List<String> interests = List.of("hiking", "music");
         UserProfileResponse dto = new UserProfileResponse(
-            id, "auth0|abc", "alice@unige.ch", "Alice", Faculty.SCIENCES, "Master",
+            id, "auth0|abc", "alice@unige.ch", "alice.martin", "Alice", Faculty.SCIENCES, "Master",
             "Hi there", interests, "https://avatars/a.png", "https://banners/a.png",
             true, createdAt);
 
         assertEquals(id, dto.id());
         assertEquals("auth0|abc", dto.auth0Id());
         assertEquals("alice@unige.ch", dto.email());
+        assertEquals("alice.martin", dto.username());
         assertEquals("Alice", dto.displayName());
         assertEquals(Faculty.SCIENCES, dto.faculty());
         assertEquals("Master", dto.studyLevel());
@@ -46,6 +47,7 @@ class UserProfileResponseTest {
         user.id = UUID.randomUUID();
         user.auth0Id = "auth0|xyz";
         user.email = "bob@unige.ch";
+        user.username = "bob.smith";
         user.displayName = "Bob";
         user.faculty = Faculty.LETTERS;
         user.studyLevel = "Bachelor";
@@ -61,6 +63,7 @@ class UserProfileResponseTest {
         assertEquals(user.id, dto.id());
         assertEquals("auth0|xyz", dto.auth0Id());
         assertEquals("bob@unige.ch", dto.email());
+        assertEquals("bob.smith", dto.username());
         assertEquals("Bob", dto.displayName());
         assertEquals(Faculty.LETTERS, dto.faculty());
         assertEquals("Bachelor", dto.studyLevel());
@@ -75,11 +78,11 @@ class UserProfileResponseTest {
         UUID id = UUID.randomUUID();
         LocalDateTime t = LocalDateTime.of(2026, 1, 1, 0, 0);
         UserProfileResponse a = new UserProfileResponse(
-            id, "a", "e", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
         UserProfileResponse b = new UserProfileResponse(
-            id, "a", "e", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
         UserProfileResponse c = new UserProfileResponse(
-            id, "a", "e", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", false, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", false, t);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());

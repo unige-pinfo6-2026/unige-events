@@ -12,6 +12,40 @@ vi.mock('@/services/eventApi', () => ({
   uploadEventImage: vi.fn(),
 }))
 
+vi.mock('@/services/coOrganizerApi', () => ({
+  inviteCoOrganizer: vi.fn(),
+}))
+
+vi.mock('@/services/userService', () => ({
+  getUserByUsername: vi.fn(),
+  // SCRUM-137 autocomplete — never resolves so the dropdown stays idle ;
+  // these tests drive the manual submit flow (typed username), not the picker.
+  searchUsernames: vi.fn().mockResolvedValue([]),
+}))
+
+// SCRUM-137 autocomplete — PendingCoOrganizersEditor now reads useAuth() to
+// build the excludeUsernames list. Provide a stable authenticated stub so
+// the editor mounts without throwing.
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'caller-id',
+      auth0Id: 'auth0|caller',
+      email: 'caller@example.com',
+      username: 'caller.handle',
+      profilePublic: true,
+      createdAt: '2026-05-15T10:00:00',
+    },
+    isAuthenticated: true,
+    isAdmin: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    updateUser: vi.fn(),
+  }),
+}))
+
 vi.mock('@/components/event/DraftsResumeStrip', () => ({
   default: () => null,
 }))
@@ -49,11 +83,15 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { inviteCoOrganizer } from '@/services/coOrganizerApi'
+import { getUserByUsername } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
+const mockInviteCoOrganizer = inviteCoOrganizer as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 
 const createdEvent = {
   id: 42,
@@ -343,6 +381,118 @@ describe('CreateEventPage', () => {
     unmount()
 
     expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  describe('pending co-organizers (SCRUM-137 from create page)', () => {
+    it('stages a co-organizer by username and dispatches the invite after the event is created', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockResolvedValue({
+        id: 1,
+        userId: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        displayName: 'Alice',
+        avatarUrl: null,
+        username: 'alice.martin',
+        status: 'PENDING',
+        invitedAt: '2026-05-14T10:00:00',
+      })
+
+      renderPage()
+
+      fillRequiredFields()
+
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() => expect(mockCreateEvent).toHaveBeenCalled())
+      await waitFor(() =>
+        expect(mockInviteCoOrganizer).toHaveBeenCalledWith(42, 'aa11bb22-cc33-dd44-ee55-ff6677889900'),
+      )
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
+
+    it('dispatches pending invitations even when the event is saved as a draft', async () => {
+      // Copilot review: a DRAFT submit used to early-return before the invite
+      // dispatch, silently dropping the staged list. The fix moves the
+      // dispatch before the draft branch.
+      mockCreateEvent.mockResolvedValue({ ...createdEvent, status: 'DRAFT' })
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockResolvedValue({
+        id: 1,
+        userId: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        displayName: 'Alice',
+        avatarUrl: null,
+        username: 'alice.martin',
+        status: 'PENDING',
+        invitedAt: '2026-05-14T10:00:00',
+      })
+
+      renderPage()
+
+      fillRequiredFields()
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sauvegarder en Brouillon' }))
+
+      await waitFor(() =>
+        expect(mockInviteCoOrganizer).toHaveBeenCalledWith(42, 'aa11bb22-cc33-dd44-ee55-ff6677889900'),
+      )
+      expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy()
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    })
+
+    it('still navigates and toasts the failure when one invitation fails', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockRejectedValue(new Error('409 already invited'))
+
+      renderPage()
+
+      fillRequiredFields()
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() =>
+        expect(screen.getByText(/Impossible d'inviter Alice/i)).toBeTruthy(),
+      )
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
   })
 
   describe('template pre-fill (location.state.template)', () => {

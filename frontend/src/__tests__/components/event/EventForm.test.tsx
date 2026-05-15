@@ -26,6 +26,13 @@ const baseValues: EventFormValues = {
   contactEmail: '',
   registrationDeadline: '',
   tags: [],
+  recurrence: {
+    enabled: false,
+    frequency: 'WEEKLY',
+    endMode: 'date',
+    endDate: '',
+    maxOccurrences: '',
+  },
 }
 
 const cropDefaults = {
@@ -484,6 +491,172 @@ describe('EventForm', () => {
       expect((screen.getByLabelText(/Date limite d'inscription/i, { selector: 'input' }) as HTMLInputElement).value).toBe('2099-04-09')
       expect((screen.getByLabelText(/Heure de la date limite/i) as HTMLSelectElement).value).toBe('18')
       expect((screen.getByLabelText(/Minute de la date limite/i) as HTMLSelectElement).value).toBe('30')
+    })
+  })
+
+  describe('recurrence section (SCRUM-151)', () => {
+    function renderForm(mode: 'create' | 'edit', overrides: Partial<EventFormValues> = {}) {
+      render(
+        <EventForm
+          mode={mode}
+          submitLabel="Créer"
+          values={{ ...baseValues, ...overrides }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+          onCancel={vi.fn()}
+        />,
+      )
+    }
+
+    it('renders the section header and switch in create mode', () => {
+      renderForm('create')
+      expect(screen.getByText('Récurrence')).toBeTruthy()
+      expect(screen.getByRole('switch', { name: /Événement récurrent/i })).toBeTruthy()
+    })
+
+    it('keeps the section out of the DOM in edit mode', () => {
+      renderForm('edit')
+      expect(screen.queryByText('Récurrence')).toBeNull()
+      expect(screen.queryByRole('switch', { name: /Événement récurrent/i })).toBeNull()
+    })
+
+    it('reveals the frequency select and end-mode controls when enabled', () => {
+      renderForm('create', {
+        recurrence: {
+          enabled: true,
+          frequency: 'WEEKLY',
+          endMode: 'date',
+          endDate: '',
+          maxOccurrences: '',
+        },
+      })
+
+      expect(screen.getByRole('combobox', { name: /Fréquence/i })).toBeTruthy()
+      expect(screen.getByText('Chaque semaine')).toBeTruthy()
+      expect(screen.getByText('Toutes les 2 semaines')).toBeTruthy()
+      expect(screen.getByText('Chaque mois')).toBeTruthy()
+      expect(screen.getByRole('radio', { name: 'Date de fin' })).toBeTruthy()
+      expect(screen.getByRole('radio', { name: "Nombre d'occurrences" })).toBeTruthy()
+    })
+
+    it('renders a date input in date mode and a number input in count mode', () => {
+      const { unmount } = render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={{
+            ...baseValues,
+            recurrence: {
+              enabled: true,
+              frequency: 'WEEKLY',
+              endMode: 'date',
+              endDate: '',
+              maxOccurrences: '',
+            },
+          }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      const dateInput = screen.getByLabelText('Date de fin de récurrence') as HTMLInputElement
+      expect(dateInput.type).toBe('date')
+
+      unmount()
+
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={{
+            ...baseValues,
+            recurrence: {
+              enabled: true,
+              frequency: 'WEEKLY',
+              endMode: 'count',
+              endDate: '',
+              maxOccurrences: '',
+            },
+          }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      // role=spinbutton is HTML's role for <input type="number">
+      const numberInput = screen.getByRole('spinbutton', { name: "Nombre d'occurrences" }) as HTMLInputElement
+      expect(numberInput.type).toBe('number')
+      expect(numberInput.max).toBe('52')
+    })
+
+    it('forwards switch toggle and end-mode change to onFieldChange', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={baseValues}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('switch', { name: /Événement récurrent/i }))
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ enabled: true }))
+    })
+
+    it('renders the validation error under the section', () => {
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={{
+            ...baseValues,
+            recurrence: {
+              enabled: true,
+              frequency: 'WEEKLY',
+              endMode: 'date',
+              endDate: '',
+              maxOccurrences: '',
+            },
+          }}
+          errors={{ recurrence: "Définissez une date de fin OU un nombre d'occurrences." }}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={vi.fn()}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      expect(screen.getByText("Définissez une date de fin OU un nombre d'occurrences.")).toBeTruthy()
     })
   })
 })

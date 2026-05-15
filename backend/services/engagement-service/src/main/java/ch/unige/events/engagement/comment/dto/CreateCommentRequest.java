@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 public record CreateCommentRequest(
         @NotBlank
-        @Size(max = 2000)
+        @Size(max = 500)
         String content,
         Long parentCommentId
 ) {}

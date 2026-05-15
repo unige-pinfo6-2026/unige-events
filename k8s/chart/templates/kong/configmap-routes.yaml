@@ -142,6 +142,24 @@ data:
               - ~/api/users/me/banner$
             strip_path: false
             preserve_host: true
+          - name: update-username
+            paths:
+              - ~/api/users/me/username$
+            strip_path: false
+            preserve_host: true
+          - name: get-by-username
+            paths:
+              - ~/api/users/by-username/[^/]+$
+            strip_path: false
+            preserve_host: true
+          - name: users-search
+            # Must come BEFORE user-by-id ($users/[^/]+) — otherwise the catch-all
+            # would swallow this path. Application-level rate-limit handles
+            # burst control (60 req/min/user via @PerUserRateLimit).
+            paths:
+              - ~/api/users/search$
+            strip_path: false
+            preserve_host: true
           - name: user-by-id
             paths:
               - ~/api/users/[^/]+$

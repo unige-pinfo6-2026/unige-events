@@ -52,7 +52,7 @@ public class Comment extends PanacheEntity {
 
     @Column(columnDefinition = "TEXT", nullable = false)
     @NotBlank
-    @Size(max = 2000)
+    @Size(max = 500)
     public String content;
 
     @Column(name = "like_count", nullable = false)

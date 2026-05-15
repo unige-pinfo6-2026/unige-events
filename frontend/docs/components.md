@@ -437,6 +437,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, les profils et la page détail événement.
 
+### UsernameAutocomplete
+
+- **Composant SCRUM-137 polish** (`src/components/user/UsernameAutocomplete.tsx`). Remplace l'`<Input>` du champ d'invitation co-organisateur dans `CoOrganizersEditor` (live) et `PendingCoOrganizersEditor` (staged) ; affiche une dropdown de suggestions au-dessous de l'input dès que l'utilisateur tape ≥ 2 caractères.
+- **Props** : `value`, `onChange`, `onSelect(user)`, `placeholder?`, `error?`, `excludeUsernames?`, `inputId?`, `autoFocus?`, `disabled?`. Le parent garde le contrôle de la valeur (`value`/`onChange`) pour que le submit existant continue à fonctionner si l'utilisateur tape un username complet sans cliquer une suggestion.
+- **Fetch paresseux + debounce** : `useDebounce(value, 300ms)` puis appel `GET /users/search?q=<prefix>&limit=8` via `searchUsernames`. Skip si `prefix.length < 2` ou si on vient juste de fournir un username via `onSelect` (le state flippe au handle pické, on ne re-fetch pas immédiatement). Cache en mémoire (Map prefix → résultats, cap 50 entrées). Compteur monotone qui ignore les réponses obsolètes (même pattern que `useOccurrences`).
+- **Filtre client `excludeUsernames`** : appliqué après le fetch, comparaison case-insensitive. `CoOrganizersEditor` passe `[user.username, ...accepted.co-orgs]`, `PendingCoOrganizersEditor` passe `[user.username, ...staged]`. La dropdown ne propose donc jamais d'inviter soi-même ni de doubler une invitation.
+- **Accessibilité** : ARIA combobox + listbox (`role="combobox"`, `role="listbox"`, `role="option"`, `aria-autocomplete="list"`, `aria-expanded`, `aria-activedescendant`). Navigation clavier ↑/↓ pour parcourir, Enter pour sélectionner, Escape pour fermer. Click outside ferme aussi la dropdown.
+- **États** : loading → 3 lignes squelettes via `Skeleton` boneyard inline (pas de `.bones.json` dédié) ; error → message inline rouge ; data vide → "Aucun résultat." italique. Chaque ligne rend l'avatar via `UserAvatar`, le handle `@username` en gras et le `displayName` en sous-texte.
+
 ### DraftsResumeStrip
 
 - **Bannière collapsible** `@radix-ui/react-collapsible` insérée au-dessus de `EventForm` dans `CreateEventPage`.
@@ -622,9 +631,13 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 ### userService.ts
 
 - `getMe()` : `GET /api/users/me` — profil complet de l'utilisateur connecté.
-- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur (legacy ; rethrow sur erreur).
-- `getPublicProfile(id)` : `GET /api/users/{id}` côté `ProfilePage` (SCRUM-141) — retourne `UserPublicResponse | null` ; le 404 (privé ou inexistant, ISSUE-93 anti-oracle) devient `null`, les autres erreurs sont rethrown.
+- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur. Conservé pour le redirect transitoire UUID → username (SCRUM-169 Décision I).
+- `getUserByUsername(username)` : `GET /api/users/by-username/{username}` — lookup case-insensitive (SCRUM-169). Retourne `UserPublicResponse | null` ; le 404 (privé ou inexistant, ISSUE-93 anti-oracle) devient `null`, les autres erreurs sont rethrown.
+- `getPublicProfile(id)` : `GET /api/users/{id}` — variante UUID-based (SCRUM-141, hooks legacy). Retourne `UserPublicResponse | null` ; même sémantique 404 → null que `getUserByUsername`.
 - `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
+- `updateUsername(username)` : `PATCH /api/users/me/username` — change le username (SCRUM-169). Endpoint dédié pour granularité d'erreur (409 `username_taken`, 400 `username_invalid`/`username_reserved`).
+- `checkUsernameAvailable(username)` : `HEAD /api/users/by-username/{username}` — check d'unicité pour le debounce frontend (SCRUM-169). **Inverse la sémantique HTTP** : retourne `true` sur 404 (libre), `false` sur 200 (pris).
+- `searchUsernames(q, limit?)` : `GET /api/users/search?q=<prefix>&limit=<n>` — prefix scan (SCRUM-137 polish, autocomplete d'invitation co-org). Retourne un `UserPublicResponse[]` (projection minimale). `@Authenticated` côté backend, rate-limit 60 req/min.
 - `uploadPhoto(file)` : `POST /api/users/me/image` — upload de la photo de profil (multipart).
 - `uploadBanner(file)` : `POST /api/users/me/banner` — upload de la bannière de profil (multipart).
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).
@@ -663,22 +676,17 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 
 ### eventApi.ts
 
-- getAll(params) : liste paginée d'événements.
-- getById(id) : détail d'un événement.
-- createEvent(data) : création d'événement.
-- updateEvent(id, data) : mise à jour d'événement.
-- uploadEventImage(id, file) : upload de bannière et retour de l'événement mis à jour.
-- deleteEvent(id) : annulation soft-delete d'un événement.
-- getMyDrafts(organizerId, limit = 5) : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
-- getFeatured(limit) : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
-- getAll(params) : liste paginée d’événements.
-- getById(id) : détail d’un événement.
-- createEvent(data) : création d’événement.
-- updateEvent(id, data) : mise à jour d’événement.
-- uploadEventImage(id, file) : upload de bannière et retour de l’événement mis à jour.
-- deleteEvent(id) : annulation soft-delete d’un événement.
-- publishEvent(id) : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
-- getMyEvents(params) : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
+- `getAll(params)` : liste paginée d'événements.
+- `getById(id)` : détail d'un événement.
+- `createEvent(data)` : création d'événement.
+- `updateEvent(id, data)` : mise à jour d'événement.
+- `uploadEventImage(id, file)` : upload de bannière et retour de l'événement mis à jour.
+- `deleteEvent(id)` : annulation soft-delete d'un événement.
+- `publishEvent(id)` : passe l'événement de DRAFT à PUBLISHED via `PATCH /api/events/{id}/publish`.
+- `getMyDrafts(organizerId, limit = 5)` : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
+- `getMyEvents(params)` : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
+- `getFeatured(limit)` : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
+- `getOccurrences(parentId, params?)` : `GET /events/{parentId}/occurrences` (SCRUM-151). Retourne la liste triée chronologiquement des occurrences enfants d'un parent récurrent (backend cap dur de 52). Consommé par `useOccurrences`. Pas de pagination exposée côté UI (Décision K).
 
 ### searchApi.ts
 
@@ -690,3 +698,136 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 - getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
 - addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
 - removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.
+
+### coOrganizerApi.ts (SCRUM-137)
+
+- `inviteCoOrganizer(eventId, userId)` : `POST /api/events/{id}/co-organizers` avec body `{ userId }`. Retourne le `CoOrganizer` créé (status `PENDING`). 404 si l'UUID utilisateur n'existe pas (cf. Décision A de la spec — invitation par UUID, pas par search).
+- `listCoOrganizers(eventId)` : `GET /api/events/{id}/co-organizers`. Retourne la liste des co-organisateurs (PENDING + ACCEPTED).
+- `removeCoOrganizer(eventId, userId)` : `DELETE /api/events/{id}/co-organizers/{userId}`. Idempotent.
+- `acceptInvitation(eventId)` : `PATCH /api/events/{id}/co-organizers/me/accept`. Retourne le `CoOrganizer` mis à jour (status `ACCEPTED`).
+- `declineInvitation(eventId)` : `PATCH /api/events/{id}/co-organizers/me/decline`. Supprime physiquement la row (re-invitation possible).
+- `getMyInvitations(status?, page?, size?)` : `GET /api/users/me/co-organizer-invitations`. Retourne la liste paginée des invitations.
+
+### commentApi.ts (SCRUM-146)
+
+- `getEventComments(eventId, page = 0, size = 20)` : `GET /api/events/{eventId}/comments`. Retourne `List<CommentDTO>` paginée sur les top-level avec leurs replies incluses.
+- `postComment(eventId, content, parentCommentId?)` : `POST /api/events/{eventId}/comments`. Retourne le `CommentDTO` créé (replies vide).
+- `deleteComment(commentId)` : `DELETE /api/comments/{commentId}`. 204 No Content. 403 si non-autorisé (ni auteur, ni créateur, ni co-org ACCEPTED, ni admin).
+
+### sessionId.ts (vue anonyme)
+
+- `getOrCreateSessionId()` : retourne un UUID v4 lu depuis `localStorage['unige_session_id']`, créé et persisté à la première invocation. Utilisé par `statsApi.recordEventView` pour dédupliquer les vues anonymes côté serveur via un `INSERT ... ON CONFLICT (event_id, session_id) DO UPDATE SET viewed_at = ...`.
+
+## Composants SCRUM-137 (co-organisateurs UI)
+
+### CoOrganizersEditor
+
+- `src/components/event/CoOrganizersEditor.tsx` — section "Co-organisateurs" dans `EventForm` mode édition.
+- Props : `eventId: number`.
+- Champ texte UUID + bouton "Inviter" (validation regex UUID v4 côté client + 404 mapping côté serveur si l'utilisateur n'existe pas).
+- Liste des co-orgs avec chip statut (`PENDING` orange / `ACCEPTED` vert) + bouton × pour retirer.
+- Skeleton `co-organizers-section.bones.json` pendant chargement initial.
+
+### EventOrganizerTeam
+
+- `src/components/event/EventOrganizerTeam.tsx` — section "Équipe organisatrice" dans la sidebar de `EventDetailPage`.
+- Affiche le créateur principal (badge "Organisateur") + co-organisateurs ACCEPTED (badge "Co-organisateur"), chacun cliquable vers `/profile/{id}`.
+- Charge `listCoOrganizers(eventId)` au montage. Skeleton `event-organizer-team.bones.json` pendant loading.
+
+### CoOrganizerInvitationsBadge
+
+- `src/components/user/CoOrganizerInvitationsBadge.tsx` — petit badge rouge dans le dropdown user de la `Navbar`.
+- Affiche le compteur des invitations `PENDING` (issue de `useCoOrganizerInvitations`). Masqué si compteur = 0.
+- Clic → ouvre la liste (modale ou redirige vers `/profile/me`).
+
+### CoOrganizerInvitationsList
+
+- `src/components/user/CoOrganizerInvitationsList.tsx` — liste des invitations PENDING.
+- Une card par invitation : titre event + date + boutons Accepter / Décliner.
+- Optimistic update : retire la row de la liste avant confirmation serveur, rollback sur erreur.
+- Skeleton `co-organizer-invitations.bones.json` pendant loading.
+- Monté dans `ProfilePage` (uniquement si `isOwnProfile`) et potentiellement dans une modale navbar.
+
+## Composants SCRUM-146 (commentaires UI)
+
+### CommentSection
+
+- `src/components/event/CommentSection.tsx` — section principale insérée dans `EventDetailPage`.
+- Props : `eventId: number`, `eventStatus: EventStatus`.
+- Charge `getEventComments(eventId)` via `useComments`. Affiche le `CommentForm` (caché pour anonymes ou statut ≠ PUBLISHED) + liste de `CommentItem`.
+- État vide : "Aucun commentaire — soyez le premier."
+- Pagination "Charger plus" via `useComments.loadMore()`.
+- Skeleton `comments.bones.json` pendant loading initial.
+
+### CommentForm
+
+- `src/components/event/CommentForm.tsx` — formulaire textarea + bouton Envoyer.
+- Props : `eventId`, `parentCommentId?`, `onPost(content)`, `onCancel?` (pour le mode reply).
+- Compteur live de caractères (max 500). Bouton désactivé si vide ou loading.
+- Affichage conditionnel : si user anonyme, remplace le form par un message "Connectez-vous pour commenter" + lien vers `/login`.
+
+### CommentItem
+
+- `src/components/event/CommentItem.tsx` — card commentaire avec avatar, displayName, badge "Organisateur" si `authorIsOrganizer`, contenu, date relative (`formatRelativeDate`), compteur likes (read-only en S8, mutation prévue SCRUM-144).
+- Actions : "Répondre" (toggle un sous-formulaire `CommentForm`), "Supprimer" (visible si user est auteur OR créateur event OR co-org ACCEPTED OR admin — `ConfirmModal` avant), "Signaler" (toast informatif `Bientôt disponible` — cf. Décision B de la spec).
+- Replies imbriquées **max 1 niveau** : un `CommentItem` rend ses replies via `CommentItem` enfants, mais sans bouton "Répondre" sur les enfants (limite SCRUM-139 backend).
+
+## Hooks SCRUM-137 / SCRUM-146
+
+### useCoOrganizers
+
+- `src/hooks/useCoOrganizers.ts`.
+- Params : `eventId: number | null` (null = pas de chargement).
+- Charge `listCoOrganizers(eventId)` au montage. Retourne `{ coOrganizers, loading, error, invite, remove, refresh }`.
+- `invite(userId)` appelle `inviteCoOrganizerApi` puis refresh ; gère 404, 409 (déjà co-org), 422 (own event).
+- `remove(userId)` appelle `removeCoOrganizerApi` optimistic puis refresh sur erreur.
+
+### useCoOrganizerInvitations
+
+- `src/hooks/useCoOrganizerInvitations.ts`.
+- Charge `getMyInvitations({ status: 'PENDING' })` au montage (uniquement si user connecté).
+- Retourne `{ invitations, pendingCount, loading, error, accept, decline, refresh }`.
+- `accept(eventId)` / `decline(eventId)` : mutation optimistic + refresh.
+
+### useComments
+
+- `src/hooks/useComments.ts`.
+- Params : `eventId: number`, `pageSize?: number = 20`.
+- Charge `getEventComments(eventId, 0, pageSize)`. Pagination cumulative via `loadMore()`.
+- `post(content, parentCommentId?)` : optimistic add + rollback sur erreur API.
+- `remove(commentId)` : optimistic remove + rollback sur erreur API.
+- Retourne `{ comments, hasMore, loading, posting, error, post, remove, loadMore, refresh }`.
+
+## Hook SCRUM-151
+
+### useOccurrences
+
+- `src/hooks/useOccurrences.ts`.
+- Params : `(parentId: number | null, { enabled: boolean })`.
+- Fetch paresseux : `enabled === false` court-circuite l'effet, aucun appel réseau tant que le consumer ne flip pas `enabled` à `true` (cf. Décision G : la section repliable d'`EventDetailPage` ne charge les occurrences qu'au premier clic).
+- Si `parentId === null` ou `enabled === false`, retourne `{ loading: false, error: null, data: null }`.
+- Sinon appelle `getOccurrences(parentId)` ; state machine `loading → (data | error)` à la `useEvent`.
+- Re-fetch automatique si `parentId` change pendant `enabled === true`.
+- AbortController-like via un compteur monotone : les réponses d'une requête obsolète (unmount, refetch concurrent) sont silencieusement ignorées — aucune fuite `setState after unmount`.
+
+## Sections SCRUM-151
+
+### Section Récurrence dans `EventForm`
+
+- Composant local `RecurrenceSection` non exporté (`EventForm.tsx`). Visible **uniquement** en `mode === 'create'` (Décision E).
+- Header avec icône `Repeat` + switch « Événement récurrent ». Body conditionnel sur `enabled === true` : Select fréquence (3 options FR via `RECURRENCE_FREQUENCIES`), radio mutex `endDate | maxOccurrences` rendu en segmented control, puis l'`<Input>` correspondant (`type="date"` ou `type="number"` borné à `RECURRENCE_MAX_OCCURRENCES`).
+- Erreur de validation rendue sous la section via la clé unique `errors.recurrence` (Décision C — un message global pour la section, pas un par sous-champ).
+- Pattern visuel calqué sur la section « Date & heure » : `rounded-2xl border border-border/50 bg-foreground/[0.015] px-4 py-4`.
+
+### Badge `Récurrent` sur `EventCard`
+
+- Pill `RefreshCw + "Récurrent"` positionné `absolute bottom-4 right-4 z-10` sur le banner. Style neutre (`bg-background/80 backdrop-blur-sm border border-border/40 text-foreground/80`).
+- Visible **uniquement** si `event.parentEventId != null` (Décision F — occurrences only, le parent reste sans badge pour ne pas être noyé dans 52 cards identiques).
+
+### Section « Voir toutes les occurrences » sur `EventDetailPage`
+
+- Composant local `OccurrencesSection` non exporté (`EventDetailPage.tsx`). Visible si `event.recurrenceRule != null` (parent) **ou** `event.parentEventId != null` (occurrence) — Décision G.
+- Bouton plein-largeur avec `RefreshCw` + chevron (`ChevronDown` / `ChevronUp`). Premier clic → `useOccurrences(parentId, { enabled: true })` (fetch paresseux). Compteur `(N)` affiché à côté du libellé une fois `data` arrivé.
+- Liste compacte (Décision H) : `[date · status badge][titre lien]` plus le marqueur `Vous êtes ici` (uppercase tracking-wide text-accent) sur la ligne dont l'`id` matche `currentEventId`. Pas de banner image, pas de meta location/capacity.
+- Loading : `Skeleton` boneyard générique inline (4 lignes squelettes) — aucun nouveau `.bones.json` (Décision I).
+- `parentId` calculé : `event.parentEventId ?? event.id`. Sur un parent on liste ses enfants ; sur une occurrence on remonte au parent et on liste ses sibblings.

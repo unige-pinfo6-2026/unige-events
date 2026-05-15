@@ -1,6 +1,6 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-14
+Dernière mise à jour : 2026-05-15 (merge main → feature/s7-profile-public — SCRUM-141 + SCRUM-S7 + SCRUM-151 + SCRUM-169 + SCRUM-137 autocomplete)
 
 ## Sprint 7 — FollowButton + panneau demandes reçues (SCRUM-110 — feature/s7-follow-button) — 2026-05-14
 
@@ -86,6 +86,274 @@ Nouveau contrat (SCRUM-S7) : **tout utilisateur authentifié** voit la liste com
 - Tests : 1287 frontend verts. `AttendanceServiceTest` enrichi de 7 cas couvrant créateur / co-organisateur / non-organisateur / admin / utilisateur supprimé / user-service indisponible / anonyme. `AttendanceResourceTest` remplace le test `403_non_organizer` par `anonymizesPrivateRowsOnly`. Nouveau `UserAttendeeProjectionInternalResourceTest` (4 cas : bypass ISSUE-93, drop des ids inconnus, empty list, mauvais token → 404). `AttendanceDTOMapperTest` enrichi de 4 cas pour la projection `fromWithPrivacy`. `AttendeeProjectionTest` ajoutée côté shared-domain-dtos. `useAttendees.test`, `AttendeeCard.test`, `AttendeesList.test`, `attendeesApi.test`, `EventDetailPage.test` réécrits/ajustés autour du nouveau contrat.
 
 
+---
+
+## 2026-05-15 (suite) — Autocomplete username sur le champ d'invitation co-org
+
+Polish ajouté en cours de review sur PR #172 (scope commit `scrum-137`, le
+flow d'invitation enrichi). Cross-stack — backend + OpenAPI + Kong + frontend.
+
+**Backend (user-service)** :
+- `User.searchByUsernamePrefix(prefix, limit, excludeAuth0Id)` : Panache
+  prefix scan `LIKE ? ESCAPE '\\'`, `_` échappé pour neutraliser le wildcard
+  SQL. Exclusion de l'appelant via `auth0Id != ?` (zéro round-trip
+  supplémentaire). L'index btree du `UNIQUE(username)` suffit pour les
+  prefix scans sur ASCII lowercase ; pas de migration ajoutée.
+- `UserService.searchByUsernamePrefix` : thin delegate. Le resource est le
+  validation choke point.
+- `UserResource.searchByUsername` : `GET /users/search?q=<prefix>&limit=<n>`,
+  `@Authenticated` + `@PerUserRateLimit(name="users.search", max=60)`. `q`
+  validé 2-30 chars, charset `[a-zA-Z0-9._-]`, lowercased server-side.
+  `limit` default 8, capé à 20 via `@Max`. Retourne un
+  `List<UserPublicResponse>` projeté via `fromAnonymous` — uniquement id /
+  username / displayName / avatarUrl / profilePublic, jamais bio / banner.
+- 12 nouveaux cas dans `UserResourceTest` (401 anonymous, 200 prefix
+  matching + sort ASC, exclusion appelant, case-insensitive, limit /
+  default 8 / 21 → 400 / 0 → 400, q trop court / trop long / charset
+  invalide → 400, projection ne fuit pas les champs privés, empty array,
+  underscore wildcard escape).
+
+**OpenAPI + Kong** :
+- Nouveau path `/users/search` documentant la projection, la validation
+  envelope (q / limit), les codes 200 / 400 / 401 / 429 et la décision
+  "@Authenticated + projection fromAnonymous" pour expliquer l'absence de
+  fuite sur les profils privés.
+- Route Kong `users-search` ajoutée **AVANT** le catch-all `user-by-id`
+  (`~/api/users/[^/]+$`) pour éviter le swallow.
+
+**Frontend** :
+- `userService.searchUsernames(q, limit?)` wrapper du nouvel endpoint.
+- Composant réutilisable `UsernameAutocomplete`
+  (`src/components/user/UsernameAutocomplete.tsx`) :
+  - Debounce 300 ms (`useDebounce`), skip < 2 chars, cache prefix → results
+    (cap 50 entrées), compteur monotone pour invalider les réponses
+    obsolètes.
+  - ARIA combobox + listbox, navigation clavier ↑/↓/Enter/Escape,
+    click-outside.
+  - `excludeUsernames` filtre client-side (caller + déjà invités), insensible
+    à la casse, en plus de l'exclusion backend.
+  - Skeleton boneyard inline pendant le loading ; pas de `.bones.json`
+    dédié.
+- Intégrations :
+  - `CoOrganizersEditor` (edit live) → `excludeUsernames =
+    [caller, ...acceptedCoOrgs]`. Le submit existant
+    (`getUserByUsername → invite(uuid)`) reste inchangé : sélection ⇒ remplit
+    l'input ⇒ clic "Inviter" garde le flow.
+  - `PendingCoOrganizersEditor` (create staged) idem
+    (`excludeUsernames = [caller, ...staged]`).
+
+**Tests frontend** :
+- `userService.test.ts` : 3 nouveaux cas pour `searchUsernames` (URL/params,
+  limit propagé, error propagé).
+- `UsernameAutocomplete.test.tsx` (nouveau, 12 cas) : seuil 2 chars,
+  debounce, dropdown content, click pick, keyboard pick, Escape,
+  click-outside, exclude filter, empty state, cache hit, skip après select.
+- `CoOrganizersEditor.test.tsx` + `PendingCoOrganizersEditor.test.tsx` :
+  mock du composant + de `useAuth` ; 2 nouveaux cas chacun
+  (autocomplete onSelect → flow d'invitation, exclude length).
+- `EventCreatePage.test.tsx` : stub `useAuth` + `searchUsernames` pour que
+  l'intégration page-level continue de passer.
+- Suite complète : **1494/1494 verts**, `npm run lint` clean.
+
+**Doc** :
+- `frontend/docs/components.md` : nouveau composant
+  `UsernameAutocomplete` + `searchUsernames` dans le service.
+- `backend/docs/api-contract.md` : ligne ajoutée pour
+  `GET /users/search`.
+
+---
+
+## 2026-05-15 — SCRUM-151 livré (UI événements récurrents)
+
+Frontend pur, livré sur la branche existante `feature/scrum-169-profile-username-url`
+(absorbé par PR #172, cf. Décision A de la spec — pas de nouvelle branche, pas
+de nouvelle PR). Spec : [`specs_archives/specs_claude/specs_scrum-151.md`](../../specs_archives/specs_claude/specs_scrum-151.md).
+Cible US-27 (SCRUM-116) sous l'épic SCRUM-14. Backend SCRUM-147 mergé sur `main`
+au préalable — contrat OpenAPI inchangé sur cette PR (vérifié via
+`git diff origin/main..HEAD -- openapi/openapi.yaml` à zéro pour les commits
+SCRUM-151).
+
+**Axes livrés** (cf. § 1 de la spec) :
+
+1. **Types** (`src/types/event.ts`) : `Event.parentEventId`, `Event.recurrenceRule`,
+   `CreateEventRequest.recurrence`, interface `RecurrenceRequest`, union
+   `RecurrenceFrequency`, const map `RECURRENCE_FREQUENCIES`
+   (`WEEKLY` / `BIWEEKLY` / `MONTHLY`), constante `RECURRENCE_MAX_OCCURRENCES = 52`.
+2. **Service** (`src/services/eventApi.ts`) : `getOccurrences(parentId, params?)`
+   appelant `GET /events/{parentId}/occurrences`.
+3. **Hook lazy** (`src/hooks/useOccurrences.ts`) : signature
+   `(parentId, { enabled }) → { loading, error, data }`, pattern miroir
+   `useEvent`. `enabled: false` court-circuite l'effet — aucun call réseau
+   tant que le consumer ne flip pas (cf. Décision G).
+4. **`useEventForm`** : bloc `recurrence` ajouté à `EventFormValues`,
+   `EventFormErrors.recurrence` (unique message global, KISS),
+   `validate()` étendu (miroir backend : un mode obligatoire, count ∈ [1, 52],
+   endDate ≥ startDate.toLocalDate()), `submitForm` sérialise
+   `payload.recurrence` **uniquement** en `mode === 'create'`.
+   `readPersistedForm` normalise le sous-objet `recurrence` pour gérer les
+   payloads sessionStorage écrits avant ce ticket.
+5. **`EventForm`** : `ComingSoonBlock` récurrence (sprint `S8`) retiré,
+   remplacé par un composant local `RecurrenceSection` (header + switch,
+   body conditionnel : Select fréquence + radio mutex segmented control +
+   `<Input>` correspondant). Pattern visuel calqué sur la section
+   « Date & heure ». Section masquée en `mode === 'edit'` (Décision E).
+6. **`EventCard`** : badge `RefreshCw + "Récurrent"` en `absolute bottom-4
+   right-4` sur le banner, **conditionnel sur `event.parentEventId != null`**
+   (Décision F — occurrences uniquement, le parent reste sans badge).
+7. **`EventDetailPage`** : composant local `OccurrencesSection` repliable
+   inline sous la card description. Visible si `event.recurrenceRule != null`
+   (parent) **ou** `event.parentEventId != null` (occurrence). Fetch
+   paresseux au premier expand via `useOccurrences`. Liste compacte :
+   `[date · status badge][titre lien]` + marqueur « Vous êtes ici » sur la
+   ligne courante (Décision H). Loading via `Skeleton` boneyard générique —
+   pas de nouveau `.bones.json` (Décision I — justifié par : la section est
+   invisible au mount, le call est déclenché par interaction utilisateur, et
+   `GET /events/{id}/occurrences` est un SELECT indexé < 400 ms typique).
+
+**Couverture V8** sur les fichiers SCRUM-151 (`npm test -- --coverage`,
+rapport au commit de livraison) :
+
+| Fichier | Stmts | Branches |
+|---|---|---|
+| `types/event.ts` | 100 % | 100 % |
+| `services/eventApi.ts` (lignes ajoutées) | 100 % (du diff) | 100 % |
+| `hooks/useOccurrences.ts` | 96.3 % | 90 % |
+| `hooks/useEventForm.ts` | 94.5 % | 87.7 % |
+| `components/event/EventForm.tsx` | 89.1 % | 94.8 % |
+| `components/event/EventCard.tsx` | 100 % | 88.9 % |
+| `pages/event/EventDetailPage.tsx` | 95.8 % | 90.4 % |
+
+Tous au-dessus du seuil ≥ 80 % imposé par
+[`frontend/AGENTS.md`](../AGENTS.md). Suite complète : 1475/1475 verts,
+`npm run lint` clean.
+
+**Hors scope (cohérent avec les non-objectifs de la spec)** :
+
+- Pas de modification de `openapi/openapi.yaml` ni du `backend/` (vérifié
+  commit par commit).
+- Pas de nouvelle route `/events/:id/occurrences` — section inline (Décision G).
+- Pas de nouveau `.bones.json` (Décision I — la table « Skeletons existants »
+  de [`frontend/AGENTS.md`](../AGENTS.md) reste inchangée).
+- Pas de section récurrence en `mode === 'edit'` (Décision E — cohérent avec
+  le backend D17 qui ne propage pas un PUT du parent aux occurrences).
+- Pas de rendu humain de la `recurrenceRule` RFC 5545 sur la page parent — la
+  liste compacte des occurrences fait office de représentation de la cadence.
+- Pas de pagination exposée côté UI — le backend cape dur à 52 (Décision K).
+
+---
+
+## 2026-05-14 (suite 2) — SCRUM-169 livré (profile usernames)
+
+PR stacked sur `feature/scrum-137-146-doc-and-views` (#170 ouverte). Branche
+`feature/scrum-169-profile-username-url`, cible `main`. Fullstack.
+
+**Frontend** :
+- Types (`src/types/user.ts`) : `User.username` passe de `string?` à `string` (required).
+  Constantes exportées `RESERVED_USERNAMES`, `USERNAME_PATTERN`, min/max length.
+  `Attendance.username` + `CoOrganizer.username` ajoutés (nullable seulement sur
+  rows orphelines).
+- Services (`src/services/userService.ts`) :
+  - `getUserByUsername(u)` → `GET /api/users/by-username/{u}` (returns `null` sur 404).
+  - `updateUsername(u)` → `PATCH /api/users/me/username`.
+  - `checkUsernameAvailable(u)` → `HEAD /api/users/by-username/{u}` (inverse 200 → false,
+    404 → true).
+- Hook (`src/hooks/useDebounce.ts`) : nouveau hook minimaliste pour le debounce du form.
+- Routing (`src/router/AppRouter.tsx`) : `/profile/:id` → `/profile/:username`. `/profile/me`
+  alias résolu côté composant (`me` est dans la blocklist backend, pas de collision).
+- `ProfilePage` (`src/pages/profile/ProfilePage.tsx`) : `useParams<{username}>` + redirect
+  permanent UUID v4 → username via `<Navigate replace>` (cf. spec Décision I — robuste aux
+  liens en cache externes). Redressement de l'incohérence pré-existante `isOwnProfile`
+  (comparaît à `auth0Id` au lieu de `id`).
+- `ProfileEditPage` (`src/pages/profile/ProfileEditPage.tsx`) : nouveau champ "Nom
+  d'utilisateur" en tête du form, prefix `@`, validation client miroir backend, debounced
+  live-check 400 ms via `useDebounce` + `checkUsernameAvailable`. Statuts visuels inline
+  (icônes Lucide + couleurs sémantiques) : `idle`, `unchanged`, `invalid`, `reserved`,
+  `checking`, `available`, `taken`, `error`. `updateUsername` appelé séparément avant
+  `updateProfile` (granularité 409). `aria-live="polite"` sur le helper row.
+- Liens internes (4 sites) : `UserIdentity` (drop du `// TODO: SPRINT 5 : Username`),
+  `EventDetailPage` organizer, `EventOrganizerTeam` (nouvelle prop `creatorUsername`,
+  prop `username` sur OrganizerRow, fallback UUID pour rows orphelines),
+  `AttendeeCard` (`profile.username ?? profile.id`). `CommentItem` garde le UUID-prefix
+  fallback en attendant `Comment.authorUsername` (follow-up engagement-service).
+- `displayName.ts` : nouvelle signature `userDisplayLabel(displayName, username?, userId?)`.
+  Order : `displayName > @username > UUID-prefix > "Utilisateur"`. Drop du commentaire
+  "Follow-up post-PR-170".
+
+Tests : 1418/1418 ✅ localement (`npm run test`). Lint et TypeScript verts.
+
+Spec détaillée : [`../../specs_archives/specs_claude/specs_scrum-169.md`](../../specs_archives/specs_claude/specs_scrum-169.md).
+
+---
+
+## 2026-05-14 (suite) — Polish post-test-manuel PR #170
+
+Après ouverture de la PR #170 + tests manuels en local (devcontainer + Postgres dédiés), 4 ajustements UX/produit livrés sur la même branche :
+
+- **Cap commentaires 2000 → 500 chars** (axe 1, `fix(scrum-146)`). Trop laxiste pour des commentaires d'événement universitaire. OpenAPI + backend `@Size(max=500)` + frontend `MAX_LENGTH=500`. Pas de migration Flyway (`content` reste `TEXT`).
+- **Signalement de commentaire** (axe 2) : vérifié dans le backlog — **SCRUM-144 (`[BACK][S9]`) reste prévu pour Sprint 9**. Décision B de la spec (toast informatif "bientôt disponible") confirmée. Aucun code modifié.
+- **Fallback displayName** (axe 4, `fix(scrum-146)`). Quand `displayName` est `null` (Auth0 sans claim `name`), l'UI affichait "Utilisateur" partout — impossible de distinguer les comptes non-provisionnés. Nouveau util `@/utils/displayName.ts` (helpers `userDisplayLabel` + `userInitials`) avec fallback chain `trimmedDisplayName > UUID.slice(0,8) > "Utilisateur"`. Adopté par `CommentItem` et `EventOrganizerTeam`. **Follow-up** : remplacer le UUID prefix par un @username une fois le système username livré (post-PR #170).
+- **UI co-organisateurs** (axe 5, `fix(scrum-137)`) :
+  - Le placeholder historique `EventForm.tsx` "Alice Martin / Bob Chen" + champ "Inviter un collaborateur…" (bande 5) est supprimé.
+  - Le vrai `<CoOrganizersEditor>` est désormais injecté **dans** le flow du formulaire via une nouvelle prop `coOrganizersSection?: React.ReactNode` (avant la barre CTA Annuler/Enregistrer), au lieu d'être placé après `</EventForm>` dans `EventEditPage`. Ordre visuel cohérent.
+
+Tests : 1388/1388 ✅. Spec inchangée, décisions A→D toujours valides.
+
+---
+
+## 2026-05-14 — Post-merge PR #158 : reprise développement front
+
+Backend migration vers microservices mergée à `ad6d422f` (cf.
+[`backend/docs/sprint-context.md`](../../backend/docs/sprint-context.md)).
+**Aucun impact frontend** sur la PR #158 (invariant `git diff frontend/` = 0).
+
+Cette PR (`feature/scrum-137-146-doc-and-views`) reprend le développement fonctionnel :
+
+- **SCRUM-137** — UI co-organisateurs (frontend) :
+  - `CoOrganizersEditor` dans `EventForm` mode édition (champ UUID + invitation, liste
+    avec chips statut, bouton retirer).
+  - `EventOrganizerTeam` dans la sidebar de `EventDetailPage` (créateur + co-orgs ACCEPTED).
+  - `CoOrganizerInvitationsBadge` dans la `Navbar` + `CoOrganizerInvitationsList` dans
+    `ProfilePage` (self).
+  - Hook `useCoOrganizers` + `useCoOrganizerInvitations` (pas de TanStack Query, pattern
+    `useFavorite`/`useAttendance`).
+  - Service `coOrganizerApi.ts`, types `src/types/coOrganizer.ts`.
+  - 3 skeletons manuels : `co-organizers-section`, `event-organizer-team`,
+    `co-organizer-invitations`.
+  - **Décision A** : invitation par UUID, pas par search libre (`GET /users/search`
+    n'existe pas côté backend ; follow-up S9+).
+
+- **SCRUM-146** — Section commentaires dans `EventDetailPage` :
+  - `CommentSection` (wrapper liste + form), `CommentForm` (textarea + compteur 500 chars,
+    masqué pour anonymes), `CommentItem` (replies 1 niveau, badge "Organisateur",
+    actions Répondre/Supprimer/Signaler).
+  - Hook `useComments` (optimistic post + delete + rollback).
+  - Service `commentApi.ts`, types `src/types/comment.ts`.
+  - Skeleton manuel `comments`.
+  - **Décision B** : bouton "Signaler un commentaire" présent mais affiche un toast
+    informatif (SCRUM-144 S9+ pour la fonction réelle).
+
+- **Fix vue anonyme + dédup** :
+  - `services/sessionId.ts` : UUID v4 généré + persisté en `localStorage` clé
+    `unige_session_id`.
+  - `statsApi.recordEventView(eventId)` envoie `{ sessionId }` en body.
+  - `EventDetailPage` enregistre la vue **inconditionnellement** au montage (plus de
+    guard `if (user)`).
+  - Côté backend : migration `V11__add_event_views_session.sql`, `EventViewService` étendu,
+    `EventViewResource` passe en `@PermitAll`. Dédup par `(eventId, sessionId)` pour anon,
+    `(eventId, userId)` pour authentifié — partial unique indexes.
+
+- **Documentation** :
+  - `frontend/docs/architecture.md` : routes manquantes ajoutées (`/admin`,
+    `/events/:id/stats`, `/403`) ; table services complétée (`adminApi`, `attendanceApi`,
+    `attendeesApi`, `reportApi`, `statsApi`, `coOrganizerApi`, `commentApi`,
+    `sessionId.ts`).
+  - `frontend/docs/components.md` : déduplication des entrées `eventApi` ; ajout des
+    nouveaux composants SCRUM-137/146.
+  - `frontend/AGENTS.md` : ajout des 4 nouveaux skeletons.
+
+Spec détaillée : [`../../specs_archives/specs_claude/specs_scrum-137-146-views-docs.md`](../../specs_archives/specs_claude/specs_scrum-137-146-views-docs.md).
+
+---
 
 ## Sprint 7 — Modale de signalement d'événement (SCRUM-S6-report-modal) — 2026-05-03 (corrigé 2026-05-07)
 

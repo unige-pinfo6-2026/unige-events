@@ -43,13 +43,17 @@ function AnonymousBody() {
 // Anonymized rows (private profiles seen by non-organizers + orphan rows from
 // deleted users) arrive with displayName=null from the backend. We render the
 // anonymous body in both cases — there's no real identity to expose. Rows with
-// a known userId AND a displayName link to /profile/{userId}; admins/organizers
-// who legitimately see a private profile reach the linked page where the user
-// profile resource enforces its own visibility cascade.
+// a displayName link to /profile/{username|userId}: prefer the SCRUM-169
+// username slug when present, fall back to the UUID (ProfilePage's transient
+// redirect handles the UUID path — Décision I). If both are null (defensive —
+// the SCRUM-S7 privacy filter nulls them together but never strands a
+// displayName), we render the identity body inline without a link to avoid
+// producing /profile/null.
 export default function AttendeeCard({ attendance }: Readonly<AttendeeCardProps>) {
   const isWaitlisted = attendance.status === 'WAITLISTED'
   const hasIdentity = attendance.displayName !== null
-  const hasLinkableProfile = hasIdentity && attendance.userId !== null
+  const profileSlug = attendance.username ?? attendance.userId
+  const hasLinkableProfile = hasIdentity && profileSlug !== null
 
   if (!hasIdentity) {
     return (
@@ -61,9 +65,6 @@ export default function AttendeeCard({ attendance }: Readonly<AttendeeCardProps>
   }
 
   if (!hasLinkableProfile) {
-    // Edge case: displayName present but userId null — currently unreachable in
-    // the backend contract, but guard against it so we never produce
-    // `/profile/null`.
     return (
       <div className={cardClass}>
         <IdentityBody attendance={attendance} />
@@ -73,7 +74,7 @@ export default function AttendeeCard({ attendance }: Readonly<AttendeeCardProps>
   }
 
   return (
-    <Link to={`/profile/${attendance.userId}`} className={cardClass}>
+    <Link to={`/profile/${profileSlug}`} className={cardClass}>
       <IdentityBody attendance={attendance} />
       {isWaitlisted && <WaitlistBadge />}
     </Link>

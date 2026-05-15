@@ -22,16 +22,17 @@ public final class AttendanceDTOMapper {
         return new AttendanceDTO(
                 attendance.id, attendance.userId, attendance.eventId,
                 attendance.status, attendance.createdAt,
-                null, null);
+                null, null, null);
     }
 
-    /** With user enrichment (display name + avatar from UserServiceClient). */
+    /** With user enrichment (display name + avatar + username from UserServiceClient). */
     public static AttendanceDTO from(Attendance attendance, UserPublicResponse user) {
         return new AttendanceDTO(
                 attendance.id, attendance.userId, attendance.eventId,
                 attendance.status, attendance.createdAt,
                 user != null ? user.displayName() : null,
-                user != null ? user.avatarUrl() : null);
+                user != null ? user.avatarUrl() : null,
+                user != null ? user.username() : null);
     }
 
     /**

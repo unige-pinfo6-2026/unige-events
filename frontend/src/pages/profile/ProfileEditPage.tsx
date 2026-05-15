@@ -1,12 +1,29 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useState } from 'react'
+import { AxiosError } from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { deleteBanner, getMe, updateProfile, uploadBanner, uploadPhoto } from '@/services/userService'
+import {
+  checkUsernameAvailable,
+  deleteBanner,
+  getMe,
+  updateProfile,
+  updateUsername,
+  uploadBanner,
+  uploadPhoto,
+} from '@/services/userService'
 import { FACULTIES } from '@/types/faculty'
-import { STUDY_LEVELS, type User } from '@/types/user'
+import {
+  RESERVED_USERNAMES,
+  STUDY_LEVELS,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  USERNAME_PATTERN,
+  type User,
+} from '@/types/user'
+import { useDebounce } from '@/hooks/useDebounce'
 import FormField, { Input, Select, Textarea } from '@/components/utils/FormField'
 import { ButtonPrimary, ButtonSecondary } from '@/components/utils/Buttons'
-import { ImagePlus, Trash2, X } from 'lucide-react'
+import { Check, ImagePlus, Loader2, Trash2, X } from 'lucide-react'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
 import { useToast } from '@/hooks/useToast'
@@ -18,6 +35,21 @@ const MAX_PHOTO_SIZE = 2 * 1024 * 1024
 const MAX_BANNER_SIZE = 5 * 1024 * 1024
 const AVATAR_ASPECT = 1
 const PROFILE_BANNER_ASPECT = 3
+const USERNAME_DEBOUNCE_MS = 400
+
+/**
+ * Status of the username live-check (SCRUM-169) — used to render the
+ * inline icon + helper text under the input.
+ */
+type UsernameStatus =
+  | 'idle' // empty input or no edit yet
+  | 'unchanged' // matches the persisted value, no submit needed
+  | 'invalid' // local pattern KO
+  | 'reserved' // hits the blocklist
+  | 'checking' // debounce settled, HEAD in flight
+  | 'available' // HEAD returned 404 → libre
+  | 'taken' // HEAD returned 200 → pris
+  | 'error' // network error during check
 
 interface FormErrors {
   name?: string
@@ -33,6 +65,8 @@ export default function ProfileEditPage() {
   const navigate = useNavigate()
 
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
+  const [usernameInitial, setUsernameInitial] = useState('')
   const [faculty, setFaculty] = useState('')
   const [studyLevel, setStudyLevel] = useState('')
   const [bio, setBio] = useState('')
@@ -46,10 +80,13 @@ export default function ProfileEditPage() {
   const [bannerDeleted, setBannerDeleted] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle')
 
   useEffect(() => {
     if (user) {
       setName(user.displayName ?? '')
+      setUsername(user.username)
+      setUsernameInitial(user.username)
       setFaculty(user.faculty ?? '')
       setStudyLevel(user.studyLevel ?? '')
       setBio(user.bio ?? '')
@@ -59,6 +96,50 @@ export default function ProfileEditPage() {
       if (user.bannerUrl) setBannerPreview(user.bannerUrl)
     }
   }, [user])
+
+  // SCRUM-169 — debounced live-check of the username (cf. spec § 5 Étape 13).
+  const debouncedUsername = useDebounce(username, USERNAME_DEBOUNCE_MS)
+
+  useEffect(() => {
+    // Skip the network probe entirely when the local pre-checks already
+    // give a definitive answer.
+    if (username === usernameInitial) {
+      setUsernameStatus('unchanged')
+      return
+    }
+    if (!username) {
+      setUsernameStatus('idle')
+      return
+    }
+    if (RESERVED_USERNAMES.has(username)) {
+      setUsernameStatus('reserved')
+      return
+    }
+    if (!USERNAME_PATTERN.test(username)) {
+      setUsernameStatus('invalid')
+      return
+    }
+    // Wait until the debounce settles before hitting the network.
+    if (debouncedUsername !== username) {
+      setUsernameStatus('checking')
+      return
+    }
+
+    let cancelled = false
+    setUsernameStatus('checking')
+    checkUsernameAvailable(username)
+      .then((available) => {
+        if (cancelled) return
+        setUsernameStatus(available ? 'available' : 'taken')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setUsernameStatus('error')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [username, usernameInitial, debouncedUsername])
 
   function validatePhoto(file: File): string | null {
     if (!file.type.startsWith('image/')) return 'Le fichier doit être une image.'
@@ -137,8 +218,41 @@ export default function ProfileEditPage() {
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!validate()) return
+
+    // SCRUM-169 — block submit when username is locally invalid / reserved /
+    // confirmed taken. The 'checking' state is treated as soft-block (let the
+    // user retry after the probe settles).
+    if (
+      usernameStatus === 'invalid' ||
+      usernameStatus === 'reserved' ||
+      usernameStatus === 'taken'
+    ) {
+      showToast('error', 'Le nom d’utilisateur saisi est invalide. Corrigez-le avant d’enregistrer.')
+      return
+    }
+
     setSubmitting(true)
     try {
+      // SCRUM-169 — push the username FIRST, separately from the rest of the
+      // profile, so a 409 username_taken surfaces without rolling back the
+      // other fields. Skip the call entirely if unchanged.
+      if (username && username !== usernameInitial) {
+        try {
+          const updated = await updateUsername(username)
+          // Reflect the new value in the auth store + local initial so the
+          // status flips to 'unchanged' for any subsequent edit pass.
+          updateUser(updated)
+          setUsernameInitial(updated.username)
+        } catch (error) {
+          if (error instanceof AxiosError && error.response?.status === 409) {
+            setUsernameStatus('taken')
+            showToast('error', 'Ce nom d’utilisateur est déjà pris.')
+            return
+          }
+          throw error
+        }
+      }
+
       if (photoFile) await uploadPhoto(photoFile)
       if (bannerFile) await uploadBanner(bannerFile)
       else if (bannerDeleted) await deleteBanner()
@@ -215,6 +329,32 @@ export default function ProfileEditPage() {
           </div>
 
           <div className="border-t border-border" />
+
+          {/* SCRUM-169 — username with debounced live-check */}
+          <FormField label="Nom d'utilisateur" htmlFor="username" required>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30 text-sm pointer-events-none">@</span>
+              <Input
+                id="username"
+                type="text"
+                inputMode="text"
+                autoCapitalize="none"
+                autoComplete="off"
+                spellCheck={false}
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                placeholder="jean.dupont"
+                error={usernameStatusErrorText(usernameStatus)}
+                aria-describedby="username-helper"
+                className="pl-7"
+                maxLength={USERNAME_MAX_LENGTH}
+              />
+            </div>
+            <UsernameStatusRow
+              status={usernameStatus}
+              id="username-helper"
+            />
+          </FormField>
 
           <FormField label="Nom" htmlFor="name" required error={errors.name}>
             <Input
@@ -343,4 +483,89 @@ export default function ProfileEditPage() {
       )}
     </div>
   )
+}
+
+/**
+ * SCRUM-169 — inline helper text under the username field. Mirrors the
+ * status state from {@link UsernameStatus}.
+ */
+function UsernameStatusRow({ status, id }: Readonly<{ status: UsernameStatus; id: string }>) {
+  const variant = USERNAME_STATUS_VARIANTS[status]
+  const Icon = variant.icon
+  return (
+    <p
+      id={id}
+      className={[
+        'flex items-center gap-1.5 text-xs mt-1.5',
+        variant.className,
+      ].join(' ')}
+      aria-live="polite"
+    >
+      {Icon && (
+        <Icon
+          className={['w-3.5 h-3.5 shrink-0', variant.iconClassName ?? ''].join(' ')}
+          aria-hidden="true"
+        />
+      )}
+      <span>{variant.text}</span>
+    </p>
+  )
+}
+
+const USERNAME_HELPER = `${USERNAME_MIN_LENGTH} à ${USERNAME_MAX_LENGTH} caractères, lettres minuscules, chiffres, "." "_" "-".`
+
+const USERNAME_STATUS_VARIANTS: Record<UsernameStatus, {
+  text: string
+  icon: typeof Check | null
+  className: string
+  iconClassName?: string
+}> = {
+  idle: {
+    text: USERNAME_HELPER,
+    icon: null,
+    className: 'text-foreground/40',
+  },
+  unchanged: {
+    text: USERNAME_HELPER,
+    icon: null,
+    className: 'text-foreground/40',
+  },
+  invalid: {
+    text: 'Format invalide. ' + USERNAME_HELPER,
+    icon: X,
+    className: 'text-error font-medium',
+  },
+  reserved: {
+    text: 'Ce nom est réservé.',
+    icon: X,
+    className: 'text-error font-medium',
+  },
+  checking: {
+    text: 'Vérification…',
+    icon: Loader2,
+    className: 'text-foreground/40',
+    iconClassName: 'animate-spin',
+  },
+  available: {
+    text: 'Disponible.',
+    icon: Check,
+    className: 'text-emerald-500 font-medium',
+  },
+  taken: {
+    text: 'Déjà pris.',
+    icon: X,
+    className: 'text-error font-medium',
+  },
+  error: {
+    text: 'Vérification impossible. Réessayez.',
+    icon: X,
+    className: 'text-error font-medium',
+  },
+}
+
+/** Surface a string error to FormField only when the status is a real failure. */
+function usernameStatusErrorText(status: UsernameStatus): string | undefined {
+  return status === 'invalid' || status === 'reserved' || status === 'taken'
+    ? USERNAME_STATUS_VARIANTS[status].text
+    : undefined
 }

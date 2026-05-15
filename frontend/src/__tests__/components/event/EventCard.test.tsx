@@ -153,4 +153,25 @@ describe('EventCard', () => {
       expect(p.className).not.toContain('break-all')
     })
   })
+
+  describe('recurrence badge (SCRUM-151)', () => {
+    it('renders the Récurrent pill when parentEventId is set', () => {
+      renderCard({ ...mockEvent, parentEventId: 42 })
+      expect(screen.getByText('Récurrent')).toBeTruthy()
+    })
+
+    it('does not render the badge for a standalone event', () => {
+      renderCard(mockEvent)
+      expect(screen.queryByText('Récurrent')).toBeNull()
+    })
+
+    it('does not render the badge for the parent (recurrenceRule set, parentEventId null)', () => {
+      renderCard({
+        ...mockEvent,
+        parentEventId: null,
+        recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601',
+      })
+      expect(screen.queryByText('Récurrent')).toBeNull()
+    })
+  })
 })
