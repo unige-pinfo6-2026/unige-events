@@ -146,15 +146,28 @@ components:
       description: |
         Profil public d'un utilisateur.
 
-        **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
-        appelant sans JWT, seuls `id`, `username`, `displayName` et `avatarUrl` sont
-        renseignés ; `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont
-        systématiquement `null`. Les compteurs `followerCount` et `followingCount`
-        sont à `0` et `followStatus` est `null` pour les anonymes (cf. SCRUM-138).
+        **Projection restreinte** — payload `id` + `username` + `displayName` +
+        `avatarUrl` uniquement, autres champs `null` / `0` — appliquée dans deux cas :
 
-        **Note SCRUM-169.** Le champ `username` est exposé même aux appelants anonymes
-        — c'est l'identifiant public-facing du profil (utilisé dans `/profile/{username}`)
-        et donc nullifier serait casser l'usage premier du champ.
+        1. **Appelant anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : caller
+           sans JWT sur `GET /users/{id}` ou `GET /users/by-username/{username}`.
+        2. **Profil privé vu par non-owner non-admin** (SCRUM-169 Décision E revised,
+           de867a15) : caller authentifié mais ni propriétaire ni admin, sur une
+           cible avec `profilePublic = false`. Auparavant ce cas répondait `404`
+           (anti-oracle ISSUE-93) ; depuis de867a15 c'est `200` + projection
+           restreinte sur `GET /users/{id}` ET `GET /users/by-username/{username}`.
+
+        Dans les deux cas, `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl`
+        sont `null` ; `followerCount` et `followingCount` sont `0` ; `followStatus`
+        est `null`. Le `404` est désormais réservé à l'absence réelle (UUID ou
+        username inexistant en base). Le listing `GET /users/{id}/followers` reste
+        en `404` pour les profils privés non-owner — protection distincte
+        intentionnelle.
+
+        **Note SCRUM-169.** Le champ `username` est exposé même en projection
+        restreinte — c'est l'identifiant public-facing du profil (utilisé dans
+        `/profile/{username}`) et donc le nullifier casserait l'usage premier du
+        champ.
 
         **Compteurs et état de suivi** (SCRUM-138) : pour un appelant authentifié,
         `followerCount` et `followingCount` reflètent les rows `Follow` ACCEPTED
@@ -595,10 +608,12 @@ components:
         Inscription d'un utilisateur à un événement (statut `ATTENDING` ou `WAITLISTED`).
 
         Les champs `displayName` et `avatarUrl` projettent le profil du user lié, pour que
-        les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui renvoie 404
-        pour les profils `profilePublic = false`, hotfix pentest 4.1). Comme les routes qui
-        retournent un `Attendance` sont restreintes (la liste organisateur l'est au créateur
-        ou à un co-organisateur ACCEPTED, et les autres routes ne renvoient que des inscriptions
+        les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui, pour les
+        profils `profilePublic = false`, renvoie depuis de867a15 une projection restreinte
+        — `id`, `username`, `displayName`, `avatarUrl` uniquement — au lieu du 404 strict
+        d'avant, cf. SCRUM-169 Décision E revised). Comme les routes qui retournent un
+        `Attendance` sont restreintes (la liste organisateur l'est au créateur ou à un
+        co-organisateur ACCEPTED, et les autres routes ne renvoient que des inscriptions
         appartenant au caller), exposer le nom est sûr même pour les profils privés.
       properties:
         id:
@@ -1570,10 +1585,19 @@ paths:
       summary: Profil public d'un utilisateur par username (SCRUM-169)
       description: |
         Lookup d'un profil par son `username` public-facing. Identique à
-        `GET /users/{id}` du point de vue de l'autorisation (anti-oracle 404 sur
-        `profilePublic=false` non-owner non-admin, payload réduit pour les anonymes —
-        sauf `username` qui reste toujours présent) mais permet l'accès via
+        `GET /users/{id}` du point de vue de l'autorisation, mais permet l'accès via
         l'identifiant lisible utilisé dans l'URL `/profile/{username}`.
+
+        **Autorisation (SCRUM-169 Décision E revised, de867a15) :**
+        - Profil `profilePublic = true` : payload complet pour appelant authentifié,
+          payload réduit (`id`, `username`, `displayName`, `avatarUrl` uniquement)
+          pour appelant anonyme.
+        - Profil `profilePublic = false`, caller = owner ou admin : payload complet.
+        - Profil `profilePublic = false`, caller ≠ owner ≠ admin : **projection
+          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
+          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
+          public-facing sans leak du reste du profil.
+        - Username inexistant : `404 not_found`.
 
         Le lookup est **case-insensitive** : `/by-username/Jean.Dupont` matche
         `jean.dupont` en base (les usernames sont stockés strictement lowercase).
@@ -1595,18 +1619,28 @@ paths:
       responses:
         '200':
           description: |
-            Profil public. Payload complet pour les appelants authentifiés ; payload
-            réduit pour les anonymes (`id`, `username`, `displayName`, `avatarUrl`
-            uniquement, autres champs `null`).
+            Profil public de l'utilisateur. Payload complet pour les appelants
+            authentifiés non-restreints (owner, admin, ou cible avec
+            `profilePublic = true`) ; payload réduit (`id`, `username`,
+            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
+            appelants anonymes.
+
+            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
+            quand `profilePublic` de la cible est `false` et que l'appelant n'est
+            ni le user lui-même ni un admin, la réponse est une **projection
+            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
+            peuplés ; les autres champs sont `null` / `0`. Cela expose
+            l'identifiant public-facing sans leak du reste du profil.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
         '404':
           description: |
-            Username introuvable OU profil privé demandé par un appelant non-owner
-            non-admin. Envelope identique dans les deux cas (anti-oracle, cf.
-            `GET /users/{id}` finding 4.1).
+            Username introuvable (absence réelle en base). Depuis le hotfix
+            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
+            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            (cf. description du `200`).
           content:
             application/json:
               schema:
@@ -1654,14 +1688,21 @@ paths:
       description: |
         Retourne le profil public d'un utilisateur.
 
-        **Règle d'autorisation** (hotfix pentest 2026-04-17, findings 4.1 + 4.1b) :
+        **Règle d'autorisation** (hotfix pentest 2026-04-17 findings 4.1 + 4.1b,
+        révisé SCRUM-169 Décision E le 2026-05-15 / commit de867a15) :
         - Profil avec `profilePublic=true` : accessible en lecture. Un appelant **anonyme**
-          reçoit un payload **réduit** (seuls `id`, `displayName`, `avatarUrl` sont renseignés ;
-          les autres champs sont `null`). Un appelant **authentifié** reçoit le payload complet.
-        - Profil avec `profilePublic=false` : visible uniquement par son propriétaire
-          (`auth0Id` du JWT matche `user.auth0Id`). Tout autre appelant — anonyme, user
-          différent — reçoit `404 not_found`, envelope identique à celle d'un UUID inexistant
-          (ferme l'oracle d'existence exploité via `creatorId` leaké par `GET /events`).
+          reçoit un payload **réduit** (seuls `id`, `username`, `displayName`, `avatarUrl`
+          sont renseignés ; les autres champs sont `null`). Un appelant **authentifié**
+          reçoit le payload complet.
+        - Profil avec `profilePublic=false`, caller = owner ou admin : payload complet.
+        - Profil avec `profilePublic=false`, caller ≠ owner ≠ admin : **projection
+          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
+          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
+          public-facing utilisé par `/profile/{username}` sans leak du reste du profil.
+          Auparavant cet endpoint renvoyait `404 not_found` dans ce cas
+          (anti-oracle strict ISSUE-93) — comportement aligné sur
+          `GET /users/by-username/{username}` depuis de867a15.
+        - UUID inexistant : `404 not_found` (absence réelle, inchangé).
       operationId: getPublicProfile
       tags: [users]
       security:
@@ -1677,17 +1718,28 @@ paths:
       responses:
         '200':
           description: |
-            Profil public de l'utilisateur. Payload complet pour les appelants authentifiés ;
-            payload réduit (`id`, `displayName`, `avatarUrl` uniquement, autres champs `null`)
-            pour les appelants anonymes.
+            Profil public de l'utilisateur. Payload complet pour les appelants
+            authentifiés non-restreints (owner, admin, ou cible avec
+            `profilePublic = true`) ; payload réduit (`id`, `username`,
+            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
+            appelants anonymes.
+
+            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
+            quand `profilePublic` de la cible est `false` et que l'appelant n'est
+            ni le user lui-même ni un admin, la réponse est une **projection
+            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
+            peuplés ; les autres champs sont `null` / `0`. Cela expose
+            l'identifiant public-facing sans leak du reste du profil.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
         '404':
           description: |
-            Utilisateur introuvable, OU profil privé demandé par un appelant qui n'en est pas
-            le propriétaire. Le corps est identique dans les deux cas (pas d'oracle d'existence).
+            Utilisateur introuvable (UUID inexistant en base). Depuis le hotfix
+            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
+            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            (cf. description du `200`).
           content:
             application/json:
               schema:
