@@ -26,6 +26,7 @@ const publicRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Alice',
   avatarUrl: null,
+  username: 'alice',
 }
 
 // SCRUM-S7 — private-profile row is anonymized server-side for non-organizers
@@ -38,6 +39,7 @@ const anonymizedRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: null,
   avatarUrl: null,
+  username: 'bob',
 }
 
 describe('useAttendees', () => {

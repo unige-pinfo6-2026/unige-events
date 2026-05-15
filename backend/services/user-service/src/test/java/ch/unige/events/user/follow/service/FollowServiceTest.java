@@ -318,6 +318,13 @@ class FollowServiceTest {
         User user = new User();
         user.auth0Id = auth0Id;
         user.email = email;
+        // SCRUM-169 — derive a unique username so NOT NULL + UNIQUE pass.
+        user.username = ch.unige.events.user.service.UsernameGenerator.resolveAvailable(
+                ch.unige.events.user.service.UsernameGenerator.slugify(null,
+                        email.contains("@") ? email.substring(0, email.indexOf('@')) : email,
+                        null),
+                candidate -> ch.unige.events.user.entity.User.findByUsername(candidate).isPresent()
+        );
         user.profilePublic = profilePublic;
         user.createdAt = LocalDateTime.now();
         entityManager.persist(user);

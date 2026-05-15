@@ -58,8 +58,8 @@ const AppRouter = () => {
             <Route element={<PrivateRoute/>}>
               <Route path="/profile">
                 <Route index element={<Navigate to="/profile/me" replace />} />
-                <Route path=":id" element={<ProfilePage />} />
                 <Route path="me/edit" element={<ProfileEditPage />} />
+                <Route path=":username" element={<ProfilePage />} />
               </Route>
 
               <Route path="/events">

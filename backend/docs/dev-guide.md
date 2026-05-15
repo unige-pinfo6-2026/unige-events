@@ -9,30 +9,37 @@
 
 ---
 
-## Layout Maven (multi-module — post-finalization)
+## Layout Maven (multi-module — post-refactor `fab270e0`)
 
-Depuis Sprint 8 (Kong/Kafka extraction + complétion + finalisation),
+Depuis Sprint 8 (Kong/Kafka extraction + complétion + finalisation) puis le
+refactor `fab270e0` (regroupement des shared libs sous `backend/shared/`),
 `backend/` est un projet **multi-module** avec parent POM agrégateur à
-la racine et **15 modules enfants** sous `backend/services/`
-(post-consolidation 14→5, Décision A de la spec finalization) :
-- **4 microservices métiers Quarkus actifs** : `event-service`,
-  `user-service`, `engagement-service`, `moderation-service`.
-- **1 placeholder** `notification-service` (replicas:0, scaffold SCRUM-99).
-- **10 shared libs** (2 Sprint-8 — `shared-rate-limit`, `shared-storage` —
-  + 8 complétion : `shared-api-error`, `shared-domain-enums`,
-  `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`,
-  `shared-tracing`, `shared-kafka-events`, `shared-platform`).
+la racine. Le parent déclare 2 sous-aggregators : `<module>shared</module>` +
+`<module>services</module>`. Total : **15 modules leaf** dans le reactor.
 
+- **5 microservices métiers Quarkus actifs** sous `backend/services/` :
+  `event-service`, `user-service`, `engagement-service`,
+  `moderation-service`, `notification-service` (tous `replicas: 1`).
+- **10 shared libs** sous `backend/shared/<lib>/` :
+  `rate-limit` (`@PerUserRateLimit` + interceptor + state cache),
+  `storage` (`FileStorageService` S3),
+  `api-error`, `domain-enums`, `domain-dtos`, `domain-projections`,
+  `jaxrs`, `tracing`, `kafka-events`, `platform`.
+  Les artefacts Maven gardent leur `artifactId` historique `shared-<lib>`
+  pour compatibilité GAV (cf. `aee13d4e`).
+
+Les modules `contract-tests` et `e2e` ont été retirés du reactor lors du refactor
+(pas de `src/main/java` Quarkus, intégration JBoss LogManager incompatible).
 Le legacy-monolith a été supprimé à step 15 (commit `b570c1b`). Voir
 [`backend/AGENTS.md`](../AGENTS.md) section « Layout Maven » et
 [`architecture.md`](architecture.md) pour la table des endpoints owned
-par service. Le détail de la consolidation 14→5 est dans
-[`consolidation-plan.md`](consolidation-plan.md).
+par service.
 
 **Conséquences pratiques pour le dev local** :
 - `cd backend && ./mvnw verify` build TOUS les modules (~3-4 min sur 15 modules).
 - `cd backend && ./mvnw -pl services/<svc>-service -am verify` build un
   seul service avec ses dépendances shared lib transitivement.
+- `cd backend && ./mvnw -pl shared/<lib>     -am verify` build une shared lib seule.
 - `quarkus:dev` ne tourne PAS depuis le parent — il s'exécute par
   service. Exemple :
   `cd backend/services/event-service && ../../mvnw quarkus:dev`.
@@ -58,18 +65,17 @@ L'API du service est accessible sur `http://localhost:8080/api`.
 Swagger UI : `http://localhost:8080/api/swagger-ui`
 OpenAPI JSON : `http://localhost:8080/api/openapi`
 
-Pour reproduire la topologie complète (Kong + 4 services métiers actifs
-+ notification placeholder + db + minio + kafka), passer par le chart
-Helm via Minikube ou un cluster preview ; il n'y a pas de
-`docker-compose.dev.yml` qui orchestre les pods en local — le coût
-démarrage est élevé et le dev se fait service par service avec
-DevServices. Post-consolidation 14→5, le runtime preview tourne
-typiquement avec ~10 pods (4 services × 1 replica + Kong ×1 + db + kafka
-+ minio + web + cloudflared) au lieu de ~20 avant.
+Pour reproduire la topologie complète (Kong + 5 services métiers actifs
++ 5 Postgres dédiés + minio + kafka), passer par le chart Helm via Minikube
+ou un cluster preview ; il n'y a pas de `docker-compose.dev.yml` qui orchestre
+les pods en local — le coût démarrage est élevé et le dev se fait service par
+service avec DevServices. Le runtime preview tourne typiquement avec ~14 pods
+(5 services × 1 replica + 5 postgres + Kong ×1 + kafka + minio + web +
+cloudflared).
 
-**DevServices :** Quarkus lance automatiquement un PostgreSQL éphémère via Testcontainers en mode dev. Aucune DB externe n'est requise si `quarkus.datasource.jdbc.url` n'est pas défini pour le profil dev.
+**DevServices :** Quarkus lance automatiquement un PostgreSQL éphémère via Testcontainers en mode dev — un par service. Aucune DB externe n'est requise si `quarkus.datasource.jdbc.url` n'est pas défini pour le profil dev.
 
-**Hibernate validate + Flyway :** En dev/prod, Hibernate est en mode `validate` — Flyway pilote le schéma via les migrations historiques `V1..V17` (toutes appliquées dans la base partagée `unige_events.public`). En `%test`, Hibernate passe en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les V1..V17 s'y appliquent via `baseline-on-migrate=true`. Les changements de schéma se font via un nouveau fichier Flyway (`V<N+1>__...sql`) — jamais en modifiant un fichier déjà committé. Cf. [`AGENTS.md`](../AGENTS.md) § Schéma de base de données.
+**Hibernate validate + Flyway :** En dev/prod, Hibernate est en mode `validate`. Chaque service possède ses propres migrations Flyway sous `services/<svc>-service/src/main/resources/db/migration/V*.sql`, appliquées sur **sa Postgres dédiée** (`postgres-<svc>`) — plus de schéma `public` partagé (DB-per-service livré post-PR #158 par commit `f4b5968e`). La numérotation V est **locale** à chaque service. En `%test`, Hibernate passe en `drop-and-create` ; les V locales s'appliquent au démarrage. Les changements de schéma se font via un nouveau fichier Flyway (`V<N+1>__...sql`) — jamais en modifiant un fichier déjà committé.
 
 ---
 

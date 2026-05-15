@@ -1,0 +1,24 @@
+{
+  "breakpoints": {
+    "320": {
+      "name": "co-organizers-section",
+      "viewportWidth": 320,
+      "width": 320,
+      "height": 120,
+      "bones": [
+        [0, 0, 100, 56, 16],
+        [0, 64, 100, 56, 16]
+      ]
+    },
+    "640": {
+      "name": "co-organizers-section",
+      "viewportWidth": 640,
+      "width": 640,
+      "height": 120,
+      "bones": [
+        [0, 0, 100, 56, 16],
+        [0, 64, 100, 56, 16]
+      ]
+    }
+  }
+}

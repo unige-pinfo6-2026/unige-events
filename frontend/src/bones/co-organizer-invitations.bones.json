@@ -1,0 +1,24 @@
+{
+  "breakpoints": {
+    "320": {
+      "name": "co-organizer-invitations",
+      "viewportWidth": 320,
+      "width": 320,
+      "height": 200,
+      "bones": [
+        [0, 0, 100, 96, 16],
+        [0, 104, 100, 96, 16]
+      ]
+    },
+    "640": {
+      "name": "co-organizer-invitations",
+      "viewportWidth": 640,
+      "width": 640,
+      "height": 200,
+      "bones": [
+        [0, 0, 100, 96, 16],
+        [0, 104, 100, 96, 16]
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
 import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
@@ -46,9 +47,13 @@ public interface UserServiceClient {
 
     @GET
     @Path("/{id}")
-    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    // Legitimate 404s (user hard-deleted / unknown UUID) must not count
+    // against the circuit-breaker volume nor trigger a Retry — otherwise
+    // a handful of 404s in a row trip the CB and every subsequent call
+    // silently degrades to the @Fallback null payload.
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
     @Timeout(value = 2, unit = ChronoUnit.SECONDS)
-    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
     @Fallback(fallbackMethod = "getByIdFallback")
     UserPublicResponse getById(@PathParam("id") UUID id);
 

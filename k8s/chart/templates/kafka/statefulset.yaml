@@ -66,6 +66,10 @@ spec:
               value: "1"
             - name: KAFKA_MIN_INSYNC_REPLICAS
               value: "1"
+            {{- if .Values.kafka.heapOpts }}
+            - name: KAFKA_HEAP_OPTS
+              value: {{ .Values.kafka.heapOpts | quote }}
+            {{- end }}
             - name: CLUSTER_ID
               valueFrom:
                 configMapKeyRef:

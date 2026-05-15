@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public record UserPublicResponse(
     UUID id,
+    String username,
     String displayName,
     Faculty faculty,
     String studyLevel,
@@ -16,6 +17,7 @@ public record UserPublicResponse(
     List<String> interests,
     String avatarUrl,
     String bannerUrl,
+    boolean profilePublic,
     long followerCount,
     long followingCount,
     FollowStatus followStatus
@@ -24,6 +26,7 @@ public record UserPublicResponse(
     public static UserPublicResponse from(User user) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 user.faculty,
                 user.studyLevel,
@@ -31,6 +34,7 @@ public record UserPublicResponse(
                 user.interests,
                 user.avatarUrl,
                 user.bannerUrl,
+                user.profilePublic,
                 0L,
                 0L,
                 null
@@ -44,6 +48,7 @@ public record UserPublicResponse(
             FollowStatus followStatus) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 user.faculty,
                 user.studyLevel,
@@ -51,15 +56,30 @@ public record UserPublicResponse(
                 user.interests,
                 user.avatarUrl,
                 user.bannerUrl,
+                user.profilePublic,
                 followerCount,
                 followingCount,
                 followStatus
         );
     }
 
+    /**
+     * Anonymous projection — keeps id, username, displayName, avatarUrl,
+     * nullifies the rest (cf. SCRUM-169 Décision E : {@code username} is
+     * exposed even to anonymous callers since it is the public-facing
+     * identifier of the profile).
+     *
+     * <p>{@code profilePublic} mirrors the user's actual visibility setting,
+     * independent of whether the projection is stripped : the stripping is a
+     * read-permission concern, the flag tells the caller whether the target
+     * profile is itself public. The frontend uses the flag to gate the
+     * "private profile" placeholder — anonymous viewers of a public profile
+     * see the stripped payload but the flag stays {@code true}.
+     */
     public static UserPublicResponse fromAnonymous(User user) {
         return new UserPublicResponse(
                 user.id,
+                user.username,
                 user.displayName,
                 null,
                 null,
@@ -67,6 +87,7 @@ public record UserPublicResponse(
                 null,
                 user.avatarUrl,
                 null,
+                user.profilePublic,
                 0L,
                 0L,
                 null

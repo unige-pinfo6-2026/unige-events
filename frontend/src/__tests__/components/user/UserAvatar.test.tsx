@@ -10,6 +10,7 @@ const baseUser: User = {
   id: '1',
   auth0Id: 'auth0|1',
   email: 'user@example.com',
+  username: 'alice.martin',
   displayName: 'Alice Martin',
   profilePublic: true,
   createdAt: '2024-01-01',

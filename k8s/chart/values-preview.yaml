@@ -2,8 +2,9 @@ cloudflared:
   enabled: true
   mode: quick
 
-db:
-  storageSize: 256Mi
+postgres:
+  storageSize: 512Mi
+  shared: true
   resources:
     requests:
       cpu: "50m"
@@ -11,6 +12,56 @@ db:
       ephemeral-storage: "128Mi"
     limits:
       memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+engagementService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "192Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "384Mi"
+      ephemeral-storage: "256Mi"
+
+eventService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "192Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "384Mi"
+      ephemeral-storage: "256Mi"
+
+moderationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "192Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "384Mi"
+      ephemeral-storage: "256Mi"
+
+notificationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "192Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "384Mi"
+      ephemeral-storage: "256Mi"
+
+userService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "192Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "384Mi"
       ephemeral-storage: "256Mi"
 
 minio:
@@ -47,11 +98,12 @@ kong:
 
 kafka:
   storageSize: 1Gi
+  heapOpts: "-Xmx256m -Xms256m"
   resources:
     requests:
       cpu: "100m"
-      memory: "512Mi"
+      memory: "384Mi"
       ephemeral-storage: "256Mi"
     limits:
-      memory: "768Mi"
-      ephemeral-storage: "768Mi"
+      memory: "512Mi"
+      ephemeral-storage: "512Mi"

@@ -20,6 +20,7 @@ const publicRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Alice',
   avatarUrl: null,
+  username: 'alice',
 }
 
 const waitlistedRow: Attendance = {
@@ -30,6 +31,7 @@ const waitlistedRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: 'Bob',
   avatarUrl: null,
+  username: 'bob',
 }
 
 const anonymizedRow: Attendance = {
@@ -40,6 +42,7 @@ const anonymizedRow: Attendance = {
   createdAt: '2026-04-08T10:00:00.000Z',
   displayName: null,
   avatarUrl: null,
+  username: null,
 }
 
 function makeHook(overrides: Partial<UseAttendeesResult> = {}): UseAttendeesResult {

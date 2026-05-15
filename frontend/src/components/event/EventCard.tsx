@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Calendar, MapPin, Users } from 'lucide-react'
+import { Calendar, MapPin, RefreshCw, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
@@ -41,6 +41,16 @@ export default function EventCard({
           <div className="absolute top-4 right-4 z-10">
             <FavoriteButton eventId={event.id} initialFavorited={favorited} onRemove={onFavoriteRemove} />
           </div>
+
+          {event.parentEventId != null && (
+            <span
+              className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-sm border border-border/40 text-foreground/80 px-2.5 py-1 rounded-full text-xs font-medium"
+              aria-label="Occurrence d'un événement récurrent"
+            >
+              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+              Récurrent
+            </span>
+          )}
 
           {/* Title overlaid on banner */}
           <div className="absolute bottom-0 left-0 right-0 p-5">

@@ -16,7 +16,7 @@ vi.mock('@/contexts/ThemeContext', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
-  getPublicProfile: vi.fn(),
+  getUserByUsername: vi.fn(),
   getCalendarToken: vi.fn().mockResolvedValue({
     calendarToken: 'test-token',
     webcalUrl: 'webcal://example.com/cal.ics',
@@ -43,24 +43,32 @@ vi.mock('@/hooks/useMyEvents', () => ({
   })),
 }))
 
+// CoOrganizerInvitationsList ships from main and makes its own API calls;
+// stub it out so it doesn't pollute the /me path with unrelated fetches.
+vi.mock('@/components/user/CoOrganizerInvitationsList', () => ({
+  default: () => null,
+}))
+
 import { useAuth } from '@/hooks/useAuth'
-import { getCalendarToken, getPublicProfile } from '@/services/userService'
+import { getCalendarToken, getUserById, getUserByUsername } from '@/services/userService'
 import { getAll as getAllEvents } from '@/services/eventApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
-const mockGetPublicProfile = getPublicProfile as ReturnType<typeof vi.fn>
+const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
+const OWN_UUID = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
 const OTHER_UUID = 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c'
-const OWN_UUID   = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
 
 const mockUser = {
   id: OWN_UUID,
   auth0Id: 'auth0|123',
   email: 'test@example.com',
+  username: 'test.user',
   displayName: 'Test User',
   profilePublic: true,
   createdAt: '2024-01-01',
@@ -68,6 +76,7 @@ const mockUser = {
 
 const otherProfile = {
   id: OTHER_UUID,
+  username: 'other.user',
   displayName: 'Other User',
   faculty: 'SCIENCES',
   studyLevel: 'MASTER',
@@ -94,11 +103,12 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function renderProfilePage(id: string) {
+function renderProfilePage(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/profile/${id}`]}>
+    <MemoryRouter initialEntries={[`/profile/${slug}`]}>
       <Routes>
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/profile/:username" element={<ProfilePage />} />
+        <Route path="*" element={<div data-testid="post-redirect-route">redirected</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -116,15 +126,24 @@ function findContentGrid(container: HTMLElement): HTMLElement | null {
 }
 
 describe('ProfilePage — /profile/me (owner)', () => {
-  it('renders own profile when id is "me"', async () => {
+  it('renders the owner profile when slug is "me" — no API call', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
 
     renderProfilePage('me')
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
     expect(screen.getByText('Modifier')).toBeTruthy()
-    // No public-profile fetch fires for /me — we read from useAuth instead.
-    expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+    expect(mockGetUserById).not.toHaveBeenCalled()
+  })
+
+  it('treats slug = current user username as owner route', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
+    renderProfilePage('test.user')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByText('Modifier')).toBeTruthy()
   })
 
   it('shows error when own profile user is null and auth is loaded', async () => {
@@ -220,29 +239,27 @@ describe('ProfilePage — /profile/me (owner)', () => {
     renderProfilePage('me')
     await screen.findByRole('heading', { level: 1, name: 'Test User' })
 
-    // Stats wrapper is not labelled when absent — its aria-label is unique
-    // to the ProfileStats component, so its absence is the assertion.
     expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
   })
 })
 
-describe('ProfilePage — /profile/:uuid (other user)', () => {
+describe('ProfilePage — /profile/:username (other user)', () => {
   it('fetches and renders another user public profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
-    expect(mockGetPublicProfile).toHaveBeenCalledWith(OTHER_UUID)
+    expect(mockGetUserByUsername).toHaveBeenCalledWith('other.user')
     expect(screen.getByText('Bio publique')).toBeTruthy()
   })
 
   it('renders follower/following counters from the public projection', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     await screen.findByRole('heading', { level: 1, name: 'Other User' })
     expect(screen.getByText('12')).toBeTruthy()
@@ -251,9 +268,9 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
 
   it('does NOT render Mes publications preview on another user profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     await screen.findByRole('heading', { level: 1, name: 'Other User' })
     expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
@@ -261,9 +278,9 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
 
   it('does NOT render the Modifier button on another user profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     await screen.findByRole('heading', { level: 1, name: 'Other User' })
     expect(screen.queryByText('Modifier')).toBeNull()
@@ -271,9 +288,9 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
 
   it('renders the "Événements organisés" section', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     expect(await screen.findByRole('heading', { name: 'Événements organisés' })).toBeTruthy()
     await waitFor(() => expect(mockGetAllEvents).toHaveBeenCalledWith(
@@ -283,95 +300,74 @@ describe('ProfilePage — /profile/:uuid (other user)', () => {
 
   it('renders the "Participations publiques" placeholder section', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(otherProfile)
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     expect(await screen.findByRole('heading', { name: 'Participations publiques' })).toBeTruthy()
     expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
   })
 
-  it('renders the private-state card when getPublicProfile returns null (private OR missing)', async () => {
+  it('renders the private-state card when getUserByUsername returns null (private OR missing)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue(null)
+    mockGetUserByUsername.mockResolvedValue(null)
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('ghost.handle')
 
     expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
   })
 
-  it('renders an error message when getPublicProfile rejects', async () => {
+  it('renders an error message when getUserByUsername rejects', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockRejectedValue(new Error('Network error'))
+    mockGetUserByUsername.mockRejectedValue(new Error('Network error'))
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
   })
 
   it('shows the profile skeleton while loading', () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockImplementation(() => new Promise(() => {}))
+    mockGetUserByUsername.mockImplementation(() => new Promise(() => {}))
 
-    renderProfilePage(OTHER_UUID)
+    renderProfilePage('other.user')
 
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
-
-  it('renders own UUID as a regular public profile (no Modifier, no /me widgets)', async () => {
-    // SCRUM-141 spec: "Own profile (:id === current user UUID): render normally
-    // (no redirect, no special UI)" — visiting /profile/<own-uuid> behaves like
-    // any other public profile.
-    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetPublicProfile.mockResolvedValue({ ...otherProfile, id: OWN_UUID, displayName: 'Test User' })
-
-    renderProfilePage(OWN_UUID)
-
-    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
-    expect(screen.queryByText('Modifier')).toBeNull()
-    expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
-  })
 })
 
-describe('ProfilePage — malformed id / not-found', () => {
-  it('renders "Profil introuvable." when id is not a UUID and not "me"', () => {
+describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
+  it('redirects legacy /profile/<uuid> to /profile/<username>', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    const legacyUser = {
+      id: OTHER_UUID,
+      auth0Id: 'auth0|legacy',
+      email: 'legacy@example.com',
+      username: 'jean.dupont',
+      displayName: 'Jean Dupont',
+      profilePublic: true,
+      createdAt: '2024-01-01',
+    }
+    mockGetUserById.mockResolvedValue(legacyUser)
+    mockGetUserByUsername.mockResolvedValue({ ...otherProfile, displayName: 'Jean Dupont', username: 'jean.dupont' })
 
-    renderProfilePage('auth0|legacy-id')
+    renderProfilePage(OTHER_UUID)
 
-    expect(screen.getByText('Profil introuvable.')).toBeTruthy()
-    expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    // The page first hits getUserById with the UUID, gets back the user's
+    // username, navigates to /profile/<username>, then re-renders and fetches
+    // via getUserByUsername.
+    await waitFor(() => expect(mockGetUserById).toHaveBeenCalledWith(OTHER_UUID))
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledWith('jean.dupont'))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jean Dupont' })).toBeTruthy()
   })
 
-  it('renders "Profil introuvable." when id is a random string', () => {
+  it('renders private-state when legacy UUID lookup returns null', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-
-    renderProfilePage('not-a-uuid')
-
-    expect(screen.getByText('Profil introuvable.')).toBeTruthy()
-  })
-})
-
-describe('ProfilePage — private profile PENDING badge', () => {
-  it('shows "Demande de suivi envoyée" badge when the private state carries followStatus=PENDING', async () => {
-    // The current backend returns 404 for private profiles so the FE never
-    // gets followStatus on that path. This test exercises the wiring in case
-    // the contract evolves; it directly verifies ProfilePrivateState receives
-    // the followStatus when present on the (non-null) profile.
-    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    // Backend returns a body indicating PENDING (forward-looking; currently
-    // hypothetical). The page must still render the private state for any
-    // non-null public projection — but in this branch the page renders the
-    // full public view since profile is non-null. We assert instead via the
-    // unit test of ProfilePrivateState (kept here as an integration sanity).
-    mockGetPublicProfile.mockResolvedValue(null)
+    mockGetUserById.mockResolvedValue(null)
 
     renderProfilePage(OTHER_UUID)
 
     expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
-    // No badge today since 404 doesn't carry followStatus — verified by the
-    // dedicated ProfilePrivateState test.
-    expect(screen.queryByText('Demande de suivi envoyée')).toBeNull()
   })
 })
 

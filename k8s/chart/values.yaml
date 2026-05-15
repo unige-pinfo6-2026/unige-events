@@ -14,9 +14,10 @@ image:
 ingress:
   host: pinfo6.p-info.net
 
-db:
+postgres:
   image: postgres:16
   storageSize: 1Gi
+  shared: false
   resources:
     requests:
       cpu: "100m"
@@ -63,11 +64,62 @@ kong:
 kafka:
   image: apache/kafka:3.7.0
   storageSize: 5Gi
+  heapOpts: "-Xmx384m -Xms384m"
   resources:
     requests:
       cpu: "100m"
       memory: "512Mi"
       ephemeral-storage: "256Mi"
     limits:
-      memory: "1Gi"
+      memory: "640Mi"
       ephemeral-storage: "1Gi"
+
+engagementService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "512Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"
+
+eventService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "256Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"
+
+moderationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "512Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"
+
+notificationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "512Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"
+
+userService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "512Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"

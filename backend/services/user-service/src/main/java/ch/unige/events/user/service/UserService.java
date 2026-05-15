@@ -25,6 +25,7 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -59,6 +60,17 @@ public class UserService {
             newUser.firstName = jwt.getClaim("given_name");
             newUser.lastName = jwt.getClaim("family_name");
             newUser.avatarUrl = jwt.getClaim("picture");
+            // SCRUM-169 — auto-generate a public-facing username from the
+            // JWT identity claims at signup. The slug logic mirrors the V3
+            // migration back-fill so legacy and new accounts share the same
+            // shape. Collision resolution probes the DB in the same
+            // transaction.
+            newUser.username = UsernameGenerator.generate(
+                    newUser.displayName,
+                    newUser.firstName,
+                    newUser.lastName,
+                    candidate -> User.findByUsername(candidate).isPresent()
+            );
             newUser.persist();
 
             flushEntityManager();
@@ -80,32 +92,7 @@ public class UserService {
     @Transactional
     public PublicProfileView getPublicProfile(UUID id, String auth0Id, boolean isAdmin) {
         User user = User.<User>findByIdOptional(id).orElseThrow(NotFoundException::new);
-
-        boolean isOwner = auth0Id != null && auth0Id.equals(user.auth0Id);
-        // Admin bypass (REST-003 / ISSUE-93): admins read private
-        // profiles for moderation/support. Anti-oracle ISSUE-93 stays for
-        // anonymous + non-admin non-self callers.
-        if (!user.profilePublic && !isOwner && !isAdmin) {
-            throw new NotFoundException();
-        }
-
-        if (auth0Id == null) {
-            return PublicProfileView.anonymous(user);
-        }
-
-        long followerCount = Follow.countFollowersOf(user.id);
-        long followingCount = Follow.countFollowingOf(user.id);
-
-        FollowStatus followStatus = null;
-        if (!isOwner) {
-            UUID callerId = User.findByAuth0Id(auth0Id).map(u -> u.id).orElse(null);
-            if (callerId != null && !callerId.equals(user.id)) {
-                followStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
-                        .map((Follow f) -> f.status)
-                        .orElse(null);
-            }
-        }
-        return new PublicProfileView(user, followerCount, followingCount, followStatus);
+        return enrichPublicProfile(user, auth0Id, isAdmin);
     }
 
     @Transactional
@@ -194,15 +181,157 @@ public class UserService {
         return user;
     }
 
+    /**
+     * SCRUM-169 — change the caller's username. Normalises the input, applies
+     * pattern + blocklist validation, then attempts the persist. The race
+     * between the debounced {@code HEAD /by-username/{u}} check and this
+     * update is handled here : a pre-check probes for an existing row with
+     * the same username (different user), and the unique constraint
+     * {@code uq_users_username} acts as a last line of defence — a
+     * {@link PersistenceException} containing the constraint name is
+     * translated into the canonical {@code 409 username_taken} envelope.
+     */
+    @Transactional
+    public User updateUsername(String auth0Id, String requestedUsername) {
+        if (requestedUsername == null) {
+            throw usernameInvalid();
+        }
+        String normalised = requestedUsername.trim().toLowerCase();
+
+        if (!UsernameGenerator.isValid(normalised)) {
+            throw usernameInvalid();
+        }
+        if (UsernameGenerator.isReserved(normalised)) {
+            throw usernameReserved();
+        }
+
+        User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
+
+        // No-op if unchanged (avoids touching @Version + the unique-check round-trip).
+        if (normalised.equals(user.username)) {
+            return user;
+        }
+
+        // Pre-check : explicit conflict surface before letting Hibernate
+        // raise a generic PersistenceException.
+        User existing = User.findByUsername(normalised).orElse(null);
+        if (existing != null && !existing.id.equals(user.id)) {
+            throw usernameTaken();
+        }
+
+        user.username = normalised;
+        try {
+            flushEntityManager();
+        } catch (PersistenceException exception) {
+            if (isUniqueUsernameConflict(exception)) {
+                throw usernameTaken();
+            }
+            throw exception;
+        }
+        return user;
+    }
+
+    /**
+     * SCRUM-169 — public profile lookup by username (case-insensitive).
+     * Mirrors the authorization rules of {@link #getPublicProfile(UUID,
+     * String, boolean)} : anti-oracle 404 on private profiles requested by
+     * non-owner non-admin callers, admin bypass, follow-status enrichment.
+     */
+    @Transactional
+    public PublicProfileView getByUsername(String username, String callerAuth0Id, boolean isAdmin) {
+        if (username == null) {
+            throw new NotFoundException();
+        }
+        String normalised = username.trim().toLowerCase();
+        User user = User.findByUsername(normalised).orElseThrow(NotFoundException::new);
+        return enrichPublicProfile(user, callerAuth0Id, isAdmin);
+    }
+
+    /**
+     * SCRUM-137 polish — autocomplete-friendly prefix scan on {@code username}.
+     * Returns at most {@code limit} matching users sorted alphabetically,
+     * optionally excluding the caller so the invitation field never proposes
+     * inviting yourself. Returns an empty list if {@code limit <= 0}.
+     *
+     * <p>Validation of the prefix (length, charset) is the caller's
+     * responsibility — this method assumes a sanitised, lowercase string. The
+     * service layer keeps it minimal: the resource is the validation choke
+     * point ({@code @Pattern} / {@code @Size}) and the entity finder owns the
+     * LIKE escape so the raw HQL never sees an unescaped wildcard.
+     */
+    public List<User> searchByUsernamePrefix(String prefix, int limit, String excludeAuth0Id) {
+        return User.searchByUsernamePrefix(prefix, limit, excludeAuth0Id);
+    }
+
+    /**
+     * SCRUM-169 — light existence check backing
+     * {@code HEAD /users/by-username/{username}}. Case-insensitive. Does not
+     * apply anti-oracle semantics (existence is the contract, and the field
+     * is public-facing).
+     */
+    public boolean existsByUsername(String username) {
+        if (username == null) {
+            return false;
+        }
+        return User.findByUsername(username.trim().toLowerCase()).isPresent();
+    }
+
+    /**
+     * Factored projection used by both {@link #getPublicProfile} and
+     * {@link #getByUsername}.
+     *
+     * <p>SCRUM-169 revision — the original strict anti-oracle (404 when
+     * {@code !profilePublic && !isOwner && !isAdmin}) broke cross-service
+     * enrichment (engagement-service comments dropped the
+     * {@code authorUsername} and the frontend fell back to the raw UUID).
+     * The branch now returns a {@code restricted} projection that the
+     * resource layer serialises as the anonymous payload — exposing only
+     * the public-facing identifier (id, username, displayName, avatarUrl)
+     * and stripping every other field. Owner self-view and admin bypass
+     * fall through to the full projection unchanged.
+     */
+    private PublicProfileView enrichPublicProfile(User user, String callerAuth0Id, boolean isAdmin) {
+        boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
+        if (!user.profilePublic && !isOwner && !isAdmin) {
+            return PublicProfileView.restricted(user);
+        }
+
+        if (callerAuth0Id == null) {
+            return PublicProfileView.anonymous(user);
+        }
+
+        long followerCount = Follow.countFollowersOf(user.id);
+        long followingCount = Follow.countFollowingOf(user.id);
+
+        FollowStatus followStatus = null;
+        if (!isOwner) {
+            UUID callerId = User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null);
+            if (callerId != null && !callerId.equals(user.id)) {
+                followStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
+                        .map((Follow f) -> f.status)
+                        .orElse(null);
+            }
+        }
+        return new PublicProfileView(user, followerCount, followingCount, followStatus);
+    }
+
     private void flushEntityManager() {
         entityManager.get().flush();
     }
 
     private boolean isUniqueAuth0Conflict(Throwable throwable) {
+        return containsMessage(throwable, "users_auth0_id_unique");
+    }
+
+    private boolean isUniqueUsernameConflict(Throwable throwable) {
+        return containsMessage(throwable, "uq_users_username");
+    }
+
+    private boolean containsMessage(Throwable throwable, String marker) {
         Throwable current = throwable;
         while (current != null) {
             String message = current.getMessage();
-            if (message != null && message.contains("users_auth0_id_unique")) {
+            if (message != null && message.contains(marker)) {
                 return true;
             }
             current = current.getCause();
@@ -239,5 +368,35 @@ public class UserService {
                 .type(MediaType.APPLICATION_JSON)
                 .build();
         return new WebApplicationException("optimistic_lock_conflict", cause, response);
+    }
+
+    /** SCRUM-169 — canonical 400 envelope for a pattern violation. */
+    private static WebApplicationException usernameInvalid() {
+        Response response = Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ApiErrorResponse("username_invalid",
+                        "Username must match ^[a-z0-9._-]{3,30}$ (3-30 lowercase letters, digits, '.', '_', '-')."))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+        return new WebApplicationException("username_invalid", response);
+    }
+
+    /** SCRUM-169 — canonical 400 envelope for a blocklist hit. */
+    private static WebApplicationException usernameReserved() {
+        Response response = Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ApiErrorResponse("username_reserved",
+                        "This username is reserved and cannot be claimed."))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+        return new WebApplicationException("username_reserved", response);
+    }
+
+    /** SCRUM-169 — canonical 409 envelope for a unique-constraint hit. */
+    private static WebApplicationException usernameTaken() {
+        Response response = Response.status(Response.Status.CONFLICT)
+                .entity(new ApiErrorResponse("username_taken",
+                        "This username is already taken by another user."))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+        return new WebApplicationException("username_taken", response);
     }
 }

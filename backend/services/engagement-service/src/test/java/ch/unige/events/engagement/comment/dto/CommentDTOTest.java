@@ -22,7 +22,7 @@ class CommentDTOTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
         CommentDTO dto = new CommentDTO(
                 7L, "hello world", authorId, "Alice",
-                "https://avatars/alice.png", true, 3, false,
+                "https://avatars/alice.png", "alice.martin", true, 3, false,
                 createdAt, null, List.of());
 
         assertEquals(7L, dto.id());
@@ -30,6 +30,7 @@ class CommentDTOTest {
         assertEquals(authorId, dto.authorId());
         assertEquals("Alice", dto.authorDisplayName());
         assertEquals("https://avatars/alice.png", dto.authorAvatarUrl());
+        assertEquals("alice.martin", dto.authorUsername());
         assertTrue(dto.authorIsOrganizer());
         assertEquals(3, dto.likeCount());
         assertFalse(dto.likedByMe());
@@ -39,7 +40,7 @@ class CommentDTOTest {
     }
 
     @Test
-    void from_commentWithAuthor_populatesDisplayNameAndAvatar() {
+    void from_commentWithAuthor_populatesDisplayNameAvatarAndUsername() {
         UUID authorId = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
 
@@ -51,8 +52,10 @@ class CommentDTOTest {
         c.likeCount = 5;
         c.createdAt = createdAt;
 
+        // SCRUM-169 — use the new 12-arg constructor with explicit username
+        // so the projection is exercised end-to-end.
         UserPublicResponse author = new UserPublicResponse(
-                authorId, "Bob", null, null, null, null,
+                authorId, "bob.smith", "Bob", null, null, null, null,
                 "https://avatars/bob.png", null, 0L, 0L, null);
 
         CommentDTO dto = CommentDTO.from(c, author, false);
@@ -62,6 +65,7 @@ class CommentDTOTest {
         assertEquals(authorId, dto.authorId());
         assertEquals("Bob", dto.authorDisplayName());
         assertEquals("https://avatars/bob.png", dto.authorAvatarUrl());
+        assertEquals("bob.smith", dto.authorUsername());
         assertFalse(dto.authorIsOrganizer());
         assertEquals(5, dto.likeCount());
         assertFalse(dto.likedByMe());
@@ -71,7 +75,7 @@ class CommentDTOTest {
     }
 
     @Test
-    void from_commentWithNullAuthor_keepsDisplayAndAvatarNull() {
+    void from_commentWithNullAuthor_keepsAllAuthorFieldsNull() {
         Comment c = new Comment();
         c.id = 1L;
         c.eventId = 99L;
@@ -84,11 +88,12 @@ class CommentDTOTest {
 
         assertNull(dto.authorDisplayName());
         assertNull(dto.authorAvatarUrl());
+        assertNull(dto.authorUsername());
         assertEquals(1L, dto.id());
     }
 
     @Test
-    void fromTopLevelWithReplies_buildsNestedDTOs() {
+    void fromTopLevelWithReplies_buildsNestedDTOsWithUsernames() {
         UUID topAuthorId = UUID.randomUUID();
         UUID replyAuthorId = UUID.randomUUID();
 
@@ -110,10 +115,10 @@ class CommentDTOTest {
         reply.createdAt = LocalDateTime.of(2026, 5, 1, 12, 1);
 
         UserPublicResponse topAuthor = new UserPublicResponse(
-                topAuthorId, "Alice", null, null, null, null,
+                topAuthorId, "alice.martin", "Alice", null, null, null, null,
                 "https://avatars/alice.png", null, 0L, 0L, null);
         UserPublicResponse replyAuthor = new UserPublicResponse(
-                replyAuthorId, "Bob", null, null, null, null,
+                replyAuthorId, "bob.smith", "Bob", null, null, null, null,
                 null, null, 0L, 0L, null);
 
         CommentDTO dto = CommentDTO.fromTopLevelWithReplies(
@@ -126,18 +131,20 @@ class CommentDTOTest {
         assertEquals(50L, dto.id());
         assertEquals("top-level", dto.content());
         assertEquals("Alice", dto.authorDisplayName());
+        assertEquals("alice.martin", dto.authorUsername());
         assertTrue(dto.authorIsOrganizer());
         assertEquals(1, dto.replies().size());
 
         CommentDTO replyDto = dto.replies().get(0);
         assertEquals(51L, replyDto.id());
         assertEquals("Bob", replyDto.authorDisplayName());
+        assertEquals("bob.smith", replyDto.authorUsername());
         assertFalse(replyDto.authorIsOrganizer());
         assertEquals(50L, replyDto.parentCommentId());
     }
 
     @Test
-    void fromTopLevelWithReplies_withoutAuthor_keepsNullDisplayName() {
+    void fromTopLevelWithReplies_withoutAuthor_keepsAllAuthorFieldsNull() {
         UUID topAuthorId = UUID.randomUUID();
         Comment top = new Comment();
         top.id = 60L;
@@ -152,6 +159,7 @@ class CommentDTOTest {
 
         assertNull(dto.authorDisplayName());
         assertNull(dto.authorAvatarUrl());
+        assertNull(dto.authorUsername());
         assertTrue(dto.replies().isEmpty());
     }
 
@@ -159,9 +167,9 @@ class CommentDTOTest {
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         LocalDateTime t = LocalDateTime.of(2026, 5, 1, 12, 0);
-        CommentDTO a = new CommentDTO(1L, "x", id, "X", null, false, 0, false, t, null, List.of());
-        CommentDTO b = new CommentDTO(1L, "x", id, "X", null, false, 0, false, t, null, List.of());
-        CommentDTO c = new CommentDTO(2L, "x", id, "X", null, false, 0, false, t, null, List.of());
+        CommentDTO a = new CommentDTO(1L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
+        CommentDTO b = new CommentDTO(1L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
+        CommentDTO c = new CommentDTO(2L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());

@@ -34,8 +34,29 @@ export async function getMyEvents(params: MyEventsParams = {}): Promise<Event[]>
   return response.data
 }
 
-export async function getById(id: number): Promise<Event> {
-  const response = await api.get<Event>('/events/' + id)
+/**
+ * Fetch a single event. When `checkCoOrgOf` is the caller's UUID, the backend
+ * fills `coOrganizerOf` in the response — the param is silently ignored if it
+ * doesn't match the authenticated caller (SEC-002 oracle guard, cf.
+ * `EventResource.getById`). Pass it on the EventDetailPage / EventEditPage
+ * fetch so co-organizers see the management UI.
+ */
+export async function getById(id: number, checkCoOrgOf?: string | null): Promise<Event> {
+  const params = checkCoOrgOf ? { 'check-co-org-of': checkCoOrgOf } : undefined
+  const response = await api.get<Event>('/events/' + id, { params })
+  return response.data
+}
+
+export interface GetOccurrencesParams {
+  page?: number
+  size?: number
+}
+
+export async function getOccurrences(
+  parentId: number,
+  params: GetOccurrencesParams = {},
+): Promise<Event[]> {
+  const response = await api.get<Event[]>('/events/' + parentId + '/occurrences', { params })
   return response.data
 }
 
