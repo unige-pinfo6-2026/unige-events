@@ -57,7 +57,7 @@ kong:
       memory: "256Mi"
       ephemeral-storage: "128Mi"
     limits:
-      memory: "512Mi"
+      memory: "768Mi"
       ephemeral-storage: "256Mi"
 
 kafka:
