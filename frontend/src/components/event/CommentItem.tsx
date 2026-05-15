@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Flag, MessageSquare, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { userDisplayLabel, userInitials } from '@/utils/displayName'
@@ -55,6 +56,11 @@ export default function CommentItem({
     comment.authorUsername,
     comment.authorId,
   )
+  // SCRUM-169 — link to `/profile/{username}`. Falls back to the UUID when the
+  // username is missing (orphan row, hard-deleted user) — `ProfilePage` then
+  // redirects the legacy UUID URL to the canonical username one. The author is
+  // unknown only when `authorId` is also null, in which case we skip the link.
+  const profileSlug = comment.authorUsername ?? comment.authorId
 
   async function confirmDelete() {
     if (deleting) return
@@ -87,18 +93,41 @@ export default function CommentItem({
   return (
     <li className={isReply ? 'pl-8 border-l-2 border-border ml-4' : ''}>
       <article className="flex gap-3 p-3 rounded-2xl bg-background/30 border border-border">
-        <div className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden">
-          {comment.authorAvatarUrl ? (
-            <img src={comment.authorAvatarUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xs font-semibold text-foreground/60">{initials}</span>
-          )}
-        </div>
+        {profileSlug ? (
+          <Link
+            to={`/profile/${profileSlug}`}
+            aria-label={`Voir le profil de ${authorLabel}`}
+            className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
+          >
+            {comment.authorAvatarUrl ? (
+              <img src={comment.authorAvatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-semibold text-foreground/60">{initials}</span>
+            )}
+          </Link>
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden">
+            {comment.authorAvatarUrl ? (
+              <img src={comment.authorAvatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-semibold text-foreground/60">{initials}</span>
+            )}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-1">
-            <span className="text-sm font-semibold text-foreground">
-              {authorLabel}
-            </span>
+            {profileSlug ? (
+              <Link
+                to={`/profile/${profileSlug}`}
+                className="text-sm font-semibold text-foreground no-underline hover:underline"
+              >
+                {authorLabel}
+              </Link>
+            ) : (
+              <span className="text-sm font-semibold text-foreground">
+                {authorLabel}
+              </span>
+            )}
             {comment.authorIsOrganizer && (
               <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-accent/15 text-accent border border-accent/30">
                 Organisateur

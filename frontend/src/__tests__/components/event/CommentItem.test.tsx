@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 
 const showToastMock = vi.fn()
 vi.mock('@/hooks/useToast', () => ({
@@ -8,6 +10,10 @@ vi.mock('@/hooks/useToast', () => ({
 
 import CommentItem from '@/components/event/CommentItem'
 import type { Comment } from '@/types/comment'
+
+function renderItem(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
@@ -36,7 +42,7 @@ beforeEach(() => showToastMock.mockReset())
 
 describe('CommentItem', () => {
   it('renders content + displayName', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -52,7 +58,7 @@ describe('CommentItem', () => {
   })
 
   it('renders Organisateur badge when authorIsOrganizer is true', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorIsOrganizer: true })}
         eventCreatorId="creator-uuid"
@@ -67,7 +73,7 @@ describe('CommentItem', () => {
   })
 
   it('shows Répondre button only for top-level + authenticated', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -82,7 +88,7 @@ describe('CommentItem', () => {
   })
 
   it('hides Répondre on a reply', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -98,7 +104,7 @@ describe('CommentItem', () => {
   })
 
   it('hides Répondre and Supprimer for anonymous users', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -114,7 +120,7 @@ describe('CommentItem', () => {
   })
 
   it('shows Supprimer for the author', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'me' })}
         eventCreatorId="creator-uuid"
@@ -130,7 +136,7 @@ describe('CommentItem', () => {
 
   it('opens a ConfirmDialog (not browser confirm) when Supprimer is clicked', async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ id: 7, authorId: 'me' })}
         eventCreatorId="creator-uuid"
@@ -154,7 +160,7 @@ describe('CommentItem', () => {
 
   it('closes the ConfirmDialog without calling onDelete when Annuler is clicked', () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'me' })}
         eventCreatorId="creator-uuid"
@@ -173,7 +179,7 @@ describe('CommentItem', () => {
   })
 
   it('shows Supprimer for the event creator', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'someone-else' })}
         eventCreatorId="creator-uuid"
@@ -188,7 +194,7 @@ describe('CommentItem', () => {
   })
 
   it('shows Supprimer for admin', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -203,7 +209,7 @@ describe('CommentItem', () => {
   })
 
   it('toggles reply form when Répondre is clicked', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment()}
         eventCreatorId="creator-uuid"
@@ -219,7 +225,7 @@ describe('CommentItem', () => {
   })
 
   it('shows informational toast when Signaler is clicked (Décision B)', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'someone-else' })}
         eventCreatorId="creator-uuid"
@@ -237,7 +243,7 @@ describe('CommentItem', () => {
 
   it('renders replies recursively', () => {
     const reply = makeComment({ id: 2, content: 'Une réponse', parentCommentId: 1 })
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ replies: [reply] })}
         eventCreatorId="creator-uuid"
@@ -257,7 +263,7 @@ describe('CommentItem', () => {
   // directly on the UUID prefix.
 
   it('falls back to @username when displayName is null', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({ authorDisplayName: null, authorUsername: 'alice.martin' })}
         eventCreatorId="creator-uuid"
@@ -272,7 +278,7 @@ describe('CommentItem', () => {
   })
 
   it('falls back to UUID prefix when displayName and username are both null', () => {
-    render(
+    renderItem(
       <CommentItem
         comment={makeComment({
           authorDisplayName: null,
@@ -288,5 +294,65 @@ describe('CommentItem', () => {
       />,
     )
     expect(screen.getByText('19f3ab78')).toBeTruthy()
+  })
+
+  // SCRUM-169 — author name + avatar link to /profile/{username}. Falls back to
+  // /profile/{uuid} when username is null (orphan row) — `ProfilePage` then
+  // redirects to the canonical username URL. When both are null we skip the link.
+
+  it('links the author to /profile/:username (SCRUM-169)', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.martin' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Alice' })
+    expect(link.getAttribute('href')).toBe('/profile/alice.martin')
+  })
+
+  it('falls back to /profile/:uuid when username is null', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({
+          authorDisplayName: 'Bob',
+          authorUsername: null,
+          authorId: '19f3ab78-0fbf-4cfb-896e-5c0346fabed5',
+        })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const link = screen.getByRole('link', { name: 'Bob' })
+    expect(link.getAttribute('href')).toBe('/profile/19f3ab78-0fbf-4cfb-896e-5c0346fabed5')
+  })
+
+  it('skips the link when both authorUsername and authorId are null', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({
+          authorDisplayName: 'Anon',
+          authorUsername: null,
+          authorId: null,
+        })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: /Anon/i })).toBeNull()
+    expect(screen.getByText('Anon')).toBeTruthy()
   })
 })
