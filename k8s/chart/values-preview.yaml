@@ -2,8 +2,59 @@ cloudflared:
   enabled: true
   mode: quick
 
-db:
-  storageSize: 256Mi
+postgres:
+  storageSize: 512Mi
+  shared: true
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+engagementService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+eventService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+moderationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+notificationService:
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "256Mi"
+      ephemeral-storage: "256Mi"
+
+userService:
   resources:
     requests:
       cpu: "50m"

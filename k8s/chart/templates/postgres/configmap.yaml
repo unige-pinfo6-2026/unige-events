@@ -1,0 +1,14 @@
+{{- if .Values.postgres.shared }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-shared-init
+  namespace: {{ .Release.Namespace }}
+data:
+  init.sql: |
+    CREATE DATABASE unige_events_engagement;
+    CREATE DATABASE unige_events_events;
+    CREATE DATABASE unige_events_moderation;
+    CREATE DATABASE unige_events_notifications;
+    CREATE DATABASE unige_events_users;
+{{- end }}
