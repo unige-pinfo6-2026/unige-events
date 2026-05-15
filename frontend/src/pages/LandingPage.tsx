@@ -5,7 +5,7 @@ import {
 import { Link, useLocation } from 'react-router-dom'
 import FacultyMarquee from '@/components/faculty/FacultyMarquee'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
-import { BlobsHero, BlobsSubtle, BlobsCta } from '@/components/utils/Blobs'
+import { BlobsLanding } from '@/components/utils/Blobs'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import FeaturedEventsSection from '@/components/event/FeaturedEventsSection'
 
@@ -13,7 +13,6 @@ const Hero = () => {
   return (
     <SectionWrapper
       padding="hero"
-      background={<BlobsHero />}
       footer={
         <div className="relative z-10 w-full overflow-hidden">
           <FacultyMarquee />
@@ -93,7 +92,7 @@ function Faq() {
   ]
 
   return (
-    <SectionWrapper id="faq" background={<BlobsSubtle />}>
+    <SectionWrapper id="faq">
       <SectionHeader heading="xl"
         title="Questions fréquentes"
         subtitle="Tout ce que vous devez savoir avant de commencer."
@@ -124,7 +123,7 @@ function Faq() {
 
 function GetStarted() {
   return (
-    <SectionWrapper id="get-started" background={<BlobsCta />}>
+    <SectionWrapper id="get-started">
       <SectionHeader heading="xl"
         title={<>Ne rate plus jamais <br/><mark>un événement</mark></>}
         subtitle={<>Fais partie de la plateforme qui connecte toute la communauté UNIGE. Découvre des événements, connecte-toi avec tes pairs, et <mark>maximise ton expérience universitaire.</mark></>}
@@ -164,12 +163,15 @@ export default function LandingPage() {
   }, [location.hash])
 
   return (
-    <div>
-      <Hero />
-      <FeaturedEventsSection />
-      <Features />
-      <Faq />
-      <GetStarted />
+    <div className="relative overflow-hidden">
+      <BlobsLanding />
+      <div className="relative z-10">
+        <Hero />
+        <FeaturedEventsSection />
+        <Features />
+        <Faq />
+        <GetStarted />
+      </div>
     </div>
   )
 }
