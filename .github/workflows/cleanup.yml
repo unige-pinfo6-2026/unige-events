@@ -12,6 +12,9 @@ jobs:
     name: Cleanup Preview
     runs-on: ubuntu-latest
     environment: preview
+    concurrency:
+      group: deployments
+      cancel-in-progress: false
     env:
       PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
 
