@@ -3,6 +3,11 @@ services:
     image: mcr.microsoft.com/devcontainers/base:ubuntu
     volumes:
       - .:/workspace/:cached
+    # Publish Vite's port to the host so `make frontend` is reachable when
+    # connecting via `docker exec` instead of the VS Code Dev Containers
+    # extension (which would handle the forward via devcontainer.json).
+    ports:
+      - "${WEB_PORT:-5173}:5173"
     command: sleep infinity
     depends_on:
       - postgres
