@@ -594,6 +594,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `getMyDrafts(organizerId, limit = 5)` : helper typé autour de `getAll` filtrant `status=DRAFT` et `organizerId`. Utilisé par `useMyDrafts`.
 - `getMyEvents(params)` : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
 - `getFeatured(limit)` : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
+- `getOccurrences(parentId, params?)` : `GET /events/{parentId}/occurrences` (SCRUM-151). Retourne la liste triée chronologiquement des occurrences enfants d'un parent récurrent (backend cap dur de 52). Consommé par `useOccurrences`. Pas de pagination exposée côté UI (Décision K).
 
 ### searchApi.ts
 
@@ -704,3 +705,37 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `post(content, parentCommentId?)` : optimistic add + rollback sur erreur API.
 - `remove(commentId)` : optimistic remove + rollback sur erreur API.
 - Retourne `{ comments, hasMore, loading, posting, error, post, remove, loadMore, refresh }`.
+
+## Hook SCRUM-151
+
+### useOccurrences
+
+- `src/hooks/useOccurrences.ts`.
+- Params : `(parentId: number | null, { enabled: boolean })`.
+- Fetch paresseux : `enabled === false` court-circuite l'effet, aucun appel réseau tant que le consumer ne flip pas `enabled` à `true` (cf. Décision G : la section repliable d'`EventDetailPage` ne charge les occurrences qu'au premier clic).
+- Si `parentId === null` ou `enabled === false`, retourne `{ loading: false, error: null, data: null }`.
+- Sinon appelle `getOccurrences(parentId)` ; state machine `loading → (data | error)` à la `useEvent`.
+- Re-fetch automatique si `parentId` change pendant `enabled === true`.
+- AbortController-like via un compteur monotone : les réponses d'une requête obsolète (unmount, refetch concurrent) sont silencieusement ignorées — aucune fuite `setState after unmount`.
+
+## Sections SCRUM-151
+
+### Section Récurrence dans `EventForm`
+
+- Composant local `RecurrenceSection` non exporté (`EventForm.tsx`). Visible **uniquement** en `mode === 'create'` (Décision E).
+- Header avec icône `Repeat` + switch « Événement récurrent ». Body conditionnel sur `enabled === true` : Select fréquence (3 options FR via `RECURRENCE_FREQUENCIES`), radio mutex `endDate | maxOccurrences` rendu en segmented control, puis l'`<Input>` correspondant (`type="date"` ou `type="number"` borné à `RECURRENCE_MAX_OCCURRENCES`).
+- Erreur de validation rendue sous la section via la clé unique `errors.recurrence` (Décision C — un message global pour la section, pas un par sous-champ).
+- Pattern visuel calqué sur la section « Date & heure » : `rounded-2xl border border-border/50 bg-foreground/[0.015] px-4 py-4`.
+
+### Badge `Récurrent` sur `EventCard`
+
+- Pill `RefreshCw + "Récurrent"` positionné `absolute bottom-4 right-4 z-10` sur le banner. Style neutre (`bg-background/80 backdrop-blur-sm border border-border/40 text-foreground/80`).
+- Visible **uniquement** si `event.parentEventId != null` (Décision F — occurrences only, le parent reste sans badge pour ne pas être noyé dans 52 cards identiques).
+
+### Section « Voir toutes les occurrences » sur `EventDetailPage`
+
+- Composant local `OccurrencesSection` non exporté (`EventDetailPage.tsx`). Visible si `event.recurrenceRule != null` (parent) **ou** `event.parentEventId != null` (occurrence) — Décision G.
+- Bouton plein-largeur avec `RefreshCw` + chevron (`ChevronDown` / `ChevronUp`). Premier clic → `useOccurrences(parentId, { enabled: true })` (fetch paresseux). Compteur `(N)` affiché à côté du libellé une fois `data` arrivé.
+- Liste compacte (Décision H) : `[date · status badge][titre lien]` plus le marqueur `Vous êtes ici` (uppercase tracking-wide text-accent) sur la ligne dont l'`id` matche `currentEventId`. Pas de banner image, pas de meta location/capacity.
+- Loading : `Skeleton` boneyard générique inline (4 lignes squelettes) — aucun nouveau `.bones.json` (Décision I).
+- `parentId` calculé : `event.parentEventId ?? event.id`. Sur un parent on liste ses enfants ; sur une occurrence on remonte au parent et on liste ses sibblings.

@@ -90,12 +90,22 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | tags                    | string[]       | non |
 | createdAt       | string        | oui    |
 | updatedAt       | string        | non    |
+| parentEventId   | number \| null | non    |
+| recurrenceRule  | string \| null | non    |
+
+`parentEventId` et `recurrenceRule` (SCRUM-151) sont remplis par le backend SCRUM-147 :
+- `parentEventId != null` → l'événement est une **occurrence** d'un cycle ; pointe vers l'event parent.
+- `recurrenceRule != null` → l'événement est le **parent** d'un cycle (chaîne RFC 5545, ex. `FREQ=WEEKLY;UNTIL=20260601`).
+- Les deux à `null` → événement standalone.
+
+Le frontend ne **mute jamais** ces champs (lecture seule consommée par `EventCard` pour le badge `Récurrent` et par `EventDetailPage` pour la section repliable des occurrences).
 
 **Constantes de validation frontend** (`src/types/event.ts`) :
 - `EVENT_WEBSITE_URL_MAX_LENGTH = 500` — longueur max de `websiteUrl`
 - `EVENT_CONTACT_EMAIL_MAX_LENGTH = 255` — longueur max de `contactEmail`
 - `EVENT_TAG_MAX_LENGTH = 16` — longueur max d'un tag individuel
 - `EVENT_TAGS_MAX_ITEMS = 20` — nombre max de tags par événement
+- `RECURRENCE_MAX_OCCURRENCES = 52` — borne haute du nombre d'occurrences (miroir du `@Max(52)` backend SCRUM-147)
 
 **Compteurs publics `viewCount` / `interestedCount`** : renseignés uniquement
 sur `GET /events/{id}` (page détail). Les endpoints de liste/recherche
@@ -106,13 +116,39 @@ composant `EventStatsPanel` affiche `—` quand la valeur est `null` /
 ### CreateEventRequest
 
 Champs requis : `title`, `location`, `startDate`, `endDate`, `category`.
-Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`.
+Champs optionnels : `description`, `faculty`, `bannerUrl`, `capacity`, `status`, `allDay`, `websiteUrl`, `contactEmail`, `registrationDeadline`, `tags`, `recurrence`.
 
 `websiteUrl`, `contactEmail`, `registrationDeadline` acceptent `null` pour effacer la valeur ; `tags` accepte `null` ou `string[]`. Le frontend envoie `null` plutôt qu'une chaîne vide lorsque l'utilisateur laisse le champ vide.
 
+`recurrence` (SCRUM-151) est envoyé **uniquement** quand le switch « Récurrence » de `EventForm` est activé. Cf. `RecurrenceRequest` ci-dessous.
+
 ### UpdateEventRequest
 
-Le backend utilise un PUT à sémantique de remplacement complet. Le frontend envoie systématiquement un payload complet avec les mêmes champs que `CreateEventRequest`.
+Le backend utilise un PUT à sémantique de remplacement complet. Le frontend envoie systématiquement un payload complet avec les mêmes champs que `CreateEventRequest`, **à l'exception** de `recurrence` qui est toujours absent — Décision E SCRUM-151 (la section n'est pas exposée en edit, le PUT ne propage rien aux occurrences côté backend SCRUM-147 D17).
+
+### RecurrenceFrequency, RECURRENCE_FREQUENCIES, RecurrenceRequest
+
+Const map typée (`src/types/event.ts`) miroir du backend SCRUM-147 :
+
+```ts
+export const RECURRENCE_FREQUENCIES = {
+  WEEKLY:   { name: 'Chaque semaine' },
+  BIWEEKLY: { name: 'Toutes les 2 semaines' },
+  MONTHLY:  { name: 'Chaque mois' },
+} as const
+
+export type RecurrenceFrequency = keyof typeof RECURRENCE_FREQUENCIES
+```
+
+`RecurrenceRequest` :
+
+| Champ           | Type              | Notes |
+|-----------------|-------------------|-------|
+| frequency       | RecurrenceFrequency | toujours présent |
+| endDate         | string \| null    | format `YYYY-MM-DD` ; exclusif avec `maxOccurrences` (Décision B) |
+| maxOccurrences  | number \| null    | entier ∈ `[1, 52]` ; exclusif avec `endDate` |
+
+Le frontend impose la **mutex** `endDate ↔ maxOccurrences` au niveau du form. Le payload sortant n'a jamais les deux champs renseignés en même temps.
 
 ---
 

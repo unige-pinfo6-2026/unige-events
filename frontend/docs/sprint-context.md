@@ -1,6 +1,85 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-137/146 + SCRUM-169 usernames)
+Dernière mise à jour : 2026-05-15 (PR #172 enrichie de SCRUM-151 — UI récurrence)
+
+---
+
+## 2026-05-15 — SCRUM-151 livré (UI événements récurrents)
+
+Frontend pur, livré sur la branche existante `feature/scrum-169-profile-username-url`
+(absorbé par PR #172, cf. Décision A de la spec — pas de nouvelle branche, pas
+de nouvelle PR). Spec : [`specs_archives/specs_claude/specs_scrum-151.md`](../../specs_archives/specs_claude/specs_scrum-151.md).
+Cible US-27 (SCRUM-116) sous l'épic SCRUM-14. Backend SCRUM-147 mergé sur `main`
+au préalable — contrat OpenAPI inchangé sur cette PR (vérifié via
+`git diff origin/main..HEAD -- openapi/openapi.yaml` à zéro pour les commits
+SCRUM-151).
+
+**Axes livrés** (cf. § 1 de la spec) :
+
+1. **Types** (`src/types/event.ts`) : `Event.parentEventId`, `Event.recurrenceRule`,
+   `CreateEventRequest.recurrence`, interface `RecurrenceRequest`, union
+   `RecurrenceFrequency`, const map `RECURRENCE_FREQUENCIES`
+   (`WEEKLY` / `BIWEEKLY` / `MONTHLY`), constante `RECURRENCE_MAX_OCCURRENCES = 52`.
+2. **Service** (`src/services/eventApi.ts`) : `getOccurrences(parentId, params?)`
+   appelant `GET /events/{parentId}/occurrences`.
+3. **Hook lazy** (`src/hooks/useOccurrences.ts`) : signature
+   `(parentId, { enabled }) → { loading, error, data }`, pattern miroir
+   `useEvent`. `enabled: false` court-circuite l'effet — aucun call réseau
+   tant que le consumer ne flip pas (cf. Décision G).
+4. **`useEventForm`** : bloc `recurrence` ajouté à `EventFormValues`,
+   `EventFormErrors.recurrence` (unique message global, KISS),
+   `validate()` étendu (miroir backend : un mode obligatoire, count ∈ [1, 52],
+   endDate ≥ startDate.toLocalDate()), `submitForm` sérialise
+   `payload.recurrence` **uniquement** en `mode === 'create'`.
+   `readPersistedForm` normalise le sous-objet `recurrence` pour gérer les
+   payloads sessionStorage écrits avant ce ticket.
+5. **`EventForm`** : `ComingSoonBlock` récurrence (sprint `S8`) retiré,
+   remplacé par un composant local `RecurrenceSection` (header + switch,
+   body conditionnel : Select fréquence + radio mutex segmented control +
+   `<Input>` correspondant). Pattern visuel calqué sur la section
+   « Date & heure ». Section masquée en `mode === 'edit'` (Décision E).
+6. **`EventCard`** : badge `RefreshCw + "Récurrent"` en `absolute bottom-4
+   right-4` sur le banner, **conditionnel sur `event.parentEventId != null`**
+   (Décision F — occurrences uniquement, le parent reste sans badge).
+7. **`EventDetailPage`** : composant local `OccurrencesSection` repliable
+   inline sous la card description. Visible si `event.recurrenceRule != null`
+   (parent) **ou** `event.parentEventId != null` (occurrence). Fetch
+   paresseux au premier expand via `useOccurrences`. Liste compacte :
+   `[date · status badge][titre lien]` + marqueur « Vous êtes ici » sur la
+   ligne courante (Décision H). Loading via `Skeleton` boneyard générique —
+   pas de nouveau `.bones.json` (Décision I — justifié par : la section est
+   invisible au mount, le call est déclenché par interaction utilisateur, et
+   `GET /events/{id}/occurrences` est un SELECT indexé < 400 ms typique).
+
+**Couverture V8** sur les fichiers SCRUM-151 (`npm test -- --coverage`,
+rapport au commit de livraison) :
+
+| Fichier | Stmts | Branches |
+|---|---|---|
+| `types/event.ts` | 100 % | 100 % |
+| `services/eventApi.ts` (lignes ajoutées) | 100 % (du diff) | 100 % |
+| `hooks/useOccurrences.ts` | 96.3 % | 90 % |
+| `hooks/useEventForm.ts` | 94.5 % | 87.7 % |
+| `components/event/EventForm.tsx` | 89.1 % | 94.8 % |
+| `components/event/EventCard.tsx` | 100 % | 88.9 % |
+| `pages/event/EventDetailPage.tsx` | 95.8 % | 90.4 % |
+
+Tous au-dessus du seuil ≥ 80 % imposé par
+[`frontend/AGENTS.md`](../AGENTS.md). Suite complète : 1475/1475 verts,
+`npm run lint` clean.
+
+**Hors scope (cohérent avec les non-objectifs de la spec)** :
+
+- Pas de modification de `openapi/openapi.yaml` ni du `backend/` (vérifié
+  commit par commit).
+- Pas de nouvelle route `/events/:id/occurrences` — section inline (Décision G).
+- Pas de nouveau `.bones.json` (Décision I — la table « Skeletons existants »
+  de [`frontend/AGENTS.md`](../AGENTS.md) reste inchangée).
+- Pas de section récurrence en `mode === 'edit'` (Décision E — cohérent avec
+  le backend D17 qui ne propage pas un PUT du parent aux occurrences).
+- Pas de rendu humain de la `recurrenceRule` RFC 5545 sur la page parent — la
+  liste compacte des occurrences fait office de représentation de la cadence.
+- Pas de pagination exposée côté UI — le backend cape dur à 52 (Décision K).
 
 ---
 
