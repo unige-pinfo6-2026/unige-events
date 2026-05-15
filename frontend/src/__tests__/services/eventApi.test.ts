@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -194,5 +194,22 @@ describe('eventApi', () => {
 
     expect(mockApiGet).toHaveBeenCalledWith('/events/featured', { params: { limit: 6 } })
     expect(response).toEqual([sampleEvent])
+  })
+
+  it('getOccurrences calls /events/{parentId}/occurrences with no params by default (SCRUM-151)', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+    const response = await getOccurrences(42)
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events/42/occurrences', { params: {} })
+    expect(response).toEqual([sampleEvent])
+  })
+
+  it('getOccurrences propagates pagination params to axios (SCRUM-151)', async () => {
+    mockApiGet.mockResolvedValue({ data: [] } as unknown as Awaited<ReturnType<typeof api.get>>)
+
+    await getOccurrences(42, { page: 1, size: 10 })
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events/42/occurrences', { params: { page: 1, size: 10 } })
   })
 })

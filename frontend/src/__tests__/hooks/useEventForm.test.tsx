@@ -1275,4 +1275,200 @@ describe('useEventForm', () => {
       expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
     })
   })
+
+  describe('recurrence (SCRUM-151)', () => {
+    function fillRequired(hook: ReturnType<typeof useEventForm>) {
+      hook.setFieldValue('title', 'Cours hebdo')
+      hook.setFieldValue('location', 'Uni Mail')
+      hook.setFieldValue('startDate', '2099-09-21T10:00')
+      hook.setFieldValue('endDate', '2099-09-21T12:00')
+      hook.setFieldValue('category', 'ACADEMIC')
+    }
+
+    it('defaults the recurrence block with enabled=false and WEEKLY frequency', () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.recurrence).toEqual({
+        enabled: false,
+        frequency: 'WEEKLY',
+        endMode: 'date',
+        endDate: '',
+        maxOccurrences: '',
+      })
+    })
+
+    it('persists the recurrence block to sessionStorage via setFieldValue', () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          frequency: 'BIWEEKLY',
+          endMode: 'count',
+          maxOccurrences: '10',
+        })
+      })
+
+      act(() => { vi.advanceTimersByTime(DRAFT_FORM_PERSIST_DEBOUNCE_MS + 10) })
+
+      const persisted = JSON.parse(sessionStorage.getItem(DRAFT_FORM_KEY) ?? '{}')
+      expect(persisted.recurrence).toMatchObject({
+        enabled: true,
+        frequency: 'BIWEEKLY',
+        endMode: 'count',
+        maxOccurrences: '10',
+      })
+    })
+
+    it('hydrates a sessionStorage payload missing the recurrence sub-object back to defaults', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({ title: 'Legacy draft' }))
+
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      expect(result.current.values.title).toBe('Legacy draft')
+      expect(result.current.values.recurrence).toEqual({
+        enabled: false,
+        frequency: 'WEEKLY',
+        endMode: 'date',
+        endDate: '',
+        maxOccurrences: '',
+      })
+    })
+
+    it('reports a single recurrence error when enabled with neither endDate nor maxOccurrences set', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillRequired(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          endMode: 'date',
+          endDate: '',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.recurrence).toBe("Définissez une date de fin OU un nombre d'occurrences.")
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('rejects an endDate earlier than the start date', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillRequired(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          endMode: 'date',
+          endDate: '2099-09-20',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.recurrence).toBe('La date de fin de récurrence doit être postérieure à la date de début.')
+    })
+
+    it('rejects a maxOccurrences value outside [1, 52]', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillRequired(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          endMode: 'count',
+          maxOccurrences: '53',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(result.current.errors.recurrence).toMatch(/entier entre 1 et 52/)
+      expect(mockCreateEvent).not.toHaveBeenCalled()
+    })
+
+    it('serialises an endDate-bound recurrence into the create payload', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillRequired(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          frequency: 'WEEKLY',
+          endMode: 'date',
+          endDate: '2099-12-15',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(mockCreateEvent).toHaveBeenCalledWith(expect.objectContaining({
+        recurrence: { frequency: 'WEEKLY', endDate: '2099-12-15' },
+      }))
+    })
+
+    it('serialises a count-bound recurrence into a numeric maxOccurrences', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => {
+        fillRequired(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          frequency: 'MONTHLY',
+          endMode: 'count',
+          maxOccurrences: '6',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      const [, payload] = mockCreateEvent.mock.calls[0] ? [null, mockCreateEvent.mock.calls[0][0]] : [null, null]
+      expect(payload).toMatchObject({ recurrence: { frequency: 'MONTHLY', maxOccurrences: 6 } })
+      expect(payload?.recurrence?.endDate).toBeUndefined()
+    })
+
+    it('omits payload.recurrence when the switch is off', async () => {
+      mockCreateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+
+      act(() => { fillRequired(result.current) })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      const payload = mockCreateEvent.mock.calls[0][0]
+      expect(payload.recurrence).toBeUndefined()
+    })
+
+    it('never carries a recurrence payload in edit mode even with enabled state', async () => {
+      mockUpdateEvent.mockResolvedValue(baseEvent)
+      const { result } = renderHook(() => useEventForm({ mode: 'edit', initialEvent: baseEvent }))
+
+      // The UI never exposes the section in edit mode, but if the state somehow
+      // arrived enabled (e.g. from a hand-crafted sessionStorage payload), the
+      // PUT must still omit `recurrence` — confirms Décision E end-to-end.
+      act(() => {
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence,
+          enabled: true,
+          endMode: 'count',
+          maxOccurrences: '5',
+        })
+      })
+
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+      expect(mockUpdateEvent).toHaveBeenCalledTimes(1)
+      const [, updatePayload] = mockUpdateEvent.mock.calls[0]
+      expect((updatePayload as { recurrence?: unknown }).recurrence).toBeUndefined()
+    })
+  })
 })

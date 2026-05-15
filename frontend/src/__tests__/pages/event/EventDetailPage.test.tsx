@@ -6,6 +6,7 @@ import EventDetailPage from '@/pages/event/EventDetailPage'
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
+vi.mock('@/hooks/useOccurrences', () => ({ useOccurrences: vi.fn() }))
 vi.mock('@/services/eventApi', () => ({
   deleteEvent: vi.fn(),
   cancelEvent: vi.fn(),
@@ -69,6 +70,7 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
+import { useOccurrences } from '@/hooks/useOccurrences'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useAttendance } from '@/hooks/useAttendance'
 import { useReport } from '@/hooks/useReport'
@@ -89,6 +91,7 @@ const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockUseReport = vi.mocked(useReport)
+const mockUseOccurrences = useOccurrences as ReturnType<typeof vi.fn>
 
 const mockUser = {
   id: 'user-1',
@@ -158,6 +161,7 @@ beforeEach(() => {
   mockUseAttendance.mockReturnValue(defaultAttendanceState)
   mockUseReport.mockReturnValue(defaultReportState)
   mockRecordEventView.mockResolvedValue(undefined)
+  mockUseOccurrences.mockReturnValue({ loading: false, error: null, data: null })
 })
 
 function renderPage(eventId = '1') {
@@ -1319,6 +1323,118 @@ describe('EventDetailPage', () => {
 
       // Description card is conditional on event.description being truthy
       expect(screen.queryByRole('heading', { name: 'À propos' })).toBeNull()
+    })
+  })
+
+  describe('occurrences section (SCRUM-151)', () => {
+    function setupEvent(overrides: Partial<typeof mockEvent>) {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, ...overrides },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('does not render the toggle for a standalone event and never invokes useOccurrences', () => {
+      setupEvent({})
+      renderPage()
+      expect(screen.queryByRole('button', { name: /Voir toutes les occurrences/i })).toBeNull()
+      // The OccurrencesSection is unmounted for standalones, so its hook never runs.
+      expect(mockUseOccurrences).not.toHaveBeenCalled()
+    })
+
+    it('renders the toggle on a recurring parent and keeps useOccurrences disabled at mount', () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+      renderPage()
+      expect(screen.getByRole('button', { name: /Voir toutes les occurrences/i })).toBeTruthy()
+      // Last call before expand: enabled === false
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(1, { enabled: false })
+    })
+
+    it('renders the toggle on an occurrence and points the parentId at its parent', () => {
+      setupEvent({ id: 7, parentEventId: 42 })
+      renderPage()
+      expect(screen.getByRole('button', { name: /Voir toutes les occurrences/i })).toBeTruthy()
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(42, { enabled: false })
+    })
+
+    it('flips useOccurrences.enabled true when the user clicks the toggle (lazy fetch)', () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(1, { enabled: true })
+    })
+
+    it('renders a compact row per occurrence with date, status, link and the "vous êtes ici" marker', async () => {
+      setupEvent({ id: 7, parentEventId: 42 })
+
+      mockUseOccurrences.mockImplementation((parentId, { enabled }) => {
+        if (!enabled || parentId === null) return { loading: false, error: null, data: null }
+        return {
+          loading: false,
+          error: null,
+          data: [
+            { ...mockEvent, id: 6, title: 'Session 1', status: 'CANCELLED' as const, startDate: '2026-03-01T10:00:00' },
+            { ...mockEvent, id: 7, title: 'Session 2 (en cours)', status: 'PUBLISHED' as const, startDate: '2026-03-08T10:00:00' },
+          ],
+        }
+      })
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Session 1')).toBeTruthy())
+      expect(screen.getByText('Session 2 (en cours)')).toBeTruthy()
+      expect(screen.getByText('Annulé')).toBeTruthy()
+      expect(screen.getByText('Publié')).toBeTruthy()
+      expect(screen.getByText(/Vous êtes ici/i)).toBeTruthy()
+
+      // Link out to each occurrence (and not the current page itself).
+      expect(screen.getByText('Session 1').closest('a')?.getAttribute('href')).toBe('/events/6')
+      expect(screen.getByText('Session 2 (en cours)').closest('a')?.getAttribute('href')).toBe('/events/7')
+    })
+
+    it('shows the count next to the toggle once data has loaded', async () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: null,
+        data: enabled
+          ? [
+            { ...mockEvent, id: 11 },
+            { ...mockEvent, id: 12 },
+            { ...mockEvent, id: 13 },
+          ]
+          : null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+      await waitFor(() => expect(screen.getByRole('button', { name: /Voir toutes les occurrences \(3\)/i })).toBeTruthy())
+    })
+
+    it('handles a CANCELLED parent with PUBLISHED occurrences (status badges per row)', async () => {
+      setupEvent({ status: 'CANCELLED' as const, recurrenceRule: 'FREQ=WEEKLY' })
+
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: null,
+        data: enabled
+          ? [{ ...mockEvent, id: 21, status: 'PUBLISHED' as const, title: 'Future session' }]
+          : null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Future session')).toBeTruthy())
+      expect(screen.getByText('Publié')).toBeTruthy()
     })
   })
 })
