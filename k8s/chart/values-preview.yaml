@@ -18,10 +18,10 @@ engagementService:
   resources:
     requests:
       cpu: "50m"
-      memory: "128Mi"
+      memory: "192Mi"
       ephemeral-storage: "128Mi"
     limits:
-      memory: "256Mi"
+      memory: "384Mi"
       ephemeral-storage: "256Mi"
 
 eventService:
@@ -38,20 +38,20 @@ moderationService:
   resources:
     requests:
       cpu: "50m"
-      memory: "128Mi"
+      memory: "192Mi"
       ephemeral-storage: "128Mi"
     limits:
-      memory: "256Mi"
+      memory: "384Mi"
       ephemeral-storage: "256Mi"
 
 notificationService:
   resources:
     requests:
       cpu: "50m"
-      memory: "128Mi"
+      memory: "192Mi"
       ephemeral-storage: "128Mi"
     limits:
-      memory: "256Mi"
+      memory: "384Mi"
       ephemeral-storage: "256Mi"
 
 userService:
