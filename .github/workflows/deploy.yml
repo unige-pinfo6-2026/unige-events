@@ -25,8 +25,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # The `KUBE_CONFIG` secret is the raw kubeconfig YAML (same format as
+      # what `cleanup.yml` passes verbatim to `azure/k8s-set-context`). Writing
+      # it to a file under a runner-scoped `KUBECONFIG` path lets the deploy
+      # step ignore the self-hosted runner's ambient kubeconfig (cf. commit
+      # 5b0dafa1) without round-tripping through base64.
       - name: Set kubectl context
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $KUBECONFIG
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
 
       - name: Create namespace
         run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
@@ -76,8 +85,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Same rationale as the production job: the secret is raw kubeconfig
+      # YAML, not base64. See the production `Set kubectl context` step above.
       - name: Set kubectl context
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $KUBECONFIG
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
 
       - name: Create namespace
         run: kubectl create namespace ${{ env.PR_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -

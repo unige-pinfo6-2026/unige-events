@@ -142,6 +142,16 @@ data:
               - ~/api/users/me/banner$
             strip_path: false
             preserve_host: true
+          - name: update-username
+            paths:
+              - ~/api/users/me/username$
+            strip_path: false
+            preserve_host: true
+          - name: get-by-username
+            paths:
+              - ~/api/users/by-username/[^/]+$
+            strip_path: false
+            preserve_host: true
           - name: user-by-id
             paths:
               - ~/api/users/[^/]+$

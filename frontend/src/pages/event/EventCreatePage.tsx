@@ -36,14 +36,14 @@ export default function EventCreatePage() {
     mode: 'create',
     templateEvent: template,
     onSuccess: async (event) => {
-      if (event.status === 'DRAFT') {
-        showToast('success', 'Brouillon enregistré.')
-        navigate('/')
-        return
-      }
       // SCRUM-137 — dispatch the staged co-organizer invitations now that the
-      // event id is known. Failures are surfaced as individual toasts (the
-      // event itself is already persisted, so we don't block navigation).
+      // event id is known. Done BEFORE the draft/published branch so a
+      // "Sauvegarder en Brouillon" submit doesn't silently drop the staged
+      // list (the section is the same in both flows ; an invitee can accept
+      // even while the event is still a DRAFT and will see the draft because
+      // co-organizer membership grants visibility). Failures are surfaced as
+      // individual toasts ; the event itself is already persisted, so we
+      // never block navigation.
       if (pendingCoOrganizers.length > 0) {
         const results = await Promise.allSettled(
           pendingCoOrganizers.map((p) => inviteCoOrganizer(event.id, p.userId)),
@@ -55,6 +55,11 @@ export default function EventCreatePage() {
             showToast('error', `Impossible d'inviter ${label} comme co-organisateur.`)
           }
         })
+      }
+      if (event.status === 'DRAFT') {
+        showToast('success', 'Brouillon enregistré.')
+        navigate('/')
+        return
       }
       showToast('success', 'Événement créé avec succès.')
       navigate(`/events/${event.id}`)
