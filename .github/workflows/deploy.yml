@@ -65,7 +65,7 @@ jobs:
   deploy-preview:
     name: Deploy to Preview
     if: github.event_name == 'pull_request'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: preview
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
