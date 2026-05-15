@@ -50,14 +50,14 @@ web:
 
 kong:
   image: kong:3.7.0
-  replicas: 2
+  replicas: 1
   resources:
     requests:
       cpu: "50m"
-      memory: "128Mi"
+      memory: "256Mi"
       ephemeral-storage: "128Mi"
     limits:
-      memory: "256Mi"
+      memory: "512Mi"
       ephemeral-storage: "256Mi"
 
 kafka:
