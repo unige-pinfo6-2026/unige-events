@@ -1,0 +1,117 @@
+package ch.unige.events.shared.client;
+
+import ch.unige.events.shared.domain.dto.EventDTO;
+import ch.unige.events.shared.tracing.RequestIdClientFilter;
+
+import io.quarkus.logging.Log;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
+import org.eclipse.microprofile.faulttolerance.Fallback;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
+import org.eclipse.microprofile.rest.client.annotation.RegisterProvider;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * REST client for cross-service reads of Event entities.
+ *
+ * <p>Producer: event-service (Étapes 4.1, 4.4 — also exposes the
+ * {@code ?check-co-org-of=&lt;UUID&gt;} param that centralizes the
+ * SCRUM-136 cascade and the {@code ?ids=} bulk lookup).
+ *
+ * <p>Consumers: engagement-service, moderation-service, user-service.
+ *
+ * <p>URL: configured per-consumer via
+ * {@code quarkus.rest-client.event-service.url=
+ *  ${EVENT_SERVICE_URL:http://event-service:8080}}.
+ *
+ * <p>Resilience: standard 3-retry / 2 s timeout / 50 % CB ratio
+ * (Décision C of finalization spec); fallback returns null /
+ * {@link List#of()} so the call-site can choose between propagating a
+ * 404 ({@link jakarta.ws.rs.NotFoundException}) or treating the absence
+ * as a degraded read.
+ */
+@RegisterRestClient(configKey = "event-service")
+@RegisterProvider(RequestIdClientFilter.class)
+@RegisterProvider(ch.unige.events.shared.tracing.InternalTokenClientFilter.class)
+@Path("/events")
+public interface EventServiceClient {
+
+    @GET
+    @Path("/{id}")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getByIdFallback")
+    EventDTO getById(@PathParam("id") long id);
+
+    default EventDTO getByIdFallback(long id) {
+        Log.warnf("[REST_FALLBACK_event-service] getById(%d) — returning null (downstream unavailable, callers must treat as 404)", id);
+        return null;
+    }
+
+    /**
+     * Returns the event payload + a {@code coOrganizerOf: bool} field
+     * indicating whether the given userId is the creator OR an ACCEPTED
+     * co-organizer. Used to centralize cascade SCRUM-136 server-side
+     * (post-2.2.4 the {@code event_co_organizers} table moved into
+     * event-service).
+     */
+    @GET
+    @Path("/{id}")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getByIdWithCoOrgCheckFallback")
+    EventDTO getByIdWithCoOrgCheck(@PathParam("id") long id,
+                                    @QueryParam("check-co-org-of") UUID userId);
+
+    default EventDTO getByIdWithCoOrgCheckFallback(long id, UUID userId) {
+        Log.warnf("[REST_FALLBACK_event-service] getByIdWithCoOrgCheck(%d, %s) — returning null (downstream unavailable)", id, userId);
+        return null;
+    }
+
+    @GET
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "findByIdsFallback")
+    List<EventDTO> findByIds(@QueryParam("ids") List<Long> ids,
+                             @QueryParam("status") String status);
+
+    default List<EventDTO> findByIdsFallback(List<Long> ids, String status) {
+        Log.warnf("[REST_FALLBACK_event-service] findByIds(ids=%d, status=%s) — returning empty list (downstream unavailable, enrichment degraded)", ids.size(), status);
+        return List.of();
+    }
+
+    /**
+     * Returns the set of UUIDs that count as "organizers" of an event:
+     * the creator + every ACCEPTED co-organizer. Used cross-service by
+     * engagement-service / moderation-service to annotate downstream
+     * payloads (e.g. {@code authorIsOrganizer:bool} on comments) without
+     * an N+1 of {@code ?check-co-org-of=} self-checks.
+     *
+     * <p>Décision G of finalization-ultimate spec: replaces the legacy
+     * {@code EventCoOrganizerStub.findAcceptedUserIdsForEvent(eventId)}
+     * pattern — single REST call returning the full list.
+     */
+    @GET
+    @Path("/{id}/organizer-uuids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getOrganizerUuidsFallback")
+    List<UUID> getOrganizerUuids(@PathParam("id") long id);
+
+    default List<UUID> getOrganizerUuidsFallback(long id) {
+        Log.warnf("[REST_FALLBACK_event-service] getOrganizerUuids(%d) — returning empty list (downstream unavailable, organizer-only checks degraded)", id);
+        return List.of();
+    }
+}

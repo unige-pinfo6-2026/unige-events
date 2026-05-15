@@ -22,6 +22,37 @@ components:
       scheme: bearer
       bearerFormat: JWT   # Auth0 / OIDC — validé par quarkus-oidc
 
+  headers:
+    RetryAfter:
+      description: |
+        Nombre de secondes à attendre avant de retenter la requête (cf. RFC 6585 §4).
+        Présent sur les réponses 429 émises par les endpoints de mutation rate-limités
+        (voir ticket SECURITY-pentest 4.14). La valeur est toujours **>= 1** :
+        l'implémentation arrondit le reste de la fenêtre vers le haut au moins à 1
+        seconde — un client qui retente immédiatement n'a aucune chance d'être admis.
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 45
+
+  responses:
+    RateLimited:
+      description: |
+        Trop de requêtes — la limite par utilisateur sur cet endpoint a été dépassée
+        (cf. pentest 2026-04-17 finding 4.14, ticket #98). L'en-tête `Retry-After`
+        indique le nombre de secondes à attendre avant de retenter.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          example:
+            error: rate_limited
+            message: "Too many requests. Retry in 45 seconds."
+
   schemas:
     # Tous les schémas ici — champs en camelCase, booléens sans préfixe is
 
@@ -104,7 +135,16 @@ components:
         **Stripping anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : pour un
         appelant sans JWT, seuls `id`, `displayName` et `avatarUrl` sont renseignés ;
         `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl` sont systématiquement
-        `null`. Les appelants authentifiés reçoivent tous les champs renseignés en base.
+        `null`. Les compteurs `followerCount` et `followingCount` sont à `0` et
+        `followStatus` est `null` pour les anonymes (cf. SCRUM-138).
+
+        **Compteurs et état de suivi** (SCRUM-138) : pour un appelant authentifié,
+        `followerCount` et `followingCount` reflètent les rows `Follow` ACCEPTED
+        impliquant l'utilisateur cible. `followStatus` est non-null **uniquement** s'il
+        existe une row `Follow` pour le couple `(callerId, targetId)` — il vaut alors
+        `PENDING` (demande envoyée par le caller, profil cible privé) ou `ACCEPTED`
+        (suivi actif). Sur son propre profil (caller = target), `followStatus` est
+        toujours `null`.
       properties:
         id:
           type: string
@@ -134,6 +174,29 @@ components:
           type: string
           format: uri
           nullable: true
+        followerCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Nombre de rows `Follow` ACCEPTED dont `followedId = id`. Toujours présent
+            (jamais null) ; vaut `0` pour un appelant anonyme ou un user sans followers.
+        followingCount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Nombre de rows `Follow` ACCEPTED dont `followerId = id`. Toujours présent
+            (jamais null) ; vaut `0` pour un appelant anonyme ou un user qui ne suit personne.
+        followStatus:
+          $ref: '#/components/schemas/FollowStatus'
+          nullable: true
+          description: |
+            État de la relation **du point de vue de l'appelant authentifié** vers
+            l'utilisateur cible. `null` si l'appelant est anonyme, sur son propre profil,
+            ou s'il n'existe aucune row `Follow` pour le couple `(callerId, targetId)`.
+            `PENDING` ou `ACCEPTED` sinon.
+      required: [id, followerCount, followingCount]
 
     UpdateProfileRequest:
       type: object
@@ -305,6 +368,28 @@ components:
           type: string
           format: date-time
           nullable: true
+        parentEventId:
+          type: integer
+          format: int64
+          nullable: true
+          readOnly: true
+          description: |
+            ID de l'événement parent (template récurrent) si cet event est une occurrence
+            d'une récurrence (SCRUM-147). `null` pour un parent récurrent ou pour un
+            événement standalone non-récurrent. La FK `fk_events_parent` côté DB est
+            `ON DELETE SET NULL` : si le parent est supprimé, ce champ devient `null` et
+            l'occurrence devient un standalone orphelin (préserve inscriptions/favoris).
+        recurrenceRule:
+          type: string
+          maxLength: 500
+          nullable: true
+          readOnly: true
+          description: |
+            Règle de récurrence au format RFC 5545 RRULE simplifié (SCRUM-147), portée
+            UNIQUEMENT par le **parent** récurrent. Format autorisé :
+            `FREQ=WEEKLY;UNTIL=YYYYMMDD`, `FREQ=BIWEEKLY;COUNT=N`,
+            `FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=N`. `null` sur les occurrences enfants et
+            sur les standalones non-récurrents. PAS de support BYDAY/EXDATE/INTERVAL en S7.
 
     CreateEventRequest:
       type: object
@@ -379,6 +464,15 @@ components:
           description: |
             Mots-clés associés à l'événement. Le backend normalise (trim + lowercase +
             dédup ordonnée) ; `null` ou liste vide = aucun tag.
+        recurrence:
+          allOf:
+            - $ref: '#/components/schemas/RecurrenceRequest'
+          nullable: true
+          description: |
+            Bloc optionnel SCRUM-147. Si renseigné, `POST /events` matérialise un parent
+            (avec `recurrenceRule` calculée) + jusqu'à 51 occurrences. Statut hérité du
+            parent (DRAFT par défaut, ou `request.status` si fourni). Voir
+            `RecurrenceRequest` pour la sémantique.
 
     UpdateEventRequest:
       type: object
@@ -531,9 +625,11 @@ components:
       type: object
       description: |
         Représentation d'un signalement, retournée par `POST /api/events/{id}/report`,
-        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. `reporterId` et
-        `reviewedBy` sont des UUID nus (privacy + minimalisme — le frontend admin
-        drill-down via `GET /users/{id}` si besoin).
+        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. Les libellés
+        `eventTitle` et `reporterDisplayName` sont projetés depuis l'event et le user
+        liés afin d'éviter au dashboard admin un round-trip supplémentaire par ligne ;
+        les UUID restent disponibles pour drill-down via `GET /events/{id}` ou
+        `GET /users/{id}`.
       properties:
         id:
           type: integer
@@ -541,6 +637,12 @@ components:
         eventId:
           type: integer
           format: int64
+          nullable: true
+          description: ID de l'événement signalé. Nullable seulement par défense, en pratique l'event est NOT NULL en base.
+        eventTitle:
+          type: string
+          nullable: true
+          description: Titre de l'événement signalé, projeté pour l'affichage dans la table de modération.
         reporterId:
           type: string
           format: uuid
@@ -548,6 +650,13 @@ components:
           description: |
             UUID de l'utilisateur ayant signalé. Nullable si le compte a été supprimé
             (préservation de la trace).
+        reporterDisplayName:
+          type: string
+          nullable: true
+          description: |
+            Nom affichable du signalant : `displayName` si renseigné, sinon
+            `firstName lastName` trimmé, sinon `email`. Null si le compte a été
+            supprimé (`reporterId` null).
         reason:
           $ref: '#/components/schemas/ReportReason'
         description:
@@ -575,7 +684,7 @@ components:
           format: uuid
           nullable: true
           description: UUID de l'admin qui a tranché. Null tant que PENDING.
-      required: [id, eventId, reason, status, createdAt]
+      required: [id, reason, status, createdAt]
 
     CreateReportRequest:
       type: object
@@ -676,10 +785,62 @@ components:
       type: string
       description: |
         Statut d'un événement.
-        DRAFT/PUBLISHED/CANCELLED sont définis par l'organisateur ; EXPIRED est
-        attribué automatiquement par le job d'expiration quand un PUBLISHED voit
-        sa endDate passer dans le passé. EXPIRED ne peut pas être posé via l'API.
-      enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED]
+
+        - `DRAFT`/`PUBLISHED`/`CANCELLED` sont définis par l'organisateur (un
+          `CANCELLED` reste réversible vers `DRAFT` via `PATCH /events/{id}/restore`).
+        - `EXPIRED` est attribué automatiquement par le job d'expiration quand un
+          PUBLISHED voit sa `endDate` passer dans le passé. Ne peut pas être posé
+          via l'API.
+        - `BANNED` (SCRUM-97) est attribué par modération — soit manuellement par
+          un admin via `PATCH /admin/reports/{id}` (status=REVIEWED), soit
+          automatiquement par `ModerationCleanupService` au seuil de reports
+          PENDING. État terminal côté créateur : pas de republish possible. Ne
+          peut pas être posé via l'API utilisateur.
+      enum: [DRAFT, PUBLISHED, CANCELLED, EXPIRED, BANNED]
+
+    RecurrenceFrequency:
+      type: string
+      description: |
+        Fréquence de récurrence d'un événement (SCRUM-147).
+        - `WEEKLY` : occurrences espacées de 7 jours.
+        - `BIWEEKLY` : occurrences espacées de 14 jours.
+        - `MONTHLY` : occurrences espacées de 1 mois calendaire (`Period.ofMonths(1)`,
+          gère 31→28 février naturellement via `LocalDateTime.plus(Period)`).
+        Ne supporte pas DAILY ni YEARLY en S7.
+      enum: [WEEKLY, BIWEEKLY, MONTHLY]
+
+    RecurrenceRequest:
+      type: object
+      description: |
+        Bloc optionnel de `CreateEventRequest` qui matérialise une récurrence
+        (SCRUM-147). Si présent, `EventService.create` délègue à `createRecurring`
+        qui crée le parent + jusqu'à 51 occurrences en une seule transaction
+        atomique (limite hard 52 rows total).
+
+        Au moins un de `endDate` ou `maxOccurrences` doit être fourni — sinon
+        `400 recurrence_unbounded`. Si les deux sont présents, le générateur
+        s'arrête au plus restrictif des deux.
+      required: [frequency]
+      properties:
+        frequency:
+          $ref: '#/components/schemas/RecurrenceFrequency'
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          description: |
+            Date inclusive jusqu'à laquelle générer des occurrences. Une occurrence dont
+            `startDate.toLocalDate() > endDate` n'est pas générée. Doit être ≥ à
+            `startDate.toLocalDate()` du parent — sinon `400 recurrence_end_before_start`.
+        maxOccurrences:
+          type: integer
+          minimum: 1
+          maximum: 52
+          nullable: true
+          description: |
+            Nombre maximal d'occurrences (parent inclus). Borné à 52 par Bean Validation
+            — au-delà, `400` Bean Validation. Le générateur s'arrête au minimum entre ce
+            seuil et la borne `endDate` (si fournie).
 
     AttendanceStatus:
       type: string
@@ -771,6 +932,148 @@ components:
         Catégorie de signalement choisie par l'utilisateur dans la modale frontend
         (SCRUM-96). Persistée dans `reports.reason` avec une CHECK constraint côté DB.
       enum: [SPAM, INAPPROPRIATE, FAKE, OTHER]
+
+    FollowStatus:
+      type: string
+      description: |
+        Statut d'une relation de suivi entre deux utilisateurs (SCRUM-138).
+        - `PENDING` : demande de suivi envoyée à un utilisateur dont `profilePublic = false`,
+          en attente de validation par la cible (la `followed`).
+        - `ACCEPTED` : suivi confirmé. Les deux utilisateurs ont une relation active ; le
+          `follower` voit les événements créés par le `followed` dans son feed
+          (cf. SCRUM-168 — filtre `followedOnly` Sprint 9).
+
+        Un refus de demande (`PATCH /follow-requests/{id}/reject`) **supprime physiquement**
+        la row — la valeur `REJECTED` n'existe pas en base. Cette décision permet une
+        re-tentative ultérieure de suivi sans 409 (la contrainte unique étant strictement
+        basée sur la présence d'une row, pas sur son statut).
+      enum: [PENDING, ACCEPTED]
+
+    FollowDTO:
+      type: object
+      description: |
+        Représentation d'une row Follow renvoyée par les endpoints follow (SCRUM-138).
+        - `POST /users/{id}/follow` (201) → `FollowDTO` reflétant le statut résolu
+          (PENDING si profil cible privé, ACCEPTED si public).
+        - `PATCH /follow-requests/{followId}/accept` (200) → `FollowDTO` avec status ACCEPTED.
+        - `GET /users/me/follow-requests` (200) → `List<FollowDTO>` filtré sur status PENDING.
+
+        Le `followerId` n'est PAS enrichi en `UserPublicResponse` — le frontend résoudra
+        `GET /users/{id}` à la demande pour afficher avatar + displayName.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: PK séquentielle (Long, sequence `follows_seq`).
+        followerId:
+          type: string
+          format: uuid
+          description: UUID du `User` qui suit ou demande à suivre.
+        followedId:
+          type: string
+          format: uuid
+          description: UUID du `User` ciblé par le suivi.
+        status:
+          $ref: '#/components/schemas/FollowStatus'
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, followerId, followedId, status, createdAt]
+
+    CommentDTO:
+      type: object
+      description: |
+        Représentation d'un commentaire d'événement (SCRUM-139).
+        - `POST /events/{eventId}/comments` (201) → `CommentDTO` (replies vide).
+        - `GET /events/{eventId}/comments` (200) → `List<CommentDTO>` paginée sur les top-level,
+          replies imbriquées dans `replies[]` (max 1 niveau de profondeur).
+
+        `authorIsOrganizer` est `true` quand l'auteur est le créateur de l'event OU un
+        co-organisateur ACCEPTED (cascade SCRUM-136).
+
+        `likedByMe` est toujours `false` en S6 — sera enrichi par SCRUM-144 (S7) une fois
+        l'entité `CommentLike` livrée.
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: PK séquentielle (Long, sequence `comments_seq`).
+        content:
+          type: string
+          maxLength: 2000
+          description: Contenu textuel du commentaire (TEXT côté DB, trimmé côté service).
+        authorId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID du `User` auteur. Nullable seulement par défense (en pratique l'auteur est
+            NOT NULL en base — la nullabilité est conservée pour aligner sur le pattern
+            `Report.reporterId`).
+        authorDisplayName:
+          type: string
+          nullable: true
+          description: |
+            `displayName` de l'auteur — projeté pour éviter un round-trip
+            `GET /users/{id}` côté front.
+        authorAvatarUrl:
+          type: string
+          nullable: true
+          description: URL absolue de l'avatar de l'auteur.
+        authorIsOrganizer:
+          type: boolean
+          description: |
+            `true` si l'auteur est le créateur de l'event ou un co-organisateur ACCEPTED.
+            Front affiche un badge « Organisateur » (SCRUM-146).
+        likeCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Nombre de likes — toujours `0` en S6 (mutation livrée par SCRUM-144).
+        likedByMe:
+          type: boolean
+          description: |
+            Toujours `false` en S6. SCRUM-144 (S7) le remontera à `true` quand le
+            `CommentLike` existera pour le caller.
+        createdAt:
+          type: string
+          format: date-time
+        parentCommentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            `null` pour un commentaire top-level. Renseigné pour les replies (max
+            1 niveau de profondeur).
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentDTO'
+          description: |
+            Vide pour les replies elles-mêmes (1 niveau max). Chargées en bulk côté backend
+            pour éviter le N+1 (cf. spec SCRUM-139 décision 27).
+      required: [id, content, authorIsOrganizer, likeCount, likedByMe, createdAt, replies]
+
+    CreateCommentRequest:
+      type: object
+      description: |
+        Body de `POST /api/events/{eventId}/comments` (SCRUM-139).
+        `parentCommentId` optionnel (null = commentaire top-level).
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Texte du commentaire. Trimmé côté service avant persistance.
+        parentCommentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            ID du commentaire parent (top-level). `null` pour un commentaire de premier niveau.
+            Si renseigné, le service vérifie que le parent existe ET appartient au même event ET
+            n'est pas lui-même une reply (max 1 niveau, cf. décision 7).
 
     ApiErrorResponse:
       type: object
@@ -924,6 +1227,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /users/me/image:
     post:
@@ -955,13 +1260,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 2 MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      summary: Suppression de la photo de profil
+      description: Remet avatarUrl à null, supprime l'objet S3, et retourne le profil complet mis à jour.
+      operationId: deleteProfilePhoto
+      tags: [users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil mis à jour — avatarUrl est null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur introuvable
           content:
             application/json:
               schema:
@@ -996,11 +1340,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
-          description: Fichier absent ou type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1013,6 +1362,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 5 MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
     delete:
       summary: Suppression de la bannière de profil
       description: Remet bannerUrl à null et retourne le profil complet mis à jour.
@@ -1080,6 +1437,384 @@ paths:
           description: |
             Utilisateur introuvable, OU profil privé demandé par un appelant qui n'en est pas
             le propriétaire. Le corps est identique dans les deux cas (pas d'oracle d'existence).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/{id}/follow:
+    post:
+      summary: Suivre un utilisateur ou envoyer une demande de suivi (SCRUM-138)
+      description: |
+        Crée une row `Follow` entre l'appelant authentifié (`follower`) et l'utilisateur
+        cible (`followed = {id}`).
+
+        **Règle d'auto-accept :**
+        - Si la cible a `profilePublic = true` → status direct `ACCEPTED`.
+        - Si la cible a `profilePublic = false` → status `PENDING` ; la cible peut
+          ensuite accepter (`PATCH /follow-requests/{id}/accept`) ou refuser
+          (`PATCH /follow-requests/{id}/reject`).
+
+        Codes d'erreur :
+        - `401 unauthorized` : token absent ou invalide.
+        - `404 not_found` : UUID cible inexistant **ou** profil utilisateur appelant
+          non provisionné (cas extrême — appeler `GET /users/me` d'abord).
+        - `409 already_following` : une row existe déjà pour le couple
+          `(followerId, followedId)`, peu importe son statut.
+        - `422 cannot_follow_self` : tentative de suivre son propre UUID.
+        - `429 rate_limited` : limite `@PerUserRateLimit(name="follows.follow", max=30)` dépassée.
+      operationId: follow
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Follow créé (status PENDING ou ACCEPTED selon `profilePublic` cible)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowDTO'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Utilisateur cible introuvable ou profil appelant non provisionné
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Le caller suit déjà cette cible (`error=already_following`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Tentative de self-follow (`error=cannot_follow_self`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      summary: Se désabonner / annuler une demande de suivi (SCRUM-138)
+      description: |
+        Supprime la row `Follow` (followerId = caller, followedId = `{id}`), peu importe
+        son statut (`PENDING` ou `ACCEPTED`).
+
+        **Idempotent** : retourne `204 No Content` même si aucune row n'existait. Pas de
+        404 sur l'absence de relation — l'UI ne doit jamais voir un toast d'erreur sur
+        une action « Se désabonner / annuler la demande ».
+      operationId: unfollow
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Suppression effective ou no-op idempotent
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/{id}/followers:
+    get:
+      summary: Liste paginée des utilisateurs qui suivent la cible (SCRUM-138)
+      description: |
+        Retourne la liste des `User` dont une row `Follow` ACCEPTED a `followedId = {id}`.
+        Tri `Follow.createdAt DESC`, tie-breaker `Follow.id DESC`. Page taille max 100.
+
+        **Règle d'autorisation :**
+        - Profil cible `profilePublic = true` → 200 + liste paginée (caller authentifié).
+        - Profil cible `profilePublic = false`, caller = owner → 200.
+        - Profil cible `profilePublic = false`, caller ≠ owner → `404 not_found`
+          (envelope identique à un UUID inexistant — anti-oracle, aligné ISSUE-93).
+        - Caller anonyme → `401 unauthorized`.
+
+        Items projetés via `UserPublicResponse.from(User)` — compteurs `followerCount` /
+        `followingCount` à `0` et `followStatus` à `null` (les compteurs ne font sens que
+        sur le profil cible, pas sur les items de la liste).
+      operationId: getFollowers
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Liste paginée des followers (tableau vide si aucun)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPublicResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |
+            Utilisateur cible introuvable, OU profil cible privé demandé par un
+            non-owner (envelope identique — anti-oracle).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/{id}/following:
+    get:
+      summary: Liste paginée des utilisateurs suivis par la cible (SCRUM-138)
+      description: |
+        Retourne la liste des `User` ciblés par les rows `Follow` ACCEPTED dont
+        `followerId = {id}`. Mêmes règles que `/followers` (auth, anti-oracle, tri,
+        pagination, projection).
+      operationId: getFollowing
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Liste paginée des utilisateurs suivis (tableau vide si aucun)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserPublicResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |
+            Utilisateur cible introuvable, OU profil cible privé demandé par un
+            non-owner (envelope identique — anti-oracle).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/follow-requests:
+    get:
+      summary: Demandes de suivi PENDING reçues par l'utilisateur connecté (SCRUM-138)
+      description: |
+        Retourne la liste des rows `Follow` PENDING dont `followedId = me`. Tri
+        `createdAt DESC, id DESC`.
+
+        Le frontend (SCRUM-142) consomme cet endpoint pour afficher le panneau
+        « Demandes reçues » avec boutons Accepter / Refuser (cf. `PATCH /follow-requests/{id}/accept|reject`).
+        Pour chaque entrée, le frontend résoudra `GET /users/{followerId}` à la demande
+        pour afficher avatar + displayName du demandeur.
+      operationId: getMyFollowRequests
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Demandes PENDING reçues (tableau vide si aucune)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FollowDTO'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur appelant non provisionné (appeler `GET /users/me` d'abord)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /follow-requests/{followId}/accept:
+    patch:
+      summary: Accepter une demande de suivi (SCRUM-138)
+      description: |
+        Bascule la row `Follow` (`followId`) de `PENDING` à `ACCEPTED`. Réservé au
+        `followed` (la cible de la demande). Sinon `403 forbidden`.
+
+        Codes d'erreur :
+        - `401 unauthorized` : token absent ou invalide.
+        - `403 forbidden` : caller ≠ `followed`.
+        - `404 not_found` : `followId` inexistant.
+        - `409 invalid_transition` : la row n'est pas en statut PENDING (déjà ACCEPTED).
+      operationId: acceptFollowRequest
+      tags: [follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: followId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Demande acceptée — `FollowDTO` avec status ACCEPTED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowDTO'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |
+            Le caller n'est pas la cible de la demande (`error=forbidden`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '`followId` inexistant'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: |
+            La row n'est pas PENDING (`error=invalid_transition`) — déjà ACCEPTED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /follow-requests/{followId}/reject:
+    patch:
+      summary: Refuser une demande de suivi (SCRUM-138)
+      description: |
+        Refuse la demande PENDING — **supprime physiquement la row**. Le `follower`
+        peut ré-envoyer une demande ultérieurement sans 409.
+
+        Réservé au `followed` (la cible). Sinon `403 forbidden`.
+
+        Codes d'erreur :
+        - `401 unauthorized` : token absent ou invalide.
+        - `403 forbidden` : caller ≠ `followed`.
+        - `404 not_found` : `followId` inexistant.
+        - `409 invalid_transition` : la row est déjà ACCEPTED (utiliser DELETE pour se
+          désabonner côté caller, mais le `followed` n'a pas de bouton « refuser » sur
+          un follow déjà actif — front bloque cette UX).
+      operationId: rejectFollowRequest
+      tags: [follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: followId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Demande refusée et supprimée
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: 'Caller ≠ `followed`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '`followId` inexistant'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: 'Row déjà ACCEPTED (`error=invalid_transition`)'
           content:
             application/json:
               schema:
@@ -1213,6 +1948,70 @@ paths:
                   $ref: '#/components/schemas/Attendance'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/participations:
+    get:
+      summary: Mes événements (côté participant)
+      description: |
+        Retourne les événements auxquels l'utilisateur connecté est inscrit, enrichis
+        comme les autres listes (counts, availableSpots) pour permettre au frontend de
+        rendre des EventCards sans N+1.
+
+        Filtres optionnels :
+        - `status` : statut de l'inscription (`ATTENDING` ou `WAITLISTED`).
+        - `timeframe` : position temporelle de l'événement par rapport à `now()`.
+          `upcoming` retourne les événements dont `endDate >= now` (un événement en
+          cours est `upcoming`), `past` retourne les événements dont `endDate < now`.
+          Comparaison **insensible à la casse** (`upcoming`, `UPCOMING`, `Upcoming`).
+
+        Sans filtre, retourne toutes les inscriptions du caller, tous statuts et
+        toutes périodes confondus.
+      operationId: getMyParticipationEvents
+      tags: [users, attendance, events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filtre optionnel sur le statut de l'inscription. Omettre pour récupérer toutes les inscriptions.
+          schema:
+            $ref: '#/components/schemas/AttendanceStatus'
+        - name: timeframe
+          in: query
+          description: |
+            Filtre optionnel sur la période. `upcoming` = événements en cours ou à
+            venir (`endDate >= now`). `past` = événements terminés (`endDate < now`).
+            Insensible à la casse. Omettre pour ne pas filtrer.
+          schema:
+            type: string
+            enum: [upcoming, past]
+      responses:
+        '200':
+          description: Liste des événements (tableau vide si aucun — jamais 404)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Valeur de `timeframe` invalide (n'est ni `upcoming` ni `past`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Profil utilisateur introuvable (appeler GET /users/me d'abord)
           content:
             application/json:
               schema:
@@ -1414,11 +2213,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: Validation échouée
+          description: |
+            Validation échouée. Pour la récurrence (SCRUM-147) :
+            - Bean Validation generic : `frequency` manquant, `maxOccurrences` hors [1,52], `startDate` non-future.
+            - `error: "recurrence_unbounded"` : `recurrence` présent mais ni `endDate` ni `maxOccurrences` renseignés.
+            - `error: "recurrence_end_before_start"` : `recurrence.endDate < startDate.toLocalDate()`.
+
+            Note : un cap dur de 52 occurrences (parent inclus) s'applique côté générateur ;
+            si le calcul `endDate × frequency` produit plus de 52 occurrences, la récurrence
+            est silencieusement tronquée à 52 (pas d'erreur). La borne client `maxOccurrences > 52`
+            est en revanche rejetée par Bean Validation côté DTO (`@Max(52)`).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValidationErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1431,6 +2241,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/search:
     get:
@@ -1530,6 +2342,12 @@ paths:
         appelant authentifié dont le profil n'est pas provisionné — le serveur renvoie
         `404 not_found`, envelope identique à celle pour un ID inexistant (évite un
         oracle d'existence — cf. pentest 2026-04-17 findings 4.12 + 4.15).
+
+        **SCRUM-97 — events `BANNED`** : invisibles via cet endpoint pour TOUT LE MONDE,
+        anonyme, créateur et admin compris. Le drill-down sur un event banni passe
+        exclusivement par la table de modération (`/admin/reports`). La réponse 404
+        utilise la même envelope que pour un ID inexistant — pas de leak du fait que
+        l'event a été banni.
       operationId: getEventById
       tags: [events]
       security:
@@ -1618,6 +2436,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Supprimer définitivement un événement annulé (hard-delete)
@@ -1666,6 +2486,68 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '409':
           description: Conflit — l'événement n'est pas en statut CANCELLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{id}/occurrences:
+    get:
+      summary: Lister les occurrences d'un événement parent récurrent (SCRUM-147)
+      description: |
+        Retourne la liste des événements dont `parentEventId` matche `{id}`, triés par
+        `startDate ASC, id ASC`. Si l'event ciblé n'est pas un parent récurrent
+        (occurrence elle-même, standalone non-récurrent, ou parent sans occurrences
+        encore générées), retourne `200 OK` + `[]` — pas de `404`. Le client lit
+        `event.recurrenceRule != null` sur `GET /events/{id}` pour distinguer un parent.
+
+        **Visibilité** : passe par `EventService.getById(id, callerAuth0Id, isAdmin)`.
+        Un event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id
+        inconnu) retourne `404 not_found` (anti-oracle ISSUE-92).
+      operationId: getEventOccurrences
+      tags: [events]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 52
+            default: 52
+      responses:
+        '200':
+          description: Liste des occurrences (vide si pas de parent récurrent)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+        '400':
+          description: Pagination invalide (`size > 52`, `page < 0`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
           content:
             application/json:
               schema:
@@ -1720,6 +2602,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/restore:
     patch:
@@ -1770,6 +2654,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/publish:
     patch:
@@ -1842,6 +2728,8 @@ paths:
                     example:
                       - La date de l'événement doit être dans le futur
                       - Le titre est obligatoire
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/{id}/image:
     post:
@@ -1879,11 +2767,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: Fichier invalide (acceptés : image/jpeg, image/png, image/webp, image/gif)
+          description: |
+            Validation/upload error. Codes possibles :
+            - `validation_error` (`ValidationErrorResponse`) : champ multipart `file` absent (mauvais nom de champ ou body vide). Réponse retournée par défaut depuis pentest 2026-04-17 finding 4.22 pour éviter le 500 par NPE.
+            - `invalid_file_type` (`ApiErrorResponse`) : type MIME non autorisé (acceptés : image/jpeg, image/png, image/webp, image/gif).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ApiErrorResponse'
         '401':
           description: Token absent ou invalide
           content:
@@ -1902,6 +2795,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Fichier trop volumineux — dépasse la limite de 5 MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /events/featured:
     get:
@@ -1935,6 +2836,10 @@ paths:
                   $ref: '#/components/schemas/Event'
         '400':
           description: Paramètre limit hors bornes (< 1 ou > 12)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/feature:
     patch:
@@ -1959,10 +2864,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /admin/events/{id}/unfeature:
     patch:
@@ -1987,10 +2904,22 @@ paths:
                 $ref: '#/components/schemas/Event'
         '401':
           description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '403':
           description: Rôle ADMIN requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Événement introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /events/{id}/attend:
     post:
@@ -2065,6 +2994,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Se désinscrire d'un événement
@@ -2478,6 +3409,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
     delete:
       summary: Retirer un événement des favoris
@@ -2661,6 +3594,8 @@ paths:
         Codes d'erreur :
         - `400 cannot_report_draft` : l'événement est en statut DRAFT (non public).
         - `400 cannot_report_cancelled` : l'événement est en statut CANCELLED.
+        - `400 cannot_report_banned` : l'événement a déjà été retiré par modération
+          (`EventStatus.BANNED`, SCRUM-97). Pas la peine de re-signaler.
         - `404 not_found` : événement introuvable, ou profil utilisateur non provisionné.
         - `409 already_reported` : l'utilisateur a déjà signalé cet événement (unique
           constraint sur `(reporter_id, event_id)`).
@@ -2691,7 +3626,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Report'
         '400':
-          description: Body invalide, ou `cannot_report_draft`, ou `cannot_report_cancelled`
+          description: Body invalide, ou `cannot_report_draft`, ou `cannot_report_cancelled`, ou `cannot_report_banned`
           content:
             application/json:
               schema:
@@ -2718,6 +3653,194 @@ paths:
           description: |
             `cannot_report_own_event` — l'utilisateur est créateur ou co-organisateur
             ACCEPTED de l'événement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{eventId}/comments:
+    post:
+      summary: Poster un commentaire sur un événement (SCRUM-139)
+      description: |
+        Crée un commentaire (`Comment`) sur l'event ciblé (`eventId`), au nom du caller authentifié.
+
+        Si `parentCommentId` est renseigné, le commentaire est une **reply** au commentaire
+        identifié — celui-ci doit appartenir au même event ET être un top-level (profondeur max 1).
+
+        **Visibilité** : passe par `EventService.getById(eventId, callerAuth0Id, isAdmin)`.
+        Un event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
+        retourne `404 not_found` (anti-oracle ISSUE-92).
+
+        Codes d'erreur :
+        - `400 cannot_comment_draft_event` : POST par créateur/co-org/admin sur event DRAFT.
+        - `400 cannot_comment_cancelled_event` : event CANCELLED.
+        - `400 cannot_comment_expired_event` : event EXPIRED.
+        - `401 unauthorized` : token absent ou invalide.
+        - `404 not_found` : event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu).
+        - `404 parent_comment_not_found` : `parentCommentId` inexistant.
+        - `422 replies_too_deep` : `parentCommentId` réfère un commentaire qui a déjà un parent.
+        - `422 parent_comment_not_in_event` : `parentCommentId` réfère un commentaire d'un autre event.
+        - `429 rate_limited` : `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` dépassé.
+      operationId: postComment
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Commentaire créé (replies vide)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDTO'
+        '400':
+          description: Event non commentable (DRAFT/CANCELLED/EXPIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Event invisible OU `parentCommentId` inexistant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Profondeur de reply dépassée OU parent dans un autre event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    get:
+      summary: Lister les commentaires d'un événement (SCRUM-139)
+      description: |
+        Retourne une page paginée des commentaires top-level de l'event ciblé,
+        avec leurs replies imbriquées dans `replies[]` (max 1 niveau de profondeur).
+        Tri : `createdAt DESC, id DESC` (commentaires les plus récents en premier).
+
+        **Visibilité** : héritée de `EventService.getById` — événement invisible → `404`.
+        Endpoint `@PermitAll` : un anonyme reçoit la liste (l'event PUBLISHED est public).
+
+        **Pagination** : `page` (default 0, ≥ 0), `size` (default 20, > 0, ≤ 100).
+      operationId: getEventComments
+      tags: [comments]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Page de commentaires (top-level + replies imbriquées)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommentDTO'
+        '400':
+          description: Pagination invalide (`size > 100`, `page < 0`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id inconnu)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /comments/{commentId}:
+    delete:
+      summary: Supprimer un commentaire (SCRUM-139)
+      description: |
+        Supprime physiquement le commentaire (`commentId`). DELETE physique — la row part
+        définitivement. Si le commentaire avait des replies, celles-ci sont conservées
+        et leur `parent_comment_id` est mis à `NULL` côté DB via la clause `ON DELETE
+        SET NULL` de la FK `fk_comments_parent`. Conséquence : ces replies remontent en
+        **top-level** dans `GET /events/{eventId}/comments` et apparaissent au prochain
+        appel comme des commentaires de premier niveau (`parentCommentId: null` côté DTO).
+
+        **Autorisé pour** :
+        1. l'auteur du commentaire (`comment.author.id == caller.id`),
+        2. le créateur de l'event (`comment.event.creator.id == caller.id`),
+        3. un co-organisateur ACCEPTED de l'event (cascade SCRUM-136),
+        4. un utilisateur ADMIN (claim Auth0).
+
+        Codes d'erreur :
+        - `401 unauthorized` : token absent ou invalide.
+        - `403 forbidden` : caller authentifié mais non autorisé.
+        - `404 comment_not_found` : `commentId` inexistant.
+      operationId: deleteComment
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Commentaire supprimé (no body)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Caller non autorisé (`error=forbidden`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Commentaire inexistant (`error=comment_not_found`)
           content:
             application/json:
               schema:
@@ -2813,9 +3936,18 @@ paths:
       description: |
         Transitionne un signalement de `PENDING` vers `REVIEWED` ou `DISMISSED`. Pose
         `reviewedAt = now()` et `reviewedBy = caller.id`. Optionnellement persiste une
-        `moderationNote`. Aucune action implicite n'est déclenchée sur l'événement
-        signalé (cf. décision 13 de `specs_scrum-94.md` — la suppression d'un event
-        reste une action manuelle séparée via `PATCH /events/{id}/cancel`).
+        `moderationNote`.
+
+        **SCRUM-97 — effet de cascade lorsque `status=REVIEWED`** :
+        - L'événement lié passe en `EventStatus.BANNED` (état terminal côté
+          créateur — pas de republish ni de modification possibles).
+        - Tous les autres signalements en statut `PENDING` sur le même événement
+          sont automatiquement clôturés en `REVIEWED` avec `reviewedBy = admin
+          courant` et `reviewedAt = now()`. Leur `moderationNote` reste `null`
+          (seul le signalement explicitement traité porte la note de l'admin).
+
+        `status=DISMISSED` est neutre : le signalement est fermé, mais l'événement
+        et les signalements frères ne sont pas touchés.
 
         Codes d'erreur :
         - `400 invalid_status` : `status` du body n'est ni REVIEWED ni DISMISSED.

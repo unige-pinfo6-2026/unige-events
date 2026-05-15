@@ -196,6 +196,7 @@ function toTemplateValues(event: Event): EventFormValues {
     category: event.category,
     faculty: event.faculty ?? null,
     capacity: event.capacity?.toString() ?? '',
+    allDay: event.allDay ?? false,
     websiteUrl: event.websiteUrl ?? '',
     contactEmail: event.contactEmail ?? '',
     tags: event.tags ?? [],

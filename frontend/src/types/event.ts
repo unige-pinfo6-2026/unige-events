@@ -19,6 +19,8 @@ export type Event = {
   interestedCount?: number | null
   allDay: boolean
   attendingCount: number
+  featured?: boolean
+  featuredAt?: string | null
   websiteUrl?: string | null
   contactEmail?: string | null
   registrationDeadline?: string | null
@@ -48,6 +50,7 @@ export const EVENT_STATUSES = {
   PUBLISHED: { name: 'Publié' },
   CANCELLED: { name: 'Annulé' },
   EXPIRED: { name: 'Terminé' },
+  BANNED: { name: 'Banni' },
 } as const
 
 export type EventStatus = keyof typeof EVENT_STATUSES

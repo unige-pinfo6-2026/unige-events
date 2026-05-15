@@ -1,12 +1,14 @@
 import { Skeleton } from 'boneyard-js/react'
-import { CheckCircle, Search, Shield, Star, XCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Ban, Search, Star, XCircle } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ButtonDestructive, ButtonNeutral } from '@/components/utils/Buttons'
-import { formatEventDateTime } from '@/utils/dateTime'
+import { formatEventDateTime, parseApiUtcDateTime } from '@/utils/dateTime'
+import { REPORT_REASONS } from '@/types/report'
 import type { Report } from '@/types/admin'
 import type { Event } from '@/types/event'
 
@@ -49,24 +51,36 @@ function ReportRow({
   onReview,
   onDismiss,
 }: Readonly<{ report: Report; onReview: (id: number) => void; onDismiss: (id: number) => void }>) {
+  const eventTitle = report.eventTitle ?? 'Événement supprimé'
+  const reporterLabel = report.reporterDisplayName ?? 'Compte supprimé'
+  const reasonLabel = REPORT_REASONS[report.reason]
+  const description = report.description?.trim()
+
   return (
-    <tr className="border-t border-border hover:bg-foreground/2 transition-colors">
+    <tr className="border-t border-border hover:bg-foreground/2 transition-colors align-top">
       <td className="px-4 py-4">
-        <a
-          href={`/events/${report.eventId}`}
-          className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
-        >
-          {report.eventTitle}
-        </a>
+        {report.eventId !== null ? (
+          <Link
+            to={`/events/${report.eventId}`}
+            className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
+          >
+            {eventTitle}
+          </Link>
+        ) : (
+          <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
+        )}
       </td>
-      <td className="px-4 py-4 text-sm text-foreground/70 max-w-[200px]">
-        <span className="line-clamp-2">{report.reason}</span>
+      <td className="px-4 py-4 text-sm max-w-[280px]">
+        <span className="block font-medium text-foreground/80">{reasonLabel}</span>
+        {description && (
+          <span className="block mt-1 text-xs text-foreground/50 line-clamp-2">{description}</span>
+        )}
       </td>
       <td className="px-4 py-4 text-sm text-foreground/60 whitespace-nowrap">
-        {report.reportedByDisplayName}
+        {reporterLabel}
       </td>
       <td className="px-4 py-4 text-sm text-foreground/50 whitespace-nowrap">
-        {new Date(report.createdAt).toLocaleDateString('fr-FR')}
+        {parseApiUtcDateTime(report.createdAt).toLocaleDateString('fr-FR')}
       </td>
       <td className="px-4 py-4">
         {report.status === 'PENDING' ? (
@@ -74,10 +88,11 @@ function ReportRow({
             <button
               type="button"
               onClick={() => onReview(report.id)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors cursor-pointer border-0"
+              title="Confirme le signalement et bannit l'événement (action destructive : irréversible côté créateur)."
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-error/10 text-error hover:bg-error/20 transition-colors cursor-pointer border-0"
             >
-              <CheckCircle className="size-3.5 shrink-0" />
-              Valider
+              <Ban className="size-3.5 shrink-0" />
+              Bannir l'événement
             </button>
             <button
               type="button"
@@ -89,13 +104,15 @@ function ReportRow({
             </button>
           </div>
         ) : (
-          <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg ${
-            report.status === 'REVIEWED'
-              ? 'bg-success/10 text-success'
-              : 'bg-foreground/5 text-foreground/50'
-          }`}>
-            {report.status === 'REVIEWED' ? 'Validé' : 'Ignoré'}
-          </span>
+          <div className="flex justify-end">
+            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg ${
+              report.status === 'REVIEWED'
+                ? 'bg-error/10 text-error'
+                : 'bg-foreground/5 text-foreground/50'
+            }`}>
+              {report.status === 'REVIEWED' ? 'Banni' : 'Ignoré'}
+            </span>
+          </div>
         )}
       </td>
     </tr>
@@ -347,12 +364,7 @@ export default function AdminPage() {
   return (
     <SectionWrapper padding="sm">
       <SectionHeader
-        title={
-          <span className="flex items-center justify-center gap-3">
-            <Shield className="size-8 text-accent" />
-            Administration
-          </span>
-        }
+        title={<>Espace <mark>Administration</mark></>}
         subtitle="Modération des signalements et gestion des événements mis en avant"
         align="center"
       />

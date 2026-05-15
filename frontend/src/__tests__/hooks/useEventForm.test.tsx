@@ -1227,6 +1227,13 @@ describe('useEventForm', () => {
       expect(result.current.values.status).toBe('PUBLISHED')
     })
 
+    it('preserves allDay from the template event', () => {
+      const allDayTemplate = { ...templateEvent, allDay: true }
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent: allDayTemplate }))
+
+      expect(result.current.values.allDay).toBe(true)
+    })
+
     it('takes priority over a persisted sessionStorage draft', () => {
       sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({
         title: 'Brouillon persisté',

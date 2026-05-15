@@ -1,10 +1,12 @@
+cloudflared:
+  enabled: true
+  mode: named
+
 image:
   registry: ghcr.io
   org: unige-pinfo6-2026
   pullPolicy: Always
-  api:
-    name: unige-events-api
-    tag: latest
+  tag: latest
   web:
     name: unige-events-web
     tag: latest
@@ -36,16 +38,6 @@ minio:
       memory: "512Mi"
       ephemeral-storage: "512Mi"
 
-api:
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "256Mi"
-      ephemeral-storage: "256Mi"
-    limits:
-      memory: "512Mi"
-      ephemeral-storage: "512Mi"
-
 web:
   resources:
     requests:
@@ -56,6 +48,26 @@ web:
       memory: "128Mi"
       ephemeral-storage: "256Mi"
 
-cloudflared:
-  enabled: true
-  mode: named
+kong:
+  image: kong:3.7.0
+  replicas: 1
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "256Mi"
+      ephemeral-storage: "128Mi"
+    limits:
+      memory: "768Mi"
+      ephemeral-storage: "256Mi"
+
+kafka:
+  image: apache/kafka:3.7.0
+  storageSize: 5Gi
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+      ephemeral-storage: "256Mi"
+    limits:
+      memory: "1Gi"
+      ephemeral-storage: "1Gi"

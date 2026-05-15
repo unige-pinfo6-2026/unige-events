@@ -4,7 +4,7 @@
 
 ### User
 
-Table : `users` (mapping CamelCase → snake_case par Hibernate NamingStrategy)
+Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollection).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -44,7 +44,9 @@ le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.f
 
 ### Event
 
-Table : `events`
+Owned by **event-service**. Tables : `events` + `event_tags`.
+
+**Kafka** : `EventLifecyclePublisher` émet `events.{published, cancelled, expired}` post-commit via CDI `@Observes(AFTER_SUCCESS)` (Décision A/F de la spec de complétion). Consumer `events.banned` dans event-service (apply `event.status = BANNED` localement, idempotent — émis par `moderation-service` lors d'un BAN admin ou d'un auto-ban via `ModerationCleanupJob`).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -66,10 +68,12 @@ Table : `events`
 | `registrationDeadline` | `registrationDeadline` | `LocalDateTime` | `registration_deadline` | nullable — SCRUM-126. `AttendanceService.attend()` renvoie 409 `registration_closed` si `now().isAfter(registrationDeadline)`. |
 | `tags` | `tags` | `List<String>` | table `event_tags` | `@ElementCollection(fetch=EAGER)`, colonne DB `tag VARCHAR(64)` (legacy compat), validation DTO `@Size(max=16)` sur les éléments depuis ISSUE-122, max 20 tags — SCRUM-126. Normalisé côté service (trim + lowercase + dédup ordonnée). |
 | `shareCode` | `shareCode` | `String` | `share_code` | nullable, unique — généré à la demande par `ShareService` |
+| `parentEventId` | `parentEventId` | `Long` | `parent_event_id` | nullable, FK auto-référente vers `events.id` avec `ON DELETE SET NULL` (FK `fk_events_parent`) — SCRUM-147. `null` sur un parent récurrent ou un standalone, renseigné sur les occurrences enfants. Pas de `@ManyToOne` — pointeur Long brut, cohérent avec Favorite/Attendance/Follow. |
+| `recurrenceRule` | `recurrenceRule` | `String` | `recurrence_rule` | nullable, `@Column(length=500)` — SCRUM-147. RFC 5545 RRULE simplifié (`FREQ=WEEKLY;UNTIL=YYYYMMDD;COUNT=N`), porté UNIQUEMENT par le parent récurrent. `null` sur les occurrences enfants et les standalones. |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 | `updatedAt` | `updatedAt` | `LocalDateTime` | `updated_at` | mis à jour via `@PreUpdate` |
 
-Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty)
+Index DB : `idx_event_creator` (creator_id), `idx_event_start_date` (start_date), `idx_event_faculty` (faculty), `idx_event_featured_status_end` (featured, status, end_date), `idx_event_parent` (parent_event_id) — SCRUM-147.
 
 Table dérivée : `event_tags` — créée automatiquement par Hibernate via `@ElementCollection`. Colonnes `event_id` (FK vers `events.id`, FK nommée `fk_event_tags_event`) et `tag` (varchar(64), not null). Chargée en EAGER avec l'`Event` pour éviter le N+1 dans les endpoints de lecture.
 
@@ -85,13 +89,32 @@ Le statut `Event.status` détermine qui peut lire l'événement via `GET /api/ev
 
 Un appelant non autorisé reçoit `404 not_found` — même envelope qu'un ID inexistant, pour fermer l'oracle d'existence (cf. findings 4.12 + 4.15 du rapport de pentest). La règle est appliquée dans `EventService.getById(Long, String, boolean)`, avec extraction de l'identité anonyme-safe côté Resource (`identity.isAnonymous()` + `identity.hasRole("ADMIN")`).
 
+#### Récurrence (SCRUM-147)
+
+La récurrence d'un événement est matérialisée par **rows** : chaque occurrence est une row `events` standalone, avec `parent_event_id` pointant vers le **template parent** et `recurrence_rule` portée UNIQUEMENT par le parent. Pas de table de jointure dédiée, pas d'event « virtuel » non-persisté — l'isolation par row préserve toutes les propriétés des services aval (Attendance, Favorite, EventView, EventStats, EventCoOrganizer, Comment, CalendarService) sans branchement spécial.
+
+| Aspect | Valeur |
+|---|---|
+| Fréquences supportées | `RecurrenceFrequency` ∈ {`WEEKLY`, `BIWEEKLY`, `MONTHLY`}. Pas de `DAILY` ni `YEARLY` en S7. |
+| Espacement | WEEKLY = `Period.ofDays(7)`, BIWEEKLY = `Period.ofDays(14)`, MONTHLY = `Period.ofMonths(1)` (rolling 31→28 février naturel via `LocalDateTime.plus(Period)`). |
+| Format `recurrence_rule` | RFC 5545 RRULE simplifié — `FREQ=WEEKLY;UNTIL=YYYYMMDD`, `FREQ=BIWEEKLY;COUNT=10`, `FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=12`. PAS de support `BYDAY`/`EXDATE`/`INTERVAL` en S7. |
+| Cap matérialisation | 52 rows total (parent inclus) — limite hard. `RecurrenceGenerator` retourne au plus 51 ranges. |
+| Statut hérité | Les occurrences héritent du `status` du parent à la création (DRAFT par défaut, ou `request.status` si fourni). Symétrie totale parent ↔ enfants. |
+| FK `fk_events_parent` | `ON DELETE SET NULL` — un DELETE physique du parent (après cancel) préserve les occurrences orphelines avec `parent_event_id = NULL`. Inscriptions, favoris, vues, comptages survivent. |
+| Modification globale (PUT) | **Pas de propagation** au PUT du parent vers les occurrences. Chaque occurrence reste indépendamment éditable (cf. décision spec 17). |
+| Cancel cascadé | **Pas de cascade** sur `PATCH /events/{parentId}/cancel`. Les occurrences restent indépendamment cancellables (décision spec 18). |
+| Co-organisateurs | **Pas d'héritage automatique**. Le co-org accepté sur le parent n'a aucun privilège sur les occurrences — il faut `POST /co-organizers` par occurrence (décision spec 12). |
+| ICS feed | Inchangé — chaque occurrence row génère son propre VEVENT autonome dans `CalendarService.generateIcsFeed`. Pas de RRULE compact dans l'ICS (décision spec 13). |
+| Atomicité création | `EventService.createRecurring(...)` est `@Transactional` — parent + occurrences persistés dans la même unité JTA, all-or-nothing. |
+| Anti-oracle GET | `GET /events/{id}/occurrences` délègue à `getById(...)` ; un parent invisible (DRAFT non-créateur, BANNED, id inconnu) renvoie 404. Un standalone non-récurrent renvoie 200 + liste vide (pas 404). |
+
 Les endpoints de liste (`GET /events`, `GET /events/search`) filtrent déjà les statuts non publics correctement — voir SCRUM-133 pour le contexte.
 
 ---
 
 ### Favorite
 
-Table : `favorites`
+Owned by **event-service** (sous-package event/favorite, post-consolidation Étape 2.2.3). Table : `favorites`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -110,7 +133,7 @@ Helpers statiques : `Favorite.findByUserAndEvent(UUID, Long)`, `Favorite.findByU
 
 ### EventView
 
-Table : `event_views`
+Owned by **event-service** (sous-package event/view, post-consolidation Étape 2.2.2). Table : `event_views`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -121,13 +144,17 @@ Table : `event_views`
 
 Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — garantit qu'un utilisateur ne génère qu'une seule vue par événement (idempotence).
 
+L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
+
+Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
+
 Utilisée par `EventStatsService.getStats()` pour calculer `viewCount`.
 
 ---
 
 ### Attendance
 
-Table : `attendances`
+Owned by **engagement-service** (sous-package engagement/attendance, post-rename Étape 2.1.1). Table : `attendances`.
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -151,26 +178,9 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 ---
 
-### EventView
-
-Table : `event_views`
-
-| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
-|---|---|---|---|---|
-| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
-| `eventId` | `eventId` | `Long` | `event_id` | not null |
-| `userId` | `userId` | `UUID` | `user_id` | not null |
-| `viewedAt` | `viewedAt` | `LocalDateTime` | `viewed_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
-
-Contrainte unique : `uq_event_view_user_event` sur `(event_id, user_id)` — une seule vue enregistrée par utilisateur par événement.
-
-L'appel `POST /events/{id}/view` est **idempotent** : si l'utilisateur a déjà vu l'événement, la vue existante est conservée et la requête retourne 204 sans erreur ni modification.
-
-Helpers statiques : `EventView.findByEventAndUser(Long eventId, UUID userId)`.
-
----
-
 ### EventCoOrganizer
+
+Owned by **event-service** (sous-package event/coorganizer, post-consolidation Étape 2.2.4). Table : `event_co_organizers`.
 
 Table : `event_co_organizers` (créée par la migration `V8__create_event_co_organizers.sql` en SCRUM-136).
 
@@ -229,7 +239,96 @@ du JWT — pas de spoofing).
 
 ---
 
+### Follow
+
+Owned by **user-service** (sous-package user/follow, post-consolidation Étape 2.3.1). Table : `follows`.
+
+Table : `follows` (créée par la migration `V14__create_follows.sql` en SCRUM-138).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity`, sequence `follows_seq` |
+| `followerId` | `followerId` | `UUID` | `follower_id` | not null — FK `fk_follows_follower` → `users(id)` |
+| `followedId` | `followedId` | `UUID` | `followed_id` | not null — FK `fk_follows_followed` → `users(id)` |
+| `status` | `status` | `FollowStatus` | `status` | `@Enumerated(STRING)`, not null, `length=16`, CHECK constraint |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
+
+Contrainte unique : `uq_follow_follower_followed` sur `(follower_id, followed_id)` —
+empêche le double suivi et sert de filet de sécurité au check applicatif `409 already_following`.
+
+CHECK constraints :
+- `follows_status_check` (V14) : `status IN ('PENDING', 'ACCEPTED')`.
+
+Index : `idx_follow_followed` (followed_id), `idx_follow_follower` (follower_id) —
+support des compteurs `countFollowers` / `countFollowing` et des listings paginés
+(SCRUM-138).
+
+**Pas de cascade FK** — un user supprimé laisse des rows orphelines (pattern défensif
+identique à `Report.reporter`, à nettoyer par job ultérieur si nécessaire).
+
+#### Sémantique du `REJECT`
+
+`PATCH /follow-requests/{id}/reject` **supprime physiquement** la row au lieu de la
+marquer `REJECTED`. La valeur `REJECTED` n'existe pas dans l'enum `FollowStatus`. Cette
+décision permet au follower de re-tenter une demande après refus, sans 409 (la
+contrainte unique étant strictement basée sur la présence d'une row, pas sur son
+statut). Pattern aligné sur `EventCoOrganizer.DECLINE`.
+
+#### Helpers statiques
+
+- `Follow.findByFollowerAndFollowed(UUID, UUID)` — résolution unitaire pour
+  follow/unfollow/cancel.
+- `Follow.findFollowersOf(UUID, int, int)` — listing paginé ACCEPTED, tri
+  `createdAt DESC, id DESC`.
+- `Follow.findFollowingOf(UUID, int, int)` — idem côté following.
+- `Follow.findPendingRequestsFor(UUID, int, int)` — inbox des demandes PENDING.
+- `Follow.findAcceptedFollowedIds(UUID followerId): List<UUID>` — projection JPQL
+  directe. **Anticipation SCRUM-168** (filtre `followedOnly` du feed S9) : consommé
+  par `EventService` pour filtrer les events sur les UUIDs suivis. Couvert par un
+  test sentinel dédié dans `FollowServiceCoverageTest`.
+- `Follow.countFollowersOf(UUID)`, `Follow.countFollowingOf(UUID)` — compteurs
+  ACCEPTED uniquement (PENDING ne compte pas).
+
+#### Consommation par `UserService.getPublicProfile`
+
+`UserService.getPublicProfile(UUID id, String auth0Id)` retourne désormais un
+`PublicProfileView` (record `(User user, long followerCount, long followingCount,
+FollowStatus followStatus)`) :
+
+- Pour un appelant **anonyme** : `PublicProfileView.anonymous(user)` — court-circuit
+  (compteurs 0, followStatus null), pas d'appel `FollowService` (économie 2 requêtes
+  DB par hit anonyme).
+- Pour un appelant **authentifié** : compteurs réels via
+  `FollowService.countFollowers/Following`, `followStatus` calculé via
+  `FollowService.getStatusBetween(callerId, targetId)`.
+- Sur son **propre profil** (auth0Id matche `user.auth0Id`) : `followStatus` reste
+  `null` (un user ne peut pas se suivre — cf. SCRUM-138 décision 6, 422 sur self-follow).
+
+La règle anti-oracle 404 ISSUE-93 reste inchangée : un profil privé non-owner jette
+`NotFoundException` avant tout calcul de follow.
+
+#### Consommation par `FollowResource` et `FollowRequestResource`
+
+7 endpoints exposés :
+- `POST /users/{id}/follow` (201, 401, 404, 409 `already_following`, 422
+  `cannot_follow_self`, 429 — `@PerUserRateLimit(name="follows.follow", max=30)`)
+- `DELETE /users/{id}/follow` (204 idempotent, 401)
+- `GET /users/{id}/followers`, `GET /users/{id}/following` (200, 401, 404
+  anti-oracle si profil privé non-owner)
+- `GET /users/me/follow-requests` (200, 401, 404)
+- `PATCH /follow-requests/{followId}/accept` (200, 401, 403, 404, 409
+  `invalid_transition`)
+- `PATCH /follow-requests/{followId}/reject` (204, 401, 403, 404, 409)
+
+La règle anti-oracle 404 sur les listings followers/following est portée par un appel
+préalable à `userService.getPublicProfile(...)` qui jette si non visible (alignement
+ISSUE-93).
+
+---
+
 ### Report
+
+Owned by **moderation-service** (post-rename Étape 2.1.2). Table : `reports`.
 
 Table : `reports` (créée par la migration `V6__create_reports.sql` en SCRUM-103,
 enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRUM-94).
@@ -267,11 +366,30 @@ CHECK constraints :
   pas par une CHECK DB.
 - **`moderationNote`** : note libre saisie par l'admin au moment du PATCH (max 2000 chars).
 
-#### Consommation par `ModerationCleanupService`
+#### Consommation par `ModerationCleanupJob`
 
-Le job [`ModerationCleanupService`](../src/main/java/ch/unige/events/service/ModerationCleanupService.java)
+Le job [`ModerationCleanupJob`](../services/moderation-service/src/main/java/ch/unige/events/report/scheduler/ModerationCleanupJob.java)
 (cf. SCRUM-103) compte les rows `Report` avec `status = PENDING` groupées par event. Il
 lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94 (job quotidien 03h00).
+
+**SCRUM-97** — quand le seuil est atteint, l'event passe en `EventStatus.BANNED` (au lieu de
+`CANCELLED` historiquement). Cohérent avec le ban manuel via `ReportService.handle()` :
+toute modération produit le même état terminal, distinct de l'annulation par le créateur
+(`CANCELLED` reste réversible vers `DRAFT` via `PATCH /events/{id}/restore`).
+
+#### Cascade de validation d'un signalement (SCRUM-97)
+
+Quand `ReportService.handle()` reçoit `status=REVIEWED` :
+1. Le signalement passe REVIEWED avec `reviewedBy` = admin courant et `moderationNote`
+   éventuelle (saisie par l'admin).
+2. L'événement lié passe en `EventStatus.BANNED` — état terminal côté créateur, invisible
+   sur `GET /events/{id}` (404 pour TOUT LE MONDE, anti-leak — cf. règle d'autorisation
+   d'`EventService.getById()`).
+3. Tous les autres signalements PENDING sur le même event sont auto-clôturés (REVIEWED,
+   `reviewedBy` admin, `moderationNote` null — seul le signalement explicitement traité
+   porte la note).
+
+`status=DISMISSED` est neutre — ne touche ni l'event ni les signalements frères.
 
 #### Consommation par `ReportService`
 
@@ -282,6 +400,105 @@ lit uniquement `r.event` et `r.status` — **insensible** aux ajouts de SCRUM-94
   admin (SCRUM-97), tri `createdAt DESC, id DESC`.
 - `ReportService.handle(reportId, adminAuth0Id, HandleReportRequest)` — transition
   `PENDING → REVIEWED|DISMISSED` + audit (`reviewedAt`, `reviewedBy`, `moderationNote`).
+
+---
+
+### Comment
+
+Owned by **engagement-service** (sous-package engagement/comment, post-consolidation Étape 2.4.1). Table : `comments`.
+
+Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM-139).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity` (sequence `comments_seq`, increment 50) |
+| `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
+| `author` | — | `User` | `author_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `users.id` |
+| `parentComment` | — | `Comment` | `parent_comment_id` | `@ManyToOne(LAZY)`, nullable — auto-référence vers `comments.id` (1 niveau de profondeur max) |
+| `content` | `content` | `String` | `content` | `@Column(columnDefinition="TEXT", nullable=false)`, `@NotBlank`, `@Size(max=2000)`, trimmé côté service avant persist |
+| `likeCount` | `likeCount` | `int` | `like_count` | `@Column(nullable=false)`, default `0`. **Lecture seule en S6** — la mutation est livrée par SCRUM-144 (S7) |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false, nullable=false)`, initialisé via `@PrePersist` (null-guard) |
+
+Index DB : `idx_comment_event` (event_id), `idx_comment_parent` (parent_comment_id),
+`idx_comment_event_created` (event_id, created_at DESC) — composite descendant pour
+servir le `ORDER BY createdAt DESC, id DESC` du listing top-level sans scan séquentiel.
+
+Pas de contrainte unique métier sur la table — un user peut poster N commentaires sur
+un event.
+
+#### Sémantique du threading (1 niveau de profondeur max)
+
+- `parentComment IS NULL` : commentaire **top-level**, sérialisé avec
+  `parentCommentId: null` côté DTO et accompagné de ses replies dans `replies[]` quand
+  il sort de `getByEvent`.
+- `parentComment NOT NULL` : **reply** à un commentaire top-level. Le service vérifie
+  que `parentComment.parentComment IS NULL` au moment du POST — sinon `422 replies_too_deep`.
+- Si le commentaire pointé par `parentCommentId` appartient à un autre event que `eventId`,
+  le service rejette avec `422 parent_comment_not_in_event`.
+- DELETE physique d'un parent : les replies survivent grâce à la clause
+  `ON DELETE SET NULL` portée par la FK `fk_comments_parent`. Le `parent_comment_id`
+  des replies passe à `NULL` côté DB, et chacune d'elles remonte en **top-level**
+  dans `GET /events/{id}/comments` (le DTO expose alors `parentCommentId: null`).
+  Pas de cascade `ON DELETE CASCADE` — décision tranchée (SCRUM-139 décision 17)
+  pour préserver l'historique conversationnel sans modal mass-delete.
+
+#### Visibilité héritée de `Event`
+
+`CommentService.post(...)` et `CommentService.getByEvent(...)` délèguent **systématiquement**
+la garde anti-oracle ISSUE-92 à `EventService.getById(eventId, callerAuth0Id, isAdmin)` —
+event invisible (DRAFT/CANCELLED/BANNED non-créateur) → `404 not_found`. Au-delà de cette
+garde :
+
+| `event.status` | Caller | Réponse `POST /comments` |
+|---|---|---|
+| `PUBLISHED` | tout authentifié | `201 Created` |
+| `DRAFT` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_draft_event` |
+| `DRAFT` | autre user | `404 not_found` (anti-oracle) |
+| `CANCELLED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_cancelled_event` |
+| `CANCELLED` | autre user | `404 not_found` (anti-oracle) |
+| `EXPIRED` | créateur / co-org ACCEPTED / ADMIN | `400 cannot_comment_expired_event` |
+| `EXPIRED` | autre user | `404 not_found` (anti-oracle) |
+| `BANNED` | tout monde, admin compris | `404 not_found` (cf. SCRUM-97) |
+
+#### Cascade d'autorisation pour `DELETE`
+
+`CommentService.delete(...)` autorise (cf. décision 16) :
+
+1. l'**auteur** du commentaire (`comment.author.auth0Id == caller.auth0Id`),
+2. le **créateur** de l'event (via `EventService.isCreatorOrAcceptedCoOrganizerPublic`),
+3. un **co-organisateur ACCEPTED** de l'event (cascade SCRUM-136),
+4. un utilisateur **ADMIN** (claim Auth0).
+
+Sinon → `403 forbidden`. `commentId` inexistant → `404 comment_not_found` (envelope
+distincte du 404 anti-oracle event, car l'existence d'un commentId n'est pas un secret —
+le listing `GET /events/{id}/comments` est `@PermitAll` et liste déjà tout).
+
+#### Calcul de `authorIsOrganizer` (DTO)
+
+`CommentDTO.authorIsOrganizer` est `true` quand l'auteur est créateur de l'event OU
+co-organisateur ACCEPTED. Pour `getByEvent`, le calcul est fait en **bulk** via un
+`Set<UUID>` mémoïsant `{event.creator.id} ∪ {co-orgs ACCEPTED}` — testé en O(1) pour
+chaque commentaire de la page (cf. décision 27, évite le N+1).
+
+#### Consommation par `CommentService`
+
+- `CommentService.post(auth0Id, eventId, CreateCommentRequest)` (`@Transactional`) —
+  visibilité event, vérification du parent (existence, appartenance, profondeur),
+  trim du content, persist, projection DTO.
+- `CommentService.getByEvent(eventId, auth0Id, page, size)` — non-transactional ;
+  paginé sur top-level (`createdAt DESC, id DESC`), batch-load des replies en
+  **2 requêtes SQL** (top-level page + WHERE parent_comment_id IN (...)).
+- `CommentService.delete(auth0Id, commentId)` (`@Transactional`) — DELETE physique
+  conditionné par la cascade d'autorisation ci-dessus.
+
+#### Anticipation S7 — likes & report-comment (hors scope SCRUM-139)
+
+- `likeCount` (int, default `0`) et `likedByMe` (boolean, toujours `false` dans le DTO
+  S6) sont exposés dès maintenant pour figer le contrat consommé par SCRUM-146 (front S7) ;
+  la mutation viendra avec SCRUM-144 (entité `CommentLike`, `POST/DELETE /comments/{id}/like`).
+- `POST /comments/{id}/report` (et l'extension `Report.commentId`) sont également SCRUM-144 — hors scope ici.
+- Notifications (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) sont SCRUM-145 (S7+),
+  dépendantes de l'infra `Notification` SCRUM-99.
 
 ---
 
@@ -330,13 +547,24 @@ id, auth0Id, email, displayName, faculty, studyLevel, bio, interests, avatarUrl,
 Factory : `UserProfileResponse.from(User user)`
 
 ### UserPublicResponse (record)
-Profil public — retourné via `GET /users/{id}` si `profilePublic = true`.
+Profil public — retourné via `GET /users/{id}`. Format :
 
 ```
-id, displayName, faculty, studyLevel, bio, interests, avatarUrl
+id, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl,
+followerCount (long), followingCount (long), followStatus (FollowStatus | null)
 ```
 
-Factory : `UserPublicResponse.from(User u)`
+Trois factories (cf. SCRUM-138) :
+
+- `UserPublicResponse.from(User u)` — legacy. Compteurs à 0, followStatus null.
+  Utilisée par les items des listes followers / following (les compteurs ne font sens
+  que sur le profil cible, pas sur les items de la liste).
+- `UserPublicResponse.from(User u, long followerCount, long followingCount, FollowStatus followStatus)`
+  — factory enrichie utilisée par `UserResource.getProfile` pour les appelants
+  authentifiés.
+- `UserPublicResponse.fromAnonymous(User u)` — factory anonyme (ISSUE-93 finding 4.1b).
+  Tous les champs sensibles `null`, compteurs à 0, followStatus null. Court-circuit
+  servi sans appel à `FollowService`.
 
 ### EventDTO
 Représente un événement retourné par l'API (`GET /events`, `GET /events/{id}`).
@@ -414,12 +642,13 @@ attendingCount, interestedCount, viewCount
 | Enum Java | Valeurs | Sprint | État |
 |---|---|---|---|
 | `EventCategory` | `ACADEMIC`, `SPORTS`, `CULTURAL`, `SOCIAL`, `CONFERENCE`, `OTHER` | Sprint 2 | ✅ Implémenté |
-| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED` | Sprint 2 | ✅ Implémenté |
+| `EventStatus` | `DRAFT`, `PUBLISHED`, `CANCELLED`, `EXPIRED`, `BANNED` | Sprint 2 | ✅ Implémenté — `EXPIRED` ajouté SCRUM-98, `BANNED` ajouté SCRUM-97 (modération : état terminal côté créateur, posé par `ReportService.handle()` ou `ModerationCleanupJob`) |
 | `Faculty` | `SCIENCES`, `LETTRES`, `DROIT`, `MEDECINE`, `SES`, `PSYCHOLOGIE`, `THEOLOGIE`, `FTI`, `GSI` | Sprint 3 | ✅ Implémenté (SCRUM-77) |
 | `AttendanceStatus` | `ATTENDING`, `WAITLISTED` | Sprint 4 / Sprint 5 | ✅ Implémenté (WAITLISTED ajouté en SCRUM-129) |
 | `CoOrganizerStatus` | `PENDING`, `ACCEPTED`, `DECLINED` | Sprint 7 | ✅ Implémenté (SCRUM-136 — `DECLINED` est transitoire et n'apparaît jamais en base, cf. section EventCoOrganizer) |
 | `ReportStatus` | `PENDING`, `REVIEWED`, `DISMISSED` | Sprint 7 | ✅ Implémenté (US-18) |
 | `ReportReason` | `SPAM`, `INAPPROPRIATE`, `FAKE`, `OTHER` | Sprint 7 | ✅ Implémenté (SCRUM-94 — CHECK constraint posée par V9) |
+| `FollowStatus` | `PENDING`, `ACCEPTED` | Sprint 6 | ✅ Implémenté (SCRUM-138 — un reject = DELETE physique de la row, `REJECTED` n'est pas un statut stocké) |
 
 Sérialisées en `String` dans le JSON (Jackson default avec Quarkus).
 
@@ -481,10 +710,14 @@ Retourne tous les événements où `creator.id = <utilisateur authentifié>`, tr
 
 Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus.flyway.migrate-at-start=true`).
 
-- Migrations : `backend/src/main/resources/db/migration/`, nommées `V<N>__<snake_case_description>.sql`.
-- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices ; les migrations Flyway s'y appliquent en no-op (les fichiers V1 sont conditionnés sur l'existence des tables).
-- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0`. Les bases existantes provisionnées historiquement par Hibernate `update` adoptent Flyway à partir de V1 sans dump rétroactif.
-- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…`.
+- Migrations : redistribuées par service propriétaire post-Étape 1.1 finalization-complete (Décision A) sous `backend/services/<svc>-service/src/main/resources/db/migration/V<N>__<snake_case_description>.sql`. Mapping :
+  - `user-service` : V1 (`create_users`), V14 (`create_follows`).
+  - `event-service` : V2 (`create_events`), V4 (`create_favorites`), V5 (`create_event_views`), V7 (`reconcile_check_constraints`), V8 (`create_event_co_organizers`), V9 (`widen_event_description`), V11 (`allow_event_status_expired`), V12 (`add_featured_to_events`), V13 (`allow_event_status_banned`), V17 (`add_event_recurrence`).
+  - `engagement-service` : V3 (`create_attendances`), V15 (`create_comments`), V16 (`alter_comments_parent_fk_set_null`).
+  - `moderation-service` : V6 (`create_reports`), V10 (`add_report_reason_and_review_fields`).
+- Hibernate est en `validate` en dev/prod : il vérifie que les entités JPA correspondent au schéma migré, sans le modifier. En `%test`, Hibernate est en `drop-and-create` pour bootstrapper la base éphémère DevServices et Flyway est désactivé (`%test.quarkus.flyway.enabled=false`).
+- Stratégie d'adoption : `baseline-on-migrate=true` + `baseline-version=0` + `out-of-order=true` + `validate-on-migrate=false`. Chaque service applique son sous-ensemble — la base partagée `public` voit l'union des V*.sql sans qu'aucun service ne réclame la totalité des versions.
+- Une migration committée est **immutable** : pour modifier le schéma, ajouter un nouveau fichier `V<N+1>__…` dans le service propriétaire.
 
 ### V1 — Réconciliation des contraintes CHECK
 
@@ -496,3 +729,41 @@ Le schéma est piloté par **Flyway**, exécuté au démarrage Quarkus (`quarkus
 > (ajout d'une valeur, rename) **devra** passer par un nouveau fichier `V<N+1>__…` qui
 > drop+recrée la contrainte avec les valeurs courantes — la convention Flyway interdit de
 > muter une migration committée.
+
+## S3 cleanup hors-transaction (MINOR-010 + MINOR-011)
+
+### Préambule (FR / EN)
+
+- **FR** — Sur `UserService.uploadImage` / `uploadBanner`, l'objet S3 est
+  écrit AVANT le commit JDBC qui mémorise l'URL. Un crash entre les deux
+  laisse un orphelin S3. Idem pour les delete : la ligne JDBC est mise à
+  jour, l'objet S3 est supprimé après commit ; un crash entre les deux
+  laisse l'objet présent dans le bucket alors que la DB ne le référence
+  plus.
+- **EN** — On `UserService.uploadImage` / `uploadBanner`, the S3 object
+  is written BEFORE the JDBC commit that records the URL. A crash
+  between the two leaves an orphaned S3 object. Same for delete: the JDBC
+  row is updated, then the S3 object is deleted after commit; a crash in
+  between leaves the object in the bucket while the DB no longer
+  references it.
+
+### Limitation acceptée
+
+Pas d'outbox pattern sur S3 (cf. ADR-003 — outbox réservé aux topics
+Kafka critiques). La JavaDoc des méthodes concernées documente la
+tolérance aux orphelins. Un cleanup périodique S3 est reporté à S9+
+(devops-handoff item dédié).
+
+### Méthodes concernées
+
+- `user-service.UserService.uploadImage(...)` (avatar)
+- `user-service.UserService.uploadBanner(...)`
+- `user-service.UserService.deleteAvatar(...)` (delete S3 + reset URL)
+- `user-service.UserService.deleteBanner(...)` (NB: ne supprime PAS
+  l'objet S3 par dessein — cf. JavaDoc inline)
+
+### Mitigation
+
+- Bucket public read-only ; risque sécurité limité à un orphelin
+  inaccessible (URL perdue).
+- Bucket lifecycle policy S9+ : auto-delete after 30j d'inactivité.

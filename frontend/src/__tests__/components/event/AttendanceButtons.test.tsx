@@ -285,7 +285,7 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      screen.getByText(/12 personnes participent/)
+      screen.getByText(/12 participants/)
     })
 
     it('uses singular form for 1 attendee', () => {
@@ -293,7 +293,7 @@ describe('AttendanceButtons', () => {
 
       render(<AttendanceButtons {...defaultProps} />)
 
-      screen.getByText(/1 personne participe/)
+      screen.getByText(/1 participant/)
     })
   })
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>ch.unige.events</groupId>
+        <artifactId>shared-libs</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+
+    <!--
+      shared-kafka-events — payload records for the 10 Kafka topics
+      provisioned in S8. Cf. completion-spec Décision D / Décision F
+      (KAFKA-007). Producer + consumer reference the same record so
+      drift is structurally impossible.
+
+      Records:
+      - EventLifecycleEvent (events.{published,cancelled,expired})
+      - EventBannedEvent    (events.banned)
+      - FollowLifecycleEvent (users.{followed,follow-requested,follow-accepted})
+      - CommentCreatedEvent (comments.created)
+      - CoOrganizerEvent    (co-organizers.{invited,accepted})
+    -->
+
+    <artifactId>shared-kafka-events</artifactId>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin><artifactId>maven-compiler-plugin</artifactId></plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                        <configuration><outputDirectory>${project.build.directory}/jacoco-report</outputDirectory></configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions><execution><id>make-index</id><goals><goal>jandex</goal></goals></execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

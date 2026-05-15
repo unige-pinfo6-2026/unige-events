@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { LoadingSpinner } from './utils/LoadingSpinner'
 
 export default function AdminRoute() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isAdmin, isLoading } = useAuth()
   const location = useLocation()
 
   if (isLoading) return <LoadingSpinner />
@@ -12,7 +12,7 @@ export default function AdminRoute() {
     return <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} />
   }
 
-  if (!user?.admin) {
+  if (!isAdmin) {
     return <Navigate to="/403" replace />
   }
 

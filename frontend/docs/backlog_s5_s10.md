@@ -288,7 +288,7 @@ Afficher la liste des inscrits avec leurs profils publics sur la page détail or
 * Pagination : "Charger plus" (load more) ou pagination numérotée
 * Clic sur un profil public → `/users/:id` (page profil, si elle existe)
 * `useAttendees.ts` : hook avec pagination
-* Pour les non-organisateurs : la section n'affiche qu'un résumé (avatars empilés + compteur "X personnes participent")
+* Pour les non-organisateurs : la section n'affiche qu'un résumé (avatars empilés + compteur "X participants")
 
 **US couverte :** US-07 — Je veux voir les profils publics des participants qui choisissent de les partager
 
@@ -879,7 +879,7 @@ Fichiers touchés : `src/components/Footer.tsx`, `src/router/AppRouter.tsx`, `do
 Branche suggérée : `feature/s7-legal-pages`
 Dépendances : aucune
 
-### 🔧 [SCRUM-XXX] [FULLSTACK][S7] Identifier les profils utilisateur par `username` plutôt que par UUID
+### 🔧 [SCRUM-169] [FULLSTACK][S7] Identifier les profils utilisateur par `username` plutôt que par UUID
 **Type :** Tâche · **Story Points :** 8 SP
 
 **Sprint** : S7 | **Assigné** : — | **SP** : 8 | **Épic** : SCRUM-13 | **Story** : —
@@ -1005,8 +1005,14 @@ Dépendances : aucune. Compatible avec les tickets S7 en cours (SCRUM-118 co-org
 ---
 
 ## Sprint 8 — 5–9 mai 2026
-**Thème :** Notifications + Follow/Comment back + Récurrence + Duplication  
-**Total estimé :** 37 SP
+**Thème :** Notifications + Follow/Comment + Récurrence + Duplication + Profil public front  
+**Total estimé :** 52 SP
+
+> **Réorganisation S9 → S8.** Pour aligner les fronts Follow / Comment / Récurrence sur le même
+> sprint que les BACK déjà en cours, six tickets ont été déplacés de S9 vers S8 : SCRUM-109 (story
+> US-20 profil public), SCRUM-141 (FRONT page profil public), SCRUM-142 (FRONT bouton Suivre),
+> SCRUM-143 (FRONT listes followers/following), SCRUM-146 (FRONT section commentaires) et
+> SCRUM-151 (FRONT UI récurrence).
 
 ### 🚀 [SCRUM-46] [S8] Je veux des notifications, dupliquer des events et l'expiration automatique (US-16, 17, 18, T2)
 **Type :** Feature · **Story Points :** — SP
@@ -1023,6 +1029,11 @@ En tant qu'utilisateur, je veux recevoir des notifications pour les événements
 * Badge dans le header avec compteur de non-lus, polling 30s
 
 **Tâches liées :** SCRUM-34 (BACK), SCRUM-35 (FRONT)
+
+### 📖 [SCRUM-109] [S8][US-20] En tant qu'utilisateur connecté, je veux consulter le profil public d'un autre utilisateur, afin de découvrir ses événements et décider de le suivre.
+**Type :** User Story · **Story Points :** — SP
+
+*Pas de description renseignée.*
 
 ### 📖 [SCRUM-110] [S8][US-21] En tant qu'utilisateur, je veux suivre d'autres utilisateurs (ou envoyer une demande de suivi sur un profil privé), afin de rester informé de leur activité.
 **Type :** User Story · **Story Points :** — SP
@@ -1229,18 +1240,120 @@ Implémenter la duplication d'événements et le système de notifications in-ap
 **Fichiers touchés :** `Notification.java`, `NotificationType.java`, `NotificationService.java`, `NotificationResource.java`, `NotificationDTO.java`, `EventService.java` (appel notifyAttendees)
 **Branche suggérée :** `feature/s7-duplicate-notifications`
 
+### 🔧 [SCRUM-141] [FRONT][S8] Page profil public complète (/profile/:id)
+**Type :** Tâche · **Story Points :** 5 SP
+
+**Sprint** : S8 | **Assigné** : Viona | **SP** : 5 | **Épic** : SCRUM-13 | **Story** : SCRUM-109 (US-20)
+
+\[FRONT\] Sprint 8 — Feature 1 / Tâche 3
+
+Compléter `ProfilePage.tsx` pour afficher le profil complet :
+
+1. **Profil public** (`profilePublic = true` ou `followStatus = ACCEPTED`) : afficher bannière, avatar, displayName, faculté, niveau d'étude, bio, compteurs followers/following, liste des événements créés (`GET /api/events?organizerId=`), liste des participations publiques.
+2. **Profil privé** (non follower) : afficher uniquement l'avatar et "Ce profil est privé." avec bouton "Demande de suivi envoyée" si PENDING.
+3. **Route** `/profile/:id` : vérifier que l'UUID est passé correctement.
+4. Layout : bannière full-width en haut, avatar en chevauchement (style LinkedIn), infos en dessous.
+5. Utiliser TanStack Query avec `queryKey: ['user', id]`.
+
+Fichiers touchés : `ProfilePage.tsx`
+Branche suggérée : `feature/s8-profile-public`
+Dépendances : SCRUM-120 (bannerUrl), SCRUM-138 (followStatus dans UserPublicResponse)
+
+### 🔧 [SCRUM-142] [FRONT][S8] Bouton Suivre / Ne plus suivre + gestion demandes reçues
+**Type :** Tâche · **Story Points :** 3 SP
+
+**Sprint** : S8 | **Assigné** : Viona | **SP** : 3 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
+
+\[FRONT\] Sprint 8 — Feature 1 / Tâche 4
+
+1. `FollowButton.tsx` (nouveau composant) : bouton à 3 états :
+
+    * `null` → "Suivre" (POST /api/users/{id}/follow)
+    * `PENDING` → "Demande envoyée" (grisé, tooltip "Cliquer pour annuler" → DELETE)
+    * `ACCEPTED` → "Abonné" (hover → "Se désabonner" → DELETE)
+    
+2. **Intégration dans** `ProfilePage.tsx` : afficher `FollowButton` si ce n'est pas son propre profil.
+3. **Panneau demandes reçues** : dans `ProfilePage.tsx` (vue `me`) : lister les demandes PENDING (`GET /api/users/me/follow-requests`) avec boutons Accepter / Refuser.
+4. TanStack Query : invalider `['user', id]` après follow/unfollow pour mettre à jour les compteurs.
+
+Fichiers créés/touchés : `src/components/user/FollowButton.tsx`, `ProfilePage.tsx`
+Branche suggérée : `feature/s8-follow-button`
+Dépendances : SCRUM-138 (BACK Follow), SCRUM-141 (ProfilePage)
+
+### 🔧 [SCRUM-143] [FRONT][S8] Pages / modal listes followers et following
+**Type :** Tâche · **Story Points :** 2 SP
+
+**Sprint** : S8 | **Assigné** : Daniel | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
+
+\[FRONT\] Sprint 8 — Feature 1 / Tâche 5
+
+1. Cliquer sur le compteur "X followers" ou "X abonnements" dans `ProfilePage.tsx` → ouvre une modal ou navigue vers `/profile/:id/followers` | `/profile/:id/following`.
+2. Lister les utilisateurs avec `UserAvatar` + `displayName` + bouton `FollowButton` pour chacun.
+3. Pagination infinie ou bouton "Charger plus" (TanStack Query `useInfiniteQuery`).
+
+Fichiers créés : `src/pages/profile/FollowersPage.tsx` (ou modal dans ProfilePage)  
+Branche suggérée : `feature/s8-follow-lists`
+Dépendances : SCRUM-138 (BACK Follow), SCRUM-142 (FollowButton)
+
+### 🔧 [SCRUM-146] [FRONT][S8] Section commentaires dans EventDetailPage
+**Type :** Tâche · **Story Points :** 5 SP
+
+**Sprint** : S8 | **Assigné** : Daniel | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : SCRUM-111 (US-22)
+
+\[FRONT\] Sprint 8 — Feature 2 / Tâche 4
+
+1. `CommentSection.tsx` (nouveau) : section principale dans `EventDetailPage.tsx`. Contient liste + formulaire.
+2. `CommentItem.tsx` (nouveau) :
+
+    * Afficher avatar, displayName, badge "Organisateur" (si `authorIsOrganizer`), contenu, date relative, compteur likes, bouton "Répondre", "Supprimer" (si auteur ou organisateur), "Signaler"
+    * Afficher les replies imbriquées (max 1 niveau)
+    
+3. `CommentForm.tsx` (nouveau) : `<textarea>` avec compteur caractères (max 2000), bouton Envoyer. Masqué si non connecté → message "Connectez-vous pour commenter."
+4. TanStack Query : `queryKey: ['events', id, 'comments']`, mutation `postComment` + `deleteComment`.
+5. Optimistic update : ajouter le commentaire localement avant confirmation serveur.
+
+Fichiers créés/touchés : `src/components/event/CommentSection.tsx`, `src/components/event/CommentItem.tsx`, `src/components/event/CommentForm.tsx`, `EventDetailPage.tsx`
+Branche suggérée : `feature/s8-comments-front`
+Dépendances : SCRUM-139 (BACK Comment, S8)
+
+### 🔧 [SCRUM-151] [FRONT][S8] UI événements récurrents dans EventForm
+**Type :** Tâche · **Story Points :** 5 SP
+
+**Sprint** : S8 | **Assigné** : Daniel | **SP** : 5 | **Épic** : SCRUM-14 | **Story** : SCRUM-116 (US-27)
+
+\[FRONT\] Sprint 8 — Feature 6a / Tâche 2
+
+1. `EventForm.tsx` : ajouter section "Récurrence" avec :
+
+    * Switch "Événement unique / Récurrent"
+    * Si récurrent : `<Select>` fréquence (Chaque semaine / Toutes les 2 semaines / Chaque mois)
+    * Date de fin de récurrence OU nombre d'occurrences (radio)
+    
+2. `useEventForm.ts` : ajouter `recurrence?: { frequency: 'WEEKLY'|'BIWEEKLY'|'MONTHLY', endDate?: string, maxOccurrences?: number }` dans `EventFormValues`.
+3. `EventCard.tsx` : si `event.parentEventId != null` → afficher badge "Récurrent" (icône `RefreshCw` lucide).
+4. `EventDetailPage.tsx` : si `parentEventId != null` → lien "Voir toutes les occurrences" → `GET /api/events/{parentEventId}/occurrences`.
+
+Fichiers touchés : `EventForm.tsx`, `useEventForm.ts`, `EventCard.tsx`, `EventDetailPage.tsx`
+Branche suggérée : `feature/s8-recurrence-front`
+Dépendances : SCRUM-147 (BACK récurrence S8)
+
 ---
 
 ## Sprint 9 — 12–16 mai 2026
-**Thème :** Follow/Comment front + Attachments + Profil public + Feed timeline  
-**Total estimé :** 44 SP
+**Thème :** Attachments + Feed timeline + commentaires avancés + métriques admin  
+**Total estimé :** 32 SP
+
+> **Réorganisation S8 ↔ S9 ↔ S10 (post-réplanification).** SCRUM-109 (story US-20 profil public) et les
+> tickets FRONT lié au follow / commentaires / récurrence (SCRUM-141, 142, 143, 146, 151) ont été
+> déplacés en S8 pour aligner front et back sur le même sprint. SCRUM-74 (story US-T6 métriques admin)
+> et SCRUM-150 (likes/threads/mentions front) viennent de S10 pour décharger le sprint final.
 
 ### 🚀 [SCRUM-160] [S9] Je veux consulter les profils publics, suivre des utilisateurs et interagir via commentaires et fichiers joints (US-20, 21, 22, 28, 31, 32)
 **Type :** Feature · **Story Points :** — SP
 
 *Pas de description renseignée.*
 
-### 📖 [SCRUM-109] [S9][US-20] En tant qu'utilisateur connecté, je veux consulter le profil public d'un autre utilisateur, afin de découvrir ses événements et décider de le suivre.
+### 📖 [SCRUM-74] [S9][US-T6] En tant qu'admin, je veux suivre des métriques clés (profils créés, événements publiés, engagement) afin de piloter la croissance de la plateforme.
 **Type :** User Story · **Story Points :** — SP
 
 *Pas de description renseignée.*
@@ -1393,61 +1506,6 @@ Fichiers touchés : `FollowService.java`, `NotificationType.java`, `openapi.yaml
 Branche suggérée : `feature/s7-follow-notifications`
 Dépendances : SCRUM-138 (Entité Follow, S6), Infrastructure Notification (SCRUM-99, S7)
 
-### 🔧 [SCRUM-141] [FRONT][S9] Page profil public complète (/profile/:id)
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S7 | **Assigné** : Viona | **SP** : 5 | **Épic** : SCRUM-13 | **Story** : SCRUM-109 (US-20)
-
-\[FRONT\] Sprint 7 — Feature 1 / Tâche 3
-
-Compléter `ProfilePage.tsx` pour afficher le profil complet :
-
-1. **Profil public** (`profilePublic = true` ou `followStatus = ACCEPTED`) : afficher bannière, avatar, displayName, faculté, niveau d'étude, bio, compteurs followers/following, liste des événements créés (`GET /api/events?organizerId=`), liste des participations publiques.
-2. **Profil privé** (non follower) : afficher uniquement l'avatar et "Ce profil est privé." avec bouton "Demande de suivi envoyée" si PENDING.
-3. **Route** `/profile/:id` : vérifier que l'UUID est passé correctement.
-4. Layout : bannière full-width en haut, avatar en chevauchement (style LinkedIn), infos en dessous.
-5. Utiliser TanStack Query avec `queryKey: ['user', id]`.
-
-Fichiers touchés : `ProfilePage.tsx`
-Branche suggérée : `feature/s7-profile-public`
-Dépendances : SCRUM-120 (bannerUrl), SCRUM-138 (followStatus dans UserPublicResponse)
-
-### 🔧 [SCRUM-142] [FRONT][S9] Bouton Suivre / Ne plus suivre + gestion demandes reçues
-**Type :** Tâche · **Story Points :** 3 SP
-
-**Sprint** : S7 | **Assigné** : Viona | **SP** : 3 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
-
-\[FRONT\] Sprint 7 — Feature 1 / Tâche 4
-
-1. `FollowButton.tsx` (nouveau composant) : bouton à 3 états :
-
-    * `null` → "Suivre" (POST /api/users/{id}/follow)
-    * `PENDING` → "Demande envoyée" (grisé, tooltip "Cliquer pour annuler" → DELETE)
-    * `ACCEPTED` → "Abonné" (hover → "Se désabonner" → DELETE)
-    
-2. **Intégration dans** `ProfilePage.tsx` : afficher `FollowButton` si ce n'est pas son propre profil.
-3. **Panneau demandes reçues** : dans `ProfilePage.tsx` (vue `me`) : lister les demandes PENDING (`GET /api/users/me/follow-requests`) avec boutons Accepter / Refuser.
-4. TanStack Query : invalider `['user', id]` après follow/unfollow pour mettre à jour les compteurs.
-
-Fichiers créés/touchés : `src/components/user/FollowButton.tsx`, `ProfilePage.tsx`
-Branche suggérée : `feature/s7-follow-button`
-Dépendances : SCRUM-138 (BACK Follow), SCRUM-141 (ProfilePage)
-
-### 🔧 [SCRUM-143] [FRONT][S9] Pages / modal listes followers et following
-**Type :** Tâche · **Story Points :** 2 SP
-
-**Sprint** : S7 | **Assigné** : Daniel | **SP** : 2 | **Épic** : SCRUM-13 | **Story** : SCRUM-110 (US-21)
-
-\[FRONT\] Sprint 7 — Feature 1 / Tâche 5
-
-1. Cliquer sur le compteur "X followers" ou "X abonnements" dans `ProfilePage.tsx` → ouvre une modal ou navigue vers `/profile/:id/followers` | `/profile/:id/following`.
-2. Lister les utilisateurs avec `UserAvatar` + `displayName` + bouton `FollowButton` pour chacun.
-3. Pagination infinie ou bouton "Charger plus" (TanStack Query `useInfiniteQuery`).
-
-Fichiers créés : `src/pages/profile/FollowersPage.tsx` (ou modal dans ProfilePage)  
-Branche suggérée : `feature/s7-follow-lists`
-Dépendances : SCRUM-138 (BACK Follow), SCRUM-142 (FollowButton)
-
 ### 🔧 [SCRUM-144] [BACK][S9] Likes de commentaires + signalement commentaires
 **Type :** Tâche · **Story Points :** 3 SP
 
@@ -1494,27 +1552,6 @@ Dépendances : SCRUM-139 (Entité Comment, S6), Entité Report (SCRUM-94, S6)
 Fichiers touchés : `CommentService.java`, `NotificationType.java`, `UserResource.java` (si endpoint search manquant)  
 Branche suggérée : `feature/s7-comment-mentions`
 Dépendances : SCRUM-139 (Comment, S6), Infrastructure Notification (SCRUM-99, S7)
-
-### 🔧 [SCRUM-146] [FRONT][S9] Section commentaires dans EventDetailPage
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S7 | **Assigné** : Daniel | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : SCRUM-111 (US-22)
-
-\[FRONT\] Sprint 7 — Feature 2 / Tâche 4
-
-1. `CommentSection.tsx` (nouveau) : section principale dans `EventDetailPage.tsx`. Contient liste + formulaire.
-2. `CommentItem.tsx` (nouveau) :
-
-    * Afficher avatar, displayName, badge "Organisateur" (si `authorIsOrganizer`), contenu, date relative, compteur likes, bouton "Répondre", "Supprimer" (si auteur ou organisateur), "Signaler"
-    * Afficher les replies imbriquées (max 1 niveau)
-    
-3. `CommentForm.tsx` (nouveau) : `<textarea>` avec compteur caractères (max 2000), bouton Envoyer. Masqué si non connecté → message "Connectez-vous pour commenter."
-4. TanStack Query : `queryKey: ['events', id, 'comments']`, mutation `postComment` + `deleteComment`.
-5. Optimistic update : ajouter le commentaire localement avant confirmation serveur.
-
-Fichiers créés/touchés : `src/components/event/CommentSection.tsx`, `src/components/event/CommentItem.tsx`, `src/components/event/CommentForm.tsx`, `EventDetailPage.tsx`
-Branche suggérée : `feature/s7-comments-front`
-Dépendances : SCRUM-139 (BACK Comment, S6)
 
 ### 🔧 [SCRUM-148] [BACK][S9] Entité EventAttachment + endpoint upload fichiers joints
 **Type :** Tâche · **Story Points :** 5 SP
@@ -1571,32 +1608,34 @@ Fichiers touchés : `EventEditPage.tsx`, `EventDetailPage.tsx`
 Branche suggérée : `feature/s7-attachments-front`
 Dépendances : SCRUM-148 (BACK EventAttachment)
 
-### 🔧 [SCRUM-151] [FRONT][S9] UI événements récurrents dans EventForm
+### 🔧 [SCRUM-150] [FRONT][S9] Likes, threads et autocomplétion mentions dans commentaires
 **Type :** Tâche · **Story Points :** 5 SP
 
-**Sprint** : S8 | **Assigné** : Daniel | **SP** : 5 | **Épic** : SCRUM-14 | **Story** : SCRUM-116 (US-27)
+**Sprint** : S8 | **Assigné** : Viona | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : SCRUM-111 (US-22)
 
-\[FRONT\] Sprint 8 — Feature 6a / Tâche 2
+\[FRONT\] Sprint 8 — Feature 2 / Tâche 5
 
-1. `EventForm.tsx` : ajouter section "Récurrence" avec :
+1. **Likes** : bouton cœur dans `CommentItem.tsx`. `useMutation` pour `POST/DELETE /api/comments/{id}/like`. État `likedByMe` depuis `CommentDTO`. Optimistic update sur `likeCount`.
+2. **Threads (réponses)** : cliquer "Répondre" → afficher `CommentForm` préfixé `@displayName` en dessous du `CommentItem`. Envoyer avec `parentCommentId`. Les replies s'affichent indentées sous le parent.
+3. **Autocomplétion mentions** : dans `CommentForm.tsx`, détecter la saisie `@` → appeler `GET /api/users/search?q=<texte>` avec debounce 300ms → dropdown `MentionAutocomplete.tsx`. Sélection → remplacer `@texte` par `@displayName` dans le textarea.
+4. **Signalement** : bouton "Signaler" dans `CommentItem.tsx` → modal de confirmation → `POST /api/comments/{id}/report`.
 
-    * Switch "Événement unique / Récurrent"
-    * Si récurrent : `<Select>` fréquence (Chaque semaine / Toutes les 2 semaines / Chaque mois)
-    * Date de fin de récurrence OU nombre d'occurrences (radio)
-    
-2. `useEventForm.ts` : ajouter `recurrence?: { frequency: 'WEEKLY'|'BIWEEKLY'|'MONTHLY', endDate?: string, maxOccurrences?: number }` dans `EventFormValues`.
-3. `EventCard.tsx` : si `event.parentEventId != null` → afficher badge "Récurrent" (icône `RefreshCw` lucide).
-4. `EventDetailPage.tsx` : si `parentEventId != null` → lien "Voir toutes les occurrences" → `GET /api/events/{parentEventId}/occurrences`.
-
-Fichiers touchés : `EventForm.tsx`, `useEventForm.ts`, `EventCard.tsx`, `EventDetailPage.tsx`
-Branche suggérée : `feature/s8-recurrence-front`
-Dépendances : SCRUM-147 (BACK récurrence S7)
+Fichiers créés/touchés : `CommentItem.tsx`, `CommentForm.tsx`, `src/components/utils/MentionAutocomplete.tsx`
+Branche suggérée : `feature/s8-comments-advanced`
+Dépendances : SCRUM-146 (commentaires front S8), SCRUM-144 (likes back S9), SCRUM-145 (mentions back S9)
 
 ---
 
 ## Sprint 10 — 18–22 mai 2026
-**Thème :** Messagerie complète + commentaires avancés + tests qualité finaux  
-**Total estimé :** 62 SP
+**Thème :** Tests, sécurité, charge et préparation soutenance  
+**Total estimé :** 26 SP
+
+> **Réorganisation S9 ↔ S10 (post-réplanification messagerie).** La fonctionnalité de messagerie privée
+> (anciennement Feature 5, tickets SCRUM-115 / SCRUM-152 → SCRUM-158) a été **abandonnée** côté produit ;
+> ces tickets ont été supprimés du backlog Jira. Pour décharger le S10 en prévision de la migration
+> microservices, SCRUM-74 (US-T6, métriques admin) et SCRUM-150 (FRONT, likes/threads/mentions
+> commentaires) ont été déplacés en S9. Le S10 ne porte donc plus que la qualité finale (tests,
+> sécurité, charge, soutenance).
 
 ### 🚀 [SCRUM-50] [S10] Qualité, tests, sécurité, CD et préparation soutenance (US-T6)
 **Type :** Feature · **Story Points :** — SP
@@ -1614,198 +1653,6 @@ Dépendances : SCRUM-147 (BACK récurrence S7)
 \- Lighthouse score > 80 sur mobile\\n- Revue sécurité OWASP Top 10
 
 \- Soutenance préparée (slides + démo live)
-
-### 📖 [SCRUM-115] [S10][US-26] En tant qu'utilisateur, je veux envoyer et recevoir des messages privés à d'autres utilisateurs, afin d'échanger directement sur la plateforme.
-**Type :** User Story · **Story Points :** — SP
-
-*Pas de description renseignée.*
-
-### 📖 [SCRUM-74] [S10][US-T6] En tant qu'admin, je veux suivre des métriques clés (profils créés, événements publiés, engagement) afin de piloter la croissance de la plateforme.
-**Type :** User Story · **Story Points :** — SP
-
-*Pas de description renseignée.*
-
-### 🔧 [SCRUM-150] [FRONT][S10] Likes, threads et autocomplétion mentions dans commentaires
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S8 | **Assigné** : Viona | **SP** : 5 | **Épic** : SCRUM-16 | **Story** : SCRUM-111 (US-22)
-
-\[FRONT\] Sprint 8 — Feature 2 / Tâche 5
-
-1. **Likes** : bouton cœur dans `CommentItem.tsx`. `useMutation` pour `POST/DELETE /api/comments/{id}/like`. État `likedByMe` depuis `CommentDTO`. Optimistic update sur `likeCount`.
-2. **Threads (réponses)** : cliquer "Répondre" → afficher `CommentForm` préfixé `@displayName` en dessous du `CommentItem`. Envoyer avec `parentCommentId`. Les replies s'affichent indentées sous le parent.
-3. **Autocomplétion mentions** : dans `CommentForm.tsx`, détecter la saisie `@` → appeler `GET /api/users/search?q=<texte>` avec debounce 300ms → dropdown `MentionAutocomplete.tsx`. Sélection → remplacer `@texte` par `@displayName` dans le textarea.
-4. **Signalement** : bouton "Signaler" dans `CommentItem.tsx` → modal de confirmation → `POST /api/comments/{id}/report`.
-
-Fichiers créés/touchés : `CommentItem.tsx`, `CommentForm.tsx`, `src/components/utils/MentionAutocomplete.tsx`
-Branche suggérée : `feature/s8-comments-advanced`
-Dépendances : SCRUM-146 (commentaires front S7), SCRUM-144 (likes back S7), SCRUM-145 (mentions back S7)
-
-### 🔧 [SCRUM-152] [BACK][S10] Entités Conversation + Message + endpoints CRUD messagerie
-**Type :** Tâche · **Story Points :** 8 SP
-
-**Sprint** : S8 | **Assigné** : Elie | **SP** : 8 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[BACK\] Sprint 8 — Feature 5 / Tâche 1
-
-1. **Entité** `Conversation` (PanacheEntity) :
-
-    * `participant1Id` (UUID — toujours `min(p1, p2)` UUID lexicographique)
-    * `participant2Id` (UUID — toujours `max(p1, p2)`)
-    * `createdAt`, `lastMessageAt`
-    * Contrainte unique `(participant1Id, participant2Id)`
-    
-2. **Entité** `Message` (PanacheEntity) :
-
-    * `conversationId` (Long), `senderId` (UUID)
-    * `content` (String TEXT, max 4000 chars)
-    * `createdAt` (LocalDateTime, @PrePersist)
-    * `read` (boolean, default false)
-    * Index sur `(conversationId, createdAt)`
-    
-3. `ConversationService` (@ApplicationScoped, @Transactional) :
-
-    * `getOrCreate(String myAuth0Id, UUID recipientId)` : normaliser les UUIDs, créer si inexistant
-    * `getMyConversations(String auth0Id, int page, int size)` : triées par `lastMessageAt DESC`
-    * `getMessages(String auth0Id, Long conversationId, int page, int size)`
-    * `sendMessage(String auth0Id, Long conversationId, String content)` : vérifier `messagingPreference` du destinataire
-    * `markAsRead(String auth0Id, Long conversationId)`
-    * `getUnreadCount(String auth0Id)`
-    
-4. `ConversationResource` : GET /api/conversations, POST /api/conversations, GET /api/conversations/{id}/messages, POST /api/conversations/{id}/messages, PATCH /api/conversations/{id}/read
-5. `UserResource` : ajouter `GET /api/users/me/unread-message-count`
-6. **OpenAPI** : documenter tous les endpoints + `ConversationDTO`, `MessageDTO`, `SendMessageRequest`.
-7. **Tests** : création conversation ; envoi message ; messagingPreference FOLLOWERS_ONLY + non follower → 403.
-
-Fichiers créés/touchés : `Conversation.java`, `Message.java`, `ConversationService.java`, `ConversationResource.java`, `ConversationDTO.java`, `MessageDTO.java`, `UserResource.java`, `openapi.yaml`
-Branche suggérée : `feature/s8-messaging`
-Dépendances : SCRUM-138 (Follow, pour vérification FOLLOWERS_ONLY)
-
-### 🔧 [SCRUM-153] [BACK][S10] Préférences messagerie sur User + vérification accès FOLLOWERS_ONLY
-**Type :** Tâche · **Story Points :** 3 SP
-
-**Sprint** : S8 | **Assigné** : Elie | **SP** : 3 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[BACK\] Sprint 8 — Feature 5 / Tâche 2
-
-1. **Enum** `MessagingPreference` : `EVERYONE` / `FOLLOWERS_ONLY`
-2. **Entité** `User` : ajouter `messagingPreference` (MessagingPreference, default EVERYONE).
-3. `UpdateProfileRequest` : ajouter `messagingPreference`.
-4. `UserProfileResponse` : ajouter `messagingPreference`.
-5. `ConversationService.sendMessage()` : si `recipient.messagingPreference = FOLLOWERS_ONLY` → vérifier qu'il existe un `Follow` ACCEPTED où `followedId = recipient.id AND followerId = sender.id` → sinon 403.
-6. **OpenAPI** : ajouter `MessagingPreference` enum, champ dans `User`, `UpdateProfileRequest`.
-7. **Tests** : FOLLOWERS_ONLY + non follower → 403 ; FOLLOWERS_ONLY + follower ACCEPTED → 200.
-
-Fichiers touchés : `User.java`, `MessagingPreference.java`, `UserService.java`, `UpdateProfileRequest.java`, `UserProfileResponse.java`, `ConversationService.java`, `openapi.yaml`
-Branche suggérée : `feature/s8-messaging-prefs`
-Dépendances : SCRUM-138 (Follow), SCRUM-152 (Conversation/Message)
-
-### 🔧 [SCRUM-154] [FRONT][S10] Page Messagerie — layout, liste des conversations et badge navbar
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S8 | **Assigné** : Viona | **SP** : 5 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[FRONT\] Sprint 8 — Feature 5 / Tâche 3
-
-1. Nouvelle route `/messages` → `MessagingPage.tsx`
-2. `MessagingPage.tsx` : layout deux colonnes (md+) ou colonne unique (mobile) :
-
-    * Colonne gauche : `ConversationList.tsx` — liste des conversations triées par `lastMessageAt`, avec avatar, prévisualisation dernier message, badge "N non lus" rouge.
-    * Colonne droite : `ConversationView.tsx` (chargée quand une conv est sélectionnée ou via `?conversationId=`).
-    
-3. `ConversationList.tsx` : TanStack Query `useQuery(['conversations'])` + polling toutes les 15s. Cliquer → sélectionner + marquer comme lu (`PATCH /read`).
-4. `Navbar.tsx` : ajouter icône enveloppe avec badge `unreadCount` (polling `GET /api/users/me/unread-message-count` toutes les 30s).
-5. `ProfilePage.tsx` : bouton "Envoyer un message" → `POST /api/conversations` puis naviguer vers `/messages?conversationId=...`.
-6. `AppRouter.tsx` : ajouter la route `/messages`.
-
-Fichiers créés/touchés : `MessagingPage.tsx`, `ConversationList.tsx`, `AppRouter.tsx`, `Navbar.tsx`, `ProfilePage.tsx`
-Branche suggérée : `feature/s8-messaging-front`
-Dépendances : SCRUM-152 (BACK messagerie), SCRUM-141 (ProfilePage)
-
-### 🔧 [SCRUM-155] [FRONT][S10] Interface de conversation (fil de messages + envoi)
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S8 | **Assigné** : Daniel | **SP** : 5 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[FRONT\] Sprint 8 — Feature 5 / Tâche 4
-
-1. `ConversationView.tsx` : affiche le fil de messages d'une conversation.
-
-    * `useQuery(['conversations', id, 'messages'])` — polling toutes les 5s (remplacé par SSE/WebSocket en S9)
-    * Messages groupés par date. Messages de l'utilisateur à droite (fond coloré), de l'autre à gauche.
-    * Auto-scroll vers le bas à chaque nouveau message.
-    
-2. `MessageInput.tsx` : `<textarea>` (Shift+Enter = saut de ligne, Enter = envoyer), bouton Envoyer. `useMutation` pour `POST /api/conversations/{id}/messages`. Optimistic update.
-3. **Pagination** : charger les 50 derniers messages, bouton "Charger plus" en haut (messages plus anciens).
-4. **Gestion d'erreur** : si `messagingPreference` bloque l'envoi → afficher message d'erreur explicite.
-
-Fichiers créés : `ConversationView.tsx`, `MessageInput.tsx`
-Branche suggérée : `feature/s8-conversation-view`
-Dépendances : SCRUM-154 (MessagingPage), SCRUM-152 (BACK messagerie)
-
-### 🔧 [SCRUM-156] [BACK][S10] Amélioration temps réel messagerie (Long Polling ou SSE)
-**Type :** Tâche · **Story Points :** 5 SP
-
-**Sprint** : S9 | **Assigné** : Antoine | **SP** : 5 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[BACK\] Sprint 9 — Feature 5 / Tâche 5
-
-Améliorer la réactivité de la messagerie. Trois options par ordre de complexité :
-
-**Option A — Long Polling (recommandée si temps limité)** :
-
-* `GET /api/conversations/{id}/messages/poll?since=<ISO_DATETIME>` : endpoint qui attend jusqu'à 20s qu'un nouveau message arrive. Retourne immédiatement si un message est reçu.
-
-**Option B — Server-Sent Events (moderne, Quarkus-natif)** :
-
-* Utiliser `@Produces(MediaType.SERVER_SENT_EVENTS)` avec RESTEasy Reactive pour `GET /api/conversations/{id}/events`.
-* Côté frontend : `EventSource` API.
-
-**Option C — WebSocket (Quarkus WebSockets Next)** :
-
-* `@WebSocket("/api/ws/conversations/{id}")` — plus complexe à gérer côté auth (JWT dans header WebSocket).
-
-**Recommandation** : implémenter Option A si le temps est limité, Option B si Antoine a de la bande passante.
-
-Fichiers touchés : selon option choisie  
-Branche suggérée : `feature/s9-messaging-realtime`
-Dépendances : SCRUM-152 (messagerie S8)
-
-### 🔧 [SCRUM-157] [FRONT][S10] Badge non-lus + intégration temps réel messagerie
-**Type :** Tâche · **Story Points :** 3 SP
-
-**Sprint** : S9 | **Assigné** : Viona | **SP** : 3 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[FRONT\] Sprint 9 — Feature 5 / Tâche 6
-
-1. Remplacer le polling de `ConversationView.tsx` par la connexion Long Polling / SSE / WebSocket selon la solution choisie côté backend (SCRUM-156).
-2. À la réception d'un nouveau message → mettre à jour le cache TanStack Query de la conversation (`queryClient.setQueryData`).
-3. Mettre à jour le badge non-lus dans `Navbar.tsx` + `ConversationList.tsx` en temps réel.
-4. Notification toast si un message arrive dans une conversation qui n'est pas actuellement visible.
-5. Marquer automatiquement comme lu quand la `ConversationView` est active et visible (`IntersectionObserver` ou état `focused`).
-
-Fichiers touchés : `ConversationView.tsx`, `ConversationList.tsx`, `Navbar.tsx`
-Branche suggérée : `feature/s9-messaging-realtime-front`
-Dépendances : SCRUM-156 (BACK temps réel), SCRUM-155 (ConversationView)
-
-### 🔧 [SCRUM-158] [FRONT][S10] Préférences messagerie dans ProfileEditPage
-**Type :** Tâche · **Story Points :** 2 SP
-
-**Sprint** : S9 | **Assigné** : Daniel | **SP** : 2 | **Épic** : SCRUM-108 | **Story** : SCRUM-115 (US-26)
-
-\[FRONT\] Sprint 9 — Feature 5 / Tâche 7
-
-1. `ProfileEditPage.tsx` : ajouter dans la section "Paramètres de confidentialité" un `<Select>` "Qui peut m'envoyer des messages ?" avec les options :
-
-    * "Tout le monde" (EVERYONE)
-    * "Uniquement mes abonnés" (FOLLOWERS_ONLY)
-    
-2. Appel `PUT /api/users/me` avec le champ `messagingPreference`.
-3. Mise à jour des types TypeScript depuis openapi.yaml.
-
-Fichiers touchés : `ProfileEditPage.tsx`
-Branche suggérée : `feature/s9-messaging-prefs-front`
-Dépendances : SCRUM-153 (BACK prefs messagerie, S8)
 
 ### 🔧 [SCRUM-37] [BACK][S10] Tests d'intégration @QuarkusTest (couverture > 80%) + revue sécurité OWASP
 **Type :** Tâche · **Story Points :** 13 SP

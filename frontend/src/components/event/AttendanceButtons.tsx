@@ -99,7 +99,7 @@ export default function AttendanceButtons({
 
       {/* Live counter — updates optimistically for snappy feedback. */}
       <p className="text-xs text-foreground/50">
-        {attendingCount} {attendingCount === 1 ? 'personne participe' : 'personnes participent'}
+        {attendingCount} {attendingCount === 1 ? 'participant' : 'participants'}
       </p>
 
       {/* Error display */}

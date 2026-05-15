@@ -1,19 +1,29 @@
-.PHONY: frontend backend install-frontend install-backend install test-frontend test-backend test
+SERVICES = event user engagement moderation notification
 
-MODE=development
+.PHONY: install-backend install-frontend install \
+        frontend backend dev $(addprefix backend-,$(SERVICES)) \
+        test-backend test-frontend test \
+        build-backend build-frontend $(addprefix build-backend-,$(SERVICES))
 
-# Installations
+MODE = development
+
+# ─── Install ────────────────────────────────────────────────────────────────
 install-backend:
-	cd backend && ./mvnw clean dependency:resolve
+	cd backend && ./mvnw install -DskipTests
 
 install-frontend:
 	cd frontend && npm install
 
 install: install-frontend install-backend
 
-# Dev
+# ─── Dev — services individuels ─────────────────────────────────────────────
+# make backend-event | make backend-user | make backend-engagement | ...
+$(addprefix backend-,$(SERVICES)):
+	set -a && . backend/.env && set +a && cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -am
+
+# ─── Dev — tous les services ─────────────────────────────────────────────────
 backend:
-	cd backend && ./mvnw clean quarkus:dev
+	$(MAKE) -j$(words $(SERVICES)) $(addprefix backend-,$(SERVICES))
 
 frontend:
 	cd frontend && npm run dev -- --mode $(MODE)
@@ -21,18 +31,22 @@ frontend:
 dev:
 	$(MAKE) -j2 frontend backend
 
-# Tests
+# ─── Tests ──────────────────────────────────────────────────────────────────
 test-backend:
-	cd backend && ./mvnw test -B
+	cd backend && ./mvnw verify
 
 test-frontend: install-frontend
 	cd frontend && npm run lint && npm run test:coverage && npm run build
 
 test: test-backend test-frontend
 
-# Build
+# ─── Build ──────────────────────────────────────────────────────────────────
+# make build-backend-event | make build-backend-user | ...
+$(addprefix build-backend-,$(SERVICES)):
+	cd backend && ./mvnw clean package -pl services/$(patsubst build-backend-%,%,$@)-service -am
+
 build-backend:
-	cd backend && ./mvnw clean package -B
+	cd backend && ./mvnw clean package
 
 build-frontend:
 	cd frontend && npm run build -- --mode $(MODE)

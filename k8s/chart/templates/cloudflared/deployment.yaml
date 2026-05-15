@@ -20,8 +20,10 @@ spec:
         app: cloudflared
     spec:
       automountServiceAccountToken: false
+      {{- if eq .Values.cloudflared.mode "named" }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:latest
@@ -29,8 +31,10 @@ spec:
           args:
             - tunnel
             - --no-autoupdate
+            - --loglevel
+            - info
             - --metrics
-            - 127.0.0.1:2000
+            - 0.0.0.0:2000
             - run
           env:
             - name: TUNNEL_TOKEN
@@ -42,18 +46,24 @@ spec:
           args:
             - tunnel
             - --no-autoupdate
+            - --loglevel
+            - info
             - --metrics
-            - 127.0.0.1:2000
+            - 0.0.0.0:2000
             - --url
-            - http://localhost:80
+            - http://$(NODE_IP)
             - --http-host-header
             - {{ .Values.ingress.host }}
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           {{- end }}
           resources:
             requests:
               cpu: "50m"
               memory: "32Mi"
-              ephemeral-storage: "64Mi"
             limits:
               cpu: "200m"
               memory: "128Mi"
@@ -61,15 +71,13 @@ spec:
             httpGet:
               path: /ready
               port: 2000
-              host: 127.0.0.1
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /ready
+              path: /healthcheck
               port: 2000
-              host: 127.0.0.1
             initialDelaySeconds: 30
             periodSeconds: 30
             failureThreshold: 3

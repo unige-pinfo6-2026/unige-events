@@ -22,6 +22,10 @@ const STATUS_TABS = {
   DRAFT:     { label: 'Brouillons', param: 'draft' },
   CANCELLED: { label: 'Annulés',    param: 'cancelled' },
   EXPIRED:   { label: 'Terminés',   param: 'expired' },
+  // SCRUM-97 — onglet visible côté créateur pour la transparence : ses events
+  // bannis par modération sont affichés en read-only, sans aucune action
+  // possible (état terminal côté créateur).
+  BANNED:    { label: 'Bannis',     param: 'banned' },
 } as const
 
 const STATUS_KEYS = Object.keys(STATUS_TABS) as EventStatus[]
@@ -153,6 +157,16 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
   function renderActions() {
+    if (event.status === 'BANNED') {
+      // État terminal : pas de modify, pas de publish, pas de restore.
+      // Le créateur voit son event pour la transparence, mais ne peut rien faire.
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-error/5 border border-error/20 text-error/80 text-xs font-medium">
+          <Ban className="size-3.5 shrink-0" />
+          Banni par modération
+        </span>
+      )
+    }
     if (event.status === 'CANCELLED') {
       return (
         <>
@@ -229,55 +243,71 @@ function PublicationCard({ event, publishing, restoring, onPublish, onCancel, on
     )
   }
 
-  return (
-    <article className="group flex flex-col rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 hover:-translate-y-0.5">
-      <Link to={`/events/${event.id}`} className="flex flex-col flex-1 no-underline text-inherit" aria-label={event.title}>
-        {/* Banner */}
-        <div className="relative h-36 bg-cover bg-center" style={banner}>
-          <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
-          <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
+  // SCRUM-97 — un event BANNED renvoie 404 sur GET /events/{id} (anti-leak),
+  // donc on n'enveloppe pas la card dans un Link cliquable : on rend la même
+  // structure dans un <div> read-only, identique visuellement mais inerte.
+  const isBanned = event.status === 'BANNED'
+  const cardInner = (
+    <>
+      {/* Banner */}
+      <div className="relative h-36 bg-cover bg-center" style={banner}>
+        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: category.color }} />
+        <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
 
+        <span
+          className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide backdrop-blur-sm"
+          style={{ background: `${category.color}dd` }}
+        >
+          {category.name}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col gap-2 p-4 flex-1">
+        <div className="flex items-start gap-3">
           <span
-            className="absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide backdrop-blur-sm"
-            style={{ background: `${category.color}dd` }}
+            title={event.title}
+            className="flex-1 min-w-0 text-base font-bold text-foreground group-hover:text-accent line-clamp-1 break-words"
           >
-            {category.name}
+            {event.title}
+          </span>
+          <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${statusClass}`}>
+            {EVENT_STATUSES[event.status].name}
           </span>
         </div>
-
-        {/* Body */}
-        <div className="flex flex-col gap-2 p-4 flex-1">
-          <div className="flex items-start gap-3">
-            <span
-              title={event.title}
-              className="flex-1 min-w-0 text-base font-bold text-foreground group-hover:text-accent line-clamp-1 break-words"
-            >
-              {event.title}
-            </span>
-            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${statusClass}`}>
-              {EVENT_STATUSES[event.status].name}
-            </span>
-          </div>
-          {event.faculty ? (
-            <FacultyBadge id={event.faculty} />
-          ) : (
-            <span className="inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-foreground/10 text-foreground/70">
-              Toutes facultés
-            </span>
-          )}
-          <div className="flex items-center gap-2 text-xs text-foreground/55">
-            <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
-            <span className="truncate">{formatEventDateTimeCompact(event.startDate, event.allDay)}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-foreground/55">
-            <Users className="size-3.5 shrink-0" style={{ color: category.color }} />
-            <span>
-              {event.attendingCount}
-              {event.capacity != null && <span className="text-foreground/35"> / {event.capacity}</span>} participants
-            </span>
-          </div>
+        {event.faculty ? (
+          <FacultyBadge id={event.faculty} />
+        ) : (
+          <span className="inline-block w-fit text-xs font-semibold px-2.5 py-1 rounded-full bg-foreground/10 text-foreground/70">
+            Toutes facultés
+          </span>
+        )}
+        <div className="flex items-center gap-2 text-xs text-foreground/55">
+          <Calendar className="size-3.5 shrink-0" style={{ color: category.color }} />
+          <span className="truncate">{formatEventDateTimeCompact(event.startDate, event.allDay)}</span>
         </div>
-      </Link>
+        <div className="flex items-center gap-2 text-xs text-foreground/55">
+          <Users className="size-3.5 shrink-0" style={{ color: category.color }} />
+          <span>
+            {event.attendingCount}
+            {event.capacity != null && <span className="text-foreground/35"> / {event.capacity}</span>} participants
+          </span>
+        </div>
+      </div>
+    </>
+  )
+
+  return (
+    <article className={`group flex flex-col rounded-2xl bg-background border border-border overflow-hidden transition-all duration-200 ${isBanned ? 'opacity-70' : 'hover:border-primary/30 hover:shadow-xl hover:shadow-black/10 hover:-translate-y-0.5'}`}>
+      {isBanned ? (
+        <div className="flex flex-col flex-1 no-underline text-inherit" aria-label={event.title}>
+          {cardInner}
+        </div>
+      ) : (
+        <Link to={`/events/${event.id}`} className="flex flex-col flex-1 no-underline text-inherit" aria-label={event.title}>
+          {cardInner}
+        </Link>
+      )}
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 p-3 border-t border-border">

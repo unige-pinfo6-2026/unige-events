@@ -11,15 +11,20 @@ const TAB_LABELS: Record<EventStatus, string> = {
   DRAFT:     'Brouillons',
   CANCELLED: 'Annulés',
   EXPIRED:   'Terminés',
+  // BANNED is intentionally absent from TAB_KEYS below — the landing preview
+  // stays light and doesn't surface moderation-banned events. They remain
+  // accessible from the full /my-events/publications page (Bannis tab).
+  BANNED:    'Bannis',
 }
 
-const TAB_KEYS = Object.keys(TAB_LABELS) as EventStatus[]
+const TAB_KEYS: EventStatus[] = ['PUBLISHED', 'DRAFT', 'CANCELLED', 'EXPIRED']
 
 const EMPTY_COPY: Record<EventStatus, string> = {
   PUBLISHED: 'Aucune publication.',
   DRAFT:     'Aucun brouillon.',
   CANCELLED: 'Aucun événement annulé.',
   EXPIRED:   'Aucun événement terminé.',
+  BANNED:    'Aucun événement banni.',
 }
 
 const PREVIEW_LIMIT = 3

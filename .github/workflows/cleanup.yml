@@ -1,0 +1,28 @@
+name: Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-preview:
+    name: Cleanup Preview
+    runs-on: deployments
+    environment: preview
+    env:
+      PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Set kubectl context
+        uses: azure/k8s-set-context@v5
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Cleanup
+        run: |
+          helm uninstall ${{ env.PR_NAMESPACE }} --namespace ${{ env.PR_NAMESPACE }} --ignore-not-found --timeout 3m || true
+          kubectl delete namespace ${{ env.PR_NAMESPACE }} --ignore-not-found

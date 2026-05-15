@@ -22,10 +22,15 @@ const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report =>
   id,
   eventId: 10 + id,
   eventTitle: `Event ${id}`,
-  reason: 'Spam',
-  reportedByDisplayName: 'Alice',
+  reporterId: `reporter-${id}`,
+  reporterDisplayName: 'Alice',
+  reason: 'SPAM',
+  description: null,
   createdAt: '2026-05-01T10:00:00',
   status,
+  moderationNote: null,
+  reviewedAt: null,
+  reviewedBy: null,
 })
 
 const makeEvent = (id: number): Event => ({
@@ -127,18 +132,18 @@ describe('AdminPage — reports section', () => {
     expect(screen.getByText('Event 2')).toBeTruthy()
   })
 
-  it('renders Valider and Ignorer buttons for PENDING reports', () => {
+  it('renders Bannir and Ignorer buttons for PENDING reports', () => {
     mockUseAdminReports.mockReturnValue({
       ...defaultReports,
       reports: [makeReport(1, 'PENDING')],
     })
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
-    expect(screen.getByRole('button', { name: /Valider/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Bannir l'événement/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Ignorer/ })).toBeTruthy()
   })
 
-  it('calls reviewReport when Valider is clicked', () => {
+  it('calls reviewReport when "Bannir l\'événement" is clicked', () => {
     const reviewReport = vi.fn().mockResolvedValue(true)
     mockUseAdminReports.mockReturnValue({
       ...defaultReports,
@@ -147,8 +152,22 @@ describe('AdminPage — reports section', () => {
     })
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: /Valider/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Bannir l'événement/ }))
     expect(reviewReport).toHaveBeenCalledWith(1)
+  })
+
+  it('uses the destructive (error) color on the Bannir button to signal irreversibility', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeReport(1, 'PENDING')],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    const banBtn = screen.getByRole('button', { name: /Bannir l'événement/ })
+    // We don't lock down a full class string — just assert the destructive token
+    // is present so the action visually reads as irreversible.
+    expect(banBtn.className).toContain('text-error')
+    expect(banBtn.className).toContain('bg-error')
   })
 
   it('calls dismissReport when Ignorer is clicked', () => {
@@ -164,14 +183,14 @@ describe('AdminPage — reports section', () => {
     expect(dismissReport).toHaveBeenCalledWith(1)
   })
 
-  it('renders status badge for processed reports', () => {
+  it('renders "Banni" and "Ignoré" badges for processed reports', () => {
     mockUseAdminReports.mockReturnValue({
       ...defaultReports,
       reports: [makeReport(1, 'REVIEWED'), makeReport(2, 'DISMISSED')],
     })
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
-    expect(screen.getByText('Validé')).toBeTruthy()
+    expect(screen.getByText('Banni')).toBeTruthy()
     expect(screen.getByText('Ignoré')).toBeTruthy()
   })
 
@@ -203,6 +222,46 @@ describe('AdminPage — reports section', () => {
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
     expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('renders the human-readable French label for the reason enum', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeReport(1)],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Spam')).toBeTruthy()
+    expect(screen.queryByText('SPAM')).toBeNull()
+  })
+
+  it('renders the report description as a secondary line under the reason', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [{ ...makeReport(1), description: 'Looks like an obvious scam' }],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Looks like an obvious scam')).toBeTruthy()
+  })
+
+  it('falls back to placeholder labels when event and reporter are deleted', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [{
+        ...makeReport(1),
+        eventId: null,
+        eventTitle: null,
+        reporterId: null,
+        reporterDisplayName: null,
+      }],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Événement supprimé')).toBeTruthy()
+    expect(screen.getByText('Compte supprimé')).toBeTruthy()
+    // No anchor tag when event is gone
+    expect(screen.queryByRole('link', { name: 'Événement supprimé' })).toBeNull()
   })
 })
 

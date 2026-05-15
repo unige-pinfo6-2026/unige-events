@@ -28,6 +28,7 @@ export function useAdminFeatured(): UseAdminFeaturedResult {
   const [searchResults, setSearchResults] = useState<Event[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchSeqRef = useRef(0)
 
   const fetch = useCallback(async () => {
     setLoading(true)
@@ -55,14 +56,18 @@ export function useAdminFeatured(): UseAdminFeaturedResult {
     }
 
     debounceRef.current = setTimeout(async () => {
+      const seq = ++searchSeqRef.current
       setSearchLoading(true)
       try {
         const results = await searchEvents({ q: searchQuery, size: 8 })
+        // A newer query started while we were waiting — drop these stale results.
+        if (seq !== searchSeqRef.current) return
         setSearchResults(results)
       } catch {
+        if (seq !== searchSeqRef.current) return
         setSearchResults([])
       } finally {
-        setSearchLoading(false)
+        if (seq === searchSeqRef.current) setSearchLoading(false)
       }
     }, 350)
 
