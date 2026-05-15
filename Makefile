@@ -1,7 +1,7 @@
 SERVICES = event user engagement moderation notification
 
 .PHONY: install-backend install-frontend install \
-        frontend backend dev $(addprefix backend-,$(SERVICES)) \
+        frontend backend backend-shared dev $(addprefix backend-,$(SERVICES)) \
         test-backend test-frontend test \
         build-backend build-frontend $(addprefix build-backend-,$(SERVICES))
 
@@ -9,20 +9,24 @@ MODE = development
 
 # ─── Install ────────────────────────────────────────────────────────────────
 install-backend:
-	cd backend && ./mvnw install -DskipTests
+	cd backend && ./mvnw install -DskipTests -T1C
 
 install-frontend:
 	cd frontend && npm install
 
-install: install-frontend install-backend
+install:
+	$(MAKE) -j2 install-frontend install-backend
 
 # ─── Dev — services individuels ─────────────────────────────────────────────
 # make backend-event | make backend-user | make backend-engagement | ...
 $(addprefix backend-,$(SERVICES)):
-	set -a && . backend/.env && set +a && cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -am
+	set -a && . backend/.env && set +a && cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -Djvm.args="-Xmx256m -Xms64m"
 
 # ─── Dev — tous les services ─────────────────────────────────────────────────
-backend:
+backend-shared:
+	cd backend && ./mvnw install -pl shared -amd -DskipTests -T1C
+
+backend: backend-shared
 	$(MAKE) -j$(words $(SERVICES)) $(addprefix backend-,$(SERVICES))
 
 frontend:
