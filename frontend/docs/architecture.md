@@ -33,6 +33,8 @@ Model : src/hooks, src/contexts et src/types
 | /profile | redirect | — | redirect → /profile/me |
 | /profile/me/edit | ProfileEditPage | pages/profile/ProfileEditPage.tsx | PrivateRoute |
 | /profile/:username | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute. SCRUM-169 — param renommé `username` (au lieu de `id`). Détection regex UUID v4 dans le composant + `<Navigate replace to=`/profile/${username}`>` pour résoudre les liens legacy en cache. L'alias `/profile/me` est résolu côté composant via la blocklist. |
+| /profile/:username/followers | FollowListPage | pages/profile/FollowListPage.tsx | PrivateRoute. SCRUM-142 — liste paginée des followers (« Charger plus », size 20). Alias `me` et match `currentUser.username` court-circuitent le `getUserByUsername`. |
+| /profile/:username/following | FollowListPage | pages/profile/FollowListPage.tsx | PrivateRoute. SCRUM-142 — même page que `/followers`, prop `mode="following"`. |
 | /my-events | MyEventsPage | pages/my-events/MyEventsPage.tsx | PrivateRoute |
 | /my-events/favorites | MyFavoritesPage | pages/my-events/MyFavoritesPage.tsx | PrivateRoute |
 | /my-events/participations | MyParticipationsPage | pages/my-events/MyParticipationsPage.tsx | PrivateRoute |

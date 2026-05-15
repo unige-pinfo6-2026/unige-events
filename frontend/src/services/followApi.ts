@@ -1,5 +1,13 @@
 import api from './api'
 import type { FollowDTO } from '@/types/follow'
+import type { UserPublicResponse } from '@/types/user'
+
+/**
+ * Backend cap on `GET /users/{id}/followers` and `/following` page size
+ * (cf. openapi.yaml). Used as the default fetch size by `useFollowList`
+ * — exposed so tests can assert on the same constant.
+ */
+export const FOLLOW_LIST_PAGE_SIZE = 20
 
 /**
  * Follow a user. Backend auto-resolves the status: `ACCEPTED` if the target's
@@ -48,4 +56,45 @@ export async function acceptFollowRequest(followId: number): Promise<FollowDTO> 
  */
 export async function rejectFollowRequest(followId: number): Promise<void> {
   await api.patch(`/follow-requests/${followId}/reject`)
+}
+
+/**
+ * Paginated list of users who follow `targetId` (SCRUM-138 /
+ * SCRUM-142 — FE list view). Backend tri `Follow.createdAt DESC,
+ * Follow.id DESC`. Items are projected as `UserPublicResponse` with
+ * `followerCount`/`followingCount = 0` and `followStatus = null` —
+ * the per-item follow relationship is not surfaced (the spec is
+ * explicit: counters and followStatus only make sense on the target
+ * profile, not on list items).
+ *
+ * 404 covers both "target user does not exist" AND "target profile
+ * is private and caller is not owner" (anti-oracle ISSUE-93). The
+ * page surfaces both uniformly via {@link ProfilePrivateState}.
+ */
+export async function getFollowers(
+  targetId: string,
+  page: number,
+  size: number = FOLLOW_LIST_PAGE_SIZE,
+): Promise<UserPublicResponse[]> {
+  const response = await api.get<UserPublicResponse[]>(
+    `/users/${targetId}/followers`,
+    { params: { page, size } },
+  )
+  return response.data
+}
+
+/**
+ * Paginated list of users that `targetId` follows. Same shape and
+ * authorisation rules as {@link getFollowers}.
+ */
+export async function getFollowing(
+  targetId: string,
+  page: number,
+  size: number = FOLLOW_LIST_PAGE_SIZE,
+): Promise<UserPublicResponse[]> {
+  const response = await api.get<UserPublicResponse[]>(
+    `/users/${targetId}/following`,
+    { params: { page, size } },
+  )
+  return response.data
 }

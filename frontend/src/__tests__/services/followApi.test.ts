@@ -14,7 +14,10 @@ vi.mock('@/services/api', () => ({
 import api from '@/services/api'
 import {
   acceptFollowRequest,
+  FOLLOW_LIST_PAGE_SIZE,
   followUser,
+  getFollowers,
+  getFollowing,
   getMyFollowRequests,
   rejectFollowRequest,
   unfollowUser,
@@ -101,6 +104,68 @@ describe('followApi', () => {
 
       await expect(rejectFollowRequest(42)).resolves.toBeUndefined()
       expect(mockPatch).toHaveBeenCalledWith('/follow-requests/42/reject')
+    })
+  })
+
+  describe('getFollowers', () => {
+    it('GETs /users/{id}/followers with pagination params and returns the array', async () => {
+      const targetId = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
+      const user = {
+        id: 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c',
+        username: 'alice',
+        followerCount: 0,
+        followingCount: 0,
+        followStatus: null,
+      }
+      mockGet.mockResolvedValue({ data: [user] })
+
+      const result = await getFollowers(targetId, 0, 20)
+
+      expect(mockGet).toHaveBeenCalledWith(
+        `/users/${targetId}/followers`,
+        { params: { page: 0, size: 20 } },
+      )
+      expect(result).toEqual([user])
+    })
+
+    it('uses FOLLOW_LIST_PAGE_SIZE as the default size', async () => {
+      mockGet.mockResolvedValue({ data: [] })
+
+      await getFollowers('target-id', 2)
+
+      expect(mockGet).toHaveBeenCalledWith(
+        '/users/target-id/followers',
+        { params: { page: 2, size: FOLLOW_LIST_PAGE_SIZE } },
+      )
+    })
+
+    it('propagates 404 (private profile / not found)', async () => {
+      mockGet.mockRejectedValue(new Error('not found'))
+      await expect(getFollowers('x', 0)).rejects.toThrow('not found')
+    })
+  })
+
+  describe('getFollowing', () => {
+    it('GETs /users/{id}/following with pagination params', async () => {
+      mockGet.mockResolvedValue({ data: [] })
+
+      await getFollowing('target-id', 1, 50)
+
+      expect(mockGet).toHaveBeenCalledWith(
+        '/users/target-id/following',
+        { params: { page: 1, size: 50 } },
+      )
+    })
+
+    it('uses FOLLOW_LIST_PAGE_SIZE as the default size', async () => {
+      mockGet.mockResolvedValue({ data: [] })
+
+      await getFollowing('target-id', 0)
+
+      expect(mockGet).toHaveBeenCalledWith(
+        '/users/target-id/following',
+        { params: { page: 0, size: FOLLOW_LIST_PAGE_SIZE } },
+      )
     })
   })
 })
