@@ -85,7 +85,8 @@ class UserResourceTest {
             .when().get("/users/" + user.id)
             .then()
             .statusCode(200)
-            .body("id", equalTo(user.id.toString()));
+            .body("id", equalTo(user.id.toString()))
+            .body("profilePublic", equalTo(true));
     }
 
     @Test
@@ -94,7 +95,9 @@ class UserResourceTest {
         // (here anonymous) used to 404 ; we now return the stripped
         // anonymous projection so cross-service enrichment keeps the
         // public-facing identifier visible (id, username, displayName,
-        // avatarUrl). The private fields stay null + counters stay zero.
+        // avatarUrl). The private fields stay null + counters stay zero ;
+        // profilePublic is forced to false so the frontend can gate the
+        // "this profile is private" placeholder without leaking other fields.
         User user = fixtures.persistUser("auth0|ur-priv-anon", "ur-priv-anon@example.com", false);
 
         given()
@@ -108,6 +111,7 @@ class UserResourceTest {
             .body("studyLevel", nullValue())
             .body("interests", nullValue())
             .body("bannerUrl", nullValue())
+            .body("profilePublic", equalTo(false))
             .body("followerCount", equalTo(0))
             .body("followingCount", equalTo(0))
             .body("followStatus", nullValue());
@@ -309,7 +313,8 @@ class UserResourceTest {
             .when().get("/users/by-username/public.alice")
             .then()
             .statusCode(200)
-            .body("username", equalTo("public.alice"));
+            .body("username", equalTo("public.alice"))
+            .body("profilePublic", equalTo(true));
     }
 
     @Test
@@ -339,6 +344,7 @@ class UserResourceTest {
             .body("bio", nullValue())
             .body("faculty", nullValue())
             .body("bannerUrl", nullValue())
+            .body("profilePublic", equalTo(false))
             .body("followerCount", equalTo(0))
             .body("followingCount", equalTo(0))
             .body("followStatus", nullValue());
@@ -349,7 +355,8 @@ class UserResourceTest {
     void getByUsername_privateProfile_otherUser_returnsRestrictedProjection() {
         // SCRUM-169 revision — authenticated non-self non-admin caller
         // accessing a private profile now sees the stripped projection
-        // instead of a 404.
+        // instead of a 404. profilePublic is forced to false so the
+        // frontend renders the "private profile" placeholder.
         fixtures.persistUser("auth0|ur-byuname-priv-target", "target@example.com", false,
                 "priv.target");
         fixtures.persistUser("auth0|ur-byuname-other", "caller@example.com", false,
@@ -364,6 +371,7 @@ class UserResourceTest {
             .body("bio", nullValue())
             .body("faculty", nullValue())
             .body("bannerUrl", nullValue())
+            .body("profilePublic", equalTo(false))
             .body("followerCount", equalTo(0))
             .body("followingCount", equalTo(0))
             .body("followStatus", nullValue());

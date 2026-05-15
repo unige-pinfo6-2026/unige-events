@@ -33,10 +33,33 @@ public record UserPublicResponse(
         List<String> interests,
         String avatarUrl,
         String bannerUrl,
+        boolean profilePublic,
         long followerCount,
         long followingCount,
         FollowStatus followStatus
 ) {
+
+    /**
+     * Backward-compatible 12-arg constructor (pre-{@code profilePublic}) —
+     * the new field defaults to {@code false}, the safe value for the
+     * restricted projection.
+     */
+    public UserPublicResponse(
+            UUID id,
+            String username,
+            String displayName,
+            Faculty faculty,
+            String studyLevel,
+            String bio,
+            List<String> interests,
+            String avatarUrl,
+            String bannerUrl,
+            long followerCount,
+            long followingCount,
+            FollowStatus followStatus
+    ) {
+        this(id, username, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl, false, followerCount, followingCount, followStatus);
+    }
 
     /**
      * Backward-compatible 11-arg constructor (pre-SCRUM-169) — used by
@@ -57,7 +80,7 @@ public record UserPublicResponse(
             long followingCount,
             FollowStatus followStatus
     ) {
-        this(id, null, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl, followerCount, followingCount, followStatus);
+        this(id, null, displayName, faculty, studyLevel, bio, interests, avatarUrl, bannerUrl, false, followerCount, followingCount, followStatus);
     }
 
     /**
@@ -71,7 +94,7 @@ public record UserPublicResponse(
      * primary use of the field.
      */
     public static UserPublicResponse anonymous(UUID id, String username, String displayName, String avatarUrl) {
-        return new UserPublicResponse(id, username, displayName, null, null, null, null, avatarUrl, null, 0L, 0L, null);
+        return new UserPublicResponse(id, username, displayName, null, null, null, null, avatarUrl, null, false, 0L, 0L, null);
     }
 
     /** Backward-compatible {@link #anonymous(UUID, String, String, String)} (pre-SCRUM-169). */

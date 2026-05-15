@@ -213,6 +213,15 @@ components:
           type: string
           format: uri
           nullable: true
+        profilePublic:
+          type: boolean
+          description: |
+            Indique si le profil cible est public. Toujours présent dans
+            `UserPublicResponse`. Vaut la valeur réelle du flag pour la projection
+            complète, et `false` pour la projection restreinte (caller anonyme OU
+            non-owner non-admin sur `profilePublic = false`) : le frontend l'utilise
+            pour afficher le placeholder « profil privé » sans avoir à deviner la
+            visibilité à partir de l'absence d'autres champs.
         followerCount:
           type: integer
           format: int64
@@ -235,7 +244,7 @@ components:
             l'utilisateur cible. `null` si l'appelant est anonyme, sur son propre profil,
             ou s'il n'existe aucune row `Follow` pour le couple `(callerId, targetId)`.
             `PENDING` ou `ACCEPTED` sinon.
-      required: [id, username, followerCount, followingCount]
+      required: [id, username, profilePublic, followerCount, followingCount]
 
     UpdateProfileRequest:
       type: object
