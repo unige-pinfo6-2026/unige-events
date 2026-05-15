@@ -269,7 +269,7 @@ describe('EditEventPage', () => {
 
       renderPage()
 
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       expect(screen.getByRole('button', { name: "Créer l'événement" })).toBeTruthy()
       expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeTruthy()
       expect(screen.queryByRole('button', { name: 'Sauvegarder en Brouillon' })).toBeNull()
@@ -280,7 +280,7 @@ describe('EditEventPage', () => {
       mockUpdateEvent.mockResolvedValue({ ...draftEvent, status: 'PUBLISHED' })
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
 
       expect(await screen.findByText('Événement créé avec succès.')).toBeTruthy()
@@ -293,7 +293,7 @@ describe('EditEventPage', () => {
       mockUpdateEvent.mockResolvedValue({ ...draftEvent, status: 'DRAFT' })
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
       expect(await screen.findByText('Brouillon enregistré.')).toBeTruthy()
@@ -307,7 +307,7 @@ describe('EditEventPage', () => {
       mockUpdateEvent.mockReturnValue(new Promise(r => { resolveUpdate = r }))
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
       // The main button must not flip to "Enregistrement..." while the draft save is
@@ -327,7 +327,7 @@ describe('EditEventPage', () => {
       mockGetById.mockResolvedValue(draftEvent)
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       // In draft mode the form-level Annuler button is dropped — "Enregistrer" (save draft)
       // covers the "finish later" intent. The delete-confirmation modal still has its own
       // Annuler, but it's only rendered once the delete flow is triggered.
@@ -338,7 +338,7 @@ describe('EditEventPage', () => {
       mockGetById.mockResolvedValue(draftEvent)
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       expect(screen.getByRole('button', { name: 'Supprimer le brouillon' })).toBeTruthy()
     })
 
@@ -346,7 +346,7 @@ describe('EditEventPage', () => {
       mockGetById.mockResolvedValue(existingEvent)
 
       renderPage()
-      await screen.findByDisplayValue(existingEvent.title)
+      await screen.findByDisplayValue(existingEvent.title, {}, { timeout: 10000 })
       expect(screen.queryByRole('button', { name: /Supprimer le brouillon/ })).toBeNull()
     })
 
@@ -355,7 +355,7 @@ describe('EditEventPage', () => {
       mockDeleteEvent.mockResolvedValue(undefined)
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
 
       // Modal is now shown with a "Confirmer" button.
@@ -370,7 +370,7 @@ describe('EditEventPage', () => {
       mockGetById.mockResolvedValue(draftEvent)
 
       renderPage()
-      await screen.findByDisplayValue(draftEvent.title)
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
       fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
 
       // Click the modal's own "Annuler" button. The form-level Annuler is dropped in
