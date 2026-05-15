@@ -10,7 +10,7 @@ permissions:
 jobs:
   cleanup-preview:
     name: Cleanup Preview
-    runs-on: deployments
+    runs-on: ubuntu-latest
     environment: preview
     env:
       PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
