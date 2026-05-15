@@ -25,6 +25,7 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -244,6 +245,22 @@ public class UserService {
         String normalised = username.trim().toLowerCase();
         User user = User.findByUsername(normalised).orElseThrow(NotFoundException::new);
         return enrichPublicProfile(user, callerAuth0Id, isAdmin);
+    }
+
+    /**
+     * SCRUM-137 polish — autocomplete-friendly prefix scan on {@code username}.
+     * Returns at most {@code limit} matching users sorted alphabetically,
+     * optionally excluding the caller so the invitation field never proposes
+     * inviting yourself. Returns an empty list if {@code limit <= 0}.
+     *
+     * <p>Validation of the prefix (length, charset) is the caller's
+     * responsibility — this method assumes a sanitised, lowercase string. The
+     * service layer keeps it minimal: the resource is the validation choke
+     * point ({@code @Pattern} / {@code @Size}) and the entity finder owns the
+     * LIKE escape so the raw HQL never sees an unescaped wildcard.
+     */
+    public List<User> searchByUsernamePrefix(String prefix, int limit, String excludeAuth0Id) {
+        return User.searchByUsernamePrefix(prefix, limit, excludeAuth0Id);
     }
 
     /**

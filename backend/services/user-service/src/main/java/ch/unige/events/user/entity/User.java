@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -111,5 +112,41 @@ public class User extends PanacheEntityBase {
             return Optional.empty();
         }
         return find("username", username.toLowerCase()).firstResultOptional();
+    }
+
+    /**
+     * Prefix scan over the {@code username} column used to back the autocomplete
+     * on the co-organizer invitation field (SCRUM-137 polish). The prefix is
+     * normalised (trim + lowercase) and escaped before the {@code LIKE} so the
+     * literal {@code _} that the username regex allows is not interpreted as
+     * the SQL single-char wildcard. The validator on the caller side already
+     * rejects anything outside {@code [a-z0-9._-]}, so {@code %} can never
+     * reach this query.
+     *
+     * <p>The unique-constraint btree on {@code username} (V3 migration) is
+     * adequate for the {@code LIKE 'prefix%'} pattern under PostgreSQL's
+     * default collation since usernames are stored strictly lowercase ASCII —
+     * EXPLAIN on a seeded DB confirms an index range scan. A dedicated
+     * {@code text_pattern_ops} index is unnecessary at S8 traffic volumes.
+     */
+    public static List<User> searchByUsernamePrefix(String prefix, int limit, String excludeAuth0Id) {
+        if (prefix == null || prefix.isBlank() || limit <= 0) {
+            return Collections.emptyList();
+        }
+        String normalised = prefix.trim().toLowerCase();
+        // Escape the only LIKE metacharacter that the username charset can produce
+        // ('_'); '%' and '\' cannot appear because the resource-level validator
+        // rejects anything outside [a-z0-9._-].
+        String pattern = normalised.replace("_", "\\_") + "%";
+        if (excludeAuth0Id == null) {
+            return find("username LIKE ?1 ESCAPE '\\' ORDER BY username ASC", pattern)
+                    .range(0, limit - 1)
+                    .list();
+        }
+        return find(
+                "username LIKE ?1 ESCAPE '\\' AND auth0Id <> ?2 ORDER BY username ASC",
+                pattern,
+                excludeAuth0Id
+        ).range(0, limit - 1).list();
     }
 }

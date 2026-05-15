@@ -14,9 +14,15 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.PATCH;
@@ -25,12 +31,14 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -174,6 +182,52 @@ public class UserResource {
         String auth0Id = identity.getPrincipal().getName();
         User updated = userService.updateUsername(auth0Id, req.username());
         return Response.ok(UserProfileResponse.from(updated)).build();
+    }
+
+    /**
+     * SCRUM-137 polish — username autocomplete backing the co-organizer
+     * invitation field in {@code CoOrganizersEditor} / {@code
+     * PendingCoOrganizersEditor}. {@code @Authenticated} so anonymous
+     * scrapers cannot enumerate the user table ; the per-user rate-limit
+     * bounds the burst rate.
+     *
+     * <p>Returns the lightweight {@code fromAnonymous} projection
+     * (id + username + displayName + avatarUrl + profilePublic) for every
+     * row — bio / interests / banner stay hidden regardless of the target's
+     * {@code profilePublic} flag. The caller's own row is filtered out so
+     * the dropdown never proposes inviting yourself.
+     *
+     * <p>Validation contract :
+     * <ul>
+     *   <li>{@code q} : 2-30 chars, charset {@code [a-zA-Z0-9._-]} (uppercase
+     *       accepted, lowered server-side before the prefix scan).</li>
+     *   <li>{@code limit} : 1-20, default 8.</li>
+     * </ul>
+     * Violations surface as {@code 400} via the standard Hibernate Validator
+     * mapper.
+     */
+    @GET
+    @Path("/search")
+    @Authenticated
+    @PerUserRateLimit(name = "users.search", max = 60)
+    public Response searchByUsername(
+            @QueryParam("q")
+            @NotBlank
+            @Size(min = 2, max = 30)
+            @Pattern(regexp = "^[a-zA-Z0-9._-]+$",
+                    message = "q must match ^[a-zA-Z0-9._-]+$")
+            String q,
+            @QueryParam("limit")
+            @DefaultValue("8")
+            @Min(1)
+            @Max(20)
+            int limit) {
+        String callerAuth0Id = identity.getPrincipal().getName();
+        List<User> matches = userService.searchByUsernamePrefix(q, limit, callerAuth0Id);
+        List<UserPublicResponse> body = matches.stream()
+                .map(UserPublicResponse::fromAnonymous)
+                .toList();
+        return Response.ok(body).build();
     }
 
     /**
