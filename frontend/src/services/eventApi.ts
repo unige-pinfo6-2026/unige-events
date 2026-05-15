@@ -47,6 +47,19 @@ export async function getById(id: number, checkCoOrgOf?: string | null): Promise
   return response.data
 }
 
+export interface GetOccurrencesParams {
+  page?: number
+  size?: number
+}
+
+export async function getOccurrences(
+  parentId: number,
+  params: GetOccurrencesParams = {},
+): Promise<Event[]> {
+  const response = await api.get<Event[]>('/events/' + parentId + '/occurrences', { params })
+  return response.data
+}
+
 export async function createEvent(data: CreateEventRequest): Promise<Event> {
   const response = await api.post<Event>('/events', data)
   return response.data
