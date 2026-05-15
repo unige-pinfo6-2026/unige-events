@@ -387,6 +387,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Affiche soit une image soit des initiales à partir de displayName.
 - Réutilisé dans la navigation, les profils et la page détail événement.
 
+### UsernameAutocomplete
+
+- **Composant SCRUM-137 polish** (`src/components/user/UsernameAutocomplete.tsx`). Remplace l'`<Input>` du champ d'invitation co-organisateur dans `CoOrganizersEditor` (live) et `PendingCoOrganizersEditor` (staged) ; affiche une dropdown de suggestions au-dessous de l'input dès que l'utilisateur tape ≥ 2 caractères.
+- **Props** : `value`, `onChange`, `onSelect(user)`, `placeholder?`, `error?`, `excludeUsernames?`, `inputId?`, `autoFocus?`, `disabled?`. Le parent garde le contrôle de la valeur (`value`/`onChange`) pour que le submit existant continue à fonctionner si l'utilisateur tape un username complet sans cliquer une suggestion.
+- **Fetch paresseux + debounce** : `useDebounce(value, 300ms)` puis appel `GET /users/search?q=<prefix>&limit=8` via `searchUsernames`. Skip si `prefix.length < 2` ou si on vient juste de fournir un username via `onSelect` (le state flippe au handle pické, on ne re-fetch pas immédiatement). Cache en mémoire (Map prefix → résultats, cap 50 entrées). Compteur monotone qui ignore les réponses obsolètes (même pattern que `useOccurrences`).
+- **Filtre client `excludeUsernames`** : appliqué après le fetch, comparaison case-insensitive. `CoOrganizersEditor` passe `[user.username, ...accepted.co-orgs]`, `PendingCoOrganizersEditor` passe `[user.username, ...staged]`. La dropdown ne propose donc jamais d'inviter soi-même ni de doubler une invitation.
+- **Accessibilité** : ARIA combobox + listbox (`role="combobox"`, `role="listbox"`, `role="option"`, `aria-autocomplete="list"`, `aria-expanded`, `aria-activedescendant`). Navigation clavier ↑/↓ pour parcourir, Enter pour sélectionner, Escape pour fermer. Click outside ferme aussi la dropdown.
+- **États** : loading → 3 lignes squelettes via `Skeleton` boneyard inline (pas de `.bones.json` dédié) ; error → message inline rouge ; data vide → "Aucun résultat." italique. Chaque ligne rend l'avatar via `UserAvatar`, le handle `@username` en gras et le `displayName` en sous-texte.
+
 ### DraftsResumeStrip
 
 - **Bannière collapsible** `@radix-ui/react-collapsible` insérée au-dessus de `EventForm` dans `CreateEventPage`.
@@ -555,6 +564,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
 - `updateUsername(username)` : `PATCH /api/users/me/username` — change le username (SCRUM-169). Endpoint dédié pour granularité d'erreur (409 `username_taken`, 400 `username_invalid`/`username_reserved`).
 - `checkUsernameAvailable(username)` : `HEAD /api/users/by-username/{username}` — check d'unicité pour le debounce frontend (SCRUM-169). **Inverse la sémantique HTTP** : retourne `true` sur 404 (libre), `false` sur 200 (pris).
+- `searchUsernames(q, limit?)` : `GET /api/users/search?q=<prefix>&limit=<n>` — prefix scan (SCRUM-137 polish, autocomplete d'invitation co-org). Retourne un `UserPublicResponse[]` (projection minimale). `@Authenticated` côté backend, rate-limit 60 req/min.
 - `uploadPhoto(file)` : `POST /api/users/me/image` — upload de la photo de profil (multipart).
 - `uploadBanner(file)` : `POST /api/users/me/banner` — upload de la bannière de profil (multipart).
 - `deleteBanner()` : `DELETE /api/users/me/banner` — suppression de la bannière (bannerUrl → null).

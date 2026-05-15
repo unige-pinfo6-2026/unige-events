@@ -1,6 +1,81 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-15 (PR #172 enrichie de SCRUM-151 — UI récurrence)
+Dernière mise à jour : 2026-05-15 (PR #172 — SCRUM-151 + autocomplete username co-org)
+
+---
+
+## 2026-05-15 (suite) — Autocomplete username sur le champ d'invitation co-org
+
+Polish ajouté en cours de review sur PR #172 (scope commit `scrum-137`, le
+flow d'invitation enrichi). Cross-stack — backend + OpenAPI + Kong + frontend.
+
+**Backend (user-service)** :
+- `User.searchByUsernamePrefix(prefix, limit, excludeAuth0Id)` : Panache
+  prefix scan `LIKE ? ESCAPE '\\'`, `_` échappé pour neutraliser le wildcard
+  SQL. Exclusion de l'appelant via `auth0Id != ?` (zéro round-trip
+  supplémentaire). L'index btree du `UNIQUE(username)` suffit pour les
+  prefix scans sur ASCII lowercase ; pas de migration ajoutée.
+- `UserService.searchByUsernamePrefix` : thin delegate. Le resource est le
+  validation choke point.
+- `UserResource.searchByUsername` : `GET /users/search?q=<prefix>&limit=<n>`,
+  `@Authenticated` + `@PerUserRateLimit(name="users.search", max=60)`. `q`
+  validé 2-30 chars, charset `[a-zA-Z0-9._-]`, lowercased server-side.
+  `limit` default 8, capé à 20 via `@Max`. Retourne un
+  `List<UserPublicResponse>` projeté via `fromAnonymous` — uniquement id /
+  username / displayName / avatarUrl / profilePublic, jamais bio / banner.
+- 12 nouveaux cas dans `UserResourceTest` (401 anonymous, 200 prefix
+  matching + sort ASC, exclusion appelant, case-insensitive, limit /
+  default 8 / 21 → 400 / 0 → 400, q trop court / trop long / charset
+  invalide → 400, projection ne fuit pas les champs privés, empty array,
+  underscore wildcard escape).
+
+**OpenAPI + Kong** :
+- Nouveau path `/users/search` documentant la projection, la validation
+  envelope (q / limit), les codes 200 / 400 / 401 / 429 et la décision
+  "@Authenticated + projection fromAnonymous" pour expliquer l'absence de
+  fuite sur les profils privés.
+- Route Kong `users-search` ajoutée **AVANT** le catch-all `user-by-id`
+  (`~/api/users/[^/]+$`) pour éviter le swallow.
+
+**Frontend** :
+- `userService.searchUsernames(q, limit?)` wrapper du nouvel endpoint.
+- Composant réutilisable `UsernameAutocomplete`
+  (`src/components/user/UsernameAutocomplete.tsx`) :
+  - Debounce 300 ms (`useDebounce`), skip < 2 chars, cache prefix → results
+    (cap 50 entrées), compteur monotone pour invalider les réponses
+    obsolètes.
+  - ARIA combobox + listbox, navigation clavier ↑/↓/Enter/Escape,
+    click-outside.
+  - `excludeUsernames` filtre client-side (caller + déjà invités), insensible
+    à la casse, en plus de l'exclusion backend.
+  - Skeleton boneyard inline pendant le loading ; pas de `.bones.json`
+    dédié.
+- Intégrations :
+  - `CoOrganizersEditor` (edit live) → `excludeUsernames =
+    [caller, ...acceptedCoOrgs]`. Le submit existant
+    (`getUserByUsername → invite(uuid)`) reste inchangé : sélection ⇒ remplit
+    l'input ⇒ clic "Inviter" garde le flow.
+  - `PendingCoOrganizersEditor` (create staged) idem
+    (`excludeUsernames = [caller, ...staged]`).
+
+**Tests frontend** :
+- `userService.test.ts` : 3 nouveaux cas pour `searchUsernames` (URL/params,
+  limit propagé, error propagé).
+- `UsernameAutocomplete.test.tsx` (nouveau, 12 cas) : seuil 2 chars,
+  debounce, dropdown content, click pick, keyboard pick, Escape,
+  click-outside, exclude filter, empty state, cache hit, skip après select.
+- `CoOrganizersEditor.test.tsx` + `PendingCoOrganizersEditor.test.tsx` :
+  mock du composant + de `useAuth` ; 2 nouveaux cas chacun
+  (autocomplete onSelect → flow d'invitation, exclude length).
+- `EventCreatePage.test.tsx` : stub `useAuth` + `searchUsernames` pour que
+  l'intégration page-level continue de passer.
+- Suite complète : **1494/1494 verts**, `npm run lint` clean.
+
+**Doc** :
+- `frontend/docs/components.md` : nouveau composant
+  `UsernameAutocomplete` + `searchUsernames` dans le service.
+- `backend/docs/api-contract.md` : ligne ajoutée pour
+  `GET /users/search`.
 
 ---
 
