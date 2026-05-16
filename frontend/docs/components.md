@@ -324,19 +324,19 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 ### AttendeesList
 
 - Section "Participants" insérée dans la **colonne principale** de `EventDetailPage`, immédiatement sous le bloc "À propos". Mêmes primitives de card que les autres blocs de la colonne (glassmorphism, heading `text-xs font-bold uppercase tracking-widest text-foreground/30`).
-- Props : `eventId: number`, `isOrganizer: boolean`, `attendingCount: number`.
-- **Vue non-organisateur (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X personne(s) participe(nt)"`. Padding vertical réduit (`px-6 py-4`). Aucun appel API. La compacité est dérivée automatiquement de `!isOrganizer` (const map `sectionVariants`).
-- **Vue organisateur** : utilise `useAttendees(eventId)` et rend deux onglets accessibles au clavier — `"Participent"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
-- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`) — la colonne de contenu est étroite, un layout vertical scanne mieux qu'une grille 2 colonnes. Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
+- Props : `isAuthenticated: boolean`, `attendingCount: number`, `attendeesHook: UseAttendeesResult`.
+- **Vue non-authentifiée (variante compacte)** : ligne unique inline — 1 à 5 placeholders d'avatar empilés + libellé `"X participant(s)"`. Padding vertical réduit (`px-6 py-4`). **Aucun appel API.** La compacité est dérivée automatiquement de `!isAuthenticated` (const map `sectionVariants`).
+- **Vue authentifiée (SCRUM-S7)** : rendue pour **tous** les utilisateurs connectés (créateurs, co-organisateurs, admins, et autres comptes). Deux onglets accessibles au clavier — `"Participants"` (filtre `status === 'ATTENDING'`) et `"Liste d'attente"` (filtre `status === 'WAITLISTED'`). Chaque onglet affiche son compteur entre parenthèses.
+- Liste des `AttendeeCard` rendue **en colonne unique** (`flex flex-col gap-3`). Bouton "Charger plus" en bas (visible uniquement si `hasMore === true`, désactivé pendant le chargement).
 - États gérés : skeleton de chargement initial (4 placeholders empilés), message d'empty state par onglet, message d'erreur avec bouton `Réessayer`.
-- Si `useAttendees` retourne `isForbidden: true` (filet de sécurité), bascule sur la vue résumé non-organisateur.
+- Le filtre de confidentialité est appliqué **côté backend** (cf. spec `GET /events/{id}/attendees`). Les lignes anonymisées (profil privé vu par un non-organisateur) arrivent avec `displayName=null`/`userId=null` et sont rendues par `AttendeeCard` comme "Utilisateur anonyme" — pas de logique de confidentialité côté frontend, pas de N+1 vers `/users/{id}`.
 
 ### AttendeeCard
 
 - Carte d'un participant (`src/components/attendees/AttendeeCard.tsx`).
-- Props : `attendance: Attendance`, `profile: UserPublicResponse | null`.
-- Si `profile !== null` : avatar (`UserAvatar`) + `displayName` + meta `studyLevel · faculté.abbr`. Lien `/profile/{profile.id}`.
-- Si `profile === null` : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" — non cliquable.
+- Prop unique : `attendance: Attendance` (l'enrichissement de profil est déjà projeté dans le DTO côté backend, plus de prop `profile` séparée).
+- Si `attendance.displayName !== null` (identité exposée) : avatar (`UserAvatar`) + `displayName`. Lien vers `/profile/{attendance.userId}` si `userId` est non-null.
+- Si `attendance.displayName === null` (ligne anonymisée par le backend : profil privé vu par un non-organisateur, ou inscription orpheline) : avatar placeholder (`aria-label="Avatar anonyme"`) + libellé "Utilisateur anonyme" / sous-titre "Profil privé" — non cliquable.
 - Affiche `WaitlistBadge` quand `attendance.status === 'WAITLISTED'`.
 
 ### WaitlistBadge
@@ -359,6 +359,34 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Bouton "Révoquer et régénérer le lien" : appelle `regenerateCalendarToken()`, met à jour les trois URLs, affiche un message de confirmation.
 - Gère les états loading, error et regenerating.
 - Visible uniquement pour `isOwnProfile` dans `ProfilePage`.
+
+### ProfileStats (SCRUM-141)
+
+- Composant `src/components/profile/ProfileStats.tsx` rendu sous le header de `ProfilePage` pour tout profil public.
+- Props : `followerCount: number`, `followingCount: number`.
+- Affiche deux tuiles compteur (followers / abonnements) avec valeur formatée fr-CH (séparateur U+202F entre milliers) + icône `Users`.
+- Pas de liens vers les listes followers / abonnements (SCRUM-142 / SCRUM-110 follow-ups).
+- Singulier `follower` quand `followerCount === 1`, sinon pluriel `followers`. `abonnements` toujours au pluriel.
+
+### ProfileEventsList (SCRUM-141)
+
+- Composant `src/components/profile/ProfileEventsList.tsx` rendu en bas de `ProfilePage` (colonne gauche du grid 2-colonnes événements + participations).
+- Props : `events: Event[]`, `loading: boolean`, `error: string | null`.
+- Réutilise `PreviewRow` pour la cohérence visuelle avec `MyPublicationsPreview`.
+- États : skeleton de chargement (3 lignes), empty state ("Aucun événement organisé pour le moment.") avec icône `CalendarOff`, message d'erreur.
+- Consomme `useOrganizerEvents(id)` côté `ProfilePage` (qui appelle `GET /events?organizerId=…&status=PUBLISHED`).
+
+### ProfileParticipations (SCRUM-141)
+
+- Composant `src/components/profile/ProfileParticipations.tsx` rendu en bas de `ProfilePage` (colonne droite du grid événements + participations).
+- Placeholder uniquement — affiche "Aucune participation publique à afficher." avec icône `Ticket`.
+- **TODO (follow-up ticket)** : le backend n'expose pas encore d'endpoint listant les participations publiques d'un utilisateur arbitraire (`/users/me/participations` existe mais est restreint au caller). Quand l'endpoint atterrira, brancher un hook `useUserParticipations(id)` qui appelle `/users/{id}/participations` (à créer côté backend, avec filtre de confidentialité miroir de `GET /events/{id}/attendees`).
+
+### ProfilePrivateState (SCRUM-141)
+
+- Composant `src/components/profile/ProfilePrivateState.tsx` rendu par `ProfilePage` quand `getPublicProfile(id)` retourne `null` (404 backend — couvre indistinctement "user inexistant" et "profil privé non accessible", anti-oracle ISSUE-93).
+- Props : `followStatus?: FollowStatus | null`. Affiche un badge désactivé "Demande de suivi envoyée" uniquement si `followStatus === 'PENDING'` (le backend retourne actuellement 404 sans body sur le profil privé, donc ce cas est pour évolution future du contrat).
+- Layout : bannière placeholder dégradée + card centrée avec icône `Lock` + titre "Ce profil est privé" + description.
 
 ### MyPublicationsPreview
 
@@ -539,12 +567,26 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### useAttendees
 
-- Charge la liste paginée des participants d'un événement pour la vue organisateur.
-- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch.
-- Pour chaque `Attendance` retournée, fetch `getPublicUser(userId)` en parallèle via `Promise.allSettled` — un 403/404 sur un profil n'invalide pas le batch, le profil est mappé à `null`.
-- Retourne : `attendees: AttendeeWithProfile[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `isForbidden`.
+- Charge la liste paginée des participants d'un événement pour tout utilisateur authentifié (SCRUM-S7 — la confidentialité est filtrée côté backend, plus de gate par rôle côté frontend).
+- Signature : `useAttendees(eventId, { enabled?, pageSize? })`. `pageSize` défaut `20`. Avec `enabled: false`, aucun fetch — utilisé pour les viewers non-authentifiés sur `EventDetailPage`.
+- **Pas** de N+1 vers `/users/{id}` : le DTO `Attendance` renvoyé par `GET /events/{id}/attendees` porte déjà `displayName`/`avatarUrl`/`userId`, anonymisés à `null` pour les profils privés vus par un non-organisateur. Le composant `AttendeeCard` interprète les nuls.
+- Retourne : `attendees: Attendance[]`, `isLoading`, `error`, `hasMore`, `loadMore()`, `refetch()`.
 - Pagination cumulative : `loadMore()` incrémente la page et concatène en dédupliquant par `attendance.id`. `hasMore` passe à `false` dès qu'une page contient moins de `pageSize` items.
-- Réponse 403 sur `/attendees` → `isForbidden = true`, pas de retry.
+
+### useUserProfile (SCRUM-141)
+
+- Charge le profil public d'un utilisateur via `GET /api/users/{id}` (cf. `getPublicProfile`).
+- Signature : `useUserProfile(id: string | undefined)`. Avec `id === undefined`, aucun fetch.
+- Retourne : `profile: UserPublicResponse | null`, `isNotFound: boolean`, `loading: boolean`, `error: string | null`.
+- 404 backend → `isNotFound = true` (l'anti-oracle ISSUE-93 confond "user inexistant" et "profil privé non accessible" — la page rend la même UI privée pour les deux). Autre erreur → `error` rempli.
+- Discard automatique des réponses stales sur changement de prop `id` ou unmount via flag `cancelled`.
+
+### useOrganizerEvents (SCRUM-141)
+
+- Liste les événements publiés organisés par un utilisateur via `GET /api/events?organizerId={id}&status=PUBLISHED`.
+- Signature : `useOrganizerEvents(organizerId: string | undefined)`. Avec `organizerId === undefined`, aucun fetch.
+- Retourne : `events: Event[]`, `loading: boolean`, `error: string | null`.
+- Le backend force `status=PUBLISHED` quand `organizerId` est présent — pas de risque de fuiter des brouillons / annulés vers les viewers tiers.
 
 ### useAttendance
 
@@ -559,8 +601,9 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 ### userService.ts
 
 - `getMe()` : `GET /api/users/me` — profil complet de l'utilisateur connecté.
-- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur. Conservé pour le redirect transitoire UUID → username (SCRUM-169).
-- `getUserByUsername(username)` : `GET /api/users/by-username/{username}` — lookup case-insensitive (SCRUM-169). Retourne `null` sur 404 (introuvable ou privé non-autorisé), propage les autres erreurs.
+- `getUserById(id)` : `GET /api/users/{id}` — profil public d'un utilisateur. Conservé pour le redirect transitoire UUID → username (SCRUM-169 Décision I).
+- `getUserByUsername(username)` : `GET /api/users/by-username/{username}` — lookup case-insensitive (SCRUM-169). Retourne `UserPublicResponse | null` ; le 404 (privé ou inexistant, ISSUE-93 anti-oracle) devient `null`, les autres erreurs sont rethrown.
+- `getPublicProfile(id)` : `GET /api/users/{id}` — variante UUID-based (SCRUM-141, hooks legacy). Retourne `UserPublicResponse | null` ; même sémantique 404 → null que `getUserByUsername`.
 - `updateProfile(data)` : `PUT /api/users/me` — mise à jour des champs de profil.
 - `updateUsername(username)` : `PATCH /api/users/me/username` — change le username (SCRUM-169). Endpoint dédié pour granularité d'erreur (409 `username_taken`, 400 `username_invalid`/`username_reserved`).
 - `checkUsernameAvailable(username)` : `HEAD /api/users/by-username/{username}` — check d'unicité pour le debounce frontend (SCRUM-169). **Inverse la sémantique HTTP** : retourne `true` sur 404 (libre), `false` sur 200 (pris).
@@ -573,8 +616,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 
 ### attendeesApi.ts
 
-- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — réservé au créateur (403 sinon).
-- `getPublicUser(userId)` : `GET /api/users/{id}` — retourne `null` sur 403 (profil privé) et 404 (introuvable). Toute autre erreur est rethrown.
+- `getEventAttendees(eventId, { page, size })` : `GET /api/events/{id}/attendees?page=&size=` — accessible à tout utilisateur authentifié (SCRUM-S7). Le filtre de confidentialité est appliqué côté backend au niveau du DTO : pour un appelant non-organisateur, les lignes correspondant à un profil privé reviennent avec `userId=null`, `displayName=null`, `avatarUrl=null` (empêche le caller de sonder `/users/{id}` pour désanonymiser). Les créateurs / co-organisateurs ACCEPTED / admins reçoivent l'identité réelle pour toutes les lignes.
 
 ### attendanceApi.ts
 

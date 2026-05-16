@@ -1,6 +1,61 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-15 (PR #172 — SCRUM-151 + autocomplete username co-org)
+Dernière mise à jour : 2026-05-15 (merge main → feature/s7-profile-public — SCRUM-141 + SCRUM-S7 + SCRUM-151 + SCRUM-169 + SCRUM-137 autocomplete)
+
+## Sprint 7 — Public Profile Page (SCRUM-141 — feature/s7-profile-public) — 2026-05-14
+
+Livré (sur la même branche que la mise à jour participants list ci-dessous).
+
+La route `/profile/:id` rend désormais le profil public d'un utilisateur arbitraire (UUID) en plus de la vue propre (`/profile/me`).
+
+Fonctionnalités livrées :
+- **Layout LinkedIn-style** : bannière pleine largeur (`UserBanner`), avatar chevauchant (`UserAvatar` size-28, `ring-4 ring-background`, `-mt-14`), heading + sous-titre (faculté · niveau d'étude), compteurs followers/abonnements, bio, card "À propos" + intérêts. En-dessous, grille 2-colonnes : **"Événements organisés"** (gauche) + **"Participations publiques"** (droite).
+- **Branchement public/privé** : le backend renvoie 404 indistinctement pour "user inexistant" et "profil privé non accessible" (anti-oracle ISSUE-93). Le frontend rend la même `ProfilePrivateState` ("Ce profil est privé") pour les deux. Badge "Demande de suivi envoyée" prévu pour `followStatus === 'PENDING'` (forward-looking — le 404 actuel n'embarque pas de body).
+- **Validation UUID** : `isUuid(id)` (regex RFC 4122) rejette toute valeur non-UUID hors du cas spécial `me`. URL invalide → "Profil introuvable." sans round-trip API.
+- **Propre profil sur /profile/me** : conserve les widgets owner (`MyPublicationsPreview`, `CalendarSubscribeButton`, bouton `Modifier`). Visiter `/profile/<own-uuid>` rend en revanche une vue publique standard (pas de widgets owner) — c'est le contrat SCRUM-141 ("render normally, no special UI").
+- **Sections de la page publique** :
+  - `ProfileStats` : compteurs followers/abonnements en tuiles. Pas de liens pour l'instant (SCRUM-142/SCRUM-110 follow-ups).
+  - `ProfileEventsList` : événements organisés via `GET /events?organizerId=…&status=PUBLISHED` (le backend force `PUBLISHED` quand `organizerId` est présent). Réutilise `PreviewRow`.
+  - `ProfileParticipations` : **placeholder** — il n'existe pas encore d'endpoint backend pour les participations publiques d'un user arbitraire (`/users/me/participations` est self-only). TODO follow-up ticket pour ajouter `GET /users/{id}/participations` avec filtre de confidentialité miroir de `GET /events/{id}/attendees`.
+
+Data layer :
+- **Types** : `UserPublicResponse` enrichi de `followerCount`, `followingCount`, `followStatus` (déjà exposés par le backend post-SCRUM-138). Nouveau type `FollowStatus = 'PENDING' | 'ACCEPTED'`.
+- **Service** : `getPublicProfile(id): Promise<UserPublicResponse | null>` — 404 mappé en `null` ; autres erreurs rethrown.
+- **Hook `useUserProfile(id)`** : pattern bespoke `useEffect`+`useState` cohérent avec le reste du codebase (TanStack Query n'est pas dans le projet ; la spec mentionnait TanStack mais l'AGENTS.md impose les conventions existantes). Surface `isNotFound` séparément de `error` pour permettre la branche "privé/inexistant" sans message d'erreur.
+- **Hook `useOrganizerEvents(id)`** : wrap `eventApi.getAll({ organizerId, status: 'PUBLISHED' })`. Tests couvrant cleanup stale-resolve/reject.
+- **Util `isUuid()`** : type-guard RFC 4122.
+
+Tests : 1329/1329 frontend verts (+42 net). Couverture sur les fichiers nouveaux/modifiés :
+- `ProfilePage.tsx` : 100/98.11/100/100
+- `useUserProfile.ts` : 96.66/87.5/100/100
+- `useOrganizerEvents.ts` : 100/100/100/100
+- `userService.ts` (`getPublicProfile`) : 100% lines
+- `utils/uuid.ts` : 100%
+- Composants `ProfileStats` / `ProfileEventsList` / `ProfileParticipations` / `ProfilePrivateState` : 100% lines (élidés du tableau de couverture car au plafond).
+
+Follow-ups identifiés :
+- **Backend** : ajouter `GET /users/{id}/participations` (filtre de confidentialité miroir `/events/{id}/attendees`).
+- **Frontend** : pages dédiées followers / abonnements (SCRUM-142/SCRUM-110), bouton follow/unfollow (SCRUM-142).
+- **Skeleton** : régénérer `src/bones/profile.bones.json` pour matcher l'extension des sections événements/participations (la fixture `ProfileFixture` est inchangée pour préserver l'aspect actuel ; la page chargée n'attend pas longtemps en skeleton donc l'écart est marginal).
+
+---
+
+## Sprint 7 — Liste des participants visible à tout utilisateur authentifié sur `/events/:id` (feature/s7-profile-public) — 2026-05-14
+
+Livré.
+
+Sur la page détail d'un événement, la liste des participants n'était jusqu'ici visible qu'au créateur (qui voyait les vrais noms même pour les profils privés, via la projection `displayName` côté DTO). Les autres utilisateurs authentifiés ne voyaient qu'un compteur compact.
+
+Nouveau contrat (SCRUM-S7) : **tout utilisateur authentifié** voit la liste complète, avec une privacy-projection appliquée côté backend.
+
+- Backend (engagement-service) : `AttendanceService.getAttendees` n'expulse plus les non-organisateurs (drop de la branche `ForbiddenException`). Un filtre confidentialité est appliqué côté DTO :
+  - vue organisateur (créateur, co-organisateur ACCEPTED, ou admin) → identité réelle pour toutes les lignes y compris profils privés ;
+  - autre utilisateur authentifié → identité réelle pour `profilePublic=true`, `displayName=null` + `avatarUrl=null` + **`userId=null`** pour `profilePublic=false`. Le nullage de `userId` empêche le caller de sonder `GET /users/{id}` pour désanonymiser via l'anti-oracle ISSUE-93.
+- Nouveau endpoint interne `GET /users/_internal-attendee-projections?ids=...` (user-service, `@Internal` + `@PermitAll`) — bulk projection `(id, displayName, avatarUrl, profilePublic)` bypassant l'anti-oracle ISSUE-93 (interne uniquement). Consommé par `AttendanceService.getAttendees` via `UserServiceClient.getAttendeeProjections`. Une seule requête cross-service par page, pas de N+1.
+- OpenAPI : `GET /events/{id}/attendees` retire le 403, documente la règle ; `Attendance` schema marque `userId`/`displayName`/`avatarUrl` nullable.
+- Frontend : `useAttendees` ne fait plus le N+1 vers `/users/{id}` (drop de `getPublicUser`, drop de `fetchProfilesFor`). Le hook surface directement les `Attendance[]` du backend. `enabled` est désormais piloté par `isAuthenticated` (pas par `isOrganizer`) sur `EventDetailPage` — les viewers non-authentifiés gardent leur résumé compact sans appel API. `AttendeeCard` consomme `Attendance` directement (prop `profile` supprimée) : si `displayName === null` → rendu "Utilisateur anonyme" ; sinon lien `/profile/{userId}` (avec garde défensive si `userId === null`). `AttendeesList` renommé `isOrganizer` → `isAuthenticated`. Type `Attendance.userId` devient `string | null`.
+- Tests : 1287 frontend verts. `AttendanceServiceTest` enrichi de 7 cas couvrant créateur / co-organisateur / non-organisateur / admin / utilisateur supprimé / user-service indisponible / anonyme. `AttendanceResourceTest` remplace le test `403_non_organizer` par `anonymizesPrivateRowsOnly`. Nouveau `UserAttendeeProjectionInternalResourceTest` (4 cas : bypass ISSUE-93, drop des ids inconnus, empty list, mauvais token → 404). `AttendanceDTOMapperTest` enrichi de 4 cas pour la projection `fromWithPrivacy`. `AttendeeProjectionTest` ajoutée côté shared-domain-dtos. `useAttendees.test`, `AttendeeCard.test`, `AttendeesList.test`, `attendeesApi.test`, `EventDetailPage.test` réécrits/ajustés autour du nouveau contrat.
+
 
 ---
 

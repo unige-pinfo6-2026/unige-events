@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios'
+import axios, { AxiosError } from 'axios'
 import api from './api'
 import type { User, UserPublicResponse } from '@/types/user'
 import type { CalendarTokenResponse } from '@/types/calendarToken'
@@ -14,10 +14,38 @@ export async function getUserById(id: string): Promise<User | null> {
 }
 
 /**
+ * Public profile fetch for `/profile/:id` (SCRUM-141). Returns `null` on 404,
+ * which on the backend covers both "user does not exist" and "profile is
+ * private and caller is neither owner nor admin" (anti-oracle ISSUE-93 —
+ * the two cases are indistinguishable by design). The caller renders a
+ * unified "Ce profil est privé ou introuvable" UI for `null`.
+ *
+ * Other HTTP errors (5xx, network) are rethrown so the hook can surface a
+ * retryable error state.
+ */
+export async function getPublicProfile(id: string): Promise<UserPublicResponse | null> {
+  try {
+    const response = await api.get<UserPublicResponse>(`/users/${id}`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
  * Lookup d'un profil par son `username` public-facing (SCRUM-169).
  * Case-insensitive côté backend. Retourne `null` si le username est
  * introuvable OU si la cible est un profil privé non-owner non-admin
  * (anti-oracle 404 indistinguable, cf. spec § 3 décision F).
+ *
+ * Typed as `User | null` for backward-compat with the SCRUM-169 callers
+ * (CoOrganizersEditor flow). The runtime response actually carries the
+ * SCRUM-138 follow fields too (`followerCount`, `followingCount`,
+ * `followStatus`); ProfilePage reads them off and casts to
+ * `UserPublicResponse` at the boundary.
  */
 export async function getUserByUsername(username: string): Promise<User | null> {
   try {
@@ -51,16 +79,6 @@ export async function updateUsername(username: string): Promise<User> {
 }
 
 /**
- * Vérifie si le `username` est disponible (SCRUM-169). Wrapper du
- * `HEAD /users/by-username/{u}` à la sémantique **inversée** : retourne
- * `true` (disponible) sur 404, `false` (pris) sur 200. Le frontend
- * absorbe l'inversion pour exposer un boolean naturel à
- * `ProfileEditPage`.
- *
- * Une erreur réseau ou un 5xx propage l'exception — le caller affiche
- * un état "erreur de vérification" plutôt qu'un faux "disponible".
- */
-/**
  * SCRUM-137 polish — username autocomplete. Calls
  * `GET /users/search?q=<prefix>&limit=<n>` and returns the lightweight
  * projection (id + username + displayName + avatarUrl + profilePublic) used
@@ -79,6 +97,16 @@ export async function searchUsernames(q: string, limit?: number): Promise<UserPu
   return response.data
 }
 
+/**
+ * Vérifie si le `username` est disponible (SCRUM-169). Wrapper du
+ * `HEAD /users/by-username/{u}` à la sémantique **inversée** : retourne
+ * `true` (disponible) sur 404, `false` (pris) sur 200. Le frontend
+ * absorbe l'inversion pour exposer un boolean naturel à
+ * `ProfileEditPage`.
+ *
+ * Une erreur réseau ou un 5xx propage l'exception — le caller affiche
+ * un état "erreur de vérification" plutôt qu'un faux "disponible".
+ */
 export async function checkUsernameAvailable(username: string): Promise<boolean> {
   try {
     await api.head(`/users/by-username/${encodeURIComponent(username)}`)

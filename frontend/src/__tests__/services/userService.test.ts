@@ -6,6 +6,7 @@ import {
   deleteBanner,
   getCalendarToken,
   getMe,
+  getPublicProfile,
   getUserById,
   getUserByUsername,
   regenerateCalendarToken,
@@ -27,7 +28,17 @@ vi.mock('@/services/api', () => ({
   },
 }))
 
+vi.mock('axios', async () => {
+  const actual = await vi.importActual<typeof import('axios')>('axios')
+  return {
+    ...actual,
+    default: { ...actual.default, isAxiosError: vi.fn() },
+    isAxiosError: vi.fn(),
+  }
+})
+
 import api from '@/services/api'
+import axios from 'axios'
 
 const mockApiGet = api.get as ReturnType<typeof vi.fn>
 const mockApiPut = api.put as ReturnType<typeof vi.fn>
@@ -35,6 +46,7 @@ const mockApiPost = api.post as ReturnType<typeof vi.fn>
 const mockApiPatch = api.patch as ReturnType<typeof vi.fn>
 const mockApiDelete = api.delete as ReturnType<typeof vi.fn>
 const mockApiHead = api.head as ReturnType<typeof vi.fn>
+const mockIsAxiosError = vi.mocked(axios.isAxiosError)
 
 function axios404(): AxiosError {
   const error = new AxiosError('Not Found')
@@ -63,6 +75,55 @@ describe('userService', () => {
       mockApiGet.mockResolvedValue({ data: null })
       const result = await getUserById('auth0|1')
       expect(result).toBeNull()
+    })
+  })
+
+  describe('getPublicProfile', () => {
+    it('returns the UserPublicResponse on success', async () => {
+      const profile = {
+        id: 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c',
+        displayName: 'Alice',
+        followerCount: 12,
+        followingCount: 7,
+        followStatus: null,
+      }
+      mockApiGet.mockResolvedValue({ data: profile })
+
+      const result = await getPublicProfile(profile.id)
+
+      expect(mockApiGet).toHaveBeenCalledWith(`/users/${profile.id}`)
+      expect(result).toEqual(profile)
+    })
+
+    it('returns null on 404 (private or missing — ISSUE-93 anti-oracle)', async () => {
+      const err = Object.assign(new Error('not found'), {
+        isAxiosError: true,
+        response: { status: 404 },
+      })
+      mockApiGet.mockRejectedValue(err)
+      mockIsAxiosError.mockReturnValue(true)
+
+      const result = await getPublicProfile('a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c')
+
+      expect(result).toBeNull()
+    })
+
+    it('rethrows on 500', async () => {
+      const err = Object.assign(new Error('server'), {
+        isAxiosError: true,
+        response: { status: 500 },
+      })
+      mockApiGet.mockRejectedValue(err)
+      mockIsAxiosError.mockReturnValue(true)
+
+      await expect(getPublicProfile('a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c')).rejects.toThrow('server')
+    })
+
+    it('rethrows non-axios errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('network'))
+      mockIsAxiosError.mockReturnValue(false)
+
+      await expect(getPublicProfile('a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c')).rejects.toThrow('network')
     })
   })
 

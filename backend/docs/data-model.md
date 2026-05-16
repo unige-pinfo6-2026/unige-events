@@ -206,9 +206,15 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 #### `AttendanceDTO` — projection du nom du participant
 
-`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
+`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne.
 
-`AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
+**Filtre de confidentialité sur `GET /events/{id}/attendees` (SCRUM-S7)** : l'endpoint est désormais accessible à tout utilisateur authentifié (plus de 403 pour les non-organisateurs). La confidentialité est appliquée côté DTO :
+
+- **Vue organisateur** (créateur, co-organisateur ACCEPTED, ou administrateur) : `displayName`, `avatarUrl` et `userId` réels pour toutes les lignes, y compris les profils privés.
+- **Autre utilisateur authentifié** : identité réelle uniquement pour les profils `profilePublic = true`. Les lignes correspondant à un profil privé sont retournées avec `displayName = null`, `avatarUrl = null`, **et `userId = null`** (l'UUID est volontairement masqué pour empêcher l'appelant de sonder `GET /users/{id}` qui désanonymiserait le participant via le pattern 404 ISSUE-93).
+- **Utilisateur supprimé** (ligne orpheline) : anonymisé de la même façon, quel que soit le rôle de l'appelant — aucune identité réelle à exposer.
+
+`AttendanceService.getAttendees(...)` résout en une seule requête cross-service la projection `(id, displayName, avatarUrl, profilePublic)` de tous les users du batch via le nouvel endpoint interne `GET /users/_internal-attendee-projections?ids=...` (entry #7 dans [`internal-endpoints.md`](internal-endpoints.md)). Cet endpoint contourne l'anti-oracle ISSUE-93 (interne uniquement, `@Internal` + `X-Internal-Token`) afin que le consumer puisse décider de la projection par ligne. Sur les autres routes (`/users/me/attendances`, etc.) qui ne renvoient que des inscriptions appartenant au caller, exposer le nom reste sûr y compris pour les profils privés (l'utilisateur regarde ses propres inscriptions).
 
 ---
 

@@ -616,14 +616,19 @@ components:
       description: |
         Inscription d'un utilisateur à un événement (statut `ATTENDING` ou `WAITLISTED`).
 
-        Les champs `displayName` et `avatarUrl` projettent le profil du user lié, pour que
         les consommateurs n'aient pas à faire un N+1 vers `GET /users/{id}` (qui, pour les
-        profils `profilePublic = false`, renvoie depuis de867a15 une projection restreinte
-        — `id`, `username`, `displayName`, `avatarUrl` uniquement — au lieu du 404 strict
-        d'avant, cf. SCRUM-169 Décision E revised). Comme les routes qui retournent un
-        `Attendance` sont restreintes (la liste organisateur l'est au créateur ou à un
-        co-organisateur ACCEPTED, et les autres routes ne renvoient que des inscriptions
-        appartenant au caller), exposer le nom est sûr même pour les profils privés.
+        profils `profilePublic = false`, renvoie depuis SCRUM-169 (Décision E revised) une
+        projection restreinte — `id`, `username`, `displayName`, `avatarUrl` uniquement —
+        au lieu du 404 strict d'avant).
+
+        **Filtre de confidentialité sur `GET /events/{id}/attendees`** (SCRUM-S7) : pour un
+        appelant non-organisateur authentifié, les lignes correspondant à un profil privé
+        (`profilePublic=false`) sont retournées avec `displayName=null`, `avatarUrl=null`,
+        `username=null`, **et `userId=null`** afin de masquer l'UUID du participant. Le
+        créateur, les co-organisateurs ACCEPTED et les administrateurs reçoivent l'identité
+        réelle pour toutes les lignes. Sur les autres routes (`/users/me/attendances`, etc.)
+        qui ne renvoient que des inscriptions appartenant au caller, exposer le nom reste
+        sûr y compris pour les profils privés.
       properties:
         id:
           type: integer
@@ -631,6 +636,11 @@ components:
         userId:
           type: string
           format: uuid
+          nullable: true
+          description: |
+            UUID du participant. **Nullable** sur `GET /events/{id}/attendees` quand
+            la ligne est anonymisée pour un appelant non-organisateur (profil privé).
+            Non-nul sur toutes les autres routes.
         eventId:
           type: integer
           format: int64
@@ -644,12 +654,15 @@ components:
           nullable: true
           description: |
             Nom d'affichage du participant. Toujours peuplé pour un user existant
-            (initialisé depuis le claim `name` Auth0 à la création), `null` uniquement
-            pour les inscriptions orphelines (user supprimé sans cascade FK).
+            (initialisé depuis le claim `name` Auth0 à la création), `null` pour les
+            inscriptions orphelines (user supprimé sans cascade FK), ou pour les lignes
+            anonymisées par le filtre de confidentialité (cf. description du schéma).
         avatarUrl:
           type: string
           nullable: true
-          description: URL de l'avatar du participant, si défini.
+          description: |
+            URL de l'avatar du participant, si défini. `null` pour les inscriptions
+            orphelines ou pour les lignes anonymisées par le filtre de confidentialité.
         username:
           type: string
           minLength: 3
@@ -659,8 +672,9 @@ components:
           description: |
             Username public-facing du participant (SCRUM-169). Permet à `AttendeeCard`
             de pointer vers `/profile/{username}` sans N+1 vers `GET /users/{id}`.
-            `null` uniquement pour les inscriptions orphelines (user supprimé).
-      required: [id, userId, eventId, status, createdAt]
+            `null` pour les inscriptions orphelines (user supprimé) ou pour les lignes
+            anonymisées par le filtre de confidentialité SCRUM-S7.
+      required: [id, eventId, status, createdAt]
 
     AttendanceRequest:
       type: object
@@ -3424,11 +3438,26 @@ paths:
 
   /events/{id}/attendees:
     get:
-      summary: Liste des participants à un événement (créateur ou co-organisateur ACCEPTED)
+      summary: Liste des participants à un événement (filtre confidentialité au niveau DTO)
       description: |
-        Retourne la liste paginée des inscriptions à l'événement.
-        Réservé au créateur de l'événement **ou à un co-organisateur ACCEPTED** (cf. SCRUM-136
-        cascade `isCreatorOrAcceptedCoOrganizer`) — retourne 403 pour tout autre utilisateur authentifié.
+        Retourne la liste paginée des inscriptions à l'événement, avec un **filtre de
+        confidentialité appliqué côté backend au niveau DTO** :
+
+        - **Vue organisateur** — créateur, co-organisateur ACCEPTED (cf. SCRUM-136 cascade
+          `isCreatorOrAcceptedCoOrganizer`), ou administrateur : reçoit l'identité réelle
+          (`displayName`, `avatarUrl`, `userId`) pour **toutes** les lignes, y compris les
+          profils privés (`profilePublic=false`).
+        - **Autre utilisateur authentifié** : reçoit l'identité réelle uniquement pour les
+          profils publics (`profilePublic=true`). Les lignes correspondant à un profil
+          privé sont **anonymisées** côté backend : `displayName=null`, `avatarUrl=null`,
+          `userId=null`. L'UUID est volontairement masqué afin que l'appelant ne puisse
+          pas sonder `GET /users/{id}` pour désanonymiser le participant.
+        - **Utilisateur supprimé** (référence orpheline) : anonymisé de la même façon
+          quel que soit le rôle de l'appelant — il n'y a aucune identité réelle à exposer.
+
+        L'endpoint requiert d'être authentifié ; il ne renvoie plus 403 aux non-organisateurs
+        (la confidentialité est garantie par la projection ci-dessus, pas par un gate
+        d'accès).
       operationId: getEventAttendees
       tags: [events, attendance]
       security:
@@ -3455,7 +3484,10 @@ paths:
             maximum: 100
       responses:
         '200':
-          description: Liste paginée des inscriptions
+          description: |
+            Liste paginée des inscriptions. Pour un appelant non-organisateur, les lignes
+            correspondant à un profil privé sont anonymisées (`displayName`, `avatarUrl`,
+            `userId` tous nuls).
           content:
             application/json:
               schema:
@@ -3464,12 +3496,6 @@ paths:
                   $ref: '#/components/schemas/Attendance'
         '401':
           description: Token absent ou invalide
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiErrorResponse'
-        '403':
-          description: Appelant ni créateur ni co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
           content:
             application/json:
               schema:

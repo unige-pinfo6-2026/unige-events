@@ -5,10 +5,13 @@ import ch.unige.events.engagement.test.JwtTestContext;
 import ch.unige.events.engagement.test.JwtTestHelper;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.AttendeeProjection;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.shared.domain.enums.EventStatus;
+
+import org.hamcrest.Matchers;
 
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import io.quarkus.panache.mock.PanacheMock;
@@ -158,5 +161,59 @@ class AttendanceResourceTest {
         given()
             .when().get("/events/1006/attendees")
             .then().statusCode(404);
+    }
+
+    /**
+     * SCRUM-S7 — non-organizer view privacy contract:
+     * <ul>
+     *   <li>Public-profile row → real {@code displayName} + non-null {@code userId}.</li>
+     *   <li>Private-profile row → {@code displayName=null}, {@code avatarUrl=null},
+     *       {@code userId=null}.</li>
+     * </ul>
+     * Replaces the previous {@code get_attendees_byNonOrganizer_returns403} test.
+     */
+    @Test
+    void get_attendees_byNonOrganizer_anonymizesPrivateRowsOnly() {
+        UUID creatorId = UUID.randomUUID();
+        UUID publicUserId = UUID.randomUUID();
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(1007L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null, creatorId,
+                EventStatus.PUBLISHED, 5, false, false, null,
+                0L, 5L, 0L, 0L, 0L, null, null, null,
+                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                null, null, false);
+        when(eventClient.getByIdWithCoOrgCheck(1007L, userId)).thenReturn(ev);
+        when(eventClient.getOrganizerUuids(1007L)).thenReturn(List.of(creatorId));
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
+                new AttendeeProjection(publicUserId, "Public-User", "/a.png", true),
+                new AttendeeProjection(privateUserId, "Private-User", "/b.png", false)
+        ));
+
+        Attendance pub = new Attendance();
+        pub.id = 5000L;
+        pub.userId = publicUserId;
+        pub.eventId = 1007L;
+        pub.status = AttendanceStatus.ATTENDING;
+        pub.createdAt = LocalDateTime.now();
+        Attendance priv = new Attendance();
+        priv.id = 5001L;
+        priv.userId = privateUserId;
+        priv.eventId = 1007L;
+        priv.status = AttendanceStatus.ATTENDING;
+        priv.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findByEvent(1007L, 0, 20)).thenReturn(List.of(pub, priv));
+
+        given()
+            .when().get("/events/1007/attendees")
+            .then().statusCode(200)
+                .body("size()", Matchers.is(2))
+                .body("find { it.id == 5000 }.displayName", Matchers.equalTo("Public-User"))
+                .body("find { it.id == 5000 }.userId", Matchers.equalTo(publicUserId.toString()))
+                .body("find { it.id == 5001 }.displayName", Matchers.nullValue())
+                .body("find { it.id == 5001 }.avatarUrl", Matchers.nullValue())
+                .body("find { it.id == 5001 }.userId", Matchers.nullValue());
     }
 }

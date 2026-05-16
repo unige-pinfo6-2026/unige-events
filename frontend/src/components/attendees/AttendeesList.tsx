@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { type AttendeeWithProfile, type UseAttendeesResult } from '@/hooks/useAttendees'
-import type { AttendanceStatus } from '@/types/attendance'
+import { type UseAttendeesResult } from '@/hooks/useAttendees'
+import type { Attendance, AttendanceStatus } from '@/types/attendance'
 import AttendeeCard from './AttendeeCard'
 
 interface AttendeesListProps {
-  isOrganizer: boolean
+  /** Unauthenticated viewers see only the compact avatar stack + count. */
+  isAuthenticated: boolean
   attendingCount: number
   attendeesHook: UseAttendeesResult
 }
@@ -27,7 +28,7 @@ const emptyMessages: Record<AttendanceStatus, string> = {
   WAITLISTED: 'Personne en liste d\'attente.',
 }
 
-// Compact = non-organizer summary (single inline row). Organizer = full list.
+// Compact = unauthenticated summary (single inline row). Full = authenticated.
 const sectionVariants = {
   compact: 'bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl px-6 py-4 border border-border',
   full:    'bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-6 border border-border',
@@ -41,7 +42,7 @@ function buildSummaryLabel(attendingCount: number): string {
   return `${attendingCount} ${noun}`
 }
 
-function NonOrganizerSummary({ attendingCount }: Readonly<{ attendingCount: number }>) {
+function CompactSummary({ attendingCount }: Readonly<{ attendingCount: number }>) {
   const placeholders = Math.min(5, Math.max(1, attendingCount))
   const label = buildSummaryLabel(attendingCount)
   return (
@@ -72,33 +73,24 @@ function LoadingSkeleton() {
   )
 }
 
-interface OrganizerViewProps {
-  attendingCount: number
-  attendeesHook: UseAttendeesResult
-}
-
-function OrganizerView({ attendingCount, attendeesHook }: Readonly<OrganizerViewProps>) {
-  const { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden } = attendeesHook
+function AuthenticatedView({ attendeesHook }: Readonly<{ attendeesHook: UseAttendeesResult }>) {
+  const { attendees, isLoading, error, hasMore, loadMore, refetch } = attendeesHook
   const [activeTab, setActiveTab] = useState<AttendanceStatus>('ATTENDING')
 
   const counts = useMemo(() => {
     return attendees.reduce<Record<AttendanceStatus, number>>(
       (acc, a) => {
-        acc[a.attendance.status] += 1
+        acc[a.status] += 1
         return acc
       },
       { ATTENDING: 0, WAITLISTED: 0 },
     )
   }, [attendees])
 
-  const filtered = useMemo<AttendeeWithProfile[]>(
-    () => attendees.filter((a) => a.attendance.status === activeTab),
+  const filtered = useMemo<Attendance[]>(
+    () => attendees.filter((a) => a.status === activeTab),
     [attendees, activeTab],
   )
-
-  if (isForbidden) {
-    return <NonOrganizerSummary attendingCount={attendingCount} />
-  }
 
   if (error) {
     return (
@@ -145,8 +137,8 @@ function OrganizerView({ attendingCount, attendeesHook }: Readonly<OrganizerView
         <p className="text-sm text-foreground/50">{emptyMessages[activeTab]}</p>
       ) : (
         <div className="flex flex-col gap-3" role="tabpanel">
-          {filtered.map(({ attendance, profile }) => (
-            <AttendeeCard key={attendance.id} attendance={attendance} profile={profile} />
+          {filtered.map((attendance) => (
+            <AttendeeCard key={attendance.id} attendance={attendance} />
           ))}
         </div>
       )}
@@ -166,21 +158,21 @@ function OrganizerView({ attendingCount, attendeesHook }: Readonly<OrganizerView
 }
 
 export default function AttendeesList({
-  isOrganizer,
+  isAuthenticated,
   attendingCount,
   attendeesHook,
 }: Readonly<AttendeesListProps>) {
-  // Compactness derived from isOrganizer: a non-organizer only sees a counter,
-  // so the section uses tighter vertical padding to feel like an info row
-  // alongside the other narrow-column blocks.
-  const variant = isOrganizer ? 'full' : 'compact'
+  // Compact for unauthenticated (only the avatar stack + count). Full list for
+  // every authenticated caller — the backend privacy filter handles
+  // anonymization of private profiles inside the response (SCRUM-S7).
+  const variant = isAuthenticated ? 'full' : 'compact'
   return (
     <section className={sectionVariants[variant]}>
       <h2 className={headingClass}>Participants</h2>
-      {isOrganizer ? (
-        <OrganizerView attendingCount={attendingCount} attendeesHook={attendeesHook} />
+      {isAuthenticated ? (
+        <AuthenticatedView attendeesHook={attendeesHook} />
       ) : (
-        <NonOrganizerSummary attendingCount={attendingCount} />
+        <CompactSummary attendingCount={attendingCount} />
       )}
     </section>
   )

@@ -2,19 +2,28 @@ export type AttendanceStatus = 'ATTENDING' | 'WAITLISTED'
 
 export interface Attendance {
   id: number
-  userId: string
+  /**
+   * UUID du participant. `null` sur `GET /events/{id}/attendees` quand la ligne
+   * est anonymisée pour un appelant non-organisateur (profil privé). Non-nul
+   * sur toutes les autres routes (`/users/me/attendances`, etc.).
+   */
+  userId: string | null
   eventId: number
   status: AttendanceStatus
   createdAt: string
   /**
    * Nom d'affichage du participant, projeté depuis le User côté backend.
-   * Toujours peuplé pour un user existant. `null` uniquement sur ligne orpheline
-   * (user supprimé sans cascade FK). Les routes qui retournent un Attendance
-   * sont restreintes (organisateur sur la liste d'event, ou inscriptions du
-   * caller seul) — exposer le nom est donc sûr y compris pour profilePublic=false.
+   * Peuplé pour un user public ou pour la vue organisateur (créateur,
+   * co-organisateur ACCEPTED, admin). `null` quand la ligne est anonymisée par
+   * le filtre de confidentialité côté backend (profil privé vu par un
+   * appelant non-organisateur), ou pour les inscriptions orphelines (user
+   * supprimé sans cascade FK).
    */
   displayName: string | null
-  /** URL d'avatar du participant, ou null. */
+  /**
+   * URL d'avatar du participant. `null` quand anonymisée par le filtre de
+   * confidentialité ou pour les inscriptions orphelines.
+   */
   avatarUrl: string | null
   /**
    * Username public-facing du participant (SCRUM-169). Permet à `AttendeeCard`

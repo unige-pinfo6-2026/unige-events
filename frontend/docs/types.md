@@ -185,19 +185,28 @@ Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCT
 
 ### UserPublicResponse
 
-Profil public retourné par `GET /api/users/{id}` et `GET /api/users/by-username/{username}` quand `profilePublic = true`.
+Profil public retourné par `GET /api/users/{id}` et `GET /api/users/by-username/{username}` quand le profil est public OU que le caller est owner/admin. Si le profil est privé et que le caller n'est ni owner ni admin, le backend retourne **404** (anti-oracle ISSUE-93, indistinguable d'un user inexistant).
 
-| Champ       | Type                      | Requis |
-|-------------|---------------------------|--------|
-| id          | string                    | oui    |
-| username    | string                    | oui (SCRUM-169 — toujours exposé, même aux appelants anonymes) |
-| displayName | string \| null            | non    |
-| faculty     | string \| null            | non    |
-| studyLevel  | string \| null            | non    |
-| bio         | string \| null            | non    |
-| interests   | string[]                  | non    |
-| avatarUrl   | string \| null            | non    |
-| bannerUrl   | string \| null            | non    |
+| Champ          | Type                          | Requis | Notes |
+|----------------|-------------------------------|--------|-------|
+| id             | string                        | oui    | UUID |
+| username       | string                        | oui    | SCRUM-169 — toujours exposé, même aux appelants anonymes (slug public). |
+| displayName    | string \| null                | non    | |
+| faculty        | string \| null                | non    | |
+| studyLevel     | string \| null                | non    | |
+| bio            | string \| null                | non    | |
+| interests      | string[]                      | non    | |
+| avatarUrl      | string \| null                | non    | |
+| bannerUrl      | string \| null                | non    | |
+| followerCount  | number                        | oui    | Nombre de followers ACCEPTED (toujours présent, `0` pour anonyme). |
+| followingCount | number                        | oui    | Nombre d'abonnements ACCEPTED (toujours présent, `0` pour anonyme). |
+| followStatus   | FollowStatus \| null          | non    | État de la relation caller → cible. `null` si anonyme, sur son propre profil, ou aucune row `Follow`. |
+
+### FollowStatus
+
+`'PENDING' | 'ACCEPTED'`
+
+Cf. SCRUM-138. `PENDING` = demande de suivi envoyée par le caller, profil cible privé. `ACCEPTED` = suivi actif (mutuel ou non).
 
 ---
 
@@ -242,15 +251,17 @@ Le serveur assigne automatiquement `WAITLISTED` lorsque l'événement est comple
 | Champ       | Type             | Requis | Notes |
 |-------------|------------------|--------|-------|
 | id          | number           | oui    | |
-| userId      | string           | oui    | |
+| userId      | string \| null   | oui    | `null` sur `GET /events/{id}/attendees` quand la ligne est anonymisée pour un appelant non-organisateur (profil privé). Non-nul sur les autres routes. |
 | eventId     | number           | oui    | |
 | status      | AttendanceStatus | oui    | |
 | createdAt   | string           | oui    | |
-| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` uniquement sur ligne orpheline (user supprimé sans cascade). |
-| avatarUrl   | string \| null   | oui    | URL d'avatar si défini. |
-| username    | string \| null   | oui    | SCRUM-169 — username public-facing du participant. Permet à `AttendeeCard` de construire `/profile/{username}` sans N+1. `null` uniquement sur ligne orpheline. |
+| displayName | string \| null   | oui    | Projection du nom côté backend ; `null` pour les lignes anonymisées par le filtre de confidentialité (SCRUM-S7) ou pour les inscriptions orphelines (user supprimé). |
+| avatarUrl   | string \| null   | oui    | URL d'avatar si défini ; `null` quand anonymisée. |
+| username    | string \| null   | oui    | SCRUM-169 — username public-facing du participant. Permet à `AttendeeCard` de construire `/profile/{username}` sans N+1. `null` pour ligne orpheline ou ligne anonymisée par le filtre SCRUM-S7. |
 
-Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`). Les routes concernées sont déjà restreintes (organisateur sur la liste d'event, ou inscriptions du caller seul) — le backend peut donc projeter le nom du user même pour les profils `profilePublic = false`. C'est ce qui permet à `EventStatsPage` d'afficher le vrai nom des participants privés sans appeler `GET /users/{id}` (qui renverrait 404 pour ces profils).
+Correspond au schéma `Attendance` de l'OpenAPI (réponse de `POST /events/{id}/attend` et de `GET /events/{id}/attendees`).
+
+**Filtre de confidentialité (SCRUM-S7) sur `GET /events/{id}/attendees`** : appliqué côté backend au niveau du DTO. Les créateurs, co-organisateurs ACCEPTED et admins reçoivent l'identité réelle pour toutes les lignes (y compris les profils privés). Les autres utilisateurs authentifiés reçoivent l'identité réelle pour les profils publics, et `userId=null`/`displayName=null`/`avatarUrl=null` pour les profils privés — l'UUID est volontairement masqué pour empêcher tout sondage de `GET /users/{id}` qui désanonymiserait le participant via le pattern 404. Les autres routes (`/users/me/attendances`, etc.) ne renvoient que des inscriptions appartenant au caller — `userId` y est toujours non-nul.
 
 ### AttendanceRequest
 

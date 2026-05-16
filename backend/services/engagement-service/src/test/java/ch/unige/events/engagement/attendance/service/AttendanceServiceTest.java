@@ -6,6 +6,7 @@ import ch.unige.events.engagement.test.JwtTestHelper;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
+import ch.unige.events.shared.domain.dto.AttendeeProjection;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
@@ -19,7 +20,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
@@ -41,6 +41,8 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -430,12 +432,50 @@ class AttendanceServiceTest {
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // getAttendees(...)
+    // getAttendees(...) — privacy projection (SCRUM-S7)
     // ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Helper: stages two attendee rows on event {@code eventId} — one
+     * public-profile user and one private-profile user — and stubs the
+     * matching {@code getAttendeeProjections} call so the service can
+     * apply the privacy filter.
+     */
+    private List<AttendanceDTO> stageTwoAttendeesAndCall(
+            Long eventId, EventDTO event, UUID publicUserId, UUID privateUserId) {
+        when(eventClient.getByIdWithCoOrgCheck(eq(eventId), any(UUID.class))).thenReturn(event);
+
+        Attendance pub = new Attendance();
+        pub.id = 300L;
+        pub.userId = publicUserId;
+        pub.eventId = eventId;
+        pub.status = AttendanceStatus.ATTENDING;
+        pub.createdAt = LocalDateTime.now();
+
+        Attendance priv = new Attendance();
+        priv.id = 301L;
+        priv.userId = privateUserId;
+        priv.eventId = eventId;
+        priv.status = AttendanceStatus.ATTENDING;
+        priv.createdAt = LocalDateTime.now();
+
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findByEvent(eventId, 0, 20)).thenReturn(List.of(pub, priv));
+
+        when(userClient.getAttendeeProjections(argThat(ids ->
+                ids != null && ids.containsAll(List.of(publicUserId, privateUserId)))))
+                .thenReturn(List.of(
+                        new AttendeeProjection(publicUserId, "Public-User", "/avatars/p.png", true),
+                        new AttendeeProjection(privateUserId, "Private-User", "/avatars/q.png", false)
+                ));
+
+        return service.getAttendees("auth0|test-att-user", eventId, 0, 20);
+    }
+
     @Test
-    void getAttendees_byCreator_returnsMappedList() {
+    void getAttendees_byCreator_returnsRealIdentityForPublicAndPrivate() {
         UUID caller = userId;
+        UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(30L, "T", "d", "l",
                 LocalDateTime.now(), LocalDateTime.now().plusDays(1),
                 null, null, null,
@@ -446,21 +486,169 @@ class AttendanceServiceTest {
                 List.of(),
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, null, true);
-        when(eventClient.getByIdWithCoOrgCheck(30L, caller)).thenReturn(ev);
 
-        Attendance a = new Attendance();
-        a.id = 300L;
-        a.userId = caller;
-        a.eventId = 30L;
-        a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.now();
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(30L, ev, caller, privateUserId);
+
+        assertEquals(2, result.size());
+        // Public row — real identity
+        AttendanceDTO pub = result.stream().filter(d -> d.id() == 300L).findFirst().orElseThrow();
+        assertEquals("Public-User", pub.displayName());
+        assertEquals(caller, pub.userId());
+        // Private row — organizer sees real identity
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertEquals("Private-User", priv.displayName());
+        assertEquals("/avatars/q.png", priv.avatarUrl());
+        assertEquals(privateUserId, priv.userId());
+    }
+
+    @Test
+    void getAttendees_byCoOrganizer_returnsRealIdentityForPublicAndPrivate() {
+        UUID privateUserId = UUID.randomUUID();
+        // coOrganizerOf=true → caller is an ACCEPTED co-organizer
+        EventDTO ev = new EventDTO(34L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, true);
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(34L, ev, otherUserId, privateUserId);
+
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertEquals("Private-User", priv.displayName());
+        assertEquals(privateUserId, priv.userId());
+    }
+
+    @Test
+    void getAttendees_byNonOrganizer_anonymizesPrivateRowsAndKeepsPublic() {
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(32L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, false);
+        when(eventClient.getOrganizerUuids(32L)).thenReturn(List.of(creatorId));
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(32L, ev, otherUserId, privateUserId);
+
+        // Public row — real identity (and userId preserved)
+        AttendanceDTO pub = result.stream().filter(d -> d.id() == 300L).findFirst().orElseThrow();
+        assertEquals("Public-User", pub.displayName());
+        assertEquals("/avatars/p.png", pub.avatarUrl());
+        assertEquals(otherUserId, pub.userId());
+
+        // Private row — anonymized: displayName, avatarUrl, AND userId nulled.
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertNull(priv.displayName());
+        assertNull(priv.avatarUrl());
+        assertNull(priv.userId(), "UUID must be nulled for non-organizer view to prevent /users/{id} probing");
+        // Status + eventId + attendance.id remain (needed for rendering & key)
+        assertEquals(AttendanceStatus.ATTENDING, priv.status());
+        assertEquals(32L, priv.eventId());
+        assertNotNull(priv.createdAt());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|test-att-admin", roles = "ADMIN")
+    void getAttendees_byAdmin_returnsRealIdentityForPrivateRows() {
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(35L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, false);
+        when(eventClient.getOrganizerUuids(35L)).thenReturn(List.of(creatorId));
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(35L, ev, otherUserId, privateUserId);
+
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertEquals("Private-User", priv.displayName());
+        assertEquals(privateUserId, priv.userId());
+    }
+
+    @Test
+    void getAttendees_deletedUser_anonymizedRegardlessOfRole() {
+        UUID caller = userId;
+        UUID ghostId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(36L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                caller, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, true);
+        when(eventClient.getByIdWithCoOrgCheck(eq(36L), any(UUID.class))).thenReturn(ev);
+
+        Attendance orphan = new Attendance();
+        orphan.id = 600L;
+        orphan.userId = ghostId;
+        orphan.eventId = 36L;
+        orphan.status = AttendanceStatus.ATTENDING;
+        orphan.createdAt = LocalDateTime.now();
 
         PanacheMock.mock(Attendance.class);
-        when(Attendance.findByEvent(30L, 0, 20)).thenReturn(List.of(a));
+        when(Attendance.findByEvent(36L, 0, 20)).thenReturn(List.of(orphan));
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of()); // ghost — no projection
 
-        List<AttendanceDTO> result = service.getAttendees("auth0|test-att-user", 30L, 0, 20);
+        List<AttendanceDTO> result = service.getAttendees("auth0|test-att-user", 36L, 0, 20);
+
         assertEquals(1, result.size());
-        assertEquals(AttendanceStatus.ATTENDING, result.get(0).status());
+        AttendanceDTO dto = result.get(0);
+        assertNull(dto.displayName());
+        assertNull(dto.avatarUrl());
+        assertNull(dto.userId(), "deleted user surfaces with null userId — there's no real identity to expose");
+    }
+
+    @Test
+    void getAttendees_userClientFailure_returnsAllAnonymizedRows() {
+        UUID caller = userId;
+        UUID someUser = UUID.randomUUID();
+        EventDTO ev = new EventDTO(37L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                caller, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, true);
+        when(eventClient.getByIdWithCoOrgCheck(eq(37L), any(UUID.class))).thenReturn(ev);
+
+        Attendance a = new Attendance();
+        a.id = 700L;
+        a.userId = someUser;
+        a.eventId = 37L;
+        a.status = AttendanceStatus.ATTENDING;
+        a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findByEvent(37L, 0, 20)).thenReturn(List.of(a));
+
+        when(userClient.getAttendeeProjections(any()))
+                .thenThrow(new RuntimeException("user-service down"));
+
+        List<AttendanceDTO> result = service.getAttendees("auth0|test-att-user", 37L, 0, 20);
+        assertEquals(1, result.size());
+        // Degraded enrichment — row stays in the list but with no identity exposed.
+        assertNull(result.get(0).displayName());
+        assertNull(result.get(0).userId());
     }
 
     @Test
@@ -471,8 +659,10 @@ class AttendanceServiceTest {
     }
 
     @Test
-    void getAttendees_byNonCreatorNonCoOrg_throwsForbidden() {
-        EventDTO ev = new EventDTO(32L, "T", "d", "l",
+    void getAttendees_anonymousJwt_publicEvent_returnsAnonymizedList() {
+        JwtTestContext.set(JwtTestHelper.anonymous());
+        UUID someUser = UUID.randomUUID();
+        EventDTO ev = new EventDTO(33L, "T", "d", "l",
                 LocalDateTime.now(), LocalDateTime.now().plusDays(1),
                 null, null, null,
                 creatorId,
@@ -483,32 +673,28 @@ class AttendanceServiceTest {
                 List.of(),
                 LocalDateTime.now(), LocalDateTime.now(),
                 null, null, false);
-        when(eventClient.getByIdWithCoOrgCheck(eq(32L), any(UUID.class))).thenReturn(ev);
-        when(eventClient.getOrganizerUuids(32L)).thenReturn(List.of(creatorId));
-
-        assertThrows(ForbiddenException.class,
-                () -> service.getAttendees("auth0|test-att-user", 32L, 0, 20));
-    }
-
-    @Test
-    void getAttendees_anonymousJwt_callsGetById_andStillForbiddenWithoutUuid() {
-        JwtTestContext.set(JwtTestHelper.anonymous());
-        EventDTO ev = new EventDTO(33L, "T", "d", "l",
-                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
-                null, null, null,
-                null,
-                EventStatus.PUBLISHED, 5,
-                false, false, null,
-                0L, 5L, 0L, 0L, 0L,
-                null, null, null,
-                List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
-                null, null, false);
+        // No callerUuid → falls back to getById (no co-org self-check possible)
         when(eventClient.getById(33L)).thenReturn(ev);
-        when(eventClient.getOrganizerUuids(33L)).thenReturn(List.of());
 
-        assertThrows(ForbiddenException.class,
-                () -> service.getAttendees("auth0|test-att-user", 33L, 0, 20));
+        Attendance a = new Attendance();
+        a.id = 900L;
+        a.userId = someUser;
+        a.eventId = 33L;
+        a.status = AttendanceStatus.ATTENDING;
+        a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findByEvent(33L, 0, 20)).thenReturn(List.of(a));
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
+                new AttendeeProjection(someUser, "Public-User", null, true)
+        ));
+
+        // Anonymous caller is not an organizer view — but the resource layer
+        // requires @Authenticated, so this path is only reachable via tests.
+        // The service itself does not 403; it returns the privacy projection.
+        List<AttendanceDTO> result = service.getAttendees("auth0|test-att-user", 33L, 0, 20);
+        assertEquals(1, result.size());
+        // Public profile row keeps real identity even for non-organizer view.
+        assertEquals("Public-User", result.get(0).displayName());
     }
 
     // ──────────────────────────────────────────────────────────────────

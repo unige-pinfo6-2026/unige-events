@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import axios from 'axios'
-import { getEventAttendees, getPublicUser } from '@/services/attendeesApi'
+import { getEventAttendees } from '@/services/attendeesApi'
 import type { Attendance } from '@/types/attendance'
-import type { UserPublicResponse } from '@/types/user'
-
-export interface AttendeeWithProfile {
-  attendance: Attendance
-  profile: UserPublicResponse | null
-}
 
 export interface UseAttendeesOptions {
   enabled?: boolean
@@ -15,39 +8,37 @@ export interface UseAttendeesOptions {
 }
 
 export interface UseAttendeesResult {
-  attendees: AttendeeWithProfile[]
+  attendees: Attendance[]
   isLoading: boolean
   error: Error | null
   hasMore: boolean
   loadMore: () => void
   refetch: () => void
-  isForbidden: boolean
 }
 
 const DEFAULT_PAGE_SIZE = 20
 
-async function fetchProfilesFor(attendances: Attendance[]): Promise<AttendeeWithProfile[]> {
-  const results = await Promise.allSettled(
-    attendances.map((attendance) => getPublicUser(attendance.userId)),
-  )
-  return attendances.map((attendance, idx) => {
-    const settled = results[idx]
-    const profile = settled.status === 'fulfilled' ? settled.value : null
-    return { attendance, profile }
-  })
-}
-
+/**
+ * Paginated participants for an event. The backend applies the SCRUM-S7
+ * privacy filter at the DTO layer, so the hook does NOT do per-row
+ * `/users/{id}` lookups any more — anonymized rows arrive with
+ * `displayName=null` / `avatarUrl=null` / `userId=null` straight from
+ * `/events/{id}/attendees`. The rendering layer (`AttendeeCard`) decides
+ * "real identity" vs "Utilisateur anonyme" from `attendance.displayName`.
+ *
+ * `enabled=false` short-circuits the fetch entirely so unauthenticated
+ * viewers don't trigger any API call on the event detail page.
+ */
 export function useAttendees(
   eventId: number,
   options: UseAttendeesOptions = {},
 ): UseAttendeesResult {
   const { enabled = true, pageSize = DEFAULT_PAGE_SIZE } = options
 
-  const [attendees, setAttendees] = useState<AttendeeWithProfile[]>([])
+  const [attendees, setAttendees] = useState<Attendance[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [hasMore, setHasMore] = useState(true)
-  const [isForbidden, setIsForbidden] = useState(false)
   const [page, setPage] = useState(0)
 
   // Concurrency control:
@@ -68,27 +59,19 @@ export function useAttendees(
       try {
         const rows = await getEventAttendees(eventId, { page: pageToFetch, size: pageSize })
         if (!isCurrent()) return
-        const enriched = await fetchProfilesFor(rows)
-        if (!isCurrent()) return
         setAttendees((prev) => {
-          if (pageToFetch === 0) return enriched
-          const seen = new Set(prev.map((a) => a.attendance.id))
+          if (pageToFetch === 0) return rows
+          const seen = new Set(prev.map((a) => a.id))
           const merged = [...prev]
-          for (const item of enriched) {
-            if (!seen.has(item.attendance.id)) merged.push(item)
+          for (const row of rows) {
+            if (!seen.has(row.id)) merged.push(row)
           }
           return merged
         })
         setHasMore(rows.length === pageSize)
       } catch (err) {
         if (!isCurrent()) return
-        if (axios.isAxiosError(err) && err.response?.status === 403) {
-          setIsForbidden(true)
-          setAttendees([])
-          setHasMore(false)
-        } else {
-          setError(err instanceof Error ? err : new Error('Erreur inconnue'))
-        }
+        setError(err instanceof Error ? err : new Error('Erreur inconnue'))
       } finally {
         if (isCurrent()) setIsLoading(false)
         loadingRef.current = false
@@ -105,7 +88,6 @@ export function useAttendees(
     setAttendees([])
     setPage(0)
     setHasMore(true)
-    setIsForbidden(false)
     setError(null)
   }, [])
 
@@ -131,11 +113,11 @@ export function useAttendees(
   }, [enabled, eventId, fetchPage, reset])
 
   const loadMore = useCallback(() => {
-    if (loadingRef.current || !hasMore || isForbidden) return
+    if (loadingRef.current || !hasMore) return
     const next = page + 1
     setPage(next)
     void fetchPage(next)
-  }, [fetchPage, hasMore, isForbidden, page])
+  }, [fetchPage, hasMore, page])
 
-  return { attendees, isLoading, error, hasMore, loadMore, refetch, isForbidden }
+  return { attendees, isLoading, error, hasMore, loadMore, refetch }
 }

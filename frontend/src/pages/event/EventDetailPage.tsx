@@ -304,6 +304,7 @@ export default function EventDetailPage() {
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId, user?.id ?? null)
+  const isAuthenticated = user !== null
   // SCRUM-137 — "isOrganizer" widens to include accepted co-organizers, who
   // share the edit/cancel/restore/stats permissions with the creator (cf.
   // EventService.update / cancel / restore). `coOrganizerOf` comes back from
@@ -312,14 +313,17 @@ export default function EventDetailPage() {
   const isCreator = user !== null && event !== null && user.id === event.creatorId
   const isOrganizer = isCreator || isAcceptedCoOrganizer
   const reportHook = useReport(eventId ?? 0)
-  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
+  // SCRUM-S7: fetch for any authenticated viewer — backend handles privacy at
+  // the DTO layer. Unauthenticated viewers skip the call (they only see the
+  // compact avatar stack + count).
+  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isAuthenticated && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
   const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
     await Promise.all([
       refetchEvent(),
-      isOrganizer ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
+      isAuthenticated ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
     ])
-  }, [refetchEvent, refetchAttendees, isOrganizer])
+  }, [refetchEvent, refetchAttendees, isAuthenticated])
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
@@ -531,7 +535,7 @@ export default function EventDetailPage() {
 
           <div className="max-lg:order-5">
             <AttendeesList
-              isOrganizer={isOrganizer}
+              isAuthenticated={isAuthenticated}
               attendingCount={event.attendingCount}
               attendeesHook={attendeesHook}
             />
