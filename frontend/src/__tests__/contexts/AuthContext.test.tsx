@@ -225,6 +225,49 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user').textContent).toBe('null')
   })
 
+  // ISSUE-107 — Auth0 SPA SDK throws `login_required` / `invalid_grant` /
+  // `consent_required` / `missing_refresh_token` when the SSO session is
+  // gone. These must NOT surface the generic error toast — the user is
+  // treated as silently unauthenticated. The SDK's `logout({ openUrl: false })`
+  // is called so the SDK's own `isAuthenticated` flips to false without a
+  // redirect away from the app.
+  it.each([
+    ['login_required'],
+    ['invalid_grant'],
+    ['consent_required'],
+    ['missing_refresh_token'],
+  ])('silently logs out (no toast, no redirect) when getAccessTokenSilently throws %s', async (code) => {
+    const auth0Logout = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { sub: 'auth0|1' },
+      loginWithRedirect: vi.fn(),
+      logout: auth0Logout,
+      getAccessTokenSilently: vi.fn().mockRejectedValue({ error: code }),
+    })
+    renderProvider()
+    await waitFor(() => expect(auth0Logout).toHaveBeenCalledWith({ openUrl: false }))
+    expect(mockSetToken).toHaveBeenCalledWith(null)
+    expect(screen.getByTestId('user').textContent).toBe('null')
+  })
+
+  it('does NOT silently logout on a non-Auth0 error (e.g. backend 500)', async () => {
+    const auth0Logout = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { sub: 'auth0|1' },
+      loginWithRedirect: vi.fn(),
+      logout: auth0Logout,
+      getAccessTokenSilently: vi.fn().mockResolvedValue('token'),
+    })
+    mockGetMe.mockRejectedValue({ response: { status: 500 } })
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'))
+    expect(auth0Logout).not.toHaveBeenCalled()
+  })
+
   // SCRUM-94 — la claim Auth0 est l'unique source de vérité pour le rôle ADMIN.
   // Le namespace doit matcher VITE_AUTH0_ROLES_CLAIM, qui est aligné sur OIDC_ROLE_NAMESPACE
   // côté backend (default partagé : https://unige-events/roles).
