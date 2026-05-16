@@ -165,6 +165,7 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             <ProfileStats
               followerCount={profile.followerCount}
               followingCount={profile.followingCount}
+              linkUsername={profile.username}
             />
           </div>
         )}

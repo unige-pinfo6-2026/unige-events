@@ -358,6 +358,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | `co-organizers-section` | `co-organizers-section.bones.json` | `CoOrganizersEditor` (SCRUM-137) | manuel |
 | `event-organizer-team` | `event-organizer-team.bones.json` | `EventOrganizerTeam` (SCRUM-137) | manuel |
 | `co-organizer-invitations` | `co-organizer-invitations.bones.json` | `CoOrganizerInvitationsList` (SCRUM-137) | manuel |
+| `follow-list` | `follow-list.bones.json` | `FollowListPage` (SCRUM-142) | manuel |
 
 ---
 

@@ -6,6 +6,7 @@ import { getMe } from '@/services/userService'
 import { setToken } from '@/services/tokenStore'
 import type { User } from '@/types/user'
 import { useToast } from '@/hooks/useToast'
+import { isAuthSessionExpiredError } from '@/utils/authErrors'
 
 export interface AuthContextValue {
   user: User | null
@@ -96,9 +97,22 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
           // Token rejected by backend — force re-login
           setToken(null)
           auth0Logout({ logoutParams: { returnTo: globalThis.location.origin } })
-        } else {
-          setError('Impossible d\'établir la connexion à votre compte. Veuillez réessayer plus tard.')
+          return
         }
+        // ISSUE-107 — expired SSO session is NOT an infrastructure failure.
+        // The Auth0 SDK throws `login_required` / `invalid_grant` /
+        // `consent_required` / `missing_refresh_token` when the session is
+        // gone (refresh token expired/revoked, user wiped storage, etc.).
+        // Treat it as "fall back to unauthenticated state silently" — clear
+        // the local token + call `auth0Logout({ openUrl: false })` so the
+        // SDK's own `isAuthenticated` flips to `false` on the next render
+        // without redirecting the user away. No toast.
+        if (isAuthSessionExpiredError(err)) {
+          setToken(null)
+          auth0Logout({ openUrl: false })
+          return
+        }
+        setError('Impossible d\'établir la connexion à votre compte. Veuillez réessayer plus tard.')
       })
       .finally(() => setLoading(false))
   }, [isAuthenticated, auth0IsLoading, auth0User, getAccessTokenSilently, auth0Logout, showToast])

@@ -1,6 +1,46 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-15 (merge main → feature/s7-profile-public — SCRUM-141 + SCRUM-S7 + SCRUM-151 + SCRUM-169 + SCRUM-137 autocomplete)
+Dernière mise à jour : 2026-05-16 (feature/s7-follow-lists — SCRUM-142 + fix ISSUE-107)
+
+## Sprint 7 — Fix session expirée silencieuse (ISSUE-107 — feature/s7-follow-lists) — 2026-05-16
+
+Bug fix mineur sur `AuthContext`. Avant : quand le SDK Auth0 SPA jetait une erreur de session expirée (refresh token expiré / révoqué / absent — codes `login_required`, `invalid_grant`, `consent_required`, `interaction_required`, `missing_refresh_token`), le `catch` générique affichait le toast « Impossible d'établir la connexion à votre compte. Veuillez réessayer plus tard. » — incorrect, ce n'est pas une panne d'infra.
+
+Après :
+- Nouveau helper `src/utils/authErrors.ts` (constante `AUTH_SESSION_EXPIRED_CODES` + prédicat `isAuthSessionExpiredError(err)`).
+- `AuthContext.tsx` consomme le prédicat dans le `catch` : sur match → `setToken(null)` + `auth0Logout({ openUrl: false })` (clear l'état SDK sans redirect vers `/v2/logout`, l'utilisateur reste sur sa page mais voit la variante non-authentifiée). Pas de toast.
+- Le toast reste levé pour tout le reste (network errors, 5xx, exceptions inattendues). Le chemin HTTP 401 est inchangé (toujours `auth0Logout` avec redirect complet vers Auth0 — un token rejeté par le backend force une re-connexion).
+
+Tests : 1633 / 1633 frontend verts. +12 cas sur `authErrors.test.ts` (chaque code + erreurs HTTP / réseau / unknown), +5 cas sur `AuthContext.test.tsx` (paramétré par code Auth0 + régression non-Auth0).
+
+Dépendance ISSUE-97 (cf. commentaire d'agonkolgeci sur l'issue) : non impactée — ce patch corrige uniquement le canal d'erreur, pas le contenu du message. Compatible avec le futur correctif #97.
+
+---
+
+## Sprint 7 — Pages listes followers / abonnements (SCRUM-142 — feature/s7-follow-lists) — 2026-05-15
+
+Livré (branche empilée sur `feature/s7-follow-button`). Aucun backend touché — les endpoints SCRUM-138 `/users/{id}/followers` et `/users/{id}/following` sont déjà en place.
+
+- **`FollowListPage`** (`src/pages/profile/FollowListPage.tsx`) : nouvelles routes `/profile/:username/followers` et `/profile/:username/following`. Une seule page, prop `mode: 'followers' | 'following'` injectée au routing. Résolution `:username` → uuid via `getUserByUsername` (404 anti-oracle → `ProfilePrivateState`), avec court-circuit `useAuth` quand `:username === 'me'` ou matche `currentUser.username`.
+- **`FollowListRow`** (`src/components/profile/FollowListRow.tsx`) : un row = avatar 48px + displayName + `@username · studyLevel · facultyAbbr`. Le row entier est un `<Link>` vers `/profile/{username}`. Pas de `FollowButton` dans la row — le backend force `followStatus = null` sur les items (spec openapi explicite : `followerCount` / `followingCount` / `followStatus` n'ont de sens que sur le profil cible, pas sur les items de liste). Afficher un bouton "Suivre" qui 409 sur déjà-suivis serait du mensonge UX.
+- **`useFollowList`** (`src/hooks/useFollowList.ts`) : pagination "Charger plus" bespoke (pas TanStack — convention codebase). `page` interne, `loadMore()` bump l'index, le fetch effect append les nouveaux items. `hasMore` flippe à `false` dès qu'un batch est court (size = `FOLLOW_LIST_PAGE_SIZE = 20`). `isNotFound` couvre le 404 mid-flow (cible devenue privée entre le username-resolve et le list-fetch). Stale-response guard via `requestIdRef` monotone.
+- **`followApi`** étendu avec `getFollowers(targetId, page, size?)` et `getFollowing(targetId, page, size?)` + constante exportée `FOLLOW_LIST_PAGE_SIZE`.
+- **`ProfileStats`** : nouvelle prop `linkUsername?: string`. Quand fournie, les deux tuiles deviennent des `<Link>` vers `/profile/{linkUsername}/(followers|following)` avec `aria-label` complet. `ProfilePage` la passe automatiquement sur la vue publique (`!isMeRoute`). La vue `/me` continue de ne pas afficher `ProfileStats` (le payload `User` self ne porte pas les compteurs — follow-up identique à SCRUM-110).
+- **Skeleton `follow-list`** : `src/bones/follow-list.bones.json` (manuel, 2 BPs 320 / 720) wired via `registry.js`. La page wrappe le `<Skeleton>` dans un `max-w-3xl mx-auto px-6 lg:px-8 py-12 lg:py-16` pour borner la largeur mesurée par boneyard.
+
+Tests : 1616/1616 frontend verts (+38 net depuis SCRUM-110).
+- `followApi.test.ts` : +6 cas (params, default size, propagation 404, mode follow / unfollow différencié).
+- `useFollowList.test.tsx` : 12 cas neufs (mode flip, target change, pagination append, 404 → isNotFound, error mode-specific, stale-resolve discard).
+- `FollowListPage.test.tsx` : 13 cas neufs (resolve par username, /me court-circuit, tabs, empty state, private state, 404 mid-flow, Charger plus → next page, back link).
+- `FollowListRow.test.tsx` : 5 cas.
+- `ProfileStats.test.tsx` : +3 cas (mode link vs plain, hrefs, aria-label).
+
+Limites connues / follow-ups :
+- Sur `/profile/me/(followers|following)`, les compteurs des tabs affichent `0/0` parce que le payload `User` self ne porte pas `followerCount` / `followingCount`. Même follow-up que SCRUM-110 (exposer `useAuth.refresh()` ou élargir le payload self).
+- Pas de `FollowButton` par row — limitation projection backend. Le row link contourne le problème : un clic mène sur le profil cible où le bouton voit le bon `followStatus`.
+- Déviation déclarée : la spec Jira mentionne TanStack Query / `useInfiniteQuery` ; on garde le pattern bespoke (AGENTS.md → suivre les conventions du codebase).
+
+---
 
 ## Sprint 7 — FollowButton + panneau demandes reçues (SCRUM-110 — feature/s7-follow-button) — 2026-05-14
 
