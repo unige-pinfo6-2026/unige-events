@@ -1,6 +1,21 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-15 (feature/s7-follow-lists — SCRUM-142)
+Dernière mise à jour : 2026-05-16 (feature/s7-follow-lists — SCRUM-142 + fix ISSUE-107)
+
+## Sprint 7 — Fix session expirée silencieuse (ISSUE-107 — feature/s7-follow-lists) — 2026-05-16
+
+Bug fix mineur sur `AuthContext`. Avant : quand le SDK Auth0 SPA jetait une erreur de session expirée (refresh token expiré / révoqué / absent — codes `login_required`, `invalid_grant`, `consent_required`, `interaction_required`, `missing_refresh_token`), le `catch` générique affichait le toast « Impossible d'établir la connexion à votre compte. Veuillez réessayer plus tard. » — incorrect, ce n'est pas une panne d'infra.
+
+Après :
+- Nouveau helper `src/utils/authErrors.ts` (constante `AUTH_SESSION_EXPIRED_CODES` + prédicat `isAuthSessionExpiredError(err)`).
+- `AuthContext.tsx` consomme le prédicat dans le `catch` : sur match → `setToken(null)` + `auth0Logout({ openUrl: false })` (clear l'état SDK sans redirect vers `/v2/logout`, l'utilisateur reste sur sa page mais voit la variante non-authentifiée). Pas de toast.
+- Le toast reste levé pour tout le reste (network errors, 5xx, exceptions inattendues). Le chemin HTTP 401 est inchangé (toujours `auth0Logout` avec redirect complet vers Auth0 — un token rejeté par le backend force une re-connexion).
+
+Tests : 1633 / 1633 frontend verts. +12 cas sur `authErrors.test.ts` (chaque code + erreurs HTTP / réseau / unknown), +5 cas sur `AuthContext.test.tsx` (paramétré par code Auth0 + régression non-Auth0).
+
+Dépendance ISSUE-97 (cf. commentaire d'agonkolgeci sur l'issue) : non impactée — ce patch corrige uniquement le canal d'erreur, pas le contenu du message. Compatible avec le futur correctif #97.
+
+---
 
 ## Sprint 7 — Pages listes followers / abonnements (SCRUM-142 — feature/s7-follow-lists) — 2026-05-15
 
