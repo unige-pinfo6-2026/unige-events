@@ -1,6 +1,138 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-17 (SCRUM-99 phase 1 — notifications infra + duplicate endpoint)
+Dernière mise à jour : 2026-05-17 (SCRUM-140 + SCRUM-144 + SCRUM-148 — S9 phase 2)
+
+---
+
+## 2026-05-17 (suite) — SCRUM-140 + SCRUM-144 + SCRUM-148 livrés (S9 phase 2)
+
+Branche `feature/scrum-140-144-148-back-phase2` stacked sur
+`feature/scrum-99-notifications-and-duplicate` (phase 1 — PR #174). Backend-only,
+1 PR pour les 3 tâches (Décision Y). Aucun nouveau topic Kafka, aucune nouvelle
+DB ; 4 nouvelles migrations Flyway (V2 notification, V4 engagement, V4 moderation,
+V13 event) ; 3 routes Kong additives.
+
+### SCRUM-140 — Follow notifications
+- `NotificationType` enum élargi de 4 → **9 valeurs** (4 SCRUM-99 phase 1 + 3
+  SCRUM-140 émises + 2 SCRUM-145 réservées). Migration commit-atomique
+  `notification-service/V2__widen_notification_type_check.sql` (DROP + ADD CHECK
+  9 valeurs) — Décisions F + G.
+- 3 nouveaux consumers Kafka `notification-service` (sous-package `kafka/`) :
+  `UserFollowedConsumer`, `UserFollowRequestedConsumer`, `UserFollowAcceptedConsumer`
+  — Décision B (1 consumer par topic, pas de mutualisation). Subclass concrète
+  `FollowLifecycleEventDeserializer` partagée (piège #7 — Kafka instancie via
+  reflection no-arg ctor).
+- **Sentinel critique destinataire FOLLOW_ACCEPTED** : la notif part vers
+  l'INITIATEUR (`followerId`), pas l'acceptant (`followedId`) — Décision C. Test
+  `destinationIsInitiatorNotAcceptor` gate l'inversion.
+- displayName résolu via `UserServiceClient.getById(actorUuid)` avec fallback
+  générique sur null / 404 / RuntimeException (Décision D).
+- `application.properties` notification-service étendu : 3 channels Kafka
+  incoming (`users-followed`, `users-follow-requested`, `users-follow-accepted` ;
+  `group.id=notification-service` partagé ; `failure-strategy=ignore` ; `%test
+  smallrye-in-memory`). Pas de nouveau topic Kafka (les 3 existent depuis Sprint
+  8 SCRUM-138). At-least-once accepté (Décision E — pas d'UK applicative).
+
+### SCRUM-144 — Comment likes + comment report
+- Nouvelle entité `CommentLike` (engagement-service, sous-package
+  `comment/entity`) — Décision H. Table `comment_likes` (V4) : PK + UK
+  `uq_comment_like(comment_id, user_id)` + FK `comments(id) ON DELETE CASCADE`
+  + index `idx_comment_like_user(user_id)`.
+- Sémantique idempotente (Décision I) : `like()` → 201 fresh / 200 duplicate ;
+  `unlike()` → 204 quel que soit l'état. Race-safe via pre-check +
+  `PersistenceException` catch sur l'UK. `comment.likeCount` mis à jour
+  atomiquement dans la même transaction via JPQL explicite.
+- `CommentLikeResource @Path("/comments")` (split — Décision J) avec
+  `@PerUserRateLimit(name="comments.like", max=30, windowSeconds=60)`.
+- Anti N+1 (Décision K) : `CommentService.getByEvent` batch-fetch
+  `findLikedCommentIdsByUser(commentIds, callerUuid)` — sentinel SQL counter
+  ≤ 3 queries pour 30 commentaires.
+- Endpoint interne `GET /comments/{id}/_internal-visibility?callerId=`
+  (engagement-service) — Décision L. Anti-oracle 404 sur comment inexistant,
+  event invisible, token mismatch. Entry #10 dans `internal-endpoints.md`.
+- Schéma `reports` étendu (moderation-service V4) — Décision M : `event_id`
+  nullable, `comment_id` nullable, CHECK XOR `report_target_xor`, 2 UK
+  partielles (`uq_report_event_partial`, `uq_report_comment_partial`).
+- `POST /comments/{id}/report` (moderation-service, `CommentReportResource`
+  dédié — Décision N) avec `@PerUserRateLimit(name="reports.commentCreate",
+  max=5, windowSeconds=60)`. Codes : 201 / 400 / 401 / 404 anti-oracle /
+  409 already_reported / 422 cannot_report_own_comment / 429 / 503.
+- `EngagementServiceClient.getCommentVisibility` (shared-domain-dtos)
+  résilience standard + `abortOn=NotFoundException` + `skipOn=NotFoundException`
+  (pas de retry / CB trip sur wave 404 légitimes anti-oracle).
+
+### SCRUM-148 — Event attachments
+- Nouvelle entité `EventAttachment` (event-service, sous-package
+  `attachment/entity` — Décisions P + R). Table `event_attachments` (V13) :
+  FK `events(id) ON DELETE CASCADE` + CHECK size ≤ 10 MiB + CHECK MIME
+  whitelist 4 valeurs. Pas d'UK sur `(event_id, file_name)` (doublons
+  acceptés — Décision P).
+- `FileStorageService.saveFile` générique (shared-storage — Décision S) :
+  preserve INTÉGRALEMENT `saveImage` + map `IMAGE_MIME_SIGNATURES` (sentinel
+  `FileStorageServiceSaveImageBackwardCompatTest`). Pas de magic-number pour
+  les documents (risque accepté — devops-handoff AV scan futur).
+- Nouveau `DocumentFormat` (shared-storage) : `MAX_BYTES = 10 MiB` +
+  `MIME_TO_EXTENSION` (4 entrées PDF/DOC/DOCX/XLSX).
+- `EventAttachmentService` (event-service) — Décisions V + T : cascade SCRUM-136
+  + uploader fallback pour DELETE ; cap 5 par event ; anti-oracle 404 sur
+  path mismatch (`attachmentId` valide mais autre `eventId`).
+- `EventAttachmentResource @Path("/events")` cohabite avec `EventResource`
+  (split — Décision R) : `POST /{eventId}/attachments` (multipart, rate-limit
+  `events.uploadAttachment=10/min`) + `DELETE /{eventId}/attachments/{aid}`
+  (pas de rate-limit). `quarkus.http.limits.max-body-size=12M` pour clearer
+  le container guard sur le 10 MiB payload + multipart overhead.
+- `EventDTO.attachments` **asymétrique** (Décision Q) : peuplé UNIQUEMENT par
+  `GET /events/{id}` via la nouvelle factory `fromWithAttachments`. Toutes les
+  autres routes (listings, search, featured, me-*, duplicate, etc.) laissent
+  `attachments=null` (explicite "non chargé" vs "chargé et vide"). Pattern
+  miroir `viewCount`/`interestedCount`.
+- `EventService.delete()` cascade — Décision T : collect URLs avant DELETE
+  + best-effort `FileStorageService.deleteObject` hors-tx + log WARN par
+  échec. Pas de cascade `EventService.duplicate()` (Décision AC — clone DRAFT
+  démarre vide).
+
+### Helm / Kong / CI
+- 3 routes Kong additives (`comment-like` engagement, `report-comment`
+  moderation, `events-attachments` event) — les regex existantes étaient
+  strict-end `$` donc les nouvelles sous-paths ne matchaient pas. Aucune route
+  existante modifiée. Décision Z initialement "aucune modif" — finalement
+  vérification a découvert le besoin additif (documenté en commit chore).
+- Pas de nouveau topic Kafka. Pas de nouvelle DB. Pas de nouveau service. CI
+  matrix inchangée (les 5 services + shared libs déjà couverts post-SCRUM-99).
+- moderation-service `pom.xml` gagne la dépendance `shared-rate-limit`
+  (n'était pas câblée — première rate-limit annotation dans ce service avec
+  SCRUM-144 `reports.commentCreate`).
+
+### Tests (couverture cible ≥ 80 % L)
+- **notification-service** : 5 nouveaux tests (3 consumers + deserializer +
+  enum widening migration sentinel). Sentinel destinataire FOLLOW_ACCEPTED.
+- **engagement-service** : 5 nouveaux tests (CommentLike entity, like
+  service idempotent, resource, batch likedByMe sentinel anti N+1, internal
+  visibility resource).
+- **moderation-service** : 3 nouveaux tests (CommentReportResource, XOR sentinel
+  DB, ReportService.createForComment + 4 cas helper UK detection).
+- **event-service** : 6 nouveaux tests (EventAttachment entity + DB CHECK
+  sentinels, service permissions + cap + cascade + S3 swallow, resource
+  multipart + 429 burst, EventDTO asymmetry, delete cascade ordering +
+  S3-failure-no-rollback, duplicate sentinel Décision AC).
+- **shared-storage** : 3 nouveaux tests (saveFile size/MIME/oldUrl/503,
+  saveImage backward-compat sentinel reflection, DocumentFormat sanity).
+- **shared-domain-dtos** : `EngagementServiceClientFallbackTest` étendu
+  (getCommentVisibility fallback 503 + abortOn NotFoundException).
+- @QuarkusTest obligatoire pour tout code prod Quarkus (piège #1 — leçon
+  SCRUM-99 60.4 % gate fail). Lambdas pour deleteAll (piège #4 — leçon
+  SCRUM-99 b5904efc). Constructor injection sur tout nouveau fichier
+  (piège #2).
+
+### Décisions verrouillées (rappel — voir spec § 3 pour la liste complète)
+- Décision Z initialement "aucune modif Helm" → en pratique 3 routes Kong
+  additives nécessaires (regex strict-end).
+- Décision AC : `EventService.duplicate()` ne copie PAS les attachments
+  (clone démarre vide). JavaDoc étendue + sentinel test.
+- Décision Q asymmetric `EventDTO.attachments` : null partout sauf
+  `GET /events/{id}`.
+- Décision S : pas de magic-number sur les documents (risque accepté ; AV
+  scan futur — devops-handoff S10+).
 
 ---
 

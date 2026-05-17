@@ -164,6 +164,87 @@ Aucune action DevOps requise au-delà du `helm upgrade` normal.
 
 ---
 
+## 7ter. SCRUM-140 + SCRUM-144 + SCRUM-148 follow-ups DevOps (phase 2)
+
+### 7ter.1 Kong routes ajoutées (×3 — additif)
+
+Phase 2 backend ajoute 3 routes Kong via le ConfigMap
+[`k8s/chart/templates/kong/configmap-routes.yaml`](../../k8s/chart/templates/kong/configmap-routes.yaml) :
+
+* `engagement-service.comment-like` → `~/api/comments/(?:\d+)/like$`
+* `moderation-service.report-comment` → `~/api/comments/(?:\d+)/report$`
+* `event-service.events-attachments` → `~/api/events/(?:\d+)/attachments(?:/(?:\d+))?$`
+
+Pas de nouvelle upstream service, pas de nouveau plugin (les nouvelles routes
+héritent du `cors`, `correlation-id`, `prometheus`, `request-transformer`
+au niveau global). 50 routes au total (était 47). Décision Z initialement
+"aucune modif" — vérification a découvert le besoin parce que les regex
+existantes finissent toutes par `$` (strict-end).
+
+### 7ter.2 Pas de nouveau topic Kafka
+
+SCRUM-140 phase 2 consume **3 topics existants** (`users.followed`,
+`users.follow-requested`, `users.follow-accepted` provisionnés depuis Sprint 8
+SCRUM-138). Aucun ajout au `topics-init.yaml`. 12 topics inchangés, 11
+producers inchangés. **Consumer count : 4 → 7** (3 nouveaux consumers
+notification-service). Consumer group partagé `notification-service`.
+
+### 7ter.3 Pas de nouvelle DB
+
+Tables ajoutées toutes dans des DB existantes :
+* `comment_likes` dans `postgres-engagement` (V4 migration).
+* `event_attachments` dans `postgres-event` (V13 migration). FK
+  `event_id → events(id) ON DELETE CASCADE` ; local FK donc OK.
+* `reports.comment_id` colonne nullable (existing table dans
+  `postgres-moderation`, V4 ALTER + 2 partial UKs + CHECK XOR).
+* `notification_type_check` widening : `postgres-notification` V2 (4 → 9
+  valeurs, dont 2 réservées SCRUM-145).
+
+`baseline-on-migrate=true` est déjà actif partout — pas d'action.
+
+### 7ter.4 [TODO S10+] AV / virus scan sur uploads non-image
+
+**Risque accepté en phase 2** — `FileStorageService.saveFile` (SCRUM-148
+Décision S) valide le MIME header + le size mais **PAS** la signature
+magic-number. Un utilisateur malveillant peut renommer un `.exe` en
+`document.pdf` (header MIME `application/pdf` faux) et la validation l'accepte.
+
+Mitigation déférée : pipeline AV scan (ClamAV / Trivy / VirusTotal API) sur
+le bucket `event-attachments/` post-upload, avec quarantaine S3 sur match.
+Le pattern strict magic-number existant sur `saveImage` n'est PAS impacté
+(images toujours validées strictement).
+
+Priorité : moyenne. La whitelist MIME limite déjà le scope d'attaque à 4
+formats légitimes ; l'impact d'un upload malveillant est limité au
+téléchargement par les autres organisateurs/co-organisateurs (visibilité
+asymétrique `EventDTO.attachments` uniquement sur `getById`).
+
+### 7ter.5 [TODO S10+] Monitoring rétention S3 `event-attachments/`
+
+**Risque accepté** — `EventService.delete()` cascade (Décision T) fait un
+S3 cleanup best-effort hors-transaction. Si l'appel S3 échoue (transient,
+backend down), le DB row est purgé mais l'objet S3 devient orphelin.
+Logs `[S3_CLEANUP_FAIL_event_attachment]` permettent de retrouver les
+orphelins post-hoc.
+
+Mitigation déférée : S3 lifecycle policy ou job cron infra qui croise le
+bucket S3 avec la table `event_attachments` et supprime les orphelins
+(objets dans `event-attachments/` qui n'ont pas de row correspondante).
+Idem `EventAttachmentService.delete()` qui partage la même best-effort
+sémantique.
+
+Priorité : basse. Le coût stockage S3 est marginal (10 MiB max par
+attachment, orphelins rares en pratique).
+
+### 7ter.6 Quarkus HTTP body limit bumped à 12 MiB
+
+`event-service` application.properties gagne
+`quarkus.http.limits.max-body-size=12M` — Quarkus défaut est 10 MiB ce qui
+ne couvre pas un fichier 10 MiB + multipart overhead. Aucune action DevOps
+au-delà du `helm upgrade` normal (la valeur est dans la config app).
+
+---
+
 ## 7. Pact provider verification job harness
 
 **Statut backend** : ✅ 5 pacts JSON consumer-driven dans `contract-tests/target/pacts/` (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1). Aucun job CI ne les vérifie côté provider aujourd'hui.
