@@ -21,6 +21,13 @@ export interface UserPublicResponse {
   interests?: string[]
   avatarUrl?: string | null
   bannerUrl?: string | null
+  /**
+   * Flag de visibilité du profil cible (cf. SCRUM-169 Décision E). Toujours
+   * présent dans `UserPublicResponse`. Vaut `false` pour la projection
+   * restreinte (caller non-owner non-admin sur un profil privé) — le frontend
+   * l'utilise pour basculer sur le placeholder « Compte privé ».
+   */
+  profilePublic: boolean
   /** Nombre de followers ACCEPTED (toujours présent, `0` pour anonyme). */
   followerCount: number
   /** Nombre d'utilisateurs suivis ACCEPTED (toujours présent, `0` pour anonyme). */

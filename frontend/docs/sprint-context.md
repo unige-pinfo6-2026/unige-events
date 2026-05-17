@@ -1,6 +1,23 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-16 (feature/s7-follow-lists — SCRUM-142 + fix ISSUE-107)
+Dernière mise à jour : 2026-05-17 (feature/s7-follow-button — redesign vue privée SCRUM-141)
+
+## Sprint 7 — Redesign vue privée /profile/:username (SCRUM-141 follow-up — feature/s7-follow-button) — 2026-05-17
+
+Fix UX sur la vue privée du profil. Avant : `ProfilePrivateState` rendait uniquement une bannière dégradée + petite card avec icône cadenas et le texte « Ce profil est privé » — visuellement pauvre, donne l'impression d'une page cassée. Backend déjà correct (SCRUM-169 Décision E revised : projection restreinte 200 avec `id + username + displayName + avatarUrl + profilePublic=false` au lieu du 404 anti-oracle historique).
+
+Après :
+- **`ProfileHeader`** (`src/components/profile/ProfileHeader.tsx`) extrait — banner (avec fallback gradient `UserBanner`) + avatar overlapping `UserAvatar` + displayName + sous-titre faculté/niveau d'étude. Partagé entre `PublicProfileView` et `ProfilePrivateState` (DRY — la structure JSX se répétait à 2 endroits, seuil de l'AGENTS.md atteint).
+- **`ProfilePrivateState`** réécrit : utilise `ProfileHeader` quand un profil restreint est passé (cadre visuel identique à un profil public) puis remplace la zone de contenu par un grand cadenas centré (icône `Lock` `lucide-react` 24/28 lg, `text-foreground/30`) + heading `Compte privé`. Suppression du badge « Demande de suivi envoyée » (PENDING) — explicitement retiré par la spec. Quand pas de profil (cas 404 — user inexistant), fallback bannière gradient seule sans avatar/displayName.
+- **`ProfilePage`** : nouvelle branche `if (!profile.profilePublic) return <ProfilePrivateState profile={profile} />` au-dessus de `PublicProfileView`. La projection restreinte (`profilePublic=false`) est désormais détectée et routée explicitement vers la vue verrouillée avec les données disponibles.
+- **`UserPublicResponse`** type frontend : ajout du champ `profilePublic: boolean` (déjà dans `openapi.yaml`, présent à l'exécution, manquait juste dans le type TS).
+- **`FollowListPage`** : appels `ProfilePrivateState` mis à jour (suppression de la prop `followStatus` obsolète).
+
+Tests : 1645/1645 verts. Couverture `ProfilePrivateState.tsx` = 100% lines (11 nouveaux cas couvrant restricted projection + 404 fallback + bannière/avatar fallbacks + absence PENDING badge), `ProfileHeader.tsx` = 100% lines (8 appels via les deux tests parents), `ProfilePage.tsx` = 98.5% lines (6 nouveaux cas SCRUM-141 redesign).
+
+Pas de changement backend. Pas de nouvelle PR — landed sur `feature/s7-follow-button`.
+
+---
 
 ## Sprint 7 — Fix session expirée silencieuse (ISSUE-107 — feature/s7-follow-lists) — 2026-05-16
 

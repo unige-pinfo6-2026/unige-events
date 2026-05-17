@@ -81,7 +81,7 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
     // the target became private between the username resolve and the list
     // fetch (e.g. concurrent PATCH on `/users/me`). Fall back to the
     // private-state card to stay consistent with `/profile/:username`.
-    return <ProfilePrivateState followStatus={null} />
+    return <ProfilePrivateState />
   }
 
   const count = mode === 'followers' ? target.followerCount : target.followingCount
@@ -269,7 +269,7 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
   }
   if (error) return <InfoMessage type="error" message={error} />
   if (isNotFound || target === null) {
-    return <ProfilePrivateState followStatus={null} />
+    return <ProfilePrivateState />
   }
 
   return <FollowListBody target={target} mode={mode} />

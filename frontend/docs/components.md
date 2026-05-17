@@ -384,11 +384,19 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Placeholder uniquement — affiche "Aucune participation publique à afficher." avec icône `Ticket`.
 - **TODO (follow-up ticket)** : le backend n'expose pas encore d'endpoint listant les participations publiques d'un utilisateur arbitraire (`/users/me/participations` existe mais est restreint au caller). Quand l'endpoint atterrira, brancher un hook `useUserParticipations(id)` qui appelle `/users/{id}/participations` (à créer côté backend, avec filtre de confidentialité miroir de `GET /events/{id}/attendees`).
 
-### ProfilePrivateState (SCRUM-141)
+### ProfileHeader (SCRUM-141 redesign)
 
-- Composant `src/components/profile/ProfilePrivateState.tsx` rendu par `ProfilePage` quand `getPublicProfile(id)` retourne `null` (404 backend — couvre indistinctement "user inexistant" et "profil privé non accessible", anti-oracle ISSUE-93).
-- Props : `followStatus?: FollowStatus | null`. Affiche un badge désactivé "Demande de suivi envoyée" uniquement si `followStatus === 'PENDING'` (le backend retourne actuellement 404 sans body sur le profil privé, donc ce cas est pour évolution future du contrat).
-- Layout : bannière placeholder dégradée + card centrée avec icône `Lock` + titre "Ce profil est privé" + description.
+- Composant `src/components/profile/ProfileHeader.tsx` partagé entre `PublicProfileView` et `ProfilePrivateState` — banner (avec fallback gradient) + avatar overlapping en bas-gauche + displayName + sous-titre faculté/niveau d'étude.
+- Props : `profile: UserPublicResponse`, `actions?: ReactNode` (slot droit pour `Modifier` / `FollowButton`).
+- Extrait pour garantir un cadre visuellement identique au pixel près entre la vue publique et la vue privée : la vue privée doit donner l'impression d'un vrai compte verrouillé, pas d'un état d'erreur.
+
+### ProfilePrivateState (SCRUM-141 redesign)
+
+- Composant `src/components/profile/ProfilePrivateState.tsx` rendu par `ProfilePage` dans deux cas :
+  - `getUserByUsername(username)` retourne `null` (404 backend — user inexistant) → fallback bannière dégradée sans avatar / displayName.
+  - Backend retourne 200 avec une projection restreinte (`profilePublic = false` ; id + username + displayName + avatarUrl peuplés, bannerUrl / bio / faculty / studyLevel / interests à null) — SCRUM-169 Décision E revised. → `ProfileHeader` rendu avec la projection restreinte (banner gradient car bannerUrl null, avatar utilisateur ou initiales, displayName).
+- Props : `profile?: UserPublicResponse | null`.
+- Layout : `ProfileHeader` (ou bannière gradient seule si pas de profil) + zone de contenu remplacée par un grand cadenas `Lock` centré + titre `Compte privé`. **Pas** de bio, **pas** de compteurs, **pas** d'événements, **pas** de participations, **pas** de FollowButton, **pas** de badge PENDING.
 
 ### FollowButton (SCRUM-110)
 

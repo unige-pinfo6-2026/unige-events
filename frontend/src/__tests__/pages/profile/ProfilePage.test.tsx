@@ -102,6 +102,7 @@ const otherProfile = {
   interests: ['Jazz'],
   avatarUrl: null,
   bannerUrl: null,
+  profilePublic: true,
   followerCount: 12,
   followingCount: 7,
   followStatus: null,
@@ -326,13 +327,15 @@ describe('ProfilePage — /profile/:username (other user)', () => {
     expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
   })
 
-  it('renders the private-state card when getUserByUsername returns null (private OR missing)', async () => {
+  it('renders the private-state card when getUserByUsername returns null (404 — user does not exist)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(null)
 
     renderProfilePage('ghost.handle')
 
-    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    // 404 path — no profile data, no displayName heading rendered.
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
   })
 
   it('renders an error message when getUserByUsername rejects', async () => {
@@ -351,6 +354,101 @@ describe('ProfilePage — /profile/:username (other user)', () => {
     renderProfilePage('other.user')
 
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
+  })
+})
+
+describe('ProfilePage — private profile (SCRUM-141 redesign — restricted projection)', () => {
+  // SCRUM-169 Décision E revised : the backend returns a 200 restricted
+  // projection for a non-owner non-admin caller of a private profile
+  // (id + username + displayName + avatarUrl + profilePublic=false,
+  // bannerUrl / bio / faculty / studyLevel / interests stripped).
+  const privateProfile = {
+    id: OTHER_UUID,
+    username: 'jane.private',
+    displayName: 'Jane Private',
+    faculty: null,
+    studyLevel: null,
+    bio: null,
+    interests: [],
+    avatarUrl: null,
+    bannerUrl: null,
+    profilePublic: false,
+    followerCount: 0,
+    followingCount: 0,
+    followStatus: null,
+  }
+
+  it('renders the locked view with banner + avatar + displayName + "Compte privé"', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(privateProfile)
+
+    renderProfilePage('jane.private')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jane Private' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+  })
+
+  it('renders the gradient fallback banner when bannerUrl is null', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(privateProfile)
+
+    const { container } = renderProfilePage('jane.private')
+
+    await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    expect(container.querySelector('img[src]')).toBeNull()
+    expect(container.querySelector('.bg-linear-to-br')).toBeTruthy()
+  })
+
+  it('renders the avatar fallback (initials) when no avatar is set', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(privateProfile)
+
+    renderProfilePage('jane.private')
+
+    await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    expect(screen.getByText('JP')).toBeTruthy()
+  })
+
+  it('does NOT render bio / counters / events / participations / FollowButton on a private profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({
+      // Even if the backend leaked the fields (defense-in-depth), they
+      // must not appear in the rendered UI.
+      ...privateProfile,
+      bio: 'NEVER VISIBLE',
+      faculty: 'SCIENCES',
+      studyLevel: 'MASTER',
+      followerCount: 99,
+      followingCount: 42,
+    })
+
+    renderProfilePage('jane.private')
+
+    await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    expect(screen.queryByText('NEVER VISIBLE')).toBeNull()
+    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Événements organisés' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Participations publiques' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Suivre|Demande envoyée|Abonné|Se désabonner/ })).toBeNull()
+  })
+
+  it('does NOT render the "Demande de suivi envoyée" PENDING badge when followStatus is PENDING', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({ ...privateProfile, followStatus: 'PENDING' })
+
+    renderProfilePage('jane.private')
+
+    await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    expect(screen.queryByText('Demande de suivi envoyée')).toBeNull()
+  })
+
+  it('renders the same locked view when followStatus is null', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({ ...privateProfile, followStatus: null })
+
+    renderProfilePage('jane.private')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
   })
 })
 
@@ -385,7 +483,7 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     renderProfilePage(OTHER_UUID)
 
-    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
   })
 })
 

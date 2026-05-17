@@ -3,9 +3,8 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
 import { getUserById, getUserByUsername } from '@/services/userService'
-import UserAvatar from '@/components/user/UserAvatar'
-import UserBanner from '@/components/user/UserBanner'
 import FollowButton from '@/components/user/FollowButton'
+import ProfileHeader from '@/components/profile/ProfileHeader'
 import ProfileStats from '@/components/profile/ProfileStats'
 import ProfileEventsList from '@/components/profile/ProfileEventsList'
 import ProfileParticipations from '@/components/profile/ProfileParticipations'
@@ -111,48 +110,32 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
   const facultyEntry = profile.faculty ? FACULTIES[profile.faculty as Faculty] : null
   const facultyName = facultyEntry?.name ?? null
   const FacultyLogo = facultyEntry?.logo ?? null
-  const profileSubtitle = [studyLevelName, facultyName].filter(Boolean).join(' · ')
+
+  const headerActions = (
+    <>
+      {isMeRoute && (
+        <Link
+          to="/profile/me/edit"
+          className="inline-flex items-center gap-2 self-end px-4 py-2 rounded-xl border-2 border-border text-sm font-semibold text-foreground no-underline hover:border-accent/50 hover:bg-foreground/5 transition-all shrink-0"
+        >
+          Modifier
+        </Link>
+      )}
+      {canFollow && (
+        <FollowButton
+          targetId={profile.id}
+          followStatus={profile.followStatus}
+          onMutated={onProfileMutated}
+        />
+      )}
+    </>
+  )
 
   return (
     <div>
-      <UserBanner user={profile} className="h-52">
-        <div className="absolute inset-0 bg-linear-to-t from-background/50 to-transparent" />
-      </UserBanner>
+      <ProfileHeader profile={profile} actions={headerActions} />
 
       <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
-
-        {/* Header: avatar overlapping banner, name + subtitle, optional edit button */}
-        <div className="relative z-10 -mt-14 flex flex-wrap items-end justify-between gap-4 mb-6">
-          <div className="flex items-end gap-5">
-            <div className="relative shrink-0">
-              <UserAvatar user={profile} className="size-28 relative ring-4 ring-background shadow-2xl" />
-            </div>
-            <div className="pb-2 min-w-0">
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
-                {profile.displayName}
-              </h1>
-              {profileSubtitle && (
-                <p className="text-sm text-foreground/40 mt-1 font-medium">{profileSubtitle}</p>
-              )}
-            </div>
-          </div>
-
-          {isMeRoute && (
-            <Link
-              to="/profile/me/edit"
-              className="inline-flex items-center gap-2 self-end px-4 py-2 rounded-xl border-2 border-border text-sm font-semibold text-foreground no-underline hover:border-accent/50 hover:bg-foreground/5 transition-all shrink-0"
-            >
-              Modifier
-            </Link>
-          )}
-          {canFollow && (
-            <FollowButton
-              targetId={profile.id}
-              followStatus={profile.followStatus}
-              onMutated={onProfileMutated}
-            />
-          )}
-        </div>
 
         {/* Stats row directly below the header.
             Hidden on /profile/me — the self payload (UserProfileResponse)
@@ -256,6 +239,7 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
     interests: user.interests,
     avatarUrl: user.avatarUrl,
     bannerUrl: user.bannerUrl,
+    profilePublic: user.profilePublic,
     followerCount: 0,
     followingCount: 0,
     followStatus: null,
@@ -364,12 +348,20 @@ export default function ProfilePage() {
     return <MeProfileView user={currentUser} />
   }
 
-  // 404 from the backend covers both "user does not exist" and "profile is
-  // private (caller is not owner / admin)" — ISSUE-93 anti-oracle keeps the
-  // two indistinguishable. Surface as the private-state card regardless of
-  // the actual cause; the FE never leaks the distinction.
+  // Two paths land on the private-state card:
+  //  - 404 from the backend (user does not exist) → no `profile` to display.
+  //  - 200 with a restricted projection (SCRUM-169 Décision E revised) :
+  //    backend returns id+username+displayName+avatarUrl+profilePublic=false
+  //    for a non-owner non-admin caller of a private profile. We pass the
+  //    payload through so the placeholder can render the user's banner
+  //    (gradient fallback), avatar, and displayName — same visual frame
+  //    as a public profile — with a centered « Compte privé » lock card
+  //    replacing the content area.
   if (isNotFound || profile === null) {
-    return <ProfilePrivateState followStatus={profile?.followStatus ?? null} />
+    return <ProfilePrivateState />
+  }
+  if (!profile.profilePublic) {
+    return <ProfilePrivateState profile={profile} />
   }
 
   // canFollow: authenticated viewer AND looking at someone else's UUID.

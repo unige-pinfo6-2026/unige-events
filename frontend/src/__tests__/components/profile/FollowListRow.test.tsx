@@ -13,6 +13,7 @@ function baseUser(overrides: Partial<UserPublicResponse> = {}): UserPublicRespon
     id: 'a-id',
     username: 'alice',
     displayName: 'Alice',
+    profilePublic: true,
     followerCount: 0,
     followingCount: 0,
     followStatus: null,

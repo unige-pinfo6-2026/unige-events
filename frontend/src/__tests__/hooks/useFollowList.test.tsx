@@ -29,6 +29,7 @@ function makeUser(suffix: string): UserPublicResponse {
     id: `${suffix}-id`,
     username: `user-${suffix}`,
     displayName: `User ${suffix}`,
+    profilePublic: true,
     followerCount: 0,
     followingCount: 0,
     followStatus: null,

@@ -67,6 +67,7 @@ const otherProfile = {
   interests: [],
   avatarUrl: null,
   bannerUrl: null,
+  profilePublic: true,
   followerCount: 12,
   followingCount: 7,
   followStatus: null,
@@ -77,6 +78,7 @@ function makeListUser(suffix: string): UserPublicResponse {
     id: `${suffix}-id`,
     username: `user-${suffix}`,
     displayName: `User ${suffix}`,
+    profilePublic: true,
     followerCount: 0,
     followingCount: 0,
     followStatus: null,
@@ -165,7 +167,7 @@ describe('FollowListPage — others', () => {
 
     renderAt('/profile/private.user/followers')
 
-    expect(await screen.findByText(/Ce profil est privé/)).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 
@@ -199,7 +201,7 @@ describe('FollowListPage — others', () => {
 
     renderAt('/profile/other.user/followers')
 
-    expect(await screen.findByText(/Ce profil est privé/)).toBeTruthy()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
   })
 
   it('shows the Charger plus button when the page is full and loads the next page', async () => {
