@@ -24,6 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
+/**
+ * Same pattern as {@link EventCancelledConsumerTest} (S1612 suppressed
+ * for the deleteAll lambdas).
+ */
+@SuppressWarnings("java:S1612")
 @QuarkusTest
 class AttendanceCreatedConsumerTest {
 
@@ -35,12 +40,12 @@ class AttendanceCreatedConsumerTest {
 
     @BeforeEach
     void truncate() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     @AfterEach
     void cleanup() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     private static EventDTO eventOf(String title, UUID creatorId) {

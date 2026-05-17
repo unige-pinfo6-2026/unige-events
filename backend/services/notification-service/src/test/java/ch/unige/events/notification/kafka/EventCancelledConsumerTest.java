@@ -32,7 +32,16 @@ import static org.mockito.Mockito.when;
  * @QuarkusTest so quarkus-jacoco instruments the consumer bytecode for
  * Sonar coverage (standalone JUnit tests on @ApplicationScoped beans are
  * not counted by the Quarkus-only jacoco agent).
+ *
+ * <p><strong>java:S1612 suppressed</strong> on the lambda forms of
+ * {@code () -> Notification.deleteAll()}: Sonar suggests collapsing them
+ * to {@code Notification::deleteAll}, but that resolves the static method
+ * at link time to {@code PanacheEntityBase.deleteAll()} (which throws
+ * "implementation injection missing") instead of the Panache-enhanced
+ * subclass implementation. The lambda defers the dispatch to runtime,
+ * which picks up the enhanced static method correctly.
  */
+@SuppressWarnings("java:S1612")
 @QuarkusTest
 class EventCancelledConsumerTest {
 
@@ -44,12 +53,12 @@ class EventCancelledConsumerTest {
 
     @BeforeEach
     void truncate() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     @AfterEach
     void cleanup() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     private static EventDTO eventOf(String title, UUID creatorId) {

@@ -26,6 +26,13 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+/**
+ * @QuarkusTest so quarkus-jacoco instruments the consumer bytecode.
+ * Cf. {@link EventCancelledConsumerTest} pour la note sur la suppression
+ * S1612 (le method reference {@code Notification::deleteAll} se résout au
+ * link-time vers la base class qui throw — le lambda defer au runtime).
+ */
+@SuppressWarnings("java:S1612")
 @QuarkusTest
 class EventUpdatedConsumerTest {
 
@@ -37,12 +44,12 @@ class EventUpdatedConsumerTest {
 
     @BeforeEach
     void truncate() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     @AfterEach
     void cleanup() {
-        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+        QuarkusTransaction.requiringNew().run(() -> Notification.deleteAll());
     }
 
     private static EventDTO eventOf(String title, UUID creatorId) {
