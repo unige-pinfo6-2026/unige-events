@@ -14,6 +14,8 @@ vi.mock('@/services/eventApi', () => ({
   deleteEvent: vi.fn(),
 }))
 
+vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
+
 vi.mock('@/components/utils/ImageCropper', () => ({
   default: ({ onCropComplete, onCancel, src }: { onCropComplete: (b: Blob) => void; onCancel: () => void; src: string }) => (
     <div data-testid="image-cropper-mock" data-src={src}>
@@ -47,12 +49,14 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { deleteEvent, getById, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { useAuth } from '@/hooks/useAuth'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockGetById = getById as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
 const existingEvent = {
   id: 42,
@@ -75,6 +79,9 @@ const draftEvent = { ...existingEvent, status: 'DRAFT' }
 beforeEach(() => {
   vi.useRealTimers()
   originalFileReader = globalThis.FileReader
+  // Default to "creator caller". Individual tests can override before render
+  // to simulate a co-organizer (different user id).
+  mockUseAuth.mockReturnValue({ user: { id: existingEvent.creatorId }, isAdmin: false })
 })
 
 afterEach(() => {

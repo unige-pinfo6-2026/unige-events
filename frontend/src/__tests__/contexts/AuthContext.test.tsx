@@ -22,6 +22,7 @@ const mockUser = {
   id: 'user-1',
   auth0Id: 'auth0|1',
   email: 'test@example.com',
+  username: 'jean.dupont',
   displayName: 'Jean Dupont',
   profilePublic: true,
   createdAt: '2024-01-01',

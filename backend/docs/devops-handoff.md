@@ -1,5 +1,19 @@
 # DevOps Handoff — Sprint 8 microservices migration
 
+> **Mise à jour 2026-05-14 — post-PR #158 + fixes infra.** PR #158 mergée à `ad6d422f`.
+> Fixes infra additionnels post-merge livrés par DevOps :
+> * `f4b5968e` — **DB-per-service activé** (5 Postgres dédiés) ; **notification-service
+>   activé** `replicas: 1` ; strategy `RollingUpdate maxUnavailable:0 maxSurge:1`
+>   sur les 5 services.
+> * `dd8ca635` — fix outbox sequence name mismatch (moderation) + memory tuning
+>   event-service.
+> * `60991692` — `memory: 512Mi` sur les 5 services pour éviter OOMKilled.
+>
+> Conséquences : l'**item « DB-per-schema S9+ »** historiquement listé dans ce handoff
+> est **livré** (DB-per-service est l'isolation effective). L'**item notification-service
+> SCRUM-99** est résolu (service actif, peut accueillir des consumers Kafka quand SCRUM-99
+> sera priorisé).
+
 > Document formel de transition entre l'équipe backend et l'équipe
 > DevOps après la complétion de PR #158
 > ([branche `refactor(backend)--migrate-to-microservices`](https://github.com/unige-pinfo6-2026/unige-events/pull/158)).
@@ -12,8 +26,8 @@
 
 La PR #158 livre **côté code** un état entièrement post-migration et post-finalization, avec la totalité des findings de l'audit final résolus :
 
-* **5 services métiers** Quarkus (event, user, engagement, moderation + notification placeholder) + **10 shared libs** + `contract-tests` + `e2e` = **17 modules** dans le reactor.
-* **17 migrations Flyway V1..V17** redistribuées sur les 4 services propriétaires (Étape 1.1 Décision A) — fresh deploys bootstrappent le schéma sans intervention manuelle.
+* **5 services métiers** Quarkus (event, user, engagement, moderation, notification — tous actifs depuis `f4b5968e`) + **10 shared libs** sous `backend/shared/<lib>` = **15 modules leaf** dans le reactor (post-refactor `fab270e0`, drop `contract-tests` et `e2e`).
+* **Migrations Flyway redistribuées par service propriétaire** sur sa Postgres dédiée (`postgres-<svc>`) — fresh deploys bootstrappent le schéma sans intervention manuelle. Plus de schéma `public` partagé.
 * **0 stub JPA cross-service** ; **3 REST clients** avec resilience complète couvrant **8 hops cross-service**.
 * Cascade SCRUM-136 + anti-oracles ISSUE-92 / ISSUE-93 centralisés ; envelope `ApiErrorResponse` annotée `@Schema` (Étape 4.8).
 * Capacity gating sécurisé par `pg_advisory_xact_lock` (Étape 2.1 Décision B).

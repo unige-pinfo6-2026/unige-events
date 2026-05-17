@@ -6,6 +6,7 @@ import EventDetailPage from '@/pages/event/EventDetailPage'
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
+vi.mock('@/hooks/useOccurrences', () => ({ useOccurrences: vi.fn() }))
 vi.mock('@/services/eventApi', () => ({
   deleteEvent: vi.fn(),
   cancelEvent: vi.fn(),
@@ -30,6 +31,30 @@ const mockReportSubmit = vi.fn()
 vi.mock('@/hooks/useReport', () => ({
   useReport: vi.fn(),
 }))
+vi.mock('@/hooks/useCoOrganizers', () => ({
+  useCoOrganizers: vi.fn(() => ({
+    coOrganizers: [],
+    loading: false,
+    error: null,
+    invite: vi.fn(),
+    remove: vi.fn(),
+    refresh: vi.fn(),
+  })),
+}))
+vi.mock('@/hooks/useComments', () => ({
+  useComments: vi.fn(() => ({
+    comments: [],
+    hasMore: false,
+    loading: false,
+    posting: false,
+    error: null,
+    post: vi.fn().mockResolvedValue({ ok: true }),
+    postReply: vi.fn().mockResolvedValue({ ok: true }),
+    remove: vi.fn().mockResolvedValue(undefined),
+    loadMore: vi.fn(),
+    refresh: vi.fn(),
+  })),
+}))
 vi.mock('@/components/event/ReportModal', () => ({
   default: ({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => Promise<void> }) => (
     <div data-testid="report-modal">
@@ -45,6 +70,8 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { useEvent } from '@/hooks/useEvent'
+import { useOccurrences } from '@/hooks/useOccurrences'
+import type { Event } from '@/types/event'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useAttendance } from '@/hooks/useAttendance'
 import { useReport } from '@/hooks/useReport'
@@ -65,6 +92,7 @@ const mockCancelEvent = cancelEvent as ReturnType<typeof vi.fn>
 const mockRestoreEvent = restoreEvent as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockUseReport = vi.mocked(useReport)
+const mockUseOccurrences = useOccurrences as ReturnType<typeof vi.fn>
 
 const mockUser = {
   id: 'user-1',
@@ -109,7 +137,6 @@ const defaultAttendeesState = {
   hasMore: false,
   loadMore: vi.fn(),
   refetch: vi.fn(),
-  isForbidden: false,
 }
 
 const defaultAttendanceState = {
@@ -134,6 +161,7 @@ beforeEach(() => {
   mockUseAttendance.mockReturnValue(defaultAttendanceState)
   mockUseReport.mockReturnValue(defaultReportState)
   mockRecordEventView.mockResolvedValue(undefined)
+  mockUseOccurrences.mockReturnValue({ loading: false, error: null, data: null })
 })
 
 function renderPage(eventId = '1') {
@@ -280,7 +308,9 @@ describe('EventDetailPage', () => {
     expect(screen.getByText('Conférence')).toBeTruthy()
     expect(screen.getByText('Uni Dufour')).toBeTruthy()
     expect(screen.getByText('200 places au total')).toBeTruthy()
-    await waitFor(() => expect(screen.getByText(/Jean Dupont/)).toBeTruthy())
+    // Post-SCRUM-137 PR : le créateur apparaît à 2 endroits — bloc organizer
+    // historique + nouveau panneau "Équipe organisatrice" (EventOrganizerTeam).
+    await waitFor(() => expect(screen.getAllByText(/Jean Dupont/).length).toBeGreaterThan(0))
   })
 
   it('shows organizer-only actions with the final edit route on PUBLISHED', () => {
@@ -308,6 +338,36 @@ describe('EventDetailPage', () => {
 
     expect(screen.queryByRole('link', { name: /Modifier l'événement/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Annuler l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
+  })
+
+  it('shows edit/cancel/stats for accepted co-organizers (SCRUM-137)', () => {
+    // Co-organizer = non-creator user with coOrganizerOf=true in the response.
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'co-org-user' } })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: true },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('link', { name: /Modifier l'événement/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Annuler l'événement/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les statistiques/ })).toBeTruthy()
+  })
+
+  it('hides Supprimer for co-organizers on CANCELLED events (creator-only delete)', () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'co-org-user' } })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, status: 'CANCELLED' as const, coOrganizerOf: true },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('button', { name: /Remettre en brouillon/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Supprimer l'événement/ })).toBeNull()
   })
 
@@ -612,8 +672,9 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('heading', { name: 'Participants' })).toBeTruthy()
     })
 
-    it('calls useAttendees with enabled=false for a non-organizer', () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other' } })
+    // SCRUM-S7 — useAttendees now runs for every authenticated user.
+    it('calls useAttendees with enabled=false for an unauthenticated viewer', () => {
+      mockUseAuth.mockReturnValue({ user: null })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 4 },
         loading: false,
@@ -627,6 +688,27 @@ describe('EventDetailPage', () => {
       renderPage()
 
       expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: false })
+      // Compact summary, no tablist.
+      expect(screen.queryByRole('tablist')).toBeNull()
+    })
+
+    it('calls useAttendees with enabled=true for an authenticated non-organizer', () => {
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attendingCount: 4 },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(mockUseAttendees).toHaveBeenCalledWith(1, { enabled: true })
+      // Full list — tablist is rendered for every authenticated viewer.
+      expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
     it('calls useAttendees with enabled=true for the organizer', () => {
@@ -647,11 +729,11 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
-    it('onAfterSuccess refetches event AND attendees for the organizer', () => {
+    it('onAfterSuccess refetches event AND attendees for any authenticated user', () => {
       const refetchEvent = vi.fn()
       const refetchAttendees = vi.fn()
       mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
-      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
@@ -664,45 +746,21 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // Capture the onAfterSuccess option passed into useAttendance and invoke it.
       const lastCall = mockUseAttendance.mock.calls.at(-1)
       expect(lastCall).toBeTruthy()
       const options = lastCall?.[4] as { onAfterSuccess?: () => void }
       options.onAfterSuccess?.()
 
       expect(refetchEvent).toHaveBeenCalledTimes(1)
+      // SCRUM-S7: attendees refetch is no longer gated on organizer status — any
+      // authenticated viewer who attends/unattends should see the list refresh.
       expect(refetchAttendees).toHaveBeenCalledTimes(1)
     })
 
-    it('onAfterSuccess refetches event but NOT attendees for non-organizer', () => {
-      const refetchEvent = vi.fn()
-      const refetchAttendees = vi.fn()
-      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
-      mockUseEvent.mockReturnValue({
-        event: { ...mockEvent, attendingCount: 0 },
-        loading: false,
-        isInitialLoad: false,
-        isRefetching: false,
-        refetch: refetchEvent,
-        error: null,
-      })
-      mockGetUserById.mockResolvedValue(null)
-
-      renderPage()
-
-      const lastCall = mockUseAttendance.mock.calls.at(-1)
-      const options = lastCall?.[4] as { onAfterSuccess?: () => void }
-      options.onAfterSuccess?.()
-
-      expect(refetchEvent).toHaveBeenCalledTimes(1)
-      expect(refetchAttendees).not.toHaveBeenCalled()
-    })
-
-    it('passes the lifted attendees hook to AttendeesList for the organizer', () => {
+    it('passes the lifted attendees hook to AttendeesList for any authenticated viewer', () => {
       const refetch = vi.fn()
       mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch })
-      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'someone-else' } })
       mockUseEvent.mockReturnValue({
         event: { ...mockEvent, attendingCount: 0 },
         loading: false,
@@ -715,7 +773,6 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // Tabs render → confirms OrganizerView received the lifted hook.
       expect(screen.getByRole('tab', { name: /Participants/ })).toBeTruthy()
     })
 
@@ -1036,7 +1093,10 @@ describe('EventDetailPage', () => {
       expect(mockRecordEventView).toHaveBeenCalledTimes(1)
     })
 
-    it('does not call recordEventView for anonymous (no user) viewers', async () => {
+    it('calls recordEventView for anonymous viewers too (post-V11 anon support)', async () => {
+      // Post-2026-05-14 (Axe 4 PR) : la vue est enregistrée même pour les
+      // utilisateurs anonymes — le backend déduplique par sessionId UUID
+      // envoyé en body par statsApi.recordEventView.
       mockUseAuth.mockReturnValue({ user: null })
       mockUseEvent.mockReturnValue({
         event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
@@ -1045,9 +1105,7 @@ describe('EventDetailPage', () => {
 
       renderPage()
 
-      // wait long enough for the effect to have run if it were going to
-      await new Promise(r => setTimeout(r, 0))
-      expect(mockRecordEventView).not.toHaveBeenCalled()
+      await waitFor(() => expect(mockRecordEventView).toHaveBeenCalledWith(1))
     })
 
     it('does not call recordEventView when eventId is invalid', async () => {
@@ -1262,6 +1320,121 @@ describe('EventDetailPage', () => {
 
       // Description card is conditional on event.description being truthy
       expect(screen.queryByRole('heading', { name: 'À propos' })).toBeNull()
+    })
+  })
+
+  describe('occurrences section (SCRUM-151)', () => {
+    // Cast to Partial<Event> to widen the narrow literal types from `mockEvent`
+    // (status: 'PUBLISHED' as const) — allows tests to inject status: 'CANCELLED'
+    // and the new parentEventId / recurrenceRule fields.
+    function setupEvent(overrides: Partial<Event>) {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, ...overrides },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('does not render the toggle for a standalone event and never invokes useOccurrences', () => {
+      setupEvent({})
+      renderPage()
+      expect(screen.queryByRole('button', { name: /Voir toutes les occurrences/i })).toBeNull()
+      // The OccurrencesSection is unmounted for standalones, so its hook never runs.
+      expect(mockUseOccurrences).not.toHaveBeenCalled()
+    })
+
+    it('renders the toggle on a recurring parent and keeps useOccurrences disabled at mount', () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+      renderPage()
+      expect(screen.getByRole('button', { name: /Voir toutes les occurrences/i })).toBeTruthy()
+      // Last call before expand: enabled === false
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(1, { enabled: false })
+    })
+
+    it('renders the toggle on an occurrence and points the parentId at its parent', () => {
+      setupEvent({ id: 7, parentEventId: 42 })
+      renderPage()
+      expect(screen.getByRole('button', { name: /Voir toutes les occurrences/i })).toBeTruthy()
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(42, { enabled: false })
+    })
+
+    it('flips useOccurrences.enabled true when the user clicks the toggle (lazy fetch)', () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+      expect(mockUseOccurrences).toHaveBeenLastCalledWith(1, { enabled: true })
+    })
+
+    it('renders a compact row per occurrence with date, status, link and the "vous êtes ici" marker', async () => {
+      setupEvent({ id: 7, parentEventId: 42 })
+
+      mockUseOccurrences.mockImplementation((parentId, { enabled }) => {
+        if (!enabled || parentId === null) return { loading: false, error: null, data: null }
+        return {
+          loading: false,
+          error: null,
+          data: [
+            { ...mockEvent, id: 6, title: 'Session 1', status: 'CANCELLED' as const, startDate: '2026-03-01T10:00:00' },
+            { ...mockEvent, id: 7, title: 'Session 2 (en cours)', status: 'PUBLISHED' as const, startDate: '2026-03-08T10:00:00' },
+          ],
+        }
+      })
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Session 1')).toBeTruthy())
+      expect(screen.getByText('Session 2 (en cours)')).toBeTruthy()
+      expect(screen.getByText('Annulé')).toBeTruthy()
+      expect(screen.getByText('Publié')).toBeTruthy()
+      expect(screen.getByText(/Vous êtes ici/i)).toBeTruthy()
+
+      // Link out to each occurrence (and not the current page itself).
+      expect(screen.getByText('Session 1').closest('a')?.getAttribute('href')).toBe('/events/6')
+      expect(screen.getByText('Session 2 (en cours)').closest('a')?.getAttribute('href')).toBe('/events/7')
+    })
+
+    it('shows the count next to the toggle once data has loaded', async () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY;UNTIL=20260601' })
+
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: null,
+        data: enabled
+          ? [
+            { ...mockEvent, id: 11 },
+            { ...mockEvent, id: 12 },
+            { ...mockEvent, id: 13 },
+          ]
+          : null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+      await waitFor(() => expect(screen.getByRole('button', { name: /Voir toutes les occurrences \(3\)/i })).toBeTruthy())
+    })
+
+    it('handles a CANCELLED parent with PUBLISHED occurrences (status badges per row)', async () => {
+      setupEvent({ status: 'CANCELLED' as const, recurrenceRule: 'FREQ=WEEKLY' })
+
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: null,
+        data: enabled
+          ? [{ ...mockEvent, id: 21, status: 'PUBLISHED' as const, title: 'Future session' }]
+          : null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Future session')).toBeTruthy())
+      expect(screen.getByText('Publié')).toBeTruthy()
     })
   })
 })

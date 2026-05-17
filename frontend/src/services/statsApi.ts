@@ -1,4 +1,5 @@
 import api from './api'
+import { getOrCreateSessionId } from './sessionId'
 import type { Attendance } from '@/types/attendance'
 
 export interface EventStats {
@@ -12,8 +13,15 @@ export async function getEventStats(eventId: number): Promise<EventStats> {
   return response.data
 }
 
+/**
+ * Records a view of an event. Always sends a `sessionId` UUID in the body so
+ * anonymous callers also count (backend dedups by `(eventId, sessionId)` if
+ * no JWT, else by `(eventId, userId)`). The JWT (when present) is attached
+ * automatically by the Axios interceptor.
+ */
 export async function recordEventView(eventId: number): Promise<void> {
-  await api.post(`/events/${eventId}/view`)
+  const sessionId = getOrCreateSessionId()
+  await api.post(`/events/${eventId}/view`, { sessionId })
 }
 
 /**

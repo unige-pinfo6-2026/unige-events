@@ -9,14 +9,20 @@ Chaque sous-projet possède son propre `AGENTS.md` avec les conventions, command
 | Dossier | Stack | AGENTS.md |
 |---|---|---|
 | `frontend/` | React 19 · TypeScript · Vite · Nginx | [`frontend/AGENTS.md`](frontend/AGENTS.md) |
-| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 5 services métiers Quarkus livrés au Sprint 8 (4 actifs + 1 scaffold `notification-service` replicas:0, follow-up SCRUM-99) + 10 shared libs (`shared-rate-limit`, `shared-storage`, `shared-api-error`, `shared-domain-enums`, `shared-domain-dtos`, `shared-domain-projections`, `shared-jaxrs`, `shared-tracing`, `shared-kafka-events`, `shared-platform`) + `contract-tests` + `e2e` = **17 modules** dans le reactor — cf. [`specs_archives/specs_claude/specs_microservices_migration_ultimate.md`](specs_archives/specs_claude/specs_microservices_migration_ultimate.md) | [`backend/AGENTS.md`](backend/AGENTS.md) |
+| `backend/` | Java 21 · Quarkus 3 · Hibernate Panache · PostgreSQL 16 — **multi-module** : 5 services Quarkus actifs (event, user, engagement, moderation, notification) + 10 shared libs sous `backend/shared/<lib>` (`rate-limit`, `storage`, `api-error`, `domain-enums`, `domain-dtos`, `domain-projections`, `jaxrs`, `tracing`, `kafka-events`, `platform`) = **15 modules leaf** dans le reactor (post-refactor `fab270e0` qui a déplacé les shared libs et droppé `contract-tests` + `e2e`) — cf. [`backend/docs/architecture.md`](backend/docs/architecture.md) | [`backend/AGENTS.md`](backend/AGENTS.md) |
 
-### Architecture backend post-migration (Sprint 8)
+### Architecture backend post-migration (Sprint 8 + fixes infra mai 2026)
 
-Le backend est découpé en 5 services métiers sous `backend/services/<svc>-service/` post-consolidation 14→5 (Étape 2 finalization) :
+Le backend est découpé en 5 services métiers sous `backend/services/<svc>-service/` post-consolidation 14→5 (Étape 2 finalization). **Tous actifs depuis `f4b5968e`** (mai 2026) — notification-service est passé de `replicas: 0` placeholder à `replicas: 1` lors du switch DB-per-service :
 
 `event-service`, `user-service`, `engagement-service`,
-`moderation-service`, `notification-service` (placeholder).
+`moderation-service`, `notification-service`.
+
+Chaque service possède **sa propre instance PostgreSQL dédiée** (`postgres-event`,
+`postgres-user`, `postgres-engagement`, `postgres-moderation`, `postgres-notification`).
+Plus de schéma `public` partagé — l'isolation DB-per-service a été livrée post-merge
+PR #158 (commit `f4b5968e`, suite à des collisions `flyway_schema_history` quand les
+services partageaient une même DB).
 
 Trafic `/api/*` routé via **Kong API Gateway** (DB-less, ConfigMap déclarative).
 Topologie complète + table endpoints owned par service :

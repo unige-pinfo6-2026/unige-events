@@ -123,21 +123,36 @@ class UserServiceTest {
 
     @Test
     @TestTransaction
-    void getPublicProfile_privateProfile_anonymousCaller_throwsNotFound() {
+    void getPublicProfile_privateProfile_anonymousCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — private profile seen by a non-self non-admin
+        // caller (here anonymous) no longer 404s; it returns a restricted
+        // PublicProfileView so the resource layer can surface the
+        // public-facing identifier (id, username, displayName, avatarUrl)
+        // through the anonymous projection.
         User user = persistUser("auth0|us-priv-anon", "us-priv-anon@example.com", false);
 
-        assertThrows(NotFoundException.class,
-                () -> userService.getPublicProfile(user.id, null));
+        PublicProfileView view = userService.getPublicProfile(user.id, null);
+        assertEquals(user.id, view.user().id);
+        assertTrue(view.restricted(), "restricted flag must be set so the resource strips the payload");
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
     }
 
     @Test
     @TestTransaction
-    void getPublicProfile_privateProfile_otherCaller_throwsNotFound() {
+    void getPublicProfile_privateProfile_otherCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — authenticated non-self non-admin caller of
+        // a private profile gets the restricted projection instead of 404.
         User user = persistUser("auth0|us-priv-tgt", "us-priv-tgt@example.com", false);
         persistUser("auth0|us-priv-other", "us-priv-other@example.com", true);
 
-        assertThrows(NotFoundException.class,
-                () -> userService.getPublicProfile(user.id, "auth0|us-priv-other"));
+        PublicProfileView view = userService.getPublicProfile(user.id, "auth0|us-priv-other");
+        assertEquals(user.id, view.user().id);
+        assertTrue(view.restricted());
+        assertEquals(0L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
     }
 
     @Test
@@ -367,12 +382,188 @@ class UserServiceTest {
         assertTrue(User.findByAuth0Id("auth0|us-no-such").isEmpty());
     }
 
+    // ─── SCRUM-169 — updateUsername / getByUsername / existsByUsername ──
+
+    @Test
+    @TestTransaction
+    void updateUsername_happyPath_persistsLowercase() {
+        User user = persistUser("auth0|us-uname-happy", "us-uname-happy@example.com", false);
+        User updated = userService.updateUsername(user.auth0Id, "  New.Handle  ");
+        // Normalised : trim + toLowerCase before persist.
+        assertEquals("new.handle", updated.username);
+    }
+
+    @Test
+    @TestTransaction
+    void updateUsername_sameValue_isIdempotent_returnsUser() {
+        User user = persistUser("auth0|us-uname-same", "us-uname-same@example.com", false);
+        String current = user.username;
+
+        User result = userService.updateUsername(user.auth0Id, current);
+        assertEquals(current, result.username);
+    }
+
+    @Test
+    @TestTransaction
+    void updateUsername_invalidPattern_throws400_usernameInvalid() {
+        User user = persistUser("auth0|us-uname-inv", "us-uname-inv@example.com", false);
+        jakarta.ws.rs.WebApplicationException ex = assertThrows(
+                jakarta.ws.rs.WebApplicationException.class,
+                () -> userService.updateUsername(user.auth0Id, "AB")); // < 3
+        assertEquals(400, ex.getResponse().getStatus());
+        assertEquals("username_invalid", ex.getMessage());
+    }
+
+    @Test
+    @TestTransaction
+    void updateUsername_reservedWord_throws400_usernameReserved() {
+        User user = persistUser("auth0|us-uname-res", "us-uname-res@example.com", false);
+        jakarta.ws.rs.WebApplicationException ex = assertThrows(
+                jakarta.ws.rs.WebApplicationException.class,
+                () -> userService.updateUsername(user.auth0Id, "admin"));
+        assertEquals(400, ex.getResponse().getStatus());
+        assertEquals("username_reserved", ex.getMessage());
+    }
+
+    @Test
+    @TestTransaction
+    void updateUsername_alreadyTakenByOther_throws409_usernameTaken() {
+        User existing = persistUser("auth0|us-uname-other", "us-uname-other@example.com", false);
+        existing.username = "claimed.handle";
+        entityManager.flush();
+
+        User caller = persistUser("auth0|us-uname-self", "us-uname-self@example.com", false);
+
+        jakarta.ws.rs.WebApplicationException ex = assertThrows(
+                jakarta.ws.rs.WebApplicationException.class,
+                () -> userService.updateUsername(caller.auth0Id, "claimed.handle"));
+        assertEquals(409, ex.getResponse().getStatus());
+        assertEquals("username_taken", ex.getMessage());
+    }
+
+    @Test
+    @TestTransaction
+    void updateUsername_unknownAuth0Id_throwsNotFound() {
+        assertThrows(NotFoundException.class,
+                () -> userService.updateUsername("auth0|us-uname-ghost", "any.handle"));
+    }
+
+    @Test
+    @TestTransaction
+    void getByUsername_publicProfile_anonymous_returnsView() {
+        User user = persistUser("auth0|us-gbun-pub", "us-gbun-pub@example.com", true);
+        user.username = "public.bun";
+        entityManager.flush();
+
+        PublicProfileView view = userService.getByUsername("public.bun", null, false);
+        assertEquals(user.id, view.user().id);
+    }
+
+    @Test
+    @TestTransaction
+    void getByUsername_caseInsensitive_normalisesLowercase() {
+        User user = persistUser("auth0|us-gbun-case", "us-gbun-case@example.com", true);
+        user.username = "case.bun";
+        entityManager.flush();
+
+        PublicProfileView view = userService.getByUsername("CASE.BUN", null, false);
+        assertEquals(user.id, view.user().id);
+    }
+
+    @Test
+    @TestTransaction
+    void getByUsername_privateProfile_otherCaller_returnsRestrictedView() {
+        // SCRUM-169 revision — username lookup of a private profile by a
+        // non-self non-admin caller no longer 404s; it returns the
+        // restricted projection (id+username+displayName+avatarUrl).
+        User target = persistUser("auth0|us-gbun-priv", "us-gbun-priv@example.com", false);
+        target.username = "priv.bun";
+        entityManager.flush();
+        persistUser("auth0|us-gbun-other", "us-gbun-other@example.com", false);
+
+        PublicProfileView view = userService.getByUsername("priv.bun", "auth0|us-gbun-other", false);
+        assertEquals(target.id, view.user().id);
+        assertTrue(view.restricted());
+        assertNull(view.followStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getByUsername_privateProfile_adminCaller_bypasses() {
+        User target = persistUser("auth0|us-gbun-admin", "us-gbun-admin@example.com", false);
+        target.username = "admin.target";
+        entityManager.flush();
+        persistUser("auth0|us-gbun-admincaller", "admincaller@example.com", false);
+
+        PublicProfileView view = userService.getByUsername(
+                "admin.target", "auth0|us-gbun-admincaller", true);
+        assertEquals(target.id, view.user().id);
+    }
+
+    @Test
+    @TestTransaction
+    void getByUsername_notFound_throws() {
+        assertThrows(NotFoundException.class,
+                () -> userService.getByUsername("ghost.handle", null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void existsByUsername_takenAndAvailable() {
+        User user = persistUser("auth0|us-exists", "us-exists@example.com", true);
+        user.username = "exist.handle";
+        entityManager.flush();
+
+        assertTrue(userService.existsByUsername("exist.handle"));
+        assertTrue(userService.existsByUsername("Exist.Handle")); // case-insensitive
+        assertFalse(userService.existsByUsername("never.exists.xyz"));
+        assertFalse(userService.existsByUsername(null));
+    }
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_newUser_generatesUsername() {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", "alice.dupont@example.com");
+        claims.put("name", "Alice Dupont");
+        JsonWebToken jwt = jwt("auth0|us-gen-new", claims);
+
+        User created = userService.getOrCreateUser("auth0|us-gen-new", jwt);
+        assertEquals("alice.dupont", created.username);
+    }
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_newUser_collisionResolvedBySuffix() {
+        // Pre-populate one user with the slug we expect.
+        User existing = persistUser("auth0|us-gen-pre", "alice@example.com", false);
+        existing.username = "alice.dupont";
+        entityManager.flush();
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("email", "alice2@example.com");
+        claims.put("name", "Alice Dupont");
+        JsonWebToken jwt = jwt("auth0|us-gen-collide", claims);
+
+        User created = userService.getOrCreateUser("auth0|us-gen-collide", jwt);
+        assertEquals("alice.dupont2", created.username);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {
         User user = new User();
         user.auth0Id = auth0Id;
         user.email = email;
+        // SCRUM-169 — derive a unique username so the entity satisfies the
+        // NOT NULL + UNIQUE constraint. Tests that exercise username
+        // explicitly mutate the value after persist.
+        user.username = UsernameGenerator.resolveAvailable(
+                UsernameGenerator.slugify(null,
+                        email.contains("@") ? email.substring(0, email.indexOf('@')) : email,
+                        null),
+                candidate -> User.findByUsername(candidate).isPresent()
+        );
         user.profilePublic = profilePublic;
         user.createdAt = LocalDateTime.now();
         entityManager.persist(user);

@@ -354,6 +354,10 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | `navbar-user` | `navbar-user.bones.json` | `Navbar` (`DesktopNav`) | manuel |
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel) | manuel |
 | `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
+| `comments` | `comments.bones.json` | `CommentSection` (SCRUM-146) | manuel |
+| `co-organizers-section` | `co-organizers-section.bones.json` | `CoOrganizersEditor` (SCRUM-137) | manuel |
+| `event-organizer-team` | `event-organizer-team.bones.json` | `EventOrganizerTeam` (SCRUM-137) | manuel |
+| `co-organizer-invitations` | `co-organizer-invitations.bones.json` | `CoOrganizerInvitationsList` (SCRUM-137) | manuel |
 
 ---
 

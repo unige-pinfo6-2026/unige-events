@@ -10,17 +10,18 @@ permissions:
 jobs:
   cleanup-preview:
     name: Cleanup Preview
-    runs-on: deployments
+    runs-on: ubuntu-latest
     environment: preview
+    concurrency:
+      group: deployments
+      cancel-in-progress: false
     env:
       PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
+      KUBECONFIG: /tmp/kubeconfig-${{ github.run_id }}
 
     steps:
       - name: Set kubectl context
-        uses: azure/k8s-set-context@v5
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $KUBECONFIG
 
       - name: Cleanup
         run: |

@@ -1,8 +1,11 @@
 import { type ReactNode, useState } from 'react'
-import type { User } from '@/types/user'
+
+interface UserBannerUser {
+  bannerUrl?: string | null
+}
 
 interface UserBannerProps {
-  user: User | null
+  user: UserBannerUser | null
   className?: string
   children?: ReactNode
 }

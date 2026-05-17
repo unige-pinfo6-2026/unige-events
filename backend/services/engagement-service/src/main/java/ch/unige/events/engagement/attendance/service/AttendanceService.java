@@ -8,17 +8,18 @@ import ch.unige.events.shared.domain.enums.AttendanceStatus;
 import ch.unige.events.shared.jaxrs.Timeframe;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.AttendeeProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.domain.projections.EventCapacity;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -52,8 +53,11 @@ public class AttendanceService {
 
     private static final Logger LOG = Logger.getLogger(AttendanceService.class);
 
+    private static final String ROLE_ADMIN = "ADMIN";
+
     @Inject EntityManager entityManager;
     @Inject CallerIdentity callerIdentity;
+    @Inject SecurityIdentity identity;
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
@@ -174,6 +178,29 @@ public class AttendanceService {
                 eventId, promoted.userId);
     }
 
+    /**
+     * Returns the paginated attendees of an event with a privacy filter
+     * applied at the DTO layer (SCRUM-S7).
+     *
+     * <p>Visibility contract:
+     * <ul>
+     *   <li><b>Organizer view</b> (creator, ACCEPTED co-organizer, or admin)
+     *       → real {@code displayName}, {@code avatarUrl}, {@code userId} for
+     *       every row, including private profiles.</li>
+     *   <li><b>Other authenticated callers</b> → real identity only for
+     *       public-profile rows. Private-profile rows are anonymized with
+     *       {@code displayName=null}, {@code avatarUrl=null}, and
+     *       {@code userId=null} so the caller cannot probe
+     *       {@code GET /users/{id}} to de-anonymize the participant.</li>
+     * </ul>
+     *
+     * <p>Authentication is required (the resource carries
+     * {@code @Authenticated}); the endpoint does not 403 non-organizers
+     * since the privacy filter is applied at the DTO layer rather than via
+     * an access gate (review-driven design: ship the anonymized projection
+     * to every authenticated caller instead of leaking the existence/absence
+     * of the list itself).
+     */
     @Transactional
     public List<AttendanceDTO> getAttendees(String auth0Id, Long eventId, int page, int size) {
         UUID callerUuid = callerIdentity.getUuid();
@@ -184,30 +211,64 @@ public class AttendanceService {
             throw new NotFoundException("Event not found");
         }
 
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
         boolean isCreator = callerUuid != null && callerUuid.equals(event.creatorId());
-        boolean isCoOrganizer = Boolean.TRUE.equals(event.coOrganizerOf());
-        if (!isCreator && !isCoOrganizer) {
-            // Defense in depth: even if coOrganizerOf came back null because
-            // ?check-co-org-of= was not honored, double-check via the
-            // organizer-uuids endpoint (Décision G).
-            if (callerUuid == null
-                    || !eventClient.getOrganizerUuids(eventId).contains(callerUuid)) {
-                throw new ForbiddenException(
-                        "Only the event creator or an accepted co-organizer can view attendees");
-            }
+        // coOrganizerOf is a tri-state: TRUE / FALSE / null. The
+        // getByIdWithCoOrgCheck call honors the self-check only for
+        // authenticated callers whose uuid matches the query param
+        // (SEC-002 / Décision C) — non-null values are authoritative.
+        // Fall back to the organizer-uuids endpoint only when the self-check
+        // wasn't honored (null), so the hot path for ordinary authenticated
+        // viewers doesn't pay a needless cross-service round-trip.
+        Boolean coOrgOf = event.coOrganizerOf();
+        boolean isCoOrganizer;
+        if (coOrgOf != null) {
+            isCoOrganizer = coOrgOf;
+        } else if (!isCreator && callerUuid != null) {
+            isCoOrganizer = eventClient.getOrganizerUuids(eventId).contains(callerUuid);
+        } else {
+            isCoOrganizer = false;
         }
+        boolean isOrganizerView = isCreator || isCoOrganizer || isAdmin;
 
         List<Attendance> rows = Attendance.findByEvent(eventId, page, size);
         Set<UUID> userIds = rows.stream().map(a -> a.userId).collect(Collectors.toSet());
-        Map<UUID, UserPublicResponse> usersById = new HashMap<>();
-        for (UUID uid : userIds) {
-            UserPublicResponse u = safeGetUser(uid);
-            if (u != null) usersById.put(uid, u);
-        }
+        Map<UUID, AttendeeProjection> projectionsById =
+                fetchAttendeeProjections(userIds);
 
         return rows.stream()
-                .map(a -> AttendanceDTOMapper.from(a, usersById.get(a.userId)))
+                .map(a -> AttendanceDTOMapper.fromWithPrivacy(
+                        a, projectionsById.get(a.userId), isOrganizerView))
                 .toList();
+    }
+
+    /**
+     * Bulk-resolves the privacy projection for every distinct user id in
+     * the page, with a graceful degradation when user-service is down: an
+     * empty map causes every row to be anonymized (no real identity exposed)
+     * rather than failing the whole request.
+     */
+    private Map<UUID, AttendeeProjection> fetchAttendeeProjections(Set<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            List<AttendeeProjection> projections =
+                    userClient.getAttendeeProjections(List.copyOf(userIds));
+            if (projections == null) {
+                return Map.of();
+            }
+            Map<UUID, AttendeeProjection> byId = new HashMap<>();
+            for (AttendeeProjection p : projections) {
+                if (p != null && p.id() != null) {
+                    byId.put(p.id(), p);
+                }
+            }
+            return byId;
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "[USER_ENRICHMENT_FAIL] getAttendeeProjections(size=%d) — returning empty map (degraded enrichment, attendees rendered anonymous)", userIds.size());
+            return Map.of();
+        }
     }
 
     @Transactional

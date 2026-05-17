@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useAuth, useEvent, useFavorite } from '@/hooks'
+import { useAuth, useEvent, useFavorite, useOccurrences } from '@/hooks'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useReport } from '@/hooks/useReport'
 import { useToast } from '@/hooks/useToast'
@@ -9,8 +9,8 @@ import { cancelEvent, deleteEvent, restoreEvent } from '@/services/eventApi'
 import { recordEventView } from '@/services/statsApi'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
-import { EVENT_CATEGORIES } from '@/types/event'
-import { formatEventDateTime } from '@/utils/dateTime'
+import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
+import { formatEventDateTime, formatEventDateTimeCompact } from '@/utils/dateTime'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
@@ -21,10 +21,12 @@ import ReportModal from '@/components/event/ReportModal'
 import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
+import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
+import CommentSection from '@/components/event/CommentSection'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { LucideIcon } from 'lucide-react'
-import { Ban, BarChart2, Calendar, CalendarClock, Flag, Globe, Mail, MapPin, Pencil, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
+import { Ban, BarChart2, Calendar, CalendarClock, ChevronDown, ChevronUp, Flag, Globe, Mail, MapPin, Pencil, RefreshCw, Share2, Star, Tag, Trash2, Undo2, Users } from 'lucide-react'
 
 function EventDetailFixture() {
   return (
@@ -181,6 +183,105 @@ function ConfirmDialog({ title, message, confirmLabel, pending, onConfirm, onClo
   )
 }
 
+const occurrenceStatusVariants: Record<EventStatus, string> = {
+  DRAFT:     'bg-foreground/5 border-border/40 text-foreground/55',
+  PUBLISHED: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500',
+  CANCELLED: 'bg-error/10 border-error/30 text-error',
+  EXPIRED:   'bg-foreground/5 border-border/40 text-foreground/40',
+  BANNED:    'bg-error/10 border-error/30 text-error',
+}
+
+function OccurrenceStatusBadge({ status }: { status: EventStatus }) {
+  return (
+    <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase tracking-wide ${occurrenceStatusVariants[status]}`}>
+      {EVENT_STATUSES[status].name}
+    </span>
+  )
+}
+
+interface OccurrencesSectionProps {
+  parentId: number
+  currentEventId: number
+  skeletonColor: string
+}
+
+function OccurrencesSection({ parentId, currentEventId, skeletonColor }: OccurrencesSectionProps) {
+  const [open, setOpen] = useState(false)
+  const { loading, error, data } = useOccurrences(parentId, { enabled: open })
+  const count = data?.length ?? null
+
+  return (
+    <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border max-lg:order-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-6 py-5 cursor-pointer bg-transparent border-0 text-left rounded-3xl hover:bg-foreground/[0.015] transition-colors"
+      >
+        <span className="flex items-center gap-2.5 text-foreground">
+          <RefreshCw className="w-4 h-4 text-foreground/40 shrink-0" />
+          <span className="text-sm font-semibold">
+            Voir toutes les occurrences{count !== null ? ` (${count})` : ''}
+          </span>
+        </span>
+        {open
+          ? <ChevronUp className="w-5 h-5 text-foreground/40 shrink-0" />
+          : <ChevronDown className="w-5 h-5 text-foreground/40 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-border/40 px-6 py-4">
+          {loading && (
+            <Skeleton name="occurrences-list" loading={true} animate="pulse" color={skeletonColor}>
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-9 rounded-lg" />
+                ))}
+              </div>
+            </Skeleton>
+          )}
+
+          {error && <InfoMessage type="error" message={error} />}
+
+          {!loading && !error && data && data.length === 0 && (
+            <p className="text-sm text-foreground/40 py-2">Aucune occurrence à afficher.</p>
+          )}
+
+          {!loading && !error && data && data.length > 0 && (
+            <ul className="flex flex-col max-h-[60vh] overflow-y-auto -mx-1">
+              {data.map((occurrence: Event) => {
+                const isCurrent = occurrence.id === currentEventId
+                return (
+                  <li
+                    key={occurrence.id}
+                    className={`flex items-center gap-3 px-2 py-2 rounded-lg ${isCurrent ? 'bg-accent/5 ring-1 ring-accent/30' : ''}`}
+                  >
+                    <span className="text-xs text-foreground/60 shrink-0 w-32 truncate">
+                      {formatEventDateTimeCompact(occurrence.startDate, occurrence.allDay)}
+                    </span>
+                    <OccurrenceStatusBadge status={occurrence.status} />
+                    <Link
+                      to={`/events/${occurrence.id}`}
+                      className="text-sm font-medium text-foreground hover:text-accent truncate min-w-0 flex-1 no-underline"
+                    >
+                      {occurrence.title}
+                    </Link>
+                    {isCurrent && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-accent shrink-0">
+                        Vous êtes ici
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Whitelist pour le lien externe `websiteUrl` — le backend stocke l'URL avec @URL, qui
 // accepte d'autres schémas (p. ex. `javascript:`). On ne rend un <a href> que si l'URL
 // parse en http(s) ; sinon on affiche la chaîne brute pour éviter tout XSS/open-redirect.
@@ -202,17 +303,27 @@ export default function EventDetailPage() {
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
-  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId)
-  const isOrganizer = user !== null && event !== null && user.id === event.creatorId
+  const { event, isInitialLoad, isRefetching, error, refetch: refetchEvent } = useEvent(eventId, user?.id ?? null)
+  const isAuthenticated = user !== null
+  // SCRUM-137 — "isOrganizer" widens to include accepted co-organizers, who
+  // share the edit/cancel/restore/stats permissions with the creator (cf.
+  // EventService.update / cancel / restore). `coOrganizerOf` comes back from
+  // the backend when we pass `?check-co-org-of=<caller>` on the fetch.
+  const isAcceptedCoOrganizer = event !== null && event.coOrganizerOf === true
+  const isCreator = user !== null && event !== null && user.id === event.creatorId
+  const isOrganizer = isCreator || isAcceptedCoOrganizer
   const reportHook = useReport(eventId ?? 0)
-  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isOrganizer && eventId !== null })
+  // SCRUM-S7: fetch for any authenticated viewer — backend handles privacy at
+  // the DTO layer. Unauthenticated viewers skip the call (they only see the
+  // compact avatar stack + count).
+  const attendeesHook = useAttendees(eventId ?? 0, { enabled: isAuthenticated && eventId !== null })
   const refetchAttendees = attendeesHook.refetch
   const handleAttendanceSuccess = useCallback(async (): Promise<void> => {
     await Promise.all([
       refetchEvent(),
-      isOrganizer ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
+      isAuthenticated ? Promise.resolve(refetchAttendees()) : Promise.resolve(),
     ])
-  }, [refetchEvent, refetchAttendees, isOrganizer])
+  }, [refetchEvent, refetchAttendees, isAuthenticated])
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [deleting, setDeleting] = useState(false)
@@ -234,9 +345,13 @@ export default function EventDetailPage() {
   }, [])
 
   useEffect(() => {
-    if (!eventId || !user) return
+    // Post-V11 schema (2026-05-14) : la vue est enregistrée même pour les
+    // utilisateurs anonymes, via un sessionId UUID généré côté client. La
+    // dédup serveur évite le spam ((eventId, userId) pour auth, (eventId,
+    // sessionId) pour anon). Cf. spec Axe 4.
+    if (!eventId) return
     recordEventView(eventId).catch(() => {})
-  }, [eventId, user])
+  }, [eventId])
 
   useEffect(() => {
     if (!event) { setOrganizer(null); return }
@@ -251,7 +366,10 @@ export default function EventDetailPage() {
     if (!event || !user) return
     if (event.status !== 'DRAFT') return
     if (isAdmin) return
-    if (user.id !== event.creatorId) return
+    // Drafts redirect to /edit for anyone who can edit the event — both the
+    // creator and any accepted co-organizer.
+    const canEditDraft = user.id === event.creatorId || event.coOrganizerOf === true
+    if (!canEditDraft) return
     navigate(`/events/${event.id}/edit`, { replace: true })
   }, [event, user, isAdmin, navigate])
 
@@ -404,9 +522,20 @@ export default function EventDetailPage() {
             </div>
           )}
 
+          {/* SCRUM-151 — collapsible list of sibling occurrences. Visible on a recurring
+              parent (recurrenceRule != null) and on each of its children (parentEventId
+              points back to the parent). Standalones never render the section. */}
+          {(event.recurrenceRule != null || event.parentEventId != null) && (
+            <OccurrencesSection
+              parentId={event.parentEventId ?? event.id}
+              currentEventId={event.id}
+              skeletonColor={skeletonColor}
+            />
+          )}
+
           <div className="max-lg:order-5">
             <AttendeesList
-              isOrganizer={isOrganizer}
+              isAuthenticated={isAuthenticated}
               attendingCount={event.attendingCount}
               attendeesHook={attendeesHook}
             />
@@ -512,7 +641,7 @@ export default function EventDetailPage() {
             {/* Organisateur */}
             {organizer && (
               <Link
-                to={`/profile/${organizer.id}`}
+                to={`/profile/${organizer.username}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
               >
                 <UserAvatar user={organizer} className="size-8 shrink-0" />
@@ -583,6 +712,17 @@ export default function EventDetailPage() {
             />
           </div>
 
+          {/* Équipe organisatrice (SCRUM-137) — créateur + co-organisateurs ACCEPTED */}
+          <div className="max-lg:order-8">
+            <EventOrganizerTeam
+              eventId={event.id}
+              creatorId={event.creatorId}
+              creatorUsername={organizer?.username ?? event.creatorId}
+              creatorDisplayName={organizer?.displayName ?? null}
+              creatorAvatarUrl={organizer?.avatarUrl ?? null}
+            />
+          </div>
+
           {/* Actions organisateur */}
           {isOrganizer && (
             <div className="flex flex-col gap-2 max-lg:order-9">
@@ -617,24 +757,26 @@ export default function EventDetailPage() {
                     <Undo2 className="w-4 h-4 shrink-0" />
                     Remettre en brouillon
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(true)}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4 shrink-0" />
-                    Supprimer l'événement
-                  </button>
+                  {/* Delete stays creator-only — `EventService.delete`
+                      explicitly forbids co-organizers (cf. line 428). */}
+                  {isCreator && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(true)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-error/10 border border-error/30 text-error rounded-2xl text-sm font-semibold cursor-pointer hover:bg-error/20 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 shrink-0" />
+                      Supprimer l'événement
+                    </button>
+                  )}
                 </>
               )}
             </div>
           )}
 
-          {/* Lien statistiques organisateur — S6.
-              Caveat: shown only to the creator. The backend authorizes ACCEPTED
-              co-organizers too, but the frontend has no co-organizer
-              integration yet, so they currently lack an in-app entry point
-              to /events/:id/stats. Same dette as in EventStatsPage. */}
+          {/* Lien statistiques organisateur — S6. Visible to both the creator
+              and accepted co-organizers (same authorisation set as the edit /
+              cancel / restore actions ; cf. EventStatsService). */}
           {isOrganizer && (
             <div className="max-lg:order-10">
               <Link
@@ -649,6 +791,14 @@ export default function EventDetailPage() {
 
         </div>
 
+      </div>
+
+      <div className="mt-10">
+        <CommentSection
+          eventId={event.id}
+          eventCreatorId={event.creatorId}
+          eventStatus={event.status}
+        />
       </div>
 
       {bannerWarning && <InfoMessage type="error" message={bannerWarning} />}

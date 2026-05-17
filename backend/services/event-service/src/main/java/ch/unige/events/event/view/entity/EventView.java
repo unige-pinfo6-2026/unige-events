@@ -11,25 +11,44 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Idempotent record of "user X viewed event Y". Owned by event-service (co-located post-finalization).
- * Carbon-copy of the legacy monolith's
- * ch.unige.events.entity.EventView entity — same table, same constraints.
+ * Idempotent record of "user X viewed event Y" or "anonymous session S viewed event Y".
+ * Owned by event-service (co-located post-finalization).
+ *
+ * <p>Post-V11 schema (2026-05-14): exactly one of (userId, sessionId) is populated.
+ * Two normal UNIQUE constraints enforce dedup separately per branch:
+ * <ul>
+ *   <li>{@code uq_event_view_user_event}: UNIQUE(event_id, user_id) — rows with user_id NULL never collide here (Postgres NULL distinctness).</li>
+ *   <li>{@code uq_event_view_event_session}: UNIQUE(event_id, session_id) — same trick for the anonymous branch.</li>
+ * </ul>
+ * A CHECK constraint {@code chk_event_view_user_or_session} forbids orphan rows where both columns are NULL.
+ *
+ * <p>We use full UNIQUE constraints (not partial unique indexes) because
+ * PostgreSQL only recognizes real CONSTRAINTs as conflict targets for
+ * {@code ON CONFLICT ... DO UPDATE}.
  */
 @Entity
 @Table(
     name = "event_views",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uq_event_view_user_event",
-        columnNames = {"event_id", "user_id"}
-    )
+    uniqueConstraints = {
+        // Real CONSTRAINTs (not partial indexes) so that ON CONFLICT works.
+        // PostgreSQL NULL-distinctness handles the "anon row has user_id NULL"
+        // case naturally — multiple NULLs never collide.
+        @UniqueConstraint(name = "uq_event_view_user_event",
+                          columnNames = {"event_id", "user_id"}),
+        @UniqueConstraint(name = "uq_event_view_event_session",
+                          columnNames = {"event_id", "session_id"})
+    }
 )
 public class EventView extends PanacheEntity {
 
     @Column(name = "event_id", nullable = false)
     public Long eventId;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     public UUID userId;
+
+    @Column(name = "session_id")
+    public UUID sessionId;
 
     @Column(name = "viewed_at")
     public LocalDateTime viewedAt;

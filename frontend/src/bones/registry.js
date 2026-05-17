@@ -16,6 +16,10 @@ import _event_stats from './event-stats.bones.json'
 import _admin_reports from './admin-reports.bones.json'
 import _admin_featured from './admin-featured.bones.json'
 import _notification_panel from './notification-panel.bones.json'
+import _co_organizers_section from './co-organizers-section.bones.json'
+import _event_organizer_team from './event-organizer-team.bones.json'
+import _co_organizer_invitations from './co-organizer-invitations.bones.json'
+import _comments from './comments.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -32,4 +36,8 @@ registerBones({
   "admin-reports": _admin_reports,
   "admin-featured": _admin_featured,
   "notification-panel": _notification_panel,
+  "co-organizers-section": _co_organizers_section,
+  "event-organizer-team": _event_organizer_team,
+  "co-organizer-invitations": _co_organizer_invitations,
+  "comments": _comments,
 })

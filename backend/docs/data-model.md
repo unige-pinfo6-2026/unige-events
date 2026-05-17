@@ -1,5 +1,17 @@
 # Data Model — unige-events-api
 
+> **Mise à jour 2026-05-14 — DB-per-service livré.** Chaque service possède sa propre instance PostgreSQL dédiée (commit `f4b5968e`). Le schéma `public` partagé n'existe plus. Mapping table → DB physique :
+>
+> | Service propriétaire | DB physique (host:port) | Tables possédées |
+> |---|---|---|
+> | `event-service` | `postgres-event:5432` / DB `unige_events_events` | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
+> | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `follows` |
+> | `engagement-service` | `postgres-engagement:5432` / DB `unige_events_engagement` | `attendances`, `comments` |
+> | `moderation-service` | `postgres-moderation:5432` / DB `unige_events_moderation` | `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
+> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notification` | (aucune table métier active — provisionné par parité topologique) |
+>
+> Les migrations Flyway sont **redistribuées par service propriétaire** sous `backend/services/<svc>-service/src/main/resources/db/migration/V*.sql`. La numérotation V est **locale** à chaque service (deux services peuvent avoir une `V1__...sql` chacun). Plus jamais de migration cross-service.
+
 ## Entités JPA
 
 ### User
@@ -11,6 +23,7 @@ Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollectio
 | `id` | `id` | `UUID` | `id` | PK, auto-généré (`@GeneratedValue`) |
 | `auth0Id` | `auth0Id` | `String` | `auth0_id` | unique, not updatable |
 | `email` | `email` | `String` | `email` | unique, not updatable |
+| `username` | `username` | `String` | `username` | `@Column(nullable=false, unique=true, length=30)` — SCRUM-169. Stocké lowercase, lookup case-insensitive. Pattern DB-CHECK `^[a-z0-9._-]{3,30}$`. Généré automatiquement à la création du compte par `UsernameGenerator.generate(...)` (slug `displayName` ASCII-fold → fallback `firstName.lastName` → fallback `user`, suffixe numérique sur collision). Modifiable via `PATCH /users/me/username`. Blocklist : `me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`. |
 | `displayName` | `displayName` | `String` | `display_name` | nullable |
 | `firstName` | `firstName` | `String` | `first_name` | nullable |
 | `lastName` | `lastName` | `String` | `last_name` | nullable |
@@ -24,7 +37,20 @@ Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollectio
 | `version` | `version` | `Long` | `version` | `@Version` (optimistic locking) |
 | `calendarToken` | `calendarToken` | `UUID` | `calendar_token` | nullable, `@Column(unique=true)` — généré à la demande par `CalendarService.getOrCreateToken` |
 
-Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`
+Helpers statiques : `User.findByAuth0Id(String)`, `User.findByEmail(String)`,
+`User.findByUsername(String)` (case-insensitive — SCRUM-169).
+
+#### Stratégie de génération de username (SCRUM-169)
+
+La logique vit dans `UsernameGenerator` (`backend/services/user-service/src/main/java/ch/unige/events/user/service/UsernameGenerator.java`) :
+
+1. **Source** : `displayName` (trim) > `firstName.lastName` (skip dot si l'un des deux est vide) > literal `"user"`.
+2. **Normalisation** : pré-translation Latin-extended (Đ→D, Ł→L, Ø→O, Æ→AE, Œ→OE, ß→ss, Þ→TH, Ð→D + minuscules) + NFD ASCII-fold + lowercase + whitespace → `.` + drop chars hors `[a-z0-9._-]` + collapse `.` + trim leading/trailing `._-`.
+3. **Troncature** : max 30 chars (puis re-trim trailing punct). Si < 3 chars résultat → fallback `"user"`.
+4. **Blocklist** : si le résultat appartient à `{me, admin, api, login, logout, signup, register, settings}`, on commence directement au suffixe `2`.
+5. **Anti-collision** : boucle `while EXISTS` avec suffixe numérique incrémental (`jean.dupont`, `jean.dupont2`, …). La base est trimmée si `base + suffix > 30 chars`.
+
+La même logique est dupliquée en PL/pgSQL dans `V3__add_user_username.sql` pour le back-fill atomique des comptes pré-existants. Toute modification de l'algorithme Java doit être miroir dans la migration suivante (`V4__...`) — la V3 reste immutable. Les sentinels `UsernameGeneratorTest` (23 cas) pin la sémantique côté Java.
 
 #### Règle de visibilité du profil (hotfix pentest 2026-04-17)
 
@@ -39,6 +65,14 @@ Le champ `profilePublic` contrôle deux dimensions simultanément sur `GET /api/
 
 La règle d'autorisation vit dans `UserService.getPublicProfile(UUID, String auth0Id)` ;
 le stripping anonyme est appliqué dans `UserResource` via `UserPublicResponse.fromAnonymous`.
+
+**SCRUM-169 — exposition du `username`.** Le champ `username` est **toujours**
+projeté dans la réponse, y compris pour les appelants anonymes (contrairement
+aux autres champs strippés). Justification : c'est l'identifiant public-facing
+du profil (utilisé dans l'URL `/profile/{username}`) — le nullifier casserait
+l'usage premier du champ. Le lookup par username (`GET /api/users/by-username/{username}`)
+applique la même règle d'autorisation et le même stripping ;
+`HEAD /api/users/by-username/{username}` reste léger et `@PermitAll`.
 
 ---
 
@@ -172,9 +206,15 @@ Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAl
 
 #### `AttendanceDTO` — projection du nom du participant
 
-`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne. Les routes concernées sont déjà restreintes (`GET /events/{id}/attendees` réservée au créateur ou co-organisateur ACCEPTED ; les autres routes ne renvoient que les inscriptions du caller) — exposer le nom y est sûr même pour les profils `profilePublic = false`. C'est ce qui permet à la page stats organisateur d'afficher le vrai nom des participants privés sans passer par `GET /users/{id}` (qui renvoie 404 pour les profils privés, hotfix pentest 4.1).
+`AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne.
 
-`AttendanceService.getAttendees(...)` charge les `User` correspondants en une seule requête (`User.list("id in ?1", ids)`) plutôt qu'un lookup par ligne, pour éviter le N+1 côté serveur. `displayName` est `null` uniquement sur les inscriptions orphelines (user supprimé sans cascade FK — pas de `@ManyToOne` aujourd'hui).
+**Filtre de confidentialité sur `GET /events/{id}/attendees` (SCRUM-S7)** : l'endpoint est désormais accessible à tout utilisateur authentifié (plus de 403 pour les non-organisateurs). La confidentialité est appliquée côté DTO :
+
+- **Vue organisateur** (créateur, co-organisateur ACCEPTED, ou administrateur) : `displayName`, `avatarUrl` et `userId` réels pour toutes les lignes, y compris les profils privés.
+- **Autre utilisateur authentifié** : identité réelle uniquement pour les profils `profilePublic = true`. Les lignes correspondant à un profil privé sont retournées avec `displayName = null`, `avatarUrl = null`, **et `userId = null`** (l'UUID est volontairement masqué pour empêcher l'appelant de sonder `GET /users/{id}` qui désanonymiserait le participant via le pattern 404 ISSUE-93).
+- **Utilisateur supprimé** (ligne orpheline) : anonymisé de la même façon, quel que soit le rôle de l'appelant — aucune identité réelle à exposer.
+
+`AttendanceService.getAttendees(...)` résout en une seule requête cross-service la projection `(id, displayName, avatarUrl, profilePublic)` de tous les users du batch via le nouvel endpoint interne `GET /users/_internal-attendee-projections?ids=...` (entry #7 dans [`internal-endpoints.md`](internal-endpoints.md)). Cet endpoint contourne l'anti-oracle ISSUE-93 (interne uniquement, `@Internal` + `X-Internal-Token`) afin que le consumer puisse décider de la projection par ligne. Sur les autres routes (`/users/me/attendances`, etc.) qui ne renvoient que des inscriptions appartenant au caller, exposer le nom reste sûr y compris pour les profils privés (l'utilisateur regarde ses propres inscriptions).
 
 ---
 
@@ -415,7 +455,7 @@ Table : `comments` (créée par la migration `V14__create_comments.sql` en SCRUM
 | `event` | — | `Event` | `event_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `events.id` |
 | `author` | — | `User` | `author_id` | `@ManyToOne(LAZY)`, `@JoinColumn(nullable=false)` — FK vers `users.id` |
 | `parentComment` | — | `Comment` | `parent_comment_id` | `@ManyToOne(LAZY)`, nullable — auto-référence vers `comments.id` (1 niveau de profondeur max) |
-| `content` | `content` | `String` | `content` | `@Column(columnDefinition="TEXT", nullable=false)`, `@NotBlank`, `@Size(max=2000)`, trimmé côté service avant persist |
+| `content` | `content` | `String` | `content` | `@Column(columnDefinition="TEXT", nullable=false)`, `@NotBlank`, `@Size(max=500)`, trimmé côté service avant persist |
 | `likeCount` | `likeCount` | `int` | `like_count` | `@Column(nullable=false)`, default `0`. **Lecture seule en S6** — la mutation est livrée par SCRUM-144 (S7) |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false, nullable=false)`, initialisé via `@PrePersist` (null-guard) |
 

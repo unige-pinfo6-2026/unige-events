@@ -1,0 +1,14 @@
+{
+  "breakpoints": {
+    "320": {
+      "name": "event-organizer-team",
+      "viewportWidth": 320,
+      "width": 320,
+      "height": 88,
+      "bones": [
+        [0, 0, 100, 40, 12],
+        [0, 48, 100, 40, 12]
+      ]
+    }
+  }
+}

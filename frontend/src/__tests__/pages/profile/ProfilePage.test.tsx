@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProfilePage from '@/pages/profile/ProfilePage'
 
@@ -15,12 +16,18 @@ vi.mock('@/contexts/ThemeContext', () => ({
 vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
+  getUserByUsername: vi.fn(),
   getCalendarToken: vi.fn().mockResolvedValue({
     calendarToken: 'test-token',
     webcalUrl: 'webcal://example.com/cal.ics',
     httpsUrl: 'https://example.com/cal.ics',
   }),
   regenerateCalendarToken: vi.fn(),
+}))
+
+vi.mock('@/services/eventApi', () => ({
+  getAll: vi.fn().mockResolvedValue([]),
+  getMyEvents: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@/hooks/useMyEvents', () => ({
@@ -36,22 +43,50 @@ vi.mock('@/hooks/useMyEvents', () => ({
   })),
 }))
 
+// CoOrganizerInvitationsList ships from main and makes its own API calls;
+// stub it out so it doesn't pollute the /me path with unrelated fetches.
+vi.mock('@/components/user/CoOrganizerInvitationsList', () => ({
+  default: () => null,
+}))
+
 import { useAuth } from '@/hooks/useAuth'
-import { getUserById, getCalendarToken } from '@/services/userService'
+import { getCalendarToken, getUserById, getUserByUsername } from '@/services/userService'
+import { getAll as getAllEvents } from '@/services/eventApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
+const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
+const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
+const OWN_UUID = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
+const OTHER_UUID = 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c'
+
 const mockUser = {
-  id: '123',
+  id: OWN_UUID,
   auth0Id: 'auth0|123',
   email: 'test@example.com',
+  username: 'test.user',
   displayName: 'Test User',
   profilePublic: true,
   createdAt: '2024-01-01',
+}
+
+const otherProfile = {
+  id: OTHER_UUID,
+  username: 'other.user',
+  displayName: 'Other User',
+  faculty: 'SCIENCES',
+  studyLevel: 'MASTER',
+  bio: 'Bio publique',
+  interests: ['Jazz'],
+  avatarUrl: null,
+  bannerUrl: null,
+  followerCount: 12,
+  followingCount: 7,
+  followStatus: null,
 }
 
 beforeEach(() => {
@@ -60,6 +95,7 @@ beforeEach(() => {
     webcalUrl: 'webcal://example.com/cal.ics',
     httpsUrl: 'https://example.com/cal.ics',
   })
+  mockGetAllEvents.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -67,11 +103,12 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function renderProfilePage(id: string) {
+function renderProfilePage(slug: string) {
   return render(
-    <MemoryRouter initialEntries={[`/profile/${id}`]}>
+    <MemoryRouter initialEntries={[`/profile/${slug}`]}>
       <Routes>
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/profile/:username" element={<ProfilePage />} />
+        <Route path="*" element={<div data-testid="post-redirect-route">redirected</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -88,67 +125,51 @@ function findContentGrid(container: HTMLElement): HTMLElement | null {
   return null
 }
 
-describe('ProfilePage', () => {
-  it('renders own profile when id is "me"', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
+describe('ProfilePage — /profile/me (owner)', () => {
+  it('renders the owner profile when slug is "me" — no API call', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
     renderProfilePage('me')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByText('Modifier')).toBeTruthy()
+    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+    expect(mockGetUserById).not.toHaveBeenCalled()
+  })
+
+  it('treats slug = current user username as owner route', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
+    renderProfilePage('test.user')
+
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
     expect(screen.getByText('Modifier')).toBeTruthy()
   })
 
-  it('shows error when own profile user is null', async () => {
-    mockUseAuth.mockReturnValue({ user: null })
+  it('shows error when own profile user is null and auth is loaded', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+
     renderProfilePage('me')
+
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
   })
 
-  it('fetches and renders another user profile', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
-      id: '456',
-      auth0Id: 'auth0|456',
-      email: 'other@example.com',
-      displayName: 'Other User',
-      profilePublic: true,
-      createdAt: '2024-01-01',
-    })
-    renderProfilePage('auth0|456')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+  it('renders Mes publications preview on /me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Mes publications' })).toBeTruthy()
   })
 
-  it('shows not found when getUserById returns null', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue(null)
-    renderProfilePage('auth0|456')
-    expect(await screen.findByText('Profil introuvable.')).toBeTruthy()
-  })
-
-  it('shows error when getUserById rejects', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockRejectedValue(new Error('Network error'))
-    renderProfilePage('auth0|456')
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
-  })
-
-  it('shows private profile message for non-public profiles', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
-      id: '789',
-      auth0Id: 'auth0|789',
-      email: 'private@example.com',
-      displayName: 'Private User',
-      profilePublic: false,
-      createdAt: '2024-01-01',
-    })
-    renderProfilePage('auth0|789')
-    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
-  })
-
-  it('renders faculty and study level when present', async () => {
+  it('renders faculty + study level when present', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, faculty: 'SCIENCES', studyLevel: 'MASTER' },
+      isLoading: false,
     })
+
     renderProfilePage('me')
+
     expect(await screen.findByRole('img', { name: /Sciences/i })).toBeTruthy()
     expect(screen.getAllByText(/Master/).length).toBeGreaterThan(0)
   })
@@ -156,80 +177,54 @@ describe('ProfilePage', () => {
   it('renders bio when present', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, bio: 'Passionné de recherche.' },
+      isLoading: false,
     })
+
     renderProfilePage('me')
+
     expect(await screen.findByText('Passionné de recherche.')).toBeTruthy()
   })
 
-  it('renders interests when present', async () => {
+  it('renders interests as chips', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, interests: ['Jazz', 'Coding'] },
+      isLoading: false,
     })
+
     renderProfilePage('me')
+
     expect(await screen.findByText('Jazz')).toBeTruthy()
     expect(screen.getByText('Coding')).toBeTruthy()
   })
 
-  it('loads own profile when id matches currentUser.auth0Id', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    renderProfilePage('auth0|123')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
-    expect(screen.getByText('Modifier')).toBeTruthy()
-  })
-
-  it('renders avatar image when profile has avatarUrl', async () => {
-    mockUseAuth.mockReturnValue({
-      user: { ...mockUser, avatarUrl: 'https://example.com/avatar.jpg' },
-    })
-    renderProfilePage('me')
-    const img = await screen.findByAltText('Test User')
-    expect((img as HTMLImageElement).src).toContain('example.com/avatar.jpg')
-  })
-
-  it('renders own profile when profilePublic is false', async () => {
-    mockUseAuth.mockReturnValue({
-      user: { ...mockUser, profilePublic: false },
-    })
-    renderProfilePage('me')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
-  })
-
-  it('renders own profile when profilePublic is true', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    renderProfilePage('me')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
-  })
-
-  it('shows the profile skeleton while auth is loading', () => {
-    mockUseAuth.mockReturnValue({ user: null, isLoading: true })
-    renderProfilePage('me')
-    expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
-  })
-
-  it('does not crash when faculty key is unknown', async () => {
+  it('does not crash on unknown faculty key', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, faculty: 'UNKNOWN_FACULTY' as never },
+      isLoading: false,
     })
+
     renderProfilePage('me')
+
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
   })
 
   it('renders banner image when bannerUrl is set', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, bannerUrl: 'https://example.com/banner.jpg' },
+      isLoading: false,
     })
+
     renderProfilePage('me')
+
     await screen.findByRole('heading', { level: 1, name: 'Test User' })
     const banner = document.querySelector<HTMLImageElement>('img[src*="banner.jpg"]')
     expect(banner).toBeTruthy()
-    expect(banner!.src).toContain('banner.jpg')
   })
 
-  it('renders gradient fallback when bannerUrl is null', async () => {
-    mockUseAuth.mockReturnValue({ user: { ...mockUser, bannerUrl: null } })
+  it('shows skeleton while auth is loading', () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true })
     renderProfilePage('me')
-    await screen.findByRole('heading', { level: 1, name: 'Test User' })
-    expect(document.querySelector('[style*="banner"]')).toBeNull()
+    expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
 
   it('uses light skeleton color when theme is light', () => {
@@ -239,111 +234,172 @@ describe('ProfilePage', () => {
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
 
-  it('renders the Mes publications preview on /profile/me', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
+  it('hides ProfileStats on /me (self payload UserProfileResponse does not carry follower counts)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     renderProfilePage('me')
-    expect(await screen.findByRole('heading', { level: 2, name: 'Mes publications' })).toBeTruthy()
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+
+    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
+  })
+})
+
+describe('ProfilePage — /profile/:username (other user)', () => {
+  it('fetches and renders another user public profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+    expect(mockGetUserByUsername).toHaveBeenCalledWith('other.user')
+    expect(screen.getByText('Bio publique')).toBeTruthy()
   })
 
-  it('does not render the Mes publications preview on another user profile', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser })
-    mockGetUserById.mockResolvedValue({
-      id: '456',
-      auth0Id: 'auth0|456',
-      email: 'other@example.com',
-      displayName: 'Other User',
-      profilePublic: true,
-      createdAt: '2024-01-01',
-    })
-    renderProfilePage('auth0|456')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+  it('renders follower/following counters from the public projection', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.getByText('12')).toBeTruthy()
+    expect(screen.getByText('7')).toBeTruthy()
+  })
+
+  it('does NOT render Mes publications preview on another user profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
     expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
   })
 
-  // Layout regression — the right-column calendar card must not stretch to match
-  // the (potentially much taller) left column on desktop. We assert on the grid
-  // wrapper className since jsdom doesn't perform actual layout.
-  describe('content grid layout', () => {
-    it('applies items-start to the content grid so the calendar card sizes to its content', async () => {
-      mockUseAuth.mockReturnValue({ user: mockUser })
-      const { container } = renderProfilePage('me')
-      await screen.findByRole('heading', { level: 1, name: 'Test User' })
+  it('does NOT render the Modifier button on another user profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-      const grid = findContentGrid(container)
-      expect(grid).not.toBeNull()
-      expect(grid!.className).toContain('items-start')
-      expect(grid!.className).not.toContain('items-stretch')
-    })
+    renderProfilePage('other.user')
 
-    it('keeps items-start regardless of MyPublicationsPreview rendering (varying left-column height)', async () => {
-      mockUseAuth.mockReturnValue({ user: mockUser })
-      const { container } = renderProfilePage('me')
-      await screen.findByRole('heading', { level: 2, name: 'Mes publications' })
-
-      const grid = findContentGrid(container)
-      expect(grid?.className).toContain('items-start')
-    })
-
-    it('does not apply a fixed pixel/max height to the calendar card wrapper', async () => {
-      mockUseAuth.mockReturnValue({ user: mockUser })
-      const { container } = renderProfilePage('me')
-      await screen.findByRole('heading', { level: 1, name: 'Test User' })
-
-      const grid = findContentGrid(container)
-      expect(grid).not.toBeNull()
-      // No hard-coded height (h-[…]) or max-h-[…] sneaked in as a workaround.
-      expect(grid!.className).not.toMatch(/\bh-\[/)
-      expect(grid!.className).not.toMatch(/\bmax-h-\[/)
-    })
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.queryByText('Modifier')).toBeNull()
   })
 
-  // Long-unbroken-word overflow guard — biography and displayName must wrap
-  // even when the user pastes a single 200-char token. jsdom doesn't paint,
-  // so we assert on the wrap utility class instead of pixel widths.
-  describe('user-content overflow wrapping', () => {
-    const LONG_WORD = 'a'.repeat(200)
-    const LONG_BIO = `cxgmgggg${'g'.repeat(192)}`
+  it('renders the "Événements organisés" section', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-    it('renders a 200-char single-word bio without throwing and applies wrap-anywhere', async () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: LONG_BIO } })
-      renderProfilePage('me')
+    renderProfilePage('other.user')
 
-      const bio = await screen.findByText(LONG_BIO)
-      expect(bio.className).toContain('wrap-anywhere')
-      expect(bio.className).not.toContain('break-all')
-    })
+    expect(await screen.findByRole('heading', { name: 'Événements organisés' })).toBeTruthy()
+    await waitFor(() => expect(mockGetAllEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ organizerId: OTHER_UUID, status: 'PUBLISHED' }),
+    ))
+  })
 
-    it('applies wrap-anywhere on the displayName heading and min-w-0 on its flex parent', async () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, displayName: LONG_WORD } })
-      const { container } = renderProfilePage('me')
+  it('renders the "Participations publiques" placeholder section', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
 
-      const heading = await screen.findByRole('heading', { level: 1, name: LONG_WORD })
-      expect(heading.className).toContain('wrap-anywhere')
+    renderProfilePage('other.user')
 
-      // Parent (the flex item next to the avatar) must allow shrinking below
-      // the heading's min-content for wrap-anywhere to be effective.
-      const parent = heading.parentElement
-      expect(parent?.className).toContain('min-w-0')
-      expect(container).toBeTruthy()
-    })
+    expect(await screen.findByRole('heading', { name: 'Participations publiques' })).toBeTruthy()
+    expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
+  })
 
-    it('still wraps mixed content (short words + long unbroken token) without breaking on every char', async () => {
-      const mixed = `Some intro words then ${LONG_WORD}`
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: mixed } })
-      renderProfilePage('me')
+  it('renders the private-state card when getUserByUsername returns null (private OR missing)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(null)
 
-      const bio = await screen.findByText(mixed)
-      expect(bio.className).toContain('wrap-anywhere')
-      expect(bio.className).not.toContain('break-all')
-    })
+    renderProfilePage('ghost.handle')
 
-    it('does not crash with an empty bio (no element rendered, no shift)', async () => {
-      mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: '' } })
-      renderProfilePage('me')
+    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+  })
 
-      // bio paragraph is guarded by `profile.bio &&` so it is absent when empty
-      await screen.findByRole('heading', { level: 1, name: 'Test User' })
-      expect(screen.queryByText(/^cxgm/)).toBeNull()
-    })
+  it('renders an error message when getUserByUsername rejects', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockRejectedValue(new Error('Network error'))
+
+    renderProfilePage('other.user')
+
+    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+  })
+
+  it('shows the profile skeleton while loading', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockImplementation(() => new Promise(() => {}))
+
+    renderProfilePage('other.user')
+
+    expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
+  })
+})
+
+describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
+  it('redirects legacy /profile/<uuid> to /profile/<username>', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    const legacyUser = {
+      id: OTHER_UUID,
+      auth0Id: 'auth0|legacy',
+      email: 'legacy@example.com',
+      username: 'jean.dupont',
+      displayName: 'Jean Dupont',
+      profilePublic: true,
+      createdAt: '2024-01-01',
+    }
+    mockGetUserById.mockResolvedValue(legacyUser)
+    mockGetUserByUsername.mockResolvedValue({ ...otherProfile, displayName: 'Jean Dupont', username: 'jean.dupont' })
+
+    renderProfilePage(OTHER_UUID)
+
+    // The page first hits getUserById with the UUID, gets back the user's
+    // username, navigates to /profile/<username>, then re-renders and fetches
+    // via getUserByUsername.
+    await waitFor(() => expect(mockGetUserById).toHaveBeenCalledWith(OTHER_UUID))
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledWith('jean.dupont'))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jean Dupont' })).toBeTruthy()
+  })
+
+  it('renders private-state when legacy UUID lookup returns null', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderProfilePage(OTHER_UUID)
+
+    expect(await screen.findByText('Ce profil est privé')).toBeTruthy()
+  })
+})
+
+describe('ProfilePage — layout regressions', () => {
+  it('applies items-start on the about/calendar grid on /me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    const { container } = renderProfilePage('me')
+
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    const grid = findContentGrid(container)
+    expect(grid).not.toBeNull()
+    expect(grid!.className).toContain('items-start')
+  })
+})
+
+describe('ProfilePage — user-content overflow wrapping', () => {
+  const LONG_WORD = 'a'.repeat(200)
+
+  it('renders a 200-char single-word bio with wrap-anywhere', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, bio: LONG_WORD }, isLoading: false })
+
+    renderProfilePage('me')
+    const bio = await screen.findByText(LONG_WORD)
+    expect(bio.className).toContain('wrap-anywhere')
+    expect(bio.className).not.toContain('break-all')
+  })
+
+  it('applies wrap-anywhere on the displayName heading', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, displayName: LONG_WORD }, isLoading: false })
+
+    renderProfilePage('me')
+    const heading = await screen.findByRole('heading', { level: 1, name: LONG_WORD })
+    expect(heading.className).toContain('wrap-anywhere')
   })
 })

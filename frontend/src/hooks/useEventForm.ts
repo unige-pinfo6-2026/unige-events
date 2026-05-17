@@ -7,15 +7,26 @@ import {
   EVENT_TAG_MAX_LENGTH,
   EVENT_TAGS_MAX_ITEMS,
   EVENT_WEBSITE_URL_MAX_LENGTH,
+  RECURRENCE_MAX_OCCURRENCES,
   type CreateEventRequest,
   type Event,
   type EventCategory,
   type EventStatus,
+  type RecurrenceFrequency,
+  type RecurrenceRequest,
   type UpdateEventRequest,
 } from '@/types/event'
 import type { Faculty } from '@/types/faculty'
 import { toLocalDateTimeInputValue } from '@/utils/dateTime'
 import { useImageCropFlow } from '@/hooks/useImageCropFlow'
+
+export interface RecurrenceFormValues {
+  enabled: boolean
+  frequency: RecurrenceFrequency
+  endMode: 'date' | 'count'
+  endDate: string
+  maxOccurrences: string
+}
 
 export interface EventFormValues {
   title: string
@@ -32,6 +43,7 @@ export interface EventFormValues {
   contactEmail: string
   registrationDeadline: string
   tags: string[]
+  recurrence: RecurrenceFormValues
 }
 
 export interface EventFormErrors {
@@ -47,6 +59,7 @@ export interface EventFormErrors {
   contactEmail?: string
   registrationDeadline?: string
   tags?: string
+  recurrence?: string
 }
 
 interface UseEventFormOptions {
@@ -96,6 +109,14 @@ interface ValidationErrorDetail {
   message: string
 }
 
+const DEFAULT_RECURRENCE: RecurrenceFormValues = {
+  enabled: false,
+  frequency: 'WEEKLY',
+  endMode: 'date',
+  endDate: '',
+  maxOccurrences: '',
+}
+
 const DEFAULT_VALUES: EventFormValues = {
   title: '',
   description: '',
@@ -111,6 +132,7 @@ const DEFAULT_VALUES: EventFormValues = {
   contactEmail: '',
   registrationDeadline: '',
   tags: [],
+  recurrence: { ...DEFAULT_RECURRENCE },
 }
 
 const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
@@ -125,6 +147,7 @@ const VALIDATABLE_FIELDS = new Set<keyof EventFormErrors>([
   'contactEmail',
   'registrationDeadline',
   'tags',
+  'recurrence',
 ])
 
 const FIELD_LABELS: Record<string, string> = {
@@ -166,9 +189,12 @@ function applyAllDayBounds(dateTime: string, allDay: boolean, bound: 'start' | '
 
 function toFormValues(event?: Event | null): EventFormValues {
   if (!event) {
-    return { ...DEFAULT_VALUES }
+    return { ...DEFAULT_VALUES, recurrence: { ...DEFAULT_RECURRENCE } }
   }
 
+  // Note: recurrence is intentionally left at defaults — the section is only
+  // exposed in mode === 'create' (cf. Décision E), so edit-mode hydration
+  // never needs to surface the parent's recurrence rule.
   return {
     title: event.title,
     description: event.description ?? '',
@@ -184,6 +210,7 @@ function toFormValues(event?: Event | null): EventFormValues {
     contactEmail: event.contactEmail ?? '',
     registrationDeadline: event.registrationDeadline ? toLocalDateTimeInputValue(event.registrationDeadline) : '',
     tags: event.tags ?? [],
+    recurrence: { ...DEFAULT_RECURRENCE },
   }
 }
 
@@ -200,8 +227,19 @@ function toTemplateValues(event: Event): EventFormValues {
     websiteUrl: event.websiteUrl ?? '',
     contactEmail: event.contactEmail ?? '',
     tags: event.tags ?? [],
+    recurrence: { ...DEFAULT_RECURRENCE },
     // startDate, endDate, registrationDeadline intentionally left empty
   }
+}
+
+// Re-merge the nested recurrence object so a payload persisted before SCRUM-151
+// (or one whose recurrence sub-object is partial) still ends up with every
+// required field. Without this, a top-level spread would let `undefined` sub-keys
+// crash the controlled inputs in EventForm.
+function normalizeRecurrence(value: unknown): RecurrenceFormValues {
+  if (!isObject(value)) return { ...DEFAULT_RECURRENCE }
+  const partial = value as Partial<RecurrenceFormValues>
+  return { ...DEFAULT_RECURRENCE, ...partial }
 }
 
 function isValidHttpUrl(value: string): boolean {
@@ -248,7 +286,8 @@ function readPersistedForm(key: string): EventFormValues | null {
     if (!raw) return null
     const parsed: unknown = JSON.parse(raw)
     if (!isObject(parsed)) return null
-    return { ...DEFAULT_VALUES, ...(parsed as Partial<EventFormValues>) }
+    const merged = { ...DEFAULT_VALUES, ...(parsed as Partial<EventFormValues>) }
+    return { ...merged, recurrence: normalizeRecurrence((parsed as Record<string, unknown>).recurrence) }
   } catch (err) {
     console.warn('[useEventForm] failed to restore persisted form', err)
     try { sessionStorage.removeItem(key) } catch { /* ignore */ }
@@ -608,6 +647,42 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
       nextErrors.tags = `Chaque mot-clé doit faire au plus ${EVENT_TAG_MAX_LENGTH} caractères.`
     }
 
+    // SCRUM-151 — Recurrence rules mirror the backend (Décision C). Only enforced
+    // in create mode: the section is hidden in edit mode (Décision E), so edit-mode
+    // submits never carry a recurrence block.
+    if (mode === 'create' && values.recurrence.enabled) {
+      const { endMode, endDate: recEndDate, maxOccurrences: recMaxOcc } = values.recurrence
+
+      if (endMode === 'date') {
+        const trimmed = recEndDate.trim()
+        if (!trimmed) {
+          nextErrors.recurrence = "Définissez une date de fin OU un nombre d'occurrences."
+        } else {
+          const parsedEnd = new Date(trimmed + 'T23:59:59')
+          if (Number.isNaN(parsedEnd.getTime())) {
+            nextErrors.recurrence = 'La date de fin de récurrence est invalide.'
+          } else if (values.startDate && !nextErrors.startDate) {
+            // Compare on LocalDate (YYYY-MM-DD) so we match the backend's RFC 5545 UNTIL
+            // semantics without sliding the comparison across a timezone boundary.
+            const startLocalDate = values.startDate.split('T')[0]
+            if (startLocalDate && trimmed < startLocalDate) {
+              nextErrors.recurrence = 'La date de fin de récurrence doit être postérieure à la date de début.'
+            }
+          }
+        }
+      } else {
+        const trimmedCount = recMaxOcc.trim()
+        if (!trimmedCount) {
+          nextErrors.recurrence = "Définissez une date de fin OU un nombre d'occurrences."
+        } else {
+          const count = Number(trimmedCount)
+          if (!Number.isInteger(count) || count < 1 || count > RECURRENCE_MAX_OCCURRENCES) {
+            nextErrors.recurrence = `Le nombre d'occurrences doit être un entier entre 1 et ${RECURRENCE_MAX_OCCURRENCES}.`
+          }
+        }
+      }
+    }
+
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -649,6 +724,16 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
         contactEmail: trimmedContactEmail || null,
         registrationDeadline: values.registrationDeadline ? toApiDateTime(values.registrationDeadline) : null,
         tags: values.tags.length > 0 ? values.tags : null,
+      }
+
+      if (mode === 'create' && values.recurrence.enabled) {
+        const recurrence: RecurrenceRequest = { frequency: values.recurrence.frequency }
+        if (values.recurrence.endMode === 'date') {
+          recurrence.endDate = values.recurrence.endDate
+        } else {
+          recurrence.maxOccurrences = Number(values.recurrence.maxOccurrences)
+        }
+        payload.recurrence = recurrence
       }
 
       if (mode === 'create') {
@@ -720,7 +805,7 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
     cancelPersist()
     const key = currentPersistKey()
     if (key) clearPersistedForm(key)
-    setValues({ ...DEFAULT_VALUES })
+    setValues({ ...DEFAULT_VALUES, recurrence: { ...DEFAULT_RECURRENCE } })
     setErrors({})
   }
 
