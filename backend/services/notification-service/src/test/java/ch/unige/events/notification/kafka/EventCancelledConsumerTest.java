@@ -1,150 +1,117 @@
 package ch.unige.events.notification.kafka;
 
+import ch.unige.events.notification.entity.Notification;
 import ch.unige.events.notification.entity.NotificationType;
-import ch.unige.events.notification.service.NotificationService;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.test.InjectMock;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure Mockito unit tests for the EventCancelledConsumer — exercise the
- * branching logic (event-fetch failure, empty attendee list, creator skip,
- * delivery type filter) without needing Docker or a Kafka in-memory
- * connector.
+ * @QuarkusTest so quarkus-jacoco instruments the consumer bytecode for
+ * Sonar coverage (standalone JUnit tests on @ApplicationScoped beans are
+ * not counted by the Quarkus-only jacoco agent).
  */
+@QuarkusTest
 class EventCancelledConsumerTest {
 
-    private NotificationService notificationService;
-    private EventServiceClient eventClient;
-    private EngagementServiceClient engagementClient;
-    private EventCancelledConsumer consumer;
+    @Inject EventCancelledConsumer consumer;
+    @InjectMock @RestClient EventServiceClient eventClient;
+    @InjectMock @RestClient EngagementServiceClient engagementClient;
+
+    private static final long EVENT_ID = 42L;
 
     @BeforeEach
-    void setUp() {
-        notificationService = mock(NotificationService.class);
-        eventClient = mock(EventServiceClient.class);
-        engagementClient = mock(EngagementServiceClient.class);
-        consumer = new EventCancelledConsumer(notificationService, eventClient, engagementClient);
+    void truncate() {
+        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
     }
 
-    private static EventDTO eventOf(long id, String title, UUID creatorId) {
-        return new EventDTO(
-                /* id */ id,
-                /* title */ title,
-                /* description */ "desc",
-                /* location */ "loc",
-                /* startDate */ java.time.LocalDateTime.now(),
-                /* endDate */ java.time.LocalDateTime.now().plusHours(2),
-                /* category */ null,
-                /* faculty */ null,
-                /* bannerUrl */ null,
-                /* creatorId */ creatorId,
-                /* status */ EventStatus.PUBLISHED,
-                /* capacity */ null,
-                /* allDay */ false,
-                /* featured */ false,
-                /* featuredAt */ null,
-                /* attendingCount */ 0L,
-                /* availableSpots */ null,
-                /* waitlistedCount */ 0L,
-                /* viewCount */ 0L,
-                /* interestedCount */ 0L,
-                /* websiteUrl */ null,
-                /* contactEmail */ null,
-                /* registrationDeadline */ null,
-                /* tags */ List.of(),
-                /* createdAt */ null,
-                /* updatedAt */ null,
-                /* parentEventId */ null,
-                /* recurrenceRule */ null,
-                /* coOrganizerOf */ null);
+    @AfterEach
+    void cleanup() {
+        QuarkusTransaction.requiringNew().run(Notification::deleteAll);
+    }
+
+    private static EventDTO eventOf(String title, UUID creatorId) {
+        return new EventDTO(EVENT_ID, title, "desc", "loc",
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now().plusHours(2),
+                null, null, null, creatorId, EventStatus.PUBLISHED, null, false, false, null,
+                0L, null, 0L, 0L, 0L,
+                null, null, null, List.of(), null, null, null, null, null);
     }
 
     @Test
-    void onCancelled_skipsNonCancelledType() {
-        EventLifecycleEvent ev = EventLifecycleEvent.published(1L, UUID.randomUUID());
-        consumer.onCancelled(ev);
-
-        verify(eventClient, never()).getById(anyLong());
-        verify(notificationService, never()).create(any(), any(), any(), any(), anyString());
+    void onCancelled_skipsNonCancelledType_persistsNothing() {
+        consumer.onCancelled(EventLifecycleEvent.published(EVENT_ID, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
     }
 
     @Test
-    void onCancelled_eventResolveFails_skips() {
-        when(eventClient.getById(42L)).thenReturn(null);
-        consumer.onCancelled(EventLifecycleEvent.cancelled(42L, UUID.randomUUID()));
-
-        verify(engagementClient, never()).getAttendeeIds(anyLong(), anyString());
-        verify(notificationService, never()).create(any(), any(), any(), any(), anyString());
+    void onCancelled_eventResolveFails_persistsNothing() {
+        when(eventClient.getById(EVENT_ID)).thenReturn(null);
+        consumer.onCancelled(EventLifecycleEvent.cancelled(EVENT_ID, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
     }
 
     @Test
-    void onCancelled_noAttendees_skips() {
-        when(eventClient.getById(42L)).thenReturn(eventOf(42L, "Concert", UUID.randomUUID()));
-        when(engagementClient.getAttendeeIds(42L, "ATTENDING")).thenReturn(List.of());
-
-        consumer.onCancelled(EventLifecycleEvent.cancelled(42L, UUID.randomUUID()));
-
-        verify(notificationService, never()).create(any(), any(), any(), any(), anyString());
+    void onCancelled_noAttendees_persistsNothing() {
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Concert", UUID.randomUUID()));
+        when(engagementClient.getAttendeeIds(EVENT_ID, "ATTENDING")).thenReturn(List.of());
+        consumer.onCancelled(EventLifecycleEvent.cancelled(EVENT_ID, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
     }
 
     @Test
-    void onCancelled_fanoutToEachAttendee() {
+    void onCancelled_nullAttendeeList_persistsNothing() {
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Concert", UUID.randomUUID()));
+        when(engagementClient.getAttendeeIds(anyLong(), anyString())).thenReturn(null);
+        consumer.onCancelled(EventLifecycleEvent.cancelled(EVENT_ID, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
+    }
+
+    @Test
+    void onCancelled_fanoutToEachAttendee_andSkipsCreatorAndNulls() {
         UUID creator = UUID.randomUUID();
         UUID a = UUID.randomUUID();
         UUID b = UUID.randomUUID();
-        when(eventClient.getById(42L)).thenReturn(eventOf(42L, "Concert", creator));
-        when(engagementClient.getAttendeeIds(42L, "ATTENDING")).thenReturn(List.of(a, b));
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Concert", creator));
+        when(engagementClient.getAttendeeIds(EVENT_ID, "ATTENDING"))
+                .thenReturn(java.util.Arrays.asList(a, creator, null, b));
 
-        consumer.onCancelled(EventLifecycleEvent.cancelled(42L, creator));
+        consumer.onCancelled(EventLifecycleEvent.cancelled(EVENT_ID, creator));
 
-        ArgumentCaptor<UUID> userIdCaptor = ArgumentCaptor.forClass(UUID.class);
-        ArgumentCaptor<String> msgCaptor = ArgumentCaptor.forClass(String.class);
-        verify(notificationService, org.mockito.Mockito.times(2)).create(
-                userIdCaptor.capture(),
-                eq(NotificationType.EVENT_CANCELLED),
-                eq(42L),
-                eq(null),
-                msgCaptor.capture());
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(a, b), userIdCaptor.getAllValues());
-        org.junit.jupiter.api.Assertions.assertTrue(
-                msgCaptor.getValue().contains("Concert"),
-                "message must embed the event title");
-    }
-
-    @Test
-    void onCancelled_skipsCreator_ifInAttendees() {
-        UUID creator = UUID.randomUUID();
-        UUID other = UUID.randomUUID();
-        when(eventClient.getById(42L)).thenReturn(eventOf(42L, "Concert", creator));
-        when(engagementClient.getAttendeeIds(42L, "ATTENDING")).thenReturn(List.of(creator, other));
-
-        consumer.onCancelled(EventLifecycleEvent.cancelled(42L, creator));
-
-        // Only `other` receives a notification — creator is skipped.
-        verify(notificationService, org.mockito.Mockito.times(1)).create(
-                eq(other),
-                eq(NotificationType.EVENT_CANCELLED),
-                eq(42L),
-                eq(null),
-                anyString());
+        // Only `a` and `b` get a notif — creator skipped (self), null skipped.
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(2, rows.size());
+        for (Notification n : rows) {
+            assertEquals(NotificationType.EVENT_CANCELLED, n.type);
+            assertEquals(EVENT_ID, n.eventId);
+            assertNull(n.relatedUserId);
+            assertNotNull(n.message);
+            assertTrue(n.message.contains("Concert"), "message embeds the event title");
+        }
+        assertEquals(1L, Notification.count("userId = ?1 and eventId = ?2", a, EVENT_ID));
+        assertEquals(1L, Notification.count("userId = ?1 and eventId = ?2", b, EVENT_ID));
+        assertEquals(0L, Notification.count("userId = ?1 and eventId = ?2", creator, EVENT_ID));
     }
 }

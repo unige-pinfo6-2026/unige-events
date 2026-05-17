@@ -229,4 +229,101 @@ class EventResourceDuplicateTest {
                 expected.toString(), responseStart,
                 "startDate should be shifted exactly +7 days");
     }
+
+    /** Persist a row with optional dates/tags set to null (bypasses persistEvent helper). */
+    private Long persistEventWithNulls(UUID creatorId, String title, EventStatus status,
+                                       boolean nullDates, boolean nullTags) {
+        Event e = new Event();
+        e.title = title;
+        e.description = "desc";
+        e.location = "loc";
+        if (!nullDates) {
+            e.startDate = LocalDateTime.now().plusDays(2).withNano(0);
+            e.endDate = LocalDateTime.now().plusDays(2).plusHours(2).withNano(0);
+        }
+        e.category = ch.unige.events.shared.domain.enums.EventCategory.ACADEMIC;
+        e.creatorId = creatorId;
+        e.status = status;
+        e.allDay = false;
+        e.featured = false;
+        e.tags = nullTags ? null : new java.util.ArrayList<>(List.of("a"));
+        QuarkusTransaction.requiringNew().run(e::persist);
+        return e.id;
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|erd-null-dates")
+    void duplicate_sourceWithNullDates_clonePreservesNullDates() {
+        UUID caller = stageFreshUser();
+        Long sourceId = persistEventWithNulls(caller, "NoDates", EventStatus.DRAFT,
+                /* nullDates */ true, /* nullTags */ false);
+
+        given()
+            .contentType("application/json")
+            .when().post("/events/" + sourceId + "/duplicate")
+            .then()
+            .statusCode(201)
+            .body("startDate", equalTo(null))
+            .body("endDate", equalTo(null));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|erd-null-tags")
+    void duplicate_sourceWithNullTags_cloneGetsEmptyTags() {
+        UUID caller = stageFreshUser();
+        Long sourceId = persistEventWithNulls(caller, "NoTags", EventStatus.PUBLISHED,
+                /* nullDates */ false, /* nullTags */ true);
+
+        given()
+            .contentType("application/json")
+            .when().post("/events/" + sourceId + "/duplicate")
+            .then()
+            .statusCode(201)
+            .body("tags", equalTo(List.of()));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|erd-long-title")
+    void duplicate_sourceWithLongTitle_truncatesBeforeAppendingSuffixCap() {
+        UUID caller = stageFreshUser();
+        // 120-char title (the @Size max). "Copie de " + 120 chars = 129 → truncated to 114.
+        String longTitle = "T".repeat(120);
+        Long sourceId = persistEvent(caller, longTitle, EventStatus.PUBLISHED);
+
+        given()
+            .contentType("application/json")
+            .when().post("/events/" + sourceId + "/duplicate")
+            .then()
+            .statusCode(201)
+            // Title length must remain ≤ 120 chars (validation limit).
+            .body("title.length()", org.hamcrest.Matchers.lessThanOrEqualTo(120));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|erd-coorganizer")
+    void duplicate_coOrganizerAccepted_canDuplicate() {
+        // The owner creates the event; the co-organizer (the caller) accepts
+        // the invitation and then duplicates. Exercises the
+        // isCreatorOrAcceptedCoOrganizer branch of the authorization check.
+        UUID owner = UUID.randomUUID();
+        UUID coOrg = stageFreshUser();
+        Long sourceId = persistEvent(owner, "Shared event", EventStatus.PUBLISHED);
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            ch.unige.events.event.coorganizer.entity.EventCoOrganizer eco =
+                    new ch.unige.events.event.coorganizer.entity.EventCoOrganizer();
+            eco.eventId = sourceId;
+            eco.userId = coOrg;
+            eco.status = ch.unige.events.shared.domain.enums.CoOrganizerStatus.ACCEPTED;
+            eco.persist();
+        });
+
+        given()
+            .contentType("application/json")
+            .when().post("/events/" + sourceId + "/duplicate")
+            .then()
+            .statusCode(201)
+            // Décision N: caller (the co-organizer) becomes the new creator.
+            .body("creatorId", equalTo(coOrg.toString()));
+    }
 }

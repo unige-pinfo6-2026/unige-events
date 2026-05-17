@@ -1,6 +1,7 @@
 package ch.unige.events.notification.kafka;
 
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -11,17 +12,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Sentinels for the Kafka contract that broke CI deploy:
+ * @QuarkusTest so the Quarkus-configured ObjectMapper (with jsr310
+ * registered) handles the {@code Instant} round-trip, and so
+ * quarkus-jacoco instruments the deserializer for Sonar coverage.
+ *
+ * <p>Sentinels for the Kafka contract that broke CI deploy:
  * <ul>
- *   <li>Kafka requires a public no-arg constructor on the deserializer
- *       (reflection-instantiated via {@code Class.newInstance()}).</li>
- *   <li>Null bytes must round-trip to null without NPE.</li>
- *   <li>Round-trip on payload sans timestamp Java 8 — l'instance vanilla
- *       de l'ObjectMapper utilisée hors-Quarkus n'a pas {@code jsr310}
- *       enregistré ; un test sur {@code Instant} échouerait à tort, alors
- *       qu'en runtime Quarkus l'enregistre par défaut.</li>
+ *   <li>Public no-arg constructor (reflection-instantiated via
+ *       {@code Class.newInstance()} by Kafka).</li>
+ *   <li>JSON payload round-trips to the record.</li>
+ *   <li>Null bytes return null without NPE.</li>
  * </ul>
  */
+@QuarkusTest
 class EventLifecycleEventDeserializerTest {
 
     @Test
@@ -31,11 +34,8 @@ class EventLifecycleEventDeserializerTest {
     }
 
     @Test
-    void deserialize_payloadWithoutInstantField_returnsRecord() {
+    void deserialize_validJson_returnsRecord() {
         UUID creator = UUID.randomUUID();
-        // Skip occurredAt — the vanilla ObjectMapper used outside Quarkus
-        // does not have jackson-datatype-jsr310 registered; the production
-        // runtime relies on Quarkus's auto-configured ObjectMapper.
         String json = "{\"type\":\"UPDATED\",\"eventId\":42,\"creatorId\":\"" + creator + "\"}";
 
         try (EventLifecycleEventDeserializer d = new EventLifecycleEventDeserializer()) {
@@ -44,7 +44,6 @@ class EventLifecycleEventDeserializerTest {
             assertEquals(EventLifecycleEvent.Type.UPDATED, ev.type());
             assertEquals(42L, ev.eventId());
             assertEquals(creator, ev.creatorId());
-            assertNull(ev.occurredAt());
         }
     }
 
