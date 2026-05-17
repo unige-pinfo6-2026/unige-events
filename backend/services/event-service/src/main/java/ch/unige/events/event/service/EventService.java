@@ -415,6 +415,10 @@ public class EventService {
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);
         long att = s != null ? s.attending() : 0L;
         long wait = s != null ? s.waitlisted() : 0L;
+        // SCRUM-99: CDI fire — bridge observer publishes events.updated to
+        // Kafka AFTER_SUCCESS. Consumed by notification-service to fan out
+        // EVENT_UPDATED notifications to attendees.
+        lifecycleEvent.fire(EventLifecycleEvent.updated(event.id, event.creatorId));
         return EventDTO.from(event, att, EventCapacity.computeAvailableSpots(event.capacity, att), wait, null, null);
     }
 

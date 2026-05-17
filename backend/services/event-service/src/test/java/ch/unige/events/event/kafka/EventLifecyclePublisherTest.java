@@ -23,12 +23,14 @@ class EventLifecyclePublisherTest {
     private final Emitter<EventLifecycleEvent> cancelledEmitter = mock(Emitter.class);
     @SuppressWarnings("unchecked")
     private final Emitter<EventLifecycleEvent> expiredEmitter = mock(Emitter.class);
+    @SuppressWarnings("unchecked")
+    private final Emitter<EventLifecycleEvent> updatedEmitter = mock(Emitter.class);
 
     private EventLifecyclePublisher publisher;
 
     @BeforeEach
     void setUp() {
-        publisher = new EventLifecyclePublisher(publishedEmitter, cancelledEmitter, expiredEmitter);
+        publisher = new EventLifecyclePublisher(publishedEmitter, cancelledEmitter, expiredEmitter, updatedEmitter);
     }
 
     @Test
@@ -93,5 +95,21 @@ class EventLifecyclePublisherTest {
         ArgumentCaptor<EventLifecycleEvent> captor = ArgumentCaptor.forClass(EventLifecycleEvent.class);
         verify(publishedEmitter).send(captor.capture());
         assertEquals(null, captor.getValue().creatorId());
+    }
+
+    @Test
+    void updated_routesToUpdatedEmitter() {
+        UUID creator = UUID.randomUUID();
+        publisher.updated(123L, creator);
+
+        ArgumentCaptor<EventLifecycleEvent> captor = ArgumentCaptor.forClass(EventLifecycleEvent.class);
+        verify(updatedEmitter).send(captor.capture());
+        assertEquals(EventLifecycleEvent.Type.UPDATED, captor.getValue().type());
+        assertEquals(123L, captor.getValue().eventId());
+        assertEquals(creator, captor.getValue().creatorId());
+
+        verify(publishedEmitter, never()).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
+        verify(cancelledEmitter, never()).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
+        verify(expiredEmitter, never()).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
     }
 }
