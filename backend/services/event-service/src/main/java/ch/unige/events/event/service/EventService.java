@@ -735,7 +735,15 @@ public class EventService {
                 && event.creatorId.equals(callerUuid);
     }
 
-    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
+    /**
+     * Returns {@code true} when the caller is either the event creator or an
+     * ACCEPTED co-organizer (cascade pattern SCRUM-136). Public so adjacent
+     * services in the same module can enforce the cascade without
+     * re-implementing the rule — currently consumed by
+     * {@code event/attachment/service/EventAttachmentService} (SCRUM-148,
+     * Décision V). Null-safe on both arguments.
+     */
+    public boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
         if (event == null || callerUuid == null) {
             return false;
         }
