@@ -104,6 +104,11 @@ data:
               - ~/api/events/(?:\d+)/publish$
             strip_path: false
             preserve_host: true
+          - name: events-duplicate
+            paths:
+              - ~/api/events/(?:\d+)/duplicate$
+            strip_path: false
+            preserve_host: true
           - name: events-image
             paths:
               - ~/api/events/(?:\d+)/image$
@@ -269,6 +274,27 @@ data:
           - name: comment-direct
             paths:
               - ~/api/comments/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+      - name: notification-service
+        url: http://notification-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: notifications-read-all
+            paths:
+              - ~/api/users/me/notifications/read-all$
+            strip_path: false
+            preserve_host: true
+          - name: notification-mark-read
+            paths:
+              - ~/api/users/me/notifications/(?:\d+)/read$
+            strip_path: false
+            preserve_host: true
+          - name: user-notifications
+            paths:
+              - ~/api/users/me/notifications/?$
             strip_path: false
             preserve_host: true
     plugins:
