@@ -8,7 +8,7 @@
 > | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `follows` |
 > | `engagement-service` | `postgres-engagement:5432` / DB `unige_events_engagement` | `attendances`, `comments` |
 > | `moderation-service` | `postgres-moderation:5432` / DB `unige_events_moderation` | `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
-> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notification` | (aucune table métier active — provisionné par parité topologique) |
+> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notifications` | `notifications` (SCRUM-99 — entité in-app + 3 Kafka consumers) |
 >
 > Les migrations Flyway sont **redistribuées par service propriétaire** sous `backend/services/<svc>-service/src/main/resources/db/migration/V*.sql`. La numérotation V est **locale** à chaque service (deux services peuvent avoir une `V1__...sql` chacun). Plus jamais de migration cross-service.
 
@@ -539,6 +539,85 @@ chaque commentaire de la page (cf. décision 27, évite le N+1).
 - `POST /comments/{id}/report` (et l'extension `Report.commentId`) sont également SCRUM-144 — hors scope ici.
 - Notifications (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) sont SCRUM-145 (S7+),
   dépendantes de l'infra `Notification` SCRUM-99.
+
+---
+
+### Notification
+
+Owned by **notification-service** (SCRUM-99 — service activé depuis placeholder en
+phase 1). Table : `notifications`.
+
+Table : `notifications` (créée par la migration `V1__create_notifications.sql` en
+SCRUM-99). Aucune FK cross-DB (`postgres-notification` ne voit pas
+`postgres-user.users` ni `postgres-event.events`) — la cohérence UUID est garantie
+au niveau applicatif (Décision F).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity`, sequence `notifications_seq` |
+| `userId` | `userId` | `UUID` | `user_id` | not null — destinataire (sans FK cross-DB) |
+| `type` | `type` | `NotificationType` | `type` | `@Enumerated(STRING)`, not null, `length=32`, CHECK constraint |
+| `eventId` | `eventId` | `Long` | `event_id` | nullable — event lié quand applicable (`EVENT_*` et `NEW_ATTENDEE`) |
+| `relatedUserId` | `relatedUserId` | `UUID` | `related_user_id` | nullable — acteur secondaire (phase 1 : attendee pour `NEW_ATTENDEE` ; phase 2 : follower pour `NEW_FOLLOWER`/`FOLLOW_REQUEST`/`FOLLOW_ACCEPTED`, mentionner pour `COMMENT_MENTION`) |
+| `message` | `message` | `String` | `message` | not null, `@Column(columnDefinition="TEXT")` — message pré-composé par le consumer Kafka |
+| `read` | `read` | `boolean` | `read` | not null, default `false` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | not null, `updatable=false`, initialisé par `@PrePersist` |
+| `readAt` | `readAt` | `LocalDateTime` | `read_at` | nullable, posé à `now()` lors de `markRead` (immutable une fois posé — idempotence) |
+
+CHECK constraints :
+- `notifications_type_check` (V1) : `type IN ('EVENT_UPDATED', 'EVENT_CANCELLED',
+  'EVENT_REMINDER', 'NEW_ATTENDEE')` en phase 1. **Phase 2** : drop+recreate via
+  `V2__widen_notification_type_check.sql` pour ajouter `NEW_FOLLOWER`,
+  `FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`, `COMMENT_MENTION`, `NEW_COMMENT`.
+
+Index DB :
+- `idx_notification_user_read_created` sur `(user_id, read, created_at DESC)` —
+  sert le tri unread-first du listing sans table scan.
+- `idx_notification_user_created` sur `(user_id, created_at DESC)` — listing
+  tout-statut + cleanup futur.
+
+Pas d'UK métier en phase 1 (cf. Décision D — at-least-once Kafka accepté ; deux
+livraisons identiques produisent deux rows, c'est la sémantique voulue pour
+`EVENT_UPDATED` notamment).
+
+#### Helpers statiques
+
+- `Notification.findByUser(UUID userId, int page, int size)` — paginé avec tri
+  `read ASC NULLS FIRST, createdAt DESC, id DESC` (unread first).
+- `Notification.findByIdAndUser(Long id, UUID userId): Optional<Notification>` —
+  anti-oracle 404 (Optional vide quand la row appartient à un autre user OU
+  n'existe pas).
+- `Notification.countUnreadByUser(UUID userId): long` — populé dans le header
+  `X-Unread-Count` sur le GET listing.
+- `Notification.markAllReadByUser(UUID userId): int` — bulk update via
+  `update("read = true, readAt = ?1 where userId = ?2 and read = false", ...)`
+  retournant le nombre de rows affectées (input de `ReadAllResponse.updated`).
+
+#### Sémantique anti-oracle
+
+`NotificationService.markRead(auth0Id, id)` jette `NotFoundException` quand la
+row n'existe pas OU appartient à un autre user — le frontend reçoit un 404
+indistinguable d'un id inexistant, jamais un 403 qui leakerait l'existence
+de la notif.
+
+#### Pipeline Kafka
+
+Les rows `notifications` sont créées exclusivement par les 3 consumers Kafka
+de notification-service (phase 1, SCRUM-99) :
+- `EventCancelledConsumer` ← topic `events.cancelled` → un row `EVENT_CANCELLED`
+  par attendee `ATTENDING` (créateur skippé s'il est dans la liste).
+- `EventUpdatedConsumer` ← topic `events.updated` → idem mais `EVENT_UPDATED`.
+- `AttendanceCreatedConsumer` ← topic `attendances.created` → un row `NEW_ATTENDEE`
+  vers le créateur (skippé si auto-inscription).
+
+#### Anticipation phase 2
+
+L'enum `NotificationType` et la CHECK contrainte resteront à 4 valeurs jusqu'à
+la livraison conjointe de SCRUM-140 (notifications de suivi) + SCRUM-145
+(notifications de mentions / commentaires) qui ajouteront `NEW_FOLLOWER`,
+`FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`, `COMMENT_MENTION`, `NEW_COMMENT`
+**simultanément** avec leurs consumers Kafka respectifs et la migration
+`V2__widen_notification_type_check.sql`.
 
 ---
 
