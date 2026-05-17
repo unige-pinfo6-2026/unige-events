@@ -471,12 +471,22 @@ public class EventService {
                         "DELETE FROM EventAttachment a WHERE a.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         event.delete();
-        // Best-effort S3 cleanup — FileStorageService.deleteObject swallows
-        // failures with a WARN log so the DB delete (already committed in
-        // this tx) is not rolled back by an S3 transient. Orphan objects
-        // accepted (DevOps lifecycle policy is the safety net).
+        // Best-effort S3 cleanup — defense-in-depth try/catch around the
+        // storage call. FileStorageService.deleteObject already swallows
+        // S3 transients with a WARN log, but mocking it (e.g. in
+        // EventServiceDeleteCascadeAttachmentsTest) would bypass that guard
+        // and let an exception roll back the surrounding tx. Catching here
+        // pins the best-effort contract at the call site regardless of the
+        // downstream implementation. Orphan objects accepted (DevOps
+        // lifecycle policy is the safety net).
         for (String url : attachmentUrls) {
-            fileStorageService.deleteObject(url);
+            try {
+                fileStorageService.deleteObject(url);
+            } catch (Exception e) {
+                Log.warnf(e,
+                        "[S3_CLEANUP_FAIL_event_attachment] event=%d url=%s — orphan object will remain",
+                        id, url);
+            }
         }
         Log.infof(
             "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d attachments=%d",

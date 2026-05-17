@@ -160,7 +160,7 @@ public interface EngagementServiceClient {
     @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
     @Timeout(value = 2, unit = ChronoUnit.SECONDS)
     @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
-    @Fallback(fallbackMethod = "getCommentVisibilityFallback")
+    @Fallback(fallbackMethod = "getCommentVisibilityFallback", skipOn = NotFoundException.class)
     CommentVisibilityProjection getCommentVisibility(@PathParam("commentId") Long commentId,
                                                      @QueryParam("callerId") UUID callerId);
 

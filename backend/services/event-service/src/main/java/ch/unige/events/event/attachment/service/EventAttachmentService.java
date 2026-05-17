@@ -9,6 +9,7 @@ import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.shared.storage.DocumentFormat;
 import ch.unige.events.shared.storage.FileStorageService;
 
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -158,12 +159,19 @@ public class EventAttachmentService {
         String fileUrl = attachment.fileUrl;
         attachment.delete();
 
-        // Best-effort cleanup. FileStorageService.deleteObject swallows
-        // S3 errors with a WARN log — we keep the call inside the @Transactional
-        // method because the cleanup is bounded and idempotent. Should it
-        // ever block, the DB commit is still safe : the deleteObject side
-        // does not run any DB queries.
-        fileStorageService.deleteObject(fileUrl);
+        // Best-effort cleanup — defense-in-depth try/catch around the storage
+        // call. FileStorageService.deleteObject already swallows S3 transients
+        // with a WARN log, but mocking it in tests (or a future refactor that
+        // re-throws) would otherwise bubble an exception that rolls back the
+        // surrounding @Transactional. The DB row is already gone ; orphan
+        // objects are accepted (cf. devops-handoff S10+ lifecycle policy).
+        try {
+            fileStorageService.deleteObject(fileUrl);
+        } catch (Exception e) {
+            Log.warnf(e,
+                    "[S3_CLEANUP_FAIL_event_attachment] event=%d attachment=%d url=%s — orphan object will remain",
+                    eventId, attachmentId, fileUrl);
+        }
     }
 
     /**
