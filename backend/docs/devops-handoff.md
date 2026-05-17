@@ -108,6 +108,62 @@ Tous les autres seuils (Coverage on Overall Code ≥ 80 %, Maintainability A, Se
 
 Pattern de référence : [GitHub Actions container-cleanup](https://github.com/snok/container-retention-policy) ou équivalent.
 
+## 7bis. SCRUM-99 follow-ups DevOps
+
+Items DevOps additionnels nés de la livraison SCRUM-99 phase 1 (2026-05-17,
+notifications infra + duplicate). Tous **hors scope code** de la PR
+`feature/scrum-99-notifications-and-duplicate`.
+
+### 7bis.1 helm-smoke CI job
+
+**Décision V** de la spec : ajouter un step CI `helm template chart/`
+(avec `--set postgres.shared=true` puis `false`) qui valide que les
+templates Helm compilent avant de tenter un `helm upgrade` en preview-
+deploy. Coût trivial (~5 lignes), gain élevé (feedback loop avant
+deploy). **Non câblé** dans la PR phase 1 — le dev container ne dispose
+pas de la CLI helm, et le workflow CI existant n'était pas suffisamment
+isolé pour qu'un agent puisse y ajouter un job avec confiance. À câbler
+côté DevOps dans `.github/workflows/build.yml`.
+
+### 7bis.2 Rétention des notifications
+
+L'entité `Notification` (table `notifications` dans `postgres-notification`)
+n'a aucune politique de rétention en phase 1 — chaque notif persiste
+jusqu'à suppression manuelle (jamais déclenchée). Recommandation S10+ :
+job CRON quotidien purgeant les rows `read = true` antérieures à 90 jours.
+Volume estimé : pour ~500 events/an avec ~30 attendees moyens → ~15 000
+notifs/an ; sur 5 ans ≈ 75 000 rows. Pas urgent, pas critique, mais à
+acter avant la mise en production grand-publique.
+
+### 7bis.3 Partitioning de `notifications` si > 10M rows
+
+Si le projet venait à scale (e.g. utilisé par d'autres associations
+étudiantes au-delà de l'UNIGE), partitionner `notifications` par mois
+(`PARTITION BY RANGE (created_at)`) éviterait les seq scans coûteux sur
+les requêtes par `user_id`. Pré-requis : seuil ≥ 10M rows. **Non urgent
+S9**.
+
+### 7bis.4 Topics Kafka ajoutés (×2)
+
+Le job `kafka-topics-init` du chart Helm (`templates/kafka/topics-init.yaml`)
+provisionne maintenant 12 topics (10 historiques + `events.updated` +
+`attendances.created`). Idempotence garantie par `--if-not-exists`.
+Aucune action DevOps requise — le job re-tourne automatiquement sur
+chaque `helm upgrade` (hook `post-install,post-upgrade`).
+
+### 7bis.5 Kong routes ajoutées (×4)
+
+Routes ajoutées dans `templates/kong/configmap-routes.yaml` :
+- `event-service.events-duplicate` (`~/api/events/(?:\d+)/duplicate$`)
+- `notification-service.notifications-read-all`,
+  `notification-service.notification-mark-read`,
+  `notification-service.user-notifications` (3 routes — ordre
+  most-specific-first pour éviter le prefix shadowing).
+
+Aucune action DevOps requise au-delà du `helm upgrade` normal.
+
+---
+
 ## 7. Pact provider verification job harness
 
 **Statut backend** : ✅ 5 pacts JSON consumer-driven dans `contract-tests/target/pacts/` (engagement-event ×2, moderation-event ×1, user-event-bulk ×1, event-engagement-bulk ×1). Aucun job CI ne les vérifie côté provider aujourd'hui.

@@ -1,6 +1,162 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-14 (post-merge PR #158 + SCRUM-169 usernames)
+Dernière mise à jour : 2026-05-17 (SCRUM-99 phase 1 — notifications infra + duplicate endpoint)
+
+---
+
+## 2026-05-17 — SCRUM-99 livré (S9 phase 1, notifications infra + duplicate)
+
+Branche `feature/scrum-99-notifications-and-duplicate`, base `main`. Backend-only
+(seul `openapi/openapi.yaml` est touché côté contrat ; aucune modif
+`frontend/src/`). Branche **persistante** : la phase 2 (SCRUM-140 / SCRUM-144
+/ SCRUM-148) viendra stacked dessus.
+
+### Bloc A — Activation du notification-service
+- `pom.xml` enrichi (JPA Panache, Flyway, PostgreSQL JDBC, OIDC, REST client +
+  Hibernate Validator + shared-domain-enums / shared-domain-dtos /
+  shared-api-error / shared-rate-limit) ; test deps quarkus-junit-mockito,
+  quarkus-panache-mock, quarkus-devservices-postgresql, quarkus-test-security,
+  mockito-core.
+- `application.properties` complété : Datasource (`unige_events_notifications`
+  sur `postgres-notification:5432`), Hibernate (validate / %test drop-and-create),
+  Flyway (`migrate-at-start=true`, `out-of-order=true`, `validate-on-migrate=false`,
+  `%test` désactivé), OIDC (miroir event-service, `%test` désactivé), Jackson,
+  3 channels Kafka incoming (`events-cancelled`, `events-updated`,
+  `attendances-created` ; `group.id=notification-service` partagé ;
+  `failure-strategy=ignore` ; `ObjectMapperDeserializer` + `json-class` hint ;
+  `%test=smallrye-in-memory`), 3 REST clients (event / engagement / user
+  service ; timeouts 2s+5s).
+- Kong : nouveau bloc `notification-service` avec 3 routes ordonnées
+  most-specific-first pour éviter le prefix shadowing (`/read-all` →
+  `/{id}/read` → `/?$`).
+
+### Bloc B — Entité `Notification`
+- Migration Flyway atomique `V1__create_notifications.sql` : table
+  `notifications` (BIGSERIAL via sequence `notifications_seq`, `user_id UUID
+  NOT NULL`, `type VARCHAR(32) NOT NULL`, `event_id BIGINT NULL`,
+  `related_user_id UUID NULL`, `message TEXT`, `read BOOLEAN DEFAULT FALSE`,
+  `created_at`, `read_at`), CHECK constraint `notifications_type_check` à 4
+  valeurs (phase 2 widening dans V2), 2 indexes composite servant le tri
+  unread-first et le listing complet sans table scan.
+- Entité JPA + enum `NotificationType` (local à notification-service —
+  Décision C, JavaDoc documente les 5 valeurs phase 2 à venir).
+- `NotificationDTO`, `ReadAllResponse` records ; `IdProjection` (shared) pour
+  la résolution `auth0Id → userId`.
+
+### Bloc C — `NotificationService` + `NotificationResource`
+- 4 méthodes service : `create` (primitive Kafka consumer, at-least-once
+  accepté), `listMine` / `markRead` / `markAllRead` / `countUnread` (résolvent
+  via REST client interne). Anti-oracle 404 cross-user sur `markRead`.
+- 3 endpoints REST sous `/api/users/me/notifications` :
+  - `GET /` : paginé (`page`/`size`, max 100), tri unread-first, header
+    `X-Unread-Count` (Décision G).
+  - `PATCH /{id}/read` : 204 No Content (Décision H), idempotent ; rate-limit
+    `notifications.read=60/min`.
+  - `PATCH /read-all` : 200 + `ReadAllResponse{updated}` (Décision I) ;
+    rate-limit `notifications.readAll=10/min`.
+
+### Bloc D — Émission Kafka post-commit
+- event-service : nouveau topic `events.updated`. `EventLifecyclePublisher`
+  étendu (4e Emitter), bridge case UPDATED ajouté, `EventService.update()`
+  fire CDI `EventLifecycleEvent.updated(...)` post-commit. Outgoing channel
+  `events-updated` (smallrye-kafka + ObjectMapperSerializer + smallrye-in-memory
+  %test + MdcKafkaProducerInterceptor).
+- engagement-service : nouveau topic `attendances.created`. Nouveau publisher
+  + nouveau bridge (constructor injection), `AttendanceService.attend()` fire
+  CDI **uniquement quand `effective == ATTENDING`** (Décision M — promotions
+  WAITLISTED → ATTENDING n'émettent pas).
+- shared-kafka-events : enum `EventLifecycleEvent.Type.UPDATED` + factory
+  `EventLifecycleEvent.updated(eventId, creatorId)` ; nouveau record
+  `AttendanceCreatedEvent(attendanceId, eventId, userId, occurredAt)`.
+
+### Bloc E — Consumers notification-service
+- 3 consumers `@ApplicationScoped` + `@Transactional` (constructor injection
+  partout) :
+  - `EventCancelledConsumer` ← `events-cancelled` : fetch event via
+    `EventServiceClient.getById`, fetch attendees via
+    `EngagementServiceClient.getAttendeeIds(id, "ATTENDING")`, fan-out
+    EVENT_CANCELLED. Skippe le créateur s'il est dans les attendees.
+  - `EventUpdatedConsumer` ← `events-updated` : miroir, type EVENT_UPDATED.
+  - `AttendanceCreatedConsumer` ← `attendances-created` : fetch event,
+    notifie le créateur (NEW_ATTENDEE) avec `related_user_id = attendee.id`.
+    Skippe quand `creator == attendee` (auto-inscription).
+- At-least-once accepté (Décision D — pas d'UK applicative ni de table
+  `consumed_offsets`).
+
+### Bloc F — Endpoints internes (deux nouveaux)
+- engagement-service : `GET /events/{eventId}/_internal-attendee-ids?status=`
+  (JPQL projection `SELECT a.userId FROM Attendance`, `@Internal`, default
+  ATTENDING).
+- user-service : `GET /users/_internal-by-auth0-id/{auth0Id}` (résout vers
+  `IdProjection{id: UUID}`, `@Internal`).
+- Pattern : `@PermitAll` + `@Internal` (InternalTokenFilter gate global —
+  404 anti-oracle sur token mismatch).
+- REST clients shared étendus en parallèle :
+  - `EngagementServiceClient.getAttendeeIds(eventId, status)` → `List<UUID>`,
+    fallback empty list.
+  - `UserServiceClient.getInternalByAuth0Id(auth0Id)` → `IdProjection`,
+    `abortOn = NotFoundException` + `skipOn = NotFoundException` pour ne pas
+    tripper le CB sur une wave de sign-ins ; fallback throw 503.
+
+### Bloc G — Endpoint duplication
+- `EventService.duplicate(sourceId, auth0Id, isAdmin)` ~90 lignes :
+  - Permission : creator OR co-org ACCEPTED OR admin. BANNED → 403 même pour
+    admin (un BANNED ne se duplique pas).
+  - Title : `"Copie de " + source.title` avec dédup loop `(2)`/`(3)`/.../`(100)`
+    + truncation base 114 chars avant suffixe ; 422
+    `duplicate_title_collision` au-delà.
+  - Status forcé DRAFT, dates +7 jours, `creatorId = caller` (Décision N).
+  - 12 champs copiés, 5 champs reset (shareCode, recurrenceRule,
+    parentEventId, registrationDeadline, featured/featuredAt).
+  - Aucun fire Kafka, aucune cascade attendance/favorite/view/co-org/comment/
+    report.
+- `EventResource.duplicate` : POST `/{id}/duplicate` `@Authenticated` +
+  `@PerUserRateLimit(name="events.duplicate", max=10, 60s)`.
+
+### Bloc H — OpenAPI
+- Schéma `Notification` complété (était TODO Sprint 7) : ajout
+  `relatedUserId`, `readAt`, ajustement enum + description documentant les
+  5 valeurs phase 2 à venir.
+- Nouveau schéma `ReadAllResponse{updated: int64}`.
+- Remplacement des 2 paths placeholder par 3 paths complets sous
+  `/users/me/notifications` (GET + PATCH /{id}/read + PATCH /read-all).
+- Nouveau path `POST /events/{id}/duplicate`.
+- Le placeholder dupliqué TODO `/events/{id}/duplicate` ligne 4380 a été
+  supprimé pour éviter le duplicate mapping key.
+
+### Bloc I — Documentation
+- `data-model.md` : fix `unige_events_notification` → `unige_events_notifications`
+  (chart = vérité), nouvelle section `### Notification` complète.
+- `api-contract.md` : 4 nouvelles lignes endpoints + topology table mise à
+  jour (notification-service passe de placeholder à actif).
+- `architecture.md` : compteurs Kafka 12 topics / 11 producers / 4 consumers,
+  postgres-notification row mise à jour, table endpoints-owned notification-
+  service mise à jour, paragraphe Kafka post-consolidation enrichi avec les
+  3 consumers.
+- `internal-endpoints.md` : entries #8 et #9 ajoutées.
+- `devops-handoff.md` : nouveaux items follow-up (retention notifications,
+  partitioning si >10M rows, helm-smoke CI à câbler).
+
+### Topics Kafka ajoutés (10 → 12)
+- `events.updated` (event-service producer, notification-service consumer)
+- `attendances.created` (engagement-service producer, notification-service
+  consumer)
+
+### Matrice CI / Sonar
+- `notification-service` est **déjà** dans `.github/workflows/build.yml`
+  `strategy.matrix.service` ligne 55 (provisionné lors du switch DB-per-
+  service `f4b5968e`) — aucune modif CI requise.
+- helm-smoke job CI non câblé dans cette PR ; reporté dans `devops-handoff.md`
+  comme follow-up (l'environnement dev container ne dispose pas de la
+  CLI helm pour valider localement).
+
+### Statistiques de la PR
+- ~20 fichiers nouveaux (entity + service + resource + dtos + consumers +
+  publishers + bridges + 2 internal resources + tests).
+- ~10 fichiers modifiés (openapi, 3 application.properties, 4 docs, Kong
+  config, topics-init, EventService, EventResource, AttendanceService,
+  shared records et REST clients).
+- 22 commits.
 
 ---
 
