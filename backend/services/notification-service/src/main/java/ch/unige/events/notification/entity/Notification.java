@@ -101,9 +101,19 @@ public class Notification extends PanacheEntity {
      * Bulk update — passe en {@code read = true, read_at = now()} toutes les
      * notifs non lues du caller. Retourne le nombre de rows affectées (utile
      * pour {@code ReadAllResponse.updated}).
+     *
+     * <p>Implémenté en JPQL explicit (pas la forme courte Panache
+     * {@code update("read = true, readAt = ?1 where ...")}) parce que le
+     * parser Panache traite ambiguëment les SET multi-colonnes séparés par
+     * virgule sans le mot-clé {@code SET}, ce qui se traduisait en CI par
+     * un {@code read = true} appliqué mais {@code readAt} ignoré.
      */
     public static int markAllReadByUser(UUID userId) {
-        return update("read = true, readAt = ?1 where userId = ?2 and read = false",
-                LocalDateTime.now(), userId);
+        return getEntityManager()
+                .createQuery("UPDATE Notification n SET n.read = true, n.readAt = :readAt"
+                        + " WHERE n.userId = :userId AND n.read = false")
+                .setParameter("readAt", LocalDateTime.now())
+                .setParameter("userId", userId)
+                .executeUpdate();
     }
 }
