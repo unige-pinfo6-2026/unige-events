@@ -178,4 +178,62 @@ class NotificationServiceTest {
 
         assertEquals(0L, service.markAllRead(AUTH0));
     }
+
+    @Test
+    @TestTransaction
+    void resolveUserId_nullProjection_throwsNotFound() {
+        // Defensive branch: if a misbehaving REST client impl returns a
+        // non-null IdProjection with null id (the @Fallback throws 503 on
+        // downstream outage so we should not reach here, but a degraded
+        // server-side mock could).
+        when(userClient.getInternalByAuth0Id(anyString()))
+                .thenReturn(new IdProjection(null));
+
+        assertThrows(NotFoundException.class, () -> service.listMine(AUTH0, 0, 20));
+    }
+
+    @Test
+    @TestTransaction
+    void resolveUserId_nullReturn_throwsNotFound() {
+        when(userClient.getInternalByAuth0Id(anyString())).thenReturn(null);
+        assertThrows(NotFoundException.class, () -> service.countUnread(AUTH0));
+    }
+
+    @Test
+    @TestTransaction
+    void listMine_emptyInbox_returnsEmptyList() {
+        mockResolveToCaller();
+        List<NotificationDTO> page = service.listMine(AUTH0, 0, 20);
+        assertEquals(0, page.size());
+    }
+
+    @Test
+    @TestTransaction
+    void listMine_paginationWorks() {
+        mockResolveToCaller();
+        for (int i = 0; i < 15; i++) {
+            service.create(CALLER, NotificationType.EVENT_UPDATED, (long) i, null, "msg" + i);
+        }
+        List<NotificationDTO> page0 = service.listMine(AUTH0, 0, 10);
+        List<NotificationDTO> page1 = service.listMine(AUTH0, 1, 10);
+        assertEquals(10, page0.size());
+        assertEquals(5, page1.size());
+    }
+
+    @Test
+    @TestTransaction
+    void countUnread_zeroWhenAllRead_orEmpty() {
+        mockResolveToCaller();
+        assertEquals(0L, service.countUnread(AUTH0));
+    }
+
+    @Test
+    @TestTransaction
+    void create_acceptsNullRelatedUserId_andNullEventId() {
+        Notification n = service.create(CALLER, NotificationType.EVENT_REMINDER, null, null, "future reminder");
+        assertNotNull(n.id);
+        assertEquals(NotificationType.EVENT_REMINDER, n.type);
+        assertNotNull(n.createdAt);
+        assertEquals("future reminder", n.message);
+    }
 }
