@@ -10,7 +10,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -25,22 +24,40 @@ import java.util.UUID;
  * at {@code events(id)} / {@code users(id)} of the shared schema —
  * only JPA navigation goes away. Enrichment of event title / reporter
  * displayName is performed at the service layer via REST clients.
+ *
+ * <p>SCRUM-144 — schema étendu pour les reports de commentaires :
+ * <ul>
+ *   <li>{@code eventId} devient nullable (était NOT NULL). Renseigné quand
+ *       la cible est un event, {@code null} quand la cible est un commentaire.</li>
+ *   <li>{@code commentId} ajouté, nullable. Renseigné quand la cible est un
+ *       commentaire ; mutuellement exclusif avec {@code eventId}.</li>
+ *   <li>La CHECK contraint {@code report_target_xor} côté DB enforce le XOR
+ *       strict : un report cible <strong>exactement</strong> un event OU un
+ *       commentaire. Les UKs partielles {@code uq_report_event_partial} +
+ *       {@code uq_report_comment_partial} (V4) protègent les doublons par
+ *       cible. L'ancienne UK {@code uk_report_reporter_event} est droppée.</li>
+ * </ul>
+ *
+ * <p>Les contraintes UK partielles ne sont pas déclarables via JPA
+ * {@code @UniqueConstraint} (qui ne supporte pas la clause {@code WHERE}) —
+ * elles vivent uniquement côté DB via la migration V4.
  */
 @Entity
 @Table(
         name = "reports",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_report_reporter_event", columnNames = {"reporter_id", "event_id"})
-        },
         indexes = {
                 @Index(name = "idx_report_event", columnList = "event_id"),
+                @Index(name = "idx_report_comment", columnList = "comment_id"),
                 @Index(name = "idx_report_status", columnList = "status")
         }
 )
 public class Report extends PanacheEntity {
 
-    @Column(name = "event_id", nullable = false)
+    @Column(name = "event_id")
     public Long eventId;
+
+    @Column(name = "comment_id")
+    public Long commentId;
 
     @Column(name = "reporter_id")
     public UUID reporterId;
