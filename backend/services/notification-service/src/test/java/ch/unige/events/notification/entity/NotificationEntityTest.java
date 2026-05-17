@@ -114,9 +114,14 @@ class NotificationEntityTest {
     @TestTransaction
     void markAllReadByUser_bulkUpdates_andSetsReadAt() {
         UUID userId = UUID.randomUUID();
-        persist(userId, NotificationType.NEW_ATTENDEE,   false, LocalDateTime.now());
-        persist(userId, NotificationType.EVENT_UPDATED,  false, LocalDateTime.now());
-        persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.now());
+        Notification a = persist(userId, NotificationType.NEW_ATTENDEE,   false, LocalDateTime.now());
+        Notification b = persist(userId, NotificationType.EVENT_UPDATED,  false, LocalDateTime.now());
+        // Pre-staged read=true row should NOT be touched by the bulk update
+        // (filter is read=false). We pin its readAt to a distinctive past
+        // value so we can later assert it survived untouched.
+        LocalDateTime distinctivePast = LocalDateTime.of(2020, 1, 1, 12, 0);
+        Notification c = persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.now());
+        c.readAt = distinctivePast;
 
         int updated = Notification.markAllReadByUser(userId);
         assertEquals(2, updated);
@@ -124,14 +129,22 @@ class NotificationEntityTest {
         // Panache bulk update bypasses the persistence context; the rows
         // already loaded above keep their stale state. flush() pushes our
         // pending writes, then getEntityManager().clear() evicts the
-        // cached entities so the next list() reloads from DB.
+        // cached entities so the next findById reloads from DB.
         Notification.flush();
         Notification.getEntityManager().clear();
-        List<Notification> all = Notification.<Notification>list("userId", userId);
-        for (Notification n : all) {
-            assertTrue(n.read, "all rows should be read after bulk update");
-            assertNotNull(n.readAt, "readAt set by bulk update");
-        }
+
+        Notification aFresh = Notification.findById(a.id);
+        Notification bFresh = Notification.findById(b.id);
+        Notification cFresh = Notification.findById(c.id);
+
+        assertTrue(aFresh.read, "ex-unread row should be read after bulk update");
+        assertNotNull(aFresh.readAt, "readAt set by bulk update on ex-unread row a");
+        assertTrue(bFresh.read);
+        assertNotNull(bFresh.readAt);
+        // The already-read row was not touched — readAt remains the pinned past.
+        assertTrue(cFresh.read);
+        assertEquals(distinctivePast, cFresh.readAt,
+                "already-read row's readAt must not be touched by the bulk update");
     }
 
     @Test
