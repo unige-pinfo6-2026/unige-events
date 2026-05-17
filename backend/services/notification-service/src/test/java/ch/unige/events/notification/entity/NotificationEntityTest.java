@@ -121,8 +121,12 @@ class NotificationEntityTest {
         int updated = Notification.markAllReadByUser(userId);
         assertEquals(2, updated);
 
-        // Flush so the bulk UPDATE state is reflected in subsequent reads.
+        // Panache bulk update bypasses the persistence context; the rows
+        // already loaded above keep their stale state. flush() pushes our
+        // pending writes, then getEntityManager().clear() evicts the
+        // cached entities so the next list() reloads from DB.
         Notification.flush();
+        Notification.getEntityManager().clear();
         List<Notification> all = Notification.<Notification>list("userId", userId);
         for (Notification n : all) {
             assertTrue(n.read, "all rows should be read after bulk update");

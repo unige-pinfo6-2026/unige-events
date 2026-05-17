@@ -89,6 +89,7 @@ class EventResourceDuplicateTest {
     @Test
     void duplicate_unauthenticated_returns401() {
         given()
+            .contentType("application/json")
             .when().post("/events/1/duplicate")
             .then().statusCode(401);
     }
@@ -98,6 +99,7 @@ class EventResourceDuplicateTest {
     void duplicate_sourceNotFound_returns404() {
         stageFreshUser();
         given()
+            .contentType("application/json")
             .when().post("/events/9999999/duplicate")
             .then().statusCode(404);
     }
@@ -109,6 +111,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(caller, "My Event", EventStatus.PUBLISHED);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then()
             .statusCode(201)
@@ -129,6 +132,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(owner, "Restricted", EventStatus.PUBLISHED);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then().statusCode(403);
     }
@@ -141,6 +145,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(owner, "Owner Event", EventStatus.PUBLISHED);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then()
             .statusCode(201)
@@ -155,6 +160,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(caller, "Draft Source", EventStatus.DRAFT);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then()
             .statusCode(201)
@@ -168,6 +174,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(caller, "Cancelled Source", EventStatus.CANCELLED);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then()
             .statusCode(201)
@@ -182,6 +189,7 @@ class EventResourceDuplicateTest {
         Long sourceId = persistEvent(caller, "Banned Source", EventStatus.BANNED);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then().statusCode(403);
     }
@@ -194,6 +202,7 @@ class EventResourceDuplicateTest {
         persistEvent(caller, "Copie de Workshop", EventStatus.DRAFT);
 
         given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then()
             .statusCode(201)
@@ -210,6 +219,7 @@ class EventResourceDuplicateTest {
                 () -> Event.<Event>findById(sourceId));
 
         String responseStart = given()
+            .contentType("application/json")
             .when().post("/events/" + sourceId + "/duplicate")
             .then().statusCode(201)
             .extract().jsonPath().getString("startDate");

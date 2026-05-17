@@ -112,18 +112,21 @@ class NotificationServiceTest {
 
     @Test
     @TestTransaction
-    void markRead_idempotent_doesNotOverwriteReadAt() throws Exception {
+    void markRead_idempotent_doesNotOverwriteReadAt() {
         mockResolveToCaller();
+        // Pre-stage a row already read with a distinctive past readAt — so we
+        // can assert the second markRead leaves it untouched without relying
+        // on Thread.sleep (Sonar S2925) to differentiate two now() calls.
         Notification n = service.create(CALLER, NotificationType.NEW_ATTENDEE, 1L, null, "x");
-        service.markRead(AUTH0, n.id);
-        java.time.LocalDateTime firstReadAt = Notification.<Notification>findById(n.id).readAt;
+        java.time.LocalDateTime distinctivePast = java.time.LocalDateTime.of(2020, 1, 1, 12, 0);
+        n.read = true;
+        n.readAt = distinctivePast;
 
-        Thread.sleep(10);
         service.markRead(AUTH0, n.id);
 
-        java.time.LocalDateTime secondReadAt = Notification.<Notification>findById(n.id).readAt;
-        assertEquals(firstReadAt, secondReadAt,
-                "idempotent re-mark must not overwrite the original readAt timestamp");
+        java.time.LocalDateTime after = Notification.<Notification>findById(n.id).readAt;
+        assertEquals(distinctivePast, after,
+                "idempotent re-mark on an already-read row must not overwrite readAt");
     }
 
     @Test
@@ -154,7 +157,11 @@ class NotificationServiceTest {
         long updated = service.markAllRead(AUTH0);
         assertEquals(3L, updated);
 
+        // Panache bulk update bypasses the persistence context — flush our
+        // pending writes then clear() to evict cached stale entities before
+        // re-reading from DB.
         Notification.flush();
+        Notification.getEntityManager().clear();
         List<Notification> rows = Notification.<Notification>list("userId", CALLER);
         for (Notification n : rows) {
             assertTrue(n.read);
