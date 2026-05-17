@@ -638,8 +638,13 @@ export default function EventDetailPage() {
 
             <div className="border-t border-border" />
 
-            {/* Organisateur */}
-            {organizer && (
+            {/* Organisateur — fetched in a separate effect after the event
+                loads. The slot is rendered unconditionally so the sidebar
+                doesn't reflow when `getUserById` resolves (otherwise the row
+                pops in and pushes every card below it down ~48–56px). The
+                placeholder mirrors the resolved row's dimensions (size-8
+                avatar + 2-line text column) so the swap is in-place. */}
+            {organizer ? (
               <Link
                 to={`/profile/${organizer.username}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity no-underline"
@@ -652,6 +657,28 @@ export default function EventDetailPage() {
                   </span>
                 </div>
               </Link>
+            ) : (
+              <div
+                className="flex items-center gap-3"
+                aria-hidden="true"
+                data-testid="organizer-placeholder"
+              >
+                <div className="size-8 rounded-full bg-foreground/5 border border-border shrink-0" />
+                {/* Sized to match the resolved row's text column exactly:
+                    text-xs line-height = 1rem (h-4 = 16px) +
+                    text-sm line-height = 1.25rem (h-5 = 20px) → 36px stacked,
+                    same as the two <span>s above. Empty divs (no text) so the
+                    placeholder doesn't surface "Organisé par" in queries when
+                    the fetch fails. */}
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="h-4 flex items-center">
+                    <div className="h-2 w-20 rounded bg-foreground/5" />
+                  </div>
+                  <div className="h-5 flex items-center">
+                    <div className="h-3 w-32 rounded bg-foreground/5" />
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* Capacity indicator — S6 */}

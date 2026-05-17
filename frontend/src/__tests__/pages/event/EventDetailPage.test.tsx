@@ -533,6 +533,35 @@ describe('EventDetailPage', () => {
     expect(screen.queryByText(/Organisé par/)).toBeNull()
   })
 
+  // SCRUM-141 CLS fix: the organizer fetch resolves a frame or two AFTER
+  // the page first paints. Without a reserved slot, the resolved row pops
+  // in and the entire sidebar reflows ~50px. The placeholder keeps the
+  // height stable from first paint → swap is in-place.
+  it('renders an organizer-slot placeholder before getUserById resolves (CLS fix)', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
+    // Never-resolving promise — captures the visible state before the
+    // fetch settles, mirroring the real-world first-paint window.
+    mockGetUserById.mockImplementation(() => new Promise(() => {}))
+
+    renderPage()
+
+    expect(screen.getByTestId('organizer-placeholder')).toBeTruthy()
+    // The resolved row text is not yet in the DOM; only the placeholder is.
+    expect(screen.queryByText(/Organisé par/)).toBeNull()
+  })
+
+  it('swaps the placeholder for the resolved organizer row in place when getUserById resolves', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
+    mockGetUserById.mockResolvedValue(mockUser)
+
+    renderPage()
+
+    await waitFor(() => expect(screen.getByText(/Organisé par/)).toBeTruthy())
+    expect(screen.queryByTestId('organizer-placeholder')).toBeNull()
+  })
+
   it('renders event with no capacity (InfoRow without color branch)', () => {
     const eventNoCapacity = { ...mockEvent, capacity: undefined }
     mockUseAuth.mockReturnValue({ user: mockUser })
