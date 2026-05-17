@@ -25,7 +25,13 @@ public record EventLifecycleEvent(
     public enum Type {
         PUBLISHED,
         CANCELLED,
-        EXPIRED
+        EXPIRED,
+        // SCRUM-99: emitted by EventService.update post-commit. Consumed by
+        // notification-service to push EVENT_UPDATED in-app notifications to
+        // attendees. The payload stays minimal (id + creator + timestamp) —
+        // the consumer fetches the full Event via REST when it composes the
+        // notification message.
+        UPDATED
     }
 
     public static EventLifecycleEvent published(long eventId, UUID creatorId) {
@@ -38,5 +44,9 @@ public record EventLifecycleEvent(
 
     public static EventLifecycleEvent expired(long eventId, UUID creatorId) {
         return new EventLifecycleEvent(Type.EXPIRED, eventId, creatorId, Instant.now());
+    }
+
+    public static EventLifecycleEvent updated(long eventId, UUID creatorId) {
+        return new EventLifecycleEvent(Type.UPDATED, eventId, creatorId, Instant.now());
     }
 }
