@@ -1,7 +1,10 @@
 package ch.unige.events.shared.client;
 
 import ch.unige.events.shared.domain.dto.AttendeeProjection;
+import ch.unige.events.shared.domain.dto.IdProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -9,6 +12,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -20,6 +24,9 @@ class UserServiceClientFallbackTest {
     private static final UserServiceClient CLIENT = new UserServiceClient() {
         @Override public UserPublicResponse getById(UUID id) { throw new UnsupportedOperationException(); }
         @Override public List<AttendeeProjection> getAttendeeProjections(List<UUID> ids) {
+            throw new UnsupportedOperationException();
+        }
+        @Override public IdProjection getInternalByAuth0Id(String auth0Id) {
             throw new UnsupportedOperationException();
         }
     };
@@ -43,5 +50,17 @@ class UserServiceClientFallbackTest {
         // Defensive: the fallback should never NPE on the size() log statement
         // even if a degenerate caller hands it a null list.
         assertTrue(CLIENT.getAttendeeProjectionsFallback(null).isEmpty());
+    }
+
+    @Test
+    void getInternalByAuth0IdFallback_throws503() {
+        // Identity resolution is critical — returning null would surface as
+        // a NullPointerException in NotificationService. The fallback
+        // converts to 503 Service Unavailable so the resource layer can
+        // translate it to a meaningful caller-facing error.
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> CLIENT.getInternalByAuth0IdFallback("auth0|abc"));
+        assertEquals(Response.Status.SERVICE_UNAVAILABLE.getStatusCode(),
+                ex.getResponse().getStatus());
     }
 }

@@ -95,4 +95,33 @@ public interface EngagementServiceClient {
         Log.warnf("[REST_FALLBACK_engagement-service] getAttendanceSummariesBulk(ids=%d) — returning empty map (counts will display as 0)", ids.size());
         return Map.of();
     }
+
+    /**
+     * Internal endpoint (SCRUM-99) consumed by notification-service to
+     * resolve the recipient list of an event-lifecycle notification. Returns
+     * the {@code List<UUID>} of users with the given attendance status on
+     * the event. Provider :
+     * {@code GET /events/{eventId}/_internal-attendee-ids?status=ATTENDING}
+     * on engagement-service, gated {@code @Internal} (X-Internal-Token).
+     * Not in {@code openapi.yaml} ; documented in
+     * {@code backend/docs/internal-endpoints.md} entry #8.
+     *
+     * <p>Fallback : empty list. The consumer logs a warning ; the
+     * notification is silently skipped (acceptable degradation — Kafka
+     * re-delivery on the next event will fan it out if engagement-service
+     * comes back).
+     */
+    @GET
+    @Path("/events/{eventId}/_internal-attendee-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getAttendeeIdsFallback")
+    List<UUID> getAttendeeIds(@PathParam("eventId") Long eventId,
+                              @QueryParam("status") String status);
+
+    default List<UUID> getAttendeeIdsFallback(Long eventId, String status) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getAttendeeIds(event=%d, status=%s) — returning empty list (downstream unavailable, notifications skipped)", eventId, status);
+        return List.of();
+    }
 }

@@ -22,6 +22,7 @@ class EngagementServiceClientFallbackTest {
         @Override public AttendanceSummary getAttendanceSummary(long eventId) { throw new UnsupportedOperationException(); }
         @Override public List<AttendanceDTO> getUserAttendances(UUID id, String status) { throw new UnsupportedOperationException(); }
         @Override public Map<Long, AttendanceSummary> getAttendanceSummariesBulk(List<Long> ids) { throw new UnsupportedOperationException(); }
+        @Override public List<UUID> getAttendeeIds(Long eventId, String status) { throw new UnsupportedOperationException(); }
     };
 
     @Test
@@ -42,6 +43,15 @@ class EngagementServiceClientFallbackTest {
     @Test
     void getAttendanceSummariesBulkFallback_returnsEmptyMap() {
         Map<Long, AttendanceSummary> result = CLIENT.getAttendanceSummariesBulkFallback(List.of(1L, 2L));
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getAttendeeIdsFallback_returnsEmptyList() {
+        List<UUID> result = CLIENT.getAttendeeIdsFallback(42L, "ATTENDING");
+        // Degraded notification fan-out path — empty list lets the
+        // notification consumer's for-each loop skip cleanly.
         assertNotNull(result);
         assertTrue(result.isEmpty());
     }
