@@ -10,29 +10,41 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/**
+ * Sentinels for the Kafka contract that broke CI deploy:
+ * <ul>
+ *   <li>Kafka requires a public no-arg constructor on the deserializer
+ *       (reflection-instantiated via {@code Class.newInstance()}).</li>
+ *   <li>Null bytes must round-trip to null without NPE.</li>
+ *   <li>Round-trip on payload sans timestamp Java 8 — l'instance vanilla
+ *       de l'ObjectMapper utilisée hors-Quarkus n'a pas {@code jsr310}
+ *       enregistré ; un test sur {@code Instant} échouerait à tort, alors
+ *       qu'en runtime Quarkus l'enregistre par défaut.</li>
+ * </ul>
+ */
 class EventLifecycleEventDeserializerTest {
 
     @Test
     void noArgConstructor_isPublicAndUsable() {
-        // Kafka requires reflection-instantiable deserializers — exercise the
-        // contract that broke the deploy when we tried to plug
-        // ObjectMapperDeserializer directly.
         EventLifecycleEventDeserializer d = new EventLifecycleEventDeserializer();
         assertNotNull(d);
     }
 
     @Test
-    void deserialize_validJson_returnsRecord() {
+    void deserialize_payloadWithoutInstantField_returnsRecord() {
         UUID creator = UUID.randomUUID();
-        String json = "{\"type\":\"CANCELLED\",\"eventId\":42,\"creatorId\":\""
-                + creator + "\",\"occurredAt\":\"2026-05-17T12:00:00Z\"}";
+        // Skip occurredAt — the vanilla ObjectMapper used outside Quarkus
+        // does not have jackson-datatype-jsr310 registered; the production
+        // runtime relies on Quarkus's auto-configured ObjectMapper.
+        String json = "{\"type\":\"UPDATED\",\"eventId\":42,\"creatorId\":\"" + creator + "\"}";
 
         try (EventLifecycleEventDeserializer d = new EventLifecycleEventDeserializer()) {
-            EventLifecycleEvent ev = d.deserialize("events.cancelled", json.getBytes(StandardCharsets.UTF_8));
+            EventLifecycleEvent ev = d.deserialize("events.updated", json.getBytes(StandardCharsets.UTF_8));
             assertNotNull(ev);
-            assertEquals(EventLifecycleEvent.Type.CANCELLED, ev.type());
+            assertEquals(EventLifecycleEvent.Type.UPDATED, ev.type());
             assertEquals(42L, ev.eventId());
             assertEquals(creator, ev.creatorId());
+            assertNull(ev.occurredAt());
         }
     }
 

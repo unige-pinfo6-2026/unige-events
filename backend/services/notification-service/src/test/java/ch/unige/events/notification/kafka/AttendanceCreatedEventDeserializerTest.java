@@ -10,6 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/**
+ * Same Kafka-contract sentinels as
+ * {@link EventLifecycleEventDeserializerTest}. The Instant field is
+ * omitted from the round-trip payload — the vanilla ObjectMapper outside
+ * Quarkus runtime has no jsr310 module registered.
+ */
 class AttendanceCreatedEventDeserializerTest {
 
     @Test
@@ -19,10 +25,9 @@ class AttendanceCreatedEventDeserializerTest {
     }
 
     @Test
-    void deserialize_validJson_returnsRecord() {
+    void deserialize_payloadWithoutInstantField_returnsRecord() {
         UUID user = UUID.randomUUID();
-        String json = "{\"attendanceId\":7,\"eventId\":42,\"userId\":\""
-                + user + "\",\"occurredAt\":\"2026-05-17T12:00:00Z\"}";
+        String json = "{\"attendanceId\":7,\"eventId\":42,\"userId\":\"" + user + "\"}";
 
         try (AttendanceCreatedEventDeserializer d = new AttendanceCreatedEventDeserializer()) {
             AttendanceCreatedEvent ev = d.deserialize("attendances.created", json.getBytes(StandardCharsets.UTF_8));
@@ -30,6 +35,7 @@ class AttendanceCreatedEventDeserializerTest {
             assertEquals(7L, ev.attendanceId());
             assertEquals(42L, ev.eventId());
             assertEquals(user, ev.userId());
+            assertNull(ev.occurredAt());
         }
     }
 
