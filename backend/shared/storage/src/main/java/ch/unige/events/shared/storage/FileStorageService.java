@@ -15,11 +15,13 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -177,7 +179,12 @@ public class FileStorageService {
         } catch (NoSuchKeyException e) {
             Log.warnf("[S3_GET_NOT_FOUND] downloadObject key='%s'", key);
             return null;
-        } catch (Exception e) {
+        } catch (S3Exception | SdkClientException e) {
+            // Narrow catch (Sonar java:S2221) — every failure path of
+            // `s3.getObjectAsBytes` is rooted in one of these two AWS SDK
+            // exception hierarchies (server errors → S3Exception,
+            // client/transport errors → SdkClientException). Anything else
+            // would be a programmer bug worth surfacing.
             Log.errorf(e, "[S3_GET_FAIL] downloadObject key='%s'", key);
             throw new WebApplicationException(
                     "Storage backend unavailable", Response.Status.SERVICE_UNAVAILABLE);

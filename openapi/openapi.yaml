@@ -3655,6 +3655,11 @@ paths:
 
         **Anti-oracle 404** : `attachmentId` valide mais appartenant à
         un autre `eventId` → 404 (path mismatch indissociable d'inexistence).
+        Pareil pour les events en statut `BANNED` (toujours masqué, même
+        aux admins) ou non-`PUBLISHED` quand l'appelant n'est ni admin,
+        ni créateur, ni co-organisateur ACCEPTED — alignement avec la
+        règle de `GET /events/{id}`. Les appelants anonymes ne peuvent
+        télécharger que des fichiers d'events `PUBLISHED`.
       operationId: downloadEventAttachment
       tags: [events]
       security: []

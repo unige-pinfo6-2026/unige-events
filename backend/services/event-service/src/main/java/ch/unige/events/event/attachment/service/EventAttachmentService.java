@@ -5,6 +5,7 @@ import ch.unige.events.event.attachment.dto.AttachmentDownload;
 import ch.unige.events.event.attachment.entity.EventAttachment;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.service.EventService;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.shared.storage.DocumentFormat;
@@ -190,18 +191,36 @@ public class EventAttachmentService {
     /**
      * SCRUM-149 follow-up — reads the attachment's bytes from S3 so the
      * resource can stream them back with {@code Content-Disposition:
-     * attachment}. Returns {@code null} when the row is missing, when the
-     * path is a mismatch (anti-oracle, indistinguishable from missing),
-     * or when the S3 object has been GCed out from under us — the resource
-     * surfaces all three as a 404.
+     * attachment}. Returns {@code null} (resource maps to 404) on :
      *
-     * <p>Public — no permission check. Attachments inherit the visibility
-     * of the event detail page (anyone, including unauthenticated viewers,
-     * can see the {@code Documents} section).
+     * <ul>
+     *   <li>missing row, or path mismatch (anti-oracle — indistinguishable
+     *       from missing),</li>
+     *   <li>{@code BANNED} parent event (always hidden, even from admins —
+     *       same rule as {@link EventService#getById}),</li>
+     *   <li>non-{@code PUBLISHED} parent event when the caller is neither
+     *       admin nor creator/co-org ACCEPTED — same rule as
+     *       {@code getById}. Unauthenticated callers never get past this
+     *       branch because their {@code callerUuid} is {@code null}.</li>
+     *   <li>S3 object GCed out from under the DB row.</li>
+     * </ul>
+     *
+     * <p>{@code @PermitAll} at the resource — endpoint is public, but the
+     * {@link SecurityIdentity} is still injected when a token happens to
+     * be present, which is what widens visibility for the creator / co-org
+     * preview of DRAFT or CANCELLED events.
      */
-    public AttachmentDownload download(Long eventId, Long attachmentId) {
+    public AttachmentDownload download(Long eventId, Long attachmentId, boolean isAdmin) {
         EventAttachment attachment = EventAttachment.<EventAttachment>findById(attachmentId);
         if (attachment == null || !attachment.eventId.equals(eventId)) {
+            return null;
+        }
+        Event event = Event.<Event>findById(eventId);
+        if (event == null || event.status == EventStatus.BANNED) {
+            return null;
+        }
+        if (event.status != EventStatus.PUBLISHED && !isAdmin
+                && !eventService.isCreatorOrAcceptedCoOrganizer(event, callerIdentity.getUuid())) {
             return null;
         }
         byte[] bytes = fileStorageService.downloadObject(attachment.fileUrl);

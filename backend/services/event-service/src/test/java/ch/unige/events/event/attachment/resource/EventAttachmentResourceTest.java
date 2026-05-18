@@ -1,6 +1,7 @@
 package ch.unige.events.event.attachment.resource;
 
 import ch.unige.events.event.attachment.dto.AttachmentDTO;
+import ch.unige.events.event.attachment.dto.AttachmentDownload;
 import ch.unige.events.event.attachment.service.EventAttachmentService;
 import ch.unige.events.shared.error.ApiErrorResponse;
 
@@ -196,6 +197,64 @@ class EventAttachmentResourceTest {
         given()
             .when().delete("/events/53/attachments/104")
             .then().statusCode(401);
+    }
+
+    // ─── SCRUM-149 follow-up — GET /download endpoint ───────────────────
+
+    @Test
+    void downloadAttachment_publicHappyPath_returns200_withContentDisposition() {
+        // Endpoint is @PermitAll — anonymous caller can pull a PUBLISHED event's
+        // attachment. Stub the service to return canned bytes ; the resource is
+        // what we're exercising.
+        byte[] bytes = new byte[]{0x25, 0x50, 0x44, 0x46}; // %PDF
+        when(service.download(eq(70L), eq(200L), eq(false)))
+                .thenReturn(new AttachmentDownload(bytes, "application/pdf", "rapport.pdf"));
+
+        given()
+            .when().get("/events/70/attachments/200/download")
+            .then()
+            .statusCode(200)
+            .contentType("application/pdf")
+            .header("Content-Disposition", org.hamcrest.Matchers.containsString("attachment"))
+            .header("Content-Disposition", org.hamcrest.Matchers.containsString("filename=\"rapport.pdf\""))
+            .header("Content-Disposition", org.hamcrest.Matchers.containsString("filename*=UTF-8''rapport.pdf"));
+    }
+
+    @Test
+    void downloadAttachment_returnsNull_surfacesAs404() {
+        // Service returns null for: missing row, path mismatch (anti-oracle),
+        // BANNED event, non-PUBLISHED + unauth caller, S3 object GCed.
+        when(service.download(eq(71L), eq(201L), eq(false))).thenReturn(null);
+
+        given()
+            .when().get("/events/71/attachments/201/download")
+            .then().statusCode(404);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|attach-download-admin", roles = {"ADMIN"})
+    void downloadAttachment_adminCaller_passesIsAdminTrueToService() {
+        // The resource extracts the ADMIN role from SecurityIdentity and passes
+        // it down so the service can widen visibility for non-PUBLISHED events.
+        byte[] bytes = new byte[]{0x25, 0x50, 0x44, 0x46};
+        when(service.download(eq(72L), eq(202L), eq(true)))
+                .thenReturn(new AttachmentDownload(bytes, "application/pdf", "draft.pdf"));
+
+        given()
+            .when().get("/events/72/attachments/202/download")
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|attach-download-user")
+    void downloadAttachment_authenticatedNonAdmin_passesIsAdminFalse() {
+        // Caller is authenticated but lacks ADMIN — service is asked with
+        // isAdmin=false ; widening relies on isCreatorOrAcceptedCoOrganizer.
+        when(service.download(eq(73L), eq(203L), eq(false))).thenReturn(null);
+
+        given()
+            .when().get("/events/73/attachments/203/download")
+            .then().statusCode(404);
     }
 
     /**

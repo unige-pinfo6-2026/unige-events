@@ -7,6 +7,7 @@ import ch.unige.events.shared.ratelimit.PerUserRateLimit;
 
 import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -88,15 +89,21 @@ public class EventAttachmentResource {
      * reachable from outside the cluster and which the browser would open
      * inline anyway because {@code <a download>} is ignored cross-origin).
      *
-     * <p>Public — attachments inherit the visibility of the event detail
-     * view (anyone can see the {@code Documents} section, auth or not).
-     * Anti-oracle 404 if {@code attachmentId} belongs to another event.
+     * <p>{@code @PermitAll} — endpoint is public (unauthenticated viewers
+     * can download attachments from PUBLISHED events, mirroring the
+     * Documents section on the detail page). When a token IS present
+     * (creator / co-org previewing a DRAFT event from the edit page) the
+     * visibility widens via the service-layer check below. Anti-oracle
+     * 404 on path mismatch, on BANNED events, and on non-PUBLISHED events
+     * the caller cannot edit.
      */
     @GET
     @Path("/{eventId}/attachments/{attachmentId}/download")
+    @PermitAll
     public Response downloadAttachment(@PathParam("eventId") Long eventId,
                                        @PathParam("attachmentId") Long attachmentId) {
-        AttachmentDownload payload = service.download(eventId, attachmentId);
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
+        AttachmentDownload payload = service.download(eventId, attachmentId, isAdmin);
         if (payload == null) {
             throw new NotFoundException();
         }
