@@ -3,10 +3,6 @@ name: Deploy
 on:
   workflow_call:
 
-concurrency:
-  group: deployments
-  cancel-in-progress: false
-
 permissions:
   contents: read
   packages: read
@@ -22,6 +18,9 @@ jobs:
     if: github.ref_name == 'main'
     runs-on: self-hosted
     environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     env:
       NAMESPACE: unige-events
       KUBECONFIG: /tmp/kubeconfig-${{ github.run_id }}
@@ -71,6 +70,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: preview
+    concurrency:
+      group: deploy-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
