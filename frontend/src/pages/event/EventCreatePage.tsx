@@ -8,7 +8,11 @@ import DraftsResumeStrip from '@/components/event/DraftsResumeStrip'
 import PendingCoOrganizersEditor, {
   type PendingCoOrganizer,
 } from '@/components/event/PendingCoOrganizersEditor'
+import PendingAttachmentsEditor, {
+  type PendingAttachment,
+} from '@/components/event/PendingAttachmentsEditor'
 import { inviteCoOrganizer } from '@/services/coOrganizerApi'
+import { uploadEventAttachment } from '@/services/attachmentApi'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -23,6 +27,7 @@ export default function EventCreatePage() {
     () => (location.state as { template?: Event } | null)?.template ?? null
   )
   const [pendingCoOrganizers, setPendingCoOrganizers] = useState<PendingCoOrganizer[]>([])
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
 
   const addPendingCoOrganizer = useCallback((entry: PendingCoOrganizer) => {
     setPendingCoOrganizers((prev) => [...prev, entry])
@@ -30,6 +35,14 @@ export default function EventCreatePage() {
 
   const removePendingCoOrganizer = useCallback((userId: string) => {
     setPendingCoOrganizers((prev) => prev.filter((p) => p.userId !== userId))
+  }, [])
+
+  const addPendingAttachments = useCallback((entries: PendingAttachment[]) => {
+    setPendingAttachments((prev) => [...prev, ...entries])
+  }, [])
+
+  const removePendingAttachment = useCallback((id: string) => {
+    setPendingAttachments((prev) => prev.filter((p) => p.id !== id))
   }, [])
 
   const form = useEventForm({
@@ -53,6 +66,23 @@ export default function EventCreatePage() {
             const entry = pendingCoOrganizers[index]
             const label = entry.displayName ?? `@${entry.username}`
             showToast('error', `Impossible d'inviter ${label} comme co-organisateur.`)
+          }
+        })
+      }
+      // SCRUM-149 — flush staged attachments now that the event has an ID.
+      // Same "best-effort, never block navigation" model as co-orgs above :
+      // rejected files surface as individual toasts but the event itself
+      // is already persisted. Client-rejected files (validation error set)
+      // are skipped — they were never meant to be uploaded.
+      const uploadableAttachments = pendingAttachments.filter((p) => p.error === null)
+      if (uploadableAttachments.length > 0) {
+        const attachmentResults = await Promise.allSettled(
+          uploadableAttachments.map((p) => uploadEventAttachment(event.id, p.file)),
+        )
+        attachmentResults.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const entry = uploadableAttachments[index]
+            showToast('error', `Impossible d'uploader « ${entry.file.name} ».`)
           }
         })
       }
@@ -123,6 +153,13 @@ export default function EventCreatePage() {
             pending={pendingCoOrganizers}
             onAdd={addPendingCoOrganizer}
             onRemove={removePendingCoOrganizer}
+          />
+        }
+        attachmentsSection={
+          <PendingAttachmentsEditor
+            pending={pendingAttachments}
+            onAdd={addPendingAttachments}
+            onRemove={removePendingAttachment}
           />
         }
       />
