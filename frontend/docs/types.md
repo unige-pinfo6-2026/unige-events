@@ -92,6 +92,11 @@ Chaque entrée expose `name` (libellé français). Le frontend n'expose `DRAFT` 
 | updatedAt       | string        | non    |
 | parentEventId   | number \| null | non    |
 | recurrenceRule  | string \| null | non    |
+| attachments     | Attachment[] \| null | non |
+
+`attachments` (SCRUM-149) suit la même asymétrie que `viewCount` / `interestedCount` :
+peuplé **uniquement** par `GET /events/{id}`, retourné à `null` par tous les autres
+endpoints. Voir `Attachment` ci-dessous.
 
 `parentEventId` et `recurrenceRule` (SCRUM-151) sont remplis par le backend SCRUM-147 :
 - `parentEventId != null` → l'événement est une **occurrence** d'un cycle ; pointe vers l'event parent.
@@ -149,6 +154,40 @@ export type RecurrenceFrequency = keyof typeof RECURRENCE_FREQUENCIES
 | maxOccurrences  | number \| null    | entier ∈ `[1, 52]` ; exclusif avec `endDate` |
 
 Le frontend impose la **mutex** `endDate ↔ maxOccurrences` au niveau du form. Le payload sortant n'a jamais les deux champs renseignés en même temps.
+
+### Attachment (SCRUM-149)
+
+`src/types/attachment.ts` — miroir de `AttachmentDTO` (openapi).
+
+| Champ        | Type              | Notes |
+|--------------|-------------------|-------|
+| id           | number            | PK séquentielle |
+| fileName     | string            | nom du fichier original (≤ 255) |
+| fileUrl      | string            | path S3 absolu, public-read — directement utilisable comme `href` (même convention que `bannerUrl` / `avatarUrl`) |
+| fileSize     | number            | taille en bytes (max 10 MiB) |
+| mimeType     | AttachmentMimeType | PDF / DOC / DOCX / XLSX |
+| uploadedById | string (UUID)     | uploader (créateur OU co-organisateur ACCEPTED OU admin) |
+| uploadedAt   | string ISO 8601   | timestamp serveur, immutable |
+
+Const map associée :
+
+```ts
+export const ATTACHMENT_MIME_TYPES = {
+  'application/pdf':                                                            { label: 'PDF',  extension: '.pdf'  },
+  'application/msword':                                                         { label: 'DOC',  extension: '.doc'  },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':    { label: 'DOCX', extension: '.docx' },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':          { label: 'XLSX', extension: '.xlsx' },
+} as const
+export type AttachmentMimeType = keyof typeof ATTACHMENT_MIME_TYPES
+```
+
+Constantes de validation (miroir backend SCRUM-148) :
+
+- `ATTACHMENT_ACCEPT_ATTR = '.pdf,.doc,.docx,.xlsx'`
+- `ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024` (10 MiB)
+- `ATTACHMENT_MAX_PER_EVENT = 5`
+
+Garde défensive `isAcceptedAttachmentFile(file)` : accepte si **soit** `file.type` est dans la whitelist, **soit** l'extension du nom est dans la map (fallback drag-and-drop / OS qui ne remplit pas `file.type`).
 
 ---
 

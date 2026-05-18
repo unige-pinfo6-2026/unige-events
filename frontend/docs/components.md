@@ -46,6 +46,7 @@
   - `registrationDeadline` → libellé "Inscriptions jusqu'au" + valeur formatée via `formatEventDateTime` avec icône `CalendarClock`.
   - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags. Les chips ne sont **pas** stylées en `text-link` — elles conservent leur look "pill discrète".
 - **Redirect créateur sur DRAFT** — la page détail d'un brouillon n'a pas de surface fonctionnelle pour son créateur (aucun bouton participer, aucun inscrit à voir). Un `useEffect` qui dépend de `event` et `user` redirige automatiquement vers `/events/:id/edit` avec `{ replace: true }` quand `event.status === 'DRAFT'` et `user.id === event.creatorId`. L'admin (`user.admin === true`) reste sur la page détail (cas modération). Co-organisateur ACCEPTED non couvert dans cette PR — follow-up SCRUM-137 frontend.
+- **Section "Documents" (SCRUM-149)** — `EventDocumentsList` rendu dans la colonne principale (entre `AttendeesList` et "Informations complémentaires") quand `event.attachments.length > 0`. **Visible pour tous** : pas d'auth gate, les non-authentifiés voient et téléchargent. Réutilise la même convention d'URL que `bannerUrl` / `avatarUrl` (path S3 public-read absolu, rendu direct sans helper).
 
 ### FavoritesPage
 
@@ -141,6 +142,7 @@
 - Pendant un clic sur "Enregistrer", le bouton principal "Créer l'événement" reste **inchangé** (ni disabled, ni label "Enregistrement...") — seul le bouton secondaire passe en état de progression. Grâce au flag `draftSaving` séparé de `submitting` (voir `useEventForm`).
 - **Bouton "Supprimer le brouillon"** (uniquement en mode draft) : ouvre une modale de confirmation inline (même pattern visuel que la suppression sur `EventDetailPage`, sans composant partagé pour l'instant). Après confirmation → appel `deleteEvent(id)` → toast "Brouillon supprimé." → navigation vers `/`. En cas d'échec réseau → toast "Impossible de supprimer ce brouillon.", on reste sur la page. Le state `deleting` local garantit que le bouton principal "Créer l'événement" reste inerte pendant l'appel (même principe que `draftSaving`).
 - Skeleton `event-edit` réaligné avec les 5 bandes actuelles d'`EventForm` (Banner+Titre/Description, Lieu, section Date & heure, Catégorie/Faculté/Capacité, Champs additionnels SCRUM-117, Co-organisateurs SCRUM-137 shell, CTA bar) — voir `skeleton/generate.mjs:genEventEdit`.
+- **"Fichiers joints" (SCRUM-149)** — `EventAttachmentsEditor` est injecté via la prop `attachmentsSection` d'`EventForm` (uniquement en edit, car l'event doit avoir un ID pour `POST /events/{id}/attachments`). Le bloc remplace le placeholder "Pièces jointes" affiché en création. Stage-then-upload UX : files staged localement → bouton "Uploader" itère un POST par fichier → liste des uploadés rafraîchie via `setEvent({...event, attachments: next})`. Suppression par × → `DELETE /events/{id}/attachments/{attachmentId}`. Validations client miroir backend (PDF/DOC/DOCX/XLSX, 10 MiB, 5 max) + passthrough des codes backend `attachment_invalid_size` / `_type` / `_limit_exceeded`.
 
 ### EventsSearchPage
 
@@ -701,6 +703,15 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 - `getMyAttendance(eventId)` : filtre `GET /api/users/me/attendances` pour retourner le statut de l'utilisateur sur un événement.
 - `getMyParticipations()` : **stub** retournant `[]`. TODO : remplacer par l'appel réel quand le backend exposera un endpoint d'événements participés enrichis.
 
+### attachmentApi.ts (SCRUM-149)
+
+Wraps les endpoints attachments via l'instance axios partagée (`@/services/api`) — pattern multipart identique à `uploadEventImage` / `uploadPhoto` (champ `file`, content-type déduit par Axios).
+
+- `uploadEventAttachment(eventId, file)` : `POST /api/events/{eventId}/attachments` — multipart `file`, retourne `Attachment` (201). Propage les erreurs telles quelles (status / code envelope) pour que l'appelant les mappe en messages français per-row.
+- `deleteEventAttachment(eventId, attachmentId)` : `DELETE /api/events/{eventId}/attachments/{attachmentId}` — 204, pas de body. Propage les erreurs.
+
+Utilitaire associé : `formatFileSize(bytes)` dans `src/utils/formatFileSize.ts` — sortie `"X B" | "X.X KB" | "X.X MB"` (bases 1024, cohérent avec le cap backend de 10 MiB).
+
 ### reportApi.ts
 
 - `reportEvent(eventId, { reason, description? })` : `POST /api/events/{id}/report` — signale un événement avec un motif catégoriel obligatoire (`reason: ReportReason` = `SPAM | INAPPROPRIATE | FAKE | OTHER`) et un texte libre optionnel (`description: string`, max 2000 chars). Conforme au schéma `CreateReportRequest` d'`openapi.yaml`. Le backend répond `201` avec un `Report` complet ; le service ignore intentionnellement le corps (`Promise<void>`) car aucun consommateur n'en a besoin pour l'instant. Lance une erreur 409 si l'utilisateur a déjà signalé cet événement, 422 si l'utilisateur en est l'organisateur, 400 si le motif est invalide.
@@ -763,6 +774,22 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 - Champ texte UUID + bouton "Inviter" (validation regex UUID v4 côté client + 404 mapping côté serveur si l'utilisateur n'existe pas).
 - Liste des co-orgs avec chip statut (`PENDING` orange / `ACCEPTED` vert) + bouton × pour retirer.
 - Skeleton `co-organizers-section.bones.json` pendant chargement initial.
+
+### EventAttachmentsEditor (SCRUM-149)
+
+- `src/components/event/EventAttachmentsEditor.tsx` — section "Fichiers joints" embarquée dans `EventForm` via la prop `attachmentsSection`, injectée uniquement par `EventEditPage` (event existant).
+- Props : `eventId: number`, `attachments: Attachment[]`, `onChange: (next: Attachment[]) => void`.
+- UX stage-then-upload : `<input type="file" multiple accept=".pdf,.doc,.docx,.xlsx">` → "Fichiers à uploader" → bouton "Uploader" itère **une requête `POST /events/{id}/attachments` par fichier**, séquentielle. Files réussies → `onChange([...attachments, ...succeeded])`, files échouées → restent dans la staging list avec leur message d'erreur per-row (mapping des codes backend `attachment_invalid_size` / `_type` / `_limit_exceeded` + status `413` / `415`).
+- Validations client miroir backend (`@/types/attachment` : `ATTACHMENT_MAX_BYTES`, `ATTACHMENT_MAX_PER_EVENT`, `isAcceptedAttachmentFile`). Garde extension-fallback quand `file.type` est vide (drag-and-drop / OS).
+- Liste des uploadés : link `<a href={fileUrl} download target="_blank">` (même convention que `bannerUrl` / `avatarUrl`, S3 public-read) + bouton × → `DELETE /events/{id}/attachments/{id}`. Suppression échouée → message inline, row préservée.
+
+### EventDocumentsList (SCRUM-149)
+
+- `src/components/event/EventDocumentsList.tsx` — section "Documents" pour `EventDetailPage`.
+- Props : `attachments: Attachment[]`.
+- Retourne `null` quand la liste est vide → l'appelant peut le rendre sans condition externe (mais `EventDetailPage` le gate quand même pour éviter de réserver de l'espace dans la grille mobile).
+- Une row par attachment : icône `FileText` (lucide-react) + filename → `<a href={fileUrl} download target="_blank" rel="noopener noreferrer">` + taille via `formatFileSize`.
+- Visible pour tous (auth ET non-auth) — pas d'auth gate.
 
 ### EventOrganizerTeam
 
