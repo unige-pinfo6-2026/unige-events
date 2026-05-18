@@ -1,42 +1,51 @@
+
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { NotificationBell } from '@/components/utils/NotificationBell'
 
-afterEach(() => cleanup())
+afterEach(() => { cleanup() })
 
 describe('NotificationBell', () => {
-  it('renders the bell trigger with no badge when unreadCount is 0', () => {
+  it('renders the notifications icon button', () => {
     render(<NotificationBell unreadCount={0} />)
-
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
-    expect(screen.queryByLabelText(/notification.* non lue/)).toBeNull()
   })
 
-  it('renders a singular aria-label when there is exactly 1 unread', () => {
+  it('shows no badge when unreadCount is 0', () => {
+    render(<NotificationBell unreadCount={0} />)
+    expect(screen.queryByLabelText(/non lue/i)).toBeNull()
+  })
+
+  it('shows badge with singular label for 1 unread notification', () => {
     render(<NotificationBell unreadCount={1} />)
-
-    const badge = screen.getByLabelText('1 notification non lue')
-    expect(badge.textContent).toBe('1')
+    expect(screen.getByLabelText('1 notification non lue')).toBeTruthy()
+    expect(screen.getByText('1')).toBeTruthy()
   })
 
-  it('renders a plural aria-label when there are 2+ unread', () => {
+  it('shows badge with plural label for multiple unread notifications', () => {
     render(<NotificationBell unreadCount={5} />)
-
-    const badge = screen.getByLabelText('5 notifications non lues')
-    expect(badge.textContent).toBe('5')
+    expect(screen.getByLabelText('5 notifications non lues')).toBeTruthy()
+    expect(screen.getByText('5')).toBeTruthy()
   })
 
-  it('renders the exact count up to 99', () => {
+  it('shows 99 when unreadCount is exactly 99', () => {
     render(<NotificationBell unreadCount={99} />)
-
-    const badge = screen.getByLabelText('99 notifications non lues')
-    expect(badge.textContent).toBe('99')
+    expect(screen.getByText('99')).toBeTruthy()
   })
 
-  it('renders "99+" when there are more than 99 unread', () => {
-    render(<NotificationBell unreadCount={123} />)
+  it('shows 99+ when unreadCount exceeds 99', () => {
+    render(<NotificationBell unreadCount={100} />)
+    expect(screen.getByText('99+')).toBeTruthy()
+  })
 
-    const badge = screen.getByLabelText('123 notifications non lues')
-    expect(badge.textContent).toBe('99+')
+  it('shows 99+ for large unread counts', () => {
+    render(<NotificationBell unreadCount={999} />)
+    expect(screen.getByText('99+')).toBeTruthy()
+    expect(screen.getByLabelText('999 notifications non lues')).toBeTruthy()
+  })
+
+  it('clicking the bell button does not throw', () => {
+    render(<NotificationBell unreadCount={0} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }))
   })
 })

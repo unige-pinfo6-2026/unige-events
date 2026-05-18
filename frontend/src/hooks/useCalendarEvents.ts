@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getAll } from '../services/eventApi'
 import type { Event } from '@/types/event'
+import { toLocalIsoDateTime } from '@/utils/dateTime'
 
 export interface CalendarEvent {
   title: string
@@ -28,7 +29,7 @@ export function useCalendarEvents(date: Date): UseCalendarEventsResult {
       const month = d.getMonth()
       const firstDay = new Date(year, month, 1)
       const lastDay = new Date(year, month + 1, 0, 23, 59, 59)
-      const endDateFrom = firstDay.toISOString().slice(0, 19)
+      const endDateFrom = toLocalIsoDateTime(firstDay)
       const data = await getAll({ page: 0, size: 100, status: 'PUBLISHED', endDateFrom })
       const filtered = data.filter((e) => new Date(e.startDate) <= lastDay)
       setEvents(
