@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * SCRUM-148 — sanity tests for {@link DocumentFormat} (Décision S).
@@ -40,8 +41,22 @@ class DocumentFormatTest {
     }
 
     @Test
-    void allowedMimes_containsExactlyFourEntries() {
-        assertEquals(4, DocumentFormat.ALLOWED_MIMES.size());
+    void mimeToExtension_png_mapsToPngExt() {
+        // SCRUM-149 widening — images allowed as event attachments alongside
+        // documents. Header-only validation here (cf. ImageFormat for the
+        // magic-number path used by saveImage).
+        assertEquals(".png", DocumentFormat.MIME_TO_EXTENSION.get("image/png"));
+    }
+
+    @Test
+    void mimeToExtension_jpeg_mapsToJpgExt() {
+        assertEquals(".jpg", DocumentFormat.MIME_TO_EXTENSION.get("image/jpeg"));
+    }
+
+    @Test
+    void allowedMimes_containsExactlySixEntries() {
+        // Bumped from 4 → 6 in SCRUM-149 (image/png + image/jpeg added).
+        assertEquals(6, DocumentFormat.ALLOWED_MIMES.size());
     }
 
     @Test
@@ -71,10 +86,15 @@ class DocumentFormatTest {
     }
 
     @Test
-    void allowedMimes_excludesImageMimes() {
-        // Defense-in-depth — image MIMEs belong to saveImage / ImageFormat
-        // not saveFile / DocumentFormat. Conflation would let a renamed
-        // .png bypass the magic-number check.
-        assertTrue(DocumentFormat.ALLOWED_MIMES.stream().noneMatch(mime -> mime.startsWith("image/")));
+    void allowedMimes_includesPngAndJpegOnly_amongImageMimes() {
+        // SCRUM-149 — image MIMEs are now allowed as event attachments
+        // (header-only validation, cf. Décision S "acceptable risk"). Only
+        // PNG and JPEG are accepted ; other image MIMEs (webp, gif, svg…)
+        // stay out of the documents whitelist on purpose.
+        assertTrue(DocumentFormat.ALLOWED_MIMES.contains("image/png"));
+        assertTrue(DocumentFormat.ALLOWED_MIMES.contains("image/jpeg"));
+        assertFalse(DocumentFormat.ALLOWED_MIMES.contains("image/webp"));
+        assertFalse(DocumentFormat.ALLOWED_MIMES.contains("image/gif"));
+        assertFalse(DocumentFormat.ALLOWED_MIMES.contains("image/svg+xml"));
     }
 }

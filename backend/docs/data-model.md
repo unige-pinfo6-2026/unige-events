@@ -518,7 +518,7 @@ Table : `event_attachments` (créée par la migration `V13__create_event_attachm
 | `fileName` | `String` | `file_name` | not null, `length=255` |
 | `fileUrl` | `String` | `file_url` | not null, `columnDefinition="TEXT"` — URL S3 absolue |
 | `fileSize` | `Long` | `file_size` | not null, CHECK `<= 10485760` (10 MiB) |
-| `mimeType` | `String` | `mime_type` | not null, `length=128`, CHECK whitelist (4 valeurs) |
+| `mimeType` | `String` | `mime_type` | not null, `length=128`, CHECK whitelist (6 valeurs depuis SCRUM-149) |
 | `uploadedById` | `UUID` | `uploaded_by_id` | not null (pas de FK cross-DB) |
 | `uploadedAt` | `LocalDateTime` | `uploaded_at` | not null, `@Column(updatable=false)`, `@PrePersist` |
 
@@ -529,7 +529,10 @@ les distingue via file_size + uploaded_at).
 
 CHECK constraints (last line of defense — le service layer rejette en 422 avant) :
 - `event_attachments_size_check` : `file_size <= 10485760` (10 MiB).
-- `event_attachments_mime_check` : `mime_type IN (4 MIME PDF/DOC/DOCX/XLSX)`.
+- `event_attachments_mime_check` : `mime_type IN (6 MIME : PDF / DOC / DOCX / XLSX / PNG / JPEG)`.
+  Élargi en SCRUM-149 par la migration `V14__widen_event_attachments_mime_whitelist.sql`
+  (DROP + ADD CHECK pour intégrer `image/png` + `image/jpeg`) — V13 reste immutable
+  (piège #12 Flyway).
 
 Cascade :
 - FK `ON DELETE CASCADE` auto-purge les rows attachments quand un event est hard-deleted

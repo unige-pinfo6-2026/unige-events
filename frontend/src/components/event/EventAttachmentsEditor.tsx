@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import axios from 'axios'
-import { Paperclip, Upload, X } from 'lucide-react'
+import { Download, Paperclip, Upload, X } from 'lucide-react'
 import { ButtonPrimary } from '@/components/utils/Buttons'
 import {
   ATTACHMENT_ACCEPT_ATTR,
@@ -11,6 +11,7 @@ import {
 } from '@/types/attachment'
 import { deleteEventAttachment, uploadEventAttachment } from '@/services/attachmentApi'
 import { formatFileSize } from '@/utils/formatFileSize'
+import { downloadAttachment } from '@/utils/downloadAttachment'
 
 interface EventAttachmentsEditorProps {
   eventId: number
@@ -26,7 +27,7 @@ interface StagedFile {
 }
 
 const ERROR_TOO_LARGE = `Ce fichier dépasse la taille maximale autorisée (${formatFileSize(ATTACHMENT_MAX_BYTES)}).`
-const ERROR_BAD_TYPE = 'Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX.'
+const ERROR_BAD_TYPE = 'Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.'
 const ERROR_LIMIT_REACHED = `Limite atteinte : ${ATTACHMENT_MAX_PER_EVENT} fichiers maximum par événement.`
 const ERROR_GENERIC_UPLOAD = "L'upload de ce fichier a échoué."
 const ERROR_GENERIC_DELETE = 'La suppression du fichier a échoué.'
@@ -129,7 +130,7 @@ export default function EventAttachmentsEditor({ eventId, attachments, onChange 
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-foreground">Fichiers joints</h3>
           <p className="text-xs text-foreground/60">
-            PDF, DOC, DOCX, XLSX — {formatFileSize(ATTACHMENT_MAX_BYTES)} max par fichier, {ATTACHMENT_MAX_PER_EVENT} fichiers max par événement.
+            PDF, DOC, DOCX, XLSX, PNG, JPEG — {formatFileSize(ATTACHMENT_MAX_BYTES)} max par fichier, {ATTACHMENT_MAX_PER_EVENT} fichiers max par événement.
           </p>
         </div>
       </header>
@@ -264,18 +265,24 @@ function UploadedRow({
     >
       <Paperclip className="w-4 h-4 text-foreground/40 shrink-0" />
       <div className="flex-1 min-w-0">
-        <a
-          href={attachment.fileUrl}
-          download={attachment.fileName}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-foreground hover:text-accent no-underline truncate block"
+        <button
+          type="button"
+          onClick={() => { void downloadAttachment(attachment.fileUrl, attachment.fileName) }}
+          className="text-sm font-medium text-foreground hover:text-accent truncate block text-left bg-transparent border-0 p-0 cursor-pointer"
         >
           {attachment.fileName}
-        </a>
+        </button>
         <p className="text-xs text-foreground/50">{formatFileSize(attachment.fileSize)}</p>
         {error && <p className="text-xs text-error mt-1">{error}</p>}
       </div>
+      <button
+        type="button"
+        onClick={() => { void downloadAttachment(attachment.fileUrl, attachment.fileName) }}
+        aria-label={`Télécharger ${attachment.fileName}`}
+        className="p-2 rounded-lg text-foreground/40 hover:text-accent hover:bg-accent/10 transition-colors"
+      >
+        <Download className="w-4 h-4" />
+      </button>
       <button
         type="button"
         onClick={onDelete}

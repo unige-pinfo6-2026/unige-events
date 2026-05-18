@@ -21,11 +21,16 @@ export const ATTACHMENT_MIME_TYPES = {
   'application/msword':                                                         { label: 'DOC',  extension: '.doc'  },
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':    { label: 'DOCX', extension: '.docx' },
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':          { label: 'XLSX', extension: '.xlsx' },
+  // SCRUM-149 — PNG / JPEG ajoutés en plus des documents pour permettre
+  // des visuels (posters, captures) en tant que pièces jointes. La voie
+  // backend reste `saveFile` (header-only validation, cf. Décision S).
+  'image/png':                                                                  { label: 'PNG',  extension: '.png'  },
+  'image/jpeg':                                                                 { label: 'JPEG', extension: '.jpg'  },
 } as const
 
 export type AttachmentMimeType = keyof typeof ATTACHMENT_MIME_TYPES
 
-export const ATTACHMENT_ACCEPT_ATTR = '.pdf,.doc,.docx,.xlsx'
+export const ATTACHMENT_ACCEPT_ATTR = '.pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg'
 export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024 // 10 MiB — SCRUM-148
 export const ATTACHMENT_MAX_PER_EVENT = 5
 
@@ -34,6 +39,9 @@ const EXTENSION_TO_MIME: Record<string, AttachmentMimeType> = {
   doc:  'application/msword',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  png:  'image/png',
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
 }
 
 /**

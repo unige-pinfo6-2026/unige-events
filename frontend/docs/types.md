@@ -177,17 +177,21 @@ export const ATTACHMENT_MIME_TYPES = {
   'application/msword':                                                         { label: 'DOC',  extension: '.doc'  },
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':    { label: 'DOCX', extension: '.docx' },
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':          { label: 'XLSX', extension: '.xlsx' },
+  // SCRUM-149 follow-up — PNG et JPEG ajoutés en plus des documents,
+  // backend `DocumentFormat` + V14 migration en miroir.
+  'image/png':                                                                  { label: 'PNG',  extension: '.png'  },
+  'image/jpeg':                                                                 { label: 'JPEG', extension: '.jpg'  },
 } as const
 export type AttachmentMimeType = keyof typeof ATTACHMENT_MIME_TYPES
 ```
 
-Constantes de validation (miroir backend SCRUM-148) :
+Constantes de validation (miroir backend SCRUM-148 + élargissement SCRUM-149) :
 
-- `ATTACHMENT_ACCEPT_ATTR = '.pdf,.doc,.docx,.xlsx'`
+- `ATTACHMENT_ACCEPT_ATTR = '.pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg'`
 - `ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024` (10 MiB)
 - `ATTACHMENT_MAX_PER_EVENT = 5`
 
-Garde défensive `isAcceptedAttachmentFile(file)` : accepte si **soit** `file.type` est dans la whitelist, **soit** l'extension du nom est dans la map (fallback drag-and-drop / OS qui ne remplit pas `file.type`).
+Garde défensive `isAcceptedAttachmentFile(file)` : accepte si **soit** `file.type` est dans la whitelist, **soit** l'extension du nom est dans la map `EXTENSION_TO_MIME` (fallback drag-and-drop / OS qui ne remplit pas `file.type` ; `.jpeg` est mappé en plus de `.jpg`).
 
 ---
 

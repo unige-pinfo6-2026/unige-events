@@ -60,11 +60,12 @@ describe('EventAttachmentsEditor', () => {
     expect(screen.getByText('Aucun fichier joint pour le moment.')).toBeTruthy()
   })
 
-  it('lists already-uploaded attachments with size and download link', () => {
+  it('lists already-uploaded attachments with size and a download trigger', () => {
     renderEditor({ attachments: [pdfAttachment({ fileSize: 1024 * 1024 })] })
-    const link = screen.getByRole('link', { name: 'programme.pdf' }) as HTMLAnchorElement
-    expect(link.href).toBe('https://s3.example.com/events/42/programme.pdf')
-    expect(link.getAttribute('download')).toBe('programme.pdf')
+    // Row is now button-driven (downloadAttachment) so that cross-origin
+    // MinIO URLs still force-download instead of opening inline.
+    expect(screen.getByRole('button', { name: 'programme.pdf' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
     expect(screen.getByText('1.0 MB')).toBeTruthy()
   })
 
@@ -87,10 +88,21 @@ describe('EventAttachmentsEditor', () => {
 
   it('rejects unsupported MIME types client-side and surfaces a French error', () => {
     renderEditor()
-    pickFile(new File(['x'], 'image.png', { type: 'image/png' }))
-    expect(screen.getByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX.')).toBeTruthy()
+    // image/svg+xml is intentionally NOT in the whitelist (PNG/JPEG were
+    // added in SCRUM-149 follow-up, SVG / GIF / WEBP stay out).
+    pickFile(new File(['x'], 'logo.svg', { type: 'image/svg+xml' }))
+    expect(screen.getByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Uploader' }))
     expect(mockUpload).not.toHaveBeenCalled()
+  })
+
+  it('accepts PNG and JPEG files (SCRUM-149 image MIMEs)', () => {
+    renderEditor()
+    pickFile(new File(['x'], 'poster.png', { type: 'image/png' }))
+    pickFile(new File(['y'], 'photo.jpg', { type: 'image/jpeg' }))
+    expect(screen.queryByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.')).toBeNull()
+    expect(screen.getByText('poster.png')).toBeTruthy()
+    expect(screen.getByText('photo.jpg')).toBeTruthy()
   })
 
   it('rejects files larger than the 10 MiB cap before upload', () => {
@@ -194,7 +206,7 @@ describe('EventAttachmentsEditor', () => {
     renderEditor()
     pickFile(new File(['x'], 'doc.pdf', { type: 'application/pdf' }))
     fireEvent.click(screen.getByRole('button', { name: 'Uploader' }))
-    expect(await screen.findByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX.')).toBeTruthy()
+    expect(await screen.findByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.')).toBeTruthy()
   })
 
   it('falls back to a generic message when an upload fails without an axios envelope', async () => {
@@ -254,12 +266,12 @@ describe('EventAttachmentsEditor', () => {
     pickFile(new File(['x'], 'doc.docx', { type: '' }))
     // No error → file is staged as valid by extension fallback.
     expect(screen.getByText('doc.docx')).toBeTruthy()
-    expect(screen.queryByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX.')).toBeNull()
+    expect(screen.queryByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.')).toBeNull()
   })
 
   it('rejects a file with neither a known mime nor a known extension', () => {
     renderEditor()
     pickFile(new File(['x'], 'noext', { type: '' }))
-    expect(screen.getByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX.')).toBeTruthy()
+    expect(screen.getByText('Format non supporté. Formats acceptés : PDF, DOC, DOCX, XLSX, PNG, JPEG.')).toBeTruthy()
   })
 })

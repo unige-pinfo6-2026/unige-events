@@ -947,9 +947,12 @@ components:
             - application/msword
             - application/vnd.openxmlformats-officedocument.wordprocessingml.document
             - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+            - image/png
+            - image/jpeg
           description: |
             MIME type du fichier. Whitelist stricte (validation côté `FileStorageService`
-            + CHECK constraint DB `event_attachments_mime_check`).
+            + CHECK constraint DB `event_attachments_mime_check`). Élargi en SCRUM-149
+            front-end follow-up : PNG et JPEG acceptés en plus des documents (V14 migration).
         uploadedById:
           type: string
           format: uuid
@@ -3476,7 +3479,8 @@ paths:
 
         **Whitelist MIME** : `application/pdf`, `application/msword`,
         `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
-        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+        `image/png`, `image/jpeg` (PNG/JPEG ajoutés en SCRUM-149 — V14 migration).
 
         **Limites** :
         - `file.size <= 10 MiB` (10 485 760 bytes) — sinon 422 `attachment_invalid_size`.
@@ -3485,7 +3489,9 @@ paths:
         **Rate-limit** : `@PerUserRateLimit(name="events.uploadAttachment", max=10, windowSeconds=60)`.
 
         **Validation MIME** : header uniquement (pas de validation magic-number
-        pour les non-images — Décision S, risque mineur documenté).
+        pour les non-images — Décision S, risque mineur documenté). Les images
+        ajoutées en SCRUM-149 passent par la même voie `saveFile` (pas
+        `saveImage`), donc également sans magic-number — risque homogène.
       operationId: uploadEventAttachment
       tags: [events]
       security:
