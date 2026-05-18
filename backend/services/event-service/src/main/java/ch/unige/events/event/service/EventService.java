@@ -2,6 +2,8 @@ package ch.unige.events.event.service;
 
 import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.shared.error.ApiErrorResponse;
+import ch.unige.events.event.attachment.dto.AttachmentDTO;
+import ch.unige.events.event.attachment.entity.EventAttachment;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
@@ -300,14 +302,21 @@ public class EventService {
         if (checkCoOrgOf != null) {
             coOrganizerOf = isCreatorOrAcceptedCoOrganizer(event, checkCoOrgOf);
         }
-        return EventDTO.from(
+        // SCRUM-148 — Décision Q : populate attachments ONLY here. Listings,
+        // search, featured, me-*, duplicate keep attachments=null to flag
+        // "not loaded" rather than "loaded and empty".
+        List<AttachmentDTO> attachments = EventAttachment.findByEvent(id).stream()
+                .map(AttachmentDTO::from)
+                .toList();
+        return EventDTO.fromWithAttachments(
                 event,
                 att,
                 EventCapacity.computeAvailableSpots(event.capacity, att),
                 wait,
                 countViews(id),
                 countInterested(id),
-                coOrganizerOf
+                coOrganizerOf,
+                attachments
         );
     }
 
@@ -444,16 +453,44 @@ public class EventService {
         // S9 if needed). EVENT-DELETE-001: purge event_co_organizers so
         // PENDING/ACCEPTED rows do not survive a deleted parent (the table
         // has no ON DELETE CASCADE FK in V8).
+        // SCRUM-148 Décision T : collect attachment URLs BEFORE the DB
+        // cascade so the post-commit S3 cleanup can fire on the captured
+        // list. event_attachments has ON DELETE CASCADE in V13 so we could
+        // skip the explicit JPQL DELETE — kept here for parity with the
+        // other sibling tables (and for clarity at audit time).
+        List<String> attachmentUrls = EventAttachment.findByEvent(id).stream()
+                .map(a -> a.fileUrl)
+                .toList();
         int favs = entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         int views = entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         int coOrgs = entityManager.createQuery("DELETE FROM EventCoOrganizer co WHERE co.eventId = :id")
                 .setParameter("id", id).executeUpdate();
+        int attachments = entityManager.createQuery(
+                        "DELETE FROM EventAttachment a WHERE a.eventId = :id")
+                .setParameter("id", id).executeUpdate();
         event.delete();
+        // Best-effort S3 cleanup — defense-in-depth try/catch around the
+        // storage call. FileStorageService.deleteObject already swallows
+        // S3 transients with a WARN log, but mocking it (e.g. in
+        // EventServiceDeleteCascadeAttachmentsTest) would bypass that guard
+        // and let an exception roll back the surrounding tx. Catching here
+        // pins the best-effort contract at the call site regardless of the
+        // downstream implementation. Orphan objects accepted (DevOps
+        // lifecycle policy is the safety net).
+        for (String url : attachmentUrls) {
+            try {
+                fileStorageService.deleteObject(url);
+            } catch (Exception e) {
+                Log.warnf(e,
+                        "[S3_CLEANUP_FAIL_event_attachment] event=%d url=%s — orphan object will remain",
+                        id, url);
+            }
+        }
         Log.infof(
-            "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d",
-            id, auth0Id, favs, views, coOrgs
+            "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d attachments=%d",
+            id, auth0Id, favs, views, coOrgs, attachments
         );
     }
 
@@ -535,7 +572,14 @@ public class EventService {
      *   <li>reset: shareCode, recurrenceRule, parentEventId,
      *       registrationDeadline, featured, featuredAt.</li>
      *   <li>no cascade: attendances, favorites, views, co-organizers,
-     *       comments, reports do not follow the clone.</li>
+     *       comments, reports do not follow the clone. SCRUM-148 (Décision
+     *       AC) extends the no-cascade rule to {@code event_attachments} —
+     *       the DRAFT clone starts with an empty attachment list ; the
+     *       organizer must re-upload anything still relevant. This keeps
+     *       the duplicate cheap (no extra S3 copy) and aligned with the
+     *       "reset to empty" spirit of {@code shareCode} /
+     *       {@code recurrenceRule} / {@code parentEventId}. Asserted by
+     *       {@code EventServiceDuplicateAttachmentsTest}.</li>
      *   <li>no Kafka fire: status DRAFT, no events.published / .cancelled /
      *       .updated emitted.</li>
      * </ul>
@@ -735,7 +779,15 @@ public class EventService {
                 && event.creatorId.equals(callerUuid);
     }
 
-    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
+    /**
+     * Returns {@code true} when the caller is either the event creator or an
+     * ACCEPTED co-organizer (cascade pattern SCRUM-136). Public so adjacent
+     * services in the same module can enforce the cascade without
+     * re-implementing the rule — currently consumed by
+     * {@code event/attachment/service/EventAttachmentService} (SCRUM-148,
+     * Décision V). Null-safe on both arguments.
+     */
+    public boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
         if (event == null || callerUuid == null) {
             return false;
         }

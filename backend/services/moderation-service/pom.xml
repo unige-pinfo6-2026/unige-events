@@ -42,6 +42,8 @@
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-enums</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-api-error</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>ch.unige.events</groupId><artifactId>shared-domain-projections</artifactId><version>${project.version}</version></dependency>
+        <!-- ── Shared per-user rate-limit interceptor (issue #98) — SCRUM-144 ── -->
+        <dependency><groupId>ch.unige.events</groupId><artifactId>shared-rate-limit</artifactId><version>${project.version}</version></dependency>
         <!-- ── REST client runtime ───────────────────────────────────────────── -->
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client</artifactId></dependency>
         <dependency><groupId>io.quarkus</groupId><artifactId>quarkus-rest-client-jackson</artifactId></dependency>

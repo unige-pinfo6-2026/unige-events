@@ -455,6 +455,20 @@ components:
             `FREQ=WEEKLY;UNTIL=YYYYMMDD`, `FREQ=BIWEEKLY;COUNT=N`,
             `FREQ=MONTHLY;UNTIL=YYYYMMDD;COUNT=N`. `null` sur les occurrences enfants et
             sur les standalones non-récurrents. PAS de support BYDAY/EXDATE/INTERVAL en S7.
+        attachments:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AttachmentDTO'
+          description: |
+            Liste des fichiers joints à l'événement (SCRUM-148). **Champ asymétrique :**
+            peuplé **uniquement** par `GET /events/{id}` (détail). Tous les autres
+            endpoints qui retournent un `Event` (`GET /events`, `/search`, `/featured`,
+            `/users/me/favorites`, `/users/me/events`, `POST /events`, `PUT /events/{id}`,
+            `POST /events/{id}/duplicate`, etc.) renvoient `null` (pas un tableau vide)
+            pour signaler "non chargé". Le frontend consomme la liste uniquement sur
+            `EventDetailPage`. Stratégie cohérente avec `viewCount` / `interestedCount`
+            qui suivent la même asymétrie.
 
     CreateEventRequest:
       type: object
@@ -696,16 +710,24 @@ components:
       description: |
         Notification in-app retournée par `GET /api/users/me/notifications`. Owned par
         `notification-service`. Le payload est composé par les consumers Kafka du service
-        à partir des événements `events.cancelled`, `events.updated` et `attendances.created`
-        (cf. `backend/docs/architecture.md` section Kafka). Les notifs `EVENT_REMINDER` sont
-        réservées pour un scheduler ultérieur (hors scope SCRUM-99).
+        à partir des événements `events.cancelled`, `events.updated`, `attendances.created`
+        (phase 1, SCRUM-99) et `users.followed`, `users.follow-requested`,
+        `users.follow-accepted` (phase 2, SCRUM-140) — cf.
+        `backend/docs/architecture.md` section Kafka.
 
-        **Extensibilité (phase 2).** Les valeurs `NEW_FOLLOWER`, `FOLLOW_REQUEST`,
-        `FOLLOW_ACCEPTED` (SCRUM-140), `COMMENT_MENTION` et `NEW_COMMENT` (SCRUM-145)
-        seront ajoutées à l'enum `type` ainsi qu'à la CHECK constraint DB via
-        `V2__widen_notification_type_check.sql` lors de la livraison de la phase 2.
-        Pour `NEW_FOLLOWER` / `FOLLOW_REQUEST` / `FOLLOW_ACCEPTED`, le champ
-        `relatedUserId` portera l'UUID du follower / requester / accepter.
+        **Valeurs `type` (9 au total post-SCRUM-140) :**
+        - **Phase 1 (SCRUM-99)** — `EVENT_UPDATED`, `EVENT_CANCELLED`, `NEW_ATTENDEE` sont
+          émis par les consumers events-cancelled / events-updated / attendances-created.
+          `EVENT_REMINDER` est réservé pour un scheduler ultérieur (hors scope).
+        - **Phase 2 (SCRUM-140)** — `NEW_FOLLOWER`, `FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`
+          sont émis par les 3 nouveaux consumers users-followed / users-follow-requested /
+          users-follow-accepted. Pour ces trois types, `relatedUserId` porte l'UUID de
+          l'acteur (follower pour `NEW_FOLLOWER` / `FOLLOW_REQUEST`, acceptant pour
+          `FOLLOW_ACCEPTED`) et `eventId` est `null`.
+        - **Phase 3 (SCRUM-145)** — `COMMENT_MENTION`, `NEW_COMMENT` sont **réservés**
+          côté enum + CHECK DB (élargis dès phase 2 via `V2__widen_notification_type_check.sql`
+          pour éviter une 2e migration de widening), mais **aucun consumer ne les émet** en
+          phase 2. SCRUM-145 les câblera ultérieurement (purement additif côté schema).
       required: [id, userId, type, message, read, createdAt]
       properties:
         id:
@@ -718,10 +740,20 @@ components:
           description: UUID du destinataire (`users.id`, sans FK cross-DB).
         type:
           type: string
-          enum: [EVENT_UPDATED, EVENT_CANCELLED, EVENT_REMINDER, NEW_ATTENDEE]
+          enum:
+            - EVENT_UPDATED
+            - EVENT_CANCELLED
+            - EVENT_REMINDER
+            - NEW_ATTENDEE
+            - NEW_FOLLOWER
+            - FOLLOW_REQUEST
+            - FOLLOW_ACCEPTED
+            - COMMENT_MENTION
+            - NEW_COMMENT
           description: |
-            Type métier de la notification. Phase 1 : 4 valeurs. Phase 2 : 5 valeurs
-            additionnelles (cf. description du schéma).
+            Type métier de la notification. 9 valeurs : 4 phase 1 (SCRUM-99) + 3 phase 2
+            émises (SCRUM-140) + 2 phase 3 réservées non émises (SCRUM-145). Cf. description
+            du schéma pour la mapping consumer ↔ type.
         eventId:
           type: integer
           format: int64
@@ -774,11 +806,17 @@ components:
       type: object
       description: |
         Représentation d'un signalement, retournée par `POST /api/events/{id}/report`,
-        `GET /api/admin/reports` et `PATCH /api/admin/reports/{id}`. Les libellés
-        `eventTitle` et `reporterDisplayName` sont projetés depuis l'event et le user
-        liés afin d'éviter au dashboard admin un round-trip supplémentaire par ligne ;
-        les UUID restent disponibles pour drill-down via `GET /events/{id}` ou
-        `GET /users/{id}`.
+        `POST /api/comments/{id}/report` (SCRUM-144), `GET /api/admin/reports` et
+        `PATCH /api/admin/reports/{id}`. Les libellés `eventTitle` et
+        `reporterDisplayName` sont projetés depuis l'event et le user liés afin d'éviter
+        au dashboard admin un round-trip supplémentaire par ligne ; les UUID restent
+        disponibles pour drill-down via `GET /events/{id}` ou `GET /users/{id}`.
+
+        **Cible XOR (SCRUM-144).** Un signalement cible **exactement** un event OU un
+        commentaire. Côté DB, la contrainte `report_target_xor CHECK ((event_id IS NULL)
+        <> (comment_id IS NULL))` enforce cette exclusivité. Les UKs partiels
+        `uq_report_event_partial` et `uq_report_comment_partial` empêchent un même
+        utilisateur de signaler deux fois la même cible.
       properties:
         id:
           type: integer
@@ -787,7 +825,17 @@ components:
           type: integer
           format: int64
           nullable: true
-          description: ID de l'événement signalé. Nullable seulement par défense, en pratique l'event est NOT NULL en base.
+          description: |
+            ID de l'événement signalé. `null` quand la cible est un commentaire
+            (cf. `commentId` ci-dessous, XOR strict).
+        commentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            ID du commentaire signalé (SCRUM-144). `null` quand la cible est un event.
+            Mutuellement exclusif avec `eventId` (XOR — un report cible toujours
+            exactement l'un des deux).
         eventTitle:
           type: string
           nullable: true
@@ -863,6 +911,70 @@ components:
           type: string
           maxLength: 2000
           nullable: true
+
+    AttachmentDTO:
+      type: object
+      description: |
+        Fichier joint à un événement (SCRUM-148). Retourné par
+        `POST /api/events/{id}/attachments` (un seul attachment uploadé), inline dans
+        `Event.attachments` (peuplé uniquement par `GET /events/{id}` — cf. Décision Q).
+        Max 10 MiB par fichier, max 5 par event. MIME whitelist : PDF, DOC, DOCX, XLSX.
+      required: [id, fileName, fileUrl, fileSize, mimeType, uploadedById, uploadedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: PK séquentielle (Long, sequence `event_attachments_seq`).
+        fileName:
+          type: string
+          maxLength: 255
+          description: Nom du fichier original (tel que renseigné par l'uploader).
+        fileUrl:
+          type: string
+          description: |
+            Path S3 absolu du fichier — directement consommable comme URL de
+            téléchargement par le frontend (le bucket est public-read en lecture seule).
+        fileSize:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10485760
+          description: Taille du fichier en bytes (max 10 MiB = 10 485 760 bytes).
+        mimeType:
+          type: string
+          enum:
+            - application/pdf
+            - application/msword
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+          description: |
+            MIME type du fichier. Whitelist stricte (validation côté `FileStorageService`
+            + CHECK constraint DB `event_attachments_mime_check`).
+        uploadedById:
+          type: string
+          format: uuid
+          description: UUID du `User` ayant uploadé le fichier (creator OU co-organisateur ACCEPTED OU admin).
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Timestamp serveur à l'upload (immutable).
+
+    CommentLikeResponse:
+      type: object
+      description: |
+        Body de retour de `POST /api/comments/{id}/like` (201 si nouveau like, 200 si
+        déjà liké — idempotent). `likeCount` est la valeur post-incrément (ou inchangée
+        si le like existait déjà).
+      required: [liked, likeCount]
+      properties:
+        liked:
+          type: boolean
+          description: Toujours `true` (le caller est désormais associé à un like sur ce commentaire).
+        likeCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Nombre total de likes sur ce commentaire après l'opération.
 
     EventStats:
       type: object
@@ -1172,8 +1284,12 @@ components:
         `authorIsOrganizer` est `true` quand l'auteur est le créateur de l'event OU un
         co-organisateur ACCEPTED (cascade SCRUM-136).
 
-        `likedByMe` est toujours `false` en S6 — sera enrichi par SCRUM-144 (S7) une fois
-        l'entité `CommentLike` livrée.
+        `likedByMe` est **désormais peuplé** depuis SCRUM-144 (phase 2 S9) via un batch
+        fetch anti-N+1 sur `comment_likes` (1 query JPQL pour toute la page de commentaires
+        + leurs replies). `false` pour les callers anonymes.
+
+        `likeCount` est **désormais mutable** (incrémenté/décrémenté par
+        `POST /api/comments/{id}/like` et `DELETE /api/comments/{id}/like`).
       properties:
         id:
           type: integer
@@ -1220,12 +1336,17 @@ components:
           type: integer
           format: int32
           minimum: 0
-          description: Nombre de likes — toujours `0` en S6 (mutation livrée par SCRUM-144).
+          description: |
+            Nombre total de likes sur ce commentaire. Mutable depuis SCRUM-144 phase 2 —
+            incrémenté/décrémenté atomiquement par `POST /api/comments/{id}/like` /
+            `DELETE /api/comments/{id}/like` (idempotent, race-safe via UK).
         likedByMe:
           type: boolean
           description: |
-            Toujours `false` en S6. SCRUM-144 (S7) le remontera à `true` quand le
-            `CommentLike` existera pour le caller.
+            `true` quand le caller authentifié a déjà liké ce commentaire. Peuplé en bulk
+            par `GET /events/{id}/comments` via un single batch query JPQL (anti N+1) :
+            `SELECT cl.commentId FROM CommentLike cl WHERE cl.userId = ? AND cl.commentId IN ?`.
+            `false` pour les callers anonymes (pas de hop DB).
         createdAt:
           type: string
           format: date-time
@@ -3345,6 +3466,154 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /events/{eventId}/attachments:
+    post:
+      summary: Uploader un fichier joint à un événement (SCRUM-148)
+      description: |
+        Upload un fichier joint (multipart/form-data) à un événement.
+        Réservé au créateur, à un co-organisateur ACCEPTED (cf. SCRUM-136 cascade)
+        ou à un ADMIN.
+
+        **Whitelist MIME** : `application/pdf`, `application/msword`,
+        `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+
+        **Limites** :
+        - `file.size <= 10 MiB` (10 485 760 bytes) — sinon 422 `attachment_invalid_size`.
+        - `count(event_attachments WHERE event_id = ?) < 5` — sinon 422 `attachment_limit_exceeded`.
+
+        **Rate-limit** : `@PerUserRateLimit(name="events.uploadAttachment", max=10, windowSeconds=60)`.
+
+        **Validation MIME** : header uniquement (pas de validation magic-number
+        pour les non-images — Décision S, risque mineur documenté).
+      operationId: uploadEventAttachment
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF / DOC / DOCX / XLSX. Max 10 MiB.
+      responses:
+        '201':
+          description: Attachment uploadé — retourne le DTO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDTO'
+        '400':
+          description: Body multipart absent ou champ `file` manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Caller ni créateur, ni co-organisateur ACCEPTED, ni ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement introuvable (anti-oracle ISSUE-92 propagé)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '413':
+          description: Payload multipart dépasse la limite serveur Quarkus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            Erreur sémantique. Codes possibles :
+            - `attachment_invalid_size` : `file.size > 10485760` (10 MiB).
+            - `attachment_invalid_type` : MIME hors whitelist PDF/DOC/DOCX/XLSX.
+            - `attachment_limit_exceeded` : déjà 5 attachments sur cet event.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /events/{eventId}/attachments/{attachmentId}:
+    delete:
+      summary: Supprimer un fichier joint (SCRUM-148)
+      description: |
+        Supprime un attachment. Cascade DB (FK `event_attachments ON DELETE CASCADE`
+        sur `events`) + best-effort cleanup S3 hors-transaction (log WARN sur échec —
+        objet orphelin S3 acceptable).
+
+        **Autorisé pour** :
+        1. le créateur de l'event,
+        2. un co-organisateur ACCEPTED (cascade SCRUM-136),
+        3. un ADMIN,
+        4. l'**uploader original** de cet attachment (un co-org peut retirer son propre upload).
+
+        **Anti-oracle 404** : `attachmentId` valide mais appartenant à un autre `eventId`
+        (path mismatch) → 404 envelope identique à `attachmentId` inexistant.
+      operationId: deleteEventAttachment
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Attachment supprimé (no body)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: Caller ni créateur, ni co-organisateur ACCEPTED, ni ADMIN, ni uploader original
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Attachment inexistant OU path mismatch (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /events/featured:
     get:
       summary: Événements mis en avant et populaires
@@ -4376,6 +4645,168 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+
+  /comments/{commentId}/like:
+    post:
+      summary: Liker un commentaire (SCRUM-144, idempotent)
+      description: |
+        Pose un like sur le commentaire pour le caller authentifié. **Idempotent** :
+        un 2e POST du même caller sur le même commentaire retourne 200 (au lieu de 201)
+        sans incrémenter `likeCount`. Race-safe : 2 POSTs simultanés produisent 1 row
+        `comment_likes` (UK `(comment_id, user_id)` + catch `PersistenceException`).
+
+        Le `comment.likeCount` est incrémenté **atomiquement** dans la même transaction.
+
+        **Rate-limit** : `@PerUserRateLimit(name="comments.like", max=30, windowSeconds=60)`.
+
+        **Visibilité commentaire** : héritée d'`EventService.getById` via le parent event
+        — commentaire d'un event invisible → 404 anti-oracle.
+      operationId: postCommentLike
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '201':
+          description: Nouveau like posé. `likeCount` est la valeur post-incrément.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '200':
+          description: Like déjà présent (idempotent). `likeCount` est la valeur courante (inchangée).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Commentaire inexistant OU event parent invisible (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      summary: Retirer un like sur un commentaire (SCRUM-144, idempotent)
+      description: |
+        Retire le like du caller sur le commentaire. **Idempotent** : un DELETE sans
+        like préalable retourne 204 sans erreur (no-op). Le `comment.likeCount` est
+        décrémenté atomiquement uniquement si une row `comment_likes` a effectivement
+        été supprimée.
+
+        Pas de rate-limit (DELETE idempotent, faible coût, pas d'incentive de spam).
+      operationId: deleteCommentLike
+      tags: [comments]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Like supprimé OU no-op (idempotent)
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Commentaire inexistant OU event parent invisible (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /comments/{commentId}/report:
+    post:
+      summary: Signaler un commentaire (SCRUM-144)
+      description: |
+        Crée un signalement sur le commentaire pour modération admin. Le report est posé
+        avec `commentId` renseigné et `eventId=null` (cf. CHECK XOR sur la table `reports`,
+        Décision M). Visibilité validée via l'endpoint interne
+        `GET /comments/{id}/_internal-visibility` (engagement-service) — propage 404
+        anti-oracle ISSUE-92 si l'event parent est invisible.
+
+        **Rate-limit** : `@PerUserRateLimit(name="reports.commentCreate", max=5, windowSeconds=60)`.
+
+        **Codes d'erreur applicatifs** :
+        - `409 already_reported` : UK partiel `uq_report_comment_partial (reporter_id, comment_id)`
+          violé (caller a déjà signalé ce commentaire).
+        - `422 cannot_report_own_comment` : `caller.uuid == comment.authorId`.
+      operationId: postCommentReport
+      tags: [reports]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Signalement créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400':
+          description: Bean Validation (reason manquant / hors enum, description > 2000 chars)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Commentaire inexistant OU event parent invisible (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Déjà signalé (`error=already_reported`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Auto-signalement (`error=cannot_report_own_comment`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
 
   /admin/reports:

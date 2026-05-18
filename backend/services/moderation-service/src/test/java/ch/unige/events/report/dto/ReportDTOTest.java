@@ -24,7 +24,7 @@ class ReportDTOTest {
         LocalDateTime reviewed = LocalDateTime.of(2026, 5, 2, 9, 30);
 
         ReportDTO dto = new ReportDTO(
-                7L, 42L, "Some Event",
+                7L, 42L, null, "Some Event",
                 reporterId, "Alice",
                 ReportReason.SPAM, "Looks like spam",
                 ReportStatus.PENDING, "needs review",
@@ -49,13 +49,13 @@ class ReportDTOTest {
         UUID reporterId = UUID.randomUUID();
         LocalDateTime created = LocalDateTime.of(2026, 5, 1, 12, 0);
 
-        ReportDTO a = new ReportDTO(1L, 1L, "T", reporterId, "X",
+        ReportDTO a = new ReportDTO(1L, 1L, null, "T", reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
-        ReportDTO b = new ReportDTO(1L, 1L, "T", reporterId, "X",
+        ReportDTO b = new ReportDTO(1L, 1L, null, "T", reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
-        ReportDTO c = new ReportDTO(2L, 1L, "T", reporterId, "X",
+        ReportDTO c = new ReportDTO(2L, 1L, null, "T", reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
 

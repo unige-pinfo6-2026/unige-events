@@ -8,7 +8,7 @@
 > (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`,
 > puis fixes infra post-merge `f4b5968e`, `dd8ca635`, `60991692`).
 > **5 services métiers** tous actifs + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
-> Kong gateway DB-less + Kafka broker (12 topics post-SCRUM-99, 11 producteurs + 4 consumers — 1 historique event-service + 3 nouveaux notification-service) +
+> Kong gateway DB-less + Kafka broker (12 topics post-SCRUM-99, 11 producteurs + **7 consumers post-SCRUM-140** — 1 historique event-service + 3 SCRUM-99 phase 1 + 3 SCRUM-140 phase 2 notification-service) +
 > observabilité (logs JSON + Prometheus + X-Request-ID).
 > Plan archivé : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
 > Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md).
@@ -26,7 +26,7 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 |---|---|---|---|
 | **web** | Deployment | 1 / 1 | React 19 SPA servie par Nginx |
 | **kong** | Deployment | 2 / 1 | API Gateway DB-less, route `/api/*` vers le bon service via une table de routes déclarative |
-| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, **12 topics provisionnés** (post-SCRUM-99 : ajout de `events.updated` et `attendances.created`). **11 producteurs câblés** (event-service ×6 events.{published,cancelled,expired,updated} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×2 comments.created + attendances.created, moderation-service ×1 events.banned) + **4 consommateurs** (event-service ← `events.banned` ; notification-service ← `events.cancelled`, `events.updated`, `attendances.created` post-SCRUM-99). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
+| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, **12 topics provisionnés** (post-SCRUM-99 : ajout de `events.updated` et `attendances.created` ; SCRUM-140 phase 2 ne crée AUCUN topic — les 3 `users.{followed,follow-requested,follow-accepted}` existaient déjà depuis Sprint 8 SCRUM-138). **11 producteurs câblés** (event-service ×6 events.{published,cancelled,expired,updated} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×2 comments.created + attendances.created, moderation-service ×1 events.banned) + **7 consommateurs** (event-service ← `events.banned` ; notification-service ← `events.cancelled`, `events.updated`, `attendances.created` post-SCRUM-99 ; notification-service ← `users.followed`, `users.follow-requested`, `users.follow-accepted` post-SCRUM-140 phase 2). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
 | **postgres-event** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `event-service`, DB `unige_events_events`. Owns : `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
 | **postgres-user** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `user-service`, DB `unige_events_users`. Owns : `users`, `user_interests`, `follows` |
 | **postgres-engagement** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `engagement-service`, DB `unige_events_engagement`. Owns : `attendances`, `comments` |
@@ -40,11 +40,11 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 
 | Service | @Path racines | Tables possédées | Notes |
 |---|---|---|---|
-| **event-service** | `/events*`, `/admin/events/{id}/{,un}feature`, `/events/search`, `/events/featured`, `/events/{id}/image`, `/events/{id}/share`, `/s/{shortCode}`, `/events/{id}/view`, `/events/{id}/favorite`, `/users/me/favorites`, `/events/{id}/co-organizers/*`, `/users/me/co-organizer-invitations`, `/events/{id}/stats`, `/users/me/events` | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` | + EventExpirationJob (every 1h, replicas:1 strict). Sous-packages: share, view, favorite, coorganizer, stats, me. Producteur Kafka events.{published,cancelled,expired} + co-organizers.{invited,accepted} ; consumer events.banned (idempotent ban apply) |
-| **user-service** | `/users/me`, `/users/{id}`, `/users/me/image`, `/users/me/banner`, `/users/{id}/follow*`, `/follow-requests/*`, `/users/me/follow-requests`, `/users/me/calendar-token*`, `/calendar/{token}.ics` | `users`, `user_interests`, `follows` | Sous-packages: follow, calendar. Auto-create depuis claims JWT + S3 upload avatar/banner. Producteur Kafka users.{followed,follow-requested,follow-accepted} |
-| **engagement-service** | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations`, `/events/{id}/comments`, `/comments/{id}` | `attendances`, `comments` | Sous-packages: attendance, comment. PESSIMISTIC_WRITE pour capacity gating + auto-promotion WAITLISTED ; replies comments max 1 niveau ; cascade ISSUE-92 + SCRUM-136. Producteur Kafka comments.created |
-| **moderation-service** | `/events/{id}/report`, `/admin/reports*` | `reports` | + ModerationCleanupJob (cron 03:00 Europe/Zurich, replicas:1 strict). Producteur Kafka events.banned |
-| **notification-service** | `/users/me/notifications/?$`, `/users/me/notifications/{id}/read`, `/users/me/notifications/read-all` | `notifications` (SCRUM-99 phase 1) | 3 consommateurs Kafka : `EventCancelledConsumer` ← `events.cancelled`, `EventUpdatedConsumer` ← `events.updated`, `AttendanceCreatedConsumer` ← `attendances.created`. Composent les notifs in-app et fan-outent aux attendees `ATTENDING` (resp. notifie le créateur pour `NEW_ATTENDEE`). REST clients sortants : `EventServiceClient`, `EngagementServiceClient`, `UserServiceClient` (résolution `auth0Id → userId` via endpoint interne). |
+| **event-service** | `/events*`, `/admin/events/{id}/{,un}feature`, `/events/search`, `/events/featured`, `/events/{id}/image`, `/events/{id}/share`, `/s/{shortCode}`, `/events/{id}/view`, `/events/{id}/favorite`, `/users/me/favorites`, `/events/{id}/co-organizers/*`, `/users/me/co-organizer-invitations`, `/events/{id}/stats`, `/users/me/events`, **`/events/{id}/attachments/*` (SCRUM-148)** | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers`, **`event_attachments` (SCRUM-148)** | + EventExpirationJob (every 1h, replicas:1 strict). Sous-packages: share, view, favorite, coorganizer, stats, me, **attachment (SCRUM-148)**. Producteur Kafka events.{published,cancelled,expired} + co-organizers.{invited,accepted} ; consumer events.banned (idempotent ban apply). EventService.delete() cascade FK + S3 cleanup hors-tx (Décision T). |
+| **user-service** | `/users/me`, `/users/{id}`, `/users/me/image`, `/users/me/banner`, `/users/{id}/follow*`, `/follow-requests/*`, `/users/me/follow-requests`, `/users/me/calendar-token*`, `/calendar/{token}.ics` | `users`, `user_interests`, `follows` | Sous-packages: follow, calendar. Auto-create depuis claims JWT + S3 upload avatar/banner. Producteur Kafka users.{followed,follow-requested,follow-accepted}. |
+| **engagement-service** | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations`, `/events/{id}/comments`, `/comments/{id}`, **`/comments/{id}/like` (SCRUM-144)**, **`/comments/{id}/_internal-visibility` (SCRUM-144, internal)** | `attendances`, `comments`, **`comment_likes` (SCRUM-144)** | Sous-packages: attendance, comment. PESSIMISTIC_WRITE pour capacity gating + auto-promotion WAITLISTED ; replies comments max 1 niveau ; cascade ISSUE-92 + SCRUM-136. Producteur Kafka comments.created. SCRUM-144 likes idempotents 201/200 ; batch fetch `likedByMe` (anti N+1) sur `GET /events/{id}/comments`. |
+| **moderation-service** | `/events/{id}/report`, **`/comments/{id}/report` (SCRUM-144)**, `/admin/reports*` | `reports` (élargi SCRUM-144 : `comment_id` nullable + XOR CHECK + 2 partial UKs) | + ModerationCleanupJob (cron 03:00 Europe/Zurich, replicas:1 strict). Producteur Kafka events.banned. REST client `EngagementServiceClient.getCommentVisibility` (SCRUM-144 Décision L) pour valider la visibilité d'un commentaire avant signalement (anti-oracle 404 propagé). |
+| **notification-service** | `/users/me/notifications/?$`, `/users/me/notifications/{id}/read`, `/users/me/notifications/read-all` | `notifications` (SCRUM-99 phase 1, élargi SCRUM-140 phase 2 — enum à 9 valeurs via V2 widening) | **6 consommateurs Kafka** : `EventCancelledConsumer` ← `events.cancelled`, `EventUpdatedConsumer` ← `events.updated`, `AttendanceCreatedConsumer` ← `attendances.created` (SCRUM-99 phase 1) ; **`UserFollowedConsumer` ← `users.followed`, `UserFollowRequestedConsumer` ← `users.follow-requested`, `UserFollowAcceptedConsumer` ← `users.follow-accepted` (SCRUM-140 phase 2)**. Composent les notifs in-app et fan-outent au bon destinataire (sentinel critique `FOLLOW_ACCEPTED` → notif vers l'initiateur, pas l'acceptant). REST clients sortants : `EventServiceClient`, `EngagementServiceClient`, `UserServiceClient` (résolution `auth0Id → userId` via endpoint interne ; résolution displayName via `getById` avec fallback générique). |
 
 ### Flux de trafic
 
@@ -79,12 +79,14 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
 
 ### Notes inter-service (post-completion)
 
-* **REST clients post-finalization** : 8 couples consumer/provider
-  (vs 35 stubs JPA pré-finalization). Liste exhaustive : event ↔ user,
-  event ↔ engagement (attendance-summary), user ↔ event (bulk
-  events?ids=…), user ↔ engagement (user attendances), engagement ↔
-  event (avec `?check-co-org-of=` pour cascade SCRUM-136), engagement ↔
-  user, moderation ↔ event, moderation ↔ user. Resilience standard sur
+* **REST clients post-finalization** : **9 couples consumer/provider
+  post-SCRUM-144** (vs 35 stubs JPA pré-finalization). Liste exhaustive :
+  event ↔ user, event ↔ engagement (attendance-summary), user ↔ event
+  (bulk events?ids=…), user ↔ engagement (user attendances), engagement
+  ↔ event (avec `?check-co-org-of=` pour cascade SCRUM-136), engagement
+  ↔ user, moderation ↔ event, moderation ↔ user, **moderation ↔
+  engagement (SCRUM-144 — `getCommentVisibility` pour
+  `POST /comments/{id}/report` anti-oracle)**. Resilience standard sur
   tous les clients : `@Retry(maxRetries=3, delay=200)` + `@Timeout(2000)` +
   `@CircuitBreaker(failureRatio=0.5, requestVolumeThreshold=10)` +
   `@Fallback`. Endpoints **internes** (non Kong) documentés dans
@@ -104,7 +106,14 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   `events.cancelled`, `events.updated`, `attendances.created` (SCRUM-99,
   consumer group `notification-service` partagé entre les 3 channels —
   fan-out aux attendees `ATTENDING` pour EVENT_*, notif unique au
-  créateur pour NEW_ATTENDEE). Pattern : CDI `@Observes(during =
+  créateur pour NEW_ATTENDEE) **+ SCRUM-140 phase 2 : `users.followed`,
+  `users.follow-requested`, `users.follow-accepted` (3 consumers
+  supplémentaires sur le même group, total 6 consumers
+  notification-service). Le consumer `UserFollowAcceptedConsumer` route
+  la notif vers l'INITIATEUR (`followerId`) et non l'acceptant
+  (`followedId`) — sentinel test critique. Subclass concrète
+  `FollowLifecycleEventDeserializer` (piège #7) partagée entre les 3
+  channels.** Pattern : CDI `@Observes(during =
   AFTER_SUCCESS)` + bridge `<Domain>KafkaBridge` qui appelle l'`Emitter`
   (Décision A — évite BUG-001/002 events fantômes sur rollback).
   Sémantique consumer : **at-least-once** acceptée (SCRUM-99 Décision D
