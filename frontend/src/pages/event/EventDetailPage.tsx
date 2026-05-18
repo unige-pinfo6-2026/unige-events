@@ -22,6 +22,7 @@ import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
 import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
+import EventDocumentsList from '@/components/event/EventDocumentsList'
 import CommentSection from '@/components/event/CommentSection'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -540,6 +541,16 @@ export default function EventDetailPage() {
               attendeesHook={attendeesHook}
             />
           </div>
+
+          {/* SCRUM-149 — "Documents" : visible pour tous (auth ET non-auth)
+              dès que l'événement a au moins un fichier joint. fileUrl est
+              un path S3 public-read absolu, même convention que bannerUrl /
+              avatarUrl (cf. AttachmentDTO openapi.yaml). */}
+          {event.attachments && event.attachments.length > 0 && (
+            <div className="max-lg:order-6">
+              <EventDocumentsList attachments={event.attachments} />
+            </div>
+          )}
 
           {/* Champs additionnels (SCRUM-117) */}
           {(event.websiteUrl || event.contactEmail || event.registrationDeadline || (event.tags && event.tags.length > 0)) && (

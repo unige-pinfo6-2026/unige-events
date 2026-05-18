@@ -1466,4 +1466,63 @@ describe('EventDetailPage', () => {
       expect(screen.getByText('Publié')).toBeTruthy()
     })
   })
+
+  describe('Documents section (SCRUM-149)', () => {
+    const sampleAttachment = {
+      id: 7,
+      fileName: 'programme.pdf',
+      fileUrl: 'https://s3.example.com/events/1/programme.pdf',
+      fileSize: 2 * 1024 * 1024,
+      mimeType: 'application/pdf' as const,
+      uploadedById: 'u-1',
+      uploadedAt: '2026-05-18T10:00:00Z',
+    }
+
+    function setupDetailEvent(attachments: Event['attachments']) {
+      mockUseEvent.mockReturnValue({
+        event: { ...mockEvent, attachments },
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+    }
+
+    it('does not render the Documents section when attachments is null', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      setupDetailEvent(null)
+      renderPage()
+      expect(screen.queryByText('Documents')).toBeNull()
+    })
+
+    it('does not render the Documents section when attachments is empty', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      setupDetailEvent([])
+      renderPage()
+      expect(screen.queryByText('Documents')).toBeNull()
+    })
+
+    it('renders the Documents section with a download link for each attachment', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      setupDetailEvent([sampleAttachment])
+      renderPage()
+
+      expect(screen.getByText('Documents')).toBeTruthy()
+      const link = screen.getByRole('link', { name: 'programme.pdf' }) as HTMLAnchorElement
+      expect(link.getAttribute('href')).toBe(sampleAttachment.fileUrl)
+      expect(link.getAttribute('download')).toBe('programme.pdf')
+      expect(screen.getByText('2.0 MB')).toBeTruthy()
+    })
+
+    it('renders the Documents section for unauthenticated viewers (no auth gate)', () => {
+      // user === null → no auth context, but Documents must still be visible.
+      mockUseAuth.mockReturnValue({ user: null })
+      setupDetailEvent([sampleAttachment])
+      renderPage()
+      expect(screen.getByText('Documents')).toBeTruthy()
+      expect(screen.getByRole('link', { name: 'programme.pdf' })).toBeTruthy()
+    })
+  })
 })
