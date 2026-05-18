@@ -306,6 +306,28 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Props : `trigger` (ReactNode affiché en permanence), `children` (contenu du panel), `align` (`keyof typeof aligns`, défaut `'left'`).
 - Utilisé dans `Navbar` : `UserDropdownMenu` (`align="right"`), `NavItem` (`align` par défaut).
 
+### NotificationBell (SCRUM-80)
+
+- `src/components/utils/NotificationBell.tsx` — déclencheur visuel de la cloche dans la navbar.
+- Props : `unreadCount: number`.
+- Affiche un badge rouge superposé quand `unreadCount > 0` ; format `99+` au-delà de 99. `aria-label` géré singulier/pluriel ("1 notification non lue" / "5 notifications non lues").
+
+### NotificationPanel (SCRUM-80)
+
+- `src/components/utils/NotificationPanel.tsx` — contenu du dropdown ouvert par la cloche.
+- Props : `notifications: Notification[]`, `loading: boolean`, `error: string | null`, `onMarkAllRead: () => void`.
+- États : skeleton `notification-panel` (loading) ; message d'erreur ; empty state "Aucune notification" ; liste avec scroll vertical bornée à 360 px.
+- Bouton "Tout marquer comme lu" rendu uniquement quand au moins une notif est unread.
+- Chaque item affiche un pill coloré + libellé (`NOTIFICATION_TYPES`), un message, et un timestamp relatif (`relativeTime` : "À l'instant" / "Il y a N min" / "Il y a Nh" / "Il y a Nj" / date `fr-CH` au-delà de 7 j).
+- Mapping `typeStyles` couvre les 9 valeurs `NotificationType` du contrat backend (phase 1 + phase 2 + phase 3 réservées). Un type inconnu (10e valeur future non encore mappée) tombe sur un style neutre `Bell` + label "Notification" — pas de crash.
+- Les items avec `eventId !== null` deviennent un `<Link>` vers `/events/{eventId}` ; les items follow / mention (`eventId = null`) restent inertes.
+
+### NotificationsDropdown (SCRUM-80)
+
+- `src/components/utils/NotificationsDropdown.tsx` — assemblage `Dropdown` (`align="right"`) + `NotificationBell` + `NotificationPanel`.
+- Branche `useNotifications` (state notifications, badge, callbacks) sur le rendu — pas d'état local propre.
+- Monté dans `Navbar.tsx` à droite du dropdown user (desktop + mobile).
+
 ### Navbar
 
 - Barre de navigation principale du site (`src/components/Navbar.tsx`), exporte également `MobileMenu` pour la sidebar tactile.
@@ -524,6 +546,7 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `drafts-resume-strip` | `drafts-resume-strip.bones.json` | `DraftsResumeStrip` (header collapsed, conditionnel via hint sessionStorage) | manuel |
 | `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
 | `follow-list` | `follow-list.bones.json` | `FollowListPage` (SCRUM-142) | manuel |
+| `notification-panel` | `notification-panel.bones.json` | `NotificationPanel` (SCRUM-80) | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
@@ -662,6 +685,16 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Mise à jour optimiste : état local mis à jour avant la résolution de l'API, rollback si erreur.
 - Erreur 409 → `isFull = true` (pas de message `error` générique dans ce cas).
 
+### useNotifications (SCRUM-80)
+
+- `src/hooks/useNotifications.ts` — backbone du dropdown de notifications dans la navbar.
+- Aucun paramètre. Expose `notifications: Notification[]`, `unreadCount: number`, `loading: boolean`, `error: string | null`, `markAllAsRead: () => void`, `markOneAsRead: (id: number) => void`.
+- Source de vérité du badge : header HTTP `X-Unread-Count` de la réponse `GET /api/users/me/notifications` — la valeur reste correcte même quand la page courante ne contient pas toutes les unread (pagination).
+- Fetch initial au mount + polling silencieux toutes les 30 s (le flag `silent` évite le flash du `loading=true` sur les ticks suivants).
+- 401 → ignoré silencieusement (user non authentifié). Toute autre erreur fixe `error = "Impossible de charger les notifications."`.
+- `markAllAsRead` / `markOneAsRead` sont optimistes (flip immédiat + décrément du badge) ; en cas d'erreur API, le hook re-fetche pour resynchroniser le state autoritaire.
+- `mountedRef` empêche les setState après unmount (fetch tardif au-delà du cleanup).
+
 ## Services
 
 ### userService.ts
@@ -734,6 +767,13 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 - getFavorites() : liste des événements favoris via `GET /api/users/me/favorites`.
 - addFavorite(eventId) : ajouter un favori via `POST /api/events/{id}/favorite`.
 - removeFavorite(eventId) : retirer un favori via `DELETE /api/events/{id}/favorite`.
+
+### notificationApi.ts (SCRUM-80)
+
+- `getNotifications({ page?, size? } = {})` : `GET /api/users/me/notifications?page=&size=` (SCRUM-99 backend). Retourne `{ notifications: Notification[]; unreadCount: number }` — l'unread count vient du header HTTP `X-Unread-Count` (source de vérité cross-pages), pas de la longueur du tableau. Header absent / non numérique → fallback `0`.
+- `markAllRead()` : `PATCH /api/users/me/notifications/read-all`. Retourne `{ updated: number }` (cf. schéma OpenAPI `ReadAllResponse`). Idempotent — un appel répété renvoie `{ updated: 0 }`.
+- `markNotificationRead(id)` : `PATCH /api/users/me/notifications/{id}/read`. Idempotent (204 même si déjà lu) ; 404 anti-oracle si la notif appartient à un autre user.
+- Constante exportée `NOTIFICATIONS_PAGE_SIZE = 20` (alignée sur le défaut backend).
 
 ### coOrganizerApi.ts (SCRUM-137)
 
