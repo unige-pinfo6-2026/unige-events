@@ -1,7 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+
+vi.mock('@/utils/downloadAttachment', () => ({
+  downloadAttachment: vi.fn().mockResolvedValue(undefined),
+}))
+
 import EventDocumentsList from '@/components/event/EventDocumentsList'
+import { downloadAttachment } from '@/utils/downloadAttachment'
 import type { Attachment } from '@/types/attachment'
+
+const mockDownload = downloadAttachment as ReturnType<typeof vi.fn>
 
 function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   return {
@@ -16,7 +24,10 @@ function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   }
 }
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  mockDownload.mockClear()
+})
 
 describe('EventDocumentsList', () => {
   it('renders nothing when the attachments array is empty', () => {
@@ -24,30 +35,33 @@ describe('EventDocumentsList', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders one row per attachment with filename, size, and a download link', () => {
+  it('renders one row per attachment with filename and size', () => {
     render(<EventDocumentsList attachments={[
       makeAttachment({ id: 1, fileName: 'a.pdf', fileSize: 2 * 1024 * 1024 }),
-      makeAttachment({ id: 2, fileName: 'b.docx', fileSize: 512, fileUrl: 'https://s3.example.com/b.docx' }),
+      makeAttachment({ id: 2, fileName: 'b.docx', fileSize: 512 }),
     ]} />)
 
     expect(screen.getByText('Documents')).toBeTruthy()
-    const linkA = screen.getByRole('link', { name: 'a.pdf' }) as HTMLAnchorElement
-    expect(linkA.href).toBe('https://s3.example.com/events/42/programme.pdf'.replace('programme.pdf', 'programme.pdf'))
-    // The href is whatever fileUrl carries — verify both attachments produce the right one.
-    expect(linkA.getAttribute('href')).toBe('https://s3.example.com/events/42/programme.pdf')
-    expect(linkA.getAttribute('download')).toBe('a.pdf')
+    expect(screen.getByRole('button', { name: 'Télécharger a.pdf' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Télécharger b.docx' })).toBeTruthy()
     expect(screen.getByText('2.0 MB')).toBeTruthy()
-
-    const linkB = screen.getByRole('link', { name: 'b.docx' }) as HTMLAnchorElement
-    expect(linkB.getAttribute('href')).toBe('https://s3.example.com/b.docx')
-    expect(linkB.getAttribute('download')).toBe('b.docx')
     expect(screen.getByText('512 B')).toBeTruthy()
   })
 
-  it('opens links in a new tab with rel=noopener', () => {
+  it('invokes downloadAttachment with the row\'s url + filename when clicked', () => {
+    render(<EventDocumentsList attachments={[
+      makeAttachment({ fileName: 'rapport.pdf', fileUrl: 'https://s3.example.com/rapport.pdf' }),
+    ]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Télécharger rapport.pdf' }))
+
+    expect(mockDownload).toHaveBeenCalledTimes(1)
+    expect(mockDownload).toHaveBeenCalledWith('https://s3.example.com/rapport.pdf', 'rapport.pdf')
+  })
+
+  it('renders one button per attachment (no <a download> — cross-origin would ignore it)', () => {
     render(<EventDocumentsList attachments={[makeAttachment()]} />)
-    const link = screen.getByRole('link', { name: 'programme.pdf' })
-    expect(link.getAttribute('target')).toBe('_blank')
-    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(screen.queryByRole('link', { name: 'programme.pdf' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
   })
 })

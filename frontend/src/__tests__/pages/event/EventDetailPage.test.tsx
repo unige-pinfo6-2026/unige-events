@@ -1504,15 +1504,15 @@ describe('EventDetailPage', () => {
       expect(screen.queryByText('Documents')).toBeNull()
     })
 
-    it('renders the Documents section with a download link for each attachment', () => {
+    it('renders the Documents section with a download button per attachment', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
       setupDetailEvent([sampleAttachment])
       renderPage()
 
       expect(screen.getByText('Documents')).toBeTruthy()
-      const link = screen.getByRole('link', { name: 'programme.pdf' }) as HTMLAnchorElement
-      expect(link.getAttribute('href')).toBe(sampleAttachment.fileUrl)
-      expect(link.getAttribute('download')).toBe('programme.pdf')
+      // SCRUM-149 — rows are buttons (force-download via fetch+blob), not
+      // <a download> (cross-origin would ignore it).
+      expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
       expect(screen.getByText('2.0 MB')).toBeTruthy()
     })
 
@@ -1522,7 +1522,7 @@ describe('EventDetailPage', () => {
       setupDetailEvent([sampleAttachment])
       renderPage()
       expect(screen.getByText('Documents')).toBeTruthy()
-      expect(screen.getByRole('link', { name: 'programme.pdf' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
     })
   })
 })
