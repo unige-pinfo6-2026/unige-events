@@ -16,6 +16,7 @@ const EventDetailPage = lazy(() => import('@/pages/event/EventDetailPage'))
 const CalendarPage = lazy(() => import('@/pages/calendar/CalendarPage'))
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage'))
 const ProfileEditPage = lazy(() => import('@/pages/profile/ProfileEditPage'))
+const FollowListPage = lazy(() => import('@/pages/profile/FollowListPage'))
 const FavoritesPage = lazy(() => import('@/pages/event/favorites/FavoritesPage'))
 const MyEventsPage = lazy(() => import('@/pages/my-events/MyEventsPage'))
 const MyFavoritesPage = lazy(() => import('@/pages/my-events/MyFavoritesPage'))
@@ -60,6 +61,8 @@ const AppRouter = () => {
                 <Route index element={<Navigate to="/profile/me" replace />} />
                 <Route path="me/edit" element={<ProfileEditPage />} />
                 <Route path=":username" element={<ProfilePage />} />
+                <Route path=":username/followers" element={<FollowListPage mode="followers" />} />
+                <Route path=":username/following" element={<FollowListPage mode="following" />} />
               </Route>
 
               <Route path="/events">

@@ -1,6 +1,92 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-15 (merge main → feature/s7-profile-public — SCRUM-141 + SCRUM-S7 + SCRUM-151 + SCRUM-169 + SCRUM-137 autocomplete)
+Dernière mise à jour : 2026-05-17 (feature/s7-follow-button — redesign vue privée SCRUM-141)
+
+## Sprint 7 — Redesign vue privée /profile/:username (SCRUM-141 follow-up — feature/s7-follow-button) — 2026-05-17
+
+Fix UX sur la vue privée du profil. Avant : `ProfilePrivateState` rendait uniquement une bannière dégradée + petite card avec icône cadenas et le texte « Ce profil est privé » — visuellement pauvre, donne l'impression d'une page cassée. Backend déjà correct (SCRUM-169 Décision E revised : projection restreinte 200 avec `id + username + displayName + avatarUrl + profilePublic=false` au lieu du 404 anti-oracle historique).
+
+Après :
+- **`ProfileHeader`** (`src/components/profile/ProfileHeader.tsx`) extrait — banner (avec fallback gradient `UserBanner`) + avatar overlapping `UserAvatar` + displayName + sous-titre faculté/niveau d'étude. Partagé entre `PublicProfileView` et `ProfilePrivateState` (DRY — la structure JSX se répétait à 2 endroits, seuil de l'AGENTS.md atteint).
+- **`ProfilePrivateState`** réécrit : utilise `ProfileHeader` quand un profil restreint est passé (cadre visuel identique à un profil public) puis remplace la zone de contenu par un grand cadenas centré (icône `Lock` `lucide-react` 24/28 lg, `text-foreground/30`) + heading `Compte privé`. Suppression du badge « Demande de suivi envoyée » (PENDING) — explicitement retiré par la spec. Quand pas de profil (cas 404 — user inexistant), fallback bannière gradient seule sans avatar/displayName.
+- **`ProfilePage`** : nouvelle branche `if (!profile.profilePublic) return <ProfilePrivateState profile={profile} />` au-dessus de `PublicProfileView`. La projection restreinte (`profilePublic=false`) est désormais détectée et routée explicitement vers la vue verrouillée avec les données disponibles.
+- **`UserPublicResponse`** type frontend : ajout du champ `profilePublic: boolean` (déjà dans `openapi.yaml`, présent à l'exécution, manquait juste dans le type TS).
+- **`FollowListPage`** : appels `ProfilePrivateState` mis à jour (suppression de la prop `followStatus` obsolète).
+
+Tests : 1645/1645 verts. Couverture `ProfilePrivateState.tsx` = 100% lines (11 nouveaux cas couvrant restricted projection + 404 fallback + bannière/avatar fallbacks + absence PENDING badge), `ProfileHeader.tsx` = 100% lines (8 appels via les deux tests parents), `ProfilePage.tsx` = 98.5% lines (6 nouveaux cas SCRUM-141 redesign).
+
+Pas de changement backend. Pas de nouvelle PR — landed sur `feature/s7-follow-button`.
+
+---
+
+## Sprint 7 — Fix session expirée silencieuse (ISSUE-107 — feature/s7-follow-lists) — 2026-05-16
+
+Bug fix mineur sur `AuthContext`. Avant : quand le SDK Auth0 SPA jetait une erreur de session expirée (refresh token expiré / révoqué / absent — codes `login_required`, `invalid_grant`, `consent_required`, `interaction_required`, `missing_refresh_token`), le `catch` générique affichait le toast « Impossible d'établir la connexion à votre compte. Veuillez réessayer plus tard. » — incorrect, ce n'est pas une panne d'infra.
+
+Après :
+- Nouveau helper `src/utils/authErrors.ts` (constante `AUTH_SESSION_EXPIRED_CODES` + prédicat `isAuthSessionExpiredError(err)`).
+- `AuthContext.tsx` consomme le prédicat dans le `catch` : sur match → `setToken(null)` + `auth0Logout({ openUrl: false })` (clear l'état SDK sans redirect vers `/v2/logout`, l'utilisateur reste sur sa page mais voit la variante non-authentifiée). Pas de toast.
+- Le toast reste levé pour tout le reste (network errors, 5xx, exceptions inattendues). Le chemin HTTP 401 est inchangé (toujours `auth0Logout` avec redirect complet vers Auth0 — un token rejeté par le backend force une re-connexion).
+
+Tests : 1633 / 1633 frontend verts. +12 cas sur `authErrors.test.ts` (chaque code + erreurs HTTP / réseau / unknown), +5 cas sur `AuthContext.test.tsx` (paramétré par code Auth0 + régression non-Auth0).
+
+Dépendance ISSUE-97 (cf. commentaire d'agonkolgeci sur l'issue) : non impactée — ce patch corrige uniquement le canal d'erreur, pas le contenu du message. Compatible avec le futur correctif #97.
+
+---
+
+## Sprint 7 — Pages listes followers / abonnements (SCRUM-142 — feature/s7-follow-lists) — 2026-05-15
+
+Livré (branche empilée sur `feature/s7-follow-button`). Aucun backend touché — les endpoints SCRUM-138 `/users/{id}/followers` et `/users/{id}/following` sont déjà en place.
+
+- **`FollowListPage`** (`src/pages/profile/FollowListPage.tsx`) : nouvelles routes `/profile/:username/followers` et `/profile/:username/following`. Une seule page, prop `mode: 'followers' | 'following'` injectée au routing. Résolution `:username` → uuid via `getUserByUsername` (404 anti-oracle → `ProfilePrivateState`), avec court-circuit `useAuth` quand `:username === 'me'` ou matche `currentUser.username`.
+- **`FollowListRow`** (`src/components/profile/FollowListRow.tsx`) : un row = avatar 48px + displayName + `@username · studyLevel · facultyAbbr`. Le row entier est un `<Link>` vers `/profile/{username}`. Pas de `FollowButton` dans la row — le backend force `followStatus = null` sur les items (spec openapi explicite : `followerCount` / `followingCount` / `followStatus` n'ont de sens que sur le profil cible, pas sur les items de liste). Afficher un bouton "Suivre" qui 409 sur déjà-suivis serait du mensonge UX.
+- **`useFollowList`** (`src/hooks/useFollowList.ts`) : pagination "Charger plus" bespoke (pas TanStack — convention codebase). `page` interne, `loadMore()` bump l'index, le fetch effect append les nouveaux items. `hasMore` flippe à `false` dès qu'un batch est court (size = `FOLLOW_LIST_PAGE_SIZE = 20`). `isNotFound` couvre le 404 mid-flow (cible devenue privée entre le username-resolve et le list-fetch). Stale-response guard via `requestIdRef` monotone.
+- **`followApi`** étendu avec `getFollowers(targetId, page, size?)` et `getFollowing(targetId, page, size?)` + constante exportée `FOLLOW_LIST_PAGE_SIZE`.
+- **`ProfileStats`** : nouvelle prop `linkUsername?: string`. Quand fournie, les deux tuiles deviennent des `<Link>` vers `/profile/{linkUsername}/(followers|following)` avec `aria-label` complet. `ProfilePage` la passe automatiquement sur la vue publique (`!isMeRoute`). La vue `/me` continue de ne pas afficher `ProfileStats` (le payload `User` self ne porte pas les compteurs — follow-up identique à SCRUM-110).
+- **Skeleton `follow-list`** : `src/bones/follow-list.bones.json` (manuel, 2 BPs 320 / 720) wired via `registry.js`. La page wrappe le `<Skeleton>` dans un `max-w-3xl mx-auto px-6 lg:px-8 py-12 lg:py-16` pour borner la largeur mesurée par boneyard.
+
+Tests : 1616/1616 frontend verts (+38 net depuis SCRUM-110).
+- `followApi.test.ts` : +6 cas (params, default size, propagation 404, mode follow / unfollow différencié).
+- `useFollowList.test.tsx` : 12 cas neufs (mode flip, target change, pagination append, 404 → isNotFound, error mode-specific, stale-resolve discard).
+- `FollowListPage.test.tsx` : 13 cas neufs (resolve par username, /me court-circuit, tabs, empty state, private state, 404 mid-flow, Charger plus → next page, back link).
+- `FollowListRow.test.tsx` : 5 cas.
+- `ProfileStats.test.tsx` : +3 cas (mode link vs plain, hrefs, aria-label).
+
+Limites connues / follow-ups :
+- Sur `/profile/me/(followers|following)`, les compteurs des tabs affichent `0/0` parce que le payload `User` self ne porte pas `followerCount` / `followingCount`. Même follow-up que SCRUM-110 (exposer `useAuth.refresh()` ou élargir le payload self).
+- Pas de `FollowButton` par row — limitation projection backend. Le row link contourne le problème : un clic mène sur le profil cible où le bouton voit le bon `followStatus`.
+- Déviation déclarée : la spec Jira mentionne TanStack Query / `useInfiniteQuery` ; on garde le pattern bespoke (AGENTS.md → suivre les conventions du codebase).
+
+---
+
+## Sprint 7 — FollowButton + panneau demandes reçues (SCRUM-110 — feature/s7-follow-button) — 2026-05-14
+
+Livré (branche parallèle empilée sur `feature/s7-profile-public`).
+
+Deux livrables frontend, aucun backend touché (les endpoints SCRUM-138 sont déjà en place).
+
+- **`FollowButton`** (`src/components/user/FollowButton.tsx`) : bouton à 3 états piloté par `followStatus`, variantes en const map typée :
+  - `null` → "Suivre" (gradient primary, `POST /users/{id}/follow`)
+  - `PENDING` → "Demande envoyée" muté + tooltip natif "Cliquer pour annuler" (`DELETE` idempotent)
+  - `ACCEPTED` → "Abonné" / "Se désabonner" au hover via `group` + `group-hover:hidden` (CSS uniquement, pas d'animation lib)
+  Optimiste avec rollback + toast d'erreur, `aria-pressed` toggle pattern, `aria-label` par état, guard de double-click. Intégré dans `ProfilePage` sur le slot header (à côté de "Modifier" sur `/me`) uniquement pour viewer authentifié ≠ owner.
+- **`useUserProfile.refetch()`** : ajout d'un `refetch` (compteur monotone) au hook SCRUM-141 pour que la mutation du bouton resynchronise `followStatus` + `followerCount` en place.
+- **Panneau "Demandes de suivi reçues"** (`src/components/profile/FollowRequestsPanel.tsx` + `useMyFollowRequests`) : section owner-only sur `/profile/me`, après `MyPublicationsPreview`. Liste les rows `FollowDTO` PENDING via `GET /users/me/follow-requests` puis résout `getPublicProfile(followerId)` par row pour afficher avatar + displayName (le DTO backend est id-only, contrat explicite dans l'OpenAPI). Per-row fallback `follower: null` → label "Utilisateur" si la résolution échoue, sans casser la liste. Accepter / Refuser optimistes avec rollback + toasts d'erreur.
+- **Service `followApi.ts`** : wrap des 5 endpoints SCRUM-138 (`POST /users/{id}/follow`, `DELETE /users/{id}/follow`, `GET /users/me/follow-requests`, `PATCH /follow-requests/{id}/accept|reject`) via l'instance axios partagée.
+- **Types** : nouveau `FollowDTO` dans `src/types/follow.ts` matching l'OpenAPI exactement.
+
+Tests : 1380/1380 frontend verts (+47 net depuis SCRUM-141). Couverture sur les fichiers nouveaux :
+- `FollowButton.tsx` : 100% lines/branches via 10 cas (chaque état + erreurs + concurrence)
+- `FollowRequestsPanel.tsx` : 11 cas
+- `useMyFollowRequests.ts` : 8 cas incl. stale-resolve discard
+- `followApi.ts` : 8 cas
+- `ProfilePage.tsx` : +10 cas (3 panel + 7 button wiring)
+
+Limite connue (follow-up) : après accept d'une demande sur `/profile/me`, le `followerCount` de l'owner sur sa propre vue publique (`/profile/<own-uuid>`) reste stale jusqu'au prochain reload — `useAuth` n'expose pas de `refresh` pour le `User` mis en cache. Patterns identiques à ceux de `MyPublicationsPreview` et `CalendarSubscribeButton` aujourd'hui ; non-bloquant.
+
+Déviation déclarée : la spec Jira mentionne TanStack Query ; on garde le pattern bespoke `useState`+`useEffect` comme SCRUM-141 (AGENTS.md → suivre les conventions du codebase). Si introduit plus tard, refactor cross-cutting.
+
+---
 
 ## Sprint 7 — Public Profile Page (SCRUM-141 — feature/s7-profile-public) — 2026-05-14
 
