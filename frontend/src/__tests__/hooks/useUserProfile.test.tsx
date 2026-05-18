@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 vi.mock('@/services/userService', () => ({
   getPublicProfile: vi.fn(),
@@ -92,6 +92,42 @@ describe('useUserProfile', () => {
 
     await waitFor(() => expect(result.current.profile?.displayName).toBe('Bob'))
     expect(mockGetPublicProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('refetch() re-fetches the same id without changing the URL param (SCRUM-110 follow flow)', async () => {
+    mockGetPublicProfile
+      .mockResolvedValueOnce(profile)
+      .mockResolvedValueOnce({ ...profile, followStatus: 'PENDING', followerCount: 13 })
+
+    const { result } = renderHook(() => useUserProfile(profile.id))
+
+    await waitFor(() => expect(result.current.profile?.followerCount).toBe(12))
+
+    act(() => { result.current.refetch() })
+
+    await waitFor(() => expect(result.current.profile?.followerCount).toBe(13))
+    expect(result.current.profile?.followStatus).toBe('PENDING')
+    expect(mockGetPublicProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('refetch() is a true no-op while id is undefined (no fetch, no state churn)', async () => {
+    const { result } = renderHook(() => useUserProfile(undefined))
+    await new Promise(r => setTimeout(r, 10))
+
+    // Baseline: no fetch, hook is in "waiting for id" state.
+    expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    expect(result.current.loading).toBe(true)
+    expect(result.current.profile).toBeNull()
+    const renderCountBefore = result.current
+
+    act(() => { result.current.refetch() })
+    await new Promise(r => setTimeout(r, 10))
+
+    // No fetch fired, AND the hook result is still the same object shape —
+    // the effect should not have re-run and reset state.
+    expect(mockGetPublicProfile).not.toHaveBeenCalled()
+    expect(result.current.loading).toBe(renderCountBefore.loading)
+    expect(result.current.profile).toBe(renderCountBefore.profile)
   })
 
   it('discards a stale response when id changes mid-flight', async () => {
