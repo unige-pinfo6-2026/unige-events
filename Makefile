@@ -9,7 +9,7 @@ MODE = development
 
 # ─── Install ────────────────────────────────────────────────────────────────
 install-backend:
-	cd backend && ./mvnw install -DskipTests -T1C
+	cd backend && ./mvnw install -DskipTests -T2
 
 install-frontend:
 	cd frontend && npm install
@@ -20,13 +20,10 @@ install:
 # ─── Dev — services individuels ─────────────────────────────────────────────
 # make backend-event | make backend-user | make backend-engagement | ...
 $(addprefix backend-,$(SERVICES)):
-	set -a && . backend/.env && set +a && cd backend && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -Djvm.args="-Xmx256m -Xms64m"
+	cd backend && set -a && . ./.env && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service
 
 # ─── Dev — tous les services ─────────────────────────────────────────────────
-backend-shared:
-	cd backend && ./mvnw install -pl shared -amd -DskipTests -T1C
-
-backend: backend-shared
+backend:
 	$(MAKE) -j$(words $(SERVICES)) $(addprefix backend-,$(SERVICES))
 
 frontend:

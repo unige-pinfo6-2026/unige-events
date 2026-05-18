@@ -76,10 +76,9 @@
                     <version>${quarkus.platform.version}</version>
                     <extensions>true</extensions>
                     <configuration>
-                        <!-- Load global .env from the backend root into every service dev JVM.
-                             maven.multiModuleProjectDirectory always resolves to backend/ (where .mvn/ lives). -->
                         <systemProperties>
-                            <smallrye.config.locations>${maven.multiModuleProjectDirectory}/.env</smallrye.config.locations>
+                            <quarkus.test.continuous-testing>disabled</quarkus.test.continuous-testing>
+                            <quarkus.analytics.disabled>true</quarkus.analytics.disabled>
                         </systemProperties>
                     </configuration>
                 </plugin>
