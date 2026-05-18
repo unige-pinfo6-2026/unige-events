@@ -163,9 +163,10 @@ Le frontend impose la **mutex** `endDate ↔ maxOccurrences` au niveau du form. 
 |--------------|-------------------|-------|
 | id           | number            | PK séquentielle |
 | fileName     | string            | nom du fichier original (≤ 255) |
-| fileUrl      | string            | path S3 absolu, public-read — directement utilisable comme `href` (même convention que `bannerUrl` / `avatarUrl`) |
+| fileUrl      | string            | path S3 absolu — **usage interne backend uniquement**. Pointe sur `minio:9000` qui n'est pas exposé publiquement → ne JAMAIS l'utiliser comme `href` côté frontend. |
+| downloadUrl  | string            | URL same-origin (`/api/events/{eventId}/attachments/{id}/download`) à utiliser pour télécharger. Le backend streame depuis MinIO avec `Content-Disposition: attachment` (SCRUM-149 follow-up). |
 | fileSize     | number            | taille en bytes (max 10 MiB) |
-| mimeType     | AttachmentMimeType | PDF / DOC / DOCX / XLSX |
+| mimeType     | AttachmentMimeType | PDF / DOC / DOCX / XLSX / PNG / JPEG |
 | uploadedById | string (UUID)     | uploader (créateur OU co-organisateur ACCEPTED OU admin) |
 | uploadedAt   | string ISO 8601   | timestamp serveur, immutable |
 

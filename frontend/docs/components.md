@@ -711,10 +711,9 @@ Wraps les endpoints attachments via l'instance axios partagée (`@/services/api`
 - `uploadEventAttachment(eventId, file)` : `POST /api/events/{eventId}/attachments` — multipart `file`, retourne `Attachment` (201). Propage les erreurs telles quelles (status / code envelope) pour que l'appelant les mappe en messages français per-row.
 - `deleteEventAttachment(eventId, attachmentId)` : `DELETE /api/events/{eventId}/attachments/{attachmentId}` — 204, pas de body. Propage les erreurs.
 
-Utilitaires associés :
+Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) — sortie `"X B" | "X.X KB" | "X.X MB"` (bases 1024, cohérent avec le cap backend de 10 MiB).
 
-- `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) — sortie `"X B" | "X.X KB" | "X.X MB"` (bases 1024, cohérent avec le cap backend de 10 MiB).
-- `downloadAttachment(url, fileName)` (`src/utils/downloadAttachment.ts`) — force le téléchargement (fetch → blob → ancre synthétique cliquée puis révoquée) pour contourner le fait que `<a download>` est ignoré sur URLs cross-origin (MinIO). Fallback gracieux : si le fetch échoue (CORS bloqué, réseau, non-2xx), ouvre le lien dans un nouvel onglet — comportement minimal préservé.
+> Note historique : un helper `downloadAttachment` (fetch → blob → ancre synthétique) avait été ajouté pour forcer le téléchargement quand `fileUrl` pointait sur MinIO en cross-origin. Il a été supprimé en SCRUM-149 follow-up — le backend expose désormais un endpoint same-origin `GET /api/events/{eventId}/attachments/{id}/download` qui streame avec `Content-Disposition: attachment`, donc une simple ancre HTML suffit.
 
 ### reportApi.ts
 
@@ -785,13 +784,14 @@ Utilitaires associés :
 - Props : `eventId: number`, `attachments: Attachment[]`, `onChange: (next: Attachment[]) => void`.
 - UX stage-then-upload : `<input type="file" multiple accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg">` → "Fichiers à uploader" → bouton "Uploader" itère **une requête `POST /events/{id}/attachments` par fichier**, séquentielle. Files réussies → `onChange([...attachments, ...succeeded])`, files échouées → restent dans la staging list avec leur message d'erreur per-row (mapping des codes backend `attachment_invalid_size` / `_type` / `_limit_exceeded` + status `413` / `415`).
 - Validations client miroir backend (`@/types/attachment` : `ATTACHMENT_MAX_BYTES`, `ATTACHMENT_MAX_PER_EVENT`, `isAcceptedAttachmentFile`). Garde extension-fallback quand `file.type` est vide (drag-and-drop / OS).
-- Liste des uploadés : bouton (≠ ancre) qui appelle `downloadAttachment(url, fileName)` pour **forcer le téléchargement** au lieu d'ouvrir le fichier inline dans un nouvel onglet (l'attribut `<a download>` est ignoré par le navigateur sur des URLs cross-origin → MinIO). Bouton télécharger dédié + bouton × → `DELETE /events/{id}/attachments/{id}`. Suppression échouée → message inline, row préservée.
+- Liste des uploadés : ancre `<a href={attachment.downloadUrl} download={fileName}>` — pointe sur l'endpoint API same-origin `/api/events/{eventId}/attachments/{id}/download` qui streame depuis MinIO avec `Content-Disposition: attachment` (le browser force le téléchargement). `fileUrl` n'est **pas** utilisé côté frontend (cf. types.md). Bouton télécharger dédié + bouton × → `DELETE /events/{id}/attachments/{id}`. Suppression échouée → message inline, row préservée.
 
 ### PendingAttachmentsEditor (SCRUM-149)
 
 - `src/components/event/PendingAttachmentsEditor.tsx` — pendant create du `EventAttachmentsEditor`. Injecté par `EventCreatePage` via `attachmentsSection` du `EventForm`.
 - Props : `pending: PendingAttachment[]`, `onAdd(entries)`, `onRemove(id)` — le parent possède l'état (même contrat que `PendingCoOrganizersEditor`).
-- Stage uniquement (pas d'appel API tant que l'event n'a pas d'ID). Mêmes validations client que la version live (mime / size / overflow). Les entrées rejetées affichent un badge "Refusé" + le message d'erreur ; les valides affichent "À uploader".
+- Stage uniquement (pas d'appel API tant que l'event n'a pas d'ID). Mêmes validations client que la version live (mime / size / overflow). Les entrées rejetées affichent un badge "Refusé" + le message d'erreur ; les valides affichent **"Sera publié"** (libellé explicite — pas de bouton "Uploader" à cliquer, l'upload est automatique au moment de la création).
+- Sous-titre de la section : "Les documents sélectionnés seront automatiquement publiés à la création de l'événement — aucun bouton à cliquer." pour lever toute ambiguïté UX.
 - `EventCreatePage.onSuccess` filtre les entrées sans erreur et itère `uploadEventAttachment(eventId, file)` — best-effort, échec individuel toasté, ne bloque pas la navigation vers `/events/:id`.
 
 ### EventDocumentsList (SCRUM-149)
@@ -799,7 +799,7 @@ Utilitaires associés :
 - `src/components/event/EventDocumentsList.tsx` — section "Documents" pour `EventDetailPage`.
 - Props : `attachments: Attachment[]`.
 - Retourne `null` quand la liste est vide → l'appelant peut le rendre sans condition externe (mais `EventDetailPage` le gate quand même pour éviter de réserver de l'espace dans la grille mobile).
-- Une row par attachment : icône `FileText` (lucide-react) + filename + taille via `formatFileSize` + icône `Download`. Le clic appelle `downloadAttachment(fileUrl, fileName)` pour forcer le download (cf. note dans `EventAttachmentsEditor`). aria-label `Télécharger <fileName>`.
+- Une row par attachment : ancre `<a href={attachment.downloadUrl} download={fileName}>` avec icône `FileText` (lucide-react) + filename + taille via `formatFileSize` + icône `Download`. aria-label `Télécharger <fileName>`. L'URL est same-origin et le backend ajoute `Content-Disposition: attachment` → téléchargement forcé sans JS.
 - Visible pour tous (auth ET non-auth) — pas d'auth gate.
 
 ### EventOrganizerTeam

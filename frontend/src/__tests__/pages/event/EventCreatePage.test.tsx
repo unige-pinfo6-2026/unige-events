@@ -570,7 +570,9 @@ describe('CreateEventPage', () => {
     it('uploads staged files after createEvent succeeds and navigates to detail', async () => {
       mockCreateEvent.mockResolvedValue(createdEvent)
       mockUploadEventAttachment.mockResolvedValue({
-        id: 1, fileName: 'doc.pdf', fileUrl: 'https://s3/doc.pdf',
+        id: 1, fileName: 'doc.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/doc.pdf',
+        downloadUrl: '/api/events/42/attachments/1/download',
         fileSize: 1, mimeType: 'application/pdf',
         uploadedById: 'u', uploadedAt: '2026-05-18T10:00:00Z',
       })
@@ -599,7 +601,9 @@ describe('CreateEventPage', () => {
         new File(['y'], 'ok.pdf', { type: 'application/pdf' }),
       ])
       mockUploadEventAttachment.mockResolvedValue({
-        id: 7, fileName: 'ok.pdf', fileUrl: 'https://s3/ok.pdf',
+        id: 7, fileName: 'ok.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/ok.pdf',
+        downloadUrl: '/api/events/42/attachments/7/download',
         fileSize: 1, mimeType: 'application/pdf',
         uploadedById: 'u', uploadedAt: '2026-05-18T10:00:00Z',
       })

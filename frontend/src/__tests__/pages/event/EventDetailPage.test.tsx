@@ -1471,7 +1471,8 @@ describe('EventDetailPage', () => {
     const sampleAttachment = {
       id: 7,
       fileName: 'programme.pdf',
-      fileUrl: 'https://s3.example.com/events/1/programme.pdf',
+      fileUrl: 'http://minio:9000/bucket/event-attachments/programme.pdf',
+      downloadUrl: '/api/events/1/attachments/7/download',
       fileSize: 2 * 1024 * 1024,
       mimeType: 'application/pdf' as const,
       uploadedById: 'u-1',
@@ -1504,15 +1505,18 @@ describe('EventDetailPage', () => {
       expect(screen.queryByText('Documents')).toBeNull()
     })
 
-    it('renders the Documents section with a download button per attachment', () => {
+    it('renders the Documents section with a same-origin download link per attachment', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
       setupDetailEvent([sampleAttachment])
       renderPage()
 
       expect(screen.getByText('Documents')).toBeTruthy()
-      // SCRUM-149 — rows are buttons (force-download via fetch+blob), not
-      // <a download> (cross-origin would ignore it).
-      expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
+      // SCRUM-149 follow-up — link uses downloadUrl (same-origin API
+      // endpoint, backend streams from MinIO with Content-Disposition:
+      // attachment). fileUrl points at minio:9000 which is unreachable.
+      const link = screen.getByRole('link', { name: 'Télécharger programme.pdf' }) as HTMLAnchorElement
+      expect(link.getAttribute('href')).toBe('/api/events/1/attachments/7/download')
+      expect(link.getAttribute('href')).not.toContain('minio')
       expect(screen.getByText('2.0 MB')).toBeTruthy()
     })
 
@@ -1522,7 +1526,7 @@ describe('EventDetailPage', () => {
       setupDetailEvent([sampleAttachment])
       renderPage()
       expect(screen.getByText('Documents')).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
+      expect(screen.getByRole('link', { name: 'Télécharger programme.pdf' })).toBeTruthy()
     })
   })
 })

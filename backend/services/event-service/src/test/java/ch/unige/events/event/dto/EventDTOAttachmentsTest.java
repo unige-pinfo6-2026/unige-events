@@ -66,10 +66,10 @@ class EventDTOAttachmentsTest {
 
     @Test
     void fromWithAttachments_populatesField() {
-        AttachmentDTO a1 = new AttachmentDTO(1L, "a.pdf", "url1", 100L, "application/pdf",
-                UUID.randomUUID(), LocalDateTime.now());
-        AttachmentDTO a2 = new AttachmentDTO(2L, "b.pdf", "url2", 200L, "application/pdf",
-                UUID.randomUUID(), LocalDateTime.now());
+        AttachmentDTO a1 = new AttachmentDTO(1L, "a.pdf", "url1", "/api/events/3/attachments/1/download",
+                100L, "application/pdf", UUID.randomUUID(), LocalDateTime.now());
+        AttachmentDTO a2 = new AttachmentDTO(2L, "b.pdf", "url2", "/api/events/3/attachments/2/download",
+                200L, "application/pdf", UUID.randomUUID(), LocalDateTime.now());
         List<AttachmentDTO> list = List.of(a1, a2);
 
         EventDTO dto = EventDTO.fromWithAttachments(makeEvent(3L),

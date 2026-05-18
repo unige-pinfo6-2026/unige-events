@@ -1,7 +1,6 @@
-import { FileText, Download } from 'lucide-react'
+import { Download, FileText } from 'lucide-react'
 import type { Attachment } from '@/types/attachment'
 import { formatFileSize } from '@/utils/formatFileSize'
-import { downloadAttachment } from '@/utils/downloadAttachment'
 
 interface EventDocumentsListProps {
   attachments: Attachment[]
@@ -10,10 +9,13 @@ interface EventDocumentsListProps {
 /**
  * SCRUM-149 — "Documents" section affichée sur `EventDetailPage` quand
  * `event.attachments.length > 0`. Visible pour tous (auth ET non-auth),
- * pas d'auth gate. Le clic sur une row déclenche un téléchargement
- * forcé via `downloadAttachment` (fetch → blob → ancre synthétique) :
- * indispensable car `<a download>` est ignoré sur les URLs cross-origin
- * (l'URL pointe sur MinIO en S3 public-read).
+ * pas d'auth gate.
+ *
+ * Le lien pointe sur `attachment.downloadUrl` (endpoint API same-origin
+ * `GET /api/events/{eventId}/attachments/{id}/download`) qui streame
+ * l'objet depuis MinIO avec `Content-Disposition: attachment` — le
+ * navigateur force le téléchargement, et l'URL est routable contrairement
+ * au `fileUrl` interne (`minio:9000`).
  */
 export default function EventDocumentsList({ attachments }: Readonly<EventDocumentsListProps>) {
   if (attachments.length === 0) return null
@@ -26,11 +28,11 @@ export default function EventDocumentsList({ attachments }: Readonly<EventDocume
       <ul className="flex flex-col gap-2">
         {attachments.map((att) => (
           <li key={att.id}>
-            <button
-              type="button"
-              onClick={() => { void downloadAttachment(att.fileUrl, att.fileName) }}
+            <a
+              href={att.downloadUrl}
+              download={att.fileName}
               aria-label={`Télécharger ${att.fileName}`}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl border border-border bg-background/30 hover:border-foreground/30 hover:bg-background/50 transition-colors text-left cursor-pointer"
+              className="w-full flex items-center gap-3 p-3 rounded-2xl border border-border bg-background/30 hover:border-foreground/30 hover:bg-background/50 transition-colors text-left no-underline"
             >
               <FileText className="w-4 h-4 text-foreground/40 shrink-0" />
               <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">
@@ -40,7 +42,7 @@ export default function EventDocumentsList({ attachments }: Readonly<EventDocume
                 {formatFileSize(att.fileSize)}
               </span>
               <Download className="w-4 h-4 text-foreground/40 shrink-0" />
-            </button>
+            </a>
           </li>
         ))}
       </ul>

@@ -550,6 +550,17 @@ Helpers Panache :
   enforcer le cap de **5 attachments par event** (Décision V — 422
   `attachment_limit_exceeded` au-delà).
 
+Endpoint de téléchargement (SCRUM-149 follow-up) :
+- `GET /events/{id}/attachments/{aid}/download` — **public** (pas d'auth, suit la
+  visibilité de la page détail). Le backend relit l'objet S3 via
+  `FileStorageService.downloadObject` puis le streame avec
+  `Content-Type: <mimeType>` et `Content-Disposition: attachment; filename="..."`.
+  Indispensable parce que `fileUrl` pointe sur l'endpoint MinIO interne
+  (`minio:9000`) non exposé publiquement. `AttachmentDTO.downloadUrl` calcule
+  cette URL côté sérialisation pour que le frontend l'utilise directement.
+  Anti-oracle 404 si `attachmentId` ne matche pas `eventId`, ou si l'objet S3
+  a été GCed indépendamment de la row DB.
+
 Permissions (Décision V) :
 - `POST /events/{id}/attachments` : creator OR co-org ACCEPTED OR admin.
 - `DELETE /events/{id}/attachments/{aid}` : creator OR co-org ACCEPTED OR admin OR

@@ -1,6 +1,7 @@
 package ch.unige.events.event.attachment.service;
 
 import ch.unige.events.event.attachment.dto.AttachmentDTO;
+import ch.unige.events.event.attachment.dto.AttachmentDownload;
 import ch.unige.events.event.attachment.entity.EventAttachment;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.service.EventService;
@@ -184,6 +185,30 @@ public class EventAttachmentService {
         return EventAttachment.findByEvent(eventId).stream()
                 .map(AttachmentDTO::from)
                 .toList();
+    }
+
+    /**
+     * SCRUM-149 follow-up — reads the attachment's bytes from S3 so the
+     * resource can stream them back with {@code Content-Disposition:
+     * attachment}. Returns {@code null} when the row is missing, when the
+     * path is a mismatch (anti-oracle, indistinguishable from missing),
+     * or when the S3 object has been GCed out from under us — the resource
+     * surfaces all three as a 404.
+     *
+     * <p>Public — no permission check. Attachments inherit the visibility
+     * of the event detail page (anyone, including unauthenticated viewers,
+     * can see the {@code Documents} section).
+     */
+    public AttachmentDownload download(Long eventId, Long attachmentId) {
+        EventAttachment attachment = EventAttachment.<EventAttachment>findById(attachmentId);
+        if (attachment == null || !attachment.eventId.equals(eventId)) {
+            return null;
+        }
+        byte[] bytes = fileStorageService.downloadObject(attachment.fileUrl);
+        if (bytes == null) {
+            return null;
+        }
+        return new AttachmentDownload(bytes, attachment.mimeType, attachment.fileName);
     }
 
     private static WebApplicationException unprocessable(String error, String message) {

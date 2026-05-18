@@ -48,6 +48,7 @@ class EventAttachmentResourceTest {
                 1L,
                 "deck.pdf",
                 "http://s3/bucket/event-attachments/abc.pdf",
+                "/api/events/" + eventId + "/attachments/1/download",
                 1024L,
                 "application/pdf",
                 UUID.randomUUID(),

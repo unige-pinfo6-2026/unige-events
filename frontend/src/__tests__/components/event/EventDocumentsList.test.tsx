@@ -1,21 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-
-vi.mock('@/utils/downloadAttachment', () => ({
-  downloadAttachment: vi.fn().mockResolvedValue(undefined),
-}))
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 
 import EventDocumentsList from '@/components/event/EventDocumentsList'
-import { downloadAttachment } from '@/utils/downloadAttachment'
 import type { Attachment } from '@/types/attachment'
-
-const mockDownload = downloadAttachment as ReturnType<typeof vi.fn>
 
 function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   return {
     id: 1,
     fileName: 'programme.pdf',
-    fileUrl: 'https://s3.example.com/events/42/programme.pdf',
+    fileUrl: 'http://minio:9000/bucket/event-attachments/abc.pdf',
+    downloadUrl: '/api/events/42/attachments/1/download',
     fileSize: 1024 * 1024,
     mimeType: 'application/pdf',
     uploadedById: 'u-1',
@@ -24,10 +18,7 @@ function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
   }
 }
 
-afterEach(() => {
-  cleanup()
-  mockDownload.mockClear()
-})
+afterEach(() => cleanup())
 
 describe('EventDocumentsList', () => {
   it('renders nothing when the attachments array is empty', () => {
@@ -37,31 +28,38 @@ describe('EventDocumentsList', () => {
 
   it('renders one row per attachment with filename and size', () => {
     render(<EventDocumentsList attachments={[
-      makeAttachment({ id: 1, fileName: 'a.pdf', fileSize: 2 * 1024 * 1024 }),
-      makeAttachment({ id: 2, fileName: 'b.docx', fileSize: 512 }),
+      makeAttachment({ id: 1, fileName: 'a.pdf', fileSize: 2 * 1024 * 1024, downloadUrl: '/api/events/42/attachments/1/download' }),
+      makeAttachment({ id: 2, fileName: 'b.docx', fileSize: 512, downloadUrl: '/api/events/42/attachments/2/download' }),
     ]} />)
 
     expect(screen.getByText('Documents')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Télécharger a.pdf' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Télécharger b.docx' })).toBeTruthy()
+    expect(screen.getByText('a.pdf')).toBeTruthy()
+    expect(screen.getByText('b.docx')).toBeTruthy()
     expect(screen.getByText('2.0 MB')).toBeTruthy()
     expect(screen.getByText('512 B')).toBeTruthy()
   })
 
-  it('invokes downloadAttachment with the row\'s url + filename when clicked', () => {
+  it('points the link at the same-origin downloadUrl (NOT the internal MinIO fileUrl)', () => {
     render(<EventDocumentsList attachments={[
-      makeAttachment({ fileName: 'rapport.pdf', fileUrl: 'https://s3.example.com/rapport.pdf' }),
+      makeAttachment({
+        fileName: 'rapport.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/abc.pdf',
+        downloadUrl: '/api/events/42/attachments/1/download',
+      }),
     ]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Télécharger rapport.pdf' }))
-
-    expect(mockDownload).toHaveBeenCalledTimes(1)
-    expect(mockDownload).toHaveBeenCalledWith('https://s3.example.com/rapport.pdf', 'rapport.pdf')
+    const link = screen.getByRole('link', { name: 'Télécharger rapport.pdf' }) as HTMLAnchorElement
+    // SCRUM-149 follow-up — downloadUrl is the public API endpoint that
+    // streams the file with Content-Disposition: attachment ; fileUrl points
+    // at minio:9000 which is unreachable from the browser.
+    expect(link.getAttribute('href')).toBe('/api/events/42/attachments/1/download')
+    expect(link.getAttribute('href')).not.toContain('minio')
+    expect(link.getAttribute('download')).toBe('rapport.pdf')
   })
 
-  it('renders one button per attachment (no <a download> — cross-origin would ignore it)', () => {
-    render(<EventDocumentsList attachments={[makeAttachment()]} />)
-    expect(screen.queryByRole('link', { name: 'programme.pdf' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
+  it('uses the original filename as the download attribute (browser-side hint)', () => {
+    render(<EventDocumentsList attachments={[makeAttachment({ fileName: 'résumé.pdf' })]} />)
+    const link = screen.getByRole('link', { name: 'Télécharger résumé.pdf' }) as HTMLAnchorElement
+    expect(link.getAttribute('download')).toBe('résumé.pdf')
   })
 })

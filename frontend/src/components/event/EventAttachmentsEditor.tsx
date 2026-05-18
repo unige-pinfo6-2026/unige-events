@@ -11,7 +11,6 @@ import {
 } from '@/types/attachment'
 import { deleteEventAttachment, uploadEventAttachment } from '@/services/attachmentApi'
 import { formatFileSize } from '@/utils/formatFileSize'
-import { downloadAttachment } from '@/utils/downloadAttachment'
 
 interface EventAttachmentsEditorProps {
   eventId: number
@@ -265,24 +264,24 @@ function UploadedRow({
     >
       <Paperclip className="w-4 h-4 text-foreground/40 shrink-0" />
       <div className="flex-1 min-w-0">
-        <button
-          type="button"
-          onClick={() => { void downloadAttachment(attachment.fileUrl, attachment.fileName) }}
-          className="text-sm font-medium text-foreground hover:text-accent truncate block text-left bg-transparent border-0 p-0 cursor-pointer"
+        <a
+          href={attachment.downloadUrl}
+          download={attachment.fileName}
+          className="text-sm font-medium text-foreground hover:text-accent truncate block no-underline"
         >
           {attachment.fileName}
-        </button>
+        </a>
         <p className="text-xs text-foreground/50">{formatFileSize(attachment.fileSize)}</p>
         {error && <p className="text-xs text-error mt-1">{error}</p>}
       </div>
-      <button
-        type="button"
-        onClick={() => { void downloadAttachment(attachment.fileUrl, attachment.fileName) }}
+      <a
+        href={attachment.downloadUrl}
+        download={attachment.fileName}
         aria-label={`Télécharger ${attachment.fileName}`}
-        className="p-2 rounded-lg text-foreground/40 hover:text-accent hover:bg-accent/10 transition-colors"
+        className="p-2 rounded-lg text-foreground/40 hover:text-accent hover:bg-accent/10 transition-colors no-underline"
       >
         <Download className="w-4 h-4" />
-      </button>
+      </a>
       <button
         type="button"
         onClick={onDelete}

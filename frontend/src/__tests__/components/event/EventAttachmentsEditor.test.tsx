@@ -17,7 +17,8 @@ function pdfAttachment(overrides: Partial<Attachment> = {}): Attachment {
   return {
     id: 1,
     fileName: 'programme.pdf',
-    fileUrl: 'https://s3.example.com/events/42/programme.pdf',
+    fileUrl: 'http://minio:9000/bucket/event-attachments/programme.pdf',
+    downloadUrl: '/api/events/42/attachments/1/download',
     fileSize: 2048,
     mimeType: 'application/pdf',
     uploadedById: 'u-1',
@@ -60,12 +61,16 @@ describe('EventAttachmentsEditor', () => {
     expect(screen.getByText('Aucun fichier joint pour le moment.')).toBeTruthy()
   })
 
-  it('lists already-uploaded attachments with size and a download trigger', () => {
+  it('lists already-uploaded attachments with size and a same-origin download link', () => {
     renderEditor({ attachments: [pdfAttachment({ fileSize: 1024 * 1024 })] })
-    // Row is now button-driven (downloadAttachment) so that cross-origin
-    // MinIO URLs still force-download instead of opening inline.
-    expect(screen.getByRole('button', { name: 'programme.pdf' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Télécharger programme.pdf' })).toBeTruthy()
+    // SCRUM-149 follow-up — link uses downloadUrl (API endpoint that
+    // streams from MinIO with Content-Disposition: attachment), NOT the
+    // raw fileUrl (internal minio:9000 host, unreachable).
+    const link = screen.getByRole('link', { name: 'programme.pdf' }) as HTMLAnchorElement
+    expect(link.getAttribute('href')).toBe('/api/events/42/attachments/1/download')
+    expect(link.getAttribute('href')).not.toContain('minio')
+    expect(link.getAttribute('download')).toBe('programme.pdf')
+    expect(screen.getByRole('link', { name: 'Télécharger programme.pdf' })).toBeTruthy()
     expect(screen.getByText('1.0 MB')).toBeTruthy()
   })
 
