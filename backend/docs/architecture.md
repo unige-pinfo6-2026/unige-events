@@ -8,7 +8,7 @@
 > (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`,
 > puis fixes infra post-merge `f4b5968e`, `dd8ca635`, `60991692`).
 > **5 services métiers** tous actifs + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
-> Kong gateway DB-less + Kafka broker (10 topics, 9 producteurs + 1 consumer) +
+> Kong gateway DB-less + Kafka broker (12 topics post-SCRUM-99, 11 producteurs + 4 consumers — 1 historique event-service + 3 nouveaux notification-service) +
 > observabilité (logs JSON + Prometheus + X-Request-ID).
 > Plan archivé : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
 > Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md).
@@ -26,12 +26,12 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 |---|---|---|---|
 | **web** | Deployment | 1 / 1 | React 19 SPA servie par Nginx |
 | **kong** | Deployment | 2 / 1 | API Gateway DB-less, route `/api/*` vers le bon service via une table de routes déclarative |
-| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, 10 topics provisionnés. **9 producteurs câblés** (event-service ×5 events.{published,cancelled,expired} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×1 comments.created, moderation-service ×1 events.banned) + **1 consommateur** (event-service ← `events.banned`). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
+| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, **12 topics provisionnés** (post-SCRUM-99 : ajout de `events.updated` et `attendances.created`). **11 producteurs câblés** (event-service ×6 events.{published,cancelled,expired,updated} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×2 comments.created + attendances.created, moderation-service ×1 events.banned) + **4 consommateurs** (event-service ← `events.banned` ; notification-service ← `events.cancelled`, `events.updated`, `attendances.created` post-SCRUM-99). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
 | **postgres-event** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `event-service`, DB `unige_events_events`. Owns : `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
 | **postgres-user** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `user-service`, DB `unige_events_users`. Owns : `users`, `user_interests`, `follows` |
 | **postgres-engagement** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `engagement-service`, DB `unige_events_engagement`. Owns : `attendances`, `comments` |
 | **postgres-moderation** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `moderation-service`, DB `unige_events_moderation`. Owns : `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
-| **postgres-notification** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `notification-service`. Owns : aucune table métier active (sentinel `ServiceIdentityResource`). Provisionné lors du switch DB-per-service `f4b5968e` pour parité topologique |
+| **postgres-notification** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `notification-service`, DB `unige_events_notifications`. Owns : `notifications` (table activée SCRUM-99 phase 1) |
 | **minio** | StatefulSet | 1 / 1 | S3 compatible — bucket `unige-events-dev` pour les uploads avatar/banner d'user-service + bannières d'event-service |
 | **cloudflared** | Deployment | 1 / 1 | Tunnel preview (mode quick) |
 | **5 microservices** | Deployment ×5 | 1 / 1 (tous actifs) | Quarkus 3.35, image `ghcr.io/unige-pinfo6-2026/unige-events-<svc>:<sha>`, `quarkus-oidc` pour l'auth Auth0. Notification-service `replicas: 1` depuis `f4b5968e` (mai 2026, parité avec les 4 autres). Strategy `RollingUpdate maxUnavailable:0 maxSurge:1` sur les 5. event-service reste **replicas:1 strict** (ADR-001 — `EventExpirationJob` sans leader election). moderation-service idem (`ModerationCleanupJob`). |
@@ -44,7 +44,7 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 | **user-service** | `/users/me`, `/users/{id}`, `/users/me/image`, `/users/me/banner`, `/users/{id}/follow*`, `/follow-requests/*`, `/users/me/follow-requests`, `/users/me/calendar-token*`, `/calendar/{token}.ics` | `users`, `user_interests`, `follows` | Sous-packages: follow, calendar. Auto-create depuis claims JWT + S3 upload avatar/banner. Producteur Kafka users.{followed,follow-requested,follow-accepted} |
 | **engagement-service** | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations`, `/events/{id}/comments`, `/comments/{id}` | `attendances`, `comments` | Sous-packages: attendance, comment. PESSIMISTIC_WRITE pour capacity gating + auto-promotion WAITLISTED ; replies comments max 1 niveau ; cascade ISSUE-92 + SCRUM-136. Producteur Kafka comments.created |
 | **moderation-service** | `/events/{id}/report`, `/admin/reports*` | `reports` | + ModerationCleanupJob (cron 03:00 Europe/Zurich, replicas:1 strict). Producteur Kafka events.banned |
-| **notification-service** | (placeholder, replicas:0, scope SCRUM-99) | aucune | Sentinel `ServiceIdentityResource` only |
+| **notification-service** | `/users/me/notifications/?$`, `/users/me/notifications/{id}/read`, `/users/me/notifications/read-all` | `notifications` (SCRUM-99 phase 1) | 3 consommateurs Kafka : `EventCancelledConsumer` ← `events.cancelled`, `EventUpdatedConsumer` ← `events.updated`, `AttendanceCreatedConsumer` ← `attendances.created`. Composent les notifs in-app et fan-outent aux attendees `ATTENDING` (resp. notifie le créateur pour `NEW_ATTENDEE`). REST clients sortants : `EventServiceClient`, `EngagementServiceClient`, `UserServiceClient` (résolution `auth0Id → userId` via endpoint interne). |
 
 ### Flux de trafic
 
@@ -91,17 +91,25 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   [`internal-endpoints.md`](internal-endpoints.md) — pas dans
   `openapi.yaml` (Décision G : annulation de la dérogation Q —
   `git diff openapi/` reste à 0).
-* **Kafka post-consolidation** : 10 topics provisionnés.
+* **Kafka post-consolidation (post-SCRUM-99)** : **12 topics provisionnés**
+  (10 historiques + 2 nouveaux : `events.updated`, `attendances.created`).
   Producteurs livrés : `event-service` (`events.{published,cancelled,
-  expired}` + `co-organizers.{invited,accepted}` post-2.2.4) +
+  expired,updated}` + `co-organizers.{invited,accepted}` post-2.2.4) +
   `moderation-service` (`events.banned`, moderation-service post-2.1.2) +
   `user-service` (`users.{followed,follow-requested,follow-accepted}`,
-  ex-follow-service post-2.3.1) + `engagement-service` (`comments.created`,
-  ex-comment-service post-2.4.1). Consommateur : `event-service` ←
-  `events.banned` (apply `event.status = BANNED`, idempotent).
-  Pattern : CDI `@Observes(during = AFTER_SUCCESS)` + bridge
-  `<Domain>KafkaBridge` qui appelle l'`Emitter` (Décision A — évite
-  BUG-001/002 events fantômes sur rollback).
+  ex-follow-service post-2.3.1) + `engagement-service`
+  (`comments.created` post-2.4.1 + `attendances.created` SCRUM-99).
+  Consommateurs : `event-service` ← `events.banned` (apply
+  `event.status = BANNED`, idempotent) ; `notification-service` ←
+  `events.cancelled`, `events.updated`, `attendances.created` (SCRUM-99,
+  consumer group `notification-service` partagé entre les 3 channels —
+  fan-out aux attendees `ATTENDING` pour EVENT_*, notif unique au
+  créateur pour NEW_ATTENDEE). Pattern : CDI `@Observes(during =
+  AFTER_SUCCESS)` + bridge `<Domain>KafkaBridge` qui appelle l'`Emitter`
+  (Décision A — évite BUG-001/002 events fantômes sur rollback).
+  Sémantique consumer : **at-least-once** acceptée (SCRUM-99 Décision D
+  — pas d'UK applicative, deux livraisons identiques produisent deux
+  rows ce qui est la sémantique voulue pour EVENT_UPDATED).
 * **Rate limiting** : 2 étages.
   (1) Lib `shared-rate-limit` (`@PerUserRateLimit` interceptor +
   state cache) couvre 13 sites annotés sur 6 services consommateurs.

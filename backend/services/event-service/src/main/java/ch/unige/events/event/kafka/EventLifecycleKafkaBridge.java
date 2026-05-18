@@ -27,6 +27,7 @@ public class EventLifecycleKafkaBridge {
             case PUBLISHED -> publisher.published(ev.eventId(), ev.creatorId());
             case CANCELLED -> publisher.cancelled(ev.eventId(), ev.creatorId());
             case EXPIRED -> publisher.expired(ev.eventId(), ev.creatorId());
+            case UPDATED -> publisher.updated(ev.eventId(), ev.creatorId());
         }
     }
 }

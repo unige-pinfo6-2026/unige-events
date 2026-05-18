@@ -31,15 +31,18 @@ public class EventLifecyclePublisher {
     private final Emitter<EventLifecycleEvent> publishedEmitter;
     private final Emitter<EventLifecycleEvent> cancelledEmitter;
     private final Emitter<EventLifecycleEvent> expiredEmitter;
+    private final Emitter<EventLifecycleEvent> updatedEmitter;
 
     @Inject
     public EventLifecyclePublisher(
             @Channel("events-published") Emitter<EventLifecycleEvent> publishedEmitter,
             @Channel("events-cancelled") Emitter<EventLifecycleEvent> cancelledEmitter,
-            @Channel("events-expired") Emitter<EventLifecycleEvent> expiredEmitter) {
+            @Channel("events-expired") Emitter<EventLifecycleEvent> expiredEmitter,
+            @Channel("events-updated") Emitter<EventLifecycleEvent> updatedEmitter) {
         this.publishedEmitter = publishedEmitter;
         this.cancelledEmitter = cancelledEmitter;
         this.expiredEmitter = expiredEmitter;
+        this.updatedEmitter = updatedEmitter;
     }
 
     public void published(long eventId, UUID creatorId) {
@@ -52,6 +55,10 @@ public class EventLifecyclePublisher {
 
     public void expired(long eventId, UUID creatorId) {
         send(expiredEmitter, EventLifecycleEvent.expired(eventId, creatorId));
+    }
+
+    public void updated(long eventId, UUID creatorId) {
+        send(updatedEmitter, EventLifecycleEvent.updated(eventId, creatorId));
     }
 
     private void send(Emitter<EventLifecycleEvent> emitter, EventLifecycleEvent payload) {

@@ -229,6 +229,24 @@ public class EventResource {
         return Response.ok(published).build();
     }
 
+    /**
+     * SCRUM-99 — duplicate the source event into a fresh DRAFT clone with
+     * dates shifted by +7 days. Reserved to the creator, an accepted
+     * co-organizer (cascade SCRUM-136), or an admin. See
+     * {@link ch.unige.events.event.service.EventService#duplicate} for the
+     * full copy/reset matrix.
+     */
+    @POST
+    @Path("/{id}/duplicate")
+    @Authenticated
+    @PerUserRateLimit(name = "events.duplicate", max = 10, windowSeconds = 60)
+    public Response duplicate(@PathParam("id") Long id) {
+        String auth0Id = identity.getPrincipal().getName();
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
+        EventDTO clone = eventService.duplicate(id, auth0Id, isAdmin);
+        return Response.status(Response.Status.CREATED).entity(clone).build();
+    }
+
     @POST
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)

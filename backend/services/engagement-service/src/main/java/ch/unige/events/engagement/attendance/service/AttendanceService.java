@@ -62,6 +62,11 @@ public class AttendanceService {
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
 
+    // SCRUM-99: fired post-commit for the AttendanceCreatedKafkaBridge to
+    // publish attendances.created — only when effective status is ATTENDING
+    // (Décision M : promotions WAITLISTED→ATTENDING do not re-emit).
+    @Inject jakarta.enterprise.event.Event<ch.unige.events.shared.kafka.events.AttendanceCreatedEvent> attendanceCreatedEvent;
+
     @Transactional
     public AttendanceDTO attend(String auth0Id, Long eventId, AttendanceStatus status) {
         if (status != AttendanceStatus.ATTENDING) {
@@ -123,6 +128,15 @@ public class AttendanceService {
         attendance.eventId = eventId;
         attendance.status = effective;
         attendance.persist();
+
+        // SCRUM-99 Décision M: emit attendances.created only for ATTENDING.
+        // WAITLISTED signups don't generate a "new attendee" notification —
+        // the creator is notified once when the user effectively attends.
+        if (effective == AttendanceStatus.ATTENDING) {
+            attendanceCreatedEvent.fire(
+                    ch.unige.events.shared.kafka.events.AttendanceCreatedEvent.of(
+                            attendance.id, eventId, userId));
+        }
 
         return AttendanceDTOMapper.from(attendance, safeGetUser(userId));
     }

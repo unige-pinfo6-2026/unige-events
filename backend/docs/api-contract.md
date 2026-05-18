@@ -25,7 +25,7 @@ pour la topologie détaillée + flux requête type.
 | `/api/users/me`, `/api/users/me/{image,banner,calendar-token,calendar-token/regenerate,follow-requests}`, `/api/users/{uuid}`, `/api/users/{uuid}/{follow,followers,following}`, `/api/follow-requests/{id}/{accept,reject}`, `/api/calendar/{token}.ics` | **user-service** (absorbe follow + calendar post-finalisation) |
 | `/api/events/{id}/{attend,attendees,comments}`, `/api/users/me/{attendances,participations}`, `/api/comments/{id}` | **engagement-service** (renommé/absorbe attendance + comment post-finalisation) |
 | `/api/events/{id}/report`, `/api/admin/reports*` | **moderation-service** (renommé depuis report-service post-finalisation) |
-| (placeholder, replicas:0, SCRUM-99) | **notification-service** |
+| `/api/users/me/notifications`, `/api/users/me/notifications/{id}/read`, `/api/users/me/notifications/read-all` | **notification-service** (activé SCRUM-99 — table `notifications` + 3 Kafka consumers) |
 
 ---
 
@@ -93,6 +93,10 @@ pour la topologie détaillée + flux requête type.
 | `GET` | `/admin/reports` | moderation-service | `@RolesAllowed("ADMIN")` | Liste paginée des reports (default `status=PENDING`) | 200, 401, 403 |
 | `PATCH` | `/admin/reports/{id}` | moderation-service | `@RolesAllowed("ADMIN")` | Statuer (REVIEWED ban l'event + cascade siblings, DISMISSED neutre) | 200, 400, 401, 403, 404, 409 |
 | `GET` | `/events/{id}/stats` | event-service | `@Authenticated` | Counts attending / interested / view (créateur ou co-org ACCEPTED) | 200, 401, 403, 404 |
+| `POST` | `/events/{id}/duplicate` | event-service | `@Authenticated` + `@PerUserRateLimit(name="events.duplicate", max=10, windowSeconds=60)` | SCRUM-99 — dupliquer un event en DRAFT (dates +7j, title "Copie de X" avec dédup `(N)`). Créateur, co-org ACCEPTED ou ADMIN. BANNED refusé (403). | 201, 400, 401, 403, 404, 422, 429 |
+| `GET` | `/users/me/notifications` | notification-service | `@Authenticated` | SCRUM-99 — liste paginée des notifs (unread-first). Header `X-Unread-Count` toujours présent. | 200, 401 |
+| `PATCH` | `/users/me/notifications/{id}/read` | notification-service | `@Authenticated` + `@PerUserRateLimit(name="notifications.read", max=60, windowSeconds=60)` | SCRUM-99 — marquer une notif comme lue (idempotent ; anti-oracle 404 sur notif d'un autre user). | 204, 401, 404, 429 |
+| `PATCH` | `/users/me/notifications/read-all` | notification-service | `@Authenticated` + `@PerUserRateLimit(name="notifications.readAll", max=10, windowSeconds=60)` | SCRUM-99 — bulk mark-as-read, retourne `{updated: <count>}`. | 200, 401, 429 |
 
 > **Rate limit notice (post-completion)** : deux étages.
 > (1) **Lib `services/shared-rate-limit/`** — `@PerUserRateLimit`

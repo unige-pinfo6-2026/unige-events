@@ -24,6 +24,8 @@ spec:
       automountServiceAccountToken: false
       imagePullSecrets:
         - name: ghcr-secret
+      initContainers:
+        {{- include "unige-events.waitForKafka" . | nindent 8 }}
       containers:
         - name: notification-service
           image: {{ .Values.image.registry }}/{{ .Values.image.org }}/unige-events-notification-service:{{ .Values.image.tag | default "latest" }}

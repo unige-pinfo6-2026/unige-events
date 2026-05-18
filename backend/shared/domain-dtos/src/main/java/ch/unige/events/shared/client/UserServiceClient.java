@@ -1,6 +1,7 @@
 package ch.unige.events.shared.client;
 
 import ch.unige.events.shared.domain.dto.AttendeeProjection;
+import ch.unige.events.shared.domain.dto.IdProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
@@ -83,5 +84,42 @@ public interface UserServiceClient {
     default List<AttendeeProjection> getAttendeeProjectionsFallback(List<UUID> ids) {
         Log.warnf("[REST_FALLBACK_user-service] getAttendeeProjections(size=%d) — returning empty list (downstream unavailable, attendees rendered anonymous)", ids == null ? 0 : ids.size());
         return List.of();
+    }
+
+    /**
+     * Resolves an Auth0 subject claim ({@code auth0Id}) to the matching
+     * {@link User} UUID. Internal endpoint (SCRUM-99 Décision E) consumed
+     * by notification-service to translate {@code SecurityIdentity.getPrincipal().getName()}
+     * into the {@code notifications.user_id} stored UUID. Provider :
+     * {@code GET /users/_internal-by-auth0-id/{auth0Id}} on user-service,
+     * gated {@code @Internal} (X-Internal-Token). Not in {@code openapi.yaml} ;
+     * documented in {@code backend/docs/internal-endpoints.md} entry #9.
+     *
+     * <p>The 404 envelope is shared between "unknown auth0Id" and "bad
+     * X-Internal-Token" — no oracle on token validity (cf. InternalTokenFilter).
+     *
+     * <p>Resilience : a legitimate 404 (user not provisioned) must short-circuit
+     * the retry and the circuit breaker — otherwise a wave of new sign-ins
+     * (not yet provisioned via {@code GET /users/me}) would trip the CB. The
+     * caller surfaces the 404 as a 401 / 404 to the browser depending on
+     * context.
+     */
+    @GET
+    @Path("/_internal-by-auth0-id/{auth0Id}")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getInternalByAuth0IdFallback")
+    IdProjection getInternalByAuth0Id(@PathParam("auth0Id") String auth0Id);
+
+    default IdProjection getInternalByAuth0IdFallback(String auth0Id) {
+        // Identity resolution is critical for notification-service's user-facing
+        // endpoints — silently returning null would surface as a NullPointerException
+        // in the caller. Throw a 503 envelope that the resource layer can
+        // translate to a meaningful error.
+        Log.errorf("[REST_FALLBACK_user-service] getInternalByAuth0Id(%s) — downstream unavailable; notification endpoints degraded for this caller", auth0Id);
+        throw new jakarta.ws.rs.WebApplicationException(
+                "User identity service unavailable",
+                jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE);
     }
 }

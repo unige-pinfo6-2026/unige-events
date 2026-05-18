@@ -693,24 +693,82 @@ components:
 
     Notification:
       type: object
-      # TODO: Sprint 7 — à implémenter côté backend
+      description: |
+        Notification in-app retournée par `GET /api/users/me/notifications`. Owned par
+        `notification-service`. Le payload est composé par les consumers Kafka du service
+        à partir des événements `events.cancelled`, `events.updated` et `attendances.created`
+        (cf. `backend/docs/architecture.md` section Kafka). Les notifs `EVENT_REMINDER` sont
+        réservées pour un scheduler ultérieur (hors scope SCRUM-99).
+
+        **Extensibilité (phase 2).** Les valeurs `NEW_FOLLOWER`, `FOLLOW_REQUEST`,
+        `FOLLOW_ACCEPTED` (SCRUM-140), `COMMENT_MENTION` et `NEW_COMMENT` (SCRUM-145)
+        seront ajoutées à l'enum `type` ainsi qu'à la CHECK constraint DB via
+        `V2__widen_notification_type_check.sql` lors de la livraison de la phase 2.
+        Pour `NEW_FOLLOWER` / `FOLLOW_REQUEST` / `FOLLOW_ACCEPTED`, le champ
+        `relatedUserId` portera l'UUID du follower / requester / accepter.
+      required: [id, userId, type, message, read, createdAt]
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
+          description: Identifiant numérique stable (clé primaire DB).
         userId:
           type: string
-        eventId:
-          type: string
+          format: uuid
+          description: UUID du destinataire (`users.id`, sans FK cross-DB).
         type:
           type: string
-          enum: [EVENT_UPDATED, EVENT_CANCELLED, EVENT_REMINDER]
+          enum: [EVENT_UPDATED, EVENT_CANCELLED, EVENT_REMINDER, NEW_ATTENDEE]
+          description: |
+            Type métier de la notification. Phase 1 : 4 valeurs. Phase 2 : 5 valeurs
+            additionnelles (cf. description du schéma).
+        eventId:
+          type: integer
+          format: int64
+          nullable: true
+          description: |
+            ID de l'événement lié (nullable — sera `null` pour les notifs phase 2
+            non-event-bound comme `NEW_FOLLOWER`).
+        relatedUserId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Acteur secondaire de la notification. Phase 1 : UUID de l'inscrit pour
+            `NEW_ATTENDEE`, `null` pour `EVENT_UPDATED` / `EVENT_CANCELLED`. Phase 2 :
+            UUID du follower pour `NEW_FOLLOWER`, UUID du mentionneur pour
+            `COMMENT_MENTION`, etc.
         message:
           type: string
+          description: |
+            Message textuel pré-composé par le consumer Kafka — le frontend l'affiche
+            tel quel. Exemple : `"L'événement « Concert d'ouverture » a été annulé."`.
         read:
           type: boolean
+          description: État de lecture. Par défaut `false` à la création, passe à `true`
+            via `PATCH /users/me/notifications/{id}/read` ou `read-all`.
         createdAt:
           type: string
           format: date-time
+          description: Timestamp serveur à la création (immutable).
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Timestamp à la transition `read=false → true`. `null` tant que la notif
+            n'est pas lue ; immuable une fois posé (un re-mark-read est idempotent).
+
+    ReadAllResponse:
+      type: object
+      description: Body de retour de `PATCH /api/users/me/notifications/read-all`.
+      required: [updated]
+      properties:
+        updated:
+          type: integer
+          format: int64
+          description: Nombre de rows passées de `read=false` à `read=true` par l'appel.
+            `0` si toutes les notifs étaient déjà lues (l'appel reste idempotent).
 
     Report:
       type: object
@@ -3141,6 +3199,79 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /events/{id}/duplicate:
+    post:
+      summary: Dupliquer un événement existant (clone DRAFT, dates +7 jours)
+      description: |
+        Crée une copie de l'événement source avec :
+        - `status = DRAFT` (toujours, indépendamment du status source — sauf BANNED, refusé en 403)
+        - `title = "Copie de <source.title>"` avec dédup via suffixe `(2)`, `(3)`, …, cap N=100
+          (au-delà : `422 duplicate_title_collision`)
+        - `startDate` et `endDate` décalées de `+7 jours`
+        - `creatorId = <caller.id>` (le duplicateur devient organisateur du clone, cf. SCRUM-99 Décision N)
+        - `recurrenceRule`, `parentEventId`, `registrationDeadline`, `shareCode`, `featured`,
+          `featuredAt` réinitialisés à `null`/`false`
+        - Tags copiés (deep copy) ; aucune cascade sur attendances, favorites, views,
+          co-organisateurs, comments, reports, attachments (le clone démarre vierge)
+
+        Réservé au créateur, à un co-organisateur ACCEPTED (cascade SCRUM-136), ou à un
+        administrateur. Aucune émission Kafka (DRAFT ≠ PUBLISHED).
+      operationId: duplicateEvent
+      tags: [events]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de l'événement source à dupliquer
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '201':
+          description: Event dupliqué — retourne le clone (status DRAFT, dates +7j)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Requête invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |
+            Appelant ni créateur, ni co-organisateur ACCEPTED, ni ADMIN ; ou source
+            `BANNED` (un event banni ne se duplique pas, même par un admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Événement source introuvable (anti-oracle DRAFT/CANCELLED pour non-créateurs)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: |
+            Collision de title persistante — `Copie de X (1)` jusqu'à `Copie de X (100)`
+            sont tous déjà pris par cet organisateur. Code applicatif : `duplicate_title_collision`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /events/{id}/image:
     post:
       summary: Upload de la bannière d'un événement (créateur, co-organisateur ACCEPTED ou ADMIN)
@@ -4246,28 +4377,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 7
-  /events/{id}/duplicate:
-    post:
-      summary: Dupliquer un événement — créateur uniquement
-      operationId: duplicateEvent
-      tags: [events]
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '201':
-          description: Copie créée (titre "[COPY] ...", dates nulles)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Event'
 
   /admin/reports:
     get:
@@ -4409,28 +4518,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
-  # TODO: Sprint 7 (notifications)
-  /notifications:
+  /users/me/notifications:
     get:
-      summary: Notifications de l'utilisateur connecté
-      operationId: getNotifications
+      summary: Liste des notifications de l'utilisateur connecté (non lues en premier)
+      description: |
+        Retourne les notifications du caller, triées **unread first puis `createdAt DESC,
+        id DESC`** (SCRUM-99). Paginées via `?page=0&size=20`. Le header de réponse
+        `X-Unread-Count` porte le nombre total de notifs non lues du caller (inconditionnel,
+        même `0`), ce qui évite un round-trip dédié pour le badge UI.
+      operationId: getMyNotifications
       tags: [notifications]
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
-          description: Liste des notifications
+          description: Liste paginée des notifications
+          headers:
+            X-Unread-Count:
+              description: Nombre total de notifications `read=false` du caller (toutes pages confondues).
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Notification'
+        '401':
+          description: Token absent, invalide, ou profil non provisionné côté user-service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
-  /notifications/{id}/read:
-    put:
+  /users/me/notifications/{id}/read:
+    patch:
       summary: Marquer une notification comme lue
-      operationId: markNotificationRead
+      description: |
+        Idempotent — une notif déjà `read=true` renvoie `204` sans modification.
+        Anti-oracle : une notification appartenant à un autre user retourne `404`
+        (même envelope qu'un id inexistant).
+      operationId: markMyNotificationRead
       tags: [notifications]
       security:
         - BearerAuth: []
@@ -4439,10 +4585,51 @@ paths:
           in: path
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Notification marquée comme lue (idempotent).
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Notification introuvable, ou appartenant à un autre user (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /users/me/notifications/read-all:
+    patch:
+      summary: Marquer toutes les notifications du caller comme lues
+      description: |
+        Opération bulk. Retourne le nombre de rows passées de `read=false` à `read=true`.
+        Idempotent — appel répété sur un fil déjà entièrement lu retourne `{ "updated": 0 }`.
+      operationId: markAllMyNotificationsRead
+      tags: [notifications]
+      security:
+        - BearerAuth: []
       responses:
         '200':
-          description: Notification marquée comme lue
+          description: Notifications marquées comme lues (bulk update)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadAllResponse'
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /s/{shortCode}:
     get:
