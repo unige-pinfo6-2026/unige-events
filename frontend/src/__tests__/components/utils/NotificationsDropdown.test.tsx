@@ -58,6 +58,7 @@ const defaultHookResult = {
   loading: false,
   error: null,
   markAllAsRead: vi.fn(),
+  markOneAsRead: vi.fn(),
 }
 
 describe('NotificationsDropdown', () => {
@@ -94,8 +95,8 @@ describe('NotificationsDropdown', () => {
 
   it('passes notification count to NotificationPanel', () => {
     const notifications: Notification[] = [
-      { id: 'n1', userId: 'u1', eventId: 'e1', type: 'EVENT_UPDATED', message: 'msg', read: false, createdAt: '' },
-      { id: 'n2', userId: 'u1', eventId: 'e1', type: 'EVENT_REMINDER', message: 'msg', read: true, createdAt: '' },
+      { id: 1, userId: 'u1', eventId: 1, type: 'EVENT_UPDATED', message: 'msg', read: false, createdAt: '', relatedUserId: null, readAt: null },
+      { id: 2, userId: 'u1', eventId: 1, type: 'EVENT_REMINDER', message: 'msg', read: true, createdAt: '', relatedUserId: null, readAt: '2026-05-18T08:00:00Z' },
     ]
     mockUseNotifications.mockReturnValue({ ...defaultHookResult, notifications })
     render(<NotificationsDropdown />)

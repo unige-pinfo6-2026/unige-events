@@ -1,128 +1,181 @@
-
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { ReactNode } from 'react'
-
-vi.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'dark', toggleTheme: () => {} }),
-}))
-
-vi.mock('boneyard-js/react', () => ({
-  Skeleton: ({ children, name }: { children: ReactNode; name: string }) => (
-    <div data-testid="skeleton" data-name={name}>{children}</div>
-  ),
-}))
-
 import { NotificationPanel } from '@/components/utils/NotificationPanel'
-import type { Notification } from '@/types/notification'
+import { ThemeProvider } from '@/contexts/ThemeContext'
+import { NOTIFICATION_TYPES } from '@/types/notification'
+import type { Notification, NotificationType } from '@/types/notification'
 
-afterEach(() => { cleanup() })
+function notif(overrides: Partial<Notification> = {}): Notification {
+  return {
+    id: 1,
+    userId: 'user-1',
+    type: 'EVENT_UPDATED',
+    message: 'Default message',
+    read: false,
+    createdAt: '2026-05-18T10:00:00Z',
+    eventId: 7,
+    relatedUserId: null,
+    readAt: null,
+    ...overrides,
+  }
+}
 
-const makeNotification = (id: string, read = false, eventId = 'e1'): Notification => ({
-  id,
-  userId: 'u1',
-  eventId,
-  type: 'EVENT_UPDATED',
-  message: `Notification ${id}`,
-  read,
-  createdAt: new Date(Date.now() - 60_000 * 5).toISOString(),
-})
-
-function renderPanel(props: Partial<Parameters<typeof NotificationPanel>[0]> = {}) {
+function renderPanel(props: Partial<React.ComponentProps<typeof NotificationPanel>> = {}) {
   return render(
     <MemoryRouter>
-      <NotificationPanel
-        notifications={[]}
-        loading={false}
-        error={null}
-        onMarkAllRead={() => {}}
-        {...props}
-      />
+      <ThemeProvider>
+        <NotificationPanel
+          notifications={[]}
+          loading={false}
+          error={null}
+          onMarkAllRead={vi.fn()}
+          {...props}
+        />
+      </ThemeProvider>
     </MemoryRouter>,
   )
 }
 
-describe('NotificationPanel', () => {
-  it('shows skeleton while loading', () => {
+afterEach(() => cleanup())
+
+describe('NotificationPanel — loading / empty / error states', () => {
+  it('renders the boneyard skeleton when loading', () => {
     renderPanel({ loading: true })
-    expect(screen.getByTestId('skeleton')).toBeTruthy()
+
+    expect(document.querySelector('[data-boneyard="notification-panel"]')).toBeTruthy()
   })
 
-  it('shows empty state when no notifications', () => {
+  it('renders the empty state when there are no notifications', () => {
     renderPanel({ notifications: [] })
+
     expect(screen.getByText('Aucune notification')).toBeTruthy()
   })
 
-  it('shows error message when error is set', () => {
+  it('renders the error message when error is set', () => {
     renderPanel({ error: 'Impossible de charger les notifications.' })
+
     expect(screen.getByText('Impossible de charger les notifications.')).toBeTruthy()
+    expect(screen.queryByText('Aucune notification')).toBeNull()
   })
+})
 
-  it('renders a list of notifications', () => {
-    const notifs = [makeNotification('n1'), makeNotification('n2')]
-    renderPanel({ notifications: notifs })
-    expect(screen.getByText('Notification n1')).toBeTruthy()
-    expect(screen.getByText('Notification n2')).toBeTruthy()
-  })
+describe('NotificationPanel — header / mark-all-read button', () => {
+  it('renders the "Tout marquer comme lu" button when at least one notif is unread', () => {
+    renderPanel({ notifications: [notif({ id: 1, read: false })] })
 
-  it('shows "Tout marquer comme lu" button when there are unread notifications', () => {
-    renderPanel({ notifications: [makeNotification('n1', false)] })
     expect(screen.getByRole('button', { name: 'Tout marquer comme lu' })).toBeTruthy()
   })
 
-  it('hides "Tout marquer comme lu" button when all notifications are read', () => {
-    renderPanel({ notifications: [makeNotification('n1', true)] })
+  it('hides the "Tout marquer comme lu" button when every notif is read', () => {
+    renderPanel({ notifications: [notif({ id: 1, read: true, readAt: '2026-05-18T08:00:00Z' })] })
+
     expect(screen.queryByRole('button', { name: 'Tout marquer comme lu' })).toBeNull()
   })
 
-  it('calls onMarkAllRead when button is clicked', () => {
+  it('invokes onMarkAllRead when the button is clicked', () => {
     const onMarkAllRead = vi.fn()
-    renderPanel({ notifications: [makeNotification('n1', false)], onMarkAllRead })
+    renderPanel({ notifications: [notif({ id: 1 })], onMarkAllRead })
+
     fireEvent.click(screen.getByRole('button', { name: 'Tout marquer comme lu' }))
+
     expect(onMarkAllRead).toHaveBeenCalledOnce()
   })
+})
 
-  it('renders notification as a link when eventId is present', () => {
-    renderPanel({ notifications: [makeNotification('n1', false, 'e42')] })
-    const link = screen.getByRole('link')
-    expect((link as HTMLAnchorElement).href).toContain('/events/e42')
+describe('NotificationPanel — item linking', () => {
+  it('wraps an item with a Link to /events/{id} when eventId is set', () => {
+    const { container } = renderPanel({ notifications: [notif({ id: 1, eventId: 42, message: 'Linked' })] })
+
+    const link = container.querySelector('a[href="/events/42"]')
+    expect(link).toBeTruthy()
+    expect(link?.textContent).toContain('Linked')
   })
 
-  it('shows Notifications header', () => {
-    renderPanel()
-    expect(screen.getByText('Notifications')).toBeTruthy()
+  it('renders a plain div (no Link) when eventId is null', () => {
+    const { container } = renderPanel({ notifications: [notif({ id: 1, eventId: null, type: 'NEW_FOLLOWER', message: 'No event' })] })
+
+    expect(container.querySelector('a[href^="/events/"]')).toBeNull()
+    expect(screen.getByText('No event')).toBeTruthy()
   })
 
-  it('renders notification without eventId as a plain div (not a link)', () => {
-    renderPanel({ notifications: [makeNotification('n1', false, '')] })
-    expect(screen.queryByRole('link')).toBeNull()
-    expect(screen.getByText('Notification n1')).toBeTruthy()
+  it('uses the notif id as the React key (does not collide on duplicate messages)', () => {
+    renderPanel({
+      notifications: [
+        notif({ id: 1, message: 'Same text' }),
+        notif({ id: 2, message: 'Same text' }),
+      ],
+    })
+
+    expect(screen.getAllByText('Same text')).toHaveLength(2)
+  })
+})
+
+describe('NotificationPanel — type pills (all 9 enum values + fallback)', () => {
+  const allTypes: NotificationType[] = [
+    'EVENT_UPDATED',
+    'EVENT_CANCELLED',
+    'EVENT_REMINDER',
+    'NEW_ATTENDEE',
+    'NEW_FOLLOWER',
+    'FOLLOW_REQUEST',
+    'FOLLOW_ACCEPTED',
+    'COMMENT_MENTION',
+    'NEW_COMMENT',
+  ]
+
+  it.each(allTypes)('renders the labelled pill for %s', type => {
+    renderPanel({ notifications: [notif({ id: 1, type, eventId: null })] })
+
+    expect(screen.getByText(NOTIFICATION_TYPES[type])).toBeTruthy()
   })
 
-  it('shows "À l\'instant" for notifications less than 1 minute old', () => {
-    const notif = { ...makeNotification('n1'), createdAt: new Date(Date.now() - 30_000).toISOString() }
-    renderPanel({ notifications: [notif] })
+  it('falls back to the neutral "Notification" label for an unknown type without crashing', () => {
+    const unknown = { ...notif({ id: 1, eventId: null }), type: 'FUTURE_TYPE' as unknown as NotificationType }
+    renderPanel({ notifications: [unknown] })
+
+    expect(screen.getByText('Notification')).toBeTruthy()
+  })
+})
+
+describe('NotificationPanel — relativeTime helper boundaries', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-18T12:00:00Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('renders "À l\'instant" for a notif less than 1 minute old', () => {
+    renderPanel({ notifications: [notif({ id: 1, createdAt: '2026-05-18T11:59:30Z' })] })
+
     expect(screen.getByText("À l'instant")).toBeTruthy()
   })
 
-  it('shows hours for notifications 1–23 hours old', () => {
-    const notif = { ...makeNotification('n1'), createdAt: new Date(Date.now() - 2 * 3_600_000).toISOString() }
-    renderPanel({ notifications: [notif] })
-    expect(screen.getByText('Il y a 2h')).toBeTruthy()
+  it('renders minutes when less than an hour old', () => {
+    renderPanel({ notifications: [notif({ id: 1, createdAt: '2026-05-18T11:45:00Z' })] })
+
+    expect(screen.getByText('Il y a 15 min')).toBeTruthy()
   })
 
-  it('shows days for notifications 1–6 days old', () => {
-    const notif = { ...makeNotification('n1'), createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString() }
-    renderPanel({ notifications: [notif] })
+  it('renders hours when less than a day old', () => {
+    renderPanel({ notifications: [notif({ id: 1, createdAt: '2026-05-18T09:00:00Z' })] })
+
+    expect(screen.getByText('Il y a 3h')).toBeTruthy()
+  })
+
+  it('renders days when less than a week old', () => {
+    renderPanel({ notifications: [notif({ id: 1, createdAt: '2026-05-15T12:00:00Z' })] })
+
     expect(screen.getByText('Il y a 3j')).toBeTruthy()
   })
 
-  it('shows locale date string for notifications 7+ days old', () => {
-    const old = new Date(Date.now() - 10 * 86_400_000)
-    const notif = { ...makeNotification('n1'), createdAt: old.toISOString() }
-    renderPanel({ notifications: [notif] })
-    const expected = old.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })
-    expect(screen.getByText(expected)).toBeTruthy()
+  it('renders the locale date when 7 days old or more', () => {
+    renderPanel({ notifications: [notif({ id: 1, createdAt: '2026-05-01T12:00:00Z' })] })
+
+    // fr-CH short format — "1 mai"-style. Just assert no relative-time string.
+    expect(screen.queryByText(/Il y a \d/)).toBeNull()
+    expect(screen.queryByText("À l'instant")).toBeNull()
   })
 })

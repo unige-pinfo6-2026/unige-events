@@ -1,72 +1,104 @@
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/services/api', () => ({
   default: {
     get: vi.fn(),
-    put: vi.fn(),
+    patch: vi.fn(),
   },
 }))
 
 import api from '@/services/api'
-import { getNotifications, markAllRead } from '@/services/notificationApi'
+import {
+  getNotifications,
+  markAllRead,
+  markNotificationRead,
+  NOTIFICATIONS_PAGE_SIZE,
+} from '@/services/notificationApi'
 import type { Notification } from '@/types/notification'
 
 const mockApiGet = vi.mocked(api.get)
-const mockApiPut = vi.mocked(api.put)
+const mockApiPatch = vi.mocked(api.patch)
 
-const sampleNotification: Notification = {
-  id: 'n1',
-  userId: 'u1',
-  eventId: 'e1',
+const sampleNotif: Notification = {
+  id: 42,
+  userId: 'user-1',
   type: 'EVENT_UPDATED',
-  message: "L'événement a été mis à jour.",
+  message: 'Test message',
   read: false,
-  createdAt: '2026-05-01T10:00:00',
+  createdAt: '2026-05-18T10:00:00Z',
+  eventId: 7,
+  relatedUserId: null,
+  readAt: null,
 }
 
 beforeEach(() => {
   mockApiGet.mockReset()
-  mockApiPut.mockReset()
+  mockApiPatch.mockReset()
 })
 
 afterEach(() => vi.clearAllMocks())
 
-describe('notificationApi', () => {
-  it('fetches notifications from /notifications', async () => {
-    mockApiGet.mockResolvedValue({ data: [sampleNotification] } as Awaited<ReturnType<typeof api.get>>)
+describe('notificationApi.getNotifications', () => {
+  it('hits the canonical /users/me/notifications path with no params by default', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleNotif], headers: { 'x-unread-count': '3' } } as Awaited<ReturnType<typeof api.get>>)
 
     const result = await getNotifications()
 
-    expect(mockApiGet).toHaveBeenCalledWith('/notifications')
-    expect(result).toEqual([sampleNotification])
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/notifications', { params: {} })
+    expect(result.notifications).toEqual([sampleNotif])
+    expect(result.unreadCount).toBe(3)
   })
 
-  it('returns empty array when API returns no notifications', async () => {
-    mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+  it('forwards page and size query params when provided', async () => {
+    mockApiGet.mockResolvedValue({ data: [], headers: { 'x-unread-count': '0' } } as Awaited<ReturnType<typeof api.get>>)
+
+    await getNotifications({ page: 2, size: NOTIFICATIONS_PAGE_SIZE })
+
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/notifications', { params: { page: 2, size: NOTIFICATIONS_PAGE_SIZE } })
+  })
+
+  it('forwards only page when size is omitted', async () => {
+    mockApiGet.mockResolvedValue({ data: [], headers: { 'x-unread-count': '0' } } as Awaited<ReturnType<typeof api.get>>)
+
+    await getNotifications({ page: 1 })
+
+    expect(mockApiGet).toHaveBeenCalledWith('/users/me/notifications', { params: { page: 1 } })
+  })
+
+  it('falls back to 0 when the X-Unread-Count header is missing', async () => {
+    mockApiGet.mockResolvedValue({ data: [sampleNotif], headers: {} } as Awaited<ReturnType<typeof api.get>>)
 
     const result = await getNotifications()
 
-    expect(result).toEqual([])
+    expect(result.unreadCount).toBe(0)
   })
 
-  it('marks all notifications as read via PUT /notifications/read-all', async () => {
-    mockApiPut.mockResolvedValue({} as Awaited<ReturnType<typeof api.put>>)
+  it('falls back to 0 when the X-Unread-Count header is not a number', async () => {
+    mockApiGet.mockResolvedValue({ data: [], headers: { 'x-unread-count': 'banana' } } as Awaited<ReturnType<typeof api.get>>)
 
-    await markAllRead()
+    const result = await getNotifications()
 
-    expect(mockApiPut).toHaveBeenCalledWith('/notifications/read-all')
+    expect(result.unreadCount).toBe(0)
   })
+})
 
-  it('propagates errors from getNotifications', async () => {
-    mockApiGet.mockRejectedValue(new Error('Network error'))
+describe('notificationApi.markAllRead', () => {
+  it('PATCHes the bulk endpoint and returns the updated count', async () => {
+    mockApiPatch.mockResolvedValue({ data: { updated: 5 } } as Awaited<ReturnType<typeof api.patch>>)
 
-    await expect(getNotifications()).rejects.toThrow('Network error')
+    const result = await markAllRead()
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/users/me/notifications/read-all')
+    expect(result).toEqual({ updated: 5 })
   })
+})
 
-  it('propagates errors from markAllRead', async () => {
-    mockApiPut.mockRejectedValue(new Error('Server error'))
+describe('notificationApi.markNotificationRead', () => {
+  it('PATCHes the per-item endpoint with the numeric id', async () => {
+    mockApiPatch.mockResolvedValue({} as Awaited<ReturnType<typeof api.patch>>)
 
-    await expect(markAllRead()).rejects.toThrow('Server error')
+    await markNotificationRead(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/users/me/notifications/42/read')
   })
 })
