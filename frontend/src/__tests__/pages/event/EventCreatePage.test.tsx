@@ -84,7 +84,7 @@ vi.mock('react-router-dom', async () => {
 
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 import { inviteCoOrganizer } from '@/services/coOrganizerApi'
-import { getUserByUsername } from '@/services/userService'
+import { getUserByUsername, searchUsernames } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
 const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
@@ -92,6 +92,7 @@ const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
 const mockInviteCoOrganizer = inviteCoOrganizer as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
+const mockSearchUsernames = searchUsernames as ReturnType<typeof vi.fn>
 
 const createdEvent = {
   id: 42,
@@ -111,6 +112,7 @@ const createdEvent = {
 beforeEach(() => {
   vi.useRealTimers()
   originalFileReader = globalThis.FileReader
+  mockSearchUsernames.mockResolvedValue([])
 })
 
 afterEach(() => {
