@@ -17,7 +17,7 @@
 
     <properties>
         <!-- Java -->
-        <quarkus.amazon.version>3.18.0</quarkus.amazon.version>
+        <quarkus.amazon.version>3.19.0</quarkus.amazon.version>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven.compiler.release>21</maven.compiler.release>
 
