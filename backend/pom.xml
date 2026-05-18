@@ -17,7 +17,7 @@
 
     <properties>
         <!-- Java -->
-        <quarkus.amazon.version>3.18.0</quarkus.amazon.version>
+        <quarkus.amazon.version>3.19.0</quarkus.amazon.version>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
         <maven.compiler.release>21</maven.compiler.release>
 
@@ -27,13 +27,13 @@
         <!-- Quarkus -->
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.35.1</quarkus.platform.version>
+        <quarkus.platform.version>3.35.3</quarkus.platform.version>
         <smallrye-reactive-messaging.version>4.34.0</smallrye-reactive-messaging.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
 
         <!-- Sonar -->
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.14</jacoco.version>
         <sonar.organization>unige-pinfo6-2026</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>unige-pinfo6-2026_unige-events-backend</sonar.projectKey>
@@ -76,10 +76,9 @@
                     <version>${quarkus.platform.version}</version>
                     <extensions>true</extensions>
                     <configuration>
-                        <!-- Load global .env from the backend root into every service dev JVM.
-                             maven.multiModuleProjectDirectory always resolves to backend/ (where .mvn/ lives). -->
                         <systemProperties>
-                            <smallrye.config.locations>${maven.multiModuleProjectDirectory}/.env</smallrye.config.locations>
+                            <quarkus.test.continuous-testing>disabled</quarkus.test.continuous-testing>
+                            <quarkus.analytics.disabled>true</quarkus.analytics.disabled>
                         </systemProperties>
                     </configuration>
                 </plugin>

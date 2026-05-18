@@ -20,20 +20,18 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "redhat.java",
                 "vscjava.vscode-java-pack",
                 "vscjava.vscode-quarkus",
-                "sonarsource.sonarlint-vscode",
-                "github.copilot",
                 "github.vscode-github-actions",
-                "anthropic.claude-code",
-                "openai.chatgpt"
-            ]
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "java.jdt.ls.vmargs": "-XX:+UseSerialGC -Dsun.zip.disableMemoryMapping=true -Xmx512m -Xms64m -Xlog:disable"
+            }
         },
         "jetbrains": {
             "plugins": [
-                "com.intellij.quarkus",
-                "SonarLint"
+                "com.intellij.quarkus"
             ]
         }
     },

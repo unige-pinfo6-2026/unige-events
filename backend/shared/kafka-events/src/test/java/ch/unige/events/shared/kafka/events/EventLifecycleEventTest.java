@@ -42,16 +42,31 @@ class EventLifecycleEventTest {
     }
 
     @Test
+    void updated_factory() {
+        UUID c = UUID.randomUUID();
+        Instant before = Instant.now();
+        EventLifecycleEvent ev = EventLifecycleEvent.updated(123L, c);
+        Instant after = Instant.now();
+
+        assertEquals(EventLifecycleEvent.Type.UPDATED, ev.type());
+        assertEquals(123L, ev.eventId());
+        assertEquals(c, ev.creatorId());
+        assertNotNull(ev.occurredAt());
+        assertTrue(!ev.occurredAt().isBefore(before) && !ev.occurredAt().isAfter(after));
+    }
+
+    @Test
     void published_acceptsNullCreatorId() {
         EventLifecycleEvent ev = EventLifecycleEvent.published(1L, null);
         assertNull(ev.creatorId());
     }
 
     @Test
-    void typeEnum_threeValues() {
-        assertEquals(3, EventLifecycleEvent.Type.values().length);
+    void typeEnum_fourValues() {
+        assertEquals(4, EventLifecycleEvent.Type.values().length);
         assertEquals(EventLifecycleEvent.Type.PUBLISHED, EventLifecycleEvent.Type.values()[0]);
         assertEquals(EventLifecycleEvent.Type.CANCELLED, EventLifecycleEvent.Type.values()[1]);
         assertEquals(EventLifecycleEvent.Type.EXPIRED, EventLifecycleEvent.Type.values()[2]);
+        assertEquals(EventLifecycleEvent.Type.UPDATED, EventLifecycleEvent.Type.values()[3]);
     }
 }

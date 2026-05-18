@@ -18,10 +18,17 @@ import java.util.UUID;
  *
  * <p>no more UserStub / EventStub navigation — enrichment is fed in by the
  * service layer via REST clients to event-service and user-service.
+ *
+ * <p>SCRUM-144 — {@code eventId} devient nullable et un nouveau champ
+ * {@code commentId} (nullable) est exposé. Un report cible exactement
+ * l'un des deux (XOR enforced en DB via {@code report_target_xor}).
+ * Le {@code eventTitle} reste utilisable pour les reports event-bound ;
+ * le frontend admin distingue les deux cas via les champs id non-null.
  */
 public record ReportDTO(
         Long id,
         Long eventId,
+        Long commentId,
         String eventTitle,
         UUID reporterId,
         String reporterDisplayName,
@@ -37,6 +44,7 @@ public record ReportDTO(
         return new ReportDTO(
                 r.id,
                 r.eventId,
+                r.commentId,
                 event != null ? event.title() : null,
                 r.reporterId,
                 reporter != null ? reporter.displayName() : null,

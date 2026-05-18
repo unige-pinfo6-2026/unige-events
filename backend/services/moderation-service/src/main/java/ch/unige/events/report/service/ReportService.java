@@ -6,8 +6,10 @@ import ch.unige.events.report.dto.HandleReportRequest;
 import ch.unige.events.report.dto.ReportDTO;
 import ch.unige.events.report.entity.Report;
 import ch.unige.events.shared.domain.enums.ReportStatus;
+import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
@@ -16,6 +18,8 @@ import ch.unige.events.shared.kafka.events.EventBannedEvent;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
@@ -57,6 +61,9 @@ public class ReportService {
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
+    @Inject @RestClient EngagementServiceClient engagementClient;
+
+    @Inject EntityManager entityManager;
 
     @Transactional
     public ReportDTO create(Long eventId, String reporterAuth0Id, CreateReportRequest request) {
@@ -107,6 +114,109 @@ public class ReportService {
         report.persist();
 
         return ReportDTO.from(report, event, safeGetUser(reporterId));
+    }
+
+    /**
+     * Persists a report whose target is a comment (SCRUM-144, Décision N).
+     *
+     * <p>Pipeline :
+     * <ol>
+     *   <li>Resolve the caller's internal UUID via {@link CallerIdentity}. The
+     *       JWT claims must resolve to a provisioned user — otherwise propagate
+     *       {@link NotFoundException} (anti-oracle ISSUE-92 envelope identical
+     *       to "comment not found").</li>
+     *   <li>Validate the comment visibility via the engagement-service internal
+     *       endpoint {@code GET /comments/{commentId}/_internal-visibility}
+     *       (Décision L). The cascade ISSUE-92 + SCRUM-136 is enforced on the
+     *       engagement side ; here, a {@link NotFoundException} is propagated
+     *       as-is — never converted to 403 — to keep the anti-oracle envelope
+     *       across the two-hop chain.</li>
+     *   <li>Block self-reports (Décision N) with 422
+     *       {@code cannot_report_own_comment}.</li>
+     *   <li>Persist {@code Report{ commentId, eventId=null, ...}} and force a
+     *       {@code flush()} so the partial UK {@code uq_report_comment_partial}
+     *       fires here rather than at commit-time. A {@link PersistenceException}
+     *       matching the partial UK is converted to 409
+     *       {@code already_reported} ; anything else is rethrown (so genuine DB
+     *       errors surface as 5xx).</li>
+     * </ol>
+     *
+     * <p>The 503 path (engagement-service down) is owned by the
+     * {@link EngagementServiceClient} fallback — it throws a
+     * {@link WebApplicationException} with status 503 that propagates as-is.
+     */
+    @Transactional
+    public ReportDTO createForComment(Long commentId, String reporterAuth0Id, CreateReportRequest request) {
+        UUID reporterId = callerIdentity.requireUuid();
+        if (reporterId == null) {
+            throw new NotFoundException(
+                    "User profile not found — call GET /users/me first");
+        }
+
+        CommentVisibilityProjection visibility =
+                engagementClient.getCommentVisibility(commentId, reporterId);
+        // Defense-in-depth : the engagement-service contract already throws
+        // NotFoundException on token / comment / event mismatch. A null
+        // response from a misbehaving downstream is treated identically.
+        if (visibility == null) {
+            throw new NotFoundException("Comment not found");
+        }
+
+        if (reporterId.equals(visibility.authorId())) {
+            throw unprocessable("cannot_report_own_comment",
+                    "You cannot report your own comment.");
+        }
+
+        Report report = new Report();
+        report.eventId = null;
+        report.commentId = commentId;
+        report.reporterId = reporterId;
+        report.reason = request.reason();
+        report.description = request.description();
+        report.status = ReportStatus.PENDING;
+        try {
+            report.persist();
+            // Force the partial UK violation here, not at JTA commit — so we
+            // can return a clean 409 envelope. Pattern mirror :
+            // CommentLikeService.like (engagement-service phase 2 étape 8).
+            entityManager.flush();
+        } catch (PersistenceException e) {
+            if (!isUniqueReportCommentConflict(e)) {
+                throw e;
+            }
+            Log.debugf("[REPORT_COMMENT_DOUBLE_TAP] reporter=%s comment=%d already-reported", reporterId, commentId);
+            throw conflict("already_reported",
+                    "You have already reported this comment.");
+        }
+
+        return ReportDTO.from(report, null, safeGetUser(reporterId));
+    }
+
+    /**
+     * Matches the partial unique index {@code uq_report_comment_partial} by
+     * constraint name. Scoped narrowly so unrelated UK violations (future
+     * migrations on the table) still surface as 5xx — pattern miroir
+     * {@code FavoriteService.isUniqueFavoriteConflict}.
+     *
+     * <p>Package-private so {@code ReportServiceCreateForCommentTest} can
+     * exercise the constraint-name discrimination without standing up a real
+     * Postgres (Docker indispo localement — piège #14). The matcher is the
+     * load-bearing piece for the 409 path ; the {@code flush()} that triggers
+     * the wrapped {@link PersistenceException} is covered by the integration
+     * tier in CI.
+     */
+    static boolean isUniqueReportCommentConflict(PersistenceException e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException c) {
+                String name = c.getConstraintName();
+                if (name != null && name.equalsIgnoreCase("uq_report_comment_partial")) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     @Transactional

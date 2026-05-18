@@ -1,5 +1,6 @@
 package ch.unige.events.event.dto;
 
+import ch.unige.events.event.attachment.dto.AttachmentDTO;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -58,7 +59,15 @@ public record EventDTO(
         LocalDateTime updatedAt,
         Long parentEventId,
         String recurrenceRule,
-        Boolean coOrganizerOf
+        Boolean coOrganizerOf,
+        /**
+         * SCRUM-148 — populated ONLY by {@code GET /events/{id}} (Décision Q).
+         * All other endpoints returning an {@code EventDTO} (listings, search,
+         * featured, me-favorites, me-events, duplicate, etc.) leave this
+         * field {@code null} to signal "not loaded". The frontend consumes
+         * it on {@code EventDetailPage} only.
+         */
+        List<AttachmentDTO> attachments
 ) {
     public static EventDTO from(
             Event event,
@@ -79,6 +88,41 @@ public record EventDTO(
             Long viewCount,
             Long interestedCount,
             Boolean coOrganizerOf
+    ) {
+        return build(event, attendingCount, availableSpots, waitlistedCount, viewCount,
+                interestedCount, coOrganizerOf, null);
+    }
+
+    /**
+     * Factory variant called only by {@code EventService.getById} so the
+     * returned DTO carries the {@code attachments} list (Décision Q). Every
+     * other code path uses {@link #from} and leaves {@code attachments}
+     * {@code null} — explicit null signals "not loaded" rather than
+     * "loaded and empty".
+     */
+    public static EventDTO fromWithAttachments(
+            Event event,
+            long attendingCount,
+            Long availableSpots,
+            long waitlistedCount,
+            Long viewCount,
+            Long interestedCount,
+            Boolean coOrganizerOf,
+            List<AttachmentDTO> attachments
+    ) {
+        return build(event, attendingCount, availableSpots, waitlistedCount, viewCount,
+                interestedCount, coOrganizerOf, attachments);
+    }
+
+    private static EventDTO build(
+            Event event,
+            long attendingCount,
+            Long availableSpots,
+            long waitlistedCount,
+            Long viewCount,
+            Long interestedCount,
+            Boolean coOrganizerOf,
+            List<AttachmentDTO> attachments
     ) {
         return new EventDTO(
                 event.id,
@@ -109,7 +153,8 @@ public record EventDTO(
                 event.updatedAt,
                 event.parentEventId,
                 event.recurrenceRule,
-                coOrganizerOf
+                coOrganizerOf,
+                attachments
         );
     }
 }

@@ -31,7 +31,8 @@ class EventDTOTest {
                 7L, 50L, 3L, 200L, 5L,
                 "https://site", "contact@unige.ch", end,
                 List.of("tag1", "tag2"), start, end,
-                null, "FREQ=WEEKLY", Boolean.TRUE);
+                null, "FREQ=WEEKLY", Boolean.TRUE,
+                null);
 
         assertEquals(42L, dto.id());
         assertEquals("Title", dto.title());
@@ -73,13 +74,13 @@ class EventDTOTest {
         LocalDateTime t = LocalDateTime.of(2026, 6, 1, 10, 0);
         EventDTO a = new EventDTO(1L, "T", null, "Loc", t, t, EventCategory.OTHER,
                 null, null, id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null, null);
         EventDTO b = new EventDTO(1L, "T", null, "Loc", t, t, EventCategory.OTHER,
                 null, null, id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null, null);
         EventDTO c = new EventDTO(2L, "T", null, "Loc", t, t, EventCategory.OTHER,
                 null, null, id, EventStatus.DRAFT, null, false, false, null,
-                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
+                0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null, null);
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
         assertNotEquals(a, c);

@@ -6,6 +6,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -18,6 +21,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -133,6 +137,127 @@ public class FileStorageService {
 
     public void deleteObject(String url, String expectedFolder) {
         tryDeleteObject(url, expectedFolder);
+    }
+
+    /**
+     * Best-effort delete of an S3 object identified by its absolute URL.
+     * Used by {@code EventService.delete()} cascade cleanup (Décision T) and
+     * by {@code EventAttachmentService.delete()} hors-transaction cleanup
+     * (Décision V).
+     *
+     * <p>Unlike {@link #deleteObject(String, String)}, this overload does not
+     * pin a specific folder — callers have already validated the URL when
+     * they stored it in the DB row they are now purging. Caller-side
+     * try/catch + log WARN is the documented contract (the method itself
+     * swallows S3 failures and only logs at WARN level).
+     */
+    public void deleteObject(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        String prefix = config.s3Url() + "/" + config.s3Bucket() + "/";
+        if (!url.startsWith(prefix)) {
+            return;
+        }
+        String key = url.substring(prefix.length());
+        try {
+            s3.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(config.s3Bucket())
+                    .key(key)
+                    .build());
+        } catch (Exception e) {
+            Log.warnf(e, "[S3_CLEANUP_FAIL] deleteObject key='%s' — orphan object will remain", key);
+        }
+    }
+
+    /**
+     * Generic file upload to S3 for non-image payloads — SCRUM-148, used by
+     * event-service for {@code event_attachments} (PDF / DOC / DOCX / XLSX,
+     * Décision S).
+     *
+     * <p>Validation strategy :
+     * <ul>
+     *   <li><strong>Size :</strong> {@code file.size() <= maxBytes} else
+     *       {@code 422 attachment_invalid_size}.</li>
+     *   <li><strong>MIME header :</strong> {@code file.contentType()} must be
+     *       a key of {@code mimeWhitelist} else {@code 422 attachment_invalid_type}.
+     *       Comparison is case-insensitive ; the value is the file extension
+     *       (with leading dot) used to suffix the S3 object key.</li>
+     *   <li><strong>Magic-number :</strong> NOT validated for non-image
+     *       MIME types. Acceptable risk for SCRUM-148 (PDF / DOC / DOCX /
+     *       XLSX) — a malicious user could upload a renamed executable
+     *       claiming {@code application/pdf}. Mitigation deferred to a
+     *       future DevOps AV scan (cf. {@code devops-handoff.md}). For
+     *       images, the strict magic-number check in {@link #saveImage} is
+     *       preserved untouched (Décision S backward-compat).</li>
+     * </ul>
+     *
+     * <p>Best-effort cleanup of {@code oldUrl} runs hors-transaction after a
+     * successful upload — failures only emit a WARN log (orphans accepted).
+     *
+     * @param fileUpload   multipart upload to persist
+     * @param folder       S3 sub-folder (e.g. {@code "event-attachments"})
+     * @param maxBytes     hard size limit
+     * @param mimeWhitelist MIME → extension map (e.g.
+     *                      {@link DocumentFormat#MIME_TO_EXTENSION})
+     * @param oldUrl       optional URL of a previous version to delete after
+     *                     the new one is uploaded
+     * @return the absolute S3 URL of the newly uploaded object — store as
+     *         {@code fileUrl} in the owning entity
+     * @throws WebApplicationException 422 on size or MIME validation failure
+     *                                 ; 503 on S3 backend failure
+     */
+    public String saveFile(FileUpload fileUpload, String folder, long maxBytes,
+                           Map<String, String> mimeWhitelist, String oldUrl) {
+        long limitMib = maxBytes / (1024 * 1024);
+
+        if (fileUpload.size() > maxBytes) {
+            throw attachmentInvalid("attachment_invalid_size",
+                    "File size exceeds the " + limitMib + " MiB limit.");
+        }
+
+        String rawContentType = fileUpload.contentType();
+        if (rawContentType == null) {
+            throw attachmentInvalid("attachment_invalid_type",
+                    "Missing Content-Type header — only "
+                            + mimeWhitelist.keySet() + " allowed.");
+        }
+        String contentType = rawContentType.split(";")[0].strip().toLowerCase(Locale.ROOT);
+        String extension = mimeWhitelist.get(contentType);
+        if (extension == null) {
+            throw attachmentInvalid("attachment_invalid_type",
+                    "File type '" + contentType + "' is not allowed. Accepted : "
+                            + mimeWhitelist.keySet() + ".");
+        }
+
+        String key = folder + "/" + UUID.randomUUID() + extension;
+        try {
+            s3.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(config.s3Bucket())
+                            .key(key)
+                            .contentType(contentType)
+                            .build(),
+                    RequestBody.fromFile(fileUpload.uploadedFile())
+            );
+        } catch (Exception e) {
+            Log.errorf(e, "[S3_UPLOAD_FAIL] saveFile folder=%s mime=%s size=%d",
+                    folder, contentType, fileUpload.size());
+            throw new WebApplicationException(
+                    "Storage backend unavailable", Response.Status.SERVICE_UNAVAILABLE);
+        }
+
+        tryDeleteObject(oldUrl, folder);
+
+        return config.s3Url() + "/" + config.s3Bucket() + "/" + key;
+    }
+
+    private static WebApplicationException attachmentInvalid(String error, String message) {
+        return new WebApplicationException(
+                Response.status(422)
+                        .type(MediaType.APPLICATION_JSON)
+                        .entity(new StorageErrorBody(error, message))
+                        .build());
     }
 
     private void tryDeleteObject(String url, String expectedFolder) {

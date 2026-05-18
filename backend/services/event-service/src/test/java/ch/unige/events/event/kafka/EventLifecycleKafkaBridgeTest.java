@@ -50,4 +50,16 @@ class EventLifecycleKafkaBridgeTest {
 
         verify(publisher).expired(42L, creatorId);
     }
+
+    @Test
+    void onAfterCommit_updated_callsUpdatedOnPublisher() {
+        EventLifecyclePublisher publisher = mock(EventLifecyclePublisher.class);
+        EventLifecycleKafkaBridge bridge = new EventLifecycleKafkaBridge();
+        bridge.publisher = publisher;
+
+        UUID creatorId = UUID.randomUUID();
+        bridge.onAfterCommit(EventLifecycleEvent.updated(42L, creatorId));
+
+        verify(publisher).updated(42L, creatorId);
+    }
 }

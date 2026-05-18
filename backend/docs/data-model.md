@@ -8,7 +8,7 @@
 > | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `follows` |
 > | `engagement-service` | `postgres-engagement:5432` / DB `unige_events_engagement` | `attendances`, `comments` |
 > | `moderation-service` | `postgres-moderation:5432` / DB `unige_events_moderation` | `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
-> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notification` | (aucune table métier active — provisionné par parité topologique) |
+> | `notification-service` | `postgres-notification:5432` / DB `unige_events_notifications` | `notifications` (SCRUM-99 — entité in-app + 3 Kafka consumers) |
 >
 > Les migrations Flyway sont **redistribuées par service propriétaire** sous `backend/services/<svc>-service/src/main/resources/db/migration/V*.sql`. La numérotation V est **locale** à chaque service (deux services peuvent avoir une `V1__...sql` chacun). Plus jamais de migration cross-service.
 
@@ -386,14 +386,38 @@ enrichie par la migration `V10__add_report_reason_and_review_fields.sql` en SCRU
 | `reviewedBy` | — | `User` | `reviewed_by` | `@ManyToOne(LAZY)`, nullable — FK vers `users.id` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, initialisé via `@PrePersist` |
 
-Index DB : `idx_report_event` (event_id), `idx_report_status` (status).
+Index DB : `idx_report_event` (event_id), `idx_report_comment` (comment_id, SCRUM-144),
+`idx_report_status` (status).
 
-Contrainte unique : `uk_report_reporter_event` sur `(reporter_id, event_id)` — empêche
-le double signalement et sert de filet de sécurité au check applicatif `409 already_reported`.
+**SCRUM-144 — schéma étendu pour les reports de commentaires** (migration moderation-service
+`V4__add_comment_id_to_reports.sql`) :
+- `event_id` devient **nullable** (était NOT NULL).
+- Nouveau champ `comment_id BIGINT NULL` — renseigné quand la cible est un commentaire,
+  mutuellement exclusif avec `event_id`.
+- CHECK constraint **`report_target_xor`** : `(event_id IS NULL) <> (comment_id IS NULL)`
+  — XOR strict, un report cible exactement un event OU un commentaire (jamais les deux,
+  jamais aucun).
+- Anciennes contraintes UK : `uk_report_reporter_event` est **droppée** au profit de deux
+  **UK partielles** (PG 9.5+, syntaxe `CREATE UNIQUE INDEX ... WHERE`) :
+  - `uq_report_event_partial` sur `(reporter_id, event_id) WHERE event_id IS NOT NULL`
+    — empêche le double signalement event-side.
+  - `uq_report_comment_partial` sur `(reporter_id, comment_id) WHERE comment_id IS NOT NULL`
+    — empêche le double signalement comment-side.
+  - Un même reporter peut signaler à la fois un event ET un commentaire distinct sans
+    collision (les UK sont indépendantes par cible).
+
+Les UK partielles ne sont **pas** déclarables via JPA `@UniqueConstraint` (qui ne
+supporte pas la clause `WHERE`) — elles vivent uniquement côté DB via la migration V4.
+La détection 409 `already_reported` côté Java se fait par match `getConstraintName`
+sur l'exception Hibernate ; cf. helper `ReportService.isUniqueReportCommentConflict`.
 
 CHECK constraints :
 - `reports_status_check` (posée par V7) : `status IN ('PENDING', 'REVIEWED', 'DISMISSED')`.
 - `reports_reason_check` (posée par V9) : `reason IN ('SPAM', 'INAPPROPRIATE', 'FAKE', 'OTHER')`.
+- `report_target_xor` (posée par V4 SCRUM-144) : `(event_id IS NULL) <> (comment_id IS NULL)`.
+
+Le dashboard admin (`AdminReportResource`) distingue les deux types de reports par
+le champ id non-null (`event_id` vs `comment_id`).
 
 #### Sémantique des champs
 
@@ -436,10 +460,104 @@ Quand `ReportService.handle()` reçoit `status=REVIEWED` :
 - `ReportService.create(eventId, auth0Id, CreateReportRequest)` — vérifie l'existence
   de l'event, son statut PUBLISHED, l'absence de self-report (cascade SCRUM-136 :
   créateur OU co-organisateur ACCEPTED → 422), l'absence de doublon ; persiste avec status PENDING.
+- **`ReportService.createForComment(commentId, auth0Id, CreateReportRequest)`** — SCRUM-144
+  (Décision N). Hop interne via `EngagementServiceClient.getCommentVisibility` (anti-oracle
+  ISSUE-92 + SCRUM-136 délégué côté engagement), 422 `cannot_report_own_comment` si
+  l'auteur est le caller, persist `Report{ commentId, eventId=null }`, catch
+  `PersistenceException` sur la UK partielle → 409 `already_reported`. Fallback REST
+  surfacé en 503.
 - `ReportService.listByStatus(status, page, size)` — listing paginé pour le dashboard
   admin (SCRUM-97), tri `createdAt DESC, id DESC`.
 - `ReportService.handle(reportId, adminAuth0Id, HandleReportRequest)` — transition
   `PENDING → REVIEWED|DISMISSED` + audit (`reviewedAt`, `reviewedBy`, `moderationNote`).
+
+---
+
+### CommentLike
+
+Owned by **engagement-service** (sous-package engagement/comment, SCRUM-144 Décision H).
+Table : `comment_likes` (créée par la migration `V4__create_comment_likes.sql`).
+Back-end pour la sémantique `likedByMe` + `likeCount` côté `Comment`.
+
+| Champ Java | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|
+| `id` | `Long` | `id` | PK, hérité de `PanacheEntity` |
+| `commentId` | `Long` | `comment_id` | not null, FK `comments(id) ON DELETE CASCADE` |
+| `userId` | `UUID` | `user_id` | not null (pas de FK cross-DB — DB-per-service strict) |
+| `createdAt` | `LocalDateTime` | `created_at` | `@Column(updatable=false)`, `@PrePersist` |
+
+Index DB : `idx_comment_like_user` sur `(user_id)` pour le batch fetch
+`findLikedCommentIdsByUser`. UK : `uq_comment_like` sur `(comment_id, user_id)` — empêche
+le double-like et sert de filet à la sémantique idempotente service-side.
+
+Cascade FK `ON DELETE CASCADE` : un `DELETE /comments/{id}` purge automatiquement les
+rows likes correspondantes (pas de service-side cleanup nécessaire).
+
+Helpers Panache :
+- `findByCommentAndUser(Long, UUID) : Optional<CommentLike>` — pré-check happy idempotent.
+- `findLikedCommentIdsByUser(Collection<Long>, UUID) : Set<Long>` — JPQL projection batch
+  consommée par `CommentService.getByEvent` pour peupler `CommentDTO.likedByMe` en une
+  seule requête (anti N+1, Décision K).
+
+Sémantique service-side (`CommentLikeService`, Décision I) : `like()` retourne 201 sur
+fresh-like, 200 idempotent sur double-tap (race-safe via catch `PersistenceException`) ;
+`unlike()` retourne 204 quel que soit l'état initial. Le champ `Comment.likeCount` est
+mis à jour atomiquement dans la même transaction via JPQL `UPDATE Comment c SET ...`.
+
+---
+
+### EventAttachment
+
+Owned by **event-service** (sous-package event/attachment, SCRUM-148 Décision P).
+Table : `event_attachments` (créée par la migration `V13__create_event_attachments.sql`).
+
+| Champ Java | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|
+| `id` | `Long` | `id` | PK, sequence `event_attachments_seq` (start 1, increment 50) |
+| `eventId` | `Long` | `event_id` | not null, FK `events(id) ON DELETE CASCADE` |
+| `fileName` | `String` | `file_name` | not null, `length=255` |
+| `fileUrl` | `String` | `file_url` | not null, `columnDefinition="TEXT"` — URL S3 absolue |
+| `fileSize` | `Long` | `file_size` | not null, CHECK `<= 10485760` (10 MiB) |
+| `mimeType` | `String` | `mime_type` | not null, `length=128`, CHECK whitelist (4 valeurs) |
+| `uploadedById` | `UUID` | `uploaded_by_id` | not null (pas de FK cross-DB) |
+| `uploadedAt` | `LocalDateTime` | `uploaded_at` | not null, `@Column(updatable=false)`, `@PrePersist` |
+
+Index DB : `idx_event_attachment_event` sur `(event_id)` pour les helpers `findByEvent`
++ `countByEvent`. **Pas d'UK** sur `(event_id, file_name)` — duplicates acceptés
+(Décision P : un utilisateur peut uploader `presentation.pdf` v1 puis v2 ; le frontend
+les distingue via file_size + uploaded_at).
+
+CHECK constraints (last line of defense — le service layer rejette en 422 avant) :
+- `event_attachments_size_check` : `file_size <= 10485760` (10 MiB).
+- `event_attachments_mime_check` : `mime_type IN (4 MIME PDF/DOC/DOCX/XLSX)`.
+
+Cascade :
+- FK `ON DELETE CASCADE` auto-purge les rows attachments quand un event est hard-deleted
+  via `EventService.delete()` (post-CANCELLED).
+- `EventService.delete()` ajoute aussi un cleanup S3 best-effort hors-tx (Décision T) :
+  `FileStorageService.deleteObject(url)` est invoqué par fichier ; les échecs sont
+  swallowed avec un WARN log (orphan objects rares, mais documentés — devops-handoff).
+- `EventService.duplicate()` (SCRUM-99 phase 1) **n'est pas** étendu (Décision AC) — le
+  clone DRAFT démarre vide ; l'organisateur ré-upload manuellement.
+
+Helpers Panache :
+- `findByEvent(Long eventId) : List<EventAttachment>` — sorted by `uploadedAt ASC, id ASC`,
+  consommé par `EventService.getById` (Décision Q) et `EventService.delete` cascade.
+- `countByEvent(Long eventId) : long` — utilisé par `EventAttachmentService.upload` pour
+  enforcer le cap de **5 attachments par event** (Décision V — 422
+  `attachment_limit_exceeded` au-delà).
+
+Permissions (Décision V) :
+- `POST /events/{id}/attachments` : creator OR co-org ACCEPTED OR admin.
+- `DELETE /events/{id}/attachments/{aid}` : creator OR co-org ACCEPTED OR admin OR
+  **uploader d'origine** (un co-org peut supprimer son propre upload même après
+  changement de statut).
+- Anti-oracle 404 sur path mismatch DELETE (`attachmentId` valide mais autre `eventId`)
+  — jamais 403.
+
+Exposition wire-format : `AttachmentDTO` (id, fileName, fileUrl, fileSize, mimeType,
+uploadedById, uploadedAt). Embarqué asymétriquement dans `EventDTO.attachments`
+**uniquement** par `GET /events/{id}` (Décision Q — null sur tous les autres endpoints).
 
 ---
 
@@ -539,6 +657,85 @@ chaque commentaire de la page (cf. décision 27, évite le N+1).
 - `POST /comments/{id}/report` (et l'extension `Report.commentId`) sont également SCRUM-144 — hors scope ici.
 - Notifications (`NEW_COMMENT` à l'organisateur, `COMMENT_MENTION`) sont SCRUM-145 (S7+),
   dépendantes de l'infra `Notification` SCRUM-99.
+
+---
+
+### Notification
+
+Owned by **notification-service** (SCRUM-99 — service activé depuis placeholder en
+phase 1). Table : `notifications`.
+
+Table : `notifications` (créée par la migration `V1__create_notifications.sql` en
+SCRUM-99). Aucune FK cross-DB (`postgres-notification` ne voit pas
+`postgres-user.users` ni `postgres-event.events`) — la cohérence UUID est garantie
+au niveau applicatif (Décision F).
+
+| Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
+|---|---|---|---|---|
+| `id` | `id` | `Long` | `id` | PK, hérité de `PanacheEntity`, sequence `notifications_seq` |
+| `userId` | `userId` | `UUID` | `user_id` | not null — destinataire (sans FK cross-DB) |
+| `type` | `type` | `NotificationType` | `type` | `@Enumerated(STRING)`, not null, `length=32`, CHECK constraint |
+| `eventId` | `eventId` | `Long` | `event_id` | nullable — event lié quand applicable (`EVENT_*` et `NEW_ATTENDEE`) |
+| `relatedUserId` | `relatedUserId` | `UUID` | `related_user_id` | nullable — acteur secondaire (phase 1 : attendee pour `NEW_ATTENDEE` ; phase 2 : follower pour `NEW_FOLLOWER`/`FOLLOW_REQUEST`/`FOLLOW_ACCEPTED`, mentionner pour `COMMENT_MENTION`) |
+| `message` | `message` | `String` | `message` | not null, `@Column(columnDefinition="TEXT")` — message pré-composé par le consumer Kafka |
+| `read` | `read` | `boolean` | `read` | not null, default `false` |
+| `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | not null, `updatable=false`, initialisé par `@PrePersist` |
+| `readAt` | `readAt` | `LocalDateTime` | `read_at` | nullable, posé à `now()` lors de `markRead` (immutable une fois posé — idempotence) |
+
+CHECK constraints :
+- `notifications_type_check` (V1) : `type IN ('EVENT_UPDATED', 'EVENT_CANCELLED',
+  'EVENT_REMINDER', 'NEW_ATTENDEE')` en phase 1. **Phase 2** : drop+recreate via
+  `V2__widen_notification_type_check.sql` pour ajouter `NEW_FOLLOWER`,
+  `FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`, `COMMENT_MENTION`, `NEW_COMMENT`.
+
+Index DB :
+- `idx_notification_user_read_created` sur `(user_id, read, created_at DESC)` —
+  sert le tri unread-first du listing sans table scan.
+- `idx_notification_user_created` sur `(user_id, created_at DESC)` — listing
+  tout-statut + cleanup futur.
+
+Pas d'UK métier en phase 1 (cf. Décision D — at-least-once Kafka accepté ; deux
+livraisons identiques produisent deux rows, c'est la sémantique voulue pour
+`EVENT_UPDATED` notamment).
+
+#### Helpers statiques
+
+- `Notification.findByUser(UUID userId, int page, int size)` — paginé avec tri
+  `read ASC NULLS FIRST, createdAt DESC, id DESC` (unread first).
+- `Notification.findByIdAndUser(Long id, UUID userId): Optional<Notification>` —
+  anti-oracle 404 (Optional vide quand la row appartient à un autre user OU
+  n'existe pas).
+- `Notification.countUnreadByUser(UUID userId): long` — populé dans le header
+  `X-Unread-Count` sur le GET listing.
+- `Notification.markAllReadByUser(UUID userId): int` — bulk update via
+  `update("read = true, readAt = ?1 where userId = ?2 and read = false", ...)`
+  retournant le nombre de rows affectées (input de `ReadAllResponse.updated`).
+
+#### Sémantique anti-oracle
+
+`NotificationService.markRead(auth0Id, id)` jette `NotFoundException` quand la
+row n'existe pas OU appartient à un autre user — le frontend reçoit un 404
+indistinguable d'un id inexistant, jamais un 403 qui leakerait l'existence
+de la notif.
+
+#### Pipeline Kafka
+
+Les rows `notifications` sont créées exclusivement par les 3 consumers Kafka
+de notification-service (phase 1, SCRUM-99) :
+- `EventCancelledConsumer` ← topic `events.cancelled` → un row `EVENT_CANCELLED`
+  par attendee `ATTENDING` (créateur skippé s'il est dans la liste).
+- `EventUpdatedConsumer` ← topic `events.updated` → idem mais `EVENT_UPDATED`.
+- `AttendanceCreatedConsumer` ← topic `attendances.created` → un row `NEW_ATTENDEE`
+  vers le créateur (skippé si auto-inscription).
+
+#### Anticipation phase 2
+
+L'enum `NotificationType` et la CHECK contrainte resteront à 4 valeurs jusqu'à
+la livraison conjointe de SCRUM-140 (notifications de suivi) + SCRUM-145
+(notifications de mentions / commentaires) qui ajouteront `NEW_FOLLOWER`,
+`FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`, `COMMENT_MENTION`, `NEW_COMMENT`
+**simultanément** avec leurs consumers Kafka respectifs et la migration
+`V2__widen_notification_type_check.sql`.
 
 ---
 

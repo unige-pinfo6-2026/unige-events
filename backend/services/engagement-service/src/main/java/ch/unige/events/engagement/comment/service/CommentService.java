@@ -176,6 +176,12 @@ public class CommentService {
             if (u != null) usersById.put(uid, u);
         }
 
+        // SCRUM-144 anti N+1 — single JPQL batch on comment_likes to populate
+        // CommentDTO.likedByMe for the entire page (top-level + replies) in
+        // one query. Anonymous callers get an empty Set (likedByMe = false
+        // everywhere — no hop). Décision K.
+        Set<Long> likedIds = resolveLikedIds(auth0Id, topLevels, replies);
+
         return topLevels.stream()
                 .map(top -> {
                     boolean topIsOrg = top.authorId != null
@@ -189,15 +195,41 @@ public class CommentService {
                                     organizerUserIds.contains(r.authorId));
                         }
                     }
-                    return CommentDTO.fromTopLevelWithReplies(
+                    return CommentDTO.fromTopLevelWithRepliesAndLikes(
                             top,
                             usersById.get(top.authorId),
                             rs,
                             usersById,
                             topIsOrg,
-                            repliesAuthorIsOrganizer);
+                            repliesAuthorIsOrganizer,
+                            likedIds);
                 })
                 .toList();
+    }
+
+    /**
+     * SCRUM-144 — bulk resolution of {@code CommentDTO.likedByMe} via one JPQL
+     * query on {@code comment_likes} (anti N+1, Décision K). Returns the empty
+     * set for anonymous callers (no DB hit) or when the caller's UUID cannot
+     * be resolved (e.g. user not provisioned).
+     */
+    private Set<Long> resolveLikedIds(String auth0Id, List<Comment> topLevels, List<Comment> replies) {
+        if (auth0Id == null) {
+            return Set.of();
+        }
+        UUID callerUuid = callerIdentity.getUuid();
+        if (callerUuid == null) {
+            return Set.of();
+        }
+        Set<Long> commentIds = new HashSet<>();
+        for (Comment c : topLevels) {
+            commentIds.add(c.id);
+        }
+        for (Comment r : replies) {
+            commentIds.add(r.id);
+        }
+        return ch.unige.events.engagement.comment.entity.CommentLike
+                .findLikedCommentIdsByUser(commentIds, callerUuid);
     }
 
     /**

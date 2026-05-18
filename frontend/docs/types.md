@@ -210,6 +210,22 @@ Cf. SCRUM-138. `PENDING` = demande de suivi envoyée par le caller, profil cible
 
 ---
 
+## Types suivi — `src/types/follow.ts`
+
+### FollowDTO
+
+Projection d'une row `Follow` renvoyée par les endpoints SCRUM-138 — id-only (pas d'enrichissement `displayName` / `avatarUrl` côté backend ; le frontend résout `getPublicProfile(followerId)` à la demande, cf. SCRUM-110 panneau "Demandes reçues").
+
+| Champ        | Type           | Requis | Notes |
+|--------------|----------------|--------|-------|
+| id           | number         | oui    | PK séquentielle (`Long`) |
+| followerId   | string         | oui    | UUID du `User` qui suit / a demandé à suivre |
+| followedId   | string         | oui    | UUID du `User` ciblé |
+| status       | FollowStatus   | oui    | `PENDING` ou `ACCEPTED` |
+| createdAt    | string         | oui    | ISO date-time |
+
+Sources : `openapi/openapi.yaml#/components/schemas/FollowDTO`. Endpoints producteurs : `POST /users/{id}/follow`, `PATCH /follow-requests/{id}/accept`, `GET /users/me/follow-requests`.
+
 ---
 
 ## Types recherche

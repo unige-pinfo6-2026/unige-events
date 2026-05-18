@@ -2,6 +2,8 @@ package ch.unige.events.event.service;
 
 import ch.unige.events.shared.domain.projections.EventCapacity;
 import ch.unige.events.shared.error.ApiErrorResponse;
+import ch.unige.events.event.attachment.dto.AttachmentDTO;
+import ch.unige.events.event.attachment.entity.EventAttachment;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.RecurrenceRequest;
@@ -300,14 +302,21 @@ public class EventService {
         if (checkCoOrgOf != null) {
             coOrganizerOf = isCreatorOrAcceptedCoOrganizer(event, checkCoOrgOf);
         }
-        return EventDTO.from(
+        // SCRUM-148 — Décision Q : populate attachments ONLY here. Listings,
+        // search, featured, me-*, duplicate keep attachments=null to flag
+        // "not loaded" rather than "loaded and empty".
+        List<AttachmentDTO> attachments = EventAttachment.findByEvent(id).stream()
+                .map(AttachmentDTO::from)
+                .toList();
+        return EventDTO.fromWithAttachments(
                 event,
                 att,
                 EventCapacity.computeAvailableSpots(event.capacity, att),
                 wait,
                 countViews(id),
                 countInterested(id),
-                coOrganizerOf
+                coOrganizerOf,
+                attachments
         );
     }
 
@@ -415,6 +424,10 @@ public class EventService {
         AttendanceSummary s = engagementClient.getAttendanceSummary(id);
         long att = s != null ? s.attending() : 0L;
         long wait = s != null ? s.waitlisted() : 0L;
+        // SCRUM-99: CDI fire — bridge observer publishes events.updated to
+        // Kafka AFTER_SUCCESS. Consumed by notification-service to fan out
+        // EVENT_UPDATED notifications to attendees.
+        lifecycleEvent.fire(EventLifecycleEvent.updated(event.id, event.creatorId));
         return EventDTO.from(event, att, EventCapacity.computeAvailableSpots(event.capacity, att), wait, null, null);
     }
 
@@ -440,16 +453,44 @@ public class EventService {
         // S9 if needed). EVENT-DELETE-001: purge event_co_organizers so
         // PENDING/ACCEPTED rows do not survive a deleted parent (the table
         // has no ON DELETE CASCADE FK in V8).
+        // SCRUM-148 Décision T : collect attachment URLs BEFORE the DB
+        // cascade so the post-commit S3 cleanup can fire on the captured
+        // list. event_attachments has ON DELETE CASCADE in V13 so we could
+        // skip the explicit JPQL DELETE — kept here for parity with the
+        // other sibling tables (and for clarity at audit time).
+        List<String> attachmentUrls = EventAttachment.findByEvent(id).stream()
+                .map(a -> a.fileUrl)
+                .toList();
         int favs = entityManager.createQuery("DELETE FROM Favorite f WHERE f.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         int views = entityManager.createQuery("DELETE FROM EventView v WHERE v.eventId = :id")
                 .setParameter("id", id).executeUpdate();
         int coOrgs = entityManager.createQuery("DELETE FROM EventCoOrganizer co WHERE co.eventId = :id")
                 .setParameter("id", id).executeUpdate();
+        int attachments = entityManager.createQuery(
+                        "DELETE FROM EventAttachment a WHERE a.eventId = :id")
+                .setParameter("id", id).executeUpdate();
         event.delete();
+        // Best-effort S3 cleanup — defense-in-depth try/catch around the
+        // storage call. FileStorageService.deleteObject already swallows
+        // S3 transients with a WARN log, but mocking it (e.g. in
+        // EventServiceDeleteCascadeAttachmentsTest) would bypass that guard
+        // and let an exception roll back the surrounding tx. Catching here
+        // pins the best-effort contract at the call site regardless of the
+        // downstream implementation. Orphan objects accepted (DevOps
+        // lifecycle policy is the safety net).
+        for (String url : attachmentUrls) {
+            try {
+                fileStorageService.deleteObject(url);
+            } catch (Exception e) {
+                Log.warnf(e,
+                        "[S3_CLEANUP_FAIL_event_attachment] event=%d url=%s — orphan object will remain",
+                        id, url);
+            }
+        }
         Log.infof(
-            "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d",
-            id, auth0Id, favs, views, coOrgs
+            "[EVENT_DELETE_CASCADE] event=%d caller=%s favorites=%d views=%d coOrgs=%d attachments=%d",
+            id, auth0Id, favs, views, coOrgs, attachments
         );
     }
 
@@ -509,6 +550,110 @@ public class EventService {
                 Response.status(Response.Status.CONFLICT)
                         .entity(Map.of("error", "conflict", "message", message))
                         .build());
+    }
+
+    /**
+     * SCRUM-99 — duplicate an event into a fresh DRAFT row.
+     *
+     * <ul>
+     *   <li>title: {@code "Copie de <source.title>"} with collision dedup
+     *       via {@code (2)} / {@code (3)} suffixes (cap N=100, then 422
+     *       {@code duplicate_title_collision}). Base is truncated to 114
+     *       chars to leave room for {@code " (100)"} within the 120-char
+     *       limit on title.</li>
+     *   <li>status: {@code DRAFT} (always — even from CANCELLED source).
+     *       BANNED source is refused with 403 (a banned event is not
+     *       resurrected, not even by the admin who duplicates).</li>
+     *   <li>creatorId: the caller (Décision N — the duplicator becomes
+     *       the organizer of the clone).</li>
+     *   <li>dates: shifted by +7 days (cf. SCRUM-99 backlog).</li>
+     *   <li>copied: description, location, category, faculty, bannerUrl,
+     *       capacity, allDay, websiteUrl, contactEmail, tags (deep copy).</li>
+     *   <li>reset: shareCode, recurrenceRule, parentEventId,
+     *       registrationDeadline, featured, featuredAt.</li>
+     *   <li>no cascade: attendances, favorites, views, co-organizers,
+     *       comments, reports do not follow the clone. SCRUM-148 (Décision
+     *       AC) extends the no-cascade rule to {@code event_attachments} —
+     *       the DRAFT clone starts with an empty attachment list ; the
+     *       organizer must re-upload anything still relevant. This keeps
+     *       the duplicate cheap (no extra S3 copy) and aligned with the
+     *       "reset to empty" spirit of {@code shareCode} /
+     *       {@code recurrenceRule} / {@code parentEventId}. Asserted by
+     *       {@code EventServiceDuplicateAttachmentsTest}.</li>
+     *   <li>no Kafka fire: status DRAFT, no events.published / .cancelled /
+     *       .updated emitted.</li>
+     * </ul>
+     */
+    @Transactional
+    public EventDTO duplicate(Long sourceId, String auth0Id, boolean isAdmin) {
+        Event source = Event.<Event>findByIdOptional(sourceId)
+                .orElseThrow(NotFoundException::new);
+
+        UUID callerUuid = callerIdentity.requireUuid();
+        boolean authorized = isAdmin || isCreatorOrAcceptedCoOrganizer(source, callerUuid);
+        if (!authorized) {
+            // 404 anti-oracle for non-creators on DRAFT/CANCELLED is enforced
+            // at the GET layer ; here a 403 is acceptable for the explicit
+            // mutation. Source visibility is already proven by reaching this
+            // branch (we found the row).
+            throw new ForbiddenException("Only the event creator, an accepted co-organizer, or an admin can duplicate this event");
+        }
+        if (source.status == EventStatus.BANNED) {
+            throw new ForbiddenException("Banned events cannot be duplicated");
+        }
+
+        // Title collision dedup with cap 100 (Décision Q).
+        String baseTitleRaw = "Copie de " + (source.title == null ? "" : source.title);
+        // Truncate base to keep room for " (100)" within the 120-char title
+        // limit applied by @Size on CreateEventRequest.title.
+        String base = baseTitleRaw.length() > 114
+                ? baseTitleRaw.substring(0, 114)
+                : baseTitleRaw;
+        String candidate = base;
+        int n = 2;
+        while (Event.count("creatorId = ?1 and title = ?2", callerUuid, candidate) > 0) {
+            if (n > 100) {
+                throw new WebApplicationException(
+                        Response.status(422)
+                                .entity(new ApiErrorResponse(
+                                        "duplicate_title_collision",
+                                        "Cannot generate unique title after 100 attempts. Please rename one of your existing duplicates first."))
+                                .type(MediaType.APPLICATION_JSON_TYPE)
+                                .build());
+            }
+            candidate = base + " (" + n + ")";
+            n++;
+        }
+
+        Event clone = new Event();
+        clone.title = candidate;
+        clone.description = source.description;
+        clone.location = source.location;
+        clone.startDate = source.startDate != null ? source.startDate.plusDays(7) : null;
+        clone.endDate = source.endDate != null ? source.endDate.plusDays(7) : null;
+        clone.category = source.category;
+        clone.faculty = source.faculty;
+        clone.bannerUrl = source.bannerUrl;
+        clone.capacity = source.capacity;
+        clone.allDay = source.allDay;
+        clone.websiteUrl = source.websiteUrl;
+        clone.contactEmail = source.contactEmail;
+        clone.tags = source.tags == null ? new ArrayList<>() : new ArrayList<>(source.tags);
+        clone.creatorId = callerUuid;
+        clone.status = EventStatus.DRAFT;
+        // Explicit resets — even if defaults match, keep intent visible.
+        clone.shareCode = null;
+        clone.recurrenceRule = null;
+        clone.parentEventId = null;
+        clone.registrationDeadline = null;
+        clone.featured = false;
+        clone.featuredAt = null;
+        clone.persist();
+        entityManager.flush();
+
+        return EventDTO.from(clone, 0L,
+                EventCapacity.computeAvailableSpots(clone.capacity, 0L),
+                0L, null, null);
     }
 
     @Transactional
@@ -634,7 +779,15 @@ public class EventService {
                 && event.creatorId.equals(callerUuid);
     }
 
-    private boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
+    /**
+     * Returns {@code true} when the caller is either the event creator or an
+     * ACCEPTED co-organizer (cascade pattern SCRUM-136). Public so adjacent
+     * services in the same module can enforce the cascade without
+     * re-implementing the rule — currently consumed by
+     * {@code event/attachment/service/EventAttachmentService} (SCRUM-148,
+     * Décision V). Null-safe on both arguments.
+     */
+    public boolean isCreatorOrAcceptedCoOrganizer(Event event, UUID callerUuid) {
         if (event == null || callerUuid == null) {
             return false;
         }

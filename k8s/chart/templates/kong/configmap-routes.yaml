@@ -104,9 +104,23 @@ data:
               - ~/api/events/(?:\d+)/publish$
             strip_path: false
             preserve_host: true
+          - name: events-duplicate
+            paths:
+              - ~/api/events/(?:\d+)/duplicate$
+            strip_path: false
+            preserve_host: true
           - name: events-image
             paths:
               - ~/api/events/(?:\d+)/image$
+            strip_path: false
+            preserve_host: true
+          - name: events-attachments
+            # SCRUM-148 — POST /api/events/{id}/attachments and
+            # DELETE /api/events/{id}/attachments/{aid}. Single regex covers
+            # both sub-paths. Must be declared BEFORE events-by-id so the
+            # /attachments suffix is not swallowed by the catch-all id route.
+            paths:
+              - ~/api/events/(?:\d+)/attachments(?:/(?:\d+))?$
             strip_path: false
             preserve_host: true
           - name: events-by-id
@@ -218,6 +232,15 @@ data:
               - ~/api/events/(?:\d+)/report$
             strip_path: false
             preserve_host: true
+          - name: report-comment
+            # SCRUM-144 Décision N — POST /api/comments/{id}/report routes to
+            # moderation-service (not engagement-service which owns
+            # /api/comments/{id} and /like). Declared in the moderation-service
+            # block so the upstream selection is unambiguous.
+            paths:
+              - ~/api/comments/(?:\d+)/report$
+            strip_path: false
+            preserve_host: true
           - name: admin-reports
             paths:
               - ~/api/admin/reports$
@@ -266,9 +289,38 @@ data:
                   policy: local
                   fault_tolerant: true
                   hide_client_headers: false
+          - name: comment-like
+            # SCRUM-144 — POST/DELETE /api/comments/{id}/like (engagement-service
+            # owns comment_likes). Declared BEFORE comment-direct so the /like
+            # suffix is not swallowed by the catch-all id route.
+            paths:
+              - ~/api/comments/(?:\d+)/like$
+            strip_path: false
+            preserve_host: true
           - name: comment-direct
             paths:
               - ~/api/comments/(?:\d+)$
+            strip_path: false
+            preserve_host: true
+      - name: notification-service
+        url: http://notification-service:8080
+        connect_timeout: 5000
+        read_timeout: 30000
+        write_timeout: 30000
+        routes:
+          - name: notifications-read-all
+            paths:
+              - ~/api/users/me/notifications/read-all$
+            strip_path: false
+            preserve_host: true
+          - name: notification-mark-read
+            paths:
+              - ~/api/users/me/notifications/(?:\d+)/read$
+            strip_path: false
+            preserve_host: true
+          - name: user-notifications
+            paths:
+              - ~/api/users/me/notifications/?$
             strip_path: false
             preserve_host: true
     plugins:

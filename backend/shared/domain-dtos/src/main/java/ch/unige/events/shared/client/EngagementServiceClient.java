@@ -2,13 +2,17 @@ package ch.unige.events.shared.client;
 
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
 import io.quarkus.logging.Log;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
 import org.eclipse.microprofile.faulttolerance.Fallback;
 import org.eclipse.microprofile.faulttolerance.Retry;
@@ -94,5 +98,77 @@ public interface EngagementServiceClient {
     default Map<Long, AttendanceSummary> getAttendanceSummariesBulkFallback(List<Long> ids) {
         Log.warnf("[REST_FALLBACK_engagement-service] getAttendanceSummariesBulk(ids=%d) — returning empty map (counts will display as 0)", ids.size());
         return Map.of();
+    }
+
+    /**
+     * Internal endpoint (SCRUM-99) consumed by notification-service to
+     * resolve the recipient list of an event-lifecycle notification. Returns
+     * the {@code List<UUID>} of users with the given attendance status on
+     * the event. Provider :
+     * {@code GET /events/{eventId}/_internal-attendee-ids?status=ATTENDING}
+     * on engagement-service, gated {@code @Internal} (X-Internal-Token).
+     * Not in {@code openapi.yaml} ; documented in
+     * {@code backend/docs/internal-endpoints.md} entry #8.
+     *
+     * <p>Fallback : empty list. The consumer logs a warning ; the
+     * notification is silently skipped (acceptable degradation — Kafka
+     * re-delivery on the next event will fan it out if engagement-service
+     * comes back).
+     */
+    @GET
+    @Path("/events/{eventId}/_internal-attendee-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getAttendeeIdsFallback")
+    List<UUID> getAttendeeIds(@PathParam("eventId") Long eventId,
+                              @QueryParam("status") String status);
+
+    default List<UUID> getAttendeeIdsFallback(Long eventId, String status) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getAttendeeIds(event=%d, status=%s) — returning empty list (downstream unavailable, notifications skipped)", eventId, status);
+        return List.of();
+    }
+
+    /**
+     * Internal endpoint (SCRUM-144 — Décision L) consumed by moderation-service
+     * to validate that the caller can see a given comment before persisting a
+     * {@code POST /comments/{commentId}/report}. The cascade ISSUE-92 +
+     * SCRUM-136 is enforced server-side inside engagement-service via
+     * {@code EventServiceClient.getByIdWithCoOrgCheck} on the parent event.
+     *
+     * <p>Provider :
+     * {@code GET /comments/{commentId}/_internal-visibility?callerId={uuid}}
+     * on engagement-service, gated {@code @Internal} (X-Internal-Token). Not
+     * in {@code openapi.yaml} — documented in
+     * {@code backend/docs/internal-endpoints.md} entry #10.
+     *
+     * <p>Resilience tuned for the report-comment flow :
+     * <ul>
+     *   <li>{@code abortOn = NotFoundException} : a legitimate 404 (comment
+     *       inexistant OR event invisible OR bad token) must short-circuit the
+     *       retry — otherwise a wave of reports against invisible comments
+     *       would trip the CB.</li>
+     *   <li>{@code skipOn = NotFoundException} : same reasoning for the CB
+     *       volume threshold.</li>
+     *   <li>{@code @Fallback} throws 503 on infra failure so the caller (the
+     *       resource layer of moderation-service) surfaces a meaningful
+     *       error to the browser instead of silently dropping the report.</li>
+     * </ul>
+     */
+    @GET
+    @Path("/comments/{commentId}/_internal-visibility")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getCommentVisibilityFallback", skipOn = NotFoundException.class)
+    CommentVisibilityProjection getCommentVisibility(@PathParam("commentId") Long commentId,
+                                                     @QueryParam("callerId") UUID callerId);
+
+    default CommentVisibilityProjection getCommentVisibilityFallback(Long commentId, UUID callerId) {
+        Log.errorf("[REST_FALLBACK_engagement-service] getCommentVisibility(comment=%d, caller=%s) — engagement-service unavailable ; surfacing as 503 to caller",
+                commentId, callerId);
+        throw new WebApplicationException(
+                "Comment visibility check unavailable",
+                Response.Status.SERVICE_UNAVAILABLE);
     }
 }
