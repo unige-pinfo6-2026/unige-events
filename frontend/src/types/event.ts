@@ -1,3 +1,4 @@
+import type { Attachment } from "./attachment"
 import type { Faculty } from "./faculty"
 
 export type Event = {
@@ -38,6 +39,12 @@ export type Event = {
    * see the edit/cancel/stats actions.
    */
   coOrganizerOf?: boolean | null
+  /**
+   * SCRUM-148 — Liste des fichiers joints. Champ asymétrique : peuplé
+   * **uniquement** par `GET /events/{id}` (détail). Tous les autres
+   * endpoints retournent `null` pour signaler "non chargé".
+   */
+  attachments?: Attachment[] | null
 }
 
 export const EVENT_WEBSITE_URL_MAX_LENGTH = 500
