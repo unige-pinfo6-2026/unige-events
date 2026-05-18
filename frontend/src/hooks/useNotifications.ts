@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import { getNotifications, markAllRead } from '@/services/notificationApi'
+import { getNotifications, markAllRead, markNotificationRead } from '@/services/notificationApi'
 import type { Notification } from '@/types/notification'
 
 const POLL_INTERVAL = 30_000
@@ -11,10 +11,12 @@ interface UseNotificationsResult {
   loading: boolean
   error: string | null
   markAllAsRead: () => void
+  markOneAsRead: (id: number) => void
 }
 
 export function useNotifications(): UseNotificationsResult {
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -27,9 +29,10 @@ export function useNotifications(): UseNotificationsResult {
   const fetchNotifications = useCallback(async (silent = false) => {
     if (!silent && mountedRef.current) setLoading(true)
     try {
-      const data = await getNotifications()
+      const { notifications: data, unreadCount: count } = await getNotifications()
       if (!mountedRef.current) return
       setNotifications(data)
+      setUnreadCount(count)
       setError(null)
     } catch (err) {
       if (!mountedRef.current) return
@@ -50,18 +53,38 @@ export function useNotifications(): UseNotificationsResult {
 
   const markAllAsRead = useCallback(() => {
     // Optimistic update — badge clears immediately
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    const nowIso = new Date().toISOString()
+    setNotifications(prev => prev.map(n => ({ ...n, read: true, readAt: n.readAt ?? nowIso })))
+    setUnreadCount(0)
     void markAllRead().catch(() => {
-      // Revert on API failure by re-fetching
+      // Revert on API failure by re-fetching authoritative state
       void fetchNotifications(true)
     })
   }, [fetchNotifications])
 
+  const markOneAsRead = useCallback((id: number) => {
+    // Optimistic update — flip the row, decrement the badge if it was unread.
+    // Read `wasUnread` from the current state (closure) rather than from the
+    // setNotifications updater, because the updater runs asynchronously and
+    // closure-mutated locals would still be `false` when setUnreadCount fires.
+    const target = notifications.find(n => n.id === id)
+    const wasUnread = target !== undefined && !target.read
+    const nowIso = new Date().toISOString()
+    setNotifications(prev => prev.map(n =>
+      n.id === id ? { ...n, read: true, readAt: n.readAt ?? nowIso } : n,
+    ))
+    if (wasUnread) setUnreadCount(c => Math.max(0, c - 1))
+    void markNotificationRead(id).catch(() => {
+      void fetchNotifications(true)
+    })
+  }, [notifications, fetchNotifications])
+
   return {
     notifications,
-    unreadCount: notifications.filter(n => !n.read).length,
+    unreadCount,
     loading,
     error,
     markAllAsRead,
+    markOneAsRead,
   }
 }

@@ -1,17 +1,27 @@
 import { Link } from 'react-router-dom'
 import { Skeleton } from 'boneyard-js/react'
-import { Bell, CalendarX2, Clock, Info } from 'lucide-react'
+import { AtSign, Bell, CalendarX2, Clock, Info, MessageSquare, UserCheck, UserPlus, Users } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { NOTIFICATION_TYPES } from '@/types/notification'
 import type { Notification, NotificationType } from '@/types/notification'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const typeStyles: Record<NotificationType, { icon: typeof Bell; pill: string }> = {
-  EVENT_UPDATED:   { icon: Info,       pill: 'bg-blue-500/15 text-blue-400' },
-  EVENT_CANCELLED: { icon: CalendarX2, pill: 'bg-error/15 text-error' },
-  EVENT_REMINDER:  { icon: Clock,      pill: 'bg-amber-500/15 text-amber-400' },
+interface TypeStyle { icon: typeof Bell; pill: string }
+
+const typeStyles: Record<NotificationType, TypeStyle> = {
+  EVENT_UPDATED:   { icon: Info,           pill: 'bg-blue-500/15 text-blue-400' },
+  EVENT_CANCELLED: { icon: CalendarX2,     pill: 'bg-error/15 text-error' },
+  EVENT_REMINDER:  { icon: Clock,          pill: 'bg-amber-500/15 text-amber-400' },
+  NEW_ATTENDEE:    { icon: Users,          pill: 'bg-emerald-500/15 text-emerald-400' },
+  NEW_FOLLOWER:    { icon: UserPlus,       pill: 'bg-accent/15 text-accent' },
+  FOLLOW_REQUEST:  { icon: UserPlus,       pill: 'bg-amber-500/15 text-amber-400' },
+  FOLLOW_ACCEPTED: { icon: UserCheck,      pill: 'bg-emerald-500/15 text-emerald-400' },
+  COMMENT_MENTION: { icon: AtSign,         pill: 'bg-accent/15 text-accent' },
+  NEW_COMMENT:     { icon: MessageSquare,  pill: 'bg-blue-500/15 text-blue-400' },
 }
+
+const FALLBACK_STYLE: TypeStyle = { icon: Bell, pill: 'bg-foreground/10 text-foreground/60' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,8 +40,10 @@ function relativeTime(iso: string): string {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function NotificationItem({ notif }: Readonly<{ notif: Notification }>) {
-  const { icon: Icon, pill } = typeStyles[notif.type]
-  const label = NOTIFICATION_TYPES[notif.type]
+  // Defensive fallback: an unknown enum value (e.g. a 10th type the backend
+  // ships before the frontend learns about it) must not crash the panel.
+  const { icon: Icon, pill } = typeStyles[notif.type] ?? FALLBACK_STYLE
+  const label = NOTIFICATION_TYPES[notif.type] ?? 'Notification'
 
   const content = (
     <div className={`flex items-center gap-3 px-3 py-[20px] transition-colors hover:bg-foreground/5 ${!notif.read ? 'bg-accent/5' : ''}`}>
@@ -51,7 +63,7 @@ function NotificationItem({ notif }: Readonly<{ notif: Notification }>) {
     </div>
   )
 
-  if (notif.eventId) {
+  if (notif.eventId !== null) {
     return (
       <Link to={`/events/${notif.eventId}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
         {content}
