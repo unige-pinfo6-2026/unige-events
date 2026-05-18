@@ -543,9 +543,11 @@ export default function EventDetailPage() {
           </div>
 
           {/* SCRUM-149 — "Documents" : visible pour tous (auth ET non-auth)
-              dès que l'événement a au moins un fichier joint. fileUrl est
-              un path S3 public-read absolu, même convention que bannerUrl /
-              avatarUrl (cf. AttachmentDTO openapi.yaml). */}
+              dès que l'événement a au moins un fichier joint. Le composant
+              utilise `attachment.downloadUrl` (endpoint same-origin
+              `/api/events/{id}/attachments/{aid}/download`), pas `fileUrl`
+              — ce dernier pointe sur l'endpoint MinIO interne non routable
+              depuis le navigateur (SCRUM-149 follow-up). */}
           {event.attachments && event.attachments.length > 0 && (
             <div className="max-lg:order-6">
               <EventDocumentsList attachments={event.attachments} />

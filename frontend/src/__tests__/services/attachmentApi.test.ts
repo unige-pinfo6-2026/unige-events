@@ -17,7 +17,8 @@ const mockDelete = vi.mocked(api.delete)
 const sampleAttachment = {
   id: 7,
   fileName: 'programme.pdf',
-  fileUrl: 'https://s3.example.com/events/42/programme.pdf',
+  fileUrl: 'http://minio:9000/bucket/event-attachments/programme.pdf',
+  downloadUrl: '/api/events/42/attachments/7/download',
   fileSize: 1234,
   mimeType: 'application/pdf' as const,
   uploadedById: 'user-uuid',

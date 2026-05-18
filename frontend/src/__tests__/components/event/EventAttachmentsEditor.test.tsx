@@ -117,16 +117,54 @@ describe('EventAttachmentsEditor', () => {
     expect(screen.getByText('Ce fichier dépasse la taille maximale autorisée (10.0 MB).')).toBeTruthy()
   })
 
-  it('blocks the Uploader button when the 5-files limit is exceeded', () => {
+  it('flags overflow files but keeps the Uploader enabled for the accepted ones', () => {
+    // 4 already uploaded + pick 2 → first one fits the 5-cap, second is
+    // overflow. The Uploader stays enabled because the accepted count
+    // (4 + 1 = 5) is at the cap, not over.
     const existing = Array.from({ length: 4 }, (_, i) => pdfAttachment({ id: i + 1, fileName: `f${i}.pdf` }))
     renderEditor({ attachments: existing })
     const f1 = new File(['a'], 'a.pdf', { type: 'application/pdf' })
     const f2 = new File(['b'], 'b.pdf', { type: 'application/pdf' })
     pickFile([f1, f2])
-    // Same message appears both on the overflow row and as the global warning.
-    expect(screen.getAllByText('Limite atteinte : 5 fichiers maximum par événement.').length).toBeGreaterThanOrEqual(1)
+
+    expect(screen.getByText('Limite atteinte : 5 fichiers maximum par événement.')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'Uploader' }) as HTMLButtonElement
-    expect(button.disabled).toBe(true)
+    expect(button.disabled).toBe(false)
+  })
+
+  it('disables the Uploader only when the accepted-count strictly exceeds the cap', () => {
+    // 4 uploaded + 3 picked, all valid → 7 > 5 → genuinely over the cap.
+    // Per the new validate(), the 5th and 6th get an overflow error so
+    // acceptedStaged.length = 1 → 4 + 1 = 5, still at cap. To force the
+    // disabled state we need accepted > 1 here, which requires fewer
+    // uploaded — start with 3 and pick 3 valid.
+    const existing = Array.from({ length: 3 }, (_, i) => pdfAttachment({ id: i + 1, fileName: `f${i}.pdf` }))
+    renderEditor({ attachments: existing })
+    pickFile([
+      new File(['a'], 'a.pdf', { type: 'application/pdf' }),
+      new File(['b'], 'b.pdf', { type: 'application/pdf' }),
+      new File(['c'], 'c.pdf', { type: 'application/pdf' }),
+    ])
+    // remainingSlots = max(0, 5-3-0)=2 → first two accepted, third overflow.
+    // Accepted count = 2, total committed = 3+2 = 5, NOT exceeded.
+    const button = screen.getByRole('button', { name: 'Uploader' }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+  })
+
+  it('ignores rejected staged files when counting remaining slots (does not block valid picks)', () => {
+    renderEditor({ attachments: [] })
+    // First pick a bad-mime file — it's staged but rejected.
+    pickFile(new File(['x'], 'logo.svg', { type: 'image/svg+xml' }))
+    // Then pick 5 valid pdfs — they should all be accepted (rejected file
+    // doesn't count toward the 5-cap).
+    pickFile(Array.from({ length: 5 }, (_, i) =>
+      new File(['x'], `f${i}.pdf`, { type: 'application/pdf' }),
+    ))
+    // No global "Limite atteinte" warning — accepted count = 5 ≤ 5.
+    const limitWarnings = screen.queryAllByText('Limite atteinte : 5 fichiers maximum par événement.')
+    expect(limitWarnings.length).toBe(0)
+    const button = screen.getByRole('button', { name: 'Uploader' }) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
   })
 
   it('uploads a single staged file, refreshes the list, and clears staging', async () => {

@@ -1,10 +1,18 @@
 /**
- * SCRUM-148 — Fichier joint à un événement.
+ * SCRUM-148 + SCRUM-149 follow-up — Fichier joint à un événement.
  *
- * Whitelist MIME stricte côté backend (PDF / DOC / DOCX / XLSX), max 10 MiB
- * par fichier, max 5 attachments par événement. `fileUrl` est un path S3
- * absolu directement consommable comme URL de téléchargement (bucket
- * public-read), au même titre que `bannerUrl` ou `avatarUrl`.
+ * Whitelist MIME stricte côté backend (PDF / DOC / DOCX / XLSX + PNG / JPEG
+ * depuis SCRUM-149), max 10 MiB par fichier, max 5 attachments par événement.
+ *
+ * **URL à utiliser côté frontend : `downloadUrl`** (endpoint API same-origin
+ * `/api/events/{eventId}/attachments/{id}/download` qui streame depuis MinIO
+ * avec `Content-Disposition: attachment`). `fileUrl` reste exposé pour parité
+ * avec le DTO backend mais pointe sur l'endpoint MinIO interne (`minio:9000`)
+ * et n'est **pas** consommable par le navigateur — c'est la différence
+ * principale avec `bannerUrl` / `avatarUrl` qui, eux, sont des paths S3
+ * directement chargeables comme `<img src>` (les buckets correspondants
+ * sont accessibles par d'autres voies). Voir le commentaire détaillé sur
+ * chaque champ ci-dessous.
  */
 export interface Attachment {
   id: number

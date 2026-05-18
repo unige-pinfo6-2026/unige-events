@@ -50,14 +50,16 @@ export default function EventAttachmentsEditor({ eventId, attachments, onChange 
   const inputRef = useRef<HTMLInputElement>(null)
 
   const uploadedCount = attachments.length
-  const totalIfAllStagedKept = uploadedCount + staged.length
-  const limitExceeded = totalIfAllStagedKept > ATTACHMENT_MAX_PER_EVENT
   const acceptedStaged = staged.filter((s) => s.error === null)
+  // Cap is server-enforced on actual uploads — only accepted staged files
+  // count toward it. A row that was rejected client-side (bad mime, too
+  // big, prior overflow) must not block otherwise-valid pending files.
+  const limitExceeded = uploadedCount + acceptedStaged.length > ATTACHMENT_MAX_PER_EVENT
   const canUpload = !uploading && acceptedStaged.length > 0 && !limitExceeded
 
   function handleFilesPicked(picked: FileList | null) {
     if (!picked || picked.length === 0) return
-    const remainingSlots = Math.max(0, ATTACHMENT_MAX_PER_EVENT - uploadedCount - staged.length)
+    const remainingSlots = Math.max(0, ATTACHMENT_MAX_PER_EVENT - uploadedCount - acceptedStaged.length)
     const next: StagedFile[] = []
     Array.from(picked).forEach((file, idx) => {
       const overflow = idx >= remainingSlots
