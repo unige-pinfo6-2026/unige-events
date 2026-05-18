@@ -33,7 +33,7 @@
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
 
         <!-- Sonar -->
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.14</jacoco.version>
         <sonar.organization>unige-pinfo6-2026</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>unige-pinfo6-2026_unige-events-backend</sonar.projectKey>
