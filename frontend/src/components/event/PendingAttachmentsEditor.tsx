@@ -73,7 +73,10 @@ export default function PendingAttachmentsEditor({ pending, onAdd, onRemove }: R
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-foreground">Fichiers joints</h3>
           <p className="text-xs text-foreground/60">
-            PDF, DOC, DOCX, XLSX, PNG, JPEG — {formatFileSize(ATTACHMENT_MAX_BYTES)} max par fichier, {ATTACHMENT_MAX_PER_EVENT} fichiers max par événement. Les fichiers seront uploadés après la création de l'événement.
+            PDF, DOC, DOCX, XLSX, PNG, JPEG — {formatFileSize(ATTACHMENT_MAX_BYTES)} max par fichier, {ATTACHMENT_MAX_PER_EVENT} fichiers max par événement.
+          </p>
+          <p className="text-xs text-accent/80 mt-1">
+            Les documents sélectionnés seront automatiquement publiés à la création de l'événement — aucun bouton à cliquer.
           </p>
         </div>
       </header>
@@ -124,8 +127,8 @@ function PendingRow({
         <p className="text-xs text-foreground/50">{formatFileSize(entry.file.size)}</p>
         {entry.error && <p className="text-xs text-error mt-1">{entry.error}</p>}
       </div>
-      <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${entry.error ? 'bg-error/10 text-error border-error/30' : 'bg-warning/10 text-warning border-warning/30'}`}>
-        {entry.error ? 'Refusé' : 'À uploader'}
+      <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${entry.error ? 'bg-error/10 text-error border-error/30' : 'bg-accent/10 text-accent border-accent/30'}`}>
+        {entry.error ? 'Refusé' : 'Sera publié'}
       </span>
       <button
         type="button"

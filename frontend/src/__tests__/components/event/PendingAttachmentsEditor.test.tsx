@@ -81,10 +81,19 @@ describe('PendingAttachmentsEditor', () => {
     expect(entries[1].error).toBe('Limite atteinte : 5 fichiers maximum par événement.')
   })
 
-  it('renders the staged list with "À uploader" badge for valid entries', () => {
+  it('renders the staged list with "Sera publié" badge for valid entries', () => {
     renderEditor([stagedPdf()])
     expect(screen.getByText('doc.pdf')).toBeTruthy()
-    expect(screen.getByText('À uploader')).toBeTruthy()
+    // Wording made explicit so the user understands no extra click is
+    // needed — the upload happens automatically with createEvent.
+    expect(screen.getByText('Sera publié')).toBeTruthy()
+  })
+
+  it('shows the explanatory line "automatiquement publiés"', () => {
+    renderEditor()
+    expect(
+      screen.getByText(/automatiquement publiés à la création de l'événement/),
+    ).toBeTruthy()
   })
 
   it('renders rejected entries with "Refusé" badge + error text', () => {
