@@ -3,6 +3,7 @@ package ch.unige.events.notification.kafka;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -58,7 +59,10 @@ public class MentionParser {
         Set<String> out = new LinkedHashSet<>();
         Matcher m = MENTION_RE.matcher(content);
         while (m.find()) {
-            out.add(m.group(1).toLowerCase());
+            // Locale.ROOT — handles are ASCII [a-z0-9._-], but a default
+            // locale (e.g. Turkish) could still mangle a capture in pathological
+            // cases. ROOT is the safe default for identifier-style strings.
+            out.add(m.group(1).toLowerCase(Locale.ROOT));
         }
         return out;
     }

@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -133,9 +134,11 @@ public class User extends PanacheEntityBase {
         if (usernames == null || usernames.isEmpty()) {
             return Collections.emptyList();
         }
+        // Locale.ROOT — usernames are ASCII [a-z0-9._-], the server locale
+        // must not influence the lowercasing (Turkish-i bug class).
         List<String> normalised = usernames.stream()
                 .filter(u -> u != null && !u.isBlank())
-                .map(u -> u.trim().toLowerCase())
+                .map(u -> u.trim().toLowerCase(Locale.ROOT))
                 .distinct()
                 .toList();
         if (normalised.isEmpty()) {

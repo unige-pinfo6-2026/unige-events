@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Internal endpoint resolving a batch of {@code username} handles to their
@@ -54,10 +55,12 @@ public class UserUsernamesInternalResource {
         if (csv == null || csv.isBlank()) {
             return List.of();
         }
+        // Locale.ROOT — handles are ASCII [a-z0-9._-] ; the server locale
+        // must not influence lowercasing (Turkish-i bug class).
         List<String> requested = Arrays.stream(csv.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
-                .map(String::toLowerCase)
+                .map(s -> s.toLowerCase(Locale.ROOT))
                 .distinct()
                 .limit(MAX_USERNAMES_PER_CALL)
                 .toList();
