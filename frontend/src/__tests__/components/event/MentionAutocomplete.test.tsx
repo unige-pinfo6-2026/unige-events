@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef, useState } from 'react'
 
 vi.mock('@/services/userService', () => ({
@@ -7,7 +7,8 @@ vi.mock('@/services/userService', () => ({
 }))
 
 import { searchUsernames } from '@/services/userService'
-import MentionAutocomplete, { detectActiveMention } from '@/components/event/MentionAutocomplete'
+import MentionAutocomplete from '@/components/event/MentionAutocomplete'
+import { detectActiveMention } from '@/utils/mentions'
 import type { UserPublicResponse } from '@/types/user'
 
 const mockSearch = vi.mocked(searchUsernames)

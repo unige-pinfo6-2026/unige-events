@@ -15,8 +15,23 @@ export function Select({ error, className, children, ...props }: React.Component
   return <select className={[inputClass(error), className].filter(Boolean).join(' ')} {...props}>{children}</select>
 }
 
-export function Textarea({ error, className, ...props }: React.ComponentProps<'textarea'> & { error?: string }) {
-  return <textarea className={[inputClass(error), className].filter(Boolean).join(' ')} {...props} />
+// SCRUM-147 — Textarea forwards its ref so inline tools (e.g. mention
+// autocomplete) can read selectionStart / set focus without resorting to
+// a sibling raw <textarea>. React 19 accepts `ref` directly in the props
+// signature, so no forwardRef wrapper is needed.
+export function Textarea({
+  ref,
+  error,
+  className,
+  ...props
+}: React.ComponentProps<'textarea'> & { error?: string }) {
+  return (
+    <textarea
+      ref={ref}
+      className={[inputClass(error), className].filter(Boolean).join(' ')}
+      {...props}
+    />
+  )
 }
 
 export default function FormField({ label, htmlFor, required, error, children, className }: Readonly<{

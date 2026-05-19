@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'rea
 import { useDebounce } from '@/hooks/useDebounce'
 import { searchUsernames } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
+import { detectActiveMention } from '@/utils/mentions'
 import type { UserPublicResponse } from '@/types/user'
 
 interface MentionAutocompleteProps {
@@ -19,54 +20,6 @@ interface MentionAutocompleteProps {
 const MIN_PREFIX_LENGTH = 2
 const DEBOUNCE_MS = 300
 const FETCH_LIMIT = 8
-
-/** Charset that matches the SCRUM-169 username regex `[a-z0-9._-]{3,30}`,
- *  case-insensitive (the user can type `@Alice` ; we resolve against
- *  lowercased usernames in the backend). */
-const HANDLE_CHARSET = /[a-zA-Z0-9._-]/
-
-interface ActiveMention {
-  /** Inclusive index of the `@` in `value`. */
-  atIndex: number
-  /** The prefix the user has typed since the `@`, lowercased. */
-  prefix: string
-}
-
-/**
- * Detects the {@code @<prefix>} token currently around the caret. Returns
- * {@code null} if there is no active mention (no {@code @} before the caret,
- * or the prefix has been broken by a non-charset char like space / newline).
- *
- * <p>Walks <strong>backwards</strong> from the caret one char at a time :
- * <ul>
- *   <li>If the char is in the handle charset, keep going.</li>
- *   <li>If the char is {@code @} and the previous char (just before the
- *       {@code @}) is NOT a word character — i.e. the {@code @} starts a
- *       new mention — return the result.</li>
- *   <li>Anything else (whitespace, punctuation outside charset) → no
- *       active mention.</li>
- * </ul>
- *
- * <p>Boundary rule on the char before {@code @} matters : in
- * {@code "email@example.com"} the {@code @} is preceded by {@code l}
- * (word char), so it does NOT start a mention.
- */
-export function detectActiveMention(value: string, caretPos: number): ActiveMention | null {
-  if (caretPos < 1) return null
-  let i = caretPos - 1
-  while (i >= 0 && HANDLE_CHARSET.test(value[i])) {
-    i--
-  }
-  // Either we hit a non-charset char or reached the start of the string.
-  if (i < 0 || value[i] !== '@') return null
-  // i points at the @. Check the char just before it.
-  if (i > 0) {
-    const before = value[i - 1]
-    // Stop on word chars so `email@x` doesn't trigger.
-    if (/\w/.test(before)) return null
-  }
-  return { atIndex: i, prefix: value.slice(i + 1, caretPos).toLowerCase() }
-}
 
 /**
  * Inline mention autocomplete for a textarea — SCRUM-147 Décision E.

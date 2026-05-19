@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Send, X } from 'lucide-react'
 import { Textarea } from '@/components/utils/FormField'
 import { ButtonNeutral, ButtonPrimary } from '@/components/utils/Buttons'
+import MentionAutocomplete from '@/components/event/MentionAutocomplete'
 
 const MAX_LENGTH = 500
 
@@ -16,6 +17,10 @@ interface Props {
   autoFocus?: boolean
   /** Submit button label override. */
   submitLabel?: string
+  /** SCRUM-147 — initial value of the textarea. Used by replies to pre-fill
+   *  `@<parentAuthorUsername> `. Only consumed on mount ; subsequent prop
+   *  changes are ignored so the user's typing isn't clobbered. */
+  initialValue?: string
 }
 
 /**
@@ -24,6 +29,11 @@ interface Props {
  *
  * Anonymous-user check lives in the parent (`CommentSection`) — this form is
  * always rendered for authenticated users only.
+ *
+ * <p>SCRUM-147 — the textarea now hosts an inline {@link MentionAutocomplete}
+ * that triggers on {@code @<prefix>} (≥ 2 chars, 300ms debounce). The
+ * autocomplete is a side-panel listening to the textarea ref ; the form keeps
+ * full control of the content state.
  */
 export default function CommentForm({
   onSubmit,
@@ -32,14 +42,38 @@ export default function CommentForm({
   onCancel,
   autoFocus = false,
   submitLabel = 'Publier',
+  initialValue,
 }: Readonly<Props>) {
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState(initialValue ?? '')
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Apply autoFocus + place the caret at the END of the initial value when
+  // mounting (replies open with @<author> pre-filled — the user should be
+  // able to start typing immediately).
+  useEffect(() => {
+    if (!autoFocus) return
+    const t = textareaRef.current
+    if (!t) return
+    t.focus()
+    const len = t.value.length
+    t.setSelectionRange(len, len)
+    // mount-only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleSubmit() {
     const outcome = await onSubmit(content)
     if (outcome.ok) {
       setContent('')
     }
+  }
+
+  function handleAutocompleteChange(newValue: string, newCaretPos: number) {
+    setContent(newValue)
+    // The autocomplete already calls setSelectionRange via rAF ; nothing
+    // more to do here. Keep newCaretPos in the signature for future
+    // extensibility (e.g. emitting analytics).
+    void newCaretPos
   }
 
   const trimmedLength = content.trim().length
@@ -49,16 +83,24 @@ export default function CommentForm({
 
   return (
     <div className="space-y-2">
-      <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder={placeholder}
-        rows={3}
-        maxLength={MAX_LENGTH + 1}
-        autoFocus={autoFocus}
-        disabled={submitting}
-        aria-label="Contenu du commentaire"
-      />
+      <div className="relative">
+        <Textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          maxLength={MAX_LENGTH + 1}
+          disabled={submitting}
+          aria-label="Contenu du commentaire"
+        />
+        <MentionAutocomplete
+          value={content}
+          onChange={handleAutocompleteChange}
+          textareaRef={textareaRef}
+          disabled={submitting}
+        />
+      </div>
       <div className="flex items-center justify-between gap-2">
         <span className={`text-xs ${overLimit ? 'text-error' : 'text-foreground/40'}`}>
           {remaining} caractère{Math.abs(remaining) === 1 ? '' : 's'} restant{Math.abs(remaining) === 1 ? '' : 's'}
