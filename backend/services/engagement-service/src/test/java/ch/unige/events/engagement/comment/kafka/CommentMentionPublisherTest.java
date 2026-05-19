@@ -1,6 +1,7 @@
 package ch.unige.events.engagement.comment.kafka;
 
 import ch.unige.events.shared.kafka.events.CommentMentionEvent;
+import io.quarkus.test.junit.QuarkusTest;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+/** {@code @QuarkusTest} for quarkus-jacoco instrumentation, same as the bridge test. */
+@QuarkusTest
 class CommentMentionPublisherTest {
 
     @SuppressWarnings("unchecked")
