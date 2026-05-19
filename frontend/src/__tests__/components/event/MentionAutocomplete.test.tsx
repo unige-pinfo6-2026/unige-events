@@ -32,7 +32,12 @@ function user(username: string, displayName: string | null = null): UserPublicRe
 }
 
 beforeEach(() => {
+  // Reset to an empty-resolve default so other tests in the same vitest
+  // fork that may indirectly trigger searchUsernames (e.g. SCRUM-137's
+  // UsernameAutocomplete in EventCreatePage tests) don't get a `vi.fn()`
+  // returning undefined — that would crash with `Cannot read property 'then'`.
   mockSearch.mockReset()
+  mockSearch.mockResolvedValue([])
 })
 
 afterEach(() => {
