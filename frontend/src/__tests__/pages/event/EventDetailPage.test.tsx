@@ -1529,4 +1529,60 @@ describe('EventDetailPage', () => {
       expect(screen.getByRole('link', { name: 'Télécharger programme.pdf' })).toBeTruthy()
     })
   })
+
+  describe('SCRUM-147 — comments deep-link via #comments hash', () => {
+    it('scrolls the #comments anchor into view when the URL hash is present', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent,
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      const scrollIntoView = vi.fn()
+      Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: scrollIntoView,
+      })
+
+      render(
+        <MemoryRouter initialEntries={['/events/1#comments']}>
+          <Routes>
+            <Route path='/events/:id' element={<EventDetailPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    })
+
+    it('does NOT call scrollIntoView when the hash is absent', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({
+        event: mockEvent,
+        loading: false,
+        isInitialLoad: false,
+        isRefetching: false,
+        refetch: vi.fn(),
+        error: null,
+      })
+      mockGetUserById.mockResolvedValue(null)
+
+      const scrollIntoView = vi.fn()
+      Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+        configurable: true,
+        value: scrollIntoView,
+      })
+
+      renderPage('1')
+
+      // Wait a tick so any effect would have had a chance to fire.
+      await Promise.resolve()
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+  })
 })

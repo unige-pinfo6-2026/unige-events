@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth, useEvent, useFavorite, useOccurrences } from '@/hooks'
 import { useAttendees } from '@/hooks/useAttendees'
 import { useReport } from '@/hooks/useReport'
@@ -300,6 +300,7 @@ function safeExternalHref(value: string): string | null {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, isAdmin } = useAuth()
   const toast = useToast()
   const parsedId = id === undefined ? Number.NaN : Number(id)
@@ -362,6 +363,19 @@ export default function EventDetailPage() {
       .catch(() => { if (active) setOrganizer(null) })
     return () => { active = false }
   }, [event])
+
+  useEffect(() => {
+    // SCRUM-147 — clicking a NEW_COMMENT / COMMENT_MENTION notification deep-
+    // links into the comments section via the `#comments` hash. We wait until
+    // the event is loaded so the anchor element actually exists in the DOM ;
+    // a plain `<a href="#comments">` would jump before the section is rendered.
+    if (!event) return
+    if (location.hash !== '#comments') return
+    const target = document.getElementById('comments')
+    if (target !== null) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [event, location.hash])
 
   useEffect(() => {
     if (!event || !user) return
@@ -833,7 +847,7 @@ export default function EventDetailPage() {
 
       </div>
 
-      <div className="mt-10">
+      <div id="comments" className="mt-10 scroll-mt-20">
         <CommentSection
           eventId={event.id}
           eventCreatorId={event.creatorId}

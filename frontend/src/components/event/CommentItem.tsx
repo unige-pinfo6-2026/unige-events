@@ -6,6 +6,7 @@ import { userDisplayLabel, userInitials } from '@/utils/displayName'
 import { useCommentLike } from '@/hooks/useCommentLike'
 import { useReportComment } from '@/hooks/useReportComment'
 import CommentForm from '@/components/event/CommentForm'
+import MentionText from '@/components/event/MentionText'
 import ReportModal from '@/components/event/ReportModal'
 import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { Comment } from '@/types/comment'
@@ -152,7 +153,7 @@ export default function CommentItem({
             </span>
           </header>
           <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">
-            {comment.content}
+            <MentionText content={comment.content} />
           </p>
           <footer className="flex flex-wrap items-center gap-3 mt-2 text-xs">
             <button

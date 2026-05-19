@@ -10,6 +10,52 @@
  *  before any backend hit). */
 export const HANDLE_CHARSET = /[a-zA-Z0-9._-]/
 
+/** Matches a `@<handle>` token where the `@` is at start-of-string or follows
+ *  a non-word character (mirrors {@link detectActiveMention}'s "char before
+ *  is not a word char" rule — keeps `email@example.com` from matching).
+ *  Capture group 1 is the bare handle (no leading `@`). The lower-bound of
+ *  3 chars matches the SCRUM-169 username minimum. */
+export const MENTION_RENDER_REGEX = /(?:^|[^\w])@([a-zA-Z0-9._-]{3,30})/g
+
+export interface MentionSegment {
+  kind: 'text' | 'mention'
+  /** Raw text for `text` ; bare handle (no `@`) for `mention`. */
+  value: string
+}
+
+/**
+ * Splits a comment body into renderable segments — plain text + mention
+ * tokens — so the UI can wrap mentions in {@code <Link to=/profile/handle>}
+ * while preserving everything else as-is (including whitespace, newlines,
+ * adjacent punctuation).
+ *
+ * <p>The token itself in the output preserves the original casing as typed
+ * by the user (display only) — the link target is lowercased separately
+ * by the caller to match the stored handle convention.
+ */
+export function splitMentions(content: string): MentionSegment[] {
+  if (!content) return []
+  const segments: MentionSegment[] = []
+  let lastIndex = 0
+  // Reset lastIndex defensively — `MENTION_RENDER_REGEX` is shared and
+  // stateful (global flag).
+  const re = new RegExp(MENTION_RENDER_REGEX.source, 'g')
+  let match: RegExpExecArray | null
+  while ((match = re.exec(content)) !== null) {
+    const handle = match[1]
+    const atIndex = match.index + match[0].length - handle.length - 1
+    if (atIndex > lastIndex) {
+      segments.push({ kind: 'text', value: content.slice(lastIndex, atIndex) })
+    }
+    segments.push({ kind: 'mention', value: handle })
+    lastIndex = atIndex + 1 + handle.length
+  }
+  if (lastIndex < content.length) {
+    segments.push({ kind: 'text', value: content.slice(lastIndex) })
+  }
+  return segments
+}
+
 export interface ActiveMention {
   /** Inclusive index of the `@` in the underlying value. */
   atIndex: number

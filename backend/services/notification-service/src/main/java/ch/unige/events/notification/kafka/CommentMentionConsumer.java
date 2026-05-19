@@ -86,12 +86,20 @@ public class CommentMentionConsumer {
     @Incoming("comments-mentions")
     @Transactional
     public void onCommentCreated(CommentCreatedEvent ev) {
+        // Diagnostic INFO — surfaces in pod logs so an operator can see the
+        // consumer is wired and receiving messages. Keep it cheap (length
+        // only, not the raw content which may be 500 chars).
+        Log.infof("[NOTIF_COMMENT_MENTION_RX] comment=%d event=%d author=%s contentLen=%d eventTitle=%s",
+                ev.commentId(), ev.eventId(), ev.authorId(),
+                ev.content() == null ? -1 : ev.content().length(),
+                ev.eventTitle() == null ? "(null)" : "\"" + ev.eventTitle() + "\"");
         Set<String> handles = mentionParser.extractHandles(ev.content());
         if (handles.isEmpty()) {
             // Common case — most comments contain no @ mention. Short-circuit
             // without hitting user-service.
             return;
         }
+        Log.infof("[NOTIF_COMMENT_MENTION_PARSE] comment=%d handles=%s", ev.commentId(), handles);
 
         List<IdProjection> resolved;
         try {
@@ -106,8 +114,12 @@ public class CommentMentionConsumer {
             return;
         }
         if (resolved == null || resolved.isEmpty()) {
+            Log.infof("[NOTIF_COMMENT_MENTION_NO_MATCH] comment=%d handles=%s resolved 0 users (all unknown handles)",
+                    ev.commentId(), handles);
             return;
         }
+        Log.infof("[NOTIF_COMMENT_MENTION_RESOLVE] comment=%d resolved=%d/%d",
+                ev.commentId(), resolved.size(), handles.size());
 
         String authorLabel = resolveAuthorLabel(ev.authorId());
         String eventTitle = ev.eventTitle() == null || ev.eventTitle().isBlank()

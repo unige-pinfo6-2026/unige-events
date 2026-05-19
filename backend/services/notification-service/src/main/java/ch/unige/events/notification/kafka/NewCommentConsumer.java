@@ -82,6 +82,8 @@ public class NewCommentConsumer {
     public void onCommentCreated(CommentCreatedEvent ev) {
         // SCRUM-145 — locked-in #9 : creator is notified for both top-level
         // and reply comments. No filtering on parentCommentId here.
+        Log.infof("[NOTIF_NEW_COMMENT_RX] comment=%d event=%d author=%s",
+                ev.commentId(), ev.eventId(), ev.authorId());
 
         ch.unige.events.shared.domain.dto.EventDTO event;
         try {
@@ -102,6 +104,7 @@ public class NewCommentConsumer {
         }
         if (creatorId.equals(ev.authorId())) {
             // Creator commented on their own event — locked-in #12.
+            Log.infof("[NOTIF_NEW_COMMENT_SELF_SKIP] event=%d author=%s is the creator", ev.eventId(), ev.authorId());
             return;
         }
 

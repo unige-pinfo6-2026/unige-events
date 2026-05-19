@@ -28,11 +28,13 @@ vi.mock('@/components/utils/NotificationPanel', () => ({
     loading,
     error,
     onMarkAllRead,
+    onMarkOneRead,
   }: {
     notifications: unknown[]
     loading: boolean
     error: string | null
     onMarkAllRead: () => void
+    onMarkOneRead: (id: number) => void
   }) => (
     <div
       data-testid="notification-panel"
@@ -40,7 +42,13 @@ vi.mock('@/components/utils/NotificationPanel', () => ({
       data-error={error}
       data-count={notifications.length}
       onClick={onMarkAllRead}
-    />
+    >
+      <button
+        type="button"
+        data-testid="mark-one"
+        onClick={(e) => { e.stopPropagation(); onMarkOneRead(99) }}
+      />
+    </div>
   ),
 }))
 
@@ -109,5 +117,13 @@ describe('NotificationsDropdown', () => {
     render(<NotificationsDropdown />)
     screen.getByTestId('notification-panel').click()
     expect(markAllAsRead).toHaveBeenCalledOnce()
+  })
+
+  it('wires markOneAsRead to the panel onMarkOneRead prop', () => {
+    const markOneAsRead = vi.fn()
+    mockUseNotifications.mockReturnValue({ ...defaultHookResult, markOneAsRead })
+    render(<NotificationsDropdown />)
+    screen.getByTestId('mark-one').click()
+    expect(markOneAsRead).toHaveBeenCalledWith(99)
   })
 })

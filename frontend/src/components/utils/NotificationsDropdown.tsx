@@ -4,7 +4,7 @@ import { NotificationPanel } from '@/components/utils/NotificationPanel'
 import { useNotifications } from '@/hooks/useNotifications'
 
 export function NotificationsDropdown() {
-  const { notifications, unreadCount, loading, error, markAllAsRead } = useNotifications()
+  const { notifications, unreadCount, loading, error, markAllAsRead, markOneAsRead } = useNotifications()
 
   return (
     <Dropdown
@@ -17,6 +17,7 @@ export function NotificationsDropdown() {
         loading={loading}
         error={error}
         onMarkAllRead={markAllAsRead}
+        onMarkOneRead={markOneAsRead}
       />
     </Dropdown>
   )
