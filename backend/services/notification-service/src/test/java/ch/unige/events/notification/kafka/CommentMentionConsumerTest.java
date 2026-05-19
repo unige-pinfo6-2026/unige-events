@@ -252,4 +252,82 @@ class CommentMentionConsumerTest {
 
         assertEquals(1, Notification.count("eventId", EVENT_ID));
     }
+
+    // ─── SCRUM-145 — fine-grained coverage of resolveAuthorLabel +
+    //     null-id filter + eventTitle blank fallback. ─────────────────
+
+    @Test
+    void resolvedTargetWithNullId_skippedDefensively() {
+        // The internal endpoint contract puts non-null UUIDs in the
+        // result list, but defense in depth : a malformed row with id=null
+        // must NOT crash the consumer nor produce a row with userId=null.
+        UUID bob = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(List.of(new IdProjection(null, "ghost.user")));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "Bob"));
+
+        consumer.onCommentCreated(evWithContent(bob, "@ghost.user", "Workshop"));
+
+        assertEquals(0, Notification.count("eventId", EVENT_ID));
+    }
+
+    @Test
+    void blankEventTitle_fallsBackToGenericLabel() {
+        // Symmetrical to nullEventTitle_fallsBackToGenericLabel ; the
+        // pickEventTitle helper short-circuits on both null and isBlank.
+        UUID alice = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(List.of(new IdProjection(alice, "alice.dosh")));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "Bob"));
+
+        consumer.onCommentCreated(evWithContent(bob, "@alice.dosh", "   \t  "));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("un événement"));
+    }
+
+    @Test
+    void authorLookupThrows_useFallbackLabel() {
+        // The userClient.getById path inside resolveAuthorLabel has a
+        // try-catch that swallows RuntimeException and falls back to
+        // "Un utilisateur" — distinct from the null-author path.
+        UUID alice = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(List.of(new IdProjection(alice, "alice.dosh")));
+        when(userClient.getById(bob)).thenThrow(new RuntimeException("user-service boom"));
+
+        consumer.onCommentCreated(evWithContent(bob, "@alice.dosh", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Un utilisateur"));
+    }
+
+    @Test
+    void authorWithBothLabelsBlank_fallsBackToGeneric() {
+        // displayName + username both null → message uses
+        // FALLBACK_AUTHOR_LABEL "Un utilisateur".
+        UUID alice = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(List.of(new IdProjection(alice, "alice.dosh")));
+        when(userClient.getById(bob)).thenReturn(profile(bob, /* username */ null, /* displayName */ null));
+
+        consumer.onCommentCreated(evWithContent(bob, "@alice.dosh", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Un utilisateur"));
+    }
+
+    @Test
+    void resolveAuthorLabel_nullAuthorId_returnsFallback() {
+        // Direct exercise of the resolveAuthorLabel helper — even though
+        // the @Transactional consumer flow always passes a non-null
+        // authorId from the payload, the helper is null-safe.
+        assertEquals("Un utilisateur", consumer.resolveAuthorLabel(null));
+    }
 }

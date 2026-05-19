@@ -198,4 +198,92 @@ class NewCommentConsumerTest {
 
         assertEquals(1, Notification.count("eventId", EVENT_ID));
     }
+
+    // ─── SCRUM-145 — fine-grained branch coverage of pickEventTitle +
+    //     resolveAuthorLabel + authorLookup error path. ──────────────
+
+    @Test
+    void blankEventTitleOnPayload_fallsBackToEventDtoTitle() {
+        // pickEventTitle's first branch tests both null AND isBlank.
+        // The null variant is covered above ; pin the blank one here.
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Workshop from DTO", creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "Bob"));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "   \t "));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Workshop from DTO"));
+    }
+
+    @Test
+    void bothEventTitlesNull_fallsBackToGenericLabel() {
+        // Payload eventTitle null AND event.title() null → last-resort
+        // generic placeholder "un événement".
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf(/* title */ null, creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "Bob"));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", null));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("un événement"));
+    }
+
+    @Test
+    void bothEventTitlesBlank_fallsBackToGenericLabel() {
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("  ", creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "Bob"));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "  "));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("un événement"));
+    }
+
+    @Test
+    void authorLookupThrows_useFallbackLabel() {
+        // The try-catch around userClient.getById in resolveAuthorLabel
+        // swallows RuntimeException and falls back to "Un utilisateur".
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Workshop", creator));
+        when(userClient.getById(bob)).thenThrow(new RuntimeException("user-service boom"));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Un utilisateur"));
+    }
+
+    @Test
+    void authorWithBothLabelsBlank_fallsBackToGeneric() {
+        // displayName + username both null on the resolved profile → the
+        // fallback chain bottoms out on "Un utilisateur".
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Workshop", creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, /* username */ null, /* displayName */ null));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Un utilisateur"));
+    }
+
+    @Test
+    void resolveAuthorLabel_nullAuthorId_returnsFallback() {
+        // Helper short-circuit — even though the consumer always passes
+        // a non-null authorId in production, the helper is null-safe.
+        assertEquals("Un utilisateur", consumer.resolveAuthorLabel(null));
+    }
 }

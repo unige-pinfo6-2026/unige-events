@@ -198,4 +198,18 @@ class UserUsernamesInternalResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void onlyBlankCsvEntries_returnEmptyList() {
+        // CSV of only blanks → filter drops everything → requested.isEmpty()
+        // short-circuit kicks in BEFORE the JPQL IN clause runs. Distinct
+        // from the empty / no-param cases handled above.
+        given()
+            .header("X-Internal-Token", token())
+            .queryParam("usernames", " , ,  \t ")
+            .when().get("/users/_internal-by-usernames")
+            .then()
+            .statusCode(200)
+            .body("$", hasSize(0));
+    }
 }
