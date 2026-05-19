@@ -467,4 +467,42 @@ describe('CommentItem', () => {
     await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('error', expect.any(String)))
     expect(screen.getByText('5')).toBeTruthy()
   })
+
+  // ─── SCRUM-147 reply prefix ─────────────────────────────────────────
+
+  it('clicking Répondre pre-fills the form with @parentAuthorUsername + space', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const replyBtn = screen.getByRole('button', { name: /Répondre/i })
+    fireEvent.click(replyBtn)
+    // The reply form now has a textarea with the prefilled prefix.
+    const textarea = screen.getByRole('textbox', { name: /Contenu du commentaire/i }) as HTMLTextAreaElement
+    expect(textarea.value).toBe('@alice.dosh ')
+  })
+
+  it('falls back to an empty form when parent authorUsername is null', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: null, authorDisplayName: 'Bob' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Répondre/i }))
+    const textarea = screen.getByRole('textbox', { name: /Contenu du commentaire/i }) as HTMLTextAreaElement
+    expect(textarea.value).toBe('')
+  })
 })

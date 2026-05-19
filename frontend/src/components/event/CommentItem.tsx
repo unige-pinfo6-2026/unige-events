@@ -208,6 +208,11 @@ export default function CommentItem({
                 onCancel={() => setShowReplyForm(false)}
                 autoFocus
                 submitLabel="Répondre"
+                // SCRUM-147 — pre-fill `@<parentAuthorUsername> ` so the
+                // reply pings the parent author by default. Fall back to
+                // an empty prefix when authorUsername is missing (orphan
+                // row, hard-deleted user) so the user isn't blocked.
+                initialValue={comment.authorUsername ? `@${comment.authorUsername} ` : ''}
               />
             </div>
           )}
