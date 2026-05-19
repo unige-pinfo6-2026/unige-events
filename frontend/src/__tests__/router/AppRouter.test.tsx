@@ -27,19 +27,40 @@ vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
 }))
 
+vi.mock('@/hooks/useNotifications', () => ({
+  useNotifications: () => ({
+    notifications: [],
+    unreadCount: 0,
+    loading: false,
+    error: null,
+    markAllAsRead: vi.fn(),
+  }),
+}))
+
 // Stub all lazy-loaded pages so route coverage doesn't require full page deps
 vi.mock('@/pages/LandingPage', () => ({ default: () => <div>LandingPage</div> }))
 vi.mock('@/pages/login/LoginPage', () => ({ default: () => <div>LoginPage</div> }))
 vi.mock('@/pages/login/callback/LoginCallbackPage', () => ({ default: () => <div>CallbackPage</div> }))
 vi.mock('@/pages/event/EventsPage', () => ({ default: () => <div>EventsPage</div> }))
+vi.mock('@/pages/event/EventsSearchPage', () => ({ default: () => <div>SearchPage</div> }))
 vi.mock('@/pages/event/EventCreatePage', () => ({ default: () => <div>EventCreatePage</div> }))
 vi.mock('@/pages/event/EventEditPage', () => ({ default: () => <div>EventEditPage</div> }))
 vi.mock('@/pages/event/EventDetailPage', () => ({ default: () => <div>EventDetailPage</div> }))
+vi.mock('@/pages/event/EventStatsPage', () => ({ default: () => <div>EventStatsPage</div> }))
 vi.mock('@/pages/calendar/CalendarPage', () => ({ default: () => <div>CalendarPage</div> }))
 vi.mock('@/pages/profile/ProfilePage', () => ({ default: () => <div>ProfilePage</div> }))
 vi.mock('@/pages/profile/ProfileEditPage', () => ({ default: () => <div>ProfileEditPage</div> }))
+vi.mock('@/pages/profile/FollowListPage', () => ({ default: ({ mode }: { mode: string }) => <div>FollowListPage-{mode}</div> }))
 vi.mock('@/pages/event/favorites/FavoritesPage', () => ({ default: () => <div>FavoritesPage</div> }))
+vi.mock('@/pages/my-events/MyEventsPage', () => ({ default: () => <div>MyEventsPage</div> }))
+vi.mock('@/pages/my-events/MyFavoritesPage', () => ({ default: () => <div>MyFavoritesPage</div> }))
+vi.mock('@/pages/my-events/MyParticipationsPage', () => ({ default: () => <div>MyParticipationsPage</div> }))
+vi.mock('@/pages/my-events/MyPublicationsPage', () => ({ default: () => <div>MyPublicationsPage</div> }))
+vi.mock('@/pages/admin/AdminPage', () => ({ default: () => <div>AdminPage</div> }))
+vi.mock('@/pages/legal/PrivacyPage', () => ({ default: () => <div>PrivacyPage</div> }))
+vi.mock('@/pages/legal/TermsPage', () => ({ default: () => <div>TermsPage</div> }))
 vi.mock('@/pages/NotFoundPage', () => ({ default: () => <div>NotFoundPage</div> }))
+vi.mock('@/pages/ForbiddenPage', () => ({ default: () => <div>ForbiddenPage</div> }))
 
 import { useAuth } from '@/hooks/useAuth'
 
@@ -63,6 +84,10 @@ function unauthenticated() {
     login: vi.fn(),
     logout: vi.fn(),
   }
+}
+
+function admin() {
+  return { ...authenticated(), isAdmin: true }
 }
 
 afterEach(() => {
@@ -171,5 +196,89 @@ describe('AppRouter', () => {
     renderAt('/profile/me')
     // PrivateRoute renders LoadingSpinner while isLoading
     expect(document.querySelector('svg') ?? document.body.firstChild).toBeTruthy()
+  })
+
+  it('shows search page at /events/search', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/events/search')
+    expect(await screen.findByText('SearchPage')).toBeTruthy()
+  })
+
+  it('shows event stats page at /events/:id/stats', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/events/42/stats')
+    expect(await screen.findByText('EventStatsPage')).toBeTruthy()
+  })
+
+  it('shows privacy page at /legal/privacy', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/legal/privacy')
+    expect(await screen.findByText('PrivacyPage')).toBeTruthy()
+  })
+
+  it('shows terms page at /legal/terms', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/legal/terms')
+    expect(await screen.findByText('TermsPage')).toBeTruthy()
+  })
+
+  it('redirects /legal to /legal/privacy', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/legal')
+    expect(await screen.findByText('PrivacyPage')).toBeTruthy()
+  })
+
+  it('shows followers list at /profile/:username/followers', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/profile/alice/followers')
+    expect(await screen.findByText('FollowListPage-followers')).toBeTruthy()
+  })
+
+  it('shows following list at /profile/:username/following', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/profile/alice/following')
+    expect(await screen.findByText('FollowListPage-following')).toBeTruthy()
+  })
+
+  it('shows my-events page at /my-events', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/my-events')
+    expect(await screen.findByText('MyEventsPage')).toBeTruthy()
+  })
+
+  it('shows my-events favorites at /my-events/favorites', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/my-events/favorites')
+    expect(await screen.findByText('MyFavoritesPage')).toBeTruthy()
+  })
+
+  it('shows my-events participations at /my-events/participations', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/my-events/participations')
+    expect(await screen.findByText('MyParticipationsPage')).toBeTruthy()
+  })
+
+  it('shows my-events publications at /my-events/publications', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/my-events/publications')
+    expect(await screen.findByText('MyPublicationsPage')).toBeTruthy()
+  })
+
+  it('shows admin page at /admin for admin users', async () => {
+    mockUseAuth.mockReturnValue(admin())
+    renderAt('/admin')
+    expect(await screen.findByText('AdminPage')).toBeTruthy()
+  })
+
+  it('redirects /admin to /403 for non-admin authenticated users', async () => {
+    mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/admin')
+    expect(await screen.findByText('ForbiddenPage')).toBeTruthy()
+  })
+
+  it('shows forbidden page at /403', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/403')
+    expect(await screen.findByText('ForbiddenPage')).toBeTruthy()
   })
 })

@@ -1,22 +1,23 @@
-import { Bell } from 'lucide-react'
 import { Dropdown } from '@/components/utils/Dropdown'
-import { IconButton } from '@/components/utils/Buttons'
+import { NotificationBell } from '@/components/utils/NotificationBell'
+import { NotificationPanel } from '@/components/utils/NotificationPanel'
+import { useNotifications } from '@/hooks/useNotifications'
 
 export function NotificationsDropdown() {
+  const { notifications, unreadCount, loading, error, markAllAsRead } = useNotifications()
+
   return (
     <Dropdown
       align="right"
       showChevron={false}
-      trigger={
-        <IconButton label="Notifications" onClick={() => {}}>
-          <Bell className="size-5" />
-        </IconButton>
-      }
+      trigger={<NotificationBell unreadCount={unreadCount} />}
     >
-      {/* TODO: SPRINT 8 */}
-      <div className="px-4 py-4 text-sm text-center text-foreground/40">
-        SPRINT 8
-      </div>
+      <NotificationPanel
+        notifications={notifications}
+        loading={loading}
+        error={error}
+        onMarkAllRead={markAllAsRead}
+      />
     </Dropdown>
   )
 }

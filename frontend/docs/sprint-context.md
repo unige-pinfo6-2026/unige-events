@@ -1,6 +1,34 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-17 (feature/s7-follow-button — redesign vue privée SCRUM-141)
+Dernière mise à jour : 2026-05-18 (feature/s7-notification-bell — cloche notifications SCRUM-80)
+
+## Sprint 7 — Cloche notifications + dropdown (SCRUM-80 — feature/s7-notification-bell) — 2026-05-18
+
+Livré (PR #176 ; branche initialement créée avant le merge des PR #174/#175 backend notifications, rebasée sur main une fois SCRUM-99 + SCRUM-140 atterris).
+
+L'objectif : exposer dans la navbar un point d'entrée unique vers les notifications in-app du caller, branché sur les endpoints `/api/users/me/notifications` (SCRUM-99 + extension 9 enum values SCRUM-140).
+
+- **`NotificationBell`** (`src/components/utils/NotificationBell.tsx`) — déclencheur cloche dans la navbar avec badge rouge non-bloquant (`pointer-events-none`) montrant le count `1..99` puis `99+`. `aria-label` géré singulier/pluriel.
+- **`NotificationPanel`** (`src/components/utils/NotificationPanel.tsx`) — contenu du dropdown : header avec bouton « Tout marquer comme lu » (rendu ssi unread présent) + scrollable list bornée à 360 px. Chaque item = pill coloré typé + message + timestamp relatif (`relativeTime` aux frontières « À l'instant » / « Il y a N min » / « Il y a Nh » / « Il y a Nj » / date `fr-CH`). Items avec `eventId !== null` deviennent un `<Link>` vers `/events/{eventId}`. Mapping `typeStyles` couvre les **9 valeurs** `NotificationType` (4 phase 1 SCRUM-99 + 3 phase 2 SCRUM-140 + 2 phase 3 réservées SCRUM-145) avec fallback neutre pour un 10e type futur non encore mappé — pas de crash.
+- **`NotificationsDropdown`** (`src/components/utils/NotificationsDropdown.tsx`) — assemblage `Dropdown` (`align="right"`) + bell + panel, branché sur `useNotifications`.
+- **`useNotifications`** (`src/hooks/useNotifications.ts`) — fetch au mount + polling silencieux 30 s, source de vérité du badge = header HTTP **`X-Unread-Count`** (pas le `filter(!read).length` local — qui sous-compterait dès qu'on pagine). `markAllAsRead` / `markOneAsRead` optimistes avec revert (re-fetch) en cas d'erreur API. 401 silencieusement ignoré. `mountedRef` empêche les setState après unmount.
+- **`notificationApi`** (`src/services/notificationApi.ts`) — `getNotifications({ page?, size? })`, `markAllRead()` (retourne `{ updated }`), `markNotificationRead(id)`.
+- **Types** (`src/types/notification.ts`) — `Notification` aligné sur le schéma OpenAPI (`id: number`, `eventId: number | null`, `relatedUserId: string | null`, `readAt: string | null`) et `NOTIFICATION_TYPES` étendu aux 9 valeurs avec libellés FR courts.
+- **Skeleton `notification-panel`** (`src/bones/notification-panel.bones.json`) wired via `registry.js`.
+
+Tests : 1696/1696 frontend verts. Couverture nouveau code (cible Sonar ≥ 80 %) :
+- `notificationApi.ts` = 100 % L/B/F (7 cas — endpoints, header parsing fallbacks, page/size params).
+- `useNotifications.ts` = 100 % L / 96 % B / 100 % F (13 cas — fetch initial + header, polling tick avec fake timers, polling cleanup, mountedRef guard, silent 401, error string sur non-401, markAllAsRead optimistic + revert, markOneAsRead optimistic + revert + no-op badge quand row déjà lue, unknown id).
+- `NotificationBell.tsx` = 100 % L / 100 % B (5 cas — 0/1/2+/99/100+).
+- `NotificationPanel.tsx` = 100 % L / 96.4 % B (24 cas — loading / empty / error, gate du bouton « Tout marquer comme lu » + click, eventId null vs numérique, chaque type des 9 enum values, fallback type inconnu, helper `relativeTime` aux 5 frontières).
+
+Décalage de contrat absorbé pendant la rebase (le draft initial de la PR ciblait un contrat fictif `GET /notifications` + `PUT /notifications/read-all` avec `id: string`) :
+- Path canonique : `/api/users/me/notifications` (et non `/api/notifications`).
+- Méthode : `PATCH` (et non `PUT`) pour `read-all` et `read` per-id.
+- Identifiants numériques : `id: number`, `eventId: number | null`.
+- Header `X-Unread-Count` exploité comme source de vérité du badge.
+
+---
 
 ## Sprint 7 — Redesign vue privée /profile/:username (SCRUM-141 follow-up — feature/s7-follow-button) — 2026-05-17
 
