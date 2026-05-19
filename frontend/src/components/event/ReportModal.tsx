@@ -8,9 +8,18 @@ interface ReportModalProps {
   onClose: () => void
   onSubmit: (reason: ReportReason, description?: string) => Promise<void>
   submitting: boolean
+  /** SCRUM-147 — change le titre du modal selon la cible. Backend
+   *  consomme la même shape (reason + description) pour event et
+   *  comment ; seul le wording change. */
+  target?: 'event' | 'comment'
 }
 
-export default function ReportModal({ onClose, onSubmit, submitting }: Readonly<ReportModalProps>) {
+const TITLES: Record<'event' | 'comment', string> = {
+  event: 'Signaler cet événement',
+  comment: 'Signaler ce commentaire',
+}
+
+export default function ReportModal({ onClose, onSubmit, submitting, target = 'event' }: Readonly<ReportModalProps>) {
   const [reason, setReason] = useState<ReportReason | ''>('')
   const [description, setDescription] = useState('')
 
@@ -27,7 +36,7 @@ export default function ReportModal({ onClose, onSubmit, submitting }: Readonly<
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Flag className="w-4 h-4 text-error" />
-            <h2 className="text-lg font-bold text-foreground">Signaler cet événement</h2>
+            <h2 className="text-lg font-bold text-foreground">{TITLES[target]}</h2>
           </div>
           <button
             type="button"

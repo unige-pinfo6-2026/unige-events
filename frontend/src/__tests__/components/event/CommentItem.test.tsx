@@ -243,7 +243,8 @@ describe('CommentItem', () => {
     expect(screen.getByLabelText(/contenu du commentaire/i)).toBeTruthy()
   })
 
-  it('shows informational toast when Signaler is clicked (Décision B)', () => {
+  it('clicking Signaler opens the ReportModal with target=comment (SCRUM-147)', () => {
+    // Replaces the pre-SCRUM-147 placeholder that showed an informational toast.
     renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'someone-else' })}
@@ -256,8 +257,7 @@ describe('CommentItem', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
-    expect(showToastMock).toHaveBeenCalled()
-    expect(showToastMock.mock.calls[0][1]).toMatch(/bientôt/i)
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
   })
 
   it('renders replies recursively', () => {
@@ -504,5 +504,55 @@ describe('CommentItem', () => {
     fireEvent.click(screen.getByRole('button', { name: /Répondre/i }))
     const textarea = screen.getByRole('textbox', { name: /Contenu du commentaire/i }) as HTMLTextAreaElement
     expect(textarea.value).toBe('')
+  })
+
+  // ─── SCRUM-147 report flow ──────────────────────────────────────────
+
+  it('hides the Signaler button for the comment author', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /signaler/i })).toBeNull()
+  })
+
+  it('hides the Signaler button for anonymous visitors', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId={null}
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /signaler/i })).toBeNull()
+  })
+
+  it('closes the ReportModal on Annuler', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /annuler/i }))
+    expect(screen.queryByText('Signaler ce commentaire')).toBeNull()
   })
 })
