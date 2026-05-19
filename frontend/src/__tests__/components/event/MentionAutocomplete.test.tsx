@@ -2,17 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef, useState } from 'react'
 
-// importActual + spread — partial mocks of `@/services/userService` leak
-// across vitest forks in CI (FollowListPage / EventCreatePage tests need
-// getUserByUsername / etc. to still exist on the module). Preserve every
-// other export ; only override searchUsernames.
-vi.mock('@/services/userService', async () => {
-  const actual = await vi.importActual<typeof import('@/services/userService')>('@/services/userService')
-  return {
-    ...actual,
-    searchUsernames: vi.fn(),
-  }
-})
+// Comprehensive stub — every exported function from userService is mocked
+// with a safe `vi.fn()`. This avoids the CI fork-pool quirk where
+// `vi.importActual` can let the real implementation leak into sibling
+// test files (caught FollowListPage previously). The only function this
+// suite cares about is searchUsernames ; the rest are placeholders so
+// nothing real ever gets called.
+vi.mock('@/services/userService', () => ({
+  getMe: vi.fn(),
+  getUserById: vi.fn(),
+  getPublicProfile: vi.fn(),
+  getUserByUsername: vi.fn(),
+  updateProfile: vi.fn(),
+  updateUsername: vi.fn(),
+  searchUsernames: vi.fn(),
+  checkUsernameAvailable: vi.fn(),
+  uploadPhoto: vi.fn(),
+  uploadBanner: vi.fn(),
+  deleteBanner: vi.fn(),
+  getCalendarToken: vi.fn(),
+  regenerateCalendarToken: vi.fn(),
+}))
 
 import { searchUsernames } from '@/services/userService'
 import MentionAutocomplete from '@/components/event/MentionAutocomplete'
@@ -228,17 +238,26 @@ describe('MentionAutocomplete (component)', () => {
     await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alex.smith '))
   })
 
-  it('ArrowUp clamps at row 0', async () => {
+  it('ArrowUp does not crash when activeIndex is already at 0', async () => {
+    // Direct test of the `Math.max(prev - 1, 0)` clamp ; we assert
+    // the first row stays active-selected (no overflow into negative
+    // indices). Avoids chaining Enter — see the corresponding
+    // "ArrowDown stops at the last row" test for the upper bound.
     mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
     render(<Harness />)
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
     typeIn(ta, '@al')
     await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
-    fireEvent.keyDown(ta, { key: 'ArrowUp' })
-    fireEvent.keyDown(ta, { key: 'ArrowUp' })
-    fireEvent.keyDown(ta, { key: 'Enter' })
-    // The active row remains the first option (alice.dosh).
-    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alice.dosh '))
+    // Pressing ArrowUp on the already-top row must not throw and must
+    // keep the first row aria-selected.
+    expect(() => {
+      fireEvent.keyDown(ta, { key: 'ArrowUp' })
+      fireEvent.keyDown(ta, { key: 'ArrowUp' })
+    }).not.toThrow()
+    await waitFor(() => {
+      const firstRow = screen.getByText('@alice.dosh').closest('li')
+      expect(firstRow?.getAttribute('aria-selected')).toBe('true')
+    })
   })
 
   it('Escape closes the dropdown', async () => {
