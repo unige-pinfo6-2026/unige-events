@@ -70,26 +70,30 @@ class MentionParserTest {
     }
 
     @Test
-    void handleTooLong_truncatedToValidPrefix() {
-        // {3,30} caps the capture at 30 chars ; the rest is left as text.
-        // The trailing 'aa' after position 30 is not part of the handle.
+    void handleTooLong_dropped() {
+        // The negative lookahead `(?![a-z0-9._-])` means a token longer
+        // than 30 chars is rejected entirely — we don't truncate to a
+        // partial prefix that could collide with another user's handle.
         String content = "@" + "a".repeat(35);
-        Set<String> handles = parser.extractHandles(content);
-        assertEquals(1, handles.size());
-        assertTrue(handles.iterator().next().length() == 30,
-                "handle should be capped at 30 chars");
+        assertEquals(Set.of(), parser.extractHandles(content));
     }
 
     @Test
     void emailLike_rejected() {
-        // No mention should be captured when the @ is preceded by a word
-        // char — covers the typical `foo@example.com` case via the
-        // negative-lookbehind effect of the surrounding char rules.
-        // (The regex itself uses a lookahead on the trailing side ;
-        // see commentary in MentionParser.)
-        assertTrue(parser.extractHandles("send to foo@bar").stream()
-                .noneMatch(h -> h.equals("bar")),
-                "email-like token should not be captured");
+        // `foo@bar` must NOT capture `bar` — the negative lookbehind on
+        // the `@` requires the previous char to be non-word. Same rule
+        // as the frontend splitMentions.
+        assertEquals(Set.of(), parser.extractHandles("send to foo@example.com"));
+        assertEquals(Set.of(), parser.extractHandles("foo@bar.baz"));
+    }
+
+    @Test
+    void mentionAfterPunctuation_stillCaptured() {
+        // Lookbehind rejects \w chars only — punctuation, brackets, quotes
+        // are all fine ("hi(@alice)" should still mention alice... if alice
+        // satisfies length).
+        assertEquals(Set.of("alice.dosh"),
+                parser.extractHandles("hi (@alice.dosh)"));
     }
 
     @Test
