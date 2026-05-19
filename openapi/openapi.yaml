@@ -1469,6 +1469,7 @@ paths:
         Provisionne automatiquement le compte en base à la première connexion (idempotent, race-safe).
         **Retourne 401 si le token JWT est absent ou invalide — jamais de body partiel ou null.**
       operationId: getMyProfile
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1493,6 +1494,7 @@ paths:
         **Retourne l'objet User complet mis à jour en 200 — pas de 204 No Content.**
         Le frontend peut se mettre à jour sans refetch supplémentaire.
       operationId: updateMyProfile
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1550,6 +1552,7 @@ paths:
         de l'utilisateur connecté avec le chemin `/api/uploads/{uuid}.{ext}`.
         Retourne le profil complet mis à jour.
       operationId: uploadProfilePhoto
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1600,6 +1603,7 @@ paths:
       summary: Suppression de la photo de profil
       description: Remet avatarUrl à null, supprime l'objet S3, et retourne le profil complet mis à jour.
       operationId: deleteProfilePhoto
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1630,6 +1634,7 @@ paths:
         Télécharge un fichier image (multipart/form-data) et met à jour le champ bannerUrl
         de l'utilisateur connecté. Retourne le profil complet mis à jour.
       operationId: uploadProfileBanner
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1686,6 +1691,7 @@ paths:
       summary: Suppression de la bannière de profil
       description: Remet bannerUrl à null et retourne le profil complet mis à jour.
       operationId: deleteProfileBanner
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1728,6 +1734,7 @@ paths:
           entre le debounced `HEAD /by-username/{u}` et le submit — le frontend gère
           ce cas sans blocage du reste).
       operationId: updateMyUsername
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1804,6 +1811,7 @@ paths:
         Le lookup est **case-insensitive** : `/by-username/Jean.Dupont` matche
         `jean.dupont` en base (les usernames sont stockés strictement lowercase).
       operationId: getUserByUsername
+      x-owner-service: user-service
       tags: [users]
       security:
         - {}
@@ -1866,6 +1874,7 @@ paths:
         Pas de rate-limit anonyme spécifique (`@PermitAll`). Une harvest agressive serait
         détectable et ré-évaluée en S9+ si nécessaire.
       operationId: existsUsername
+      x-owner-service: user-service
       tags: [users]
       security:
         - {}
@@ -1912,6 +1921,7 @@ paths:
         **Tri** : `username ASC` (ordre lexicographique). Le frontend rend
         donc les suggestions dans un ordre stable et prévisible.
       operationId: searchUsers
+      x-owner-service: user-service
       tags: [users]
       security:
         - BearerAuth: []
@@ -1990,6 +2000,7 @@ paths:
           `GET /users/by-username/{username}` depuis de867a15.
         - UUID inexistant : `404 not_found` (absence réelle, inchangé).
       operationId: getPublicProfile
+      x-owner-service: user-service
       tags: [users]
       security:
         - {}
@@ -2053,6 +2064,7 @@ paths:
         - `422 cannot_follow_self` : tentative de suivre son propre UUID.
         - `429 rate_limited` : limite `@PerUserRateLimit(name="follows.follow", max=30)` dépassée.
       operationId: follow
+      x-owner-service: user-service
       tags: [users, follows]
       security:
         - BearerAuth: []
@@ -2106,6 +2118,7 @@ paths:
         404 sur l'absence de relation — l'UI ne doit jamais voir un toast d'erreur sur
         une action « Se désabonner / annuler la demande ».
       operationId: unfollow
+      x-owner-service: user-service
       tags: [users, follows]
       security:
         - BearerAuth: []
@@ -2144,6 +2157,7 @@ paths:
         `followingCount` à `0` et `followStatus` à `null` (les compteurs ne font sens que
         sur le profil cible, pas sur les items de la liste).
       operationId: getFollowers
+      x-owner-service: user-service
       tags: [users, follows]
       security:
         - BearerAuth: []
@@ -2199,6 +2213,7 @@ paths:
         `followerId = {id}`. Mêmes règles que `/followers` (auth, anti-oracle, tri,
         pagination, projection).
       operationId: getFollowing
+      x-owner-service: user-service
       tags: [users, follows]
       security:
         - BearerAuth: []
@@ -2258,6 +2273,7 @@ paths:
         Pour chaque entrée, le frontend résoudra `GET /users/{followerId}` à la demande
         pour afficher avatar + displayName du demandeur.
       operationId: getMyFollowRequests
+      x-owner-service: user-service
       tags: [users, follows]
       security:
         - BearerAuth: []
@@ -2310,6 +2326,7 @@ paths:
         - `404 not_found` : `followId` inexistant.
         - `409 invalid_transition` : la row n'est pas en statut PENDING (déjà ACCEPTED).
       operationId: acceptFollowRequest
+      x-owner-service: user-service
       tags: [follows]
       security:
         - BearerAuth: []
@@ -2371,6 +2388,7 @@ paths:
           désabonner côté caller, mais le `followed` n'a pas de bouton « refuser » sur
           un follow déjà actif — front bloque cette UX).
       operationId: rejectFollowRequest
+      x-owner-service: user-service
       tags: [follows]
       security:
         - BearerAuth: []
@@ -2414,6 +2432,7 @@ paths:
       summary: Favoris de l'utilisateur connecté
       description: Retourne la liste paginée des événements mis en favoris par l'utilisateur authentifié.
       operationId: getMyFavorites
+      x-owner-service: event-service
       tags: [users, favorites]
       security:
         - BearerAuth: []
@@ -2462,6 +2481,7 @@ paths:
         Retourner les deux URLs d'abonnement : `webcalUrl` (protocole webcal://)
         et `httpsUrl` (pour Google Calendar qui n'accepte pas webcal://).
       operationId: getMyCalendarToken
+      x-owner-service: user-service
       tags: [users, calendar]
       security:
         - BearerAuth: []
@@ -2494,6 +2514,7 @@ paths:
         Les abonnements existants utilisant l'ancien token cesseront de fonctionner.
         Retourne le nouveau token avec ses URLs d'abonnement.
       operationId: regenerateMyCalendarToken
+      x-owner-service: user-service
       tags: [users, calendar]
       security:
         - BearerAuth: []
@@ -2523,6 +2544,7 @@ paths:
       description: |
         Retourne toutes les inscriptions (ATTENDING) de l'utilisateur connecté.
       operationId: getMyAttendances
+      x-owner-service: engagement-service
       tags: [users, attendance]
       security:
         - BearerAuth: []
@@ -2560,6 +2582,7 @@ paths:
         Sans filtre, retourne toutes les inscriptions du caller, tous statuts et
         toutes périodes confondus.
       operationId: getMyParticipationEvents
+      x-owner-service: engagement-service
       tags: [users, attendance, events]
       security:
         - BearerAuth: []
@@ -2619,6 +2642,7 @@ paths:
         vérification supplémentaire. Pour lister publiquement les événements publiés d'un organisateur,
         utiliser `GET /events?organizerId=<uuid>` (qui force `status=PUBLISHED`).
       operationId: getMyEvents
+      x-owner-service: event-service
       tags: [users, events]
       security:
         - BearerAuth: []
@@ -2673,6 +2697,7 @@ paths:
         Content-Type: text/calendar;charset=UTF-8.
         Authentification via token dans l'URL (pas de Bearer JWT requis).
       operationId: getCalendarFeed
+      x-owner-service: user-service
       tags: [calendar]
       security: []
       parameters:
@@ -2703,6 +2728,7 @@ paths:
       summary: Liste des événements
       description: Retourne les événements avec pagination et filtres optionnels.
       operationId: getEvents
+      x-owner-service: event-service
       tags: [events]
       security: []
       parameters:
@@ -2785,6 +2811,7 @@ paths:
       summary: Créer un événement
       description: Crée un nouvel événement. Authentification requise — le créateur est l'utilisateur connecté.
       operationId: createEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -2840,6 +2867,7 @@ paths:
         Recherche insensible à la casse (ILIKE) sur le titre et la description.
         Filtres optionnels : category, faculty, plage de dates (startDate), tags.
       operationId: searchEvents
+      x-owner-service: event-service
       tags: [events]
       security: []
       parameters:
@@ -2938,6 +2966,7 @@ paths:
         utilise la même envelope que pour un ID inexistant — pas de leak du fait que
         l'event a été banni.
       operationId: getEventById
+      x-owner-service: event-service
       tags: [events]
       security:
         - {}
@@ -2972,6 +3001,7 @@ paths:
         Réservé au créateur **ou à un co-organisateur ACCEPTED** (cf. SCRUM-136 cascade
         `isCreatorOrAcceptedCoOrganizer`). Renvoie 403 pour tout autre appelant authentifié.
       operationId: updateEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3039,6 +3069,7 @@ paths:
         co-organisateurs ACCEPTED, cf. SCRUM-136 décision 2 : la cascade ne s'étend pas
         aux actions irréversibles).
       operationId: deleteEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3094,6 +3125,7 @@ paths:
         Un event invisible (DRAFT non-créateur, CANCELLED non-créateur, BANNED, id
         inconnu) retourne `404 not_found` (anti-oracle ISSUE-92).
       operationId: getEventOccurrences
+      x-owner-service: event-service
       tags: [events]
       security:
         - {}
@@ -3150,6 +3182,7 @@ paths:
         demeure interrogeable. Réservé au créateur **ou à un co-organisateur ACCEPTED**
         (cf. SCRUM-136 cascade). Retourne 409 si déjà annulé.
       operationId: cancelEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3202,6 +3235,7 @@ paths:
         co-organisateur ACCEPTED** (cf. SCRUM-136 cascade).
         Retourne 409 si l'événement n'est pas en statut CANCELLED.
       operationId: restoreEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3256,6 +3290,7 @@ paths:
         (cf. SCRUM-136 cascade), ou un administrateur.
         Retourne 409 si l'événement n'est pas en statut DRAFT (déjà publié ou annulé).
       operationId: publishEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3338,6 +3373,7 @@ paths:
         Réservé au créateur, à un co-organisateur ACCEPTED (cascade SCRUM-136), ou à un
         administrateur. Aucune émission Kafka (DRAFT ≠ PUBLISHED).
       operationId: duplicateEvent
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3401,6 +3437,7 @@ paths:
         Réservé au créateur, **à un co-organisateur ACCEPTED** (cf. SCRUM-136 cascade),
         ou à un administrateur.
       operationId: uploadEventImage
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3487,6 +3524,7 @@ paths:
         **Validation MIME** : header uniquement (pas de validation magic-number
         pour les non-images — Décision S, risque mineur documenté).
       operationId: uploadEventAttachment
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3576,6 +3614,7 @@ paths:
         **Anti-oracle 404** : `attachmentId` valide mais appartenant à un autre `eventId`
         (path mismatch) → 404 envelope identique à `attachmentId` inexistant.
       operationId: deleteEventAttachment
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -3624,6 +3663,7 @@ paths:
         triés par score de popularité (`attendingCount + favoriteCount`) DESC. Les IDs de la phase 1
         sont exclus de la phase 2.
       operationId: getFeaturedEvents
+      x-owner-service: event-service
       tags: [events]
       security: []
       parameters:
@@ -3655,6 +3695,7 @@ paths:
     patch:
       summary: Mettre en avant un événement (admin uniquement)
       operationId: featureEvent
+      x-owner-service: event-service
       tags: [admin]
       security:
         - BearerAuth: []
@@ -3695,6 +3736,7 @@ paths:
     patch:
       summary: Retirer la mise en avant d'un événement (admin uniquement)
       operationId: unfeatureEvent
+      x-owner-service: event-service
       tags: [admin]
       security:
         - BearerAuth: []
@@ -3748,6 +3790,7 @@ paths:
 
         Retourne 409 `registration_closed` si `registrationDeadline` est dépassée.
       operationId: attendEvent
+      x-owner-service: engagement-service
       tags: [events, attendance]
       security:
         - BearerAuth: []
@@ -3810,6 +3853,7 @@ paths:
     delete:
       summary: Se désinscrire d'un événement
       operationId: removeAttendance
+      x-owner-service: engagement-service
       tags: [events, attendance]
       security:
         - BearerAuth: []
@@ -3859,6 +3903,7 @@ paths:
         (la confidentialité est garantie par la projection ci-dessus, pas par un gate
         d'accès).
       operationId: getEventAttendees
+      x-owner-service: engagement-service
       tags: [events, attendance]
       security:
         - BearerAuth: []
@@ -3920,6 +3965,7 @@ paths:
         - `404 not_found` : événement introuvable, ou `userId` cible introuvable.
         - `409 already_invited` : l'utilisateur a déjà une invitation PENDING ou ACCEPTED sur cet event.
       operationId: inviteCoOrganizer
+      x-owner-service: event-service
       tags: [events, co-organizers]
       security:
         - BearerAuth: []
@@ -3985,6 +4031,7 @@ paths:
         Les rows DECLINED sont supprimées physiquement (cf. `PATCH /me/decline`) — elles
         n'apparaissent donc jamais ici.
       operationId: listCoOrganizers
+      x-owner-service: event-service
       tags: [events, co-organizers]
       security:
         - BearerAuth: []
@@ -4026,6 +4073,7 @@ paths:
         (mais retourne 404 si l'événement lui-même n'existe pas — pour éviter de masquer un
         ID erroné côté client).
       operationId: removeCoOrganizer
+      x-owner-service: event-service
       tags: [events, co-organizers]
       security:
         - BearerAuth: []
@@ -4076,6 +4124,7 @@ paths:
         modification).
         Si aucune invitation → 404.
       operationId: acceptCoOrganizerInvitation
+      x-owner-service: event-service
       tags: [events, co-organizers]
       security:
         - BearerAuth: []
@@ -4116,6 +4165,7 @@ paths:
         (cf. décision 5 de la spec : DECLINE = DELETE row, autorise une ré-invitation
         ultérieure sans 409). Si aucune invitation → 404.
       operationId: declineCoOrganizerInvitation
+      x-owner-service: event-service
       tags: [events, co-organizers]
       security:
         - BearerAuth: []
@@ -4155,6 +4205,7 @@ paths:
         Les invitations sur des événements `CANCELLED` apparaissent normalement (l'invité a le
         droit de comprendre pourquoi son badge a clignoté).
       operationId: getMyCoOrganizerInvitations
+      x-owner-service: event-service
       tags: [users, co-organizers]
       security:
         - BearerAuth: []
@@ -4206,6 +4257,7 @@ paths:
         Ajoute l'événement aux favoris de l'utilisateur connecté.
         **Idempotent** : retourne 200 même si l'événement est déjà en favori.
       operationId: addFavorite
+      x-owner-service: event-service
       tags: [events, favorites]
       security:
         - BearerAuth: []
@@ -4237,6 +4289,7 @@ paths:
     delete:
       summary: Retirer un événement des favoris
       operationId: removeFavorite
+      x-owner-service: event-service
       tags: [events, favorites]
       security:
         - BearerAuth: []
@@ -4271,6 +4324,7 @@ paths:
         Le shortCode est généré une fois et stocké sur l'entité Event (idempotent — deux appels
         successifs retournent le même shortCode).
       operationId: getEventShareInfo
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -4312,6 +4366,7 @@ paths:
         Body optionnel. Si ni JWT ni `sessionId` fourni, l'appel est ignoré
         silencieusement (`204`) — pas de row écrite.
       operationId: recordEventView
+      x-owner-service: event-service
       tags: [events]
       security: []
       parameters:
@@ -4348,6 +4403,7 @@ paths:
         Accessible par le créateur de l'événement **ou un co-organisateur ACCEPTED**
         (cf. SCRUM-136 cascade `isCreatorOrAcceptedCoOrganizer`). Token JWT requis.
       operationId: getEventStats
+      x-owner-service: event-service
       tags: [events]
       security:
         - BearerAuth: []
@@ -4402,6 +4458,7 @@ paths:
         - `422 cannot_report_own_event` : tentative de signalement de son propre event
           (créateur ou co-organisateur ACCEPTED, cf. cascade SCRUM-136).
       operationId: reportEvent
+      x-owner-service: moderation-service
       tags: [events, reports]
       security:
         - BearerAuth: []
@@ -4482,6 +4539,7 @@ paths:
         - `422 parent_comment_not_in_event` : `parentCommentId` réfère un commentaire d'un autre event.
         - `429 rate_limited` : `@PerUserRateLimit(name="comments.post", max=10, windowSeconds=60)` dépassé.
       operationId: postComment
+      x-owner-service: engagement-service
       tags: [comments]
       security:
         - BearerAuth: []
@@ -4544,6 +4602,7 @@ paths:
 
         **Pagination** : `page` (default 0, ≥ 0), `size` (default 20, > 0, ≤ 100).
       operationId: getEventComments
+      x-owner-service: engagement-service
       tags: [comments]
       security:
         - {}
@@ -4614,6 +4673,7 @@ paths:
         - `403 forbidden` : caller authentifié mais non autorisé.
         - `404 comment_not_found` : `commentId` inexistant.
       operationId: deleteComment
+      x-owner-service: engagement-service
       tags: [comments]
       security:
         - BearerAuth: []
@@ -4662,6 +4722,7 @@ paths:
         **Visibilité commentaire** : héritée d'`EventService.getById` via le parent event
         — commentaire d'un event invisible → 404 anti-oracle.
       operationId: postCommentLike
+      x-owner-service: engagement-service
       tags: [comments]
       security:
         - BearerAuth: []
@@ -4709,6 +4770,7 @@ paths:
 
         Pas de rate-limit (DELETE idempotent, faible coût, pas d'incentive de spam).
       operationId: deleteCommentLike
+      x-owner-service: engagement-service
       tags: [comments]
       security:
         - BearerAuth: []
@@ -4752,6 +4814,7 @@ paths:
           violé (caller a déjà signalé ce commentaire).
         - `422 cannot_report_own_comment` : `caller.uuid == comment.authorId`.
       operationId: postCommentReport
+      x-owner-service: moderation-service
       tags: [reports]
       security:
         - BearerAuth: []
@@ -4818,6 +4881,7 @@ paths:
         `/users/me/favorites`. Réservé au rôle ADMIN
         (`@RolesAllowed("ADMIN")` Quarkus Security).
       operationId: listReports
+      x-owner-service: moderation-service
       tags: [admin, reports]
       security:
         - BearerAuth: []
@@ -4895,6 +4959,7 @@ paths:
         - `409 invalid_transition` : le signalement n'est plus en statut PENDING (déjà
           traité).
       operationId: handleReport
+      x-owner-service: moderation-service
       tags: [admin, reports]
       security:
         - BearerAuth: []
@@ -4958,6 +5023,7 @@ paths:
         `X-Unread-Count` porte le nombre total de notifs non lues du caller (inconditionnel,
         même `0`), ce qui évite un round-trip dédié pour le badge UI.
       operationId: getMyNotifications
+      x-owner-service: notification-service
       tags: [notifications]
       security:
         - BearerAuth: []
@@ -5008,6 +5074,7 @@ paths:
         Anti-oracle : une notification appartenant à un autre user retourne `404`
         (même envelope qu'un id inexistant).
       operationId: markMyNotificationRead
+      x-owner-service: notification-service
       tags: [notifications]
       security:
         - BearerAuth: []
@@ -5043,6 +5110,7 @@ paths:
         Opération bulk. Retourne le nombre de rows passées de `read=false` à `read=true`.
         Idempotent — appel répété sur un fil déjà entièrement lu retourne `{ "updated": 0 }`.
       operationId: markAllMyNotificationsRead
+      x-owner-service: notification-service
       tags: [notifications]
       security:
         - BearerAuth: []
@@ -5069,6 +5137,7 @@ paths:
         Redirige (302) vers la page frontend de l'événement correspondant au shortCode.
         Endpoint public — aucun token requis (conçu pour être partagé par lien).
       operationId: redirectByShortCode
+      x-owner-service: event-service
       tags: [events]
       security: []
       parameters:

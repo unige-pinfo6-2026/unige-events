@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const showToastMock = vi.fn()
@@ -152,5 +152,55 @@ describe('CommentSection', () => {
     setupComments({ error: 'Boom' })
     rend()
     expect(screen.getByText('Boom')).toBeTruthy()
+  })
+
+  it('shows toast on post failure', async () => {
+    const mockPost = vi.fn().mockResolvedValue({ ok: false })
+    setupAuth(true)
+    setupComments({ post: mockPost })
+    rend()
+
+    fireEvent.change(screen.getByLabelText(/contenu du commentaire/i), { target: { value: 'hello' } })
+    fireEvent.click(screen.getByRole('button', { name: /publier/i }))
+
+    await waitFor(() =>
+      expect(showToastMock).toHaveBeenCalledWith('error', expect.stringContaining('Impossible')),
+    )
+  })
+
+  it('does not show toast on post success', async () => {
+    const mockPost = vi.fn().mockResolvedValue({ ok: true })
+    setupAuth(true)
+    setupComments({ post: mockPost })
+    rend()
+
+    fireEvent.change(screen.getByLabelText(/contenu du commentaire/i), { target: { value: 'hello' } })
+    fireEvent.click(screen.getByRole('button', { name: /publier/i }))
+
+    await waitFor(() => expect(mockPost).toHaveBeenCalled())
+    expect(showToastMock).not.toHaveBeenCalled()
+  })
+
+  it('clicking "Charger plus" calls loadMore', () => {
+    const mockLoadMore = vi.fn().mockResolvedValue(undefined)
+    setupAuth(true)
+    setupComments({ comments: [makeComment(1)], hasMore: true, loadMore: mockLoadMore })
+    rend()
+
+    fireEvent.click(screen.getByRole('button', { name: /charger plus/i }))
+
+    expect(mockLoadMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('swallows loadMore rejection silently', async () => {
+    const mockLoadMore = vi.fn().mockRejectedValue(new Error('network'))
+    setupAuth(true)
+    setupComments({ comments: [makeComment(1)], hasMore: true, loadMore: mockLoadMore })
+    rend()
+
+    fireEvent.click(screen.getByRole('button', { name: /charger plus/i }))
+
+    await waitFor(() => expect(mockLoadMore).toHaveBeenCalled())
+    expect(showToastMock).not.toHaveBeenCalled()
   })
 })

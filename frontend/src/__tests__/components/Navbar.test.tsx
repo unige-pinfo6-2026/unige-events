@@ -15,6 +15,16 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
+vi.mock('@/hooks/useNotifications', () => ({
+  useNotifications: () => ({
+    notifications: [],
+    unreadCount: 0,
+    loading: false,
+    error: null,
+    markAllAsRead: vi.fn(),
+  }),
+}))
+
 import { useAuth } from '@/hooks/useAuth'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
@@ -247,6 +257,74 @@ describe('Navbar', () => {
       fireEvent.click(desktopBtn)
       expect(desktopBtn.getAttribute('aria-expanded')).toBe('true')
     }
+  })
+
+  it('clicking "Se connecter" in the desktop nav calls login', () => {
+    const login = vi.fn()
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login })
+    renderNavbar()
+    const buttons = screen.getAllByRole('button', { name: 'Se connecter' })
+    // first button is the desktop nav one
+    fireEvent.click(buttons[0])
+    expect(login).toHaveBeenCalled()
+  })
+
+  it('clicking "Se connecter" in the mobile sidebar calls login', () => {
+    const login = vi.fn()
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    const buttons = screen.getAllByRole('button', { name: 'Se connecter' })
+    fireEvent.click(buttons.at(-1)!)
+    expect(login).toHaveBeenCalled()
+  })
+
+  it('admin sidebar item shows active styles when on /admin route', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      isAdmin: true,
+      logout: vi.fn(),
+      login: vi.fn(),
+    })
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <ThemeProvider>
+          <Navbar />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    const adminLink = screen.getAllByText('Administration')
+      .map(el => el.closest('a'))
+      .find(a => a?.className.includes('bg-warning'))
+    expect(adminLink).toBeTruthy()
+  })
+
+  it('mobile submenu sub-links appear after expanding "Mes événements"', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+      login: vi.fn(),
+    })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+
+    // Use rounded-xl to distinguish the mobile sidebarItemClass button
+    // from the desktop Collapsible.Trigger (dropdownItemClass has no rounded-xl)
+    const mesEventsBtn = screen.getAllByText('Mes événements')
+      .map(el => el.closest('button'))
+      .find(btn => btn?.className.includes('rounded-xl'))
+
+    expect(mesEventsBtn).toBeTruthy()
+
+    // Before expanding: no sub-links inside this MobileNavItem container
+    const container = mesEventsBtn!.parentElement!
+    expect(container.querySelectorAll('a[href*="/my-events/"]').length).toBe(0)
+
+    fireEvent.click(mesEventsBtn!)
+
+    // After expanding: sub-links render inside the same container
+    expect(container.querySelectorAll('a[href*="/my-events/"]').length).toBeGreaterThan(0)
   })
 
   it('expands mobile "Mes événements" submenu with click toggle', () => {

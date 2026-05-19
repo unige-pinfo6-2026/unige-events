@@ -76,7 +76,10 @@ describe('useCalendarEvents', () => {
     await waitFor(() => expect(mockGetAll).toHaveBeenCalled())
 
     const [params] = mockGetAll.mock.calls[0]
-    expect(params.endDateFrom).toBe('2026-04-01T00:00:00')
+    const d = new Date(2026, 3, 1)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const expected = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`
+    expect(params.endDateFrom).toBe(expected)
     expect(params.status).toBe('PUBLISHED')
   })
 
