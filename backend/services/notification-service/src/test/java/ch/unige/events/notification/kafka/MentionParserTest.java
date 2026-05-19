@@ -44,10 +44,10 @@ class MentionParserTest {
     }
 
     @Test
-    void multipleMentions_dedup_lessThan3ContinuationSkipped() {
-        // "@bob" is below the 3-char min — not captured. Two identical
-        // "@alice.dosh" collapse via the Set.
-        assertEquals(Set.of("alice.dosh"),
+    void multipleMentions_dedupCollapsesRepeats() {
+        // "@bob" is exactly 3 chars — it matches. The two identical
+        // "@alice.dosh" collapse to a single entry via the Set.
+        assertEquals(Set.of("alice.dosh", "bob"),
                 parser.extractHandles("@alice.dosh @bob @alice.dosh"));
     }
 
@@ -96,14 +96,21 @@ class MentionParserTest {
     }
 
     @Test
-    void maxLength_30_enforced() {
-        // 31 chars after the @ — regex greedily captures 30, leaves the
-        // 31st char dangling. The resulting handle won't exist in the DB
-        // so the consumer silent-skips it.
+    void maxLength_30_capturedWhenTerminatedByBoundary() {
+        // 30 chars then a non-charset boundary — captures cleanly at 30.
+        String thirty = "a".repeat(30);
+        assertEquals(Set.of(thirty), parser.extractHandles("@" + thirty + " end"));
+    }
+
+    @Test
+    void maxLength_31_rejectedByLookahead() {
+        // 31 chars all in-charset — the negative lookahead refuses the
+        // 30-char prefix (the 31st char would still be in [a-z0-9._-]),
+        // and every shorter prefix runs into the same problem. The whole
+        // string is silently dropped — a too-long handle is not a valid
+        // truncation of one. The consumer never even hits user-service.
         String thirtyOne = "a".repeat(31);
-        Set<String> out = parser.extractHandles("@" + thirtyOne);
-        assertEquals(1, out.size());
-        assertEquals(30, out.iterator().next().length());
+        assertTrue(parser.extractHandles("@" + thirtyOne).isEmpty());
     }
 
     @Test
