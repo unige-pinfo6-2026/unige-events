@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 
@@ -8,8 +8,21 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: showToastMock }),
 }))
 
+vi.mock('@/services/commentApi', async () => {
+  const actual = await vi.importActual<typeof import('@/services/commentApi')>('@/services/commentApi')
+  return {
+    ...actual,
+    likeComment: vi.fn().mockResolvedValue({ liked: true, likeCount: 1 }),
+    unlikeComment: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 import CommentItem from '@/components/event/CommentItem'
+import { likeComment, unlikeComment } from '@/services/commentApi'
 import type { Comment } from '@/types/comment'
+
+const mockLike = vi.mocked(likeComment)
+const mockUnlike = vi.mocked(unlikeComment)
 
 function renderItem(ui: ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>)
@@ -38,7 +51,13 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-beforeEach(() => showToastMock.mockReset())
+beforeEach(() => {
+  showToastMock.mockReset()
+  mockLike.mockReset()
+  mockUnlike.mockReset()
+  mockLike.mockResolvedValue({ liked: true, likeCount: 1 })
+  mockUnlike.mockResolvedValue(undefined)
+})
 
 describe('CommentItem', () => {
   it('renders content + displayName', () => {
@@ -354,5 +373,98 @@ describe('CommentItem', () => {
     )
     expect(screen.queryByRole('link', { name: /Anon/i })).toBeNull()
     expect(screen.getByText('Anon')).toBeTruthy()
+  })
+
+  // ─── SCRUM-147 like button ──────────────────────────────────────────
+
+  it('renders the like button for every visitor including anonymous (disabled)', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 4, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId={null}
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    expect(btn).toBeTruthy()
+    expect((btn as HTMLButtonElement).disabled).toBe(true)
+    expect(btn.getAttribute('title')).toBe('Connectez-vous pour aimer')
+    expect(screen.getByText('4')).toBeTruthy()
+  })
+
+  it('shows aria-label Retirer le like when liked and renders count', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 3, likedByMe: true })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Retirer le like/i })
+    expect(btn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('hides the count when likeCount is 0', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 0, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByText('0')).toBeNull()
+  })
+
+  it('toggle optimistic flip then resolves on 2xx', async () => {
+    mockLike.mockResolvedValue({ liked: true, likeCount: 6 })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 5, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    fireEvent.click(btn)
+    // Optimistic — flips immediately, count goes to 6
+    await waitFor(() => expect(screen.getByText('6')).toBeTruthy())
+    expect(mockLike).toHaveBeenCalledWith(1)
+  })
+
+  it('rolls back the optimistic flip when the like API errors', async () => {
+    mockLike.mockRejectedValue(new Error('boom'))
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 5, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    fireEvent.click(btn)
+    // Eventually rolls back to 5 + shows error toast
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('error', expect.any(String)))
+    expect(screen.getByText('5')).toBeTruthy()
   })
 })

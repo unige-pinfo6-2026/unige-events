@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Flag, MessageSquare, Trash2 } from 'lucide-react'
+import { Flag, Heart, MessageSquare, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { userDisplayLabel, userInitials } from '@/utils/displayName'
 import { useToast } from '@/hooks/useToast'
+import { useCommentLike } from '@/hooks/useCommentLike'
 import CommentForm from '@/components/event/CommentForm'
 import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { Comment } from '@/types/comment'
@@ -48,6 +49,15 @@ export default function CommentItem({
   const isEventCreator = currentUserId !== null && currentUserId === eventCreatorId
   const canDelete = isAuthor || isEventCreator || isAdmin
   const canReply = !isReply && currentUserId !== null
+  const canLike = currentUserId !== null
+
+  // SCRUM-147 — optimistic like/unlike. Disabled for anonymous callers ;
+  // the hook is still wired but `toggle()` is gated below.
+  const { liked, likeCount, toggling, toggle } = useCommentLike(
+    comment.id,
+    comment.likedByMe,
+    comment.likeCount,
+  )
 
   const initials = userInitials(comment.authorDisplayName)
   // SCRUM-169 — label fallback order: displayName -> @username -> UUID prefix.
@@ -141,6 +151,22 @@ export default function CommentItem({
             {comment.content}
           </p>
           <footer className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+            <button
+              type="button"
+              onClick={() => { if (canLike) void toggle() }}
+              disabled={!canLike || toggling}
+              aria-label={liked ? 'Retirer le like' : 'Aimer ce commentaire'}
+              aria-pressed={liked}
+              title={canLike ? undefined : 'Connectez-vous pour aimer'}
+              className={`inline-flex items-center gap-1 bg-transparent border-0 p-0 transition-colors ${
+                canLike ? 'cursor-pointer' : 'cursor-not-allowed'
+              } ${
+                liked ? 'text-error' : 'text-foreground/50 hover:text-error'
+              } ${toggling ? 'opacity-60' : ''}`}
+            >
+              <Heart className={`w-3 h-3 ${liked ? 'fill-current' : ''}`} />
+              {likeCount > 0 && <span>{likeCount}</span>}
+            </button>
             {canReply && (
               <button
                 type="button"
