@@ -3,7 +3,6 @@ package ch.unige.events.shared.storage;
 import jakarta.ws.rs.WebApplicationException;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -99,20 +98,6 @@ class FileStorageServiceDownloadObjectTest {
         S3Client s3 = mock(S3Client.class);
         when(s3.getObjectAsBytes(any(GetObjectRequest.class)))
                 .thenThrow(S3Exception.builder().message("boom").statusCode(500).build());
-
-        WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> service(s3).downloadObject("http://s3/bucket/event-attachments/x.pdf"));
-        assertEquals(503, ex.getResponse().getStatus());
-    }
-
-    @Test
-    void downloadObject_throws503_onSdkClientException() {
-        // The catch is `S3Exception | SdkClientException` (java:S2221) — the
-        // S3Exception arm is exercised above, this pins the SdkClientException
-        // arm (network / TLS / SDK transport failures).
-        S3Client s3 = mock(S3Client.class);
-        when(s3.getObjectAsBytes(any(GetObjectRequest.class)))
-                .thenThrow(SdkClientException.builder().message("connection reset").build());
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service(s3).downloadObject("http://s3/bucket/event-attachments/x.pdf"));

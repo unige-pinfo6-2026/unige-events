@@ -75,10 +75,10 @@ public class EventAttachmentService {
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(NotFoundException::new);
 
-        // requireUuid() throws NotFoundException when the caller is not
-        // provisioned ; the result is guaranteed non-null. Matches the
-        // contract followed by every other event-service caller.
         UUID callerUuid = callerIdentity.requireUuid();
+        if (callerUuid == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
         if (!isAdmin && !eventService.isCreatorOrAcceptedCoOrganizer(event, callerUuid)) {
             throw new ForbiddenException(
                     "Only the event creator, an accepted co-organizer or an admin can upload attachments");
@@ -140,9 +140,10 @@ public class EventAttachmentService {
             throw new NotFoundException();
         }
 
-        // requireUuid() throws when the caller is not provisioned —
-        // guaranteed non-null on success.
         UUID callerUuid = callerIdentity.requireUuid();
+        if (callerUuid == null) {
+            throw new NotFoundException("User profile not found — call GET /users/me first");
+        }
 
         Event event = Event.<Event>findByIdOptional(eventId)
                 .orElseThrow(NotFoundException::new);
