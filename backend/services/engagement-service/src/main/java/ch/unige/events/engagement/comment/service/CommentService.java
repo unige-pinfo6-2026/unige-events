@@ -106,8 +106,13 @@ public class CommentService {
         comment.persist();
 
         // CDI fire — bridge publishes comments.created AFTER_SUCCESS.
+        // SCRUM-145: enriched payload (content + eventTitle) so the
+        // notification-service consumers can parse mentions and compose
+        // user-facing messages without a REST callback.
         commentCreatedEvent.fire(CommentCreatedEvent.created(
-                comment.id, eventId, authorId, parent != null ? parent.id : null));
+                comment.id, eventId, authorId,
+                parent != null ? parent.id : null,
+                comment.content, event.title()));
 
         boolean authorIsOrganizer = isCreatorOrAcceptedCoOrganizer(event, authorId);
         UserPublicResponse author = safeGetUser(authorId);
