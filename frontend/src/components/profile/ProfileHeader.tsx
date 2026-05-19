@@ -46,6 +46,9 @@ export default function ProfileHeader({ profile, actions }: Readonly<ProfileHead
               <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
                 {profile.displayName}
               </h1>
+              {profile.username && (
+                <p className="text-sm text-foreground/50 mt-0.5 font-medium">@{profile.username}</p>
+              )}
               {profileSubtitle && (
                 <p className="text-sm text-foreground/40 mt-1 font-medium">{profileSubtitle}</p>
               )}
