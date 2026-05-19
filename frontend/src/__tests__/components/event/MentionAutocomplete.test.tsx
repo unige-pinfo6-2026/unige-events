@@ -318,13 +318,16 @@ describe('MentionAutocomplete (component)', () => {
   })
 
   it('shows "Recherche…" while the search is in flight', async () => {
-    let resolveSearch: ((data: UserPublicResponse[]) => void) | null = null
-    mockSearch.mockImplementation(() => new Promise((res) => { resolveSearch = res }))
+    type Resolver = (data: UserPublicResponse[]) => void
+    let resolveSearch: Resolver | null = null
+    mockSearch.mockImplementation(
+      () => new Promise<UserPublicResponse[]>((res) => { resolveSearch = res as Resolver }),
+    )
     render(<Harness />)
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
     typeIn(ta, '@al')
     await waitFor(() => expect(screen.getByText(/Recherche/i)).toBeTruthy(), { timeout: 1000 })
-    resolveSearch?.([user('alice.dosh', 'Alice')])
+    ;(resolveSearch as Resolver | null)?.([user('alice.dosh', 'Alice')])
     await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy())
   })
 

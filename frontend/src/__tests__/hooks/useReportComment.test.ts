@@ -135,9 +135,9 @@ describe('useReportComment', () => {
   it('AxiosError without response object falls through to the generic toast', async () => {
     // Defensive — an AxiosError without a response field (network reset
     // before headers) should not match either the 409 nor the 422 branch.
+    // Constructed with the minimal signature ; `response` is optional in
+    // AxiosError so it's `undefined` by default.
     const err = new AxiosError('reset')
-    // @ts-expect-error explicitly leave response undefined
-    err.response = undefined
     mockReport.mockRejectedValue(err)
     const { result } = renderHook(() => useReportComment(42))
 
