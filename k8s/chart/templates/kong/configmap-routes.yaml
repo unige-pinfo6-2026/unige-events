@@ -14,19 +14,17 @@ data:
         read_timeout: 30000
         write_timeout: 30000
         routes:
-          - name: event-share
+          - name: event-counters
+            # Consolidates the three idempotent counter / share endpoints
+            # served by event-service: share-url lookup, view tracking,
+            # creator stats. All route to the same upstream.
             paths:
-              - ~/api/events/(?:\d+)/share$
+              - ~/api/events/(?:\d+)/(?:share|view|stats)$
             strip_path: false
             preserve_host: true
           - name: shortlink
             paths:
               - ~/api/s/[^/]+$
-            strip_path: false
-            preserve_host: true
-          - name: event-view
-            paths:
-              - ~/api/events/(?:\d+)/view$
             strip_path: false
             preserve_host: true
           - name: favorite-actions
@@ -59,11 +57,6 @@ data:
               - ~/api/users/me/co-organizer-invitations$
             strip_path: false
             preserve_host: true
-          - name: event-stats
-            paths:
-              - ~/api/events/(?:\d+)/stats$
-            strip_path: false
-            preserve_host: true
           - name: my-events
             paths:
               - ~/api/users/me/events$
@@ -89,24 +82,13 @@ data:
               - ~/api/events/(?:\d+)/occurrences$
             strip_path: false
             preserve_host: true
-          - name: events-cancel
+          - name: events-state-transitions
+            # Consolidates the four lifecycle transition endpoints on an
+            # event: cancel (PUBLISHED → CANCELLED), restore (CANCELLED →
+            # DRAFT), publish (DRAFT → PUBLISHED), duplicate (clone to a
+            # new DRAFT). All route to the same upstream.
             paths:
-              - ~/api/events/(?:\d+)/cancel$
-            strip_path: false
-            preserve_host: true
-          - name: events-restore
-            paths:
-              - ~/api/events/(?:\d+)/restore$
-            strip_path: false
-            preserve_host: true
-          - name: events-publish
-            paths:
-              - ~/api/events/(?:\d+)/publish$
-            strip_path: false
-            preserve_host: true
-          - name: events-duplicate
-            paths:
-              - ~/api/events/(?:\d+)/duplicate$
+              - ~/api/events/(?:\d+)/(?:cancel|restore|publish|duplicate)$
             strip_path: false
             preserve_host: true
           - name: events-image
@@ -209,14 +191,11 @@ data:
               - ~/api/users/me/follow-requests$
             strip_path: false
             preserve_host: true
-          - name: calendar-token
+          - name: calendar-token-actions
+            # Consolidates calendar-token lookup (GET) and rotation
+            # (POST /regenerate). Both served by user-service.
             paths:
-              - ~/api/users/me/calendar-token$
-            strip_path: false
-            preserve_host: true
-          - name: calendar-regen
-            paths:
-              - ~/api/users/me/calendar-token/regenerate$
+              - ~/api/users/me/calendar-token(?:/regenerate)?$
             strip_path: false
             preserve_host: true
           - name: ics-feed
@@ -244,14 +223,11 @@ data:
               - ~/api/comments/(?:\d+)/report$
             strip_path: false
             preserve_host: true
-          - name: admin-reports
+          - name: admin-reports-all
+            # Consolidates list (GET /admin/reports) and per-id update
+            # (PATCH /admin/reports/{id}). Both admin-only, same upstream.
             paths:
-              - ~/api/admin/reports$
-            strip_path: false
-            preserve_host: true
-          - name: admin-report-id
-            paths:
-              - ~/api/admin/reports/(?:\d+)$
+              - ~/api/admin/reports(?:/(?:\d+))?$
             strip_path: false
             preserve_host: true
       - name: engagement-service

@@ -9,6 +9,10 @@ export function parseApiUtcDateTime(dateTime: string): Date {
   return new Date(normalizedDateTime)
 }
 
+export function toLocalIsoDateTime(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 export function toLocalDateTimeInputValue(dateTime: string): string {
   const date = parseApiUtcDateTime(dateTime)
   if (Number.isNaN(date.getTime())) {
