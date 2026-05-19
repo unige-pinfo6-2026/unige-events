@@ -99,10 +99,13 @@ data:
           - name: events-attachments
             # SCRUM-148 — POST /api/events/{id}/attachments and
             # DELETE /api/events/{id}/attachments/{aid}. Single regex covers
-            # both sub-paths. Must be declared BEFORE events-by-id so the
+            # all sub-paths. Must be declared BEFORE events-by-id so the
             # /attachments suffix is not swallowed by the catch-all id route.
+            # SCRUM-149 — added optional /download suffix on the {aid} branch
+            # for the public force-download endpoint
+            # (GET /api/events/{id}/attachments/{aid}/download).
             paths:
-              - ~/api/events/(?:\d+)/attachments(?:/(?:\d+))?$
+              - ~/api/events/(?:\d+)/attachments(?:/(?:\d+)(?:/download)?)?$
             strip_path: false
             preserve_host: true
           - name: events-by-id

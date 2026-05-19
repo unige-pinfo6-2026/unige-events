@@ -5,8 +5,10 @@ import { useEventForm } from '@/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import EventForm from '@/components/event/EventForm'
 import CoOrganizersEditor from '@/components/event/CoOrganizersEditor'
+import EventAttachmentsEditor from '@/components/event/EventAttachmentsEditor'
 import { deleteEvent, getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
+import type { Attachment } from '@/types/attachment'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { useToast } from '@/hooks/useToast'
@@ -233,6 +235,16 @@ export default function EventEditPage() {
         // (EventCoOrganizerService.invite / remove). Co-organizers still see
         // the form fields, just not the management panel.
         coOrganizersSection={isCreator ? <CoOrganizersEditor eventId={event.id} /> : undefined}
+        // SCRUM-149 — "Fichiers joints" slot. Reached only after the event has an
+        // ID (edit mode), so the upload endpoint POST /events/{id}/attachments is
+        // callable. Permissions are gated upstream by the route + the backend.
+        attachmentsSection={
+          <EventAttachmentsEditor
+            eventId={event.id}
+            attachments={event.attachments ?? []}
+            onChange={(next: Attachment[]) => setEvent({ ...event, attachments: next })}
+          />
+        }
       />
 
       {showDeleteConfirm && (

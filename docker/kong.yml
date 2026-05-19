@@ -84,6 +84,16 @@ services:
         paths: ['~/api/events/(?:\d+)/image$']
         strip_path: false
         preserve_host: true
+      - name: events-attachments
+        # SCRUM-148 — POST /api/events/{id}/attachments + DELETE on
+        # /attachments/{aid}. SCRUM-149 — optional /download suffix for
+        # the public force-download endpoint. Single regex covers all
+        # sub-paths. Must be declared BEFORE events-by-id so the
+        # /attachments suffix is not swallowed by the catch-all id route.
+        # Mirrors k8s/chart/templates/kong/configmap-routes.yaml.
+        paths: ['~/api/events/(?:\d+)/attachments(?:/(?:\d+)(?:/download)?)?$']
+        strip_path: false
+        preserve_host: true
       - name: events-by-id
         paths: ['~/api/events/(?:\d+)$']
         strip_path: false

@@ -323,4 +323,120 @@ class EventAttachmentServiceTest {
     void getByEvent_emptyForUnknownEvent() {
         assertTrue(service.getByEvent(9_999_999L).isEmpty());
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // download(...) — SCRUM-149 follow-up
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static final byte[] FAKE_BYTES = new byte[]{0x25, 0x50, 0x44, 0x46};
+
+    private void stubS3Hit(EventAttachment a) {
+        when(fileStorageService.downloadObject(a.fileUrl)).thenReturn(FAKE_BYTES);
+    }
+
+    private Event persistEventWithStatus(UUID creator, EventStatus status) {
+        Event e = persistEvent(creator);
+        e.status = status;
+        e.persist();
+        em.flush();
+        return e;
+    }
+
+    @Test
+    @TestTransaction
+    void download_publishedEvent_anonymousCaller_returnsBytes() {
+        Event ev = persistEvent(callerId);
+        EventAttachment a = persistAttachment(ev.id, callerId, "deck.pdf");
+        stubS3Hit(a);
+
+        var payload = service.download(ev.id, a.id, false);
+
+        assertNotNull(payload);
+        assertEquals("deck.pdf", payload.fileName());
+        assertEquals("application/pdf", payload.mimeType());
+        assertEquals(FAKE_BYTES, payload.bytes());
+    }
+
+    @Test
+    @TestTransaction
+    void download_missingAttachment_returnsNull() {
+        Event ev = persistEvent(callerId);
+        assertEquals(null, service.download(ev.id, 9_999_999L, false));
+    }
+
+    @Test
+    @TestTransaction
+    void download_pathMismatch_returnsNull_antiOracle() {
+        // Attachment exists under a *different* event — anti-oracle leak guard.
+        Event mine = persistEvent(callerId);
+        Event theirs = persistEvent(UUID.randomUUID());
+        EventAttachment foreign = persistAttachment(theirs.id, theirs.creatorId, "secret.pdf");
+
+        assertEquals(null, service.download(mine.id, foreign.id, false));
+    }
+
+    @Test
+    @TestTransaction
+    void download_bannedEvent_returnsNull_evenForAdmin() {
+        Event banned = persistEventWithStatus(callerId, EventStatus.BANNED);
+        EventAttachment a = persistAttachment(banned.id, callerId, "x.pdf");
+        // Even admin gets 404 on BANNED — same rule as getById.
+        assertEquals(null, service.download(banned.id, a.id, true));
+    }
+
+    @Test
+    @TestTransaction
+    void download_draftEvent_anonymousCaller_returnsNull() {
+        Event draft = persistEventWithStatus(creatorId, EventStatus.DRAFT);
+        EventAttachment a = persistAttachment(draft.id, creatorId, "x.pdf");
+        // Caller (callerId) is NOT the creator (creatorId) → hidden.
+        assertEquals(null, service.download(draft.id, a.id, false));
+    }
+
+    @Test
+    @TestTransaction
+    void download_draftEvent_creatorCaller_returnsBytes() {
+        // callerId IS the creator here.
+        Event draft = persistEventWithStatus(callerId, EventStatus.DRAFT);
+        EventAttachment a = persistAttachment(draft.id, callerId, "x.pdf");
+        stubS3Hit(a);
+
+        assertNotNull(service.download(draft.id, a.id, false));
+    }
+
+    @Test
+    @TestTransaction
+    void download_cancelledEvent_adminCaller_returnsBytes() {
+        Event cancelled = persistEventWithStatus(creatorId, EventStatus.CANCELLED);
+        EventAttachment a = persistAttachment(cancelled.id, creatorId, "x.pdf");
+        stubS3Hit(a);
+
+        assertNotNull(service.download(cancelled.id, a.id, true));
+    }
+
+    @Test
+    @TestTransaction
+    void download_acceptedCoOrganizer_returnsBytes_evenOnDraft() {
+        Event draft = persistEventWithStatus(creatorId, EventStatus.DRAFT);
+        EventCoOrganizer coOrg = new EventCoOrganizer();
+        coOrg.eventId = draft.id;
+        coOrg.userId = callerId;
+        coOrg.status = CoOrganizerStatus.ACCEPTED;
+        coOrg.persist();
+        EventAttachment a = persistAttachment(draft.id, creatorId, "x.pdf");
+        stubS3Hit(a);
+        em.flush();
+
+        assertNotNull(service.download(draft.id, a.id, false));
+    }
+
+    @Test
+    @TestTransaction
+    void download_s3ObjectMissing_returnsNull() {
+        Event ev = persistEvent(callerId);
+        EventAttachment a = persistAttachment(ev.id, callerId, "x.pdf");
+        when(fileStorageService.downloadObject(a.fileUrl)).thenReturn(null);
+
+        assertEquals(null, service.download(ev.id, a.id, false));
+    }
 }
