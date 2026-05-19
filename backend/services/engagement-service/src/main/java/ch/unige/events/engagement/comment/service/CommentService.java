@@ -6,10 +6,12 @@ import ch.unige.events.engagement.comment.dto.CreateCommentRequest;
 import ch.unige.events.engagement.comment.entity.Comment;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.IdProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
+import ch.unige.events.shared.kafka.events.CommentMentionEvent;
 
 import io.quarkus.logging.Log;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -45,6 +47,9 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class CommentService {
 
+    /** Author display-label fallback, mirrors the frontend `userDisplayLabel`. */
+    private static final String FALLBACK_AUTHOR_LABEL = "Un utilisateur";
+
     @Inject SecurityIdentity identity;
     /**
      * Lazy via {@link Instance} so {@code @QuarkusTest} runs (which set
@@ -54,6 +59,8 @@ public class CommentService {
      */
     @Inject CallerIdentity callerIdentity;
     @Inject jakarta.enterprise.event.Event<CommentCreatedEvent> commentCreatedEvent;
+    @Inject jakarta.enterprise.event.Event<CommentMentionEvent> commentMentionEvent;
+    @Inject MentionParser mentionParser;
 
     @Inject @RestClient EventServiceClient eventClient;
     @Inject @RestClient UserServiceClient userClient;
@@ -116,7 +123,79 @@ public class CommentService {
 
         boolean authorIsOrganizer = isCreatorOrAcceptedCoOrganizer(event, authorId);
         UserPublicResponse author = safeGetUser(authorId);
+
+        // SCRUM-145 — fan-out one CommentMentionEvent per mentioned user.
+        // Mirrors the FollowLifecyclePublisher pattern : the producer does
+        // the heavy lifting (parse + resolve + filter) so the consumer in
+        // notification-service is trivial. AFTER_SUCCESS bridge ensures we
+        // never publish a phantom mention against a rolled-back comment.
+        fanOutMentions(comment.id, eventId, authorId, comment.content, event.title(), author);
+
         return CommentDTO.from(comment, author, authorIsOrganizer);
+    }
+
+    /**
+     * Parses {@code @<handle>} mentions from the comment body, batch-resolves
+     * to UUIDs via the internal user-service endpoint, filters out
+     * self-mentions (locked-in #11) and unknown handles, then fires one
+     * {@link CommentMentionEvent} per remaining recipient. The CDI bridge
+     * routes each event to {@code comments.mentions} after the JDBC
+     * commit. Failures are swallowed — a missed mention notification is
+     * acceptable, a 500 on the caller's POST is not.
+     */
+    private void fanOutMentions(long commentId, long eventId, UUID authorId,
+                                String content, String eventTitle, UserPublicResponse author) {
+        Set<String> handles = mentionParser.extractHandles(content);
+        if (handles.isEmpty()) {
+            return;
+        }
+        List<IdProjection> resolved;
+        try {
+            resolved = userClient.getByUsernames(String.join(",", handles));
+        } catch (RuntimeException e) {
+            Log.warnf(e, "[MENTION_RESOLVE_FAIL] comment=%d event=%d handles=%s — skipping mention fan-out",
+                    commentId, eventId, handles);
+            return;
+        }
+        if (resolved == null || resolved.isEmpty()) {
+            Log.infof("[MENTION_FANOUT_NO_MATCH] comment=%d handles=%s resolved 0 users", commentId, handles);
+            return;
+        }
+        String authorLabel = authorLabel(author);
+        String safeEventTitle = (eventTitle == null || eventTitle.isBlank()) ? null : eventTitle;
+        int emitted = 0;
+        for (IdProjection target : resolved) {
+            if (target == null || target.id() == null) {
+                continue;
+            }
+            if (target.id().equals(authorId)) {
+                continue; // self-mention skip — locked-in #11
+            }
+            commentMentionEvent.fire(CommentMentionEvent.of(
+                    commentId, eventId, authorId, target.id(), authorLabel, safeEventTitle));
+            emitted++;
+        }
+        Log.infof("[MENTION_FANOUT] comment=%d event=%d emitted=%d/%d (resolved %d)",
+                commentId, eventId, emitted, handles.size(), resolved.size());
+    }
+
+    /**
+     * Mirrors the frontend `userDisplayLabel` fallback chain : displayName →
+     * "@" + username → "Un utilisateur". Used to pre-compute the label that
+     * notification-service interpolates into the message template, so the
+     * consumer doesn't need to hop back to user-service.
+     */
+    private static String authorLabel(UserPublicResponse author) {
+        if (author == null) {
+            return FALLBACK_AUTHOR_LABEL;
+        }
+        if (author.displayName() != null && !author.displayName().isBlank()) {
+            return author.displayName();
+        }
+        if (author.username() != null && !author.username().isBlank()) {
+            return "@" + author.username();
+        }
+        return FALLBACK_AUTHOR_LABEL;
     }
 
     @Transactional

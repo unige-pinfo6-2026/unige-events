@@ -136,6 +136,52 @@ class CommentServiceTest {
         assertEquals(userId, dto.authorId());
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // Mention fan-out (SCRUM-145 follow-lifecycle pattern refactor)
+    // ──────────────────────────────────────────────────────────────────
+
+    @Test
+    void post_withMentions_resolvesHandlesViaUserService() {
+        // Content contains @<handle> → CommentService should call
+        // userClient.getByUsernames so the fan-out has UUIDs to publish.
+        EventDTO ev = event(50L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(50L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString())).thenReturn(java.util.List.of());
+
+        service.post("auth0|test-comment-user", 50L,
+                new CreateCommentRequest("Hi @alice.dosh and @bob.smith", null));
+
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withoutMentions_skipsUserServiceCall() {
+        // No @<handle> in content → no parser hits → no userClient.getByUsernames call.
+        // Saves a downstream hop on the common case.
+        EventDTO ev = event(51L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(51L), any(UUID.class))).thenReturn(ev);
+
+        service.post("auth0|test-comment-user", 51L,
+                new CreateCommentRequest("Just a normal comment", null));
+
+        org.mockito.Mockito.verify(userClient, org.mockito.Mockito.never()).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_userClientThrowsDuringMentionResolve_doesNotFailComment() {
+        // Comment post must remain robust if user-service is degraded —
+        // the caller still gets a successful 201 ; mention notifications
+        // for this delivery are silently lost.
+        EventDTO ev = event(52L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(52L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString()))
+                .thenThrow(new RuntimeException("user-service down"));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 52L,
+                new CreateCommentRequest("Hi @alice.dosh", null));
+        assertNotNull(dto, "the comment post must succeed even when mention resolve fails");
+    }
+
     @Test
     void post_trimsContent() {
         EventDTO ev = event(2L, EventStatus.PUBLISHED, creatorId);
