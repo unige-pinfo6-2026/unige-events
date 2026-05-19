@@ -2,9 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef, useState } from 'react'
 
-vi.mock('@/services/userService', () => ({
-  searchUsernames: vi.fn(),
-}))
+// importActual + spread — partial mocks of `@/services/userService` leak
+// across vitest forks in CI (FollowListPage / EventCreatePage tests need
+// getUserByUsername / etc. to still exist on the module). Preserve every
+// other export ; only override searchUsernames.
+vi.mock('@/services/userService', async () => {
+  const actual = await vi.importActual<typeof import('@/services/userService')>('@/services/userService')
+  return {
+    ...actual,
+    searchUsernames: vi.fn(),
+  }
+})
 
 import { searchUsernames } from '@/services/userService'
 import MentionAutocomplete from '@/components/event/MentionAutocomplete'
