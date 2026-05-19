@@ -176,4 +176,203 @@ describe('MentionAutocomplete (component)', () => {
     await new Promise((r) => setTimeout(r, 450))
     expect(mockSearch).not.toHaveBeenCalled()
   })
+
+  it('disabled prop hides the dropdown entirely', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    function DisabledHarness() {
+      const [value, setValue] = useState('')
+      const ref = createRef<HTMLTextAreaElement>()
+      return (
+        <div className="relative">
+          <textarea ref={ref} data-testid="ta" value={value} onChange={(e) => setValue(e.target.value)} />
+          <MentionAutocomplete value={value} onChange={setValue} textareaRef={ref} disabled />
+        </div>
+      )
+    }
+    render(<DisabledHarness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await new Promise((r) => setTimeout(r, 450))
+    // Even past the debounce window, no listbox should render.
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('ArrowDown / ArrowUp move the active row, Enter inserts it', async () => {
+    mockSearch.mockResolvedValue([
+      user('alice.dosh', 'Alice'),
+      user('alex.smith', 'Alex'),
+      user('alan.jones', 'Alan'),
+    ])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    // Default active index is 0 (first row) — ArrowDown twice moves to row 2.
+    fireEvent.keyDown(ta, { key: 'ArrowDown' })
+    fireEvent.keyDown(ta, { key: 'ArrowDown' })
+    fireEvent.keyDown(ta, { key: 'Enter' })
+    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alan.jones '))
+  })
+
+  it('ArrowDown stops at the last row (no overflow)', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    // 2 results — pressing ArrowDown thrice should clamp at index 1.
+    fireEvent.keyDown(ta, { key: 'ArrowDown' })
+    fireEvent.keyDown(ta, { key: 'ArrowDown' })
+    fireEvent.keyDown(ta, { key: 'ArrowDown' })
+    fireEvent.keyDown(ta, { key: 'Enter' })
+    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alex.smith '))
+  })
+
+  it('ArrowUp clamps at row 0', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.keyDown(ta, { key: 'ArrowUp' })
+    fireEvent.keyDown(ta, { key: 'ArrowUp' })
+    fireEvent.keyDown(ta, { key: 'Enter' })
+    // The active row remains the first option (alice.dosh).
+    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alice.dosh '))
+  })
+
+  it('Escape closes the dropdown', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.keyDown(ta, { key: 'Escape', bubbles: true })
+    // Dropdown closes — no more listbox in the tree.
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull(), { timeout: 2000 })
+  })
+
+  it('typing more after Escape reopens the dropdown', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.keyDown(ta, { key: 'Escape', bubbles: true })
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull(), { timeout: 2000 })
+    // Typing one more char fires the value-watcher effect → reopens.
+    typeIn(ta, '@ali')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 2000 })
+  })
+
+  it('clicking outside closes the dropdown', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(
+      <div>
+        <button data-testid="elsewhere">elsewhere</button>
+        <Harness />
+      </div>,
+    )
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.mouseDown(screen.getByTestId('elsewhere'))
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+  })
+
+  it('row without displayName falls back to @username line only', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', null)])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    // The displayName <p> with class font-medium isn't rendered.
+    expect(screen.queryByText('Alice')).toBeNull()
+  })
+
+  it('shows the "Aucun utilisateur." placeholder when the search returns 0 results', async () => {
+    mockSearch.mockResolvedValue([])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@gh')
+    await waitFor(() => expect(screen.getByText(/Aucun utilisateur/i)).toBeTruthy(), { timeout: 1000 })
+  })
+
+  it('shows "Recherche…" while the search is in flight', async () => {
+    let resolveSearch: ((data: UserPublicResponse[]) => void) | null = null
+    mockSearch.mockImplementation(() => new Promise((res) => { resolveSearch = res }))
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText(/Recherche/i)).toBeTruthy(), { timeout: 1000 })
+    resolveSearch?.([user('alice.dosh', 'Alice')])
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy())
+  })
+
+  it('swallows search errors and renders the empty-state placeholder', async () => {
+    mockSearch.mockRejectedValue(new Error('boom'))
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    // The catch resets results to [] and isLoading to false ; empty state appears.
+    await waitFor(() => expect(screen.getByText(/Aucun utilisateur/i)).toBeTruthy(), { timeout: 1000 })
+  })
+
+  it('hovering a row sets it as the active one (mouseEnter)', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alex.smith')).toBeTruthy(), { timeout: 1000 })
+    // Hover the second row, then press Enter — should insert alex.smith.
+    const aleRow = screen.getByText('@alex.smith').closest('li')!
+    fireEvent.mouseEnter(aleRow)
+    fireEvent.keyDown(ta, { key: 'Enter' })
+    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alex.smith '))
+  })
+
+  it('selecting then continuing within the inserted handle does not reopen the dropdown', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.mouseDown(screen.getByText('@alice.dosh'))
+    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alice.dosh '))
+    // The dropdown closes after selection — value ends with a space, so
+    // detectActiveMention returns null at the caret position past the
+    // inserted handle. waitFor accommodates the rAF that repositions the
+    // caret.
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull(), { timeout: 2000 })
+  })
+
+  it('typing past the inserted handle reopens the dropdown for a new mention', async () => {
+    mockSearch.mockResolvedValue([user('bob.smith', 'Bob')])
+    render(<Harness initial="@bob.smith " />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    // Caret is at end of inserted handle. Add a new mention.
+    typeIn(ta, '@bob.smith hello @al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+  })
+
+  it('Enter without an open mention is a no-op (does not preventDefault)', async () => {
+    mockSearch.mockResolvedValue([])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    // No @ — pressing Enter should pass through without throwing.
+    expect(() => fireEvent.keyDown(ta, { key: 'Enter' })).not.toThrow()
+  })
+
+  it('ignores keyboard events when there are no results', async () => {
+    mockSearch.mockResolvedValue([])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@gh')
+    await waitFor(() => expect(screen.getByText(/Aucun utilisateur/i)).toBeTruthy(), { timeout: 1000 })
+    // ArrowDown / Enter on empty results — guarded by `results.length === 0`.
+    expect(() => {
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'Enter' })
+    }).not.toThrow()
+  })
 })

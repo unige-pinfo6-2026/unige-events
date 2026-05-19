@@ -555,4 +555,117 @@ describe('CommentItem', () => {
     fireEvent.click(screen.getByRole('button', { name: /annuler/i }))
     expect(screen.queryByText('Signaler ce commentaire')).toBeNull()
   })
+
+  // ─── Misc uncovered branches (avatar, delete completion, reply failure) ─
+
+  it('renders the avatar <img> when authorAvatarUrl is set (linked path)', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorAvatarUrl: 'https://example.com/a.png' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const link = screen.getByRole('link', { name: /Voir le profil/i })
+    const img = link.querySelector('img')
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe('https://example.com/a.png')
+  })
+
+  it('renders the avatar <img> when authorAvatarUrl is set (unlinked path)', () => {
+    // authorUsername = null AND authorId = null → no link wrapper, the
+    // avatar lives inside the <div> branch.
+    renderItem(
+      <CommentItem
+        comment={makeComment({
+          authorAvatarUrl: 'https://example.com/a.png',
+          authorUsername: null,
+          authorId: null,
+        })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: /Voir le profil/i })).toBeNull()
+    const img = document.querySelector('img[src="https://example.com/a.png"]')
+    expect(img).toBeTruthy()
+  })
+
+  it('closes the ConfirmDialog and clears deleting state after onDelete resolves', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={onDelete}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /supprimer/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmer/i }))
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
+    // Dialog must disappear after the async delete completes.
+    await waitFor(() => expect(screen.queryByText('Supprimer ce commentaire ?')).toBeNull())
+  })
+
+  it('keeps the reply form open when onReply returns { ok: false }', async () => {
+    const onReply = vi.fn().mockResolvedValue({ ok: false })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={onReply}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /répondre/i }))
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: '@alice.dosh hi' } })
+    // After the form opens there are two "Répondre" buttons — the toggle
+    // in the footer (still visible) AND the submit button inside the
+    // form. The form submit is the LAST one in DOM order.
+    const allRespondreButtons = screen.getAllByRole('button', { name: /répondre/i })
+    fireEvent.click(allRespondreButtons[allRespondreButtons.length - 1])
+    await waitFor(() => expect(onReply).toHaveBeenCalledWith(1, '@alice.dosh hi'))
+    // Form should still be visible (not auto-closed on failure).
+    expect(screen.getByLabelText(/contenu du commentaire/i)).toBeTruthy()
+  })
+
+  it('closes the reply form on successful submit', async () => {
+    const onReply = vi.fn().mockResolvedValue({ ok: true })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={onReply}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /répondre/i }))
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: '@alice.dosh hi' } })
+    // After the form opens there are two "Répondre" buttons — the toggle
+    // in the footer (still visible) AND the submit button inside the
+    // form. The form submit is the LAST one in DOM order.
+    const allRespondreButtons = screen.getAllByRole('button', { name: /répondre/i })
+    fireEvent.click(allRespondreButtons[allRespondreButtons.length - 1])
+    await waitFor(() => expect(screen.queryByLabelText(/contenu du commentaire/i)).toBeNull())
+  })
 })

@@ -142,7 +142,18 @@ export default function MentionAutocomplete({
     const el = textareaRef.current
     if (!el) return
     function handleKeyDown(event: KeyboardEvent) {
-      if (!activeMention || results.length === 0) return
+      if (!activeMention) return
+      // Escape closes the dropdown regardless of result state — it must
+      // work while the search is still in-flight too (the user pressing
+      // Escape to dismiss a loading dropdown is a common UX pattern).
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setIsOpen(false)
+        return
+      }
+      // The other shortcuts move / select a row, so they need a non-empty
+      // results list.
+      if (results.length === 0) return
       if (event.key === 'ArrowDown') {
         event.preventDefault()
         setActiveIndex((prev) => Math.min(prev + 1, results.length - 1))
@@ -154,9 +165,6 @@ export default function MentionAutocomplete({
           event.preventDefault()
           commitSelection(results[activeIndex])
         }
-      } else if (event.key === 'Escape') {
-        event.preventDefault()
-        setIsOpen(false)
       }
     }
     el.addEventListener('keydown', handleKeyDown)
@@ -181,14 +189,18 @@ export default function MentionAutocomplete({
     lastInsertedRef.current = inserted
     setResults([])
     setActiveIndex(-1)
+    // Sync our internal caretPos state immediately so the next activeMention
+    // recompute sees the post-insert caret position (past the trailing space,
+    // which breaks the mention regex → dropdown closes deterministically).
+    // The rAF below handles the DOM side (focus + visual caret) which has to
+    // wait for the parent re-render to commit.
+    setCaretPos(newCaretPos)
     onChange(newValue, newCaretPos)
-    // Restore focus + caret on the textarea after the controlled update flushes.
     requestAnimationFrame(() => {
       const t = textareaRef.current
       if (t) {
         t.focus()
         t.setSelectionRange(newCaretPos, newCaretPos)
-        setCaretPos(newCaretPos)
       }
     })
   }

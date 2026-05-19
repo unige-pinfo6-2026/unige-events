@@ -114,4 +114,39 @@ describe('useReportComment', () => {
     act(() => { resolveReport?.() })
     await waitFor(() => expect(result.current.submitting).toBe(false))
   })
+
+  it('non-AxiosError (plain Error) falls through to the generic retry toast', async () => {
+    // The `err instanceof AxiosError` branch: when the thrown thing isn't an
+    // axios error (e.g. a programming bug in a downstream interceptor), the
+    // hook must not crash and must show the generic retry toast + keep the
+    // modal open.
+    mockReport.mockRejectedValue(new Error('something else'))
+    const { result } = renderHook(() => useReportComment(42))
+
+    let outcome = true
+    await act(async () => {
+      outcome = await result.current.submit({ reason: 'SPAM' })
+    })
+
+    expect(outcome).toBe(false)
+    expect(showToastMock).toHaveBeenCalledWith('error', expect.stringContaining('réessayez'))
+  })
+
+  it('AxiosError without response object falls through to the generic toast', async () => {
+    // Defensive — an AxiosError without a response field (network reset
+    // before headers) should not match either the 409 nor the 422 branch.
+    const err = new AxiosError('reset')
+    // @ts-expect-error explicitly leave response undefined
+    err.response = undefined
+    mockReport.mockRejectedValue(err)
+    const { result } = renderHook(() => useReportComment(42))
+
+    let outcome = true
+    await act(async () => {
+      outcome = await result.current.submit({ reason: 'SPAM' })
+    })
+
+    expect(outcome).toBe(false)
+    expect(showToastMock).toHaveBeenCalledWith('error', expect.stringContaining('réessayez'))
+  })
 })
