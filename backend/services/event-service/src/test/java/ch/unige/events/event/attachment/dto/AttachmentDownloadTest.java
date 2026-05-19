@@ -1,5 +1,6 @@
 package ch.unige.events.event.attachment.dto;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,7 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the {@code byte[]} field by reference (Sonar java:S6218). These tests
  * enforce the value-equality contract so a future refactor cannot
  * silently regress.
+ *
+ * <p>{@code @QuarkusTest} is required — event-service uses
+ * {@code quarkus-jacoco}, which only tracks classes loaded through the
+ * QuarkusClassLoader. A plain JUnit class would execute and pass but
+ * leave the record reporting near-zero coverage in the Sonar new-code
+ * gate.
  */
+@QuarkusTest
 class AttachmentDownloadTest {
 
     private static final byte[] BYTES_A = {0x25, 0x50, 0x44, 0x46}; // %PDF

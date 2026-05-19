@@ -1,6 +1,7 @@
 package ch.unige.events.event.attachment.dto;
 
 import ch.unige.events.event.attachment.entity.EventAttachment;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -16,7 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  * attachments/{id}/download}) so a rename of the resource path can't
  * silently break the frontend (which uses this URL directly as
  * {@code <a href>}).
+ *
+ * <p>{@code @QuarkusTest} is required — event-service uses
+ * {@code quarkus-jacoco}, which only tracks classes loaded through the
+ * QuarkusClassLoader. A plain JUnit class would execute and pass but
+ * leave the DTO reporting near-zero coverage in the Sonar new-code gate.
  */
+@QuarkusTest
 class AttachmentDTOTest {
 
     @Test
