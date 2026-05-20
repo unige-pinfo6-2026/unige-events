@@ -18,9 +18,18 @@ import java.util.Set;
  * magic-number validation in {@link FileStorageService#saveImage} whereas
  * documents do not (cf. Décision S "acceptable risk" rationale).
  *
- * <p>The map size is 4 (PDF / DOC / DOCX / XLSX). The DB CHECK
+ * <p>The map size is 6 (PDF / DOC / DOCX / XLSX / PNG / JPEG — SCRUM-149
+ * front-end follow-up). The DB CHECK
  * {@code event_attachments_mime_check} mirrors this set as the last line
- * of defense (V13 migration).
+ * of defense (V13 migration → V14 widened to include images).
+ *
+ * <p><strong>Note sur les images :</strong> contrairement à
+ * {@link ImageFormat} (avatar/banner) qui valide en plus le magic-number
+ * via {@link FileStorageService#saveImage}, ici on reste sur la voie
+ * {@link FileStorageService#saveFile} (validation header uniquement) —
+ * cohérent avec Décision S "acceptable risk". Un PNG renommé en .pdf
+ * passerait toujours le filtre du document path ; le risque est identique
+ * pour les images ajoutées ici (header only).
  */
 public final class DocumentFormat {
 
@@ -32,7 +41,9 @@ public final class DocumentFormat {
             "application/pdf", ".pdf",
             "application/msword", ".doc",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx",
+            "image/png", ".png",
+            "image/jpeg", ".jpg"
     );
 
     /**

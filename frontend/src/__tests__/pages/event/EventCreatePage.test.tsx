@@ -16,6 +16,11 @@ vi.mock('@/services/coOrganizerApi', () => ({
   inviteCoOrganizer: vi.fn(),
 }))
 
+vi.mock('@/services/attachmentApi', () => ({
+  uploadEventAttachment: vi.fn(),
+  deleteEventAttachment: vi.fn(),
+}))
+
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
   // SCRUM-137 autocomplete — never resolves so the dropdown stays idle ;
@@ -84,6 +89,7 @@ vi.mock('react-router-dom', async () => {
 
 import { createEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 import { inviteCoOrganizer } from '@/services/coOrganizerApi'
+import { uploadEventAttachment } from '@/services/attachmentApi'
 import { getUserByUsername, searchUsernames } from '@/services/userService'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
@@ -91,6 +97,7 @@ const mockCreateEvent = createEvent as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
 const mockInviteCoOrganizer = inviteCoOrganizer as ReturnType<typeof vi.fn>
+const mockUploadEventAttachment = uploadEventAttachment as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockSearchUsernames = searchUsernames as ReturnType<typeof vi.fn>
 
@@ -541,6 +548,96 @@ describe('CreateEventPage', () => {
 
       expect(screen.queryByText(/Pré-rempli depuis l'événement/)).toBeFalsy()
       expect(screen.queryByRole('button', { name: /Effacer le template/i })).toBeFalsy()
+    })
+  })
+
+  describe('pending attachments (SCRUM-149 from create page)', () => {
+    function pickAttachments(files: File[]) {
+      const input = document.querySelector<HTMLInputElement>('#pending-event-attachments-input')
+      if (!input) throw new Error('missing pending attachments input')
+      fireEvent.change(input, { target: { files } })
+    }
+
+    it('stages picked files locally without calling the upload API', () => {
+      renderPage()
+      pickAttachments([
+        new File(['x'], 'doc.pdf', { type: 'application/pdf' }),
+        new File(['y'], 'photo.png', { type: 'image/png' }),
+      ])
+      expect(screen.getByText('doc.pdf')).toBeTruthy()
+      expect(screen.getByText('photo.png')).toBeTruthy()
+      expect(mockUploadEventAttachment).not.toHaveBeenCalled()
+    })
+
+    it('uploads staged files after createEvent succeeds and navigates to detail', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockUploadEventAttachment.mockResolvedValue({
+        id: 1, fileName: 'doc.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/doc.pdf',
+        downloadUrl: '/api/events/42/attachments/1/download',
+        fileSize: 1, mimeType: 'application/pdf',
+        uploadedById: 'u', uploadedAt: '2026-05-18T10:00:00Z',
+      })
+
+      renderPage()
+      fillRequiredFields()
+      pickAttachments([new File(['x'], 'doc.pdf', { type: 'application/pdf' })])
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() => expect(mockCreateEvent).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(mockUploadEventAttachment).toHaveBeenCalledTimes(1))
+      const call = mockUploadEventAttachment.mock.calls[0]
+      expect(call[0]).toBe(42)
+      expect((call[1] as File).name).toBe('doc.pdf')
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
+
+    it('skips client-rejected files when flushing after create', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+
+      renderPage()
+      fillRequiredFields()
+      pickAttachments([
+        new File(['x'], 'logo.svg', { type: 'image/svg+xml' }), // bad mime
+        new File(['y'], 'ok.pdf', { type: 'application/pdf' }),
+      ])
+      mockUploadEventAttachment.mockResolvedValue({
+        id: 7, fileName: 'ok.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/ok.pdf',
+        downloadUrl: '/api/events/42/attachments/7/download',
+        fileSize: 1, mimeType: 'application/pdf',
+        uploadedById: 'u', uploadedAt: '2026-05-18T10:00:00Z',
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() => expect(mockUploadEventAttachment).toHaveBeenCalledTimes(1))
+      expect((mockUploadEventAttachment.mock.calls[0][1] as File).name).toBe('ok.pdf')
+    })
+
+    it('surfaces a per-file toast when an attachment upload fails (but still navigates)', async () => {
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockUploadEventAttachment.mockRejectedValue(new Error('boom'))
+
+      renderPage()
+      fillRequiredFields()
+      pickAttachments([new File(['x'], 'broken.pdf', { type: 'application/pdf' })])
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+      })
+
+      expect(await screen.findByText('Impossible d\'uploader « broken.pdf ».')).toBeTruthy()
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
+
+    it('removes a staged file when the × is clicked', () => {
+      renderPage()
+      pickAttachments([new File(['x'], 'doc.pdf', { type: 'application/pdf' })])
+      expect(screen.getByText('doc.pdf')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Retirer doc.pdf' }))
+      expect(screen.queryByText('doc.pdf')).toBeNull()
     })
   })
 })

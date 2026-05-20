@@ -23,6 +23,7 @@ import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
 import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
 import DuplicateButton from '@/components/event/DuplicateButton'
+import EventDocumentsList from '@/components/event/EventDocumentsList'
 import CommentSection from '@/components/event/CommentSection'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
@@ -541,6 +542,18 @@ export default function EventDetailPage() {
               attendeesHook={attendeesHook}
             />
           </div>
+
+          {/* SCRUM-149 — "Documents" : visible pour tous (auth ET non-auth)
+              dès que l'événement a au moins un fichier joint. Le composant
+              utilise `attachment.downloadUrl` (endpoint same-origin
+              `/api/events/{id}/attachments/{aid}/download`), pas `fileUrl`
+              — ce dernier pointe sur l'endpoint MinIO interne non routable
+              depuis le navigateur (SCRUM-149 follow-up). */}
+          {event.attachments && event.attachments.length > 0 && (
+            <div className="max-lg:order-6">
+              <EventDocumentsList attachments={event.attachments} />
+            </div>
+          )}
 
           {/* Champs additionnels (SCRUM-117) */}
           {(event.websiteUrl || event.contactEmail || event.registrationDeadline || (event.tags && event.tags.length > 0)) && (

@@ -15,9 +15,13 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -137,6 +141,54 @@ public class FileStorageService {
 
     public void deleteObject(String url, String expectedFolder) {
         tryDeleteObject(url, expectedFolder);
+    }
+
+    /**
+     * Streams the bytes of an S3 object identified by its absolute URL —
+     * SCRUM-149 follow-up (force-download endpoint).
+     *
+     * <p>Used by the public download endpoints to proxy the file from
+     * MinIO/S3 through Kong so the browser hits a same-origin URL and
+     * the bucket no longer needs to be reachable from the public internet.
+     *
+     * <p>The URL must start with the configured {@code config.s3Url() + "/" +
+     * config.s3Bucket() + "/"} prefix — anything else is rejected to avoid
+     * proxying arbitrary URLs.
+     *
+     * @param url absolute URL previously returned by {@code saveFile} /
+     *            {@code saveImage} (stored in the owning entity)
+     * @return the object bytes (≤ {@link DocumentFormat#MAX_BYTES} for
+     *         attachments, ≤ banner cap for images — bounded by upload-time
+     *         validation), or {@code null} if the object is gone (404)
+     * @throws WebApplicationException 503 if the storage backend errors
+     */
+    public byte[] downloadObject(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String prefix = config.s3Url() + "/" + config.s3Bucket() + "/";
+        if (!url.startsWith(prefix)) {
+            return null;
+        }
+        String key = url.substring(prefix.length());
+        try {
+            return s3.getObjectAsBytes(GetObjectRequest.builder()
+                    .bucket(config.s3Bucket())
+                    .key(key)
+                    .build()).asByteArray();
+        } catch (NoSuchKeyException e) {
+            Log.warnf("[S3_GET_NOT_FOUND] downloadObject key='%s'", key);
+            return null;
+        } catch (S3Exception | SdkClientException e) {
+            // Narrow catch (Sonar java:S2221) — every failure path of
+            // `s3.getObjectAsBytes` is rooted in one of these two AWS SDK
+            // exception hierarchies (server errors → S3Exception,
+            // client/transport errors → SdkClientException). Anything else
+            // would be a programmer bug worth surfacing.
+            Log.errorf(e, "[S3_GET_FAIL] downloadObject key='%s'", key);
+            throw new WebApplicationException(
+                    "Storage backend unavailable", Response.Status.SERVICE_UNAVAILABLE);
+        }
     }
 
     /**

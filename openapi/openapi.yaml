@@ -919,7 +919,7 @@ components:
         `POST /api/events/{id}/attachments` (un seul attachment uploadé), inline dans
         `Event.attachments` (peuplé uniquement par `GET /events/{id}` — cf. Décision Q).
         Max 10 MiB par fichier, max 5 par event. MIME whitelist : PDF, DOC, DOCX, XLSX.
-      required: [id, fileName, fileUrl, fileSize, mimeType, uploadedById, uploadedAt]
+      required: [id, fileName, fileUrl, downloadUrl, fileSize, mimeType, uploadedById, uploadedAt]
       properties:
         id:
           type: integer
@@ -932,8 +932,20 @@ components:
         fileUrl:
           type: string
           description: |
-            Path S3 absolu du fichier — directement consommable comme URL de
-            téléchargement par le frontend (le bucket est public-read en lecture seule).
+            Path S3 absolu du fichier — utilisé en interne par le backend
+            (cleanup, etc.). **Pas consommable par le navigateur** : l'URL pointe
+            sur l'endpoint MinIO interne (`minio:9000`) qui n'est pas exposé
+            publiquement. Le frontend doit utiliser `downloadUrl` à la place.
+        downloadUrl:
+          type: string
+          description: |
+            URL same-origin à utiliser par le frontend pour télécharger le fichier
+            (SCRUM-149 follow-up). Pointe sur
+            `GET /api/events/{eventId}/attachments/{id}/download` — le backend
+            relit l'objet depuis MinIO puis le streame avec
+            `Content-Disposition: attachment; filename="..."`, ce qui force le
+            téléchargement et contourne le fait que `<a download>` est ignoré
+            sur les URLs cross-origin.
         fileSize:
           type: integer
           format: int64
@@ -947,9 +959,12 @@ components:
             - application/msword
             - application/vnd.openxmlformats-officedocument.wordprocessingml.document
             - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+            - image/png
+            - image/jpeg
           description: |
             MIME type du fichier. Whitelist stricte (validation côté `FileStorageService`
-            + CHECK constraint DB `event_attachments_mime_check`).
+            + CHECK constraint DB `event_attachments_mime_check`). Élargi en SCRUM-149
+            front-end follow-up : PNG et JPEG acceptés en plus des documents (V14 migration).
         uploadedById:
           type: string
           format: uuid
@@ -3513,7 +3528,8 @@ paths:
 
         **Whitelist MIME** : `application/pdf`, `application/msword`,
         `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
-        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+        `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+        `image/png`, `image/jpeg` (PNG/JPEG ajoutés en SCRUM-149 — V14 migration).
 
         **Limites** :
         - `file.size <= 10 MiB` (10 485 760 bytes) — sinon 422 `attachment_invalid_size`.
@@ -3522,7 +3538,9 @@ paths:
         **Rate-limit** : `@PerUserRateLimit(name="events.uploadAttachment", max=10, windowSeconds=60)`.
 
         **Validation MIME** : header uniquement (pas de validation magic-number
-        pour les non-images — Décision S, risque mineur documenté).
+        pour les non-images — Décision S, risque mineur documenté). Les images
+        ajoutées en SCRUM-149 passent par la même voie `saveFile` (pas
+        `saveImage`), donc également sans magic-number — risque homogène.
       operationId: uploadEventAttachment
       x-owner-service: event-service
       tags: [events]
@@ -3648,6 +3666,93 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
           description: Attachment inexistant OU path mismatch (anti-oracle)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /events/{eventId}/attachments/{attachmentId}/download:
+    get:
+      summary: Télécharger un fichier joint (SCRUM-149 follow-up)
+      description: |
+        Public — pas d'authentification requise (les attachments suivent
+        la visibilité de la page détail de l'événement). Le backend relit
+        l'objet depuis MinIO/S3 via `FileStorageService.downloadObject`
+        puis le streame avec :
+
+        - `Content-Type: <mimeType>` du DTO (PDF/DOC/DOCX/XLSX/PNG/JPEG),
+        - `Content-Disposition: attachment; filename="<fileName>"; filename*=UTF-8''<encoded>`
+          → force le navigateur à télécharger au lieu d'afficher inline,
+        - `Cache-Control: private, max-age=300` (cache navigateur 5 min).
+
+        Cet endpoint existe parce que `fileUrl` pointe sur l'endpoint
+        MinIO interne (`minio:9000`) qui n'est pas exposé publiquement,
+        et parce que l'attribut HTML `<a download>` est ignoré sur les
+        URLs cross-origin (spec navigateur). Le frontend doit utiliser
+        `AttachmentDTO.downloadUrl` (qui pointe ici) à la place de
+        `fileUrl`.
+
+        **Anti-oracle 404** : `attachmentId` valide mais appartenant à
+        un autre `eventId` → 404 (path mismatch indissociable d'inexistence).
+        Pareil pour les events en statut `BANNED` (toujours masqué, même
+        aux admins) ou non-`PUBLISHED` quand l'appelant n'est ni admin,
+        ni créateur, ni co-organisateur ACCEPTED — alignement avec la
+        règle de `GET /events/{id}`. Les appelants anonymes ne peuvent
+        télécharger que des fichiers d'events `PUBLISHED`.
+      operationId: downloadEventAttachment
+      tags: [events]
+      security: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Bytes du fichier (binaire)
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/msword:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: |
+            Attachment inexistant, path mismatch (anti-oracle), OU objet S3
+            absent (GCed indépendamment de la row DB).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '503':
+          description: Backend S3 injoignable
           content:
             application/json:
               schema:

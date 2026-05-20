@@ -85,10 +85,12 @@ class FileStorageServiceSaveFileTest {
     @Test
     void saveFile_mimeNotAllowed_throws422(@TempDir Path tmp) throws IOException {
         S3Client s3 = mock(S3Client.class);
-        FileUpload png = upload("image/png", 1024L, tmp, "fake png");
+        // SCRUM-149 — image/png is now in the documents whitelist, so use
+        // an unrelated MIME (zip) to exercise the rejection branch.
+        FileUpload zip = upload("application/zip", 1024L, tmp, "fake zip");
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
-                () -> service(s3).saveFile(png, FOLDER, DocumentFormat.MAX_BYTES,
+                () -> service(s3).saveFile(zip, FOLDER, DocumentFormat.MAX_BYTES,
                         DocumentFormat.MIME_TO_EXTENSION, null));
         assertEquals(422, ex.getResponse().getStatus());
         verify(s3, never()).putObject(any(PutObjectRequest.class),

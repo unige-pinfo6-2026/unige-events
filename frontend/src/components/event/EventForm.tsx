@@ -51,6 +51,14 @@ interface EventFormProps {
    * both `create` and `edit` modes.
    */
   coOrganizersSection?: React.ReactNode
+  /**
+   * Optional slot rendered in place of the "Pièces jointes" coming-soon
+   * block. Provided by `EventEditPage` (live editor talking to the
+   * `/events/{id}/attachments` API) once an event has an ID — SCRUM-149.
+   * Omitted in create mode (no event ID yet), in which case the existing
+   * placeholder is kept.
+   */
+  attachmentsSection?: React.ReactNode
 }
 
 interface DateTimeParts {
@@ -247,6 +255,7 @@ export default function EventForm({
   deleting = false,
   deleteLabel = 'Supprimer',
   coOrganizersSection,
+  attachmentsSection,
 }: Readonly<EventFormProps>) {
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
@@ -583,13 +592,17 @@ export default function EventForm({
           />
         )}
 
-        {/* Pièces jointes — toujours visible */}
-        <ComingSoonBlock icon={Paperclip} label="Pièces jointes (PDF, DOCX, slides…)" sprint="S9">
-          <div className="mt-2 rounded-xl border border-dashed border-border/30 p-4 flex flex-col items-center gap-1.5 text-center">
-            <Paperclip className="w-5 h-5 text-foreground/15" />
-            <span className="text-xs text-foreground/15">Glissez vos fichiers ici ou cliquez pour parcourir</span>
-          </div>
-        </ComingSoonBlock>
+        {/* Pièces jointes — slot live (SCRUM-149) en mode édition une fois
+            l'événement créé ; bloc "à venir" en mode création (pas encore
+            d'ID d'événement à associer aux uploads). */}
+        {attachmentsSection ?? (
+          <ComingSoonBlock icon={Paperclip} label="Pièces jointes (PDF, DOCX, slides…)" sprint="S9">
+            <div className="mt-2 rounded-xl border border-dashed border-border/30 p-4 flex flex-col items-center gap-1.5 text-center">
+              <Paperclip className="w-5 h-5 text-foreground/15" />
+              <span className="text-xs text-foreground/15">Glissez vos fichiers ici ou cliquez pour parcourir</span>
+            </div>
+          </ComingSoonBlock>
+        )}
 
       </div>
 
