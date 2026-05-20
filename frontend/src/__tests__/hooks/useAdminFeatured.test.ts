@@ -105,6 +105,28 @@ describe('useAdminFeatured — search', () => {
     expect(mockSearchEvents).toHaveBeenCalledWith({ q: 'concert', size: 8 })
   })
 
+  it('cancels the pending debounce when query changes before it fires (cleanup line 75)', async () => {
+    vi.useFakeTimers()
+    mockGetFeaturedEvents.mockResolvedValue([])
+    mockSearchEvents.mockResolvedValue([makeEvent(5)])
+
+    const { result } = renderHook(() => useAdminFeatured())
+    await act(async () => { await Promise.resolve() })
+
+    // First query — starts a 350 ms debounce timer
+    act(() => result.current.setSearchQuery('ab'))
+    // Second query before timer fires — cleanup of previous effect clears the timer (line 75)
+    act(() => result.current.setSearchQuery('abc'))
+
+    // Only the 'abc' query should fire when the debounce settles
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledTimes(1)
+    expect(mockSearchEvents).toHaveBeenCalledWith({ q: 'abc', size: 8 })
+    vi.useRealTimers()
+  })
+
   it('sets searchResults to empty when search fails', async () => {
     vi.useFakeTimers()
     mockGetFeaturedEvents.mockResolvedValue([])

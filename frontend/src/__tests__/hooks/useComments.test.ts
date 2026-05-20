@@ -167,4 +167,37 @@ describe('useComments', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toMatch(/charger/i)
   })
+
+  it('post returns { ok: false } when postComment throws (line 92)', async () => {
+    mockGet.mockResolvedValue([])
+    mockPost.mockRejectedValue(new Error('Server error'))
+
+    const { result } = renderHook(() => useComments(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let outcome = { ok: true }
+    await act(async () => {
+      outcome = await result.current.post('Some comment')
+    })
+
+    expect(outcome.ok).toBe(false)
+    expect(result.current.comments).toHaveLength(0)
+  })
+
+  it('postReply returns { ok: false } when postComment throws (line 114)', async () => {
+    mockGet.mockResolvedValue([makeComment(1)])
+    mockPost.mockRejectedValue(new Error('Server error'))
+
+    const { result } = renderHook(() => useComments(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let outcome = { ok: true }
+    await act(async () => {
+      outcome = await result.current.postReply(1, 'Failed reply')
+    })
+
+    expect(outcome.ok).toBe(false)
+    // Original comment list unchanged — no reply injected
+    expect(result.current.comments[0].replies).toHaveLength(0)
+  })
 })
