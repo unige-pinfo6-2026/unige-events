@@ -269,6 +269,17 @@ describe('CoOrganizersEditor', () => {
     await waitFor(() => expect(hook.invite).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000222'))
   })
 
+  it('shows network error message when getUserByUsername throws', async () => {
+    setupHook()
+    mockGetUserByUsername.mockRejectedValue(new Error('Network failure'))
+    render(<CoOrganizersEditor eventId={42} />)
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+    fireEvent.click(screen.getByRole('button', { name: /inviter/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/erreur réseau/i)).toBeTruthy()
+    })
+  })
+
   it('passes the caller handle + accepted co-organizers to excludeUsernames', () => {
     const alice: CoOrganizer = {
       id: 1,
