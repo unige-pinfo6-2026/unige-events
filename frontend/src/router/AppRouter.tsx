@@ -1,4 +1,6 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { setGlobalNavigate } from '@/utils/navigation'
 import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
 import AdminRoute from '@/components/AdminRoute'
@@ -30,6 +32,12 @@ const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
 
 const AppRouter = () => {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    setGlobalNavigate(navigate)
+  }, [navigate])
+
   return (
     <Suspense fallback={<LoadingPage />}>
       <Routes>

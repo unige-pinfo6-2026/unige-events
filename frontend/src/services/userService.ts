@@ -25,7 +25,7 @@ export async function getUserById(id: string): Promise<User | null> {
  */
 export async function getPublicProfile(id: string): Promise<UserPublicResponse | null> {
   try {
-    const response = await api.get<UserPublicResponse>(`/users/${id}`)
+    const response = await api.get<UserPublicResponse>(`/users/${id}`, { skipGlobalRedirect: true })
     return response.data
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 404) {
@@ -49,7 +49,7 @@ export async function getPublicProfile(id: string): Promise<UserPublicResponse |
  */
 export async function getUserByUsername(username: string): Promise<User | null> {
   try {
-    const response = await api.get<User>(`/users/by-username/${encodeURIComponent(username)}`)
+    const response = await api.get<User>(`/users/by-username/${encodeURIComponent(username)}`, { skipGlobalRedirect: true })
     return response.data
   } catch (error) {
     if (error instanceof AxiosError && error.response?.status === 404) {
@@ -109,7 +109,7 @@ export async function searchUsernames(q: string, limit?: number): Promise<UserPu
  */
 export async function checkUsernameAvailable(username: string): Promise<boolean> {
   try {
-    await api.head(`/users/by-username/${encodeURIComponent(username)}`)
+    await api.head(`/users/by-username/${encodeURIComponent(username)}`, { skipGlobalRedirect: true })
     return false // 200 = pris
   } catch (error) {
     if (error instanceof AxiosError && error.response?.status === 404) {

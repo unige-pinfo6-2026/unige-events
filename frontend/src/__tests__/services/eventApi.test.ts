@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { cancelEvent, createEvent, deleteEvent, duplicateEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, publishEvent, restoreEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -211,5 +211,45 @@ describe('eventApi', () => {
     await getOccurrences(42, { page: 1, size: 10 })
 
     expect(mockApiGet).toHaveBeenCalledWith('/events/42/occurrences', { params: { page: 1, size: 10 } })
+  })
+
+  it('duplicateEvent posts to /events/{id}/duplicate and returns the clone', async () => {
+    const clone = { ...sampleEvent, id: 99, title: 'Copie de Forum des associations', status: 'DRAFT' }
+    mockApiPost.mockResolvedValue({ data: clone } as Awaited<ReturnType<typeof api.post>>)
+
+    const result = await duplicateEvent(42)
+
+    expect(mockApiPost).toHaveBeenCalledWith('/events/42/duplicate')
+    expect(result).toEqual(clone)
+  })
+
+  it('cancelEvent patches /events/{id}/cancel and returns the updated event', async () => {
+    const cancelled = { ...sampleEvent, status: 'CANCELLED' }
+    mockApiPatch.mockResolvedValue({ data: cancelled } as Awaited<ReturnType<typeof api.patch>>)
+
+    const result = await cancelEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/cancel')
+    expect(result).toEqual(cancelled)
+  })
+
+  it('restoreEvent patches /events/{id}/restore and returns the updated event', async () => {
+    const restored = { ...sampleEvent, status: 'DRAFT' }
+    mockApiPatch.mockResolvedValue({ data: restored } as Awaited<ReturnType<typeof api.patch>>)
+
+    const result = await restoreEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/restore')
+    expect(result).toEqual(restored)
+  })
+
+  it('publishEvent patches /events/{id}/publish and returns the updated event', async () => {
+    const published = { ...sampleEvent, status: 'PUBLISHED' }
+    mockApiPatch.mockResolvedValue({ data: published } as Awaited<ReturnType<typeof api.patch>>)
+
+    const result = await publishEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/publish')
+    expect(result).toEqual(published)
   })
 })

@@ -29,6 +29,8 @@ import UserBanner from '@/components/user/UserBanner'
 import { useToast } from '@/hooks/useToast'
 import ImageCropper from '@/components/utils/ImageCropper'
 import { useImageCropFlow } from '@/hooks/useImageCropFlow'
+import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
+import { BlobsSubtle } from '@/components/utils/Blobs'
 
 const MAX_BIO_LENGTH = 500
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024
@@ -279,10 +281,13 @@ export default function ProfileEditPage() {
   const previewUser = user ? { ...user, displayName: name, avatarUrl: photoPreview ?? user.avatarUrl, bannerUrl: bannerPreview } : null
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-background border border-border rounded-3xl p-8 max-sm:p-5">
-        <h1 className="text-3xl font-bold text-foreground mb-8">Modifier mon profil</h1>
-
+    <SectionWrapper padding="sm" size="md" background={<BlobsSubtle />}>
+      <SectionHeader
+        align="left"
+        title={<>Modifier <mark>mon profil</mark></>}
+        subtitle="Mettez à jour vos informations personnelles."
+      />
+      <div className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl p-8 max-sm:p-5 border border-border">
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
           {/* Banner */}
@@ -481,7 +486,7 @@ export default function ProfileEditPage() {
           onCancel={bannerCrop.cancelCrop}
         />
       )}
-    </div>
+    </SectionWrapper>
   )
 }
 

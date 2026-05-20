@@ -107,3 +107,8 @@ export async function publishEvent(id: number): Promise<Event> {
   const response = await api.patch<Event>('/events/' + id + '/publish')
   return response.data
 }
+
+export async function duplicateEvent(id: number): Promise<Event> {
+  const response = await api.post<Event>('/events/' + id + '/duplicate')
+  return response.data
+}

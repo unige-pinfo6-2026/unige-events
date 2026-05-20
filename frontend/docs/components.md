@@ -45,6 +45,7 @@
   - `contactEmail` → ancre `mailto:` avec icône `Mail`, mêmes styles `text-link`.
   - `registrationDeadline` → libellé "Inscriptions jusqu'au" + valeur formatée via `formatEventDateTime` avec icône `CalendarClock`.
   - `tags[]` → chips cliquables via `<Link>` vers `/events/search?q=<tag>` (encodage URI côté client via `encodeURIComponent`) avec icône `Tag`. Le backend `/events/search` ne supporte pas de paramètre `tag` dédié ; on réutilise donc la recherche full-text `q` qui matche titre/description/tags. Les chips ne sont **pas** stylées en `text-link` — elles conservent leur look "pill discrète".
+- **Bouton "Dupliquer l'événement"** — visible pour l'organisateur (créateur + co-organisateur ACCEPTED) uniquement quand `event.status !== 'CANCELLED'`. Délégué à `DuplicateButton` (`src/components/event/DuplicateButton.tsx`). Redirige vers `/events/{cloneId}/edit` après succès via `POST /api/events/{id}/duplicate`.
 - **Redirect créateur sur DRAFT** — la page détail d'un brouillon n'a pas de surface fonctionnelle pour son créateur (aucun bouton participer, aucun inscrit à voir). Un `useEffect` qui dépend de `event` et `user` redirige automatiquement vers `/events/:id/edit` avec `{ replace: true }` quand `event.status === 'DRAFT'` et `user.id === event.creatorId`. L'admin (`user.admin === true`) reste sur la page détail (cas modération). Co-organisateur ACCEPTED non couvert dans cette PR — follow-up SCRUM-137 frontend.
 
 ### FavoritesPage
@@ -234,6 +235,22 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Intègre FavoriteButton dans le coin supérieur droit de la bannière.
 - Props optionnelles : `favorited` (booléen, défaut false), `onFavoriteRemove` (callback après retrait).
 - Utilise les icônes Lucide et les variables `bg-background`, `text-foreground`, `border-border`.
+
+### DuplicateButton
+
+- Composant `src/components/event/DuplicateButton.tsx`.
+- Props : `{ eventId: number }`.
+- Appelle `POST /api/events/{id}/duplicate` via `duplicateEvent(eventApi)` ; en cas de succès, affiche un toast et redirige vers `/events/{cloneId}/edit` (formulaire pré-rempli).
+- Affiché uniquement dans la section "Actions organisateur" de `EventDetailPage` (créateur + co-organisateur ACCEPTED), exclusivement quand `event.status !== 'CANCELLED'`.
+- État `loading` désactive le bouton et change le texte en "Duplication…".
+
+### AppErrorBoundary
+
+- Composant `src/components/AppErrorBoundary.tsx`.
+- React class component (`getDerivedStateFromError` + `componentDidCatch`).
+- Encapsule toute l'application dans `App.tsx` — intercepte les erreurs JS inattendues pendant le rendu.
+- Affiche un écran de repli stylisé (Blobs + gradient "Oops" + bouton "Recharger la page" + lien "Retour à l'accueil").
+- Log les erreurs dans `console.error`.
 
 ### FavoriteButton
 
@@ -756,6 +773,7 @@ Wraps les endpoints `SCRUM-138` follow via l'instance axios partagée :
 - `getMyEvents(params)` : liste des événements créés par l'utilisateur authentifié via `GET /api/users/me/events?status=&page=&size=`. Identité dérivée du JWT, tri serveur `createdAt DESC`, tous statuts (DRAFT, PUBLISHED, CANCELLED) retournés par défaut. Consommé par `useMyEvents`.
 - `getFeatured(limit)` : liste curated des événements "À la une" via `GET /events/featured?limit=<n>`. Utilisé par `useFeaturedEvents`.
 - `getOccurrences(parentId, params?)` : `GET /events/{parentId}/occurrences` (SCRUM-151). Retourne la liste triée chronologiquement des occurrences enfants d'un parent récurrent (backend cap dur de 52). Consommé par `useOccurrences`. Pas de pagination exposée côté UI (Décision K).
+- `duplicateEvent(id)` : `POST /events/{id}/duplicate`. Crée un clone DRAFT avec titre prefixé "Copie de …", dates +7 jours et recurrenceRule/parentEventId/shareCode réinitialisés. Retourne le clone. Utilisé par `DuplicateButton`.
 
 ### searchApi.ts
 
