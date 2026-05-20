@@ -14,6 +14,7 @@
 | /profile/:username/following | FollowListPage | fait (SCRUM-142) |
 | /events/search | EventsSearchPage | fait |
 | /calendar | CalendarPage | fait |
+| /feed | FeedPage | fait (S9) |
 | /events/favorites | FavoritesPage | fait |
 | /my-events | MyEventsPage | redirect → /my-events/favorites |
 | /my-events/favorites | MyFavoritesPage | fait |
@@ -550,10 +551,59 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 | `event-stats` | `event-stats.bones.json` | `EventStatsPage` | generate.mjs |
 | `follow-list` | `follow-list.bones.json` | `FollowListPage` (SCRUM-142) | manuel |
 | `notification-panel` | `notification-panel.bones.json` | `NotificationPanel` (SCRUM-80) | manuel |
+| `feed-timeline` | `feed-timeline.bones.json` | `FeedPage` (S9) | manuel |
 
 Pour régénérer les skeletons gérés par le générateur : `npm run skeleton` (depuis `frontend/`).
 
 Pour les skeletons manuels (`profile`, `navbar-user`, `user-identity-*`) : éditer directement le JSON.
+
+---
+
+## Page FeedPage (S9)
+
+`src/pages/feed/FeedPage.tsx` — route `/feed`, publique.
+
+- En-tête avec titre « Fil d'événements » et toggle segmenté « Tous » / « Mes abonnements ».
+- Le bouton « Mes abonnements » est `disabled` (tooltip « Bientôt disponible ») tant que le filtre `followedOnly` n'est pas supporté côté backend.
+- Affiche un `<Skeleton name="feed-timeline">` pendant le chargement initial (quand `groups.length === 0 && loading`).
+- Après chargement, délègue le rendu à `<Timeline groups={groups} />`.
+- Infinite scroll : `IntersectionObserver` sur un sentinel `<div>` en bas de page ; déclenche `loadMore()` dès que le sentinel entre dans le viewport et que `hasMore === true`.
+- État vide : icône `Rss` + message centré.
+- État erreur : `<InfoMessage type="error" />`.
+- Spinner rotatif pendant les pages suivantes (quand `loading && groups.length > 0`).
+
+## Composant Timeline (S9)
+
+`src/components/feed/Timeline.tsx`
+
+- Reçoit `groups: FeedGroup[]` (tableaux groupés par date locale, du plus proche au plus lointain).
+- Trait vertical absolu (`bg-border`, `left-3.5 md:left-5`).
+- Par groupe : marqueur de date (point `bg-accent` + label FR via `Intl.DateTimeFormat('fr-CH', ...)`), suivi des cartes `EventFeedCard`.
+- Labels spéciaux : « Aujourd'hui » si `dateKey === localDateKey(today)`, « Demain » si `dateKey === localDateKey(tomorrow)`, sinon date formatée.
+- Responsive : `pl-11 md:pl-14` pour aligner les cartes sur desktop.
+
+## Composant EventFeedCard (S9)
+
+`src/components/feed/EventFeedCard.tsx`
+
+- Carte large (layout `flex-col md:flex-row`) pour le fil chronologique.
+- Bannière : `h-32 md:h-28`, ratio 16:9 approximatif, via `<EventBanner>`. FavoriteButton en overlay.
+- Infos : titre (`line-clamp-2`), heure de début (`Clock`, format `fr-CH`), lieu (`MapPin`), `FacultyBadge`, `CapacityIndicator`.
+- `CapacityIndicator` : « Complet » (`text-error`) si `availableSpots === 0`, « N place(s) restante(s) » (`text-warning`) si `availableSpots <= 10`, total (`text-foreground/50`) sinon, absent si `capacity` non défini.
+- Clic → `Link` vers `/events/:id`.
+- Glassmorphism : `bg-background/60 backdrop-blur-xl border border-border rounded-2xl`.
+
+## Hook useFeed (S9)
+
+`src/hooks/useFeed.ts`
+
+- Paramètre : `{ followedOnly?: boolean }` (ignoré tant que le backend ne le supporte pas).
+- Appelle `GET /api/events?status=PUBLISHED&endDateFrom=<now>&page=X&size=20` via `eventApi.getAll`.
+- État interne : tableau plat `allEvents` (accumulation page par page) + regroupement côté client.
+- `groupEventsByDate(events)` : groupe par clé `YYYY-MM-DD` locale (date de `startDate` convertie via `parseApiUtcDateTime`). La fusion inter-pages est automatique car on regroupe depuis le tableau complet.
+- `toDateKey(dateString)` : utilitaire exporté — convertit une chaîne ISO API en clé `YYYY-MM-DD` locale.
+- Guard `fetchingRef` pour éviter les doubles appels (React StrictMode + IntersectionObserver).
+- Retourne : `{ groups: FeedGroup[], loading, error, hasMore, loadMore }`.
 
 
 ## Hooks

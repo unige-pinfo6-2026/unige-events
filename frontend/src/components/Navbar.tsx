@@ -11,7 +11,7 @@ import CoOrganizerInvitationsBadge from '@/components/user/CoOrganizerInvitation
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
-import { Calendar, ChevronDown, LayoutDashboard, LayoutGrid, LogOut, Menu, Search, Shield, SquarePlus, Star, Ticket, User, X } from 'lucide-react'
+import { Calendar, ChevronDown, LayoutDashboard, LayoutGrid, LogOut, Menu, Rss, Search, Shield, SquarePlus, Star, Ticket, User, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 // ─── Types & données ──────────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ const navLinks: NavItem[] = [
     ],
   },
   { label: 'Calendrier', to: '/calendar', icon: Calendar },
+  { label: 'Fil', to: '/feed', icon: Rss },
 ]
 
 const actionButtons: NavItem[] = [
