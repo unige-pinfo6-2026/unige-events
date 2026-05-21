@@ -186,22 +186,32 @@ class EventResourceFollowedOnlyTest {
     @Test
     @TestSecurity(user = "auth0|fo-5")
     void followedOnly_combinedWithStatusFilter_appliesBothConditions() {
-        UUID callerUuid    = UUID.randomUUID();
-        UUID followedUser  = UUID.randomUUID();
+        UUID callerUuid   = UUID.randomUUID();
+        UUID followedUser = UUID.randomUUID();
+        UUID otherUser    = UUID.randomUUID();
 
-        createEventAs(followedUser); // creates a DRAFT event
+        long followedDraft = createEventAs(followedUser); // DRAFT, from followed creator
+        createEventAs(otherUser);                          // DRAFT, from non-followed creator
 
         JwtTestContext.set(JwtTestHelper.jwtFor(callerUuid));
         when(userClient.getFollowedIds(callerUuid))
                 .thenReturn(List.of(followedUser));
 
-        // DRAFT events are not visible in the default (no status) listing,
-        // but when status=DRAFT is explicitly requested the filter must hold.
-        // We just verify 200 + the combination is accepted without error.
-        given()
+        JsonPath json = given()
                 .queryParam("followedOnly", "true")
                 .queryParam("status", "DRAFT")
                 .when().get("/events")
-                .then().statusCode(200);
+                .then().statusCode(200)
+                .extract().jsonPath();
+
+        List<Long> ids = json.getList("id", Long.class);
+        assertTrue(ids.contains(followedDraft),
+                "DRAFT event from followed user must be present");
+        // Verify every returned event belongs to followedUser (both filters applied)
+        List<String> creatorIds = json.getList("creatorId", String.class);
+        for (String cid : creatorIds) {
+            assertEquals(followedUser.toString(), cid,
+                    "Only followed user's events must be returned, got creatorId=" + cid);
+        }
     }
 }

@@ -121,4 +121,17 @@ class UserFollowedIdsInternalResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void missingInternalToken_returns404() {
+        if (token().isEmpty()) {
+            return;
+        }
+        // No X-Internal-Token header at all — same 404 anti-oracle as wrong token.
+        given()
+            .queryParam("followerId", UUID.randomUUID().toString())
+            .when().get("/users/_internal-followed-ids")
+            .then()
+            .statusCode(404);
+    }
 }

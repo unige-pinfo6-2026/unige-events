@@ -131,19 +131,24 @@ public interface UserServiceClient {
      * <p>Internal endpoint (cf. internal-endpoints.md entry #11) — not routed
      * by Kong, not in {@code openapi.yaml}. Gated by {@code X-Internal-Token}.
      *
-     * <p>Fallback returns an empty list so that a transient user-service
-     * outage degrades gracefully to "show all events" rather than a 503.
+     * <p>The 404 envelope is shared between "unknown followerId" and "bad
+     * X-Internal-Token" (anti-oracle). A 404 must not be retried nor count
+     * against the circuit breaker — a wrong token is a deployment error that
+     * should surface immediately rather than be silently swallowed by retries.
+     *
+     * <p>Fallback returns an empty list so a genuine transient outage degrades
+     * gracefully to an empty {@code followedOnly} feed rather than a 503.
      */
     @GET
     @Path("/_internal-followed-ids")
-    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
     @Timeout(value = 2, unit = ChronoUnit.SECONDS)
-    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
     @Fallback(fallbackMethod = "getFollowedIdsFallback")
     List<UUID> getFollowedIds(@QueryParam("followerId") UUID followerId);
 
     default List<UUID> getFollowedIdsFallback(UUID followerId) {
-        Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly filter will show empty feed)", followerId);
+        Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly feed will be empty)", followerId);
         return List.of();
     }
 }
