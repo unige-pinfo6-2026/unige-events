@@ -29,6 +29,9 @@ class UserServiceClientFallbackTest {
         @Override public IdProjection getInternalByAuth0Id(String auth0Id) {
             throw new UnsupportedOperationException();
         }
+        @Override public List<UUID> getFollowedIds(UUID followerId) {
+            throw new UnsupportedOperationException();
+        }
         @Override public List<IdProjection> getByUsernames(String csv) {
             throw new UnsupportedOperationException();
         }
@@ -65,6 +68,19 @@ class UserServiceClientFallbackTest {
                 () -> CLIENT.getInternalByAuth0IdFallback("auth0|abc"));
         assertEquals(Response.Status.SERVICE_UNAVAILABLE.getStatusCode(),
                 ex.getResponse().getStatus());
+    }
+
+    @Test
+    void getFollowedIdsFallback_returnsEmptyList() {
+        // Graceful degradation: a transient user-service outage should show
+        // an empty feed rather than a 503 to the browser.
+        List<UUID> fallback = CLIENT.getFollowedIdsFallback(UUID.randomUUID());
+        assertEquals(0, fallback.size());
+    }
+
+    @Test
+    void getFollowedIdsFallback_acceptsNullFollowerIdWithoutNpe() {
+        assertTrue(CLIENT.getFollowedIdsFallback(null).isEmpty());
     }
 
     @Test

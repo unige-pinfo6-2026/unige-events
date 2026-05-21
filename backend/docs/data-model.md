@@ -323,9 +323,10 @@ statut). Pattern aligné sur `EventCoOrganizer.DECLINE`.
 - `Follow.findFollowingOf(UUID, int, int)` — idem côté following.
 - `Follow.findPendingRequestsFor(UUID, int, int)` — inbox des demandes PENDING.
 - `Follow.findAcceptedFollowedIds(UUID followerId): List<UUID>` — projection JPQL
-  directe. **Anticipation SCRUM-168** (filtre `followedOnly` du feed S9) : consommé
-  par `EventService` pour filtrer les events sur les UUIDs suivis. Couvert par un
-  test sentinel dédié dans `FollowServiceCoverageTest`.
+  directe. **Livré SCRUM-168 Sprint 9** (filtre `followedOnly` du feed) : exposé via
+  l'endpoint interne `GET /users/_internal-followed-ids` (cf. `internal-endpoints.md` #11),
+  consommé par event-service pour construire la condition JPQL `e.creatorId IN :followedIds`
+  sur `GET /events?followedOnly=true`.
 - `Follow.countFollowersOf(UUID)`, `Follow.countFollowingOf(UUID)` — compteurs
   ACCEPTED uniquement (PENDING ne compte pas).
 

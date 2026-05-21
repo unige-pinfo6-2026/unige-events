@@ -1,6 +1,47 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-19 (SCRUM-145 — comment mentions + new-comment notifications, phase 3)
+Dernière mise à jour : 2026-05-21 (SCRUM-168 — filtre followedOnly Sprint 9)
+
+---
+
+## 2026-05-21 — SCRUM-168 livré (Sprint 9 — filtre followedOnly sur GET /events)
+
+Branche `feature/s9-events-followed-only`.
+
+### Périmètre
+
+Paramètre `?followedOnly=true` sur `GET /api/events` : retourne uniquement les
+événements créés par les utilisateurs que l'appelant suit (statut ACCEPTED).
+
+### Changements
+
+- **`Follow.findAcceptedFollowedIds(UUID followerId)`** (user-service) : finder statique JPQL
+  retournant la liste des `followedId` ACCEPTED. Anticipé SCRUM-138 Sprint 6, matérialisé ici.
+- **`UserFollowedIdsInternalResource`** (user-service) : endpoint interne
+  `GET /users/_internal-followed-ids?followerId={uuid}` (`@PermitAll` + `@Internal`) —
+  cf. `internal-endpoints.md` entry #11.
+- **`UserServiceClient.getFollowedIds(UUID)`** (shared-domain-dtos) : REST client avec
+  resilience standard (`@Retry` + `@Timeout` + `@CircuitBreaker` + `@Fallback → []`).
+  Dégradation gracieuse : si user-service est indisponible, le feed retourne `[]`
+  (pas de 503 côté browser).
+- **`EventService.getAll(…, List<UUID> followedIds)`** : surcharge 10-args avec condition
+  JPQL `e.creatorId IN :followedIds`. Court-circuit `followedIds != null && isEmpty() → []`.
+  La surcharge 9-args délègue à la nouvelle (null passé → comportement inchangé).
+- **`EventResource.getAll(…, Boolean followedOnly)`** : `@QueryParam("followedOnly")`.
+  Si `true` et anonyme → 401. Si `true` et authentifié → résolution UUID via `CallerIdentity`,
+  appel `userClient.getFollowedIds(callerUuid)`, passage à `EventService.getAll`.
+- **`openapi.yaml`** : paramètre `followedOnly` (boolean, default false) + réponse 401 sur
+  `GET /events`.
+- **Tests** : `EventResourceFollowedOnlyTest` (5 scénarios QuarkusTest) :
+  follows 2 users → their events only ; follows nobody → [] ; anonymous → 401 ;
+  absent → all events ; combined with status filter.
+
+### Docs mises à jour
+
+- `openapi/openapi.yaml`
+- `backend/docs/internal-endpoints.md` (entry #11)
+- `backend/docs/data-model.md` (Follow finders section)
+- `backend/docs/sprint-context.md` (ce fichier)
 
 ---
 
@@ -24,7 +65,7 @@ sur `comments.created` existant). Spec préalable :
   SCRUM-99 (`new IdProjection(uuid)`). Aucun call-site existant n'est
   cassé — `NotificationService.resolveUserId` continue à lire `.id()` seul.
 - **Endpoint interne `GET /users/_internal-by-usernames?usernames=<csv>`**
-  (entry #11 de [`internal-endpoints.md`](internal-endpoints.md)). Slim
+  (entry #12 de [`internal-endpoints.md`](internal-endpoints.md)). Slim
   payload `List<IdProjection> {id, username}`, normalisation lowercase /
   trim / dedup côté serveur, cap silencieux à 50 handles par appel
   (Décision L : anti-DoS, un commentaire de 500 chars contient ≤ ~30

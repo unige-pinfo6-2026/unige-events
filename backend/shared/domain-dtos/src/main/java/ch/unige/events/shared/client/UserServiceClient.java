@@ -124,6 +124,35 @@ public interface UserServiceClient {
     }
 
     /**
+     * Returns the UUIDs of all users that {@code followerId} follows with
+     * status ACCEPTED. Consumed by event-service to implement the
+     * {@code followedOnly} filter on {@code GET /events} (SCRUM-168).
+     *
+     * <p>Internal endpoint (cf. internal-endpoints.md entry #11) — not routed
+     * by Kong, not in {@code openapi.yaml}. Gated by {@code X-Internal-Token}.
+     *
+     * <p>The 404 envelope is shared between "unknown followerId" and "bad
+     * X-Internal-Token" (anti-oracle). A 404 must not be retried nor count
+     * against the circuit breaker — a wrong token is a deployment error that
+     * should surface immediately rather than be silently swallowed by retries.
+     *
+     * <p>Fallback returns an empty list so a genuine transient outage degrades
+     * gracefully to an empty {@code followedOnly} feed rather than a 503.
+     */
+    @GET
+    @Path("/_internal-followed-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getFollowedIdsFallback")
+    List<UUID> getFollowedIds(@QueryParam("followerId") UUID followerId);
+
+    default List<UUID> getFollowedIdsFallback(UUID followerId) {
+        Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly feed will be empty)", followerId);
+        return List.of();
+    }
+
+    /**
      * Batched handle resolution (SCRUM-145). Consumed by notification-service's
      * {@code CommentMentionConsumer} to translate the {@code @<handle>} mentions
      * parsed from a comment into UUIDs in a single network hop. Provider :
