@@ -122,4 +122,28 @@ public interface UserServiceClient {
                 "User identity service unavailable",
                 jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE);
     }
+
+    /**
+     * Returns the UUIDs of all users that {@code followerId} follows with
+     * status ACCEPTED. Consumed by event-service to implement the
+     * {@code followedOnly} filter on {@code GET /events} (SCRUM-168).
+     *
+     * <p>Internal endpoint (cf. internal-endpoints.md entry #11) — not routed
+     * by Kong, not in {@code openapi.yaml}. Gated by {@code X-Internal-Token}.
+     *
+     * <p>Fallback returns an empty list so that a transient user-service
+     * outage degrades gracefully to "show all events" rather than a 503.
+     */
+    @GET
+    @Path("/_internal-followed-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getFollowedIdsFallback")
+    List<UUID> getFollowedIds(@QueryParam("followerId") UUID followerId);
+
+    default List<UUID> getFollowedIdsFallback(UUID followerId) {
+        Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly filter will show empty feed)", followerId);
+        return List.of();
+    }
 }

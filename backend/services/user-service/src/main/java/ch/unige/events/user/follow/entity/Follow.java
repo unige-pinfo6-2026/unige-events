@@ -86,4 +86,18 @@ public class Follow extends PanacheEntity {
     public static long countFollowingOf(UUID followerId) {
         return count("followerId = ?1 and status = ?2", followerId, FollowStatus.ACCEPTED);
     }
+
+    /**
+     * Anticipation SCRUM-168 — retourne les UUIDs des utilisateurs que
+     * {@code followerId} suit avec statut ACCEPTED.
+     * Consommé par l'endpoint interne {@code GET /users/_internal-followed-ids}
+     * pour alimenter le filtre {@code followedOnly} du feed d'événements.
+     */
+    public static List<UUID> findAcceptedFollowedIds(UUID followerId) {
+        return find("followerId = ?1 and status = ?2", followerId, FollowStatus.ACCEPTED)
+                .<Follow>list()
+                .stream()
+                .map(f -> f.followedId)
+                .toList();
+    }
 }
