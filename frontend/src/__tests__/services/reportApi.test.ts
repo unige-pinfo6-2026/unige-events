@@ -9,7 +9,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { reportEvent } from '@/services/reportApi'
+import { reportComment, reportEvent } from '@/services/reportApi'
 
 const mockApiPost = vi.mocked(api.post)
 
@@ -53,6 +53,43 @@ describe('reportApi', () => {
 
     await expect(reportEvent(1, { reason: 'SPAM' })).rejects.toMatchObject({
       response: { status: 409 },
+    })
+  })
+
+  it('reportComment posts to /comments/{id}/report with reason only', async () => {
+    mockApiPost.mockResolvedValue({ data: undefined })
+
+    await reportComment(31, { reason: 'SPAM' })
+
+    expect(mockApiPost).toHaveBeenCalledWith('/comments/31/report', { reason: 'SPAM' })
+  })
+
+  it('reportComment posts reason and description', async () => {
+    mockApiPost.mockResolvedValue({ data: undefined })
+
+    await reportComment(31, { reason: 'INAPPROPRIATE', description: 'Insultes répétées.' })
+
+    expect(mockApiPost).toHaveBeenCalledWith('/comments/31/report', {
+      reason: 'INAPPROPRIATE',
+      description: 'Insultes répétées.',
+    })
+  })
+
+  it('reportComment propagates 409 already-reported', async () => {
+    const error = Object.assign(new Error('Conflict'), { response: { status: 409 } })
+    mockApiPost.mockRejectedValue(error)
+
+    await expect(reportComment(31, { reason: 'SPAM' })).rejects.toMatchObject({
+      response: { status: 409 },
+    })
+  })
+
+  it('reportComment propagates 422 cannot-report-own-comment', async () => {
+    const error = Object.assign(new Error('Unprocessable'), { response: { status: 422 } })
+    mockApiPost.mockRejectedValue(error)
+
+    await expect(reportComment(31, { reason: 'SPAM' })).rejects.toMatchObject({
+      response: { status: 422 },
     })
   })
 })

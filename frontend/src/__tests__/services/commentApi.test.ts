@@ -9,7 +9,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { deleteComment, getEventComments, postComment } from '@/services/commentApi'
+import { deleteComment, getEventComments, likeComment, postComment, unlikeComment } from '@/services/commentApi'
 import type { Comment } from '@/types/comment'
 
 const mockGet = vi.mocked(api.get)
@@ -88,5 +88,39 @@ describe('commentApi', () => {
     await deleteComment(7)
 
     expect(mockDelete).toHaveBeenCalledWith('/comments/7')
+  })
+
+  it('likeComment POSTs to /comments/{id}/like and returns the response body', async () => {
+    mockPost.mockResolvedValue({ data: { liked: true, likeCount: 3 } } as Awaited<ReturnType<typeof api.post>>)
+
+    const result = await likeComment(11)
+
+    expect(mockPost).toHaveBeenCalledWith('/comments/11/like')
+    expect(result).toEqual({ liked: true, likeCount: 3 })
+  })
+
+  it('likeComment handles idempotent 200 (second like by same caller)', async () => {
+    // Backend returns 200 + same count. Service surface is identical to 201.
+    mockPost.mockResolvedValue({ data: { liked: true, likeCount: 3 } } as Awaited<ReturnType<typeof api.post>>)
+
+    const result = await likeComment(11)
+
+    expect(result.liked).toBe(true)
+    expect(result.likeCount).toBe(3)
+  })
+
+  it('unlikeComment DELETEs to /comments/{id}/like', async () => {
+    mockDelete.mockResolvedValue({} as Awaited<ReturnType<typeof api.delete>>)
+
+    await unlikeComment(11)
+
+    expect(mockDelete).toHaveBeenCalledWith('/comments/11/like')
+  })
+
+  it('unlikeComment swallows the response body (idempotent 204)', async () => {
+    // The endpoint returns 204 ; the wrapper resolves to void.
+    mockDelete.mockResolvedValue({ data: undefined } as Awaited<ReturnType<typeof api.delete>>)
+
+    await expect(unlikeComment(11)).resolves.toBeUndefined()
   })
 })

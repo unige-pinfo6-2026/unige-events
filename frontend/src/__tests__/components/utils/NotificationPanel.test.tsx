@@ -30,6 +30,7 @@ function renderPanel(props: Partial<React.ComponentProps<typeof NotificationPane
           loading={false}
           error={null}
           onMarkAllRead={vi.fn()}
+          onMarkOneRead={vi.fn()}
           {...props}
         />
       </ThemeProvider>
@@ -92,11 +93,64 @@ describe('NotificationPanel — item linking', () => {
     expect(link?.textContent).toContain('Linked')
   })
 
-  it('renders a plain div (no Link) when eventId is null', () => {
-    const { container } = renderPanel({ notifications: [notif({ id: 1, eventId: null, type: 'NEW_FOLLOWER', message: 'No event' })] })
+  it('renders a plain div (no Link) when eventId is null and relatedUserId is null', () => {
+    const { container } = renderPanel({ notifications: [notif({ id: 1, eventId: null, relatedUserId: null, type: 'NEW_FOLLOWER', message: 'No target' })] })
 
     expect(container.querySelector('a[href^="/events/"]')).toBeNull()
-    expect(screen.getByText('No event')).toBeTruthy()
+    expect(container.querySelector('a[href^="/profile/"]')).toBeNull()
+    expect(screen.getByText('No target')).toBeTruthy()
+  })
+
+  it('wraps COMMENT_MENTION with a Link that deep-links to /events/{id}#comments', () => {
+    const { container } = renderPanel({
+      notifications: [notif({ id: 1, eventId: 42, type: 'COMMENT_MENTION', message: 'mention' })],
+    })
+    expect(container.querySelector('a[href="/events/42#comments"]')).toBeTruthy()
+  })
+
+  it('wraps NEW_COMMENT with a Link that deep-links to /events/{id}#comments', () => {
+    const { container } = renderPanel({
+      notifications: [notif({ id: 1, eventId: 42, type: 'NEW_COMMENT', message: 'new comment' })],
+    })
+    expect(container.querySelector('a[href="/events/42#comments"]')).toBeTruthy()
+  })
+
+  it('wraps a follow-related notif with a Link to /profile/{relatedUserId} when no eventId', () => {
+    const { container } = renderPanel({
+      notifications: [notif({ id: 1, eventId: null, relatedUserId: 'alice-uuid', type: 'NEW_FOLLOWER', message: 'follow' })],
+    })
+    expect(container.querySelector('a[href="/profile/alice-uuid"]')).toBeTruthy()
+  })
+
+  it('calls onMarkOneRead with the notif id when an unread row is clicked', () => {
+    const onMarkOneRead = vi.fn()
+    const { container } = renderPanel({
+      notifications: [notif({ id: 5, eventId: 42, read: false })],
+      onMarkOneRead,
+    })
+    fireEvent.click(container.querySelector('a[href="/events/42"]')!)
+    expect(onMarkOneRead).toHaveBeenCalledWith(5)
+  })
+
+  it('does NOT call onMarkOneRead when an already-read row is clicked', () => {
+    const onMarkOneRead = vi.fn()
+    const { container } = renderPanel({
+      notifications: [notif({ id: 5, eventId: 42, read: true, readAt: '2026-05-18T08:00:00Z' })],
+      onMarkOneRead,
+    })
+    fireEvent.click(container.querySelector('a[href="/events/42"]')!)
+    expect(onMarkOneRead).not.toHaveBeenCalled()
+  })
+
+  it('renders a button (not a Link) for unactionable rows and still marks them read on click', () => {
+    const onMarkOneRead = vi.fn()
+    renderPanel({
+      notifications: [notif({ id: 9, eventId: null, relatedUserId: null, type: 'FOLLOW_REQUEST', message: 'no target', read: false })],
+      onMarkOneRead,
+    })
+    const btn = screen.getByText('no target').closest('button')!
+    fireEvent.click(btn)
+    expect(onMarkOneRead).toHaveBeenCalledWith(9)
   })
 
   it('uses the notif id as the React key (does not collide on duplicate messages)', () => {

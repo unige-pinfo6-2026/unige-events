@@ -14,8 +14,10 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -112,6 +114,37 @@ public class User extends PanacheEntityBase {
             return Optional.empty();
         }
         return find("username", username.toLowerCase()).firstResultOptional();
+    }
+
+    /**
+     * Batched case-insensitive lookup (SCRUM-145). Used by
+     * {@code GET /users/_internal-by-usernames} to resolve {@code N}
+     * handles to their UUIDs in a single round-trip — avoids the N+1
+     * pattern that would otherwise materialise from notification-service
+     * iterating {@code GET /users/by-username/{u}} once per mention.
+     *
+     * <p>Inputs are lowercased and deduplicated before the {@code IN}
+     * clause ; nulls and blanks are skipped. Missing handles are simply
+     * absent from the result list — the consumer drops them silently
+     * (a comment mentioning {@code @ghost.user} just doesn't produce
+     * a notification, no error). Returns an empty list when no usable
+     * handles remain.
+     */
+    public static List<User> findByUsernames(Collection<String> usernames) {
+        if (usernames == null || usernames.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Locale.ROOT — usernames are ASCII [a-z0-9._-], the server locale
+        // must not influence the lowercasing (Turkish-i bug class).
+        List<String> normalised = usernames.stream()
+                .filter(u -> u != null && !u.isBlank())
+                .map(u -> u.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        if (normalised.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return list("username in ?1", normalised);
     }
 
     /**

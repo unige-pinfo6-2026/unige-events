@@ -29,6 +29,9 @@ class UserServiceClientFallbackTest {
         @Override public IdProjection getInternalByAuth0Id(String auth0Id) {
             throw new UnsupportedOperationException();
         }
+        @Override public List<IdProjection> getByUsernames(String csv) {
+            throw new UnsupportedOperationException();
+        }
     };
 
     @Test
@@ -62,5 +65,22 @@ class UserServiceClientFallbackTest {
                 () -> CLIENT.getInternalByAuth0IdFallback("auth0|abc"));
         assertEquals(Response.Status.SERVICE_UNAVAILABLE.getStatusCode(),
                 ex.getResponse().getStatus());
+    }
+
+    @Test
+    void getByUsernamesFallback_returnsEmptyList() {
+        // SCRUM-145 — mention resolution is best-effort. Crashing the Kafka
+        // consumer on a transient downstream failure would be far worse than
+        // missing a notification, so the fallback degrades to "zero handles
+        // resolved → zero notifications fired".
+        List<IdProjection> fallback = CLIENT.getByUsernamesFallback("alice.dosh,bob.smith");
+        assertTrue(fallback.isEmpty());
+    }
+
+    @Test
+    void getByUsernamesFallback_acceptsNullCsvWithoutNpe() {
+        // Defensive : the log statement reads csv.length() ; the fallback
+        // must guard against null callers (degenerate code path).
+        assertTrue(CLIENT.getByUsernamesFallback(null).isEmpty());
     }
 }

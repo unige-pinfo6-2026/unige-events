@@ -136,6 +136,162 @@ class CommentServiceTest {
         assertEquals(userId, dto.authorId());
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // Mention fan-out (SCRUM-145 follow-lifecycle pattern refactor)
+    // ──────────────────────────────────────────────────────────────────
+
+    @Test
+    void post_withMentions_resolvesHandlesViaUserService() {
+        // Content contains @<handle> → CommentService should call
+        // userClient.getByUsernames so the fan-out has UUIDs to publish.
+        EventDTO ev = event(50L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(50L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString())).thenReturn(java.util.List.of());
+
+        service.post("auth0|test-comment-user", 50L,
+                new CreateCommentRequest("Hi @alice.dosh and @bob.smith", null));
+
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withoutMentions_skipsUserServiceCall() {
+        // No @<handle> in content → no parser hits → no userClient.getByUsernames call.
+        // Saves a downstream hop on the common case.
+        EventDTO ev = event(51L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(51L), any(UUID.class))).thenReturn(ev);
+
+        service.post("auth0|test-comment-user", 51L,
+                new CreateCommentRequest("Just a normal comment", null));
+
+        org.mockito.Mockito.verify(userClient, org.mockito.Mockito.never()).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_userClientThrowsDuringMentionResolve_doesNotFailComment() {
+        // Comment post must remain robust if user-service is degraded —
+        // the caller still gets a successful 201 ; mention notifications
+        // for this delivery are silently lost.
+        EventDTO ev = event(52L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(52L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString()))
+                .thenThrow(new RuntimeException("user-service down"));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 52L,
+                new CreateCommentRequest("Hi @alice.dosh", null));
+        assertNotNull(dto, "the comment post must succeed even when mention resolve fails");
+    }
+
+    @Test
+    void post_withResolvedMentions_happyPath() {
+        // Full happy path : mention is parsed, userClient returns a real UUID,
+        // a non-self target → fan-out should reach the per-target emission
+        // branch. Exercises every line of fanOutMentions including the
+        // authorLabel(...) helper with a real displayName.
+        EventDTO ev = event(53L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(53L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 53L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withSelfMention_skipsFanOut() {
+        // Mention resolves to the comment author's own UUID → producer-side
+        // self-mention filter (locked-in #11) excludes it from the fan-out.
+        // The comment post still succeeds.
+        EventDTO ev = event(54L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(54L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(userId, "myself")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 54L,
+                new CreateCommentRequest("note to self @myself", null));
+
+        assertNotNull(dto);
+    }
+
+    @Test
+    void post_withMentions_resolverReturnsNull_skipped() {
+        // RestClient fallback returns null (degraded mode) — fan-out
+        // short-circuits without firing anything but the comment still
+        // ships.
+        EventDTO ev = event(55L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(55L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString())).thenReturn(null);
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 55L,
+                new CreateCommentRequest("hi @ghost.user", null));
+
+        assertNotNull(dto);
+    }
+
+    @Test
+    void post_withMentions_resolvedProjectionHasNullId_skipped() {
+        // Defense-in-depth : a malformed projection with id=null must not
+        // crash the fan-out, and obviously not produce a row with
+        // mentionedUserId=null downstream.
+        EventDTO ev = event(56L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(56L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(null, "ghost.user")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 56L,
+                new CreateCommentRequest("hi @ghost.user", null));
+
+        assertNotNull(dto);
+    }
+
+    @Test
+    void post_withMentions_authorHasNoDisplayName_usesAtUsername() {
+        // Exercise the second branch of the authorLabel(...) fallback chain
+        // (displayName blank → "@" + username).
+        EventDTO ev = event(57L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(57L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+        // Override the @BeforeEach default so getById returns a profile
+        // with username but no displayName.
+        when(userClient.getById(userId)).thenReturn(new UserPublicResponse(
+                userId, "myself", /* displayName */ null, null, null, null,
+                java.util.List.of(), null, null, false, 0L, 0L, null));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 57L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+    }
+
+    @Test
+    void post_withMentions_authorBothLabelsBlank_usesGenericFallback() {
+        // Third branch of authorLabel : displayName + username both null.
+        EventDTO ev = event(58L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(58L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+        when(userClient.getById(userId)).thenReturn(new UserPublicResponse(
+                userId, /* username */ null, /* displayName */ "  ", null, null, null,
+                java.util.List.of(), null, null, false, 0L, 0L, null));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 58L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+    }
+
     @Test
     void post_trimsContent() {
         EventDTO ev = event(2L, EventStatus.PUBLISHED, creatorId);
