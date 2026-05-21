@@ -4,6 +4,7 @@ import ch.unige.events.shared.error.ApiErrorResponse;
 import ch.unige.events.event.dto.CreateEventRequest;
 import ch.unige.events.event.dto.EventDTO;
 import ch.unige.events.event.dto.UpdateEventRequest;
+import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.Faculty;
@@ -15,6 +16,7 @@ import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -58,6 +60,7 @@ public class EventResource {
 
     @Inject FeaturedService featuredService;
     @Inject CallerIdentity callerIdentity;
+    @Inject @RestClient UserServiceClient userClient;
 
     @Inject
     public EventResource(EventService eventService, SecurityIdentity identity) {
@@ -86,13 +89,27 @@ public class EventResource {
             @QueryParam("faculty") Faculty faculty,
             @QueryParam("facultyNone") Boolean facultyNone,
             @QueryParam("featured") Boolean featured,
-            @QueryParam("ids") List<Long> ids) {
+            @QueryParam("ids") List<Long> ids,
+            @QueryParam("followedOnly") Boolean followedOnly) {
         // Cross-service bulk lookup short-circuit: when ?ids=… is set,
         // ignore other filters and return only the matching events
         // (optionally filtered by status). Used by user-service ICS feed.
         if (ids != null && !ids.isEmpty()) {
             return eventService.findByIds(ids, status);
         }
+
+        // SCRUM-168 — followedOnly=true requires an authenticated caller.
+        List<UUID> followedIds = null;
+        if (Boolean.TRUE.equals(followedOnly)) {
+            if (identity.isAnonymous()) {
+                throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+            }
+            UUID callerUuid = callerIdentity.getUuid();
+            followedIds = (callerUuid != null)
+                    ? userClient.getFollowedIds(callerUuid)
+                    : List.of();
+        }
+
         EventStatus effectiveStatus = status;
         if (organizerId != null) {
             if (effectiveStatus == null) {
@@ -107,7 +124,7 @@ public class EventResource {
                         .build());
             }
         }
-        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone, featured);
+        return eventService.getAll(page, size, effectiveStatus, category, organizerId, endDateFrom, faculty, facultyNone, featured, followedIds);
     }
 
     @POST

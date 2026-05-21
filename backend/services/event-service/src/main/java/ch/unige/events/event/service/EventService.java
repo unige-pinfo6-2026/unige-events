@@ -78,6 +78,22 @@ public class EventService {
     @Transactional
     @SuppressWarnings("java:S107")
     public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone, Boolean featured) {
+        return getAll(page, size, status, category, organizerId, endDateFrom, faculty, facultyNone, featured, null);
+    }
+
+    /**
+     * SCRUM-168 — variante avec filtre {@code followedIds}. Quand {@code followedIds}
+     * est non-null et vide (l'utilisateur ne suit personne), court-circuite avec
+     * une liste vide. Quand non-null et non-vide, ajoute la condition JPQL
+     * {@code e.creatorId IN :followedIds}. Quand null, comportement inchangé.
+     */
+    @Transactional
+    @SuppressWarnings("java:S107")
+    public List<EventDTO> getAll(int page, int size, EventStatus status, EventCategory category, UUID organizerId, LocalDateTime endDateFrom, Faculty faculty, Boolean facultyNone, Boolean featured, List<UUID> followedIds) {
+        if (followedIds != null && followedIds.isEmpty()) {
+            return List.of();
+        }
+
         StringBuilder jpql = new StringBuilder("SELECT e FROM Event e");
         List<String> conditions = new ArrayList<>();
         Map<String, Object> params = new HashMap<>();
@@ -109,6 +125,10 @@ public class EventService {
         }
         if (Boolean.TRUE.equals(featured)) {
             conditions.add("e.featured = true");
+        }
+        if (followedIds != null) {
+            conditions.add("e.creatorId IN :followedIds");
+            params.put("followedIds", followedIds);
         }
 
         if (!conditions.isEmpty()) {

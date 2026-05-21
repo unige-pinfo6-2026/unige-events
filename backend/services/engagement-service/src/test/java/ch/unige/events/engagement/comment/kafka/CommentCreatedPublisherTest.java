@@ -19,7 +19,8 @@ class CommentCreatedPublisherTest {
     @Test
     void send_delegatesToEmitter() {
         CommentCreatedPublisher publisher = new CommentCreatedPublisher(emitter);
-        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null);
+        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null,
+                "x", "Test");
         publisher.send(ev);
         verify(emitter).send(ev);
     }
@@ -28,7 +29,8 @@ class CommentCreatedPublisherTest {
     void send_emitterFails_swallows() {
         CommentCreatedPublisher publisher = new CommentCreatedPublisher(emitter);
         doThrow(new RuntimeException("kafka down")).when(emitter).send(org.mockito.ArgumentMatchers.any(CommentCreatedEvent.class));
-        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null);
+        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null,
+                "x", "Test");
         assertDoesNotThrow(() -> publisher.send(ev));
     }
 }

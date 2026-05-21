@@ -2804,6 +2804,19 @@ paths:
           description: Si true, retourne uniquement les événements actuellement mis en avant (featured=true). Utile pour le dashboard admin.
           schema:
             type: boolean
+        - name: followedOnly
+          in: query
+          description: |
+            SCRUM-168 — filtre du feed d'abonnements.
+            Si `true`, retourne uniquement les événements dont le créateur est suivi
+            (statut ACCEPTED) par l'utilisateur authentifié.
+            - Requiert une authentification : si l'appelant est anonyme → `401`.
+            - Si l'utilisateur ne suit personne → retourne `[]` (pas d'erreur).
+            - Compatible avec tous les autres filtres (`status`, `category`, `endDateFrom`, etc.).
+            - Absent ou `false` → comportement inchangé (tous les événements).
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: Liste des événements (array brut)
@@ -2817,6 +2830,14 @@ paths:
           description: |
             Combinaison de paramètres de requête invalide. Codes d'erreur possibles dans `error` :
             - `organizer_filter_requires_published` : `organizerId` combiné avec un statut non-PUBLISHED.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |
+            Token absent ou invalide. Renvoyé uniquement quand `followedOnly=true` est passé
+            par un appelant non authentifié.
           content:
             application/json:
               schema:

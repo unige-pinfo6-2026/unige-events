@@ -63,6 +63,7 @@ spec:
               create_topic users.follow-requested
               create_topic users.follow-accepted
               create_topic comments.created
+              create_topic comments.mentions
               create_topic co-organizers.invited
               create_topic co-organizers.accepted
               create_topic attendances.created

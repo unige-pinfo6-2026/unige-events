@@ -304,6 +304,57 @@ class EventServiceTest {
         assertTrue(filtered.stream().anyMatch(d -> d.id().equals(e.id)));
     }
 
+    // ---- getAll (followedIds overload — SCRUM-168) ----
+
+    @Test
+    @TestTransaction
+    void getAll_followedIds_empty_shortCircuitsToEmptyList() {
+        persistEvent("e1", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+
+        List<EventDTO> result = service.getAll(0, 100, null, null, null, null, null, null, null, List.of());
+        assertTrue(result.isEmpty(), "Empty followedIds must short-circuit to []");
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_followedIds_nonEmpty_filtersToFollowedCreators() {
+        Event mine  = persistEvent("mine",  EventStatus.PUBLISHED, creatorId);
+        Event other = persistEvent("other", EventStatus.PUBLISHED, otherId);
+        em.flush();
+
+        List<EventDTO> result = service.getAll(0, 100, null, null, null, null, null, null, null, List.of(creatorId));
+        assertTrue(result.stream().anyMatch(e -> e.id().equals(mine.id)),
+                "Event from followed creator must be present");
+        assertFalse(result.stream().anyMatch(e -> e.id().equals(other.id)),
+                "Event from non-followed creator must be absent");
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_followedIds_null_behaviorUnchanged() {
+        Event e = persistEvent("nullcheck", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+
+        List<EventDTO> result = service.getAll(0, 100, null, null, null, null, null, null, null, null);
+        assertTrue(result.stream().anyMatch(d -> d.id().equals(e.id)),
+                "null followedIds must not filter anything");
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_followedIds_combinedWithStatusFilter() {
+        Event pub  = persistEvent("pub",  EventStatus.PUBLISHED, creatorId);
+        Event draf = persistEvent("draf", EventStatus.DRAFT,     creatorId);
+        em.flush();
+
+        List<EventDTO> result = service.getAll(0, 100, EventStatus.PUBLISHED, null, null, null, null, null, null, List.of(creatorId));
+        assertTrue(result.stream().anyMatch(e -> e.id().equals(pub.id)),
+                "PUBLISHED event from followed creator must appear");
+        assertFalse(result.stream().anyMatch(e -> e.id().equals(draf.id)),
+                "DRAFT event must be excluded by status filter");
+    }
+
     // ---- getById ----
 
     @Test

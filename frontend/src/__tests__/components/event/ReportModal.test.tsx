@@ -122,4 +122,35 @@ describe('ReportModal — interactions', () => {
     fireEvent.submit(form)
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  // ─── SCRUM-147 target prop ──────────────────────────────────────────
+
+  it('default target shows the event title', () => {
+    renderModal()
+    expect(screen.getByText('Signaler cet événement')).toBeTruthy()
+  })
+
+  it("target='comment' switches the title to the comment wording", () => {
+    render(
+      <ReportModal
+        target="comment"
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        submitting={false}
+      />,
+    )
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
+  })
+
+  it("target='event' explicitly keeps the event title", () => {
+    render(
+      <ReportModal
+        target="event"
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        submitting={false}
+      />,
+    )
+    expect(screen.getByText('Signaler cet événement')).toBeTruthy()
+  })
 })

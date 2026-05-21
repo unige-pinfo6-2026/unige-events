@@ -932,9 +932,35 @@ Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) �
 
 ### CommentItem
 
-- `src/components/event/CommentItem.tsx` — card commentaire avec avatar, displayName, badge "Organisateur" si `authorIsOrganizer`, contenu, date relative (`formatRelativeDate`), compteur likes (read-only en S8, mutation prévue SCRUM-144).
-- Actions : "Répondre" (toggle un sous-formulaire `CommentForm`), "Supprimer" (visible si user est auteur OR créateur event OR co-org ACCEPTED OR admin — `ConfirmModal` avant), "Signaler" (toast informatif `Bientôt disponible` — cf. Décision B de la spec).
+- `src/components/event/CommentItem.tsx` — card commentaire avec avatar, displayName, badge "Organisateur" si `authorIsOrganizer`, contenu, date relative (`formatRelativeDate`).
+- Actions :
+  - **Like (SCRUM-147)** — icône `Heart` lucide, count rendu uniquement si > 0. Visible pour tous (incluant anonymes, où le bouton est `disabled` + tooltip *"Connectez-vous pour aimer"*). Optimistic toggle + rollback via le hook `useCommentLike`. Idempotent côté backend (200 sur double-like, 204 sur unlike-inexistant).
+  - **Répondre** — toggle un sous-formulaire `CommentForm` pré-rempli par `@<parentAuthorUsername> ` (SCRUM-147 — pinge le parent author par défaut). Cache le bouton sur les replies (depth-1 enforcement) et pour les anonymes.
+  - **Supprimer** — visible si user est auteur OR créateur event OR co-org ACCEPTED OR admin. `ConfirmDialog` avant.
+  - **Signaler (SCRUM-147)** — ouvre `ReportModal` avec `target='comment'` (réutilisation du composant event-report). Caché pour l'auteur lui-même (filet ; backend renvoie 422 cannot_report_own_comment) et pour les anonymes. Le hook `useReportComment` mappe 409 → toast *"déjà signalé"* + close ; 422 → toast spécifique + close ; 5xx → toast retry + modal stays open.
 - Replies imbriquées **max 1 niveau** : un `CommentItem` rend ses replies via `CommentItem` enfants, mais sans bouton "Répondre" sur les enfants (limite SCRUM-139 backend).
+
+### CommentForm (étendu SCRUM-147)
+
+- `src/components/event/CommentForm.tsx` — toujours textarea + counter + submit, ajouts SCRUM-147 :
+  - Nouveau prop optionnel `initialValue?: string` — seed la valeur au mount (utilisé par les replies pour pré-remplir `@<parentAuthorUsername> `). Ignoré après le mount pour ne pas clobber le typing.
+  - Wrap le textarea dans un container `relative` qui héberge le `MentionAutocomplete` inline.
+  - Refforward sur la `Textarea` (FormField.tsx — React 19 `ref` prop) pour permettre à l'autocomplete de lire `selectionStart`.
+
+### MentionAutocomplete (nouveau SCRUM-147)
+
+- `src/components/event/MentionAutocomplete.tsx` — dropdown qui flotte sous un textarea et se déclenche sur `@<prefix>` (≥ 2 chars, debounce 300ms).
+- Props : `value`, `onChange(newValue, newCaretPos)`, `textareaRef: RefObject<HTMLTextAreaElement>`, `disabled?`.
+- Consomme `searchUsernames(prefix, 8)` (le wrapper de `/api/users/search` figé par SCRUM-137). Aucune nouvelle dépendance externe.
+- Navigation clavier ARIA combobox/listbox/option : ↑/↓ pour bouger l'active row, Enter pour insérer la suggestion sélectionnée, Esc pour fermer. Click-outside ferme aussi.
+- À la sélection, remplace `@<typedPrefix>` par `@<username> ` (avec espace final) et repositionne le caret juste après l'espace via `requestAnimationFrame`.
+- Le parser `detectActiveMention(value, caretPos)` vit dans `src/utils/mentions.ts` (pure function, unit-testable hors React) — gère les multi-`@` autour du caret, ignore `email@example.com`, accepte dash + dot dans la handle.
+
+### ReportModal (étendu SCRUM-147)
+
+- `src/components/event/ReportModal.tsx` — modal partagé event + comment.
+- Nouveau prop `target?: 'event' | 'comment'` (default `'event'` pour back-compat). Swap le titre via `TITLES` const map. Le form (Select reason + Textarea description) reste identique aux deux cibles.
+- L'`onSubmit` est typé `(reason, description?) => Promise<void>` — le hook `useReportComment` (ou `useReportEvent` selon la cible) wrappe l'appel API + toast feedback.
 
 ## Hooks SCRUM-137 / SCRUM-146
 
