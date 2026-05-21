@@ -200,4 +200,64 @@ describe('useComments', () => {
     // Original comment list unchanged — no reply injected
     expect(result.current.comments[0].replies).toHaveLength(0)
   })
+
+  // ─── coverage gap fixes ────────────────────────────────────────────────────
+
+  it('loadMore does nothing when hasMore is false (line 78 !hasMore branch)', async () => {
+    // 1 comment < pageSize(20) → hasMore = false
+    mockGet.mockResolvedValue([makeComment(1)])
+    const { result } = renderHook(() => useComments(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.hasMore).toBe(false)
+
+    await act(async () => { await result.current.loadMore() })
+
+    // Only the initial fetch; no second API call.
+    expect(mockGet).toHaveBeenCalledTimes(1)
+  })
+
+  it('loadMore does nothing while loading is true (line 78 loading branch)', async () => {
+    let resolvePage!: (v: ReturnType<typeof makeComment>[]) => void
+    mockGet.mockReturnValueOnce(new Promise((r) => { resolvePage = r }))
+
+    const { result } = renderHook(() => useComments(42))
+    // First page is still pending → loading = true.
+    expect(result.current.loading).toBe(true)
+
+    await act(async () => { await result.current.loadMore() })
+    // Still only the single pending call.
+    expect(mockGet).toHaveBeenCalledTimes(1)
+
+    // Settle the pending fetch to avoid act() leak warnings.
+    await act(async () => { resolvePage([makeComment(1)]) })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('postReply ignores empty / whitespace content (line 103)', async () => {
+    mockGet.mockResolvedValue([makeComment(1)])
+    const { result } = renderHook(() => useComments(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let outcome = { ok: true }
+    await act(async () => { outcome = await result.current.postReply(1, '   ') })
+
+    expect(outcome.ok).toBe(false)
+    expect(mockPost).not.toHaveBeenCalled()
+  })
+
+  it('postReply only injects the reply under the matching parent (lines 107-109 else branch)', async () => {
+    // Two top-level comments: comment 2 hits the `: c` else-branch in prev.map.
+    mockGet.mockResolvedValue([makeComment(1), makeComment(2)])
+    const reply = { ...makeComment(99, 'reply'), parentCommentId: 1 }
+    mockPost.mockResolvedValue(reply)
+
+    const { result } = renderHook(() => useComments(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => { await result.current.postReply(1, 'reply') })
+
+    expect(result.current.comments[0].replies).toEqual([reply])
+    // Comment 2 is unaffected — it went through the `: c` identity branch.
+    expect(result.current.comments[1].replies).toHaveLength(0)
+  })
 })
