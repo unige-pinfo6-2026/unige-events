@@ -32,27 +32,28 @@ describe('EventBanner', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 
-  it('renders an img when bannerUrl is present', () => {
-    render(<EventBanner event={makeEvent({ bannerUrl: 'https://example.com/banner.jpg' })} />)
+  it('renders an img when bannerUrl is present and always keeps gradient as background', () => {
+    const { container } = render(
+      <EventBanner event={makeEvent({ bannerUrl: 'https://example.com/banner.jpg' })} />,
+    )
     const img = document.querySelector('img')
     expect(img).toBeTruthy()
     expect(img?.src).toContain('banner.jpg')
+    // Gradient is always applied so the banner never appears black while the image loads.
+    expect((container.firstChild as HTMLElement).style.background).toContain('linear-gradient')
   })
 
-  it('falls back to gradient when the img fires onError (line 28)', () => {
+  it('hides the img after onError and keeps the gradient visible', () => {
     const { container } = render(
       <EventBanner event={makeEvent({ bannerUrl: 'https://example.com/banner.jpg' })} />,
     )
     const img = document.querySelector('img')!
     expect(img).toBeTruthy()
 
-    // Simulate the browser failing to load the image.
     fireEvent.error(img)
 
-    // Image is no longer shown; the gradient div is now applied.
     expect(document.querySelector('img')).toBeNull()
-    const div = container.firstChild as HTMLElement
-    expect(div.style.background).toContain('linear-gradient')
+    expect((container.firstChild as HTMLElement).style.background).toContain('linear-gradient')
   })
 
   it('applies the className prop to the wrapper', () => {

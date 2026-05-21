@@ -17,7 +17,7 @@ export default function EventBanner({ event, className = '', children }: Readonl
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={showImage ? undefined : { background: `linear-gradient(135deg, ${category.color}55, ${category.color}cc)` }}
+      style={{ background: `linear-gradient(135deg, ${category.color}55, ${category.color}cc)` }}
     >
       {showImage && (
         <img
