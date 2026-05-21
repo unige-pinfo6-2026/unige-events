@@ -67,24 +67,22 @@ export default function EventFeedCard({ event }: Readonly<{ event: Event }>) {
         aria-label={event.title}
       >
         {/* Banner — 128px tall on mobile, 112px on desktop */}
-        <div className="relative shrink-0 md:w-48 h-32 md:h-28">
-          <EventBanner event={event} className="absolute inset-0">
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
+        <EventBanner event={event} className="shrink-0 md:w-48 h-32 md:h-28">
+          <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
 
-            {/* Favorite button */}
-            <div className="absolute top-2 right-2 z-10">
-              <FavoriteButton eventId={event.id} />
-            </div>
+          {/* Favorite button */}
+          <div className="absolute top-2 right-2 z-10">
+            <FavoriteButton eventId={event.id} />
+          </div>
 
-            {/* Category badge */}
-            <span
-              className="absolute bottom-2 left-2 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm"
-              style={{ background: `${category.color}dd` }}
-            >
-              {category.name}
-            </span>
-          </EventBanner>
-        </div>
+          {/* Category badge */}
+          <span
+            className="absolute bottom-2 left-2 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm"
+            style={{ background: `${category.color}dd` }}
+          >
+            {category.name}
+          </span>
+        </EventBanner>
 
         {/* Info */}
         <div className="flex flex-1 flex-col justify-between px-4 py-3 gap-2 min-w-0">
