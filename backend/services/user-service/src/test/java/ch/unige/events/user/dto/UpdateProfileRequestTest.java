@@ -16,10 +16,12 @@ class UpdateProfileRequestTest {
     void canonicalConstructor_populatedFields_keepsAllValues() {
         List<String> interests = List.of("hiking", "music");
         UpdateProfileRequest req = new UpdateProfileRequest(
-            "Alice", Faculty.SCIENCES, "Master", "bio",
+            "Alice", "Alice", "Martin", Faculty.SCIENCES, "Master", "bio",
             interests, "https://avatars/a.png", true);
 
         assertEquals("Alice", req.displayName());
+        assertEquals("Alice", req.firstName());
+        assertEquals("Martin", req.lastName());
         assertEquals(Faculty.SCIENCES, req.faculty());
         assertEquals("Master", req.studyLevel());
         assertEquals("bio", req.bio());
@@ -31,9 +33,11 @@ class UpdateProfileRequestTest {
     @Test
     void canonicalConstructor_allNull_isAllowed() {
         UpdateProfileRequest req = new UpdateProfileRequest(
-            null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null);
 
         assertNull(req.displayName());
+        assertNull(req.firstName());
+        assertNull(req.lastName());
         assertNull(req.faculty());
         assertNull(req.studyLevel());
         assertNull(req.bio());
@@ -45,11 +49,11 @@ class UpdateProfileRequestTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UpdateProfileRequest a = new UpdateProfileRequest(
-            "X", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
+            "X", "X", "Y", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
         UpdateProfileRequest b = new UpdateProfileRequest(
-            "X", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
+            "X", "X", "Y", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
         UpdateProfileRequest c = new UpdateProfileRequest(
-            "Y", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
+            "Y", "X", "Y", Faculty.LETTERS, "s", "b", List.of("i"), "https://a", false);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());

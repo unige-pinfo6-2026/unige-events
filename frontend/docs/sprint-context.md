@@ -1,27 +1,32 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-19 (feature/s7-duplicate-error-handling — bouton Dupliquer + Error Boundaries)
+Dernière mise à jour : 2026-05-21 (feature/s8-duplicate-error-handling — review fix Agon : drop redirects 403/404 + ajout firstName/lastName)
 
-## Sprint 8 — Bouton Dupliquer + gestion globale des erreurs (feature/s7-duplicate-error-handling) — 2026-05-19
+## Sprint 8 — Bouton Dupliquer + AppErrorBoundary + champs profil étendus (feature/s8-duplicate-error-handling) — 2026-05-21
 
 - **`DuplicateButton`** (`src/components/event/DuplicateButton.tsx`) — bouton affiché dans la section "Actions organisateur" de `EventDetailPage` (créateur + co-organisateur ACCEPTED, uniquement quand `status !== 'CANCELLED'`). Appelle `POST /api/events/{id}/duplicate` → redirige vers `/events/{cloneId}/edit` avec un toast succès. Toast erreur si l'API échoue.
 - **`duplicateEvent`** ajouté dans `src/services/eventApi.ts` (`POST /events/{id}/duplicate`).
 - **`AppErrorBoundary`** (`src/components/AppErrorBoundary.tsx`) — Error Boundary React (class component) qui encapsule toute l'application dans `App.tsx`. Écran de repli stylisé (Blobs + "Oops" gradient + boutons Recharger / Retour à l'accueil). Catchs les erreurs JS inattendues pendant le rendu.
-- **Intercepteur Axios 403/404** (`src/services/api.ts`) — response interceptor global qui appelle `globalNavigate('/403')` sur 403 et `globalNavigate('/404')` sur 404. Opt-out via `{ skipGlobalRedirect: true }` sur la requête (utilisé par `getPublicProfile`, `getUserByUsername`, `checkUsernameAvailable` qui gèrent leurs propres 404).
-- **`src/utils/navigation.ts`** — singleton `setGlobalNavigate` / `globalNavigate` permettant d'appeler `useNavigate` depuis hors de l'arbre React (intercepteur Axios). `AppRouter` enregistre le navigate au mount via `useEffect`.
-- **`ProfileEditPage`** (side quest Tailwind) — page `/profile/me/edit` enveloppée dans `SectionWrapper` + `SectionHeader` + `BlobsSubtle` pour aligner le rendu visuel avec le reste des pages privées (style CalendarPage).
+- **`ProfileEditPage`** : nouvelle disposition (`SectionWrapper` + `SectionHeader` + `BlobsSubtle`) **et** trois champs nom désormais éditables séparément — `displayName` (renommé en libellé « Nom affiché »), `firstName` (« Prénom ») et `lastName` (« Nom de famille »). Backend `UpdateProfileRequest` + `UserService.updateMyProfile` étendus de façon symétrique ; schéma OpenAPI mis à jour.
 
-Tests : 1751/1751 frontend verts. Couverture nouveau code :
-- `navigation.ts` : 3 cas (singleton, remplacement, appel).
+### Review fix Agon (2026-05-21)
+
+Retrait de l'intercepteur Axios global qui redirigeait sur `/403` / `/404` : il convertissait n'importe quelle 404 d'API (notamment le polling notification toutes les 30 s) en navigation vers une page erreur, ce qui déroutait l'utilisateur depuis la landing au bout de quelques secondes. Conséquences :
+
+- `src/services/api.ts` : plus de `interceptors.response`, plus d'augmentation `skipGlobalRedirect`.
+- `src/utils/navigation.ts` + test associé : supprimés (plus de consommateur).
+- `AppRouter` : route `/403` supprimée — `ForbiddenPage` reste un composant rendu en place. Le `*` catch-all qui rend `NotFoundPage` est conservé (rendu, pas redirection).
+- `AdminRoute` : rend `<ForbiddenPage />` directement quand `!isAdmin`, plus de `<Navigate to="/403">`.
+- `userService` : les trois opt-outs `skipGlobalRedirect: true` (`getPublicProfile`, `getUserByUsername`, `checkUsernameAvailable`) ne sont plus nécessaires et sont retirés.
+
+Tests : suite frontend toujours verte. Couverture nouveau code :
 - `AppErrorBoundary.tsx` : 4 cas (pas d'erreur / fallback UI / boutons / console.error).
 - `DuplicateButton.tsx` : 5 cas (rendu, succès + navigate, erreur toast, loading state, eventId correct).
-- `api.ts` intercepteur : 4 cas (403 redirect, 404 redirect, 500 non-redirigé, skipGlobalRedirect).
 - `eventApi.ts` `duplicateEvent` : 1 cas (POST + retour clone).
-- Mise à jour assertions `userService.test.ts` pour les 3 fonctions avec `skipGlobalRedirect`.
+- `ProfileEditPage` : 2 cas en plus (pre-fill `firstName`/`lastName` + propagation dans le payload `updateProfile`).
+- `AdminRoute.test.tsx` + `AppRouter.test.tsx` : assertion mise à jour sur le rendu in-place de `ForbiddenPage`.
 
 ---
-
-## Sprint 7 — Cloche notifications + dropdown (SCRUM-80 — feature/s7-notification-bell) — 2026-05-18
 
 ## Sprint 7 — Cloche notifications + dropdown (SCRUM-80 — feature/s7-notification-bell) — 2026-05-18
 

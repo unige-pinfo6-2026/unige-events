@@ -20,7 +20,6 @@ function renderInRouter(initialPath = '/admin') {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/login" element={<h1>Login</h1>} />
-        <Route path="/403" element={<h1>Forbidden</h1>} />
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<h1>Admin Dashboard</h1>} />
         </Route>
@@ -67,7 +66,7 @@ describe('AdminRoute', () => {
     unmount()
   })
 
-  it('redirects to /403 when authenticated but Auth0 claim does not include ADMIN', async () => {
+  it('renders the ForbiddenPage in place when authenticated but Auth0 claim does not include ADMIN', async () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'u1' },
       isAuthenticated: true,
@@ -75,7 +74,7 @@ describe('AdminRoute', () => {
       isLoading: false,
     })
     renderInRouter()
-    expect(await screen.findByRole('heading', { name: 'Forbidden' })).toBeTruthy()
+    expect(await screen.findByText('Accès refusé')).toBeTruthy()
     expect(screen.queryByText('Admin Dashboard')).toBeNull()
   })
 

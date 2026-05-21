@@ -1,6 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { setGlobalNavigate } from '@/utils/navigation'
+import { lazy, Suspense } from 'react'
 import Layout from '@/components/Layout'
 import PrivateRoute from '@/components/PrivateRoute'
 import AdminRoute from '@/components/AdminRoute'
@@ -26,18 +24,11 @@ const MyParticipationsPage = lazy(() => import('@/pages/my-events/MyParticipatio
 const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPage'))
 const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
-const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
 
 const AppRouter = () => {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    setGlobalNavigate(navigate)
-  }, [navigate])
-
   return (
     <Suspense fallback={<LoadingPage />}>
       <Routes>
@@ -92,7 +83,6 @@ const AppRouter = () => {
               </Route>
             </Route>
 
-          <Route path="/403" element={<ForbiddenPage />} />
           <Route path="*" element={<NotFoundPage/>} />
         </Route>
       </Routes>

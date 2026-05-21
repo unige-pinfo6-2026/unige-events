@@ -1,15 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import api from '@/services/api'
-
-const mockGlobalNavigate = vi.fn()
-vi.mock('@/utils/navigation', () => ({
-  globalNavigate: (...args: unknown[]) => mockGlobalNavigate(...args),
-  setGlobalNavigate: vi.fn(),
-}))
 
 afterEach(() => {
   localStorage.clear()
-  mockGlobalNavigate.mockReset()
 })
 
 describe('api client', () => {
@@ -45,46 +38,5 @@ describe('api client', () => {
     })
 
     expect(response.config.headers.Authorization).toBeUndefined()
-  })
-})
-
-describe('api response interceptor', () => {
-  function makeErrorAdapter(status: number) {
-    return async (config: unknown) => {
-      const err = Object.assign(new Error('Request failed'), {
-        isAxiosError: true,
-        response: { status, data: null, headers: {}, config },
-        config,
-      })
-      return Promise.reject(err)
-    }
-  }
-
-  it('calls globalNavigate("/403") on a 403 response', async () => {
-    await expect(
-      api.get('/protected', { adapter: makeErrorAdapter(403) }),
-    ).rejects.toBeDefined()
-    expect(mockGlobalNavigate).toHaveBeenCalledWith('/403')
-  })
-
-  it('calls globalNavigate("/404") on a 404 response', async () => {
-    await expect(
-      api.get('/missing', { adapter: makeErrorAdapter(404) }),
-    ).rejects.toBeDefined()
-    expect(mockGlobalNavigate).toHaveBeenCalledWith('/404')
-  })
-
-  it('does not navigate on a 500 response', async () => {
-    await expect(
-      api.get('/broken', { adapter: makeErrorAdapter(500) }),
-    ).rejects.toBeDefined()
-    expect(mockGlobalNavigate).not.toHaveBeenCalled()
-  })
-
-  it('skips navigation when skipGlobalRedirect is set', async () => {
-    await expect(
-      api.get('/skip', { adapter: makeErrorAdapter(403), skipGlobalRedirect: true }),
-    ).rejects.toBeDefined()
-    expect(mockGlobalNavigate).not.toHaveBeenCalled()
   })
 })

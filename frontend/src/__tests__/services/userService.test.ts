@@ -91,7 +91,7 @@ describe('userService', () => {
 
       const result = await getPublicProfile(profile.id)
 
-      expect(mockApiGet).toHaveBeenCalledWith(`/users/${profile.id}`, { skipGlobalRedirect: true })
+      expect(mockApiGet).toHaveBeenCalledWith(`/users/${profile.id}`)
       expect(result).toEqual(profile)
     })
 
@@ -202,7 +202,7 @@ describe('userService', () => {
       mockApiGet.mockResolvedValue({ data: user })
       const result = await getUserByUsername('jean.dupont')
       expect(result).toEqual(user)
-      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/jean.dupont', { skipGlobalRedirect: true })
+      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/jean.dupont')
     })
 
     it('returns null when the backend responds 404', async () => {
@@ -214,7 +214,7 @@ describe('userService', () => {
     it('encodes the username path segment', async () => {
       mockApiGet.mockResolvedValue({ data: null })
       await getUserByUsername('a.b/c')
-      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/a.b%2Fc', { skipGlobalRedirect: true })
+      expect(mockApiGet).toHaveBeenCalledWith('/users/by-username/a.b%2Fc')
     })
 
     it('rethrows non-404 errors', async () => {
@@ -272,7 +272,7 @@ describe('userService', () => {
       mockApiHead.mockRejectedValue(axios404())
       const result = await checkUsernameAvailable('libre.handle')
       expect(result).toBe(true)
-      expect(mockApiHead).toHaveBeenCalledWith('/users/by-username/libre.handle', { skipGlobalRedirect: true })
+      expect(mockApiHead).toHaveBeenCalledWith('/users/by-username/libre.handle')
     })
 
     it('returns false when HEAD returns 200 (pris)', async () => {

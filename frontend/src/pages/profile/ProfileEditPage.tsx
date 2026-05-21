@@ -67,6 +67,8 @@ export default function ProfileEditPage() {
   const navigate = useNavigate()
 
   const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [username, setUsername] = useState('')
   const [usernameInitial, setUsernameInitial] = useState('')
   const [faculty, setFaculty] = useState('')
@@ -87,6 +89,8 @@ export default function ProfileEditPage() {
   useEffect(() => {
     if (user) {
       setName(user.displayName ?? '')
+      setFirstName(user.firstName ?? '')
+      setLastName(user.lastName ?? '')
       setUsername(user.username)
       setUsernameInitial(user.username)
       setFaculty(user.faculty ?? '')
@@ -260,6 +264,8 @@ export default function ProfileEditPage() {
       else if (bannerDeleted) await deleteBanner()
       const profileData: Partial<User> = {
         displayName: name.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         faculty: faculty as User['faculty'],
         studyLevel: studyLevel as User['studyLevel'],
         bio: bio.trim(),
@@ -361,7 +367,7 @@ export default function ProfileEditPage() {
             />
           </FormField>
 
-          <FormField label="Nom" htmlFor="name" required error={errors.name}>
+          <FormField label="Nom affiché" htmlFor="name" required error={errors.name}>
             <Input
               id="name"
               type="text"
@@ -371,6 +377,28 @@ export default function ProfileEditPage() {
               placeholder="Votre nom complet"
             />
           </FormField>
+
+          <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+            <FormField label="Prénom" htmlFor="firstName">
+              <Input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Votre prénom"
+              />
+            </FormField>
+
+            <FormField label="Nom de famille" htmlFor="lastName">
+              <Input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Votre nom de famille"
+              />
+            </FormField>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             <FormField label="Faculté" htmlFor="faculty">

@@ -113,6 +113,8 @@ public class UserService {
         User user = User.findByAuth0Id(auth0Id).orElseThrow(NotFoundException::new);
 
         if (req.displayName()    != null) user.displayName = req.displayName();
+        if (req.firstName()      != null) user.firstName = req.firstName();
+        if (req.lastName()       != null) user.lastName = req.lastName();
         if (req.faculty()        != null) user.faculty = req.faculty();
         if (req.studyLevel()     != null) user.studyLevel = req.studyLevel();
         if (req.bio()            != null) user.bio = req.bio();
