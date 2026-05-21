@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Flag, MessageSquare, Trash2 } from 'lucide-react'
+import { Flag, Heart, MessageSquare, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '@/utils/formatRelativeTime'
 import { userDisplayLabel, userInitials } from '@/utils/displayName'
-import { useToast } from '@/hooks/useToast'
+import { useCommentLike } from '@/hooks/useCommentLike'
+import { useReportComment } from '@/hooks/useReportComment'
 import CommentForm from '@/components/event/CommentForm'
+import MentionText from '@/components/event/MentionText'
+import ReportModal from '@/components/event/ReportModal'
 import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { Comment } from '@/types/comment'
 
@@ -41,13 +44,28 @@ export default function CommentItem({
 }: Readonly<Props>) {
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const { showToast } = useToast()
 
   const isAuthor = currentUserId !== null && comment.authorId === currentUserId
   const isEventCreator = currentUserId !== null && currentUserId === eventCreatorId
   const canDelete = isAuthor || isEventCreator || isAdmin
   const canReply = !isReply && currentUserId !== null
+  const canLike = currentUserId !== null
+  // SCRUM-147 — l'auteur du commentaire ne peut pas se signaler lui-même
+  // (le backend renvoie 422 cannot_report_own_comment de toute façon).
+  const canReport = currentUserId !== null && !isAuthor
+
+  // SCRUM-147 — optimistic like/unlike. Disabled for anonymous callers ;
+  // the hook is still wired but `toggle()` is gated below.
+  const { liked, likeCount, toggling, toggle } = useCommentLike(
+    comment.id,
+    comment.likedByMe,
+    comment.likeCount,
+  )
+
+  // SCRUM-147 — report flow. Wired through ReportModal (target='comment').
+  const { submitting: reporting, submit: submitReport } = useReportComment(comment.id)
 
   const initials = userInitials(comment.authorDisplayName)
   // SCRUM-169 — label fallback order: displayName -> @username -> UUID prefix.
@@ -79,15 +97,12 @@ export default function CommentItem({
     return outcome
   }
 
-  function handleReport() {
-    // Décision B (spec) : le signalement de commentaire est scope-réduit à un
-    // toast informatif en attendant SCRUM-144. Le projet n'a pas de variant
-    // 'info' pour Toast — on utilise 'error' qui a la sémantique "ce que tu
-    // viens de faire n'a pas marché", la plus proche d'un avertissement.
-    showToast(
-      'error',
-      'Le signalement de commentaire arrive bientôt. En attendant, vous pouvez signaler l\'événement complet.',
-    )
+  // SCRUM-147 — wraps the hook so the modal's `onSubmit` matches the
+  // expected `(reason, description?) => Promise<void>` shape ; the hook
+  // returns a boolean we translate into "close on true, stay on false".
+  async function handleReportSubmit(reason: import('@/types/report').ReportReason, description?: string) {
+    const shouldClose = await submitReport({ reason, description })
+    if (shouldClose) setShowReportModal(false)
   }
 
   return (
@@ -138,9 +153,25 @@ export default function CommentItem({
             </span>
           </header>
           <p className="text-sm text-foreground/80 whitespace-pre-wrap break-words">
-            {comment.content}
+            <MentionText content={comment.content} />
           </p>
           <footer className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+            <button
+              type="button"
+              onClick={() => { if (canLike) void toggle() }}
+              disabled={!canLike || toggling}
+              aria-label={liked ? 'Retirer le like' : 'Aimer ce commentaire'}
+              aria-pressed={liked}
+              title={canLike ? undefined : 'Connectez-vous pour aimer'}
+              className={`inline-flex items-center gap-1 bg-transparent border-0 p-0 transition-colors ${
+                canLike ? 'cursor-pointer' : 'cursor-not-allowed'
+              } ${
+                liked ? 'text-error' : 'text-foreground/50 hover:text-error'
+              } ${toggling ? 'opacity-60' : ''}`}
+            >
+              <Heart className={`w-3 h-3 ${liked ? 'fill-current' : ''}`} />
+              {likeCount > 0 && <span>{likeCount}</span>}
+            </button>
             {canReply && (
               <button
                 type="button"
@@ -161,10 +192,10 @@ export default function CommentItem({
                 Supprimer
               </button>
             )}
-            {!isAuthor && currentUserId !== null && (
+            {canReport && (
               <button
                 type="button"
-                onClick={handleReport}
+                onClick={() => setShowReportModal(true)}
                 className="inline-flex items-center gap-1 text-foreground/40 hover:text-foreground/70 transition-colors bg-transparent border-0 p-0 cursor-pointer"
                 aria-label="Signaler ce commentaire"
               >
@@ -182,6 +213,11 @@ export default function CommentItem({
                 onCancel={() => setShowReplyForm(false)}
                 autoFocus
                 submitLabel="Répondre"
+                // SCRUM-147 — pre-fill `@<parentAuthorUsername> ` so the
+                // reply pings the parent author by default. Fall back to
+                // an empty prefix when authorUsername is missing (orphan
+                // row, hard-deleted user) so the user isn't blocked.
+                initialValue={comment.authorUsername ? `@${comment.authorUsername} ` : ''}
               />
             </div>
           )}
@@ -212,6 +248,14 @@ export default function CommentItem({
           pending={deleting}
           onConfirm={() => { void confirmDelete() }}
           onClose={() => setShowDeleteConfirm(false)}
+        />
+      )}
+      {showReportModal && (
+        <ReportModal
+          target="comment"
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleReportSubmit}
+          submitting={reporting}
         />
       )}
     </li>

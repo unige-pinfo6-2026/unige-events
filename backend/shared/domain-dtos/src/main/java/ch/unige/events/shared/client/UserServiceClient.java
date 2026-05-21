@@ -122,4 +122,71 @@ public interface UserServiceClient {
                 "User identity service unavailable",
                 jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE);
     }
+
+    /**
+     * Returns the UUIDs of all users that {@code followerId} follows with
+     * status ACCEPTED. Consumed by event-service to implement the
+     * {@code followedOnly} filter on {@code GET /events} (SCRUM-168).
+     *
+     * <p>Internal endpoint (cf. internal-endpoints.md entry #11) — not routed
+     * by Kong, not in {@code openapi.yaml}. Gated by {@code X-Internal-Token}.
+     *
+     * <p>The 404 envelope is shared between "unknown followerId" and "bad
+     * X-Internal-Token" (anti-oracle). A 404 must not be retried nor count
+     * against the circuit breaker — a wrong token is a deployment error that
+     * should surface immediately rather than be silently swallowed by retries.
+     *
+     * <p>Fallback returns an empty list so a genuine transient outage degrades
+     * gracefully to an empty {@code followedOnly} feed rather than a 503.
+     */
+    @GET
+    @Path("/_internal-followed-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getFollowedIdsFallback")
+    List<UUID> getFollowedIds(@QueryParam("followerId") UUID followerId);
+
+    default List<UUID> getFollowedIdsFallback(UUID followerId) {
+        Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly feed will be empty)", followerId);
+        return List.of();
+    }
+
+    /**
+     * Batched handle resolution (SCRUM-145). Consumed by notification-service's
+     * {@code CommentMentionConsumer} to translate the {@code @<handle>} mentions
+     * parsed from a comment into UUIDs in a single network hop. Provider :
+     * {@code GET /users/_internal-by-usernames?usernames=<csv>} on user-service,
+     * gated {@code @Internal} (X-Internal-Token). Not in {@code openapi.yaml} ;
+     * documented in {@code backend/docs/internal-endpoints.md}.
+     *
+     * <p>Inputs : a comma-separated string of handles. The caller is expected
+     * to do the joining (e.g. {@code String.join(",", handles)}) so the wire
+     * shape stays predictable and aligned with the server-side parsing in
+     * {@link ch.unige.events.shared.client.UserServiceClient#getByUsernames(String)}'s
+     * provider. The server normalises (lowercase / trim / dedup) and caps the
+     * list at 50 entries silently.
+     *
+     * <p>Resilience : transient downstream failures must <em>not</em> crash the
+     * Kafka consumer or trip its channel — a missed mention is acceptable, a
+     * dead consumer is not. The {@link #getByUsernamesFallback fallback} returns
+     * an empty list with a WARN log so the consumer simply emits zero
+     * notifications and moves on. {@link NotFoundException} should never happen
+     * here (the endpoint always returns 200 with the resolved subset), but the
+     * retry / circuit-breaker skipOn keeps the fault-tolerance posture
+     * conservative in line with the rest of this interface.
+     */
+    @GET
+    @Path("/_internal-by-usernames")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getByUsernamesFallback")
+    List<IdProjection> getByUsernames(@QueryParam("usernames") String csv);
+
+    default List<IdProjection> getByUsernamesFallback(String csv) {
+        Log.warnf("[REST_FALLBACK_user-service] getByUsernames(csvLen=%d) — returning empty list (downstream unavailable, mention notifications will be skipped this delivery)",
+                csv == null ? 0 : csv.length());
+        return List.of();
+    }
 }

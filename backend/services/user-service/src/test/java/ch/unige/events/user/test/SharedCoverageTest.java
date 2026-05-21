@@ -149,7 +149,8 @@ class SharedCoverageTest {
         FollowLifecycleEvent fl3 = FollowLifecycleEvent.followAccepted(actor, actor);
         assertEquals(FollowLifecycleEvent.Type.ACCEPTED, fl3.type());
 
-        CommentCreatedEvent ce = CommentCreatedEvent.created(1L, 2L, actor, null);
+        CommentCreatedEvent ce = CommentCreatedEvent.created(1L, 2L, actor, null,
+                "hi", "Event title");
         assertEquals(1L, ce.commentId());
 
         EventLifecycleEvent ele = EventLifecycleEvent.published(1L, actor);

@@ -73,4 +73,69 @@ describe('CommentForm', () => {
     render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting={false} />)
     expect(screen.getByText(/500 caractères restants/)).toBeTruthy()
   })
+
+  // ─── SCRUM-147 extensions ──────────────────────────────────────────
+
+  it('seeds the textarea with initialValue on mount (SCRUM-147 reply prefix)', () => {
+    render(
+      <CommentForm
+        onSubmit={vi.fn().mockResolvedValue({ ok: true })}
+        submitting={false}
+        initialValue="@alice.dosh "
+      />,
+    )
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    expect(input.value).toBe('@alice.dosh ')
+  })
+
+  it('focuses the textarea and places caret at end of initialValue when autoFocus', () => {
+    render(
+      <CommentForm
+        onSubmit={vi.fn().mockResolvedValue({ ok: true })}
+        submitting={false}
+        autoFocus
+        initialValue="@alice.dosh "
+      />,
+    )
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    expect(document.activeElement).toBe(input)
+    expect(input.selectionStart).toBe(12)
+    expect(input.selectionEnd).toBe(12)
+  })
+
+  it('uses the singular wording when exactly 1 char remains', () => {
+    render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting={false} />)
+    const input = screen.getByLabelText(/contenu du commentaire/i)
+    fireEvent.change(input, { target: { value: 'a'.repeat(499) } })
+    expect(screen.getByText(/^1 caractère restant$/)).toBeTruthy()
+  })
+
+  it('disables submit and styles the counter as error when over the 500-char cap', () => {
+    render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting={false} />)
+    const input = screen.getByLabelText(/contenu du commentaire/i)
+    // maxLength on the textarea is 501 (cap+1) so the change can land then
+    // the in-code guard blocks the submit.
+    fireEvent.change(input, { target: { value: 'a'.repeat(501) } })
+    const btn = screen.getByRole('button', { name: /publier/i })
+    expect(btn.hasAttribute('disabled')).toBe(true)
+    // The counter element should be the error-styled one.
+    expect(screen.getByText(/-1 caractère restant/i)).toBeTruthy()
+  })
+
+  it('honours submitLabel prop (e.g. "Répondre")', () => {
+    render(
+      <CommentForm
+        onSubmit={vi.fn().mockResolvedValue({ ok: true })}
+        submitting={false}
+        submitLabel="Répondre"
+      />,
+    )
+    expect(screen.getByRole('button', { name: /répondre/i })).toBeTruthy()
+  })
+
+  it('disables the textarea while submitting', () => {
+    render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting />)
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    expect(input.disabled).toBe(true)
+  })
 })

@@ -108,6 +108,50 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v5
 
+      # Self-heal stuck Helm release before upgrading.
+      #
+      # When a previous deploy run is interrupted (eg. cancelled mid-upgrade,
+      # or two PR-title-edits race the same concurrency group), the release
+      # gets left in a `pending-*` status. Every subsequent `helm upgrade
+      # --install` then bails out immediately with "another operation
+      # (install/upgrade/rollback) is in progress" — there is no way for
+      # the workflow to make progress without manual cluster intervention.
+      #
+      # This step detects the stuck state by reading `helm status` and
+      # either rolls back to the last successfully-deployed revision (if
+      # any exists) or removes the release entirely so the next
+      # `helm upgrade --install` can install fresh. Both branches are
+      # safe : rollback restores the prior good state, uninstall only
+      # runs when there's no prior good state to restore to.
+      - name: Clear stuck Helm release (self-heal)
+        run: |
+          set +e
+          status=$(helm status "${{ env.PR_NAMESPACE }}" \
+                     --namespace "${{ env.PR_NAMESPACE }}" \
+                     --output json 2>/dev/null \
+                   | jq -r '.info.status // "absent"')
+          echo "Current helm release status: $status"
+          case "$status" in
+            pending-install|pending-upgrade|pending-rollback)
+              echo "::warning::Detected stuck helm release '${{ env.PR_NAMESPACE }}' in $status — clearing before upgrade"
+              # Try a rollback first ; if there's no previous revision,
+              # uninstall entirely so the next step can fresh-install.
+              if ! helm rollback "${{ env.PR_NAMESPACE }}" \
+                     --namespace "${{ env.PR_NAMESPACE }}" \
+                     --wait --timeout 2m ; then
+                echo "Rollback failed — uninstalling stuck release"
+                helm uninstall "${{ env.PR_NAMESPACE }}" \
+                  --namespace "${{ env.PR_NAMESPACE }}" \
+                  --wait --timeout 2m
+              fi
+              ;;
+            *)
+              echo "Release is in a clean state ($status) — proceeding"
+              ;;
+          esac
+          # Always exit 0 — the next step is the authoritative deploy.
+          exit 0
+
       - name: Deploy
         run: |
           helm upgrade --install ${{ env.PR_NAMESPACE }} ./k8s/chart \

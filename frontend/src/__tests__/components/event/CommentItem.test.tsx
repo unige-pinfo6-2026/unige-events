@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 
@@ -8,8 +8,21 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: showToastMock }),
 }))
 
+vi.mock('@/services/commentApi', async () => {
+  const actual = await vi.importActual<typeof import('@/services/commentApi')>('@/services/commentApi')
+  return {
+    ...actual,
+    likeComment: vi.fn().mockResolvedValue({ liked: true, likeCount: 1 }),
+    unlikeComment: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
 import CommentItem from '@/components/event/CommentItem'
+import { likeComment, unlikeComment } from '@/services/commentApi'
 import type { Comment } from '@/types/comment'
+
+const mockLike = vi.mocked(likeComment)
+const mockUnlike = vi.mocked(unlikeComment)
 
 function renderItem(ui: ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>)
@@ -38,7 +51,13 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-beforeEach(() => showToastMock.mockReset())
+beforeEach(() => {
+  showToastMock.mockReset()
+  mockLike.mockReset()
+  mockUnlike.mockReset()
+  mockLike.mockResolvedValue({ liked: true, likeCount: 1 })
+  mockUnlike.mockResolvedValue(undefined)
+})
 
 describe('CommentItem', () => {
   it('renders content + displayName', () => {
@@ -224,7 +243,8 @@ describe('CommentItem', () => {
     expect(screen.getByLabelText(/contenu du commentaire/i)).toBeTruthy()
   })
 
-  it('shows informational toast when Signaler is clicked (Décision B)', () => {
+  it('clicking Signaler opens the ReportModal with target=comment (SCRUM-147)', () => {
+    // Replaces the pre-SCRUM-147 placeholder that showed an informational toast.
     renderItem(
       <CommentItem
         comment={makeComment({ authorId: 'someone-else' })}
@@ -237,8 +257,7 @@ describe('CommentItem', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
-    expect(showToastMock).toHaveBeenCalled()
-    expect(showToastMock.mock.calls[0][1]).toMatch(/bientôt/i)
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
   })
 
   it('renders replies recursively', () => {
@@ -354,5 +373,299 @@ describe('CommentItem', () => {
     )
     expect(screen.queryByRole('link', { name: /Anon/i })).toBeNull()
     expect(screen.getByText('Anon')).toBeTruthy()
+  })
+
+  // ─── SCRUM-147 like button ──────────────────────────────────────────
+
+  it('renders the like button for every visitor including anonymous (disabled)', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 4, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId={null}
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    expect(btn).toBeTruthy()
+    expect((btn as HTMLButtonElement).disabled).toBe(true)
+    expect(btn.getAttribute('title')).toBe('Connectez-vous pour aimer')
+    expect(screen.getByText('4')).toBeTruthy()
+  })
+
+  it('shows aria-label Retirer le like when liked and renders count', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 3, likedByMe: true })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Retirer le like/i })
+    expect(btn.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('3')).toBeTruthy()
+  })
+
+  it('hides the count when likeCount is 0', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 0, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByText('0')).toBeNull()
+  })
+
+  it('toggle optimistic flip then resolves on 2xx', async () => {
+    mockLike.mockResolvedValue({ liked: true, likeCount: 6 })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 5, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    fireEvent.click(btn)
+    // Optimistic — flips immediately, count goes to 6
+    await waitFor(() => expect(screen.getByText('6')).toBeTruthy())
+    expect(mockLike).toHaveBeenCalledWith(1)
+  })
+
+  it('rolls back the optimistic flip when the like API errors', async () => {
+    mockLike.mockRejectedValue(new Error('boom'))
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 5, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    fireEvent.click(btn)
+    // Eventually rolls back to 5 + shows error toast
+    await waitFor(() => expect(showToastMock).toHaveBeenCalledWith('error', expect.any(String)))
+    expect(screen.getByText('5')).toBeTruthy()
+  })
+
+  // ─── SCRUM-147 reply prefix ─────────────────────────────────────────
+
+  it('clicking Répondre pre-fills the form with @parentAuthorUsername + space', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const replyBtn = screen.getByRole('button', { name: /Répondre/i })
+    fireEvent.click(replyBtn)
+    // The reply form now has a textarea with the prefilled prefix.
+    const textarea = screen.getByRole('textbox', { name: /Contenu du commentaire/i }) as HTMLTextAreaElement
+    expect(textarea.value).toBe('@alice.dosh ')
+  })
+
+  it('falls back to an empty form when parent authorUsername is null', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: null, authorDisplayName: 'Bob' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Répondre/i }))
+    const textarea = screen.getByRole('textbox', { name: /Contenu du commentaire/i }) as HTMLTextAreaElement
+    expect(textarea.value).toBe('')
+  })
+
+  // ─── SCRUM-147 report flow ──────────────────────────────────────────
+
+  it('hides the Signaler button for the comment author', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /signaler/i })).toBeNull()
+  })
+
+  it('hides the Signaler button for anonymous visitors', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId={null}
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /signaler/i })).toBeNull()
+  })
+
+  it('closes the ReportModal on Annuler', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /annuler/i }))
+    expect(screen.queryByText('Signaler ce commentaire')).toBeNull()
+  })
+
+  // ─── Misc uncovered branches (avatar, delete completion, reply failure) ─
+
+  it('renders the avatar <img> when authorAvatarUrl is set (linked path)', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorAvatarUrl: 'https://example.com/a.png' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const link = screen.getByRole('link', { name: /Voir le profil/i })
+    const img = link.querySelector('img')
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe('https://example.com/a.png')
+  })
+
+  it('renders the avatar <img> when authorAvatarUrl is set (unlinked path)', () => {
+    // authorUsername = null AND authorId = null → no link wrapper, the
+    // avatar lives inside the <div> branch.
+    renderItem(
+      <CommentItem
+        comment={makeComment({
+          authorAvatarUrl: 'https://example.com/a.png',
+          authorUsername: null,
+          authorId: null,
+        })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: /Voir le profil/i })).toBeNull()
+    const img = document.querySelector('img[src="https://example.com/a.png"]')
+    expect(img).toBeTruthy()
+  })
+
+  it('closes the ConfirmDialog and clears deleting state after onDelete resolves', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined)
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'me' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={onDelete}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /supprimer/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmer/i }))
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1))
+    // Dialog must disappear after the async delete completes.
+    await waitFor(() => expect(screen.queryByText('Supprimer ce commentaire ?')).toBeNull())
+  })
+
+  it('keeps the reply form open when onReply returns { ok: false }', async () => {
+    const onReply = vi.fn().mockResolvedValue({ ok: false })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={onReply}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /répondre/i }))
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: '@alice.dosh hi' } })
+    // After the form opens there are two "Répondre" buttons — the toggle
+    // in the footer (still visible) AND the submit button inside the
+    // form. The form submit is the LAST one in DOM order.
+    const allRespondreButtons = screen.getAllByRole('button', { name: /répondre/i })
+    fireEvent.click(allRespondreButtons[allRespondreButtons.length - 1])
+    await waitFor(() => expect(onReply).toHaveBeenCalledWith(1, '@alice.dosh hi'))
+    // Form should still be visible (not auto-closed on failure).
+    expect(screen.getByLabelText(/contenu du commentaire/i)).toBeTruthy()
+  })
+
+  it('closes the reply form on successful submit', async () => {
+    const onReply = vi.fn().mockResolvedValue({ ok: true })
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorUsername: 'alice.dosh' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={onReply}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /répondre/i }))
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+    fireEvent.change(input, { target: { value: '@alice.dosh hi' } })
+    // After the form opens there are two "Répondre" buttons — the toggle
+    // in the footer (still visible) AND the submit button inside the
+    // form. The form submit is the LAST one in DOM order.
+    const allRespondreButtons = screen.getAllByRole('button', { name: /répondre/i })
+    fireEvent.click(allRespondreButtons[allRespondreButtons.length - 1])
+    await waitFor(() => expect(screen.queryByLabelText(/contenu du commentaire/i)).toBeNull())
   })
 })
