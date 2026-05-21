@@ -5,7 +5,7 @@ cloudflared:
 image:
   registry: ghcr.io
   org: unige-pinfo6-2026
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
   tag: latest
   web:
     name: unige-events-web

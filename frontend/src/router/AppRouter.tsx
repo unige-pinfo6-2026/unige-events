@@ -25,6 +25,7 @@ const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPa
 const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
+const FeedPage = lazy(() => import('@/pages/feed/FeedPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
 
@@ -47,6 +48,10 @@ const AppRouter = () => {
 
             <Route path="/calendar">
               <Route index element={<CalendarPage />} />
+            </Route>
+
+            <Route path="/feed">
+              <Route index element={<FeedPage />} />
             </Route>
 
             <Route path="/legal">

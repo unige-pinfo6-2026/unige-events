@@ -360,6 +360,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | `co-organizer-invitations` | `co-organizer-invitations.bones.json` | `CoOrganizerInvitationsList` (SCRUM-137) | manuel |
 | `follow-list` | `follow-list.bones.json` | `FollowListPage` (SCRUM-142) | manuel |
 | `notification-panel` | `notification-panel.bones.json` | `NotificationPanel` (SCRUM-80) | manuel |
+| `feed-timeline` | `feed-timeline.bones.json` | `FeedPage` (S9) | manuel |
 
 ---
 

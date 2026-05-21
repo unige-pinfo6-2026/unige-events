@@ -56,7 +56,7 @@ jobs:
 
       - name: Deploy
         run: |
-          helm upgrade --install ${{ env.NAMESPACE }} ./k8s/chart \
+          helm upgrade --install ${{ env.NAMESPACE }} ./helm \
             --namespace ${{ env.NAMESPACE }} \
             --create-namespace \
             --set image.tag="${{ github.sha }}" \
@@ -154,10 +154,10 @@ jobs:
 
       - name: Deploy
         run: |
-          helm upgrade --install ${{ env.PR_NAMESPACE }} ./k8s/chart \
+          helm upgrade --install ${{ env.PR_NAMESPACE }} ./helm \
             --namespace ${{ env.PR_NAMESPACE }} \
             --create-namespace \
-            -f k8s/chart/values-preview.yaml \
+            -f helm/values-preview.yaml \
             --set ingress.host="${{ env.PR_HOST }}" \
             --set image.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \

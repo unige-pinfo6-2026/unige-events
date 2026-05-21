@@ -206,6 +206,67 @@ describe('UsernameAutocomplete (SCRUM-137)', () => {
     expect(mockSearchUsernames).toHaveBeenCalledTimes(2)
   })
 
+  it('shows error message when searchUsernames rejects (lines 136-138)', async () => {
+    mockSearchUsernames.mockRejectedValue(new Error('Network failure'))
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+    expect(screen.getByText('Erreur lors de la recherche.')).toBeTruthy()
+  })
+
+  it('navigates up with ArrowUp including clamp at index 0 (lines 180-181)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+
+    // Navigate to index 1 via ArrowDown x2
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    // ArrowUp back to 0
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+    // ArrowUp at 0 → clamped to 0 (prev <= 0 branch)
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+
+    const items = screen.getAllByRole('option')
+    expect(items[0].getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('re-opens dropdown on focus when query is already long enough (lines 200-201)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+
+    // Type a query and wait for results
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(0)
+
+    // Close via Escape
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+
+    // Re-focus — handleFocus fires → setIsOpen(true) because debounced >= MIN_QUERY_LENGTH
+    fireEvent.focus(input)
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(0)
+  })
+
+  it('highlights a result on mouseEnter (line 267)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+
+    const items = screen.getAllByRole('option')
+    // Hovering the second item sets activeIndex to 1 → aria-selected true
+    fireEvent.mouseEnter(items[1])
+    expect(items[1].getAttribute('aria-selected')).toBe('true')
+    expect(items[0].getAttribute('aria-selected')).toBe('false')
+  })
+
   it('skips the immediate re-fetch right after a selection (input flips to the picked handle)', async () => {
     mockSearchUsernames.mockResolvedValue(matches)
     render(<Host />)

@@ -69,6 +69,16 @@ describe('useCoOrganizers', () => {
     expect(mockList).not.toHaveBeenCalled()
   })
 
+  it('sets error when listCoOrganizers throws (line 44)', async () => {
+    mockList.mockRejectedValue(new Error('Network failure'))
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toMatch(/co-organisateurs/i)
+    expect(result.current.coOrganizers).toEqual([])
+  })
+
   it('appends an invited co-organizer to the list', async () => {
     mockList.mockResolvedValue([alice])
     mockInvite.mockResolvedValue(bob)
@@ -129,5 +139,56 @@ describe('useCoOrganizers', () => {
     })
 
     expect(result.current.coOrganizers).toEqual([alice, bob])
+  })
+
+  // ─── mapInviteError / extractHttpStatus coverage ─────────────────────────
+
+  it('maps 409 to "déjà co-organisateur" message', async () => {
+    mockList.mockResolvedValue([alice])
+    mockInvite.mockRejectedValue({ response: { status: 409 } })
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite('some-uuid'))
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toMatch(/déjà co-organisateur/i)
+  })
+
+  it('maps 422 to "vous-même" message', async () => {
+    mockList.mockResolvedValue([alice])
+    mockInvite.mockRejectedValue({ response: { status: 422 } })
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite('self-uuid'))
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toMatch(/vous-même/i)
+  })
+
+  it('maps 403 to "non autorisé" message', async () => {
+    mockList.mockResolvedValue([alice])
+    mockInvite.mockRejectedValue({ response: { status: 403 } })
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite('some-uuid'))
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toMatch(/autorisé/i)
+  })
+
+  it('falls through to default error and returns null from extractHttpStatus for non-HTTP errors (lines 92, 105-106)', async () => {
+    // A plain Error has no `.response` → extractHttpStatus returns null → mapInviteError default
+    mockList.mockResolvedValue([alice])
+    mockInvite.mockRejectedValue(new Error('Network failure'))
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite('some-uuid'))
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toMatch(/erreur lors de l.invitation/i)
   })
 })

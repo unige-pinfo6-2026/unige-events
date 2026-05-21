@@ -105,6 +105,28 @@ describe('useAdminFeatured — search', () => {
     expect(mockSearchEvents).toHaveBeenCalledWith({ q: 'concert', size: 8 })
   })
 
+  it('cancels the pending debounce when query changes before it fires (cleanup line 75)', async () => {
+    vi.useFakeTimers()
+    mockGetFeaturedEvents.mockResolvedValue([])
+    mockSearchEvents.mockResolvedValue([makeEvent(5)])
+
+    const { result } = renderHook(() => useAdminFeatured())
+    await act(async () => { await Promise.resolve() })
+
+    // First query — starts a 350 ms debounce timer
+    act(() => result.current.setSearchQuery('ab'))
+    // Second query before timer fires — cleanup of previous effect clears the timer (line 75)
+    act(() => result.current.setSearchQuery('abc'))
+
+    // Only the 'abc' query should fire when the debounce settles
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockSearchEvents).toHaveBeenCalledTimes(1)
+    expect(mockSearchEvents).toHaveBeenCalledWith({ q: 'abc', size: 8 })
+    vi.useRealTimers()
+  })
+
   it('sets searchResults to empty when search fails', async () => {
     vi.useFakeTimers()
     mockGetFeaturedEvents.mockResolvedValue([])
@@ -120,6 +142,70 @@ describe('useAdminFeatured — search', () => {
     await act(async () => { await Promise.resolve() })
 
     expect(result.current.searchResults).toEqual([])
+  })
+
+  it('discards stale search results when a newer query is already current (line 64)', async () => {
+    vi.useFakeTimers()
+    mockGetFeaturedEvents.mockResolvedValue([])
+
+    // First call is a manually-controlled promise; second resolves immediately.
+    let resolveFirst!: (v: Event[]) => void
+    const firstSearch = new Promise<Event[]>((r) => { resolveFirst = r })
+    mockSearchEvents
+      .mockReturnValueOnce(firstSearch)
+      .mockResolvedValueOnce([makeEvent(5)])
+
+    const { result } = renderHook(() => useAdminFeatured())
+    await act(async () => { await Promise.resolve() })
+
+    // Fire 'ab' — debounce fires, searchEvents called (pending on firstSearch).
+    act(() => result.current.setSearchQuery('ab'))
+    await act(async () => { vi.advanceTimersByTime(350) })
+
+    // Fire 'abc' — seq increments to 2; second call resolves immediately.
+    act(() => result.current.setSearchQuery('abc'))
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await act(async () => { await Promise.resolve() })
+
+    // 'abc' results are set; now resolve the stale 'ab' call (seq=1, current=2).
+    await act(async () => { resolveFirst([makeEvent(99)]) })
+    await act(async () => { await Promise.resolve() })
+
+    // The stale result (id=99) must not overwrite the current result (id=5).
+    expect(result.current.searchResults).toHaveLength(1)
+    expect(result.current.searchResults[0].id).toBe(5)
+
+    vi.useRealTimers()
+  })
+
+  it('discards stale search error when a newer query is already current (line 67)', async () => {
+    vi.useFakeTimers()
+    mockGetFeaturedEvents.mockResolvedValue([])
+
+    let rejectFirst!: (e: Error) => void
+    const firstSearch = new Promise<Event[]>((_, r) => { rejectFirst = r })
+    mockSearchEvents
+      .mockReturnValueOnce(firstSearch)
+      .mockResolvedValueOnce([makeEvent(5)])
+
+    const { result } = renderHook(() => useAdminFeatured())
+    await act(async () => { await Promise.resolve() })
+
+    act(() => result.current.setSearchQuery('ab'))
+    await act(async () => { vi.advanceTimersByTime(350) })
+
+    act(() => result.current.setSearchQuery('abc'))
+    await act(async () => { vi.advanceTimersByTime(350) })
+    await act(async () => { await Promise.resolve() })
+
+    // Reject the stale 'ab' call — must not clear the 'abc' results.
+    await act(async () => { rejectFirst(new Error('stale network error')) })
+    await act(async () => { await Promise.resolve() })
+
+    expect(result.current.searchResults).toHaveLength(1)
+    expect(result.current.searchResults[0].id).toBe(5)
+
+    vi.useRealTimers()
   })
 })
 
