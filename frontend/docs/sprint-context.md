@@ -1,6 +1,60 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-19 (SCRUM-147 frontend commentaires avancés — sur PR #193)
+Dernière mise à jour : 2026-05-21 (feature/s9-feed-timeline — fix bannière noire EventBanner + merge main)
+
+## Sprint 9 — Page Feed timeline (SCRUM-116 — feature/s9-feed-timeline) — 2026-05-20
+
+Livré (PR ouverte ; branche `feature/s9-feed-timeline` créée depuis `main` après merge de toutes les PR S7/S8).
+
+Objectif : exposer une nouvelle route publique `/feed` accessible depuis la navbar (icône `Rss`, libellé **Fil**), présentant les événements à venir sous forme de timeline verticale paginée à défilement infini.
+
+### Composants et hooks livrés
+
+- **`FeedPage`** (`src/pages/feed/FeedPage.tsx`) : route publique `/feed`. Toggle segmenté **Tous** (actif) / **Mes abonnements** (`disabled aria-disabled="true"`, tooltip « Bientôt disponible »). Squelette boneyard pendant le premier chargement (`loading && groups.length === 0`). Sentinel `IntersectionObserver` (`data-testid="scroll-sentinel"`) déclenche `loadMore()` à l'approche du bas de page. Spinner `border-t-transparent animate-spin` pendant les pages suivantes. États vide et erreur distincts.
+
+- **`Timeline`** (`src/components/feed/Timeline.tsx`) : reçoit un tableau de `FeedGroup` et rend la structure verticale. Ligne verticale `absolute left-3.5 md:left-5 w-0.5 bg-border` (`data-testid="timeline-line"`). Marqueurs de date (`data-testid="date-marker"`) avec cas spéciaux **Aujourd'hui** / **Demain** ; au-delà : `Intl.DateTimeFormat('fr-CH', { weekday:'long', day:'numeric', month:'long' })`. Rôle ARIA `feed` sur le conteneur. Cartes décalées `pl-11 md:pl-14`.
+
+- **`EventFeedCard`** (`src/components/feed/EventFeedCard.tsx`) : grande carte glassmorphism (`bg-background/60 backdrop-blur-xl border border-border rounded-2xl`). Layout `flex-col md:flex-row` — bannière `h-32 md:h-28 md:w-48` à gauche en desktop. Infos : titre (lien `/events/:id`), heure (`Clock`), lieu (`MapPin`), `FacultyBadge`, `FavoriteButton`. `CapacityIndicator` inline : « Complet » (`text-error`) si `availableSpots === 0`, « N place(s) restante(s) » (`text-warning`) si ≤ 10, total sinon ; absent si pas de capacité. Const map typée `capacityStates`.
+
+- **`useFeed`** (`src/hooks/useFeed.ts`) : `PAGE_SIZE = 20`, appel `getAll({ status:'PUBLISHED', endDateFrom: now, page, size })`. Guard `fetchingRef` contre les double-fetches (React StrictMode + IntersectionObserver). État plat `allEvents` regroupé à chaque mise à jour via `groupEventsByDate`. `hasMore` flippe à `false` dès qu'une page est courte. Exports utilitaires testables : `toDateKey(dateString)` et `groupEventsByDate(events)`.
+
+### Skeleton
+
+- **`feed-timeline.bones.json`** (`src/bones/feed-timeline.bones.json`) : 3 breakpoints — 320 px (height 1180), 720 px (height 1180), 1216 px (height 928). 3 groupes × 2 cartes ; mobile `h-40` (160 px), desktop `h-28` (112 px). Wired dans `registry.js`.
+
+### Modifications transverses
+
+- **`AppRouter.tsx`** : import lazy `FeedPage`, route `/feed` publique.
+- **`Navbar.tsx`** : entrée `{ label: 'Fil', to: '/feed', icon: Rss }` ajoutée dans `navLinks` (entre Calendrier et le reste).
+
+### Tests
+
+44 cas neufs répartis sur 4 fichiers :
+- `src/__tests__/hooks/useFeed.test.ts` — 14 cas : `toDateKey` (UTC, naive, heure locale), `groupEventsByDate` (merge cross-page, ordre préservé), `useFeed` (fetch initial, `loadMore`, `hasMore`, guard double-fetch, erreur).
+- `src/__tests__/components/feed/EventFeedCard.test.tsx` — 13 cas : rendu titre/lieu/heure, lien, FacultyBadge, FavoriteButton, CapacityIndicator (complet / faible / total / absent), bannière fallback.
+- `src/__tests__/components/feed/Timeline.test.tsx` — 7 cas : ligne verticale, marqueur « Aujourd'hui », « Demain », date longue FR, groupes multiples, rôle `feed`.
+- `src/__tests__/pages/feed/FeedPage.test.tsx` — 10 cas : rendu squelette / chargé, toggle Mes abonnements désactivé, sentinel IntersectionObserver, `loadMore` au scroll, spinner page suivante, état vide, état erreur.
+
+### Corrections de couverture (deux passes)
+
+Passe 1 (commit `51627ed3`) :
+- `eventApi.test.ts` : +3 cas `cancelEvent` / `restoreEvent` / `publishEvent` (PATCH).
+- `CoOrganizersEditor.test.tsx` : +1 cas erreur réseau sur `getUserByUsername`.
+
+Passe 2 (commit `72390632`) :
+- `useAdminFeatured.test.ts` : cleanup debounce ligne 75 (query changée avant timer).
+- `useCoOrganizers.test.ts` : erreur au chargement (ligne 44), `extractHttpStatus` null (ligne 92), `mapInviteError` 409/422/403/default (lignes 100-106).
+- `useComments.test.ts` : `post` failure (ligne 92), `postReply` failure (ligne 114).
+- `UsernameAutocomplete.test.tsx` : erreur réseau (136-138), ArrowUp clamped (180-181), réouverture au focus (200-201), highlight au mouseEnter (267).
+- `LandingPage.test.tsx` : boucle de retry scroll (lignes 156-158).
+
+Suite complète après les deux passes : **1849/1849 verts**, `npm run lint` propre.
+
+### Fix review (2026-05-21)
+
+- **`EventBanner`** : le gradient de catégorie est désormais toujours appliqué en background (même quand `bannerUrl` est présente). L'image le couvre quand elle charge ; si elle échoue ou tarde, la bannière affiche la couleur de catégorie au lieu du noir. Tests mis à jour en conséquence.
+
+---
 
 ## 2026-05-19 — SCRUM-147 livré (frontend commentaires avancés : likes, threads, autocomplete mentions, signalement)
 

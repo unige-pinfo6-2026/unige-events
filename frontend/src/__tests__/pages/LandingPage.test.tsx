@@ -96,6 +96,37 @@ describe('LandingPage', () => {
     vi.useRealTimers()
   })
 
+  it('retries scroll when element is absent on first tryScroll (lines 156-158)', () => {
+    mockUseFeaturedEvents.mockReturnValue({ events: [], loading: false, error: null })
+    vi.useFakeTimers()
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+    Object.defineProperty(globalThis, 'scrollY', { value: 0, configurable: true })
+
+    // First call returns null (element not yet rendered); second returns the real element
+    const mockEl = { getBoundingClientRect: () => ({ top: 200 }) } as unknown as HTMLElement
+    let callCount = 0
+    vi.spyOn(document, 'getElementById').mockImplementation(() => {
+      callCount++
+      return callCount >= 2 ? mockEl : null
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/#features']}>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    // Initial 50 ms delay fires tryScroll — element absent → schedules retry
+    act(() => { vi.advanceTimersByTime(50) })
+    expect(mockScrollTo).not.toHaveBeenCalled()
+
+    // Retry after 100 ms — element now found → scrolls
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(mockScrollTo).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
   it('toggles FAQ answer on click', () => {
     renderPage()
 

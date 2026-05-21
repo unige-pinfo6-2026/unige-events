@@ -27,6 +27,7 @@ Model : src/hooks, src/contexts et src/types
 | /events/:id/stats | EventStatsPage | pages/event/EventStatsPage.tsx | PrivateRoute (créateur ou co-org ACCEPTED) |
 | /events/favorites | FavoritesPage | pages/event/favorites/FavoritesPage.tsx | PrivateRoute |
 | /calendar | CalendarPage | pages/calendar/CalendarPage.tsx | publique |
+| /feed | FeedPage | pages/feed/FeedPage.tsx | publique |
 | /legal | redirect | — | redirect → /legal/privacy |
 | /legal/privacy | PrivacyPage | pages/legal/PrivacyPage.tsx | publique |
 | /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |

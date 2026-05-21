@@ -21,6 +21,7 @@ import _event_organizer_team from './event-organizer-team.bones.json'
 import _co_organizer_invitations from './co-organizer-invitations.bones.json'
 import _comments from './comments.bones.json'
 import _follow_list from './follow-list.bones.json'
+import _feed_timeline from './feed-timeline.bones.json'
 
 registerBones({
   "event-cards": _event_cards,
@@ -42,4 +43,5 @@ registerBones({
   "co-organizer-invitations": _co_organizer_invitations,
   "comments": _comments,
   "follow-list": _follow_list,
+  "feed-timeline": _feed_timeline,
 })

@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { cancelEvent, createEvent, deleteEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, publishEvent, restoreEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -211,5 +211,32 @@ describe('eventApi', () => {
     await getOccurrences(42, { page: 1, size: 10 })
 
     expect(mockApiGet).toHaveBeenCalledWith('/events/42/occurrences', { params: { page: 1, size: 10 } })
+  })
+
+  it('cancelEvent sends PATCH /events/:id/cancel and returns the event', async () => {
+    mockApiPatch.mockResolvedValue({ data: sampleEvent } as Awaited<ReturnType<typeof api.patch>>)
+
+    const response = await cancelEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/cancel')
+    expect(response).toEqual(sampleEvent)
+  })
+
+  it('restoreEvent sends PATCH /events/:id/restore and returns the event', async () => {
+    mockApiPatch.mockResolvedValue({ data: sampleEvent } as Awaited<ReturnType<typeof api.patch>>)
+
+    const response = await restoreEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/restore')
+    expect(response).toEqual(sampleEvent)
+  })
+
+  it('publishEvent sends PATCH /events/:id/publish and returns the event', async () => {
+    mockApiPatch.mockResolvedValue({ data: sampleEvent } as Awaited<ReturnType<typeof api.patch>>)
+
+    const response = await publishEvent(42)
+
+    expect(mockApiPatch).toHaveBeenCalledWith('/events/42/publish')
+    expect(response).toEqual(sampleEvent)
   })
 })

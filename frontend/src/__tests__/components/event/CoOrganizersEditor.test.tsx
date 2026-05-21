@@ -269,6 +269,17 @@ describe('CoOrganizersEditor', () => {
     await waitFor(() => expect(hook.invite).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000222'))
   })
 
+  it('shows network error message when getUserByUsername throws', async () => {
+    setupHook()
+    mockGetUserByUsername.mockRejectedValue(new Error('Network failure'))
+    render(<CoOrganizersEditor eventId={42} />)
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+    fireEvent.click(screen.getByRole('button', { name: /inviter/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/erreur réseau/i)).toBeTruthy()
+    })
+  })
+
   it('passes the caller handle + accepted co-organizers to excludeUsernames', () => {
     const alice: CoOrganizer = {
       id: 1,
@@ -283,5 +294,60 @@ describe('CoOrganizersEditor', () => {
     render(<CoOrganizersEditor eventId={42} />)
     // 1 caller + 1 existing co-org → 2 excluded handles passed to the dropdown.
     expect(screen.getByTestId('exclude-len').textContent).toBe('2')
+  })
+
+  // ─── coverage gap fixes ────────────────────────────────────────────────────
+
+  it('shows fallback error text when invite returns ok:false without an error field (line 71)', async () => {
+    // outcome.error is undefined → hits the ?? 'Erreur lors de l\'invitation.' branch
+    const invite = vi.fn().mockResolvedValue({ ok: false })
+    setupHook({ invite })
+    mockGetUserByUsername.mockResolvedValue(resolvedUser())
+    render(<CoOrganizersEditor eventId={42} />)
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+    fireEvent.click(screen.getByRole('button', { name: /inviter/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/erreur lors de l.invitation/i)).toBeTruthy()
+    })
+  })
+
+  it('clears field error when user types while error is displayed (line 103)', async () => {
+    setupHook()
+    render(<CoOrganizersEditor eventId={42} />)
+    const input = screen.getByLabelText(/username/i)
+
+    // 1. Trigger a validation error (username too short).
+    fireEvent.change(input, { target: { value: 'AB' } })
+    fireEvent.click(screen.getByRole('button', { name: /inviter/i }))
+    await waitFor(() => expect(screen.getByText(/username invalide/i)).toBeTruthy())
+
+    // 2. Type again while fieldError is set → setFieldError(null) fires.
+    fireEvent.change(input, { target: { value: 'alice' } })
+    await waitFor(() => expect(screen.queryByText(/username invalide/i)).toBeNull())
+  })
+
+  it('renders the skeleton while loading (lines 119-127)', () => {
+    setupHook({ loading: true, coOrganizers: [] })
+    render(<CoOrganizersEditor eventId={42} />)
+    // Empty-state and error paragraphs should not appear during loading.
+    expect(screen.queryByText(/aucun co-organisateur/i)).toBeNull()
+    expect(screen.queryByText(/erreur/i)).toBeNull()
+  })
+
+  it('renders an avatar image when avatarUrl is provided (lines 149-155)', () => {
+    const alice: CoOrganizer = {
+      id: 1,
+      userId: UUID_VALID,
+      displayName: 'Alice',
+      avatarUrl: 'https://example.com/avatar.png',
+      username: 'alice.martin',
+      status: 'ACCEPTED',
+      invitedAt: '2026-05-14T10:00:00',
+    }
+    setupHook({ coOrganizers: [alice] })
+    render(<CoOrganizersEditor eventId={42} />)
+    const img = document.querySelector('img') as HTMLImageElement | null
+    expect(img).toBeTruthy()
+    expect(img?.src).toBe('https://example.com/avatar.png')
   })
 })
