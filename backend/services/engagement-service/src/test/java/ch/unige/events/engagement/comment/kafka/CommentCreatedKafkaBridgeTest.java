@@ -16,7 +16,8 @@ class CommentCreatedKafkaBridgeTest {
         CommentCreatedKafkaBridge bridge = new CommentCreatedKafkaBridge();
         bridge.publisher = publisher;
 
-        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null);
+        CommentCreatedEvent ev = CommentCreatedEvent.created(1L, 7L, UUID.randomUUID(), null,
+                "hello", "Test event");
         bridge.onAfterCommit(ev);
 
         verify(publisher).send(ev);

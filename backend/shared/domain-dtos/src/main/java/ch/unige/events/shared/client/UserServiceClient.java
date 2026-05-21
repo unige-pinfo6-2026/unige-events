@@ -151,4 +151,42 @@ public interface UserServiceClient {
         Log.warnf("[REST_FALLBACK_user-service] getFollowedIds(%s) — returning empty list (downstream unavailable, followedOnly feed will be empty)", followerId);
         return List.of();
     }
+
+    /**
+     * Batched handle resolution (SCRUM-145). Consumed by notification-service's
+     * {@code CommentMentionConsumer} to translate the {@code @<handle>} mentions
+     * parsed from a comment into UUIDs in a single network hop. Provider :
+     * {@code GET /users/_internal-by-usernames?usernames=<csv>} on user-service,
+     * gated {@code @Internal} (X-Internal-Token). Not in {@code openapi.yaml} ;
+     * documented in {@code backend/docs/internal-endpoints.md}.
+     *
+     * <p>Inputs : a comma-separated string of handles. The caller is expected
+     * to do the joining (e.g. {@code String.join(",", handles)}) so the wire
+     * shape stays predictable and aligned with the server-side parsing in
+     * {@link ch.unige.events.shared.client.UserServiceClient#getByUsernames(String)}'s
+     * provider. The server normalises (lowercase / trim / dedup) and caps the
+     * list at 50 entries silently.
+     *
+     * <p>Resilience : transient downstream failures must <em>not</em> crash the
+     * Kafka consumer or trip its channel — a missed mention is acceptable, a
+     * dead consumer is not. The {@link #getByUsernamesFallback fallback} returns
+     * an empty list with a WARN log so the consumer simply emits zero
+     * notifications and moves on. {@link NotFoundException} should never happen
+     * here (the endpoint always returns 200 with the resolved subset), but the
+     * retry / circuit-breaker skipOn keeps the fault-tolerance posture
+     * conservative in line with the rest of this interface.
+     */
+    @GET
+    @Path("/_internal-by-usernames")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "getByUsernamesFallback")
+    List<IdProjection> getByUsernames(@QueryParam("usernames") String csv);
+
+    default List<IdProjection> getByUsernamesFallback(String csv) {
+        Log.warnf("[REST_FALLBACK_user-service] getByUsernames(csvLen=%d) — returning empty list (downstream unavailable, mention notifications will be skipped this delivery)",
+                csv == null ? 0 : csv.length());
+        return List.of();
+    }
 }

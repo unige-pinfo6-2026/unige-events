@@ -17,14 +17,21 @@ vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
 }))
 
-vi.mock('@/services/followApi', async () => {
-  const actual = await vi.importActual<typeof import('@/services/followApi')>('@/services/followApi')
-  return {
-    ...actual,
-    getFollowers: vi.fn(),
-    getFollowing: vi.fn(),
-  }
-})
+// Explicit comprehensive mock — `vi.importActual` plus a spread is fragile
+// in CI's fork pool : another test file mocking the same module can poison
+// the import cache and we end up with a real function instead of vi.fn(),
+// which then silently returns undefined and makes the `findByText` race
+// past the network call. List every export explicitly.
+vi.mock('@/services/followApi', () => ({
+  FOLLOW_LIST_PAGE_SIZE: 20,
+  followUser: vi.fn(),
+  unfollowUser: vi.fn(),
+  getMyFollowRequests: vi.fn(),
+  acceptFollowRequest: vi.fn(),
+  rejectFollowRequest: vi.fn(),
+  getFollowers: vi.fn(),
+  getFollowing: vi.fn(),
+}))
 
 // boneyard renders an SSR-style `<div>` with bones the test doesn't care
 // about — stub it to render children only so loading-state assertions can

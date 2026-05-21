@@ -5,6 +5,32 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { NOTIFICATION_TYPES } from '@/types/notification'
 import type { Notification, NotificationType } from '@/types/notification'
 
+/**
+ * Resolves the navigation target for a notification card — SCRUM-147 :
+ * <ul>
+ *   <li>Comment-related (mention / new-comment) → event detail page,
+ *       deep-linked via `#comments`. The EventDetailPage handles the scroll.</li>
+ *   <li>Other event-bound notifications (attendee, reminder, cancel…) →
+ *       event detail page, no anchor.</li>
+ *   <li>Follow-related — when we know the related user, link to their
+ *       profile so the recipient can act on the request / new follow.</li>
+ * </ul>
+ * Returns {@code null} for notifications that have no actionable target
+ * (rare — typically only legacy rows missing both ids).
+ */
+function notificationLinkTarget(notif: Notification): string | null {
+  if (notif.type === 'COMMENT_MENTION' || notif.type === 'NEW_COMMENT') {
+    return notif.eventId !== null ? `/events/${notif.eventId}#comments` : null
+  }
+  if (notif.eventId !== null) {
+    return `/events/${notif.eventId}`
+  }
+  if (notif.relatedUserId !== null) {
+    return `/profile/${notif.relatedUserId}`
+  }
+  return null
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 interface TypeStyle { icon: typeof Bell; pill: string }
@@ -39,7 +65,12 @@ function relativeTime(iso: string): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function NotificationItem({ notif }: Readonly<{ notif: Notification }>) {
+interface NotificationItemProps {
+  notif: Notification
+  onActivate: (id: number) => void
+}
+
+function NotificationItem({ notif, onActivate }: Readonly<NotificationItemProps>) {
   // Defensive fallback: an unknown enum value (e.g. a 10th type the backend
   // ships before the frontend learns about it) must not crash the panel.
   const { icon: Icon, pill } = typeStyles[notif.type] ?? FALLBACK_STYLE
@@ -63,14 +94,34 @@ function NotificationItem({ notif }: Readonly<{ notif: Notification }>) {
     </div>
   )
 
-  if (notif.eventId !== null) {
+  const target = notificationLinkTarget(notif)
+  // SCRUM-147 — clicking a notification clears its unread state. The Link
+  // navigates first ; the hook's optimistic update keeps the badge in sync
+  // even before the API ack lands.
+  function handleActivate() {
+    if (!notif.read) onActivate(notif.id)
+  }
+  if (target !== null) {
     return (
-      <Link to={`/events/${notif.eventId}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      <Link
+        to={target}
+        onClick={handleActivate}
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
         {content}
       </Link>
     )
   }
-  return <div>{content}</div>
+  // Non-navigable row — still clickable to mark as read so the badge clears.
+  return (
+    <button
+      type="button"
+      onClick={handleActivate}
+      className="block w-full text-left bg-transparent border-0 p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {content}
+    </button>
+  )
 }
 
 function NotificationPanelFixture() {
@@ -94,9 +145,10 @@ interface NotificationPanelProps {
   loading: boolean
   error: string | null
   onMarkAllRead: () => void
+  onMarkOneRead: (id: number) => void
 }
 
-export function NotificationPanel({ notifications, loading, error, onMarkAllRead }: Readonly<NotificationPanelProps>) {
+export function NotificationPanel({ notifications, loading, error, onMarkAllRead, onMarkOneRead }: Readonly<NotificationPanelProps>) {
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const hasUnread = notifications.some(n => !n.read)
@@ -137,7 +189,7 @@ export function NotificationPanel({ notifications, loading, error, onMarkAllRead
       ) : (
         <div className="flex flex-col divide-y divide-border max-h-[360px] overflow-y-auto">
           {notifications.map(notif => (
-            <NotificationItem key={notif.id} notif={notif} />
+            <NotificationItem key={notif.id} notif={notif} onActivate={onMarkOneRead} />
           ))}
         </div>
       )}

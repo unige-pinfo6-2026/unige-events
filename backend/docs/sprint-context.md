@@ -45,6 +45,89 @@ Paramètre `?followedOnly=true` sur `GET /api/events` : retourne uniquement les
 
 ---
 
+## 2026-05-19 — SCRUM-145 livré (comment mentions + new-comment notifications, phase 3)
+
+Branche `feature/s7-comment-mentions`. Backend-only ; **aucune** migration
+Flyway (V2 notification a anticipé l'enum), **aucune** modification de
+`openapi/openapi.yaml` (`NotificationType.COMMENT_MENTION` + `NEW_COMMENT`
+y figurent depuis SCRUM-140), **aucun** nouveau topic Kafka (consommation
+sur `comments.created` existant). Spec préalable :
+[`specs_archives/specs_claude/specs_scrum-128-145-comment-mentions.md`](../../specs_archives/specs_claude/specs_scrum-128-145-comment-mentions.md).
+
+### Périmètre livré
+
+- **`CommentCreatedEvent`** (shared-kafka-events) élargi de `content: String` +
+  `eventTitle: String`. Producer engagement-service (`CommentService.post`)
+  passe `comment.content` et `event.title()` au CDI fire. Tests
+  back-compat null/null pour gérer un déploiement non-coordonné (Décision D).
+- **`IdProjection`** (shared-domain-dtos) élargi de `username: String`
+  nullable, avec un constructeur 1-arg pour préserver la compatibilité
+  SCRUM-99 (`new IdProjection(uuid)`). Aucun call-site existant n'est
+  cassé — `NotificationService.resolveUserId` continue à lire `.id()` seul.
+- **Endpoint interne `GET /users/_internal-by-usernames?usernames=<csv>`**
+  (entry #12 de [`internal-endpoints.md`](internal-endpoints.md)). Slim
+  payload `List<IdProjection> {id, username}`, normalisation lowercase /
+  trim / dedup côté serveur, cap silencieux à 50 handles par appel
+  (Décision L : anti-DoS, un commentaire de 500 chars contient ≤ ~30
+  mentions). `@PermitAll` + `@Internal` (X-Internal-Token gate).
+- **`UserServiceClient.getByUsernames(String csv)`** (shared-domain-dtos) :
+  REST client face de l'endpoint interne. Fault-tolerance asymétrique au
+  reste de l'interface — le `@Fallback` retourne `List.of()` + WARN log
+  (mention manquée acceptable, consumer crashé pas acceptable).
+- **`MentionParser`** (`@ApplicationScoped` dans `notification-service.kafka`)
+  — regex compilée statique
+  `@([a-z0-9._-]{3,30})(?![a-z0-9._-])` (Décision E, charset SCRUM-169).
+  Retourne `LinkedHashSet<String>` (ordre = apparition, dedup
+  mécanique). 18 tests pure unit (charset, dedup, case, punctuation,
+  email-false-positive silent-skip, min/max length, accented text,
+  multi-space, end-of-string, etc.).
+- **`CommentMentionConsumer`** (group-id `notification-service-mentions`)
+  ← topic `comments.created` → 1 row `COMMENT_MENTION` par utilisateur
+  mentionné, après dedup + self-mention skip (locked-in #11) + silent
+  skip des handles inconnus (Décision M). 13 tests `@QuarkusTest`.
+- **`NewCommentConsumer`** (group-id `notification-service-new-comment`)
+  ← MÊME topic `comments.created`, group-id distinct → 1 row
+  `NEW_COMMENT` vers le créateur de l'event. Skip si `creatorId ==
+  authorId` (locked-in #12). S'applique top-level **et** replies
+  (locked-in #9). 10 tests `@QuarkusTest`.
+- **Overlap mention + organizer** (locked-in #13 / Décision K) : Alice
+  mentionnée + créatrice → 2 rows distinctes
+  (`COMMENT_MENTION` + `NEW_COMMENT`). Sémantique différente.
+- **Profile privacy** (Décision M) : `profilePublic=false` sur la
+  cible / le créateur ne gate pas la notif — elle est créée. C'est un
+  signal d'attention, pas une consultation de profil. L'anti-oracle
+  ISSUE-93 protège la consultation ultérieure du profil.
+- **Templates FR** alignés sur le style `AttendanceCreatedConsumer`
+  (chevrons français autour du titre) :
+  - `COMMENT_MENTION` : *« {author} vous a mentionné dans un commentaire sur « {event} ». »*
+  - `NEW_COMMENT` : *« {author} a commenté votre événement « {event} ». »*
+- **Author display fallback chain** (Décision J) : `displayName` →
+  `@username` → `"Un utilisateur"`. Cohérent avec
+  `frontend/src/utils/displayName.ts`.
+
+### Out-of-scope (renvoyé S9+ ou S10+)
+
+- **Frontend autocomplete `@<prefix>` dans `CommentForm`** — ticket
+  séparé. Le user expérimenté tape `@handle` à la main pour cette PR.
+- **Frontend rendu cliquable des mentions** dans `CommentItem` (parsing
+  client-side miroir).
+- **Préférences de notification par event** (mute mentions / new-comment).
+- **`NEW_COMMENT` aux co-organisateurs ACCEPTED** — locked-in #9 acte
+  « créateur primaire seul ».
+- **Notification sur édition / suppression / like de commentaire**.
+- **Backfill rétroactif** des commentaires pré-SCRUM-145 — décision
+  produit : aucun. Les notifs ne sont déclenchées qu'à la publication.
+
+### Garde-fous
+
+- `git diff origin/main HEAD -- openapi/openapi.yaml` doit rester à 0
+  ligne (vérifié dans le critère de done).
+- `find backend/services -name '*Stub.java'` = ∅ (invariant cross-service).
+- Pas de Kafka emission in-transaction depuis les consumers — ils insèrent
+  une row `notifications` en DB, point.
+
+---
+
 ## 2026-05-17 (suite) — SCRUM-140 + SCRUM-144 + SCRUM-148 livrés (S9 phase 2)
 
 Branche `feature/scrum-140-144-148-back-phase2` stacked sur

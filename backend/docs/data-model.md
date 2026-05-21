@@ -735,22 +735,40 @@ de la notif.
 
 #### Pipeline Kafka
 
-Les rows `notifications` sont créées exclusivement par les 3 consumers Kafka
-de notification-service (phase 1, SCRUM-99) :
+Les rows `notifications` sont créées exclusivement par les consumers Kafka
+de notification-service. Phase 1 (SCRUM-99) :
 - `EventCancelledConsumer` ← topic `events.cancelled` → un row `EVENT_CANCELLED`
   par attendee `ATTENDING` (créateur skippé s'il est dans la liste).
 - `EventUpdatedConsumer` ← topic `events.updated` → idem mais `EVENT_UPDATED`.
 - `AttendanceCreatedConsumer` ← topic `attendances.created` → un row `NEW_ATTENDEE`
   vers le créateur (skippé si auto-inscription).
 
-#### Anticipation phase 2
+Phase 2 (SCRUM-140) :
+- `UserFollowedConsumer` ← topic `users.followed` → `NEW_FOLLOWER`.
+- `UserFollowRequestedConsumer` ← topic `users.follow-requested` → `FOLLOW_REQUEST`.
+- `UserFollowAcceptedConsumer` ← topic `users.follow-accepted` → `FOLLOW_ACCEPTED`
+  (destinataire = followerId initiateur, pas followedId acceptant — Décision C SCRUM-140).
 
-L'enum `NotificationType` et la CHECK contrainte resteront à 4 valeurs jusqu'à
-la livraison conjointe de SCRUM-140 (notifications de suivi) + SCRUM-145
-(notifications de mentions / commentaires) qui ajouteront `NEW_FOLLOWER`,
-`FOLLOW_REQUEST`, `FOLLOW_ACCEPTED`, `COMMENT_MENTION`, `NEW_COMMENT`
-**simultanément** avec leurs consumers Kafka respectifs et la migration
-`V2__widen_notification_type_check.sql`.
+Phase 3 (SCRUM-145) — deux consumers indépendants sur le **même** topic
+`comments.created` (group-ids distincts) :
+- `CommentMentionConsumer` (group-id `notification-service-mentions`) → un row
+  `COMMENT_MENTION` par utilisateur mentionné dans le body. Inputs résolus en
+  bulk via `GET /users/_internal-by-usernames` (entry #11 de
+  [`internal-endpoints.md`](internal-endpoints.md)). Auto-mention skippée
+  (locked-in #11). Handles inconnus silencieusement ignorés.
+- `NewCommentConsumer` (group-id `notification-service-new-comment`) → un row
+  `NEW_COMMENT` vers le créateur de l'event. Skippé quand l'auteur EST le
+  créateur (locked-in #12). S'applique aux top-level **et** aux replies
+  (locked-in #9). Le `Mention + organizer overlap` (Alice mentionnée +
+  créatrice) produit 2 rows distinctes, sémantique différente
+  (Décision K / locked-in #13).
+
+Le payload Kafka `CommentCreatedEvent` a été enrichi par SCRUM-145 de
+`content` (texte du commentaire pour le parsing) et `eventTitle` (pour
+composer le message sans hop event-service supplémentaire). Jackson tolère
+les champs additifs ; un legacy producer omettant ces deux champs degrade
+gracieusement (parser retourne `Set.of()`, le template substitue un
+placeholder).
 
 ---
 

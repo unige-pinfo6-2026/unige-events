@@ -32,6 +32,9 @@ class UserServiceClientFallbackTest {
         @Override public List<UUID> getFollowedIds(UUID followerId) {
             throw new UnsupportedOperationException();
         }
+        @Override public List<IdProjection> getByUsernames(String csv) {
+            throw new UnsupportedOperationException();
+        }
     };
 
     @Test
@@ -78,5 +81,22 @@ class UserServiceClientFallbackTest {
     @Test
     void getFollowedIdsFallback_acceptsNullFollowerIdWithoutNpe() {
         assertTrue(CLIENT.getFollowedIdsFallback(null).isEmpty());
+    }
+
+    @Test
+    void getByUsernamesFallback_returnsEmptyList() {
+        // SCRUM-145 — mention resolution is best-effort. Crashing the Kafka
+        // consumer on a transient downstream failure would be far worse than
+        // missing a notification, so the fallback degrades to "zero handles
+        // resolved → zero notifications fired".
+        List<IdProjection> fallback = CLIENT.getByUsernamesFallback("alice.dosh,bob.smith");
+        assertTrue(fallback.isEmpty());
+    }
+
+    @Test
+    void getByUsernamesFallback_acceptsNullCsvWithoutNpe() {
+        // Defensive : the log statement reads csv.length() ; the fallback
+        // must guard against null callers (degenerate code path).
+        assertTrue(CLIENT.getByUsernamesFallback(null).isEmpty());
     }
 }

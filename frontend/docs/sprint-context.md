@@ -1,6 +1,85 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-18 (feature/s7-notification-bell — cloche notifications SCRUM-80)
+Dernière mise à jour : 2026-05-19 (SCRUM-147 frontend commentaires avancés — sur PR #193)
+
+## 2026-05-19 — SCRUM-147 livré (frontend commentaires avancés : likes, threads, autocomplete mentions, signalement)
+
+Branche `feature/s7-comment-mentions`. **Sur la même PR #193 que SCRUM-145**
+(décision explicite — coupling backend + frontend, voir spec
+`specs_archives/specs_claude/specs_scrum-147-comments-advanced.md` § 9 pour le risque
+acknowledgé). Backend SCRUM-145 (consumers `comments.created` →
+`COMMENT_MENTION` + `NEW_COMMENT`) et frontend SCRUM-147 livrés
+ensemble pour valider le bout-en-bout en preview.
+
+### 4 features livrées
+
+- **Likes** : `useCommentLike` optimistic + rollback, bouton `Heart` dans
+  le footer du `CommentItem`. Disabled + tooltip pour anonymes.
+- **Threads + reply prefix** : `CommentForm` reçoit un `initialValue` ;
+  `CommentItem` le seed avec `@<parentAuthorUsername> ` quand
+  "Répondre" est cliqué.
+- **Autocomplete mention** : nouveau `MentionAutocomplete` qui trigger
+  sur `@<prefix>` ≥ 2 chars dans le textarea (debounce 300ms,
+  navigation clavier ARIA, multi-`@` autour du caret). Parser
+  `detectActiveMention` extrait dans `src/utils/mentions.ts`.
+- **Signalement** (divergence Décision G) : **réutilisation du
+  `ReportModal` existant** avec nouveau prop `target='comment'`. Le
+  backend exige `reason` (Bean Validation SCRUM-144) — impossible de
+  faire un "yes/no" simple sans polluer le dashboard admin avec des
+  reasons hardcodées. Le hook `useReportComment` mappe 409 / 422 / 5xx
+  → toast spécifique + close/stay-open.
+
+### Authentication gates par action
+
+- Like : visible pour tous, `disabled` + tooltip pour anonymes.
+- Reply : masqué pour anonymes + sur les replies (depth-1).
+- Report : masqué pour anonymes ET pour l'auteur lui-même.
+- Autocomplete : actif uniquement dans le `CommentForm` (anonymes ne
+  voient pas le form).
+
+### Fichiers touchés
+
+| Type | Fichier |
+|---|---|
+| Service | `commentApi.ts`, `reportApi.ts` |
+| Hook nouveau | `useCommentLike.ts`, `useReportComment.ts` |
+| Util nouveau | `utils/mentions.ts` |
+| Composant nouveau | `MentionAutocomplete.tsx` |
+| Composant étendu | `CommentForm.tsx`, `CommentItem.tsx`, `ReportModal.tsx`, `FormField.tsx` (ref-forwarding) |
+| Tests | 8 useCommentLike + 6 useReportComment + 15 MentionAutocomplete (10 parser) + extension CommentItem/ReportModal/commentApi/reportApi |
+
+### Critères de done
+
+- `npm run test -- --run` tous verts ; coverage maintenue.
+- `npm run lint` 0 erreur.
+- `git diff origin/main HEAD -- openapi/openapi.yaml` : 0 ligne SCRUM-147
+  (contrat figé par SCRUM-139 / SCRUM-144 / SCRUM-137 / SCRUM-169).
+- PR #193 absorbe SCRUM-147 — pas de nouveau `gh pr create`.
+
+### Décisions retenues (de la spec § 3)
+
+- A : même branche / même PR #193 que SCRUM-145.
+- B : hooks bespoke (PAS TanStack).
+- C : optimistic + rollback sur le like.
+- D + F : autocomplete debounce 300ms, min 2 chars, dropdown sous
+  textarea (pas floating au caret).
+- E : `MentionAutocomplete` nouveau composant (différent
+  d'`UsernameAutocomplete` SCRUM-137 input-replacement).
+- **G (divergence)** : `ReportModal` réutilisé avec `target` prop —
+  diverge du locked-in #G du prompt.
+- H : mention insert format `@<username> ` (avec espace, lowercased).
+- J : réutilisation systématique des primitives (`ReportModal`,
+  `ConfirmDialog`, `useToast`, `useDebounce`, `UserAvatar`).
+
+### Future work (hors scope SCRUM-147)
+
+- Rendu cliquable des mentions dans le contenu posté (parser miroir TS
+  → wrap chaque `@<handle>` dans un `<Link>`).
+- Autocomplete sur la bio du profil (ProfileEditPage).
+- Édition d'un commentaire posté.
+- Préférences de notification par event.
+
+---
 
 ## Sprint 7 — Cloche notifications + dropdown (SCRUM-80 — feature/s7-notification-bell) — 2026-05-18
 
