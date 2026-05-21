@@ -90,7 +90,7 @@ services:
         # the public force-download endpoint. Single regex covers all
         # sub-paths. Must be declared BEFORE events-by-id so the
         # /attachments suffix is not swallowed by the catch-all id route.
-        # Mirrors k8s/chart/templates/kong/configmap-routes.yaml.
+        # Mirrors helm/templates/kong/configmap-routes.yaml.
         paths: ['~/api/events/(?:\d+)/attachments(?:/(?:\d+)(?:/download)?)?$']
         strip_path: false
         preserve_host: true
