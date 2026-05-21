@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -163,6 +164,21 @@ class EventResourceFollowedOnlyTest {
         given()
                 .when().get("/events")
                 .then().statusCode(200);
+    }
+
+    // ─── Scenario 5½: authenticated but CallerIdentity returns null UUID ─────
+    // Covers the defensive branch: followedIds = List.of() when getUuid() == null.
+
+    @Test
+    @TestSecurity(user = "auth0|fo-5b")
+    void followedOnly_authenticatedButNullCallerUuid_returnsEmptyList() {
+        // JwtTestContext is deliberately NOT set — TestCallerIdentity.getUuid() returns null.
+        // The resource must degrade gracefully to an empty list rather than NPE.
+        given()
+                .queryParam("followedOnly", "true")
+                .when().get("/events")
+                .then().statusCode(200)
+                .body("$", empty());
     }
 
     // ─── Scenario 5: followedOnly combined with status filter ────────────────

@@ -57,11 +57,10 @@ class UserDomainSentinelsTest {
     }
 
     /**
-     * Sentinel — adapted post-extraction: the legacy
-     * {@code findAcceptedFollowedIds} method became
-     * {@link Follow#findFollowingOf(UUID, int, int)} which already filters
-     * by ACCEPTED. We assert that the returned list excludes any PENDING
-     * row and only carries the followedIds whose row is ACCEPTED.
+     * Sentinel SCRUM-168 — {@link Follow#findAcceptedFollowedIds(UUID)} must
+     * return exactly the UUIDs whose row has status ACCEPTED and exclude any
+     * PENDING row. Called directly to pin the JPQL projection that feeds the
+     * {@code followedOnly} filter on {@code GET /events}.
      */
     @Test
     @TestTransaction
@@ -74,14 +73,18 @@ class UserDomainSentinelsTest {
         persistFollow(alice.id, carol.id, FollowStatus.ACCEPTED);
         persistFollow(alice.id, dave.id, FollowStatus.PENDING);
 
-        List<UUID> followedIds = followService.getFollowing(alice.id, 0, 20).stream()
-                .map(f -> f.followedId)
-                .toList();
+        List<UUID> followedIds = Follow.findAcceptedFollowedIds(alice.id);
 
         assertEquals(2, followedIds.size());
         assertTrue(followedIds.contains(bob.id));
         assertTrue(followedIds.contains(carol.id));
         assertFalse(followedIds.contains(dave.id), "PENDING follow must be excluded");
+    }
+
+    @Test
+    @TestTransaction
+    void findAcceptedFollowedIds_unknownFollower_returnsEmptyList() {
+        assertTrue(Follow.findAcceptedFollowedIds(UUID.randomUUID()).isEmpty());
     }
 
     @Test
