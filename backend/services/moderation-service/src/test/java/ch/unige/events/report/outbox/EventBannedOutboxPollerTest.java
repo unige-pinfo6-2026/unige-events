@@ -13,12 +13,14 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +77,31 @@ class EventBannedOutboxPollerTest {
         assertEquals(1, refreshed.attempts);
         assertNotNull(refreshed.lastError);
         assertTrue(refreshed.lastError.contains("kafka down"));
+    }
+
+    @Test
+    @Transactional
+    void publishPending_interrupted_incrementsAttemptsAndSetsInterruptFlag() throws Exception {
+        // emitter.send(...).toCompletableFuture().get(...) throws InterruptedException,
+        // exercising the dedicated catch arm (distinct from the generic Exception arm).
+        @SuppressWarnings("unchecked")
+        CompletableFuture<Void> future = mock(CompletableFuture.class);
+        when(future.toCompletableFuture()).thenReturn(future);
+        when(future.get(anyLong(), any(TimeUnit.class))).thenThrow(new InterruptedException("interrupted"));
+        when(emitter.send(any(EventBannedEvent.class))).thenReturn(future);
+
+        Long id = persistRow(7L, UUID.randomUUID(), "spam");
+
+        poller.publishPending();
+
+        EventBannedOutbox refreshed = EventBannedOutbox.findById(id);
+        assertNull(refreshed.publishedAt);
+        assertEquals(1, refreshed.attempts);
+        assertNotNull(refreshed.lastError);
+        assertTrue(refreshed.lastError.contains("Interrupted"));
+        // The poller re-set the thread interrupt flag — read+clear it so it
+        // does not leak into sibling tests sharing this worker thread.
+        assertTrue(Thread.interrupted());
     }
 
     private Long persistRow(long eventId, UUID bannedBy, String reason) throws Exception {

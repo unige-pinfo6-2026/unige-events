@@ -11,6 +11,7 @@ import ch.unige.events.event.test.JwtTestHelper;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -47,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 /**
  * Comprehensive unit-test coverage for {@link EventService}. Drives the
@@ -63,6 +65,7 @@ class EventServiceTest {
 
     @InjectMock @RestClient EngagementServiceClient engagementClient;
     @InjectMock @RestClient UserServiceClient userClient;
+    @InjectMock FileStorageService fileStorageService;
 
     private final UUID creatorId = UUID.randomUUID();
     private final UUID otherId = UUID.randomUUID();
@@ -768,6 +771,50 @@ class EventServiceTest {
 
         EventDTO dto = service.publish(e.id, "auth0|x", false);
         assertEquals(EventStatus.PUBLISHED, dto.status());
+    }
+
+    // ---- uploadImage ----
+
+    @Test
+    @TestTransaction
+    void uploadImage_byCreator_setsBannerUrl() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(fileStorageService.saveImage(any(), any(), anyLong(), any()))
+                .thenReturn("https://cdn/banner.png");
+
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", null, false);
+
+        assertEquals("https://cdn/banner.png", dto.bannerUrl());
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_unknownEvent_throws404() {
+        assertThrows(NotFoundException.class,
+                () -> service.uploadImage(99999L, "auth0|x", null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_byNonCreator_throws403() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
+        em.flush();
+        assertThrows(ForbiddenException.class,
+                () -> service.uploadImage(e.id, "auth0|x", null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_admin_canForce() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
+        em.flush();
+        when(fileStorageService.saveImage(any(), any(), anyLong(), any()))
+                .thenReturn("https://cdn/admin.png");
+
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", null, true);
+
+        assertEquals("https://cdn/admin.png", dto.bannerUrl());
     }
 
     // ---- normalizeTags ----
