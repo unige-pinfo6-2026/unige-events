@@ -4,63 +4,102 @@ Centralized event platform for the UNIGE community : discover, create and manage
 
 ![Bannière UNIGE](./docs/assets/unige_banner.png)
 
-## Backend
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=alert_status&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=coverage&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+---
 
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=bugs&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=code_smells&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=duplicated_lines_density&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=ncloc&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+## 📊 Quality & Code Metrics
 
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=reliability_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=security_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=sqale_rating&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=vulnerabilities&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
+To ensure high-quality standards, the project is analyzed by **SonarCloud**. The table below summarizes the key metrics for both our Frontend and Backend applications:
 
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=sqale_index&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend)
-
-## Frontend
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=alert_status&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=coverage&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=bugs&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=code_smells&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=duplicated_lines_density&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=ncloc&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=reliability_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=security_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=sqale_rating&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=vulnerabilities&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-
-[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=sqale_index&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend)
-
-## Group 6
-- [Elie Bussod](https://github.com/nexiumito)
-- [Viona Cufo](https://github.com/vionacufo)
-- [Daniel Dosh](https://github.com/DanyDosh)
-- [Agon Kolgeci](https://github.com/agonkolgeci)
-- [Antoine Maendly](https://github.com/antoinemdly)
+| Metric | Backend | Frontend |
+| :--- | :---: | :---: |
+| **Quality Gate** | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=alert_status&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=alert_status&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
+| **Coverage** | [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=coverage&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=coverage&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
+| **Bugs** | [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=bugs&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=bugs&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
+| **Code Smells** | [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=code_smells&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=code_smells&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
+| **Vulnerabilities** | [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=vulnerabilities&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=vulnerabilities&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
+| **Technical Debt** | [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-backend&metric=sqale_index&token=6e0a9f64ae6b4e1930eb93f39ad99b45d53437c7)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-backend) | [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=unige-pinfo6-2026_unige-events-frontend&metric=sqale_index&token=f20bd39fb9ab102440acacca97ddb3926adb8552)](https://sonarcloud.io/summary/new_code?id=unige-pinfo6-2026_unige-events-frontend) |
 
 ---
 
-### Prerequisites
-Please use the provided **Dev Container** for a simpler setup.
+## 🏛️ Architecture
 
-- Java 21+
-- Maven
-- Node.js 24
+This project is structured as a monorepo containing both the user-facing web application and the distributed backend services.
 
-### Install dependencies
-
-```bash
-make install
+```
+unige-events/
+├── frontend/        # React 19 · TypeScript · Vite · Nginx
+├── backend/         # Java 21 · Quarkus 3 · PostgreSQL 16 · Kong
+├── helm/            # Kubernetes Helm Charts for deployment
+└── openapi/         # OpenAPI contracts (Shared Source of Truth)
 ```
 
-### Run the project
+### 💻 Frontend
+* **Stack**: React 19 · TypeScript · Vite
+* **Scope**: Responsive event discovery web portal, moderation workspace, and interactive user dashboard.
+* For setup & guidelines, see [`frontend/AGENTS.md`](frontend/AGENTS.md).
 
+### ⚙️ Backend
+* **Stack**: Quarkus 3 · Java 21 · Hibernate Panache · PostgreSQL 16
+* **Architecture**: DB-per-service microservices routing through **Kong API Gateway**.
+* **Active Services**:
+  * `event-service` - Event lifecycle and categorization.
+  * `user-service` - User profiles, authentication, and registrations.
+  * `engagement-service` - User interactions, reviews, registrations.
+  * `moderation-service` - Content approval workflows.
+  * `notification-service` - Automated email notifications.
+* For microservice conventions, see [`backend/AGENTS.md`](backend/AGENTS.md).
+
+---
+
+## 🚀 Getting Started
+
+> [!IMPORTANT]
+> **Mandatory Environment**: The use of **Dev Containers** is mandatory for all developers working on this project. This ensures a consistent workspace with all dependencies and tools (Java 21, Node 24, Docker, databases, Kong) pre-configured.
+
+### 🐳 Setting Up Your Dev Container
+
+1. Ensure you have **Docker** and **VS Code** installed.
+2. Install the **Dev Containers** extension in VS Code.
+3. Open the project root folder in VS Code.
+4. When prompted in the bottom right, click **"Reopen in Container"** (or open the Command Palette `Cmd+Shift+P`/`Ctrl+Shift+P` and select `Dev Containers: Reopen in Container`).
+5. Wait for the container to build.
+   > [!NOTE]
+   > Dependencies for both frontend and backend are automatically installed on creation (runs `make install` under the hood).
+
+---
+
+### 🛠️ Development & Command Reference
+
+Once your container is running, you can manage the entire application using the provided root [Makefile](file:///Users/agon/Development/UNIGE/PINFO/unige-events/Makefile):
+
+| Command | Action | URL / Port |
+| :--- | :--- | :--- |
+| `make dev` | Starts **both** the Frontend and Backend concurrently | - |
+| `make frontend` | Starts **only** the React frontend server | [http://localhost:5173/](http://localhost:5173/) |
+| `make backend` | Starts **all 5** Quarkus backend microservices in parallel | [http://localhost:8080/api](http://localhost:8080/api) |
+| `make test` | Runs all linters and test suites (Frontend + Backend) | - |
+
+#### Running Specific Backend Services
+If you want to run a single backend microservice at a time (e.g., to save RAM or focus on one service), use:
 ```bash
-make backend # http://localhost:5173/
-make frontend # http://localhost:8080/api
+make backend-<service-name>
 ```
+*Available services: `event`, `user`, `engagement`, `moderation`, `notification`.*
+
+*Example: `make backend-event`*
+
+---
+
+## 👥 Group 6 Team
+
+* [Agon Kolgeci](https://github.com/agonkolgeci)
+* [Antoine Maendly](https://github.com/antoinemdly)
+* [Daniel Dosh](https://github.com/DanyDosh)
+* [Elie Bussod](https://github.com/nexiumito)
+* [Viona Cufo](https://github.com/vionacufo)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
