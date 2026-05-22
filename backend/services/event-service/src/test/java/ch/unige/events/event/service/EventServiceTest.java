@@ -29,6 +29,7 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -780,12 +784,17 @@ class EventServiceTest {
     void uploadImage_byCreator_setsBannerUrl() {
         Event e = persistEvent("img", EventStatus.PUBLISHED, creatorId);
         em.flush();
-        when(fileStorageService.saveImage(any(), any(), anyLong(), any()))
+        FileUpload upload = mock(FileUpload.class);
+        when(fileStorageService.saveImage(eq(upload), eq("events/banners"),
+                eq(FileStorageService.MAX_BANNER_BYTES), any()))
                 .thenReturn("https://cdn/banner.png");
 
-        EventDTO dto = service.uploadImage(e.id, "auth0|x", null, false);
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", upload, false);
 
         assertEquals("https://cdn/banner.png", dto.bannerUrl());
+        // Guard the storage call shape: correct folder + banner size cap.
+        verify(fileStorageService).saveImage(eq(upload), eq("events/banners"),
+                eq(FileStorageService.MAX_BANNER_BYTES), any());
     }
 
     @Test
@@ -809,10 +818,12 @@ class EventServiceTest {
     void uploadImage_admin_canForce() {
         Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
         em.flush();
-        when(fileStorageService.saveImage(any(), any(), anyLong(), any()))
+        FileUpload upload = mock(FileUpload.class);
+        when(fileStorageService.saveImage(eq(upload), eq("events/banners"),
+                eq(FileStorageService.MAX_BANNER_BYTES), any()))
                 .thenReturn("https://cdn/admin.png");
 
-        EventDTO dto = service.uploadImage(e.id, "auth0|x", null, true);
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", upload, true);
 
         assertEquals("https://cdn/admin.png", dto.bannerUrl());
     }

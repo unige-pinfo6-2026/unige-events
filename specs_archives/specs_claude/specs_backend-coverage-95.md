@@ -45,9 +45,9 @@ L'agrégat backend stagne autour de **89 %** (chiffre équipe/CI). Le seuil dur 
 
 ### 2.2 Comment c'est mesuré
 
-- Couverture produite par l'extension **`quarkus-jacoco`** → un rapport par module dans `target/jacoco-report/jacoco.xml` (cf. `sonar.coverage.jacoco.xmlReportPaths` dans [`backend/pom.xml`](backend/pom.xml)).
+- Couverture produite par l'extension **`quarkus-jacoco`** → un rapport par module dans `target/jacoco-report/jacoco.xml` (cf. `sonar.coverage.jacoco.xmlReportPaths` dans [`backend/pom.xml`](/backend/pom.xml)).
 - **Aucune exclusion** JaCoCo/Sonar n'existe (ni dans les poms, ni dans les `application.properties`) → **tout** compte (DTO, records, mappers inclus).
-- L'agrégat Sonar est calculé par le job CI **`sonar-aggregate`** ([`.github/workflows/build.yml`](.github/workflows/build.yml)) qui **unit** les jacoco.xml des 15 modules (uploadés en artifacts par les jobs amont) dans le projet unique `unige-pinfo6-2026_unige-events-backend`.
+- L'agrégat Sonar est calculé par le job CI **`sonar-aggregate`** ([`.github/workflows/build.yml`](/.github/workflows/build.yml)) qui **unit** les jacoco.xml des 15 modules (uploadés en artifacts par les jobs amont) dans le projet unique `unige-pinfo6-2026_unige-events-backend`.
 - **Nuance d'agrégation** : Sonar fait l'**union** des rapports. Une classe de `shared/` exercée par un test de service est comptée couverte dans l'agrégat, même si le rapport local de la shared lib la montre partielle. Le **81 % local de `domain-dtos`** est donc un plancher module-local ; seules les classes **jamais exercées nulle part** (ex. `BearerTokenClientFilter`, 0 référence dans tout `*Test.java`) sont réellement à 0 % en agrégat.
 
 ### 2.3 CONTRAINTE — Docker
@@ -66,7 +66,7 @@ L'agrégat backend stagne autour de **89 %** (chiffre équipe/CI). Le seuil dur 
 
 | Option | Verdict |
 |---|---|
-| `feat(scrum-XXX)` / `refactor(...)` / `perf(...)` | ❌ ces 3 types **exigent** un scope Jira `scrum-XXX` (validé par [`pr-title-check.yml`](.github/workflows/pr-title-check.yml)) ; or il n'y a pas de ticket fonctionnel |
+| `feat(scrum-XXX)` / `refactor(...)` / `perf(...)` | ❌ ces 3 types **exigent** un scope Jira `scrum-XXX` (validé par [`pr-title-check.yml`](/.github/workflows/pr-title-check.yml)) ; or il n'y a pas de ticket fonctionnel |
 | **`test(backend): …`** | ✅ retenu — type `test`, scope libre autorisé ; décrit exactement la nature de la PR |
 | `chore(backend): …` | ❌ techniquement valide mais `test` est plus précis et conventionnel pour de l'ajout de tests |
 
@@ -81,7 +81,7 @@ L'agrégat backend stagne autour de **89 %** (chiffre équipe/CI). Le seuil dur 
 
 ### D3 — DRY (gate duplication ≤ 3 %)
 
-Factoriser **systématiquement** : helpers de construction de DTO (cf. `event(...)` dans [`AttendanceServiceTest.java`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java)), `@BeforeEach` pour le staging JWT, et **`@ParameterizedTest`** pour les familles de cas (statuts, timeframes, branches de fallback). Le gate SonarCloud **duplication ≤ 3 % sur le nouveau code** est bloquant — un copier-coller de blocs `given()…then()` le ferait échouer.
+Factoriser **systématiquement** : helpers de construction de DTO (cf. `event(...)` dans [`AttendanceServiceTest.java`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java)), `@BeforeEach` pour le staging JWT, et **`@ParameterizedTest`** pour les familles de cas (statuts, timeframes, branches de fallback). Le gate SonarCloud **duplication ≤ 3 % sur le nouveau code** est bloquant — un copier-coller de blocs `given()…then()` le ferait échouer.
 
 ### D4 — Ce qu'on NE teste PAS
 
@@ -111,81 +111,81 @@ Factoriser **systématiquement** : helpers de construction de DTO (cf. `event(..
 
 | Cible | Action | Cas à couvrir |
 |---|---|---|
-| [`BearerTokenClientFilter`](backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/client/BearerTokenClientFilter.java) — **0/9 L, 0/8 B** | **[C]** `BearerTokenClientFilterTest` (JUnit pur) | `jwt.isResolvable()` true/false ; `token == null` ; `rawToken` null/blank ; header `Authorization` positionné. `Instance<JsonWebToken>` mocké (Mockito), `ClientRequestContext` mocké. |
-| [`UserPublicResponse`](backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/UserPublicResponse.java) — 5/2 L | **[+]** [`UserPublicResponseTest`](backend/services/user-service/src/test/java/ch/unige/events/user/dto/UserPublicResponseTest.java) | ctors back-compat **12-arg** et **11-arg** (lignes de délégation) + overload `anonymous(UUID, displayName, avatarUrl)`. |
-| [`AttendanceDTO`](backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/AttendanceDTO.java) | **[+]** [`AttendanceDTOTest`](backend/shared/domain-dtos/src/test/java/ch/unige/events/shared/domain/dto/AttendanceDTOTest.java) | ctor **canonique 8-arg** avec `username` non-null (le 7-arg back-compat est déjà couvert). |
-| [`CommentVisibilityProjection`](backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/CommentVisibilityProjection.java) — 0/1 L | **[C]** `CommentVisibilityProjectionTest` (1 assertion d'accessor) | une instanciation + lecture d'un champ (record). Ferme la dernière ligne du module. |
+| [`BearerTokenClientFilter`](/backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/client/BearerTokenClientFilter.java) — **0/9 L, 0/8 B** | **[C]** `BearerTokenClientFilterTest` (JUnit pur) | `jwt.isResolvable()` true/false ; `token == null` ; `rawToken` null/blank ; header `Authorization` positionné. `Instance<JsonWebToken>` mocké (Mockito), `ClientRequestContext` mocké. |
+| [`UserPublicResponse`](/backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/UserPublicResponse.java) — 5/2 L | **[+]** [`UserPublicResponseTest`](/backend/services/user-service/src/test/java/ch/unige/events/user/dto/UserPublicResponseTest.java) | ctors back-compat **12-arg** et **11-arg** (lignes de délégation) + overload `anonymous(UUID, displayName, avatarUrl)`. |
+| [`AttendanceDTO`](/backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/AttendanceDTO.java) | **[+]** [`AttendanceDTOTest`](/backend/shared/domain-dtos/src/test/java/ch/unige/events/shared/domain/dto/AttendanceDTOTest.java) | ctor **canonique 8-arg** avec `username` non-null (le 7-arg back-compat est déjà couvert). |
+| [`CommentVisibilityProjection`](/backend/shared/domain-dtos/src/main/java/ch/unige/events/shared/domain/dto/CommentVisibilityProjection.java) — 0/1 L | **[C]** `CommentVisibilityProjectionTest` (1 assertion d'accessor) | une instanciation + lecture d'un champ (record). Ferme la dernière ligne du module. |
 
 #### `shared/domain-projections` — MESURÉ 94,1 % L / 87,5 % B
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`CallerIdentity`](backend/shared/domain-projections/src/main/java/ch/unige/events/shared/domain/projections/CallerIdentity.java) | **[+]** [`CallerIdentityTest`](backend/shared/domain-projections/src/test/java/ch/unige/events/shared/domain/projections/CallerIdentityTest.java) | branche `me != null && me.id() == null` (fournir un `UserPublicResponse` à `id` null). |
+| [`CallerIdentity`](/backend/shared/domain-projections/src/main/java/ch/unige/events/shared/domain/projections/CallerIdentity.java) | **[+]** [`CallerIdentityTest`](/backend/shared/domain-projections/src/test/java/ch/unige/events/shared/domain/projections/CallerIdentityTest.java) | branche `me != null && me.id() == null` (fournir un `UserPublicResponse` à `id` null). |
 
 #### `shared/jaxrs` — MESURÉ 100 % L / 92,9 % B
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`EnumParamConverterProvider`](backend/shared/jaxrs/src/main/java/ch/unige/events/shared/jaxrs/EnumParamConverterProvider.java) | **[+]** [`EnumParamConverterProviderTest`](backend/shared/jaxrs/src/test/java/ch/unige/events/shared/jaxrs/EnumParamConverterProviderTest.java) | la branche manquante (1) du `getConverter`. |
-| [`InternalTokenFilter`](backend/shared/jaxrs/src/main/java/ch/unige/events/shared/jaxrs/InternalTokenFilter.java) | **[+]** [`InternalTokenFilterTest`](backend/shared/jaxrs/src/test/java/ch/unige/events/shared/jaxrs/InternalTokenFilterTest.java) | la branche manquante (1) du contrôle de token. |
+| [`EnumParamConverterProvider`](/backend/shared/jaxrs/src/main/java/ch/unige/events/shared/jaxrs/EnumParamConverterProvider.java) | **[+]** [`EnumParamConverterProviderTest`](/backend/shared/jaxrs/src/test/java/ch/unige/events/shared/jaxrs/EnumParamConverterProviderTest.java) | la branche manquante (1) du `getConverter`. |
+| [`InternalTokenFilter`](/backend/shared/jaxrs/src/main/java/ch/unige/events/shared/jaxrs/InternalTokenFilter.java) | **[+]** [`InternalTokenFilterTest`](/backend/shared/jaxrs/src/test/java/ch/unige/events/shared/jaxrs/InternalTokenFilterTest.java) | la branche manquante (1) du contrôle de token. |
 
 #### `shared/tracing` — MESURÉ 100 % L / 90,0 % B
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`MdcKafkaProducerInterceptor`](backend/shared/tracing/src/main/java/ch/unige/events/shared/tracing/MdcKafkaProducerInterceptor.java) | **[+]** [`MdcKafkaProducerInterceptorTest`](backend/shared/tracing/src/test/java/ch/unige/events/shared/tracing/MdcKafkaProducerInterceptorTest.java) | 2 branches restantes. |
-| [`MdcKafkaConsumerInterceptor`](backend/shared/tracing/src/main/java/ch/unige/events/shared/tracing/MdcKafkaConsumerInterceptor.java) | **[+]** [`MdcKafkaConsumerInterceptorTest`](backend/shared/tracing/src/test/java/ch/unige/events/shared/tracing/MdcKafkaConsumerInterceptorTest.java) | header présent mais `h.value() == null`. |
+| [`MdcKafkaProducerInterceptor`](/backend/shared/tracing/src/main/java/ch/unige/events/shared/tracing/MdcKafkaProducerInterceptor.java) | **[+]** [`MdcKafkaProducerInterceptorTest`](/backend/shared/tracing/src/test/java/ch/unige/events/shared/tracing/MdcKafkaProducerInterceptorTest.java) | 2 branches restantes. |
+| [`MdcKafkaConsumerInterceptor`](/backend/shared/tracing/src/main/java/ch/unige/events/shared/tracing/MdcKafkaConsumerInterceptor.java) | **[+]** [`MdcKafkaConsumerInterceptorTest`](/backend/shared/tracing/src/test/java/ch/unige/events/shared/tracing/MdcKafkaConsumerInterceptorTest.java) | header présent mais `h.value() == null`. |
 
 #### `services/event-service` (dominant)
 
 | Cible | Action | Cas à couvrir |
 |---|---|---|
-| [`RedirectResource`](backend/services/event-service/src/main/java/ch/unige/events/event/share/resource/RedirectResource.java) — **0 %** | **[C]** `RedirectResourceTest` (`@QuarkusTest` + RestAssured) | `GET /api/s/{shortCode}` → **302** + header `Location` = `{frontendUrl}/events/{id}` (mock `ShareService.resolveByShortCode`) ; **404** pour shortCode inconnu (anti-oracle). `@PermitAll` → pas de JWT. Désactiver le suivi de redirection RestAssured (`redirects().follow(false)`). |
-| [`UserFavoritesResource`](backend/services/event-service/src/main/java/ch/unige/events/event/favorite/resource/UserFavoritesResource.java) — **0 %** | **[C]** `UserFavoritesResourceTest` | `GET /api/users/me/favorites` → **200** (auth, délègue à `FavoriteService.getFavorites`) ; **401** anonyme. Bonus : `size > 100` → 400 (validation `@Max`). |
-| [`MyCoOrganizerInvitationsResource`](backend/services/event-service/src/main/java/ch/unige/events/event/coorganizer/resource/MyCoOrganizerInvitationsResource.java) — **0 %** | **[C]** `MyCoOrganizerInvitationsResourceTest` | `GET /api/users/me/co-organizer-invitations` → **200** (auth) ; **401** anonyme. Bonus : `status` enum invalide → 400. |
-| [`EventService.uploadImage`](backend/services/event-service/src/main/java/ch/unige/events/event/service/EventService.java) | **[+]** [`EventServiceTest`](backend/services/event-service/src/test/java/ch/unige/events/event/service/EventServiceTest.java) | **404** event inconnu ; **403** non-organisateur ; **force admin** ; **succès** (`FileStorageService.saveImage` + client engagement mockés). Plus gros gain unitaire du module. |
+| [`RedirectResource`](/backend/services/event-service/src/main/java/ch/unige/events/event/share/resource/RedirectResource.java) — **0 %** | **[C]** `RedirectResourceTest` (`@QuarkusTest` + RestAssured) | `GET /api/s/{shortCode}` → **302** + header `Location` = `{frontendUrl}/events/{id}` (mock `ShareService.resolveByShortCode`) ; **404** pour shortCode inconnu (anti-oracle). `@PermitAll` → pas de JWT. Désactiver le suivi de redirection RestAssured (`redirects().follow(false)`). |
+| [`UserFavoritesResource`](/backend/services/event-service/src/main/java/ch/unige/events/event/favorite/resource/UserFavoritesResource.java) — **0 %** | **[C]** `UserFavoritesResourceTest` | `GET /api/users/me/favorites` → **200** (auth, délègue à `FavoriteService.getFavorites`) ; **401** anonyme. Bonus : `size > 100` → 400 (validation `@Max`). |
+| [`MyCoOrganizerInvitationsResource`](/backend/services/event-service/src/main/java/ch/unige/events/event/coorganizer/resource/MyCoOrganizerInvitationsResource.java) — **0 %** | **[C]** `MyCoOrganizerInvitationsResourceTest` | `GET /api/users/me/co-organizer-invitations` → **200** (auth) ; **401** anonyme. Bonus : `status` enum invalide → 400. |
+| [`EventService.uploadImage`](/backend/services/event-service/src/main/java/ch/unige/events/event/service/EventService.java) | **[+]** [`EventServiceTest`](/backend/services/event-service/src/test/java/ch/unige/events/event/service/EventServiceTest.java) | **404** event inconnu ; **403** non-organisateur ; **force admin** ; **succès** (`FileStorageService.saveImage` + client engagement mockés). Plus gros gain unitaire du module. |
 | `EventService.duplicate` | **[+]** `EventServiceTest` | cap de collision **> 100** → **422 `duplicate_title_collision`** (préparer 100 titres en collision via `PanacheMock`). |
-| [`EventCoOrganizerService`](backend/services/event-service/src/main/java/ch/unige/events/event/coorganizer/service/EventCoOrganizerService.java) | **[+]** [`EventCoOrganizerServiceTest`](backend/services/event-service/src/test/java/ch/unige/events/event/coorganizer/service/EventCoOrganizerServiceTest.java) | `lookupTargetUser` : **503** (`RuntimeException` du client) et **retour null** ; `safeGetUser` : WARN sur échec infra. |
-| [`EventViewService`](backend/services/event-service/src/main/java/ch/unige/events/event/view/service/EventViewService.java) | **[+]** [`EventViewServiceTest`](backend/services/event-service/src/test/java/ch/unige/events/event/view/service/EventViewServiceTest.java) | branche « authentifié mais `uuid == null` » → fallback anonyme. |
+| [`EventCoOrganizerService`](/backend/services/event-service/src/main/java/ch/unige/events/event/coorganizer/service/EventCoOrganizerService.java) | **[+]** [`EventCoOrganizerServiceTest`](/backend/services/event-service/src/test/java/ch/unige/events/event/coorganizer/service/EventCoOrganizerServiceTest.java) | `lookupTargetUser` : **503** (`RuntimeException` du client) et **retour null** ; `safeGetUser` : WARN sur échec infra. |
+| [`EventViewService`](/backend/services/event-service/src/main/java/ch/unige/events/event/view/service/EventViewService.java) | **[+]** [`EventViewServiceTest`](/backend/services/event-service/src/test/java/ch/unige/events/event/view/service/EventViewServiceTest.java) | branche « authentifié mais `uuid == null` » → fallback anonyme. |
 
 #### `services/engagement-service`
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`AttendanceService`](backend/services/engagement-service/src/main/java/ch/unige/events/engagement/attendance/service/AttendanceService.java) | **[+]** [`AttendanceServiceTest`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java) | `getAttendees` : fallback co-org (`coOrgOf` null/false + `getOrganizerUuids`) ; `removeAttendance` sur statut **terminal EXPIRED** (≠ CANCELLED) ; `getUserParticipationEvents` early-return `eventIds` vide ; `matchesTimeframe` `endDate() == null`. |
-| [`CommentService.fanOutMentions`](backend/services/engagement-service/src/main/java/ch/unige/events/engagement/comment/service/CommentService.java) | **[+]** [`CommentServiceTest`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/comment/service/CommentServiceTest.java) | `userClient.getByUsernames` jette (`MENTION_RESOLVE_FAIL`) ; résolution **vide** vs **null**. |
-| [`CommentLike.findLikedCommentIdsByUser`](backend/services/engagement-service/src/main/java/ch/unige/events/engagement/comment/entity/CommentLike.java) | **[+]** (test entité/`CommentLikeServiceTest` existant) | guard d'entrée **vide** (assertion directe). |
+| [`AttendanceService`](/backend/services/engagement-service/src/main/java/ch/unige/events/engagement/attendance/service/AttendanceService.java) | **[+]** [`AttendanceServiceTest`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java) | `getAttendees` : fallback co-org (`coOrgOf` null/false + `getOrganizerUuids`) ; `removeAttendance` sur statut **terminal EXPIRED** (≠ CANCELLED) ; `getUserParticipationEvents` early-return `eventIds` vide ; `matchesTimeframe` `endDate() == null`. |
+| [`CommentService.fanOutMentions`](/backend/services/engagement-service/src/main/java/ch/unige/events/engagement/comment/service/CommentService.java) | **[+]** [`CommentServiceTest`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/comment/service/CommentServiceTest.java) | `userClient.getByUsernames` jette (`MENTION_RESOLVE_FAIL`) ; résolution **vide** vs **null**. |
+| [`CommentLike.findLikedCommentIdsByUser`](/backend/services/engagement-service/src/main/java/ch/unige/events/engagement/comment/entity/CommentLike.java) | **[+]** (test entité/`CommentLikeServiceTest` existant) | guard d'entrée **vide** (assertion directe). |
 
 #### `services/user-service`
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`UserService`](backend/services/user-service/src/main/java/ch/unige/events/user/service/UserService.java) | **[+]** [`UserServiceTest`](backend/services/user-service/src/test/java/ch/unige/events/user/service/UserServiceTest.java) | `getOrCreateUser` : catch **conflit unique-auth0** (race) ; `isOptimisticLockConflict` / `isUniqueUsernameConflict` : branches de **matching sur le nom de classe** d'exception ; `searchByUsernamePrefix` : `limit ≤ 0` / **exclusion de soi**. |
-| [`CalendarService.withOptimisticLockRetry`](backend/services/user-service/src/main/java/ch/unige/events/user/calendar/service/CalendarService.java) | **[+]** [`CalendarServiceTest`](backend/services/user-service/src/test/java/ch/unige/events/user/calendar/service/CalendarServiceTest.java) | **rethrow** d'une exception **non-OLE** (non retryée). |
+| [`UserService`](/backend/services/user-service/src/main/java/ch/unige/events/user/service/UserService.java) | **[+]** [`UserServiceTest`](/backend/services/user-service/src/test/java/ch/unige/events/user/service/UserServiceTest.java) | `getOrCreateUser` : catch **conflit unique-auth0** (race) ; `isOptimisticLockConflict` / `isUniqueUsernameConflict` : branches de **matching sur le nom de classe** d'exception ; `searchByUsernamePrefix` : `limit ≤ 0` / **exclusion de soi**. |
+| [`CalendarService.withOptimisticLockRetry`](/backend/services/user-service/src/main/java/ch/unige/events/user/calendar/service/CalendarService.java) | **[+]** [`CalendarServiceTest`](/backend/services/user-service/src/test/java/ch/unige/events/user/calendar/service/CalendarServiceTest.java) | **rethrow** d'une exception **non-OLE** (non retryée). |
 
 #### `services/moderation-service` (package `ch.unige.events.report.*`)
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`EventBannedPublisher`](backend/services/moderation-service/src/main/java/ch/unige/events/report/kafka/EventBannedPublisher.java) | **[+]** [`EventBannedPublisherTest`](backend/services/moderation-service/src/test/java/ch/unige/events/report/kafka/EventBannedPublisherTest.java) | catch **`JsonProcessingException`** (~10 L) → `IllegalStateException` (`ObjectMapper` mocké qui jette). Plus gros gain du module. |
-| [`EventBannedOutboxPoller`](backend/services/moderation-service/src/main/java/ch/unige/events/report/outbox/EventBannedOutboxPoller.java) | **[+]** [`EventBannedOutboxPollerTest`](backend/services/moderation-service/src/test/java/ch/unige/events/report/outbox/EventBannedOutboxPollerTest.java) | bras **`InterruptedException`** (emitter `get()` jette) → `attempts++`, `lastError`, flag d'interruption (distinct du `Exception` générique déjà couvert). |
-| [`ReportService.safeGetUser`](backend/services/moderation-service/src/main/java/ch/unige/events/report/service/ReportService.java) | **[+]** [`ReportServiceTest`](backend/services/moderation-service/src/test/java/ch/unige/events/report/service/ReportServiceTest.java) | catch **`jakarta.ws.rs.NotFoundException`** explicite (distinct du `RuntimeException` générique déjà couvert). |
+| [`EventBannedPublisher`](/backend/services/moderation-service/src/main/java/ch/unige/events/report/kafka/EventBannedPublisher.java) | **[+]** [`EventBannedPublisherTest`](/backend/services/moderation-service/src/test/java/ch/unige/events/report/kafka/EventBannedPublisherTest.java) | catch **`JsonProcessingException`** (~10 L) → `IllegalStateException` (`ObjectMapper` mocké qui jette). Plus gros gain du module. |
+| [`EventBannedOutboxPoller`](/backend/services/moderation-service/src/main/java/ch/unige/events/report/outbox/EventBannedOutboxPoller.java) | **[+]** [`EventBannedOutboxPollerTest`](/backend/services/moderation-service/src/test/java/ch/unige/events/report/outbox/EventBannedOutboxPollerTest.java) | bras **`InterruptedException`** (emitter `get()` jette) → `attempts++`, `lastError`, flag d'interruption (distinct du `Exception` générique déjà couvert). |
+| [`ReportService.safeGetUser`](/backend/services/moderation-service/src/main/java/ch/unige/events/report/service/ReportService.java) | **[+]** [`ReportServiceTest`](/backend/services/moderation-service/src/test/java/ch/unige/events/report/service/ReportServiceTest.java) | catch **`jakarta.ws.rs.NotFoundException`** explicite (distinct du `RuntimeException` générique déjà couvert). |
 
 #### `services/notification-service` (event-driven)
 
 | Cible | Action | Cas |
 |---|---|---|
-| [`FollowLifecycleEventDeserializer`](backend/services/notification-service/src/main/java/ch/unige/events/notification/kafka/FollowLifecycleEventDeserializer.java) — **pas de test dédié** | **[C]** `FollowLifecycleEventDeserializerTest` | sentinel **3-cas** (ctor no-arg / JSON valide / bytes null) — calque des autres `*EventDeserializerTest`. |
-| [`EventUpdatedConsumerTest`](backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/EventUpdatedConsumerTest.java), [`UserFollowRequestedConsumerTest`](backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/UserFollowRequestedConsumerTest.java), [`UserFollowAcceptedConsumerTest`](backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/UserFollowAcceptedConsumerTest.java) | **[+]** | **vérifier** qu'ils portent **toutes** les branches-garde (wrong-type / null-id / self-loop / `resolveMessage` fallback) ; compléter celles qui manquent. |
+| [`FollowLifecycleEventDeserializer`](/backend/services/notification-service/src/main/java/ch/unige/events/notification/kafka/FollowLifecycleEventDeserializer.java) — **pas de test dédié** | **[C]** `FollowLifecycleEventDeserializerTest` | sentinel **3-cas** (ctor no-arg / JSON valide / bytes null) — calque des autres `*EventDeserializerTest`. |
+| [`EventUpdatedConsumerTest`](/backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/EventUpdatedConsumerTest.java), [`UserFollowRequestedConsumerTest`](/backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/UserFollowRequestedConsumerTest.java), [`UserFollowAcceptedConsumerTest`](/backend/services/notification-service/src/test/java/ch/unige/events/notification/kafka/UserFollowAcceptedConsumerTest.java) | **[+]** | **vérifier** qu'ils portent **toutes** les branches-garde (wrong-type / null-id / self-loop / `resolveMessage` fallback) ; compléter celles qui manquent. |
 
 ### 4.2 PATTERNS À RÉUTILISER (fichiers réels)
 
 | Pattern | Référence |
 |---|---|
-| `@QuarkusTest` + `@TestSecurity(user = "auth0|…")` (identité du principal) | [`MyAttendancesResourceTest`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/resource/MyAttendancesResourceTest.java) |
-| `PanacheMock.mock(Entity.class)` + `when(Entity.staticFinder(...))` pour les finders statiques Panache | [`AttendanceServiceTest`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java), `MyAttendancesResourceTest` |
+| `@QuarkusTest` + `@TestSecurity(user = "auth0|…")` (identité du principal) | [`MyAttendancesResourceTest`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/resource/MyAttendancesResourceTest.java) |
+| `PanacheMock.mock(Entity.class)` + `when(Entity.staticFinder(...))` pour les finders statiques Panache | [`AttendanceServiceTest`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/attendance/service/AttendanceServiceTest.java), `MyAttendancesResourceTest` |
 | `@InjectMock @RestClient FooServiceClient` pour le cross-service | `AttendanceServiceTest` (`EventServiceClient`, `UserServiceClient`) |
-| Staging d'identité : `JwtTestContext.set(JwtTestHelper.jwtFor(uuid))` en `@BeforeEach`, `.clear()` en `@AfterEach` | helpers **par service** : event ([`event/test/`](backend/services/event-service/src/test/java/ch/unige/events/event/test/JwtTestHelper.java)), engagement ([`engagement/test/`](backend/services/engagement-service/src/test/java/ch/unige/events/engagement/test/JwtTestHelper.java)), user ([`user/test/`](backend/services/user-service/src/test/java/ch/unige/events/user/test/JwtTestHelper.java)), moderation ([`report/test/`](backend/services/moderation-service/src/test/java/ch/unige/events/report/test/JwtTestHelper.java)) |
+| Staging d'identité : `JwtTestContext.set(JwtTestHelper.jwtFor(uuid))` en `@BeforeEach`, `.clear()` en `@AfterEach` | helpers **par service** : event ([`event/test/`](/backend/services/event-service/src/test/java/ch/unige/events/event/test/JwtTestHelper.java)), engagement ([`engagement/test/`](/backend/services/engagement-service/src/test/java/ch/unige/events/engagement/test/JwtTestHelper.java)), user ([`user/test/`](/backend/services/user-service/src/test/java/ch/unige/events/user/test/JwtTestHelper.java)), moderation ([`report/test/`](/backend/services/moderation-service/src/test/java/ch/unige/events/report/test/JwtTestHelper.java)) |
 | RestAssured `given().when().get(...).then().statusCode(...)` (resource) | `MyAttendancesResourceTest` |
 | Helper de construction de DTO (DRY) + `@ParameterizedTest` | `event(...)` dans `AttendanceServiceTest` |
 | Tests **JUnit purs** (sans Quarkus) côté shared (clients + DTO) | `shared/domain-dtos`, `shared/jaxrs`, `shared/tracing`, `shared/domain-projections` tests existants |

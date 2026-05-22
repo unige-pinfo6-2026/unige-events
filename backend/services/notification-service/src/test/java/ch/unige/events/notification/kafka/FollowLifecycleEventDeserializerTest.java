@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,8 +34,10 @@ class FollowLifecycleEventDeserializerTest {
     void deserialize_validJson_returnsRecord() {
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();
+        Instant occurredAt = Instant.parse("2026-05-22T10:15:30Z");
         String json = "{\"type\":\"FOLLOWED\",\"followerId\":\"" + follower
-                + "\",\"followedId\":\"" + followed + "\"}";
+                + "\",\"followedId\":\"" + followed
+                + "\",\"occurredAt\":\"" + occurredAt + "\"}";
 
         try (FollowLifecycleEventDeserializer d = new FollowLifecycleEventDeserializer()) {
             FollowLifecycleEvent ev = d.deserialize("users.followed",
@@ -43,6 +46,8 @@ class FollowLifecycleEventDeserializerTest {
             assertEquals(FollowLifecycleEvent.Type.FOLLOWED, ev.type());
             assertEquals(follower, ev.followerId());
             assertEquals(followed, ev.followedId());
+            // Validates the jsr310 Instant round-trip via the Quarkus ObjectMapper.
+            assertEquals(occurredAt, ev.occurredAt());
         }
     }
 
