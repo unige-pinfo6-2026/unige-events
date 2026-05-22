@@ -74,10 +74,15 @@ export function useFeed({ followedOnly = false }: UseFeedOptions = {}): UseFeedR
 
   // Guard pour éviter les doubles appels (mode Strict + IntersectionObserver)
   const fetchingRef = useRef(false)
+  // Identifiant monotone de requête : seule la réponse de la dernière requête
+  // déclenchée est autorisée à muter l'état. Empêche une réponse « stale » d'un
+  // ancien filtre (followedOnly) d'écraser la liste après un changement de filtre.
+  const requestIdRef = useRef(0)
 
   const fetchPage = useCallback(async (pageNum: number) => {
     if (fetchingRef.current) return
     fetchingRef.current = true
+    const reqId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     try {
@@ -91,19 +96,29 @@ export function useFeed({ followedOnly = false }: UseFeedOptions = {}): UseFeedR
         // les événements des organisateurs suivis (requiert un token).
         followedOnly: followedOnly || undefined,
       })
+      // Une requête plus récente (changement de filtre) a pris le relais → on
+      // ignore cette réponse stale pour ne pas polluer la liste avec le mauvais filtre.
+      if (reqId !== requestIdRef.current) return
       setAllEvents(prev => (pageNum === 0 ? data : [...prev, ...data]))
       setHasMore(data.length === PAGE_SIZE)
     } catch {
+      if (reqId !== requestIdRef.current) return
       setError("Impossible de charger le fil d'événements.")
     } finally {
-      setLoading(false)
-      fetchingRef.current = false
+      // Seule la dernière requête réinitialise les drapeaux partagés.
+      if (reqId === requestIdRef.current) {
+        setLoading(false)
+        fetchingRef.current = false
+      }
     }
   }, [followedOnly])
 
   // Re-run on mount AND whenever `followedOnly` change (fetchPage est recréé) :
-  // on réinitialise la pagination + la liste avant de recharger la page 0.
+  // on réinitialise la pagination + la liste, puis on recharge la page 0. On
+  // relâche `fetchingRef` pour que ce refetch parte même si une requête de
+  // l'ancien filtre est encore en vol (sa réponse sera ignorée via requestId).
   useEffect(() => {
+    fetchingRef.current = false
     setPage(0)
     setAllEvents([])
     setHasMore(true)

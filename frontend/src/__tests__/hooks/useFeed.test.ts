@@ -214,4 +214,27 @@ describe('useFeed', () => {
       expect.objectContaining({ followedOnly: undefined }),
     )
   })
+
+  it('ignores a stale in-flight response when followedOnly changes (no wrong-filter data)', async () => {
+    const firstData = [makeEvent({ id: 1, startDate: '2026-04-28T10:00:00Z' })]
+    const secondData = [makeEvent({ id: 2, startDate: '2026-04-29T10:00:00Z' })]
+    let resolveFirst!: (v: Event[]) => void
+    mockGetAll
+      .mockImplementationOnce(() => new Promise<Event[]>(r => { resolveFirst = r }))
+      .mockResolvedValueOnce(secondData)
+
+    const { result, rerender } = renderHook(
+      ({ f }: { f: boolean }) => useFeed({ followedOnly: f }),
+      { initialProps: { f: false } },
+    )
+
+    // Toggle the filter while the first (followedOnly=false) request is still pending.
+    rerender({ f: true })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.groups.flatMap(g => g.events.map(e => e.id))).toEqual([2])
+
+    // The stale first request now resolves — it must NOT overwrite the list.
+    await act(async () => { resolveFirst(firstData) })
+    expect(result.current.groups.flatMap(g => g.events.map(e => e.id))).toEqual([2])
+  })
 })

@@ -45,7 +45,11 @@ export default function FeedPage() {
   // Filtre « Mes abonnements » (SCRUM-168). Réservé aux utilisateurs connectés —
   // le toggle n'est rendu que si `user` (le filtre exige un token côté backend).
   const [followedOnly, setFollowedOnly] = useState(false)
-  const { groups, loading, error, hasMore, loadMore } = useFeed({ followedOnly })
+  // Si l'utilisateur se déconnecte / sa session expire alors que le filtre est
+  // actif, on retombe sur le fil public « Tous » (le toggle est masqué de toute
+  // façon) — sinon useFeed continuerait d'émettre des 401 sans retour possible.
+  const effectiveFollowedOnly = Boolean(user) && followedOnly
+  const { groups, loading, error, hasMore, loadMore } = useFeed({ followedOnly: effectiveFollowedOnly })
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -130,7 +134,7 @@ export default function FeedPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <Rss className="w-10 h-10 text-foreground/20" aria-hidden="true" />
             <p className="text-foreground/50 text-sm max-w-sm">
-              {followedOnly
+              {effectiveFollowedOnly
                 ? 'Aucun événement à venir de vos abonnements. Suivez des organisateurs pour voir leurs événements ici.'
                 : 'Aucun événement à venir pour le moment.'}
             </p>
