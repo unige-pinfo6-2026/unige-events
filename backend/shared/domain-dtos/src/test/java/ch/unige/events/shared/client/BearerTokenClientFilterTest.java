@@ -15,6 +15,8 @@ import static org.mockito.Mockito.when;
 
 class BearerTokenClientFilterTest {
 
+    private static final String AUTH_HEADER = "Authorization";
+
     /**
      * Builds a filter whose {@code Instance<JsonWebToken>} resolves (or not)
      * to a token returning {@code rawToken}. {@code resolvable=false} models
@@ -46,30 +48,30 @@ class BearerTokenClientFilterTest {
     @Test
     void unresolvableJwt_doesNotSetHeader() {
         MultivaluedMap<String, Object> headers = filterAndCaptureHeaders(filter(false, null));
-        assertFalse(headers.containsKey("Authorization"));
+        assertFalse(headers.containsKey(AUTH_HEADER));
     }
 
     @Test
     void resolvableButNullToken_doesNotSetHeader() {
         MultivaluedMap<String, Object> headers = filterAndCaptureHeaders(filter(true, null));
-        assertFalse(headers.containsKey("Authorization"));
+        assertFalse(headers.containsKey(AUTH_HEADER));
     }
 
     @Test
     void nullRawToken_doesNotSetHeader() {
         MultivaluedMap<String, Object> headers = filterAndCaptureHeaders(filter(true, tokenWithRaw(null)));
-        assertFalse(headers.containsKey("Authorization"));
+        assertFalse(headers.containsKey(AUTH_HEADER));
     }
 
     @Test
     void blankRawToken_doesNotSetHeader() {
         MultivaluedMap<String, Object> headers = filterAndCaptureHeaders(filter(true, tokenWithRaw("   ")));
-        assertFalse(headers.containsKey("Authorization"));
+        assertFalse(headers.containsKey(AUTH_HEADER));
     }
 
     @Test
     void presentRawToken_setsBearerHeader() {
         MultivaluedMap<String, Object> headers = filterAndCaptureHeaders(filter(true, tokenWithRaw("abc.def.ghi")));
-        assertEquals("Bearer abc.def.ghi", headers.getFirst("Authorization"));
+        assertEquals("Bearer abc.def.ghi", headers.getFirst(AUTH_HEADER));
     }
 }
