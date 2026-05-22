@@ -69,8 +69,9 @@ unige-events/
 3. Open the project root folder in VS Code.
 4. When prompted in the bottom right, click **"Reopen in Container"** (or open the Command Palette `Cmd+Shift+P`/`Ctrl+Shift+P` and select `Dev Containers: Reopen in Container`).
 5. Wait for the container to build.
-   > [!NOTE]
-   > Dependencies for both frontend and backend are automatically installed on creation (runs `make install` under the hood).
+
+> [!NOTE]
+> Dependencies for both frontend and backend are automatically installed on container creation (runs `make install` under the hood).
 
 ---
 
