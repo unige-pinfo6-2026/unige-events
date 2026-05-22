@@ -67,7 +67,7 @@ jobs:
   # ─── Preview ──────────────────────────────────────────────────────────────
   deploy-preview:
     name: Deploy to Preview
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     environment: preview
     concurrency:
