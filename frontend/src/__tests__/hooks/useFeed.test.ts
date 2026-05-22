@@ -194,4 +194,24 @@ describe('useFeed', () => {
       expect.objectContaining({ status: 'PUBLISHED', endDateFrom: expect.any(String) }),
     )
   })
+
+  it('passes followedOnly=true to getAll when the option is set (SCRUM-168)', async () => {
+    mockGetAll.mockResolvedValue([])
+    const { result } = renderHook(() => useFeed({ followedOnly: true }))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(mockGetAll).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'PUBLISHED', followedOnly: true }),
+    )
+  })
+
+  it('omits followedOnly (undefined) by default so the "Tous" feed stays unfiltered', async () => {
+    mockGetAll.mockResolvedValue([])
+    const { result } = renderHook(() => useFeed())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(mockGetAll).toHaveBeenCalledWith(
+      expect.objectContaining({ followedOnly: undefined }),
+    )
+  })
 })

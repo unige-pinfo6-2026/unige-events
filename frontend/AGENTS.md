@@ -332,6 +332,8 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 > **Lecture obligatoire avant toute implémentation frontend impliquant un chargement :**
 > [`frontend/skeleton/README.md`](skeleton/README.md) — workflows complets, format des bones, pièges, checklist.
 
+> ⚠️ **Piège boneyard ≥ 1.7.7** : le renderer React **filtre** les bones marqués `container` (`true` en 6ᵉ position du tuple) — un bone flaggué est **invisible**. Ne jamais poser ce flag ; la hiérarchie de teinte se fait par alpha-compounding (bones superposés). Les `.bones.json` manuels ne doivent contenir aucun `true`.
+
 ### Quand générer un skeleton
 
 | Situation | Action requise |

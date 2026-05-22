@@ -923,4 +923,106 @@ class AttendanceServiceTest {
         assertTrue(cause.getMessage().contains("acquireAdvisoryLock called with null eventId"),
                 "message must surface the null-eventId reason: " + cause.getMessage());
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // getUserParticipationEvents (public profile — SCRUM-141 follow-up)
+    // ──────────────────────────────────────────────────────────────────
+
+    @Test
+    void getUserParticipationEvents_nullTarget_returnsEmptyList() {
+        List<EventDTO> result = service.getUserParticipationEvents(null, null);
+        assertTrue(result.isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipationEvents_self_returnsPublishedAttendingWithCounts() {
+        // caller == target (userId): the profilePublic gate does not apply.
+        Attendance a = new Attendance();
+        a.id = 800L; a.userId = userId; a.eventId = 80L;
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
+        when(Attendance.countGroupedByStatus(any(List.class),
+                eq(AttendanceStatus.ATTENDING), any())).thenReturn(Map.of(80L, 5L));
+        when(Attendance.countGroupedByStatus(any(List.class),
+                eq(AttendanceStatus.WAITLISTED), any())).thenReturn(Map.of(80L, 1L));
+        // PUBLISHED-only enrichment: the service must pass "PUBLISHED" (an
+        // unmatched stub would return null and NPE — so this asserts the filter).
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(event(80L, EventStatus.PUBLISHED, 10, creatorId, null)));
+
+        List<EventDTO> result = service.getUserParticipationEvents(userId, null);
+        assertEquals(1, result.size());
+        assertEquals(80L, result.get(0).id());
+        assertEquals(5L, result.get(0).attendingCount());
+        assertEquals(1L, result.get(0).waitlistedCount());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipationEvents_publicTarget_returnsList() {
+        Attendance a = new Attendance();
+        a.id = 810L; a.userId = otherUserId; a.eventId = 81L;
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(event(81L, EventStatus.PUBLISHED, 10, creatorId, null)));
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
+                new AttendeeProjection(otherUserId, "Other", null, true)));
+
+        List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
+        assertEquals(1, result.size());
+        assertEquals(81L, result.get(0).id());
+    }
+
+    @Test
+    void getUserParticipationEvents_privateTarget_returnsEmptyList() {
+        PanacheMock.mock(Attendance.class);
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
+                new AttendeeProjection(otherUserId, "Other", null, false)));
+
+        List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getUserParticipationEvents_projectionMissing_failsClosedEmpty() {
+        PanacheMock.mock(Attendance.class);
+        // user-service returns no projection for the target → treat as private.
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of());
+
+        List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
+        assertTrue(result.isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipationEvents_excludesWaitlistedRows() {
+        // Self view with one ATTENDING (82) + one WAITLISTED (83) row. Only the
+        // ATTENDING event id must reach the enrichment call.
+        Attendance attending = new Attendance();
+        attending.id = 820L; attending.userId = userId; attending.eventId = 82L;
+        attending.status = AttendanceStatus.ATTENDING; attending.createdAt = LocalDateTime.now();
+        Attendance waitlisted = new Attendance();
+        waitlisted.id = 821L; waitlisted.userId = userId; waitlisted.eventId = 83L;
+        waitlisted.status = AttendanceStatus.WAITLISTED; waitlisted.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of(attending, waitlisted));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        // Echo back only the ids actually requested → proves 83 (WAITLISTED) was filtered out.
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED"))).thenAnswer(inv -> {
+            List<Long> ids = inv.getArgument(0);
+            List<EventDTO> out = new ArrayList<>();
+            if (ids.contains(82L)) out.add(event(82L, EventStatus.PUBLISHED, 10, creatorId, null));
+            if (ids.contains(83L)) out.add(event(83L, EventStatus.PUBLISHED, 10, creatorId, null));
+            return out;
+        });
+
+        List<EventDTO> result = service.getUserParticipationEvents(userId, null);
+        assertEquals(1, result.size());
+        assertEquals(82L, result.get(0).id());
+    }
 }

@@ -80,9 +80,13 @@ Le layout utilise une grille CSS (grid, flex wrap, auto-fit) ?
 | 2 | `width` | % de container width | Largeur |
 | 3 | `height` | pixels (scalés) | Hauteur |
 | 4 | `borderRadius` | pixels ou `"50%"` | Rayon des coins |
-| 5 | `isContainer` | boolean (optionnel) | Si `true` : couleur plus claire (fond distinct) |
+| 5 | `isContainer` | boolean (optionnel) | ⚠️ **NE PLUS UTILISER** — boneyard ≥ 1.7.7 (renderer React) **filtre** au rendu tout bone avec ce flag à `true` → le bone devient **invisible**. Laisser absent (voir la règle ci-dessous). |
 
-### Règle isContainer — hiérarchie visuelle 2 couleurs
+### ⚠️ Règle isContainer — OBSOLÈTE (ne plus poser le flag)
+
+> **boneyard ≥ 1.7.7 (renderer React) supprime au rendu tout bone marqué `container`** (`true` en 6ᵉ position) : `dist/react.js` exécute `activeBones.bones.filter(raw => !normalizeBone(raw).c)`. Un bone flaggué est donc **invisible** (c'est ce qui cassait `feed-timeline` : dots + cartes flaggués → seuls les labels de date s'affichaient). **Ne jamais poser ce flag sur un bone qu'on veut voir.** La hiérarchie de teinte se fait désormais par **alpha-compounding** : empiler deux bones au même `color` rend la zone de chevauchement plus foncée (cf. `generate.mjs`, sections `event-detail` / `event-edit`). Le schéma ci-dessous décrit l'ANCIEN comportement — **les `true` y sont à supprimer** :
+
+### (historique) hiérarchie visuelle 2 couleurs
 
 ```
 isContainer = true  (plus clair)  → fond distinct : card, banner, pill, bouton, toolbar

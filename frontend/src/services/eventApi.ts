@@ -11,6 +11,12 @@ export interface EventsParams {
   endDateFrom?: string
   faculty?: Faculty
   facultyNone?: boolean
+  /**
+   * SCRUM-168 — feed d'abonnements. `true` → uniquement les événements des
+   * organisateurs suivis (ACCEPTED) par l'appelant authentifié. Requiert un
+   * token (le backend renvoie 401 si anonyme). Absent/`false` → inchangé.
+   */
+  followedOnly?: boolean
 }
 
 export async function getAll(params: EventsParams = {}): Promise<Event[]> {

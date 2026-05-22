@@ -349,6 +349,60 @@ public class AttendanceService {
                 .toList();
     }
 
+    /**
+     * Public-profile variant of {@link #getMyParticipationEvents}: the PUBLISHED
+     * events the {@code targetUserId} attends (ATTENDING only), shown on the
+     * public profile page (SCRUM-141 follow-up). Privacy gate: self is always
+     * allowed; a non-self caller only sees a target whose profile is public — a
+     * private non-owner target yields an empty list (mirrors the SCRUM-169
+     * posture: no 404 oracle). Fail-closed on degraded user-service enrichment
+     * (an indeterminate profile is treated as private).
+     */
+    @Transactional
+    public List<ch.unige.events.shared.domain.dto.EventDTO> getUserParticipationEvents(
+            UUID targetUserId, Timeframe timeframeFilter) {
+        if (targetUserId == null) {
+            return List.of();
+        }
+        UUID callerUuid = callerIdentity.getUuid();
+        boolean isSelf = targetUserId.equals(callerUuid);
+        if (!isSelf && !isTargetProfilePublic(targetUserId)) {
+            return List.of();
+        }
+        List<Long> eventIds = Attendance.findAllByUser(targetUserId).stream()
+                .filter(a -> a.status == AttendanceStatus.ATTENDING)
+                .map(a -> a.eventId)
+                .toList();
+        if (eventIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Long> attendingCounts = Attendance.countGroupedByStatus(
+                eventIds, AttendanceStatus.ATTENDING, entityManager);
+        Map<Long, Long> waitlistedCounts = Attendance.countGroupedByStatus(
+                eventIds, AttendanceStatus.WAITLISTED, entityManager);
+        // PUBLISHED-only: never expose a third party's DRAFT/CANCELLED events.
+        List<ch.unige.events.shared.domain.dto.EventDTO> events =
+                eventClient.findByIds(eventIds, EventStatus.PUBLISHED.name());
+        LocalDateTime now = LocalDateTime.now();
+        return events.stream()
+                .filter(e -> matchesTimeframe(e, timeframeFilter, now))
+                .map(e -> withCounts(e,
+                        attendingCounts.getOrDefault(e.id(), 0L),
+                        waitlistedCounts.getOrDefault(e.id(), 0L)))
+                .toList();
+    }
+
+    /**
+     * Resolves the target's {@code profilePublic} via the bulk attendee
+     * projection (the only user field engagement needs for the gate). Fail-closed:
+     * a missing projection or a degraded user-service read returns {@code false},
+     * so a non-owner never sees participations of an indeterminate profile.
+     */
+    private boolean isTargetProfilePublic(UUID targetUserId) {
+        AttendeeProjection p = fetchAttendeeProjections(Set.of(targetUserId)).get(targetUserId);
+        return p != null && p.profilePublic();
+    }
+
     private static boolean matchesTimeframe(
             ch.unige.events.shared.domain.dto.EventDTO event,
             Timeframe filter,

@@ -73,6 +73,7 @@ pour la topologie détaillée + flux requête type.
 | `GET` | `/events/{id}/attendees` | engagement-service | `@Authenticated` | Liste paginée des inscriptions (créateur **ou co-organisateur ACCEPTED**) | 200, 401, 403, 404 |
 | `GET` | `/users/me/attendances` | engagement-service | `@Authenticated` | Mes inscriptions (toutes, avec statut) | 200, 401 |
 | `GET` | `/users/me/participations` | engagement-service | `@Authenticated` | Mes events ATTENDING/WAITLISTED (avec filtre `status` + `timeframe=upcoming\|past`) | 200, 400, 401 |
+| `GET` | `/users/{id}/participations` | engagement-service | `@Authenticated` | SCRUM-141 suite — participations **publiques** d'un user : events `PUBLISHED` qu'il **ATTEND** (ATTENDING only). Gating SCRUM-169 : self/cible publique → liste ; cible privée pour un tiers → `[]` (pas de 404). Filtre `timeframe`. | 200, 400, 401 |
 | `POST` | `/events/{id}/co-organizers` | event-service | `@Authenticated` | Inviter un co-organisateur (créateur ou ADMIN) | 201, 400, 401, 403, 404, 409 |
 | `GET` | `/events/{id}/co-organizers` | event-service | `@Authenticated` | Lister les co-organisateurs (PENDING + ACCEPTED) | 200, 401, 404 |
 | `DELETE` | `/events/{id}/co-organizers/{userId}` | event-service | `@Authenticated` | Retirer un co-organisateur (créateur ou ADMIN) | 204, 401, 403, 404 |

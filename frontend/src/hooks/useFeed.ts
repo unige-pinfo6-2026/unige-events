@@ -13,8 +13,10 @@ export interface FeedGroup {
 
 export interface UseFeedOptions {
   /**
-   * Futur filtre côté backend (SCRUM-138 / followedOnly).
-   * Ignoré tant que l'endpoint ne le supporte pas.
+   * SCRUM-168 — filtre du feed d'abonnements. Si `true`, ne récupère que les
+   * événements des organisateurs suivis (statut ACCEPTED) par l'utilisateur
+   * authentifié. Requiert un token (le backend renvoie 401 si anonyme) — le
+   * toggle qui le pilote n'est affiché qu'aux utilisateurs connectés.
    */
   followedOnly?: boolean
 }
@@ -63,7 +65,7 @@ export function groupEventsByDate(events: Event[]): FeedGroup[] {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions = {}): UseFeedResult {
+export function useFeed({ followedOnly = false }: UseFeedOptions = {}): UseFeedResult {
   const [allEvents, setAllEvents] = useState<Event[]>([])
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,9 @@ export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions 
         size: PAGE_SIZE,
         status: 'PUBLISHED',
         endDateFrom: now,
-        // followedOnly : non supporté côté backend pour l'instant (SCRUM-138)
+        // SCRUM-168 — omis si false (comportement inchangé) ; true → uniquement
+        // les événements des organisateurs suivis (requiert un token).
+        followedOnly: followedOnly || undefined,
       })
       setAllEvents(prev => (pageNum === 0 ? data : [...prev, ...data]))
       setHasMore(data.length === PAGE_SIZE)
@@ -95,11 +99,14 @@ export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions 
       setLoading(false)
       fetchingRef.current = false
     }
-  }, [])
+  }, [followedOnly])
 
+  // Re-run on mount AND whenever `followedOnly` change (fetchPage est recréé) :
+  // on réinitialise la pagination + la liste avant de recharger la page 0.
   useEffect(() => {
     setPage(0)
     setAllEvents([])
+    setHasMore(true)
     fetchPage(0)
   }, [fetchPage])
 
