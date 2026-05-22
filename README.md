@@ -34,11 +34,17 @@ unige-events/
 ```
 
 ### 💻 Frontend
+
+![React](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black) ![Vite](https://img.shields.io/badge/Vite-8.0.1-646CFF?style=for-the-badge&logo=vite&logoColor=white) ![NodeJS](https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white) ![NPM](https://img.shields.io/badge/NPM-11.11.0-CB3837?style=for-the-badge&logo=npm&logoColor=white)
+
 * **Stack**: React 19 · TypeScript · Vite
 * **Scope**: Responsive event discovery web portal, moderation workspace, and interactive user dashboard.
 * For setup & guidelines, see [`frontend/AGENTS.md`](frontend/AGENTS.md).
 
 ### ⚙️ Backend
+
+![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white) ![Quarkus](https://img.shields.io/badge/Quarkus-3.24.4-4695EB?style=for-the-badge&logo=quarkus&logoColor=white)
+
 * **Stack**: Quarkus 3 · Java 21 · Hibernate Panache · PostgreSQL 16
 * **Architecture**: DB-per-service microservices routing through **Kong API Gateway**.
 * **Active Services**:
@@ -98,8 +104,8 @@ make backend-<service-name>
 * [Elie Bussod](https://github.com/nexiumito)
 * [Viona Cufo](https://github.com/vionacufo)
 
----
-
-## 📄 License
+## 📄 License & Contributing
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+As this is an academic university project, we do not accept external contributions. Please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines for more information.
