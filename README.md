@@ -2,6 +2,10 @@
 
 Centralized event platform for the UNIGE community : discover, create and manage university events.
 
+[![CI/CD Pipeline](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml)
+[![Production Deployment](https://img.shields.io/badge/Production-Live-success?logo=github&color=2ea44f)](https://pinfo6.p-info.net/)
+[![Preview Deployments](https://img.shields.io/badge/Preview%20Deployments-Active-blue?logo=github)](https://github.com/unige-pinfo6-2026/unige-events/pulls)
+
 ![Bannière UNIGE](./docs/assets/unige_banner.png)
 
 ---
