@@ -249,6 +249,7 @@ activeBones.bones.filter(raw => !normalizeBone(raw).c).map(...)
 1. **OpenAPI d'abord** : ajouter `GET /users/{id}/participations` (`x-owner-service: engagement-service`, `security: BearerAuth`, param path `id: uuid` + query `timeframe` optionnel, `200` → `array` de `Event`, `401`). Camel-case, pas de préfixe `is`.
 2. **Backend service** : `AttendanceService.getUserParticipationEvents(UUID targetId, Timeframe)` — résoudre `profilePublic` (getAttendeeProjections, fail-closed), appliquer gating D13, filtrer `ATTENDING`, enrichir via `findByIds(ids, "PUBLISHED")`, `withCounts` + `matchesTimeframe`. Réutiliser les helpers existants.
 3. **Backend resource** : `UserParticipationsResource` (`@Authenticated`), récupère caller via `callerIdentity`, délègue au service.
+3bis. **Gateway Kong** (⚠️ sinon `404 no Route matched` en preview/prod malgré le service livré) : ajouter une route `~/api/users/[^/]+/participations$` → `engagement-service` dans **`docker/kong.yml`** ET **`helm/templates/kong/configmap-routes.yaml`**. `[^/]+` couvre l'UUID cible (et `me`, même upstream). Ne conflicte pas avec `user-by-id` (`~/api/users/[^/]+$`, un seul segment, user-service).
 4. **Backend tests** : service (gating self/public/private, ATTENDING-only, PUBLISHED-only, fail-closed) + resource (`@QuarkusTest` : 200/401/[] private).
 5. **Frontend api** : `getUserParticipations(userId, timeframe?)` (attendanceApi.ts).
 6. **Frontend hook** : `useUserParticipations(userId)`.
@@ -277,4 +278,5 @@ activeBones.bones.filter(raw => !normalizeBone(raw).c).map(...)
 - [ ] `cd backend && ./mvnw verify` — vert (15 modules).
 - [ ] `npm run skeleton` **non requis** (feed-timeline manuel, generate.mjs non touché) — vérifier que le JSON manuel est bien chargé par `registry.js`.
 - [ ] `git diff openapi/` ne contient **que** l'ajout du path participations (P1-P4 = 0 ligne contrat).
+- [ ] **Route Kong** ajoutée pour `/users/{id}/participations` (`docker/kong.yml` + `helm/templates/kong/configmap-routes.yaml`) — un nouvel endpoint public **doit** être routé par la gateway, sinon `404 no Route matched` en preview/prod.
 - [ ] Docs backend (`api-contract.md`, `data-model.md`) à jour.
