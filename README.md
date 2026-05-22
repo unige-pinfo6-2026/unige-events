@@ -104,8 +104,8 @@ make backend-<service-name>
 * [Elie Bussod](https://github.com/nexiumito)
 * [Viona Cufo](https://github.com/vionacufo)
 
-## 📄 License & Contributing
+## 📄 License & Policies
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-As this is an academic university project, we do not accept external contributions. Please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines for more information.
+* **License**: This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+* **Contributing**: As this is an academic university project, we do not accept external contributions. Please see the [CONTRIBUTING](CONTRIBUTING.md) guidelines for more information.
+* **Code of Conduct**: We are committed to a welcoming and respectful environment. Please see our [Code of Conduct](CODE_OF_CONDUCT.md).
