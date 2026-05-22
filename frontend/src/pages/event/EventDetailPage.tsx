@@ -22,6 +22,7 @@ import EventBanner from '@/components/event/EventBanner'
 import IcsExportButton from '@/components/event/IcsExportButton'
 import EventStatsPanel from '@/components/event/EventStatsPanel'
 import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
+import DuplicateButton from '@/components/event/DuplicateButton'
 import EventDocumentsList from '@/components/event/EventDocumentsList'
 import CommentSection from '@/components/event/CommentSection'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -789,6 +790,7 @@ export default function EventDetailPage() {
                     <Pencil className="w-4 h-4 shrink-0" />
                     Modifier l'événement
                   </Link>
+                  <DuplicateButton eventId={event.id} />
                   <button
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}

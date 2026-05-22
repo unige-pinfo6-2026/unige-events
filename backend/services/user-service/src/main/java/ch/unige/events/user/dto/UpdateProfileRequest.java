@@ -10,6 +10,8 @@ import java.util.List;
 @Schema(name = "UpdateProfileRequest", description = "Partial self-profile update payload. All fields are optional.")
 public record UpdateProfileRequest(
     @Size(max = 120) String displayName,
+    @Size(max = 120) String firstName,
+    @Size(max = 120) String lastName,
     Faculty faculty,
     @Schema(description = "Free-text until StudyLevel enum lands (S9+). Expected: LICENCE | MASTER | PHD | OTHER")
     @Size(max = 120) String studyLevel,

@@ -1,4 +1,3 @@
-
 import { afterEach, describe, expect, it } from 'vitest'
 import api from '@/services/api'
 

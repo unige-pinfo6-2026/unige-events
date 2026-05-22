@@ -227,7 +227,7 @@ class UserServiceTest {
 
         assertThrows(ForbiddenException.class,
                 () -> userService.updateMyProfile("auth0|us-upd-x", "auth0|us-upd-y",
-                        new UpdateProfileRequest(null, null, null, null, null, null, null)));
+                        new UpdateProfileRequest(null, null, null, null, null, null, null, null, null)));
     }
 
     @Test
@@ -244,7 +244,7 @@ class UserServiceTest {
     void updateMyProfile_unknownUser_throwsNotFound() {
         assertThrows(NotFoundException.class,
                 () -> userService.updateMyProfile("auth0|us-upd-unknown",
-                        new UpdateProfileRequest("New Name", null, null, null, null, null, null)));
+                        new UpdateProfileRequest("New Name", null, null, null, null, null, null, null, null)));
     }
 
     @Test
@@ -256,12 +256,14 @@ class UserServiceTest {
         entityManager.flush();
 
         UpdateProfileRequest req = new UpdateProfileRequest(
-                "New Name", null, "Master", "New bio",
+                "New Name", "First", "Last", null, "Master", "New bio",
                 List.of("AI"), "https://cdn/avatar.png", true);
 
         User updated = userService.updateMyProfile("auth0|us-upd-partial", "auth0|us-upd-partial", req);
 
         assertEquals("New Name", updated.displayName);
+        assertEquals("First", updated.firstName);
+        assertEquals("Last", updated.lastName);
         // faculty was null in request → unchanged
         assertEquals(Faculty.SCIENCES, updated.faculty);
         assertEquals("Master", updated.studyLevel);

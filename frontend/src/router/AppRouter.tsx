@@ -24,7 +24,6 @@ const MyParticipationsPage = lazy(() => import('@/pages/my-events/MyParticipatio
 const MyPublicationsPage = lazy(() => import('@/pages/my-events/MyPublicationsPage'))
 const EventStatsPage = lazy(() => import('@/pages/event/EventStatsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
-const ForbiddenPage = lazy(() => import('@/pages/ForbiddenPage'))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 const FeedPage = lazy(() => import('@/pages/feed/FeedPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
@@ -89,7 +88,6 @@ const AppRouter = () => {
               </Route>
             </Route>
 
-          <Route path="/403" element={<ForbiddenPage />} />
           <Route path="*" element={<NotFoundPage/>} />
         </Route>
       </Routes>

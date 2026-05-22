@@ -254,6 +254,14 @@ components:
           type: string
           maxLength: 120
           nullable: true
+        firstName:
+          type: string
+          maxLength: 120
+          nullable: true
+        lastName:
+          type: string
+          maxLength: 120
+          nullable: true
         faculty:
           $ref: '#/components/schemas/Faculty'
           nullable: true

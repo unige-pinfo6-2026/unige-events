@@ -270,15 +270,9 @@ describe('AppRouter', () => {
     expect(await screen.findByText('AdminPage')).toBeTruthy()
   })
 
-  it('redirects /admin to /403 for non-admin authenticated users', async () => {
+  it('renders the ForbiddenPage in place at /admin for non-admin authenticated users', async () => {
     mockUseAuth.mockReturnValue(authenticated())
     renderAt('/admin')
-    expect(await screen.findByText('ForbiddenPage')).toBeTruthy()
-  })
-
-  it('shows forbidden page at /403', async () => {
-    mockUseAuth.mockReturnValue(unauthenticated())
-    renderAt('/403')
     expect(await screen.findByText('ForbiddenPage')).toBeTruthy()
   })
 })

@@ -3,18 +3,21 @@ import { ThemeProvider } from "./contexts/ThemeContext"
 import { ToastProvider } from "./contexts/ToastContext"
 import { FavoritesProvider } from "./contexts/FavoritesContext"
 import AppRouter from "./router/AppRouter"
+import AppErrorBoundary from "./components/AppErrorBoundary"
 
 function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <FavoritesProvider>
-            <AppRouter />
-          </FavoritesProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <FavoritesProvider>
+              <AppRouter />
+            </FavoritesProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   )
 }
 

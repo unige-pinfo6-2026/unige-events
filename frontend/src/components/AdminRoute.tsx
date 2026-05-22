@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingSpinner } from './utils/LoadingSpinner'
+import ForbiddenPage from '@/pages/ForbiddenPage'
 
 export default function AdminRoute() {
   const { isAuthenticated, isAdmin, isLoading } = useAuth()
@@ -13,7 +14,7 @@ export default function AdminRoute() {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/403" replace />
+    return <ForbiddenPage />
   }
 
   return <Outlet />

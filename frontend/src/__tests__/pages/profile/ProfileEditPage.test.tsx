@@ -262,6 +262,28 @@ describe('ProfileEditPage', () => {
     expect(await screen.findByText(/ne doit pas dépasser 500 caractères/)).toBeTruthy()
   })
 
+  it('pre-fills firstName and lastName inputs from user', async () => {
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, firstName: 'Test', lastName: 'User' } })
+    renderProfileEditPage()
+    expect((await screen.findByLabelText(/Prénom/i) as HTMLInputElement).value).toBe('Test')
+    expect((screen.getByLabelText(/Nom de famille/i) as HTMLInputElement).value).toBe('User')
+  })
+
+  it('submits firstName and lastName in the updateProfile payload', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
+    mockUpdateProfile.mockResolvedValue({})
+    mockGetMe.mockResolvedValue(mockUser)
+    renderProfileEditPage()
+    const firstNameInput = await screen.findByLabelText(/Prénom/i)
+    fireEvent.change(firstNameInput, { target: { value: 'Alice' } })
+    fireEvent.change(screen.getByLabelText(/Nom de famille/i), { target: { value: 'Martin' } })
+    fireEvent.click(screen.getByText('Enregistrer'))
+    await screen.findByText('Profil mis à jour avec succès.')
+    expect(mockUpdateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ firstName: 'Alice', lastName: 'Martin' }),
+    )
+  })
+
   it('changes faculty select', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, updateUser: vi.fn() })
     mockUpdateProfile.mockResolvedValue({})
