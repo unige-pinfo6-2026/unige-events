@@ -71,6 +71,8 @@ class EventServiceTest {
     @InjectMock @RestClient UserServiceClient userClient;
     @InjectMock FileStorageService fileStorageService;
 
+    private static final String BANNERS_FOLDER = "events/banners";
+
     private final UUID creatorId = UUID.randomUUID();
     private final UUID otherId = UUID.randomUUID();
 
@@ -785,7 +787,7 @@ class EventServiceTest {
         Event e = persistEvent("img", EventStatus.PUBLISHED, creatorId);
         em.flush();
         FileUpload upload = mock(FileUpload.class);
-        when(fileStorageService.saveImage(eq(upload), eq("events/banners"),
+        when(fileStorageService.saveImage(eq(upload), eq(BANNERS_FOLDER),
                 eq(FileStorageService.MAX_BANNER_BYTES), any()))
                 .thenReturn("https://cdn/banner.png");
 
@@ -793,7 +795,7 @@ class EventServiceTest {
 
         assertEquals("https://cdn/banner.png", dto.bannerUrl());
         // Guard the storage call shape: correct folder + banner size cap.
-        verify(fileStorageService).saveImage(eq(upload), eq("events/banners"),
+        verify(fileStorageService).saveImage(eq(upload), eq(BANNERS_FOLDER),
                 eq(FileStorageService.MAX_BANNER_BYTES), any());
     }
 
@@ -819,7 +821,7 @@ class EventServiceTest {
         Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
         em.flush();
         FileUpload upload = mock(FileUpload.class);
-        when(fileStorageService.saveImage(eq(upload), eq("events/banners"),
+        when(fileStorageService.saveImage(eq(upload), eq(BANNERS_FOLDER),
                 eq(FileStorageService.MAX_BANNER_BYTES), any()))
                 .thenReturn("https://cdn/admin.png");
 
