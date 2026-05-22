@@ -80,6 +80,17 @@ jobs:
       KUBECONFIG: /tmp/kubeconfig-${{ github.run_id }}
 
     steps:
+      - name: Check if Pull Request is still open
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_STATUS=$(gh pr view ${{ env.PR_NUMBER }} --repo ${{ github.repository }} --json state --jq .state 2>/dev/null || echo "UNKNOWN")
+          echo "Current PR state: $PR_STATUS"
+          if [ "$PR_STATUS" != "OPEN" ]; then
+            echo "::error::This PR is no longer open (current state: $PR_STATUS). Aborting deployment."
+            exit 1
+          fi
+
       - uses: actions/checkout@v6
 
       - name: Set kubectl context
