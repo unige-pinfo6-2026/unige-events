@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
+import { useUserParticipations } from '@/hooks/useUserParticipations'
 import { getUserById, getUserByUsername } from '@/services/userService'
 import FollowButton from '@/components/user/FollowButton'
 import ProfileHeader from '@/components/profile/ProfileHeader'
@@ -103,6 +104,11 @@ interface PublicProfileViewProps {
  */
 function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: Readonly<PublicProfileViewProps>) {
   const { events, loading: eventsLoading, error: eventsError } = useOrganizerEvents(profile.id)
+  const {
+    events: participations,
+    loading: participationsLoading,
+    error: participationsError,
+  } = useUserParticipations(profile.id)
 
   const studyLevelName = profile.studyLevel
     ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name
@@ -197,14 +203,17 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             </div>
 
             {isMeRoute && <MyPublicationsPreview />}
-            {isMeRoute && <FollowRequestsPanel />}
           </div>
 
-          {/* Right column: calendar + co-organizer invitations (own profile only) */}
+          {/* Right column: calendar + co-organizer invitations + follow requests
+              (own profile only). FollowRequestsPanel sits directly below the
+              co-organizer invitations so both inbound-request widgets share the
+              same column. */}
           {isMeRoute && (
             <div className="flex flex-col gap-6">
               <CalendarSubscribeButton />
               <CoOrganizerInvitationsList />
+              <FollowRequestsPanel />
             </div>
           )}
         </div>
@@ -212,7 +221,11 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
         {/* Events organised + public participations, full-width below the grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           <ProfileEventsList events={events} loading={eventsLoading} error={eventsError} />
-          <ProfileParticipations />
+          <ProfileParticipations
+            events={participations}
+            loading={participationsLoading}
+            error={participationsError}
+          />
         </div>
 
       </div>

@@ -30,6 +30,10 @@ vi.mock('@/services/eventApi', () => ({
   getMyEvents: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('@/services/attendanceApi', () => ({
+  getUserParticipations: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('@/services/followApi', () => ({
   followUser: vi.fn().mockResolvedValue({
     id: 1, followerId: 'me', followedId: 'tgt', status: 'PENDING', createdAt: 'x',
@@ -67,6 +71,7 @@ vi.mock('@/components/user/CoOrganizerInvitationsList', () => ({
 import { useAuth } from '@/hooks/useAuth'
 import { getCalendarToken, getUserById, getUserByUsername } from '@/services/userService'
 import { getAll as getAllEvents } from '@/services/eventApi'
+import { getUserParticipations } from '@/services/attendanceApi'
 import { followUser, unfollowUser } from '@/services/followApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -74,6 +79,7 @@ const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
+const mockGetUserParticipations = getUserParticipations as ReturnType<typeof vi.fn>
 const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 const mockFollowUser = followUser as ReturnType<typeof vi.fn>
@@ -115,6 +121,7 @@ beforeEach(() => {
     httpsUrl: 'https://example.com/cal.ics',
   })
   mockGetAllEvents.mockResolvedValue([])
+  mockGetUserParticipations.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -317,14 +324,16 @@ describe('ProfilePage — /profile/:username (other user)', () => {
     ))
   })
 
-  it('renders the "Participations publiques" placeholder section', async () => {
+  it('renders the "Participations publiques" section with the empty state when none', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(otherProfile)
 
     renderProfilePage('other.user')
 
     expect(await screen.findByRole('heading', { name: 'Participations publiques' })).toBeTruthy()
-    expect(screen.getByText('Bientôt disponible.')).toBeTruthy()
+    // getUserParticipations resolves [] → dedicated empty copy (SCRUM-141 follow-up),
+    // not the former "Bientôt disponible" placeholder.
+    expect(await screen.findByText('Aucune participation publique pour le moment.')).toBeTruthy()
   })
 
   it('renders the private-state card when getUserByUsername returns null (404 — user does not exist)', async () => {

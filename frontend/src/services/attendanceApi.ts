@@ -38,6 +38,23 @@ export async function getMyParticipations(
 }
 
 /**
+ * Returns the PUBLISHED events a given user is registered to (ATTENDING),
+ * enriched like the other lists (counts, availableSpots). Calls
+ * GET /users/{id}/participations — the backend gates visibility server-side
+ * (self → always ; public target → list ; private non-owner target → empty
+ * list) and only ever exposes ATTENDING inscriptions to PUBLISHED events.
+ * Used by the "Participations publiques" section of the public profile.
+ */
+export async function getUserParticipations(
+  userId: string,
+  timeframe?: ParticipationTimeframe,
+): Promise<Event[]> {
+  const params = timeframe ? { timeframe } : undefined
+  const response = await api.get<Event[]>(`/users/${userId}/participations`, { params })
+  return response.data
+}
+
+/**
  * Returns the current user's attendance status for a given event, or null when:
  * - the user has no attendance record for the event, or
  * - the user is not authenticated (401 response).

@@ -256,6 +256,15 @@ data:
               - ~/api/users/me/participations$
             strip_path: false
             preserve_host: true
+          - name: user-participations
+            # SCRUM-141 suite — GET /api/users/{id}/participations (participations
+            # publiques d'un user cible). [^/]+ couvre l'UUID (et "me", même upstream
+            # engagement-service). Ne conflicte pas avec user-by-id (~/api/users/[^/]+$,
+            # un seul segment) qui vit côté user-service.
+            paths:
+              - ~/api/users/[^/]+/participations$
+            strip_path: false
+            preserve_host: true
           - name: event-comments
             paths:
               - ~/api/events/(?:\d+)/comments$

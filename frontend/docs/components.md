@@ -552,6 +552,8 @@ Les skeletons sont définis dans `src/bones/*.bones.json` et consommés via `<Sk
 
 **Règle** : toute page ou composant avec un appel API et un état `loading` doit avoir un skeleton. Voir `AGENTS.md` (section Skeleton screens) et `frontend/skeleton/README.md` pour le workflow complet.
 
+> ⚠️ **boneyard ≥ 1.7.7 filtre les bones `container` (`true`) au rendu** → ne jamais poser ce flag (un bone flaggué est invisible). La teinte 2 tons vient de l'alpha-compounding (bones superposés).
+
 | Skeleton `name` | Fichier bones | Composant consommateur | Généré par |
 |---|---|---|---|
 | `event-cards` | `event-cards.bones.json` | `EventCards`, `MyFavoritesPage`, `MyParticipationsPage` | `generate.mjs` |

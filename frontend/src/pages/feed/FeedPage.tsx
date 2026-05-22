@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Rss } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { useFeed } from '@/hooks/useFeed'
+import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/contexts/ThemeContext'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
@@ -9,21 +10,27 @@ import { InfoMessage } from '@/components/utils/InfoMessage'
 import Timeline from '@/components/feed/Timeline'
 
 // ─── Skeleton fixture ──────────────────────────────────────────────────────────
-// Reproduit la structure CSS de la timeline : 3 groupes × 2 cartes.
-// Dimensions fixes (non responsives) pour que le bones.height soit constant.
+// Reproduit EXACTEMENT la structure CSS de `Timeline` : 3 groupes × (DateMarker +
+// 2 EventFeedCard). La fixture est cachée au runtime — seule sa hauteur compte :
+// elle doit égaler le `height` de `feed-timeline.bones.json` par breakpoint
+// (sinon scaleY déforme les bones). Groupe = `gap-4 pb-8` ; DateMarker = conteneur
+// 28/40px contenant un petit dot 12px ; carte = `flex-col md:flex-row` → bannière
+// empilée + infos en mobile (`h-56` = 224px) / rangée `h-28` = 112px en desktop.
 
 function FeedFixture() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col">
       {([0, 1, 2] as const).map(i => (
-        <div key={i} className="flex flex-col gap-3">
+        <div key={i} className="flex flex-col gap-4 pb-8 last:pb-0">
           <div className="flex items-center gap-4">
-            <div className="w-7 h-7 md:w-10 md:h-10 rounded-full shrink-0" />
+            <div className="w-7 h-7 md:w-10 md:h-10 shrink-0 flex items-center justify-center">
+              <div className="w-3 h-3 rounded-full" />
+            </div>
             <div className="h-5 w-40 rounded-lg" />
           </div>
           <div className="pl-11 md:pl-14 flex flex-col gap-3">
-            <div className="h-40 md:h-28 rounded-2xl" />
-            <div className="h-40 md:h-28 rounded-2xl" />
+            <div className="h-56 md:h-28 rounded-2xl" />
+            <div className="h-56 md:h-28 rounded-2xl" />
           </div>
         </div>
       ))}
@@ -34,7 +41,15 @@ function FeedFixture() {
 // ─── FeedPage ──────────────────────────────────────────────────────────────────
 
 export default function FeedPage() {
-  const { groups, loading, error, hasMore, loadMore } = useFeed()
+  const { user } = useAuth()
+  // Filtre « Mes abonnements » (SCRUM-168). Réservé aux utilisateurs connectés —
+  // le toggle n'est rendu que si `user` (le filtre exige un token côté backend).
+  const [followedOnly, setFollowedOnly] = useState(false)
+  // Si l'utilisateur se déconnecte / sa session expire alors que le filtre est
+  // actif, on retombe sur le fil public « Tous » (le toggle est masqué de toute
+  // façon) — sinon useFeed continuerait d'émettre des 401 sans retour possible.
+  const effectiveFollowedOnly = Boolean(user) && followedOnly
+  const { groups, loading, error, hasMore, loadMore } = useFeed({ followedOnly: effectiveFollowedOnly })
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -71,30 +86,40 @@ export default function FeedPage() {
             subtitle="Tous les événements à venir, dans l'ordre chronologique."
           />
 
-          {/* Toggle segmenté Tous / Mes abonnements */}
-          <div
-            className="flex shrink-0 rounded-xl bg-foreground/5 p-1 border border-border self-start"
-            role="group"
-            aria-label="Filtrer le fil"
-          >
-            <button
-              type="button"
-              className="px-4 py-1.5 rounded-lg text-sm font-medium bg-background text-foreground border border-border shadow-sm transition-colors cursor-pointer"
-              aria-pressed="true"
+          {/* Toggle segmenté Tous / Mes abonnements — uniquement pour les
+              utilisateurs connectés (le filtre followedOnly exige un token). */}
+          {user && (
+            <div
+              className="flex shrink-0 rounded-xl bg-foreground/5 p-1 border border-border self-start"
+              role="group"
+              aria-label="Filtrer le fil"
             >
-              Tous
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Bientôt disponible"
-              aria-disabled="true"
-              aria-pressed="false"
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-foreground/30 cursor-not-allowed select-none"
-            >
-              Mes abonnements
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setFollowedOnly(false)}
+                aria-pressed={!followedOnly}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  followedOnly
+                    ? 'text-foreground/50 hover:text-foreground'
+                    : 'bg-background text-foreground border border-border shadow-sm'
+                }`}
+              >
+                Tous
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowedOnly(true)}
+                aria-pressed={followedOnly}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  followedOnly
+                    ? 'bg-background text-foreground border border-border shadow-sm'
+                    : 'text-foreground/50 hover:text-foreground'
+                }`}
+              >
+                Mes abonnements
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Contenu ── */}
@@ -105,11 +130,13 @@ export default function FeedPage() {
         ) : error ? (
           <InfoMessage type="error" message={error} />
         ) : groups.length === 0 ? (
-          /* État vide */
+          /* État vide — message dédié quand le filtre abonnements est actif */
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <Rss className="w-10 h-10 text-foreground/20" aria-hidden="true" />
-            <p className="text-foreground/50 text-sm">
-              Aucun événement à venir pour le moment.
+            <p className="text-foreground/50 text-sm max-w-sm">
+              {effectiveFollowedOnly
+                ? 'Aucun événement à venir de vos abonnements. Suivez des organisateurs pour voir leurs événements ici.'
+                : 'Aucun événement à venir pour le moment.'}
             </p>
           </div>
         ) : (

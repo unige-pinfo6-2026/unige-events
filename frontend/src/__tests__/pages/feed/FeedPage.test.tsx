@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FeedPage from '@/pages/feed/FeedPage'
 import type { FeedGroup, UseFeedResult } from '@/hooks/useFeed'
@@ -9,6 +9,10 @@ import type { Event } from '@/types/event'
 
 vi.mock('@/hooks/useFeed', () => ({
   useFeed: vi.fn(),
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
 }))
 
 vi.mock('@/contexts/ThemeContext', () => ({
@@ -39,8 +43,10 @@ vi.mock('boneyard-js/react', () => ({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 import { useFeed } from '@/hooks/useFeed'
+import { useAuth } from '@/hooks/useAuth'
 
 const mockUseFeed = useFeed as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
 function defaultFeed(overrides: Partial<UseFeedResult> = {}): UseFeedResult {
   return {
@@ -86,6 +92,8 @@ function renderPage() {
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+  // Default: an authenticated visitor (so the Tous / Mes abonnements toggle renders).
+  mockUseAuth.mockReturnValue({ user: { id: 'u1' }, isLoading: false })
   // IntersectionObserver is used with `new` → must be a class/constructor
   class MockIntersectionObserver {
     observe = vi.fn()
@@ -118,11 +126,29 @@ describe('FeedPage', () => {
     expect(screen.getByText('Mes abonnements')).toBeDefined()
   })
 
-  it('"Mes abonnements" button is disabled', () => {
+  it('"Mes abonnements" toggle is enabled for an authenticated user and switches on click', () => {
     mockUseFeed.mockReturnValue(defaultFeed())
     renderPage()
-    const btn = screen.getByText('Mes abonnements').closest('button')
-    expect(btn?.disabled).toBe(true)
+    const btn = screen.getByText('Mes abonnements').closest('button')!
+    expect(btn.disabled).toBe(false)
+    expect(btn.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(btn)
+    expect(btn.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('hides the Tous / Mes abonnements toggle for an anonymous visitor', () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockUseFeed.mockReturnValue(defaultFeed())
+    renderPage()
+    expect(screen.queryByText('Mes abonnements')).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Filtrer le fil' })).toBeNull()
+  })
+
+  it('shows the abonnements-specific empty state after switching the toggle', () => {
+    mockUseFeed.mockReturnValue(defaultFeed({ groups: [] }))
+    renderPage()
+    fireEvent.click(screen.getByText('Mes abonnements').closest('button')!)
+    expect(screen.getByText(/de vos abonnements/i)).toBeDefined()
   })
 
   it('shows skeleton during initial loading (no groups yet)', () => {

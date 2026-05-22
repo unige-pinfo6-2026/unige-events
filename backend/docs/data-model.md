@@ -204,6 +204,8 @@ Depuis SCRUM-129, l'appel `POST /events/{id}/attend` est **idempotent sans upser
 
 Helpers statiques : `Attendance.findByEvent(Long, int, int)`, `Attendance.findAllByUser(UUID)`, `Attendance.countGroupedByStatus(List<Long>, AttendanceStatus, EntityManager)` — bulk count utilisé par `EventService.getAll()` pour `attendingCount` et `waitlistedCount`.
 
+`AttendanceService.getUserParticipationEvents(UUID, Timeframe)` (SCRUM-141 suite) expose les participations **publiques** d'un user cible via `GET /users/{id}/participations` (engagement-service, `@Authenticated`) : events `PUBLISHED` qu'il **ATTEND** uniquement (jamais `WAITLISTED`, ni `DRAFT`/`CANCELLED` d'un tiers — enrichissement via `EventServiceClient.findByIds(ids, "PUBLISHED")`). Gating de visibilité aligné sur la révision SCRUM-169 de `GET /users/{id}` : self → toujours ; cible `profilePublic = true` → liste ; cible privée pour un appelant tiers → `[]` (pas de 404 oracle). Le `profilePublic` de la cible est résolu via `GET /users/_internal-attendee-projections` (fail-closed → traité comme privé si la projection est indisponible).
+
 #### `AttendanceDTO` — projection du nom du participant
 
 `AttendanceDTO` (record renvoyé par toutes les routes liées aux inscriptions) projette `displayName` et `avatarUrl` depuis le `User` lié à la ligne.

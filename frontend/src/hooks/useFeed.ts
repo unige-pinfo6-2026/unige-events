@@ -13,8 +13,10 @@ export interface FeedGroup {
 
 export interface UseFeedOptions {
   /**
-   * Futur filtre côté backend (SCRUM-138 / followedOnly).
-   * Ignoré tant que l'endpoint ne le supporte pas.
+   * SCRUM-168 — filtre du feed d'abonnements. Si `true`, ne récupère que les
+   * événements des organisateurs suivis (statut ACCEPTED) par l'utilisateur
+   * authentifié. Requiert un token (le backend renvoie 401 si anonyme) — le
+   * toggle qui le pilote n'est affiché qu'aux utilisateurs connectés.
    */
   followedOnly?: boolean
 }
@@ -63,7 +65,7 @@ export function groupEventsByDate(events: Event[]): FeedGroup[] {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions = {}): UseFeedResult {
+export function useFeed({ followedOnly = false }: UseFeedOptions = {}): UseFeedResult {
   const [allEvents, setAllEvents] = useState<Event[]>([])
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -72,10 +74,15 @@ export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions 
 
   // Guard pour éviter les doubles appels (mode Strict + IntersectionObserver)
   const fetchingRef = useRef(false)
+  // Identifiant monotone de requête : seule la réponse de la dernière requête
+  // déclenchée est autorisée à muter l'état. Empêche une réponse « stale » d'un
+  // ancien filtre (followedOnly) d'écraser la liste après un changement de filtre.
+  const requestIdRef = useRef(0)
 
   const fetchPage = useCallback(async (pageNum: number) => {
     if (fetchingRef.current) return
     fetchingRef.current = true
+    const reqId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     try {
@@ -85,21 +92,36 @@ export function useFeed({ followedOnly: _followedOnly = false }: UseFeedOptions 
         size: PAGE_SIZE,
         status: 'PUBLISHED',
         endDateFrom: now,
-        // followedOnly : non supporté côté backend pour l'instant (SCRUM-138)
+        // SCRUM-168 — omis si false (comportement inchangé) ; true → uniquement
+        // les événements des organisateurs suivis (requiert un token).
+        followedOnly: followedOnly || undefined,
       })
+      // Une requête plus récente (changement de filtre) a pris le relais → on
+      // ignore cette réponse stale pour ne pas polluer la liste avec le mauvais filtre.
+      if (reqId !== requestIdRef.current) return
       setAllEvents(prev => (pageNum === 0 ? data : [...prev, ...data]))
       setHasMore(data.length === PAGE_SIZE)
     } catch {
+      if (reqId !== requestIdRef.current) return
       setError("Impossible de charger le fil d'événements.")
     } finally {
-      setLoading(false)
-      fetchingRef.current = false
+      // Seule la dernière requête réinitialise les drapeaux partagés.
+      if (reqId === requestIdRef.current) {
+        setLoading(false)
+        fetchingRef.current = false
+      }
     }
-  }, [])
+  }, [followedOnly])
 
+  // Re-run on mount AND whenever `followedOnly` change (fetchPage est recréé) :
+  // on réinitialise la pagination + la liste, puis on recharge la page 0. On
+  // relâche `fetchingRef` pour que ce refetch parte même si une requête de
+  // l'ancien filtre est encore en vol (sa réponse sera ignorée via requestId).
   useEffect(() => {
+    fetchingRef.current = false
     setPage(0)
     setAllEvents([])
+    setHasMore(true)
     fetchPage(0)
   }, [fetchPage])
 
