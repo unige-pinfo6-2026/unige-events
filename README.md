@@ -1,4 +1,4 @@
-# UNIGE Events
+# 📅 [UNIGE Events](https://pinfo6.p-info.net/)
 
 Centralized event platform for the UNIGE community : discover, create and manage university events.
 
