@@ -76,6 +76,12 @@ class MdcKafkaProducerInterceptorTest {
     }
 
     @Test
+    void onAcknowledgement_nullMetadata_withException_logsUnknownWithoutThrowing() {
+        // metadata == null → the two ternaries fall to "(unknown)" / -1.
+        interceptor.onAcknowledgement(null, new IOException("no metadata"));
+    }
+
+    @Test
     void onAcknowledgement_withException_logsWarn() {
         Logger jul = Logger.getLogger(MdcKafkaProducerInterceptor.class.getName());
         Level originalLevel = jul.getLevel();

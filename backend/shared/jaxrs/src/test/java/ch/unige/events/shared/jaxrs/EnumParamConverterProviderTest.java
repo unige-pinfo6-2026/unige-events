@@ -30,6 +30,11 @@ class EnumParamConverterProviderTest {
         assertNull(provider.getConverter(String.class, String.class, new java.lang.annotation.Annotation[0]));
     }
 
+    @Test
+    void getConverter_nullRawType_returnsNull() {
+        assertNull(provider.getConverter(null, null, new java.lang.annotation.Annotation[0]));
+    }
+
     // Étape 24.8.3 (E3): Timeframe used to be skipped via a hard-coded
     // rawType == Timeframe.class branch. The skip is now handled by
     // JAX-RS @Priority dispatch — TimeframeParamConverterProvider runs

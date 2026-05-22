@@ -28,4 +28,18 @@ class AttendanceDTOTest {
         assertEquals(AttendanceStatus.WAITLISTED, dto.status());
         assertNull(dto.displayName());
     }
+
+    @Test
+    void canonicalConstructor_populatesUsername() {
+        UUID userId = UUID.randomUUID();
+        LocalDateTime now = LocalDateTime.now();
+        AttendanceDTO dto = new AttendanceDTO(9L, userId, 3L, AttendanceStatus.ATTENDING, now, "Bob", "b.png", "bob.smith");
+        assertEquals(9L, dto.id());
+        assertEquals(userId, dto.userId());
+        assertEquals(3L, dto.eventId());
+        assertEquals(now, dto.createdAt());
+        assertEquals("Bob", dto.displayName());
+        assertEquals("b.png", dto.avatarUrl());
+        assertEquals("bob.smith", dto.username());
+    }
 }
