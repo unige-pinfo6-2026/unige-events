@@ -10,7 +10,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { attend, getMyAttendance, getMyParticipations, unattend } from '@/services/attendanceApi'
+import { attend, getMyAttendance, getMyParticipations, getUserParticipations, unattend } from '@/services/attendanceApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiPost = vi.mocked(api.post)
@@ -201,6 +201,46 @@ describe('attendanceApi', () => {
       mockApiGet.mockRejectedValue(new Error('Server error'))
 
       await expect(getMyParticipations('ATTENDING', 'upcoming')).rejects.toThrow('Server error')
+    })
+  })
+
+  describe('getUserParticipations', () => {
+    const sampleEvent = {
+      id: 9,
+      title: 'Atelier',
+      location: 'Uni Mail',
+      startDate: '2026-06-01T18:00:00',
+      endDate: '2026-06-01T20:00:00',
+      category: 'CONFERENCE',
+      faculty: null,
+      status: 'PUBLISHED',
+      creatorId: 'u-2',
+      createdAt: '2026-03-01T10:00:00',
+      capacity: 100,
+      attendingCount: 3,
+    }
+
+    it('calls GET /users/{id}/participations with no params when timeframe omitted', async () => {
+      mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
+
+      const result = await getUserParticipations('u-42')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/u-42/participations', { params: undefined })
+      expect(result).toEqual([sampleEvent])
+    })
+
+    it('passes timeframe when provided', async () => {
+      mockApiGet.mockResolvedValue({ data: [] } as Awaited<ReturnType<typeof api.get>>)
+
+      await getUserParticipations('u-42', 'upcoming')
+
+      expect(mockApiGet).toHaveBeenCalledWith('/users/u-42/participations', { params: { timeframe: 'upcoming' } })
+    })
+
+    it('propagates API errors', async () => {
+      mockApiGet.mockRejectedValue(new Error('Server error'))
+
+      await expect(getUserParticipations('u-42')).rejects.toThrow('Server error')
     })
   })
 })
