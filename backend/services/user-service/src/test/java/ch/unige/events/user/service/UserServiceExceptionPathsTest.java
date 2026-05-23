@@ -6,6 +6,7 @@ import ch.unige.events.user.entity.User;
 import ch.unige.events.user.test.JwtTestHelper;
 
 import io.quarkus.panache.mock.PanacheMock;
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.inject.Instance;
 import jakarta.persistence.EntityManager;
@@ -79,6 +80,7 @@ class UserServiceExceptionPathsTest {
     // ── getOrCreateUser — PersistenceException catch ───────────────────────
 
     @Test
+    @TestTransaction
     void getOrCreateUser_uniqueAuth0Race_refetchesExistingRow() {
         PanacheMock.mock(User.class);
         User existing = new User();
@@ -99,6 +101,7 @@ class UserServiceExceptionPathsTest {
     }
 
     @Test
+    @TestTransaction
     void getOrCreateUser_unrelatedPersistenceException_rethrows() {
         PanacheMock.mock(User.class);
         when(User.findByAuth0Id("auth0|pe")).thenReturn(Optional.empty());

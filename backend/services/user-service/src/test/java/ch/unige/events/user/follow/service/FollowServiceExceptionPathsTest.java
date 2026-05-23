@@ -5,6 +5,7 @@ import ch.unige.events.user.entity.User;
 import ch.unige.events.user.follow.entity.Follow;
 
 import io.quarkus.panache.mock.PanacheMock;
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.event.Event;
 import jakarta.persistence.EntityManager;
@@ -67,6 +68,7 @@ class FollowServiceExceptionPathsTest {
     }
 
     @Test
+    @TestTransaction
     void follow_uniqueConstraintRace_throws409_alreadyFollowing() {
         PanacheMock.mock(User.class);
         PanacheMock.mock(Follow.class);
@@ -83,6 +85,7 @@ class FollowServiceExceptionPathsTest {
     }
 
     @Test
+    @TestTransaction
     void follow_unrelatedPersistenceException_rethrows() {
         PanacheMock.mock(User.class);
         PanacheMock.mock(Follow.class);

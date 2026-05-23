@@ -5,6 +5,7 @@ import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import io.quarkus.panache.mock.PanacheMock;
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
@@ -56,6 +57,7 @@ class FavoriteServiceExceptionPathsTest {
     }
 
     @Test
+    @TestTransaction
     void addFavorite_unrelatedPersistenceException_rethrows() {
         PanacheMock.mock(Event.class, Favorite.class);
         when(Event.findByIdOptional(eventId)).thenReturn(Optional.of(new Event()));
@@ -72,6 +74,7 @@ class FavoriteServiceExceptionPathsTest {
     }
 
     @Test
+    @TestTransaction
     void addFavorite_uniqueFavoriteConflict_swallowedAsIdempotentNoop() {
         PanacheMock.mock(Event.class, Favorite.class);
         when(Event.findByIdOptional(eventId)).thenReturn(Optional.of(new Event()));

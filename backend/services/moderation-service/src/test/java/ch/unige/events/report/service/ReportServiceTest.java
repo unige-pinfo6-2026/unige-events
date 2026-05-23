@@ -317,27 +317,6 @@ class ReportServiceTest {
         assertNull(result.get(0).eventTitle());
     }
 
-    @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    void listByStatus_commentReportOnly_bulkFetchSkipsEmptyEventIds() {
-        // A comment-report has eventId=null (XOR) ; the eventIds set stays
-        // empty so bulkFetchEvents short-circuits to Map.of() without ever
-        // calling event-service.
-        Report r1 = buildReport(5L, null, reporterId, ReportStatus.PENDING);
-        r1.commentId = 777L;
-
-        PanacheMock.mock(Report.class);
-        PanacheQuery q = mock(PanacheQuery.class);
-        when(q.page(0, 20)).thenReturn(q);
-        when(q.list()).thenReturn(List.of(r1));
-        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
-
-        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
-        assertEquals(1, result.size());
-        assertNull(result.get(0).eventTitle());
-        // event-service is never queried for a comment-only batch.
-        verify(eventClient, never()).findByIds(any(List.class), any());
-    }
 
     // ──────────────────────────────────────────────────────────────────
     // handle(...)

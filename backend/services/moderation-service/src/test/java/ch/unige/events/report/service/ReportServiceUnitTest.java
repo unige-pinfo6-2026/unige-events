@@ -15,6 +15,7 @@ import ch.unige.events.shared.kafka.events.EventBannedEvent;
 
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import io.quarkus.panache.mock.PanacheMock;
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 
@@ -297,6 +298,7 @@ class ReportServiceUnitTest {
     }
 
     @Test
+    @TestTransaction
     void createForComment_flushPartialUkConflict_throws409() throws Exception {
         EntityManager em = mock(EntityManager.class);
         EngagementServiceClient engagementClient = mock(EngagementServiceClient.class);
@@ -314,6 +316,7 @@ class ReportServiceUnitTest {
     }
 
     @Test
+    @TestTransaction
     void createForComment_flushNonConflict_rethrows() throws Exception {
         EntityManager em = mock(EntityManager.class);
         EngagementServiceClient engagementClient = mock(EngagementServiceClient.class);
