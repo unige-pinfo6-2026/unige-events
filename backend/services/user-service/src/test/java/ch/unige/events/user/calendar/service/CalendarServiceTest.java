@@ -368,6 +368,38 @@ class CalendarServiceTest {
         VendorOptimisticLockException(String m) { super(m); }
     }
 
+    /**
+     * SCRUM-169 — a Hibernate {@code StaleStateException}-style failure that
+     * is NOT a {@link OptimisticLockException} instance and whose class name
+     * carries the {@code StaleState} marker (not {@code OptimisticLock}) is
+     * still recognised as a transient conflict and retried (the
+     * {@code className.contains("StaleState")} half of
+     * {@code isOptimisticLockConflict}).
+     */
+    @Test
+    void withOptimisticLockRetry_staleStateClassNameMarker_retries() {
+        AtomicInteger attempts = new AtomicInteger();
+        UUID expected = UUID.randomUUID();
+        CalendarTokenResponse stub = new CalendarTokenResponse(expected,
+                "webcal://example/" + expected + ".ics",
+                "https://example/" + expected + ".ics");
+
+        CalendarTokenResponse result = calendarService.withOptimisticLockRetry("test",
+                () -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new VendorStaleStateException("row was updated or deleted by another transaction");
+                    }
+                    return stub;
+                });
+        assertEquals(expected, result.calendarToken());
+        assertEquals(2, attempts.get());
+    }
+
+    /** Not a jakarta {@link OptimisticLockException}; only the name carries the {@code StaleState} marker. */
+    static class VendorStaleStateException extends RuntimeException {
+        VendorStaleStateException(String m) { super(m); }
+    }
+
     private User persistUser(String auth0Id, String email) {
         User user = new User();
         user.auth0Id = auth0Id;

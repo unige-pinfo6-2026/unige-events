@@ -57,6 +57,16 @@ class UserServiceExceptionPathsTest {
         OptimisticLockMarkerException(String m) { super(m); }
     }
 
+    /**
+     * A non-jakarta exception whose class name carries the {@code StaleState}
+     * marker (and NOT {@code OptimisticLock}) — drives the
+     * {@code className.contains("StaleState")} half of
+     * {@code isOptimisticLockConflict}.
+     */
+    static class StaleStateMarkerException extends PersistenceException {
+        StaleStateMarkerException(String m) { super(m); }
+    }
+
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
@@ -169,6 +179,22 @@ class UserServiceExceptionPathsTest {
         assertSame(boom, thrown);
     }
 
+    @Test
+    void updateMyProfile_persistenceExceptionWithStaleStateClassName_throws409() {
+        PanacheMock.mock(User.class);
+        stagedUser("auth0|stalestate");
+        // Not instanceof jakarta OptimisticLockException, and the class name
+        // carries the "StaleState" marker (not "OptimisticLock") →
+        // className.contains("StaleState") branch of isOptimisticLockConflict.
+        doThrow(new StaleStateMarkerException("row was updated or deleted by another transaction"))
+                .when(em).flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.updateMyProfile("auth0|stalestate", profileReq()));
+        assertEquals(409, ex.getResponse().getStatus());
+        assertEquals("optimistic_lock_conflict", ex.getMessage());
+    }
+
     // ── updateUsername — null guard + PersistenceException catch ───────────
 
     @Test
@@ -212,6 +238,28 @@ class UserServiceExceptionPathsTest {
 
         PersistenceException thrown = assertThrows(PersistenceException.class,
                 () -> service.updateUsername("auth0|un2", "new.handle2"));
+        assertSame(boom, thrown);
+    }
+
+    @Test
+    void updateUsername_nullMessageCausePersistenceException_rethrows() {
+        // isUniqueUsernameConflict drives containsMessage, which walks the
+        // cause chain comparing each getMessage() to the marker. The cause
+        // here has a null message, exercising the `message == null` half of
+        // containsMessage; no link contains "uq_users_username" so the helper
+        // returns false and the exception is rethrown (not a 409).
+        PanacheMock.mock(User.class);
+        User u = new User();
+        u.id = UUID.randomUUID();
+        u.auth0Id = "auth0|un3";
+        u.username = "old.handle3";
+        when(User.findByAuth0Id("auth0|un3")).thenReturn(Optional.of(u));
+        when(User.findByUsername("new.handle3")).thenReturn(Optional.empty());
+        PersistenceException boom = new PersistenceException("wrapper", new RuntimeException((String) null));
+        doThrow(boom).when(em).flush();
+
+        PersistenceException thrown = assertThrows(PersistenceException.class,
+                () -> service.updateUsername("auth0|un3", "new.handle3"));
         assertSame(boom, thrown);
     }
 

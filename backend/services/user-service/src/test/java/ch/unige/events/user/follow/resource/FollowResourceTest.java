@@ -213,6 +213,30 @@ class FollowResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|fr-self-proj-caller")
+    void getFollowers_listIncludesSelfPrivateRow_returnsFullSelfProjection() {
+        // Branches L136/L137 of projectListItem: a PRIVATE caller appears in
+        // a list as their own row → `profilePublic || isSelf` short-circuits
+        // on isSelf=true, so the self row is projected via the FULL
+        // UserPublicResponse.from(user) instead of fromAnonymous. The caller
+        // (private) follows a public target, so the caller shows up in the
+        // target's followers list as themselves.
+        User caller = fixtures.persistUser("auth0|fr-self-proj-caller", "fr-self-proj-caller@example.com", false);
+        User target = fixtures.persistUser("auth0|fr-self-proj-tgt", "fr-self-proj-tgt@example.com", true);
+        fixtures.persistFollow(caller.id, target.id, FollowStatus.ACCEPTED);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|fr-self-proj-caller"));
+
+        given()
+            .when().get("/users/" + target.id + "/followers")
+            .then()
+            .statusCode(200)
+            .body("$.size()", equalTo(1))
+            .body("[0].id", equalTo(caller.id.toString()))
+            .body("[0].username", equalTo(caller.username))
+            .body("[0].profilePublic", equalTo(false));
+    }
+
+    @Test
     @TestSecurity(user = "auth0|fr-getfwg-caller")
     void getFollowing_listIncludesPrivateFollowed_returnsAnonymousProjection() {
         User caller = fixtures.persistUser("auth0|fr-getfwg-caller", "fr-getfwg-caller@example.com", true);
