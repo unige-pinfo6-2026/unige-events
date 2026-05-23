@@ -96,6 +96,20 @@ class MyAttendancesResourceTest {
     }
 
     @Test
+    void get_myParticipations_noTimeframeParam_acceptedAsNull() {
+        // No ?timeframe query param at all — parseTimeframe receives raw==null
+        // and returns null via the first operand of the line-61 guard (distinct
+        // from the blank arm exercised below).
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of());
+
+        given()
+            .when().get("/users/me/participations")
+            .then().statusCode(200)
+            .body("$", org.hamcrest.Matchers.empty());
+    }
+
+    @Test
     void get_myParticipations_emptyTimeframe_acceptedAsNull() {
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of());
@@ -104,4 +118,10 @@ class MyAttendancesResourceTest {
             .when().get("/users/me/participations?timeframe=")
             .then().statusCode(200);
     }
+
+    // NOTE: parseTimeframe line 61 arm `raw != null && raw.isBlank()` is left as
+    // accepted ceiling — the helper is private static (not directly callable),
+    // and a non-null blank query value isn't reliably deliverable over HTTP
+    // (RestAssured re-encodes the value), so this defensive arm has no honest
+    // HTTP path. The raw==null and valid-enum arms are covered above.
 }

@@ -162,6 +162,23 @@ class FavoriteServiceTest {
 
     @Test
     @TestTransaction
+    void getFavorites_nullTagsEvent_yieldsEmptyTagList() {
+        // favorite/dto/EventDTO L110 tags==null arm — Event.tags defaults to an
+        // empty ArrayList, so it must be explicitly nulled. Driven through the
+        // @QuarkusTest service so jacoco counts the executed DTO bytecode.
+        Event e = create(EventStatus.PUBLISHED);
+        e.tags = null;
+        em.flush();
+        service.addFavorite("auth0|x", e.id);
+        em.flush();
+
+        List<EventDTO> list = service.getFavorites("auth0|x", 0, 20);
+        assertEquals(1, list.size());
+        assertEquals(List.of(), list.get(0).tags());
+    }
+
+    @Test
+    @TestTransaction
     void getFavorites_summariesNullClient_safe() {
         // P2: the bulk-summary client may return null (its @Fallback
         // default). getFavorites must coalesce to an empty map and enrich

@@ -14,6 +14,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * REST-layer tests for {@link UserUsernamesInternalResource} (SCRUM-145).
@@ -36,6 +37,7 @@ import static org.hamcrest.Matchers.hasSize;
 class UserUsernamesInternalResourceTest {
 
     @Inject TestFixtures fixtures;
+    @Inject UserUsernamesInternalResource resource;
 
     private static String token() {
         return ConfigProvider.getConfig()
@@ -197,6 +199,20 @@ class UserUsernamesInternalResourceTest {
             .when().get("/users/_internal-by-usernames")
             .then()
             .statusCode(404);
+    }
+
+    @Test
+    void getByUsernames_nullCsv_returnsEmptyList_directCall() {
+        // JAX-RS never injects null for a @QueryParam String, so the
+        // `csv == null` half of the L55 guard is only reachable via a direct
+        // bean call. The null path touches no injected dependency.
+        assertTrue(resource.getByUsernames(null).isEmpty());
+    }
+
+    @Test
+    void getByUsernames_blankCsv_returnsEmptyList_directCall() {
+        // Complements the null case: `csv.isBlank()` half of the guard.
+        assertTrue(resource.getByUsernames("   ").isEmpty());
     }
 
     @Test

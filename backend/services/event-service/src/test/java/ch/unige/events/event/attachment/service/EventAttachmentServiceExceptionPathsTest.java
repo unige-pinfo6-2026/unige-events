@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -77,5 +78,19 @@ class EventAttachmentServiceExceptionPathsTest {
 
         assertThrows(NotFoundException.class,
                 () -> service.delete(eventId, attachmentId, false));
+    }
+
+    @Test
+    void download_attachmentExistsButEventMissing_returnsNull() {
+        // L219 — the attachment row exists and the path matches, but
+        // Event.findById(eventId) returns null (parent hard-deleted) → download
+        // short-circuits to null (resource maps to 404).
+        PanacheMock.mock(EventAttachment.class, Event.class);
+        EventAttachment attachment = new EventAttachment();
+        attachment.eventId = eventId; // path matches
+        when(EventAttachment.findById(attachmentId)).thenReturn(attachment);
+        when(Event.findById(eventId)).thenReturn(null);
+
+        assertNull(service.download(eventId, attachmentId, false));
     }
 }

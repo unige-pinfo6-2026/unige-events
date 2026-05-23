@@ -203,4 +203,19 @@ class ReportServiceCreateForCommentTest {
         PersistenceException raw = new PersistenceException("no wrapped cause");
         assertFalse(ReportService.isUniqueReportCommentConflict(raw));
     }
+
+    @Test
+    void isUniqueReportCommentConflict_nullConstraintName_returnsFalse() {
+        // A ConstraintViolationException whose driver did not surface a
+        // constraint name: the name==null guard short-circuits before
+        // equalsIgnoreCase. Covers the name==null branch of the matcher
+        // (distinct from handlesNullCauseChain, which never reaches the
+        // instanceof at all).
+        ConstraintViolationException noName = new ConstraintViolationException(
+                "violates not-null constraint",
+                new SQLException("ERROR: null value", "23502"),
+                (String) null);
+        assertFalse(ReportService.isUniqueReportCommentConflict(new PersistenceException(noName)),
+                "a null constraint name cannot be the partial UK — must surface as 5xx");
+    }
 }

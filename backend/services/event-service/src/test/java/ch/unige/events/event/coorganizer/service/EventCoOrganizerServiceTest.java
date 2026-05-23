@@ -448,6 +448,28 @@ class EventCoOrganizerServiceTest {
 
     @Test
     @TestTransaction
+    void getMyInvitations_nullTagsEvent_yieldsEmptyTagList() {
+        // coorganizer/dto/EventDTO L105 tags==null arm — Event.tags defaults to
+        // an empty ArrayList, so it must be explicitly nulled. findByIdsAsDTO
+        // builds the coorganizer EventDTO from the invitation's event; the
+        // null-tags arm yields an empty list. Driven through the @QuarkusTest
+        // service so jacoco counts the executed DTO bytecode.
+        Event e = createEvent(UUID.randomUUID());
+        e.tags = null;
+        EventCoOrganizer inv = new EventCoOrganizer();
+        inv.eventId = e.id;
+        inv.userId = creatorId;
+        inv.status = CoOrganizerStatus.PENDING;
+        inv.persist();
+        em.flush();
+
+        List<CoOrganizerInvitationDTO> list = service.getMyInvitations("auth0|x", null, 0, 10);
+        assertEquals(1, list.size());
+        assertEquals(List.of(), list.get(0).event().tags());
+    }
+
+    @Test
+    @TestTransaction
     void getMyInvitations_summariesNullClient_safe() {
         // findByIdsAsDTO defends against a null bulk-summary response (P2):
         // the @Fallback default on the engagement client. The invitation
@@ -491,5 +513,40 @@ class EventCoOrganizerServiceTest {
         inv.persist();
         em.flush();
         assertFalse(service.isAcceptedFor(e.id, creatorId));
+    }
+
+    // ---- orphan invitation (L180 ternary `: null`, findByIdsAsDTO L226/227) ----
+
+    @Test
+    @TestTransaction
+    void getMyInvitations_orphanInvitation_filteredOut() {
+        // A PENDING invitation whose eventId references no Event row (the
+        // parent was hard-deleted). findByIdsAsDTO returns an empty map
+        // (events.isEmpty() L226-227), so the L180 mapping yields null and the
+        // Objects::nonNull filter drops the orphan → empty result.
+        EventCoOrganizer orphan = new EventCoOrganizer();
+        orphan.eventId = 99999777L; // no matching Event
+        orphan.userId = creatorId;
+        orphan.status = CoOrganizerStatus.PENDING;
+        orphan.persist();
+        em.flush();
+
+        List<CoOrganizerInvitationDTO> list = service.getMyInvitations("auth0|x", null, 0, 10);
+        assertTrue(list.isEmpty(),
+                "An invitation pointing at a missing event must be filtered out");
+    }
+
+    // ---- isCreator null-operand legs (L264) ----
+
+    @Test
+    @TestTransaction
+    void remove_eventCreatorIdNull_throws403() {
+        // isCreator L264: event.creatorId == null short-circuits to false → a
+        // non-admin caller is rejected with 403, exercising the creatorId-null
+        // operand leg.
+        Event e = createEvent(null); // creatorId == null
+        em.flush();
+        assertThrows(ForbiddenException.class,
+                () -> service.remove(e.id, "auth0|x", inviteeId, false));
     }
 }

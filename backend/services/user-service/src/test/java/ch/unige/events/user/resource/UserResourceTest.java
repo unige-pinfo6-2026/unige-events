@@ -1,13 +1,16 @@
 package ch.unige.events.user.resource;
 
+import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.test.JwtTestContext;
 import ch.unige.events.user.test.JwtTestHelper;
 import ch.unige.events.user.test.TestFixtures;
 
+import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import jakarta.inject.Inject;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,10 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 /**
  * REST-layer tests for {@link UserResource}. Fixtures are persisted via
@@ -31,6 +38,8 @@ import static org.hamcrest.Matchers.nullValue;
 class UserResourceTest {
 
     @Inject TestFixtures fixtures;
+
+    @InjectMock FileStorageService fileStorageService;
 
     @BeforeEach
     void clearJwt() {
@@ -141,6 +150,32 @@ class UserResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|ur-priv-other-caller")
+    void getProfile_privateUser_authedNonSelfNonAdmin_returnsRestrictedProjection() {
+        // Covers the `anonymous || view.restricted()` partial where
+        // anonymous=false (authenticated) but restricted=true: a non-self
+        // non-admin caller hitting a PRIVATE profile gets the stripped
+        // anonymous projection, not a 404.
+        User target = fixtures.persistUser("auth0|ur-priv-other-target", "ur-priv-other-target@example.com", false);
+        fixtures.persistUser("auth0|ur-priv-other-caller", "ur-priv-other-caller@example.com", true);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-priv-other-caller"));
+
+        given()
+            .when().get("/users/" + target.id)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(target.id.toString()))
+            .body("username", equalTo(target.username))
+            .body("bio", nullValue())
+            .body("faculty", nullValue())
+            .body("bannerUrl", nullValue())
+            .body("profilePublic", equalTo(false))
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0))
+            .body("followStatus", nullValue());
+    }
+
+    @Test
     void getProfile_unknownId_returns404() {
         given()
             .when().get("/users/" + UUID.randomUUID())
@@ -224,6 +259,41 @@ class UserResourceTest {
             .when().post("/users/me/banner")
             .then()
             .statusCode(400);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-img-happy")
+    void uploadImage_withFile_returns200_setsAvatarUrl() {
+        // Happy path: the resource's file != null branch + delegation to the
+        // service. FileStorageService is mocked so no real S3 round-trip
+        // happens (no Docker / S3 in compile-only CI).
+        fixtures.persistUser("auth0|ur-img-happy", "ur-img-happy@example.com", false);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-img-happy"));
+        when(fileStorageService.saveImage(any(FileUpload.class), anyString(), anyLong(), any()))
+                .thenReturn("https://cdn/users/avatars/happy.png");
+
+        given()
+            .multiPart("file", "avatar.jpg", new byte[]{1, 2, 3}, "image/jpeg")
+            .when().post("/users/me/image")
+            .then()
+            .statusCode(200)
+            .body("avatarUrl", equalTo("https://cdn/users/avatars/happy.png"));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-banner-happy")
+    void uploadBanner_withFile_returns200_setsBannerUrl() {
+        fixtures.persistUser("auth0|ur-banner-happy", "ur-banner-happy@example.com", false);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-banner-happy"));
+        when(fileStorageService.saveImage(any(FileUpload.class), anyString(), anyLong(), any()))
+                .thenReturn("https://cdn/users/banners/happy.png");
+
+        given()
+            .multiPart("file", "banner.jpg", new byte[]{4, 5, 6}, "image/jpeg")
+            .when().post("/users/me/banner")
+            .then()
+            .statusCode(200)
+            .body("bannerUrl", equalTo("https://cdn/users/banners/happy.png"));
     }
 
     @Test
@@ -398,6 +468,27 @@ class UserResourceTest {
             .body("followerCount", equalTo(0))
             .body("followingCount", equalTo(0))
             .body("followStatus", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|ur-byuname-admin", roles = {"ADMIN"})
+    void getByUsername_privateProfile_adminCaller_returnsFullProjection() {
+        // Covers the `!anonymous && hasRole(ADMIN)` admin path of
+        // getByUsername: an ADMIN caller bypasses the anti-oracle, so the
+        // service returns a non-restricted view and the resource serialises
+        // the FULL projection (followerCount / followingCount present).
+        fixtures.persistUser("auth0|ur-byuname-admin-tgt", "admin-tgt@example.com", false,
+                "admin.priv.target");
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|ur-byuname-admin"));
+
+        given()
+            .when().get("/users/by-username/admin.priv.target")
+            .then()
+            .statusCode(200)
+            .body("username", equalTo("admin.priv.target"))
+            .body("profilePublic", equalTo(false))
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0));
     }
 
     @Test

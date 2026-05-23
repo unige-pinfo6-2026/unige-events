@@ -142,6 +142,29 @@ class UserParticipationsResourceTest {
             .body("$", Matchers.empty());
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipations_selfWithBlankTimeframe_returns200() {
+        // Empty ?timeframe= on the self path — parseTimeframe's `raw.isBlank()`
+        // arm (line 64) returns null (no 400, no filtering).
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(callerId)).thenReturn(List.of(attending(callerId, 96L)));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(publishedEvent(96L)));
+
+        given()
+            .when().get("/users/" + callerId + "/participations?timeframe=")
+            .then().statusCode(200)
+            .body("size()", Matchers.is(1));
+    }
+
+    // NOTE: parseTimeframe line 64 arm `raw != null && raw.isBlank()` is left as
+    // accepted ceiling — the helper is private static (not directly callable)
+    // and a non-null blank query value isn't reliably deliverable over HTTP
+    // (RestAssured re-encodes the value), so this defensive arm has no honest
+    // HTTP path. The raw==null and valid/invalid-enum arms are covered.
+
     @Test
     void getUserParticipations_invalidTimeframe_returns400() {
         given()

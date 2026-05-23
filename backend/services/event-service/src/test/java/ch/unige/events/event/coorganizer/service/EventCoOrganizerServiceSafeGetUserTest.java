@@ -5,6 +5,7 @@ import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.event.entity.Event;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import io.quarkus.panache.mock.PanacheMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -112,5 +114,49 @@ class EventCoOrganizerServiceSafeGetUserTest {
         assertEquals(1, list.size());
         assertNull(list.get(0).displayName());
         org.mockito.Mockito.verify(userClient, org.mockito.Mockito.never()).getById(any());
+    }
+
+    // ---- requireUuid() == null guards (L56/57, L92/93, L112/113, L164/165) ----
+    // The real CallerIdentity.requireUuid() THROWS for an unresolved caller, so
+    // the `== null` legs are unreachable through the CDI runtime. Hand-wire a
+    // CallerIdentity whose requireUuid() returns null. invite() looks up the
+    // event (L52) BEFORE the guard, so Event.findByIdOptional is stubbed first.
+
+    private CallerIdentity wireNullCaller() {
+        CallerIdentity caller = mock(CallerIdentity.class);
+        when(caller.requireUuid()).thenReturn(null);
+        service.callerIdentity = caller;
+        return caller;
+    }
+
+    @Test
+    void invite_requireUuidNull_throws404() {
+        PanacheMock.mock(Event.class);
+        when(Event.findByIdOptional(eventId)).thenReturn(Optional.of(new Event()));
+        wireNullCaller();
+
+        assertThrows(NotFoundException.class,
+                () -> service.invite(eventId, "auth0|x", UUID.randomUUID(), false));
+    }
+
+    @Test
+    void accept_requireUuidNull_throws404() {
+        wireNullCaller();
+        assertThrows(NotFoundException.class,
+                () -> service.accept(eventId, "auth0|x"));
+    }
+
+    @Test
+    void decline_requireUuidNull_throws404() {
+        wireNullCaller();
+        assertThrows(NotFoundException.class,
+                () -> service.decline(eventId, "auth0|x"));
+    }
+
+    @Test
+    void getMyInvitations_requireUuidNull_throws404() {
+        wireNullCaller();
+        assertThrows(NotFoundException.class,
+                () -> service.getMyInvitations("auth0|x", null, 0, 10));
     }
 }

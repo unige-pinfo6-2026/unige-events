@@ -232,6 +232,48 @@ class UserServiceTest {
 
     @Test
     @TestTransaction
+    void updateMyProfile_nullAuthenticatedId_throwsForbidden() {
+        // First short-circuit of the guard: authenticatedAuth0Id == null.
+        persistUser("auth0|us-upd-nullauth", "us-upd-nullauth@example.com", true);
+
+        assertThrows(ForbiddenException.class,
+                () -> userService.updateMyProfile(null, "auth0|us-upd-nullauth",
+                        new UpdateProfileRequest(null, null, null, null, null, null, null, null, null)));
+    }
+
+    @Test
+    @TestTransaction
+    void updateMyProfile_nullTargetId_throwsForbidden() {
+        // Second short-circuit of the guard: targetAuth0Id == null.
+        persistUser("auth0|us-upd-nulltgt", "us-upd-nulltgt@example.com", true);
+
+        assertThrows(ForbiddenException.class,
+                () -> userService.updateMyProfile("auth0|us-upd-nulltgt", null,
+                        new UpdateProfileRequest(null, null, null, null, null, null, null, null, null)));
+    }
+
+    @Test
+    @TestTransaction
+    void updateMyProfile_displayNameNullFacultyPresent_keepsNameAppliesFaculty() {
+        // Flips both branches at once: displayName == null (skip the
+        // assignment) while faculty != null (apply it). Asserts the existing
+        // displayName is left untouched and only faculty changes.
+        User user = persistUser("auth0|us-upd-faconly", "us-upd-faconly@example.com", false);
+        user.displayName = "Keep Me";
+        user.faculty = Faculty.SCIENCES;
+        entityManager.flush();
+
+        UpdateProfileRequest req = new UpdateProfileRequest(
+                null, null, null, Faculty.LETTERS, null, null, null, null, null);
+
+        User updated = userService.updateMyProfile("auth0|us-upd-faconly", "auth0|us-upd-faconly", req);
+
+        assertEquals("Keep Me", updated.displayName);
+        assertEquals(Faculty.LETTERS, updated.faculty);
+    }
+
+    @Test
+    @TestTransaction
     void updateMyProfile_nullRequest_throwsBadRequest() {
         persistUser("auth0|us-upd-null", "us-upd-null@example.com", true);
 

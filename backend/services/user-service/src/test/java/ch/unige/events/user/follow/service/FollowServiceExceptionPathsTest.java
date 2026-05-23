@@ -97,4 +97,22 @@ class FollowServiceExceptionPathsTest {
                 () -> service.follow("auth0|fe-boom", followedId));
         assertSame(boom, thrown);
     }
+
+    @Test
+    @TestTransaction
+    void follow_nullMessagePersistenceException_rethrows() {
+        // isUniqueFollowConflict walks the cause chain; here the (no-arg)
+        // PersistenceException carries a null message, exercising the
+        // `message == null` short-circuit so the helper returns false and the
+        // exception is rethrown (not a 409).
+        PanacheMock.mock(User.class);
+        PanacheMock.mock(Follow.class);
+        UUID followedId = stage("auth0|fe-nullmsg", true);
+        PersistenceException boom = new PersistenceException();
+        doThrow(boom).when(em).flush();
+
+        PersistenceException thrown = assertThrows(PersistenceException.class,
+                () -> service.follow("auth0|fe-nullmsg", followedId));
+        assertSame(boom, thrown);
+    }
 }

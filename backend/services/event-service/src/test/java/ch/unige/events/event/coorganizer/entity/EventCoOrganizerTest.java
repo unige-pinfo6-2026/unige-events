@@ -42,6 +42,23 @@ class EventCoOrganizerTest {
 
     @Test
     @TestTransaction
+    void prePersist_preservesExplicitInvitedAt() {
+        // L53 false leg — invitedAt is already set before persist, so
+        // @PrePersist must NOT overwrite it.
+        UUID userId = UUID.randomUUID();
+        EventCoOrganizer co = new EventCoOrganizer();
+        co.eventId = 142L;
+        co.userId = userId;
+        co.status = CoOrganizerStatus.PENDING;
+        java.time.LocalDateTime explicit = java.time.LocalDateTime.of(2024, 1, 2, 3, 4, 5);
+        co.invitedAt = explicit;
+        co.persist();
+        em.flush();
+        assertEquals(explicit, co.invitedAt);
+    }
+
+    @Test
+    @TestTransaction
     void isAcceptedFor_accepted_returnsTrue() {
         UUID userId = UUID.randomUUID();
         create(43L, userId, CoOrganizerStatus.ACCEPTED);

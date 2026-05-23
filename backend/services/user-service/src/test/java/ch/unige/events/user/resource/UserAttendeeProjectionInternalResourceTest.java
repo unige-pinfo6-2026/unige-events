@@ -15,6 +15,7 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * REST-layer tests for {@link UserAttendeeProjectionInternalResource}.
@@ -35,6 +36,7 @@ import static org.hamcrest.Matchers.hasSize;
 class UserAttendeeProjectionInternalResourceTest {
 
     @Inject TestFixtures fixtures;
+    @Inject UserAttendeeProjectionInternalResource resource;
 
     private static String token() {
         return ConfigProvider.getConfig()
@@ -91,6 +93,14 @@ class UserAttendeeProjectionInternalResourceTest {
             .then()
             .statusCode(200)
             .body("$", hasSize(0));
+    }
+
+    @Test
+    void getAttendeeProjections_nullIds_returnsEmptyList_directCall() {
+        // JAX-RS never injects null for a @QueryParam List, so the
+        // `ids == null` half of the L45 guard is only reachable via a direct
+        // bean call. The null path touches no injected dependency.
+        assertTrue(resource.getAttendeeProjections(null).isEmpty());
     }
 
     @Test

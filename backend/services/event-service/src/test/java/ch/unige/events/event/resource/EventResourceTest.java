@@ -1,12 +1,16 @@
 package ch.unige.events.event.resource;
 
+import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.test.JwtTestContext;
 import ch.unige.events.event.test.JwtTestHelper;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.enums.EventCategory;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.storage.FileStorageService;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -84,6 +88,36 @@ class EventResourceTest {
             .when().post("/events")
             .then().statusCode(201)
             .extract().jsonPath().getLong("id");
+    }
+
+    /**
+     * Seed a PUBLISHED event by direct persistence (committed in its own
+     * transaction) — needed for anonymous GETs whose method has no
+     * {@code @TestSecurity}, so the authenticated {@code postEvent()} would
+     * 401. Returns the committed id. Always pair with {@link #deleteEvent}
+     * so these committed rows don't pollute the shared drop-and-create DB
+     * (the featured-ranking tests assert on the global published-event set).
+     */
+    private long persistPublishedEvent(UUID creator) {
+        long[] holder = new long[1];
+        QuarkusTransaction.requiringNew().run(() -> {
+            Event e = new Event();
+            e.title = "anon-" + UUID.randomUUID();
+            e.description = "d";
+            e.location = "l";
+            e.startDate = LocalDateTime.now().plusDays(2);
+            e.endDate = e.startDate.plusHours(2);
+            e.category = EventCategory.ACADEMIC;
+            e.creatorId = creator;
+            e.status = EventStatus.PUBLISHED;
+            e.persist();
+            holder[0] = e.id;
+        });
+        return holder[0];
+    }
+
+    private void deleteEvent(long id) {
+        QuarkusTransaction.requiringNew().run(() -> Event.deleteById(id));
     }
 
     @Test
@@ -312,5 +346,90 @@ class EventResourceTest {
             .multiPart("file", tinyPng(tmp).toFile(), "image/png")
             .when().post("/events/" + id + "/image")
             .then().statusCode(200);
+    }
+
+    @Test
+    void getOrganizerUuids_publishedEvent_returns200WithCreator() {
+        // L184 happy path — read the organizer UUIDs of a published event; the
+        // creator's UUID must be present. @PermitAll endpoint, so no auth is
+        // needed. Seed by direct persist + clean up to stay net-zero on the
+        // shared DB.
+        UUID creator = UUID.randomUUID();
+        long id = persistPublishedEvent(creator);
+        try {
+            given()
+                .when().get("/events/" + id + "/organizer-uuids")
+                .then().statusCode(200)
+                .body("", org.hamcrest.Matchers.hasItem(creator.toString()));
+        } finally {
+            deleteEvent(id);
+        }
+    }
+
+    @Test
+    void getById_anonymousWithCheckCoOrgOf_returns200() {
+        // branch L155 — checkCoOrgOf set but caller is anonymous (auth0Id ==
+        // null) → effectiveCheck stays null, the event is still served (200).
+        // The GET must be truly anonymous (no @TestSecurity), so the event is
+        // seeded by direct persist rather than the authenticated POST.
+        long id = persistPublishedEvent(UUID.randomUUID());
+        try {
+            given()
+                .queryParam("check-co-org-of", UUID.randomUUID().toString())
+                .when().get("/events/" + id)
+                .then().statusCode(200);
+        } finally {
+            deleteEvent(id);
+        }
+    }
+
+    @Test
+    void getOccurrences_anonymous_returns200() {
+        // branch L195 — anonymous caller resolves auth0Id=null / isAdmin=false
+        // in getOccurrences and still serves a published parent (200).
+        long id = persistPublishedEvent(UUID.randomUUID());
+        try {
+            given()
+                .when().get("/events/" + id + "/occurrences")
+                .then().statusCode(200);
+        } finally {
+            deleteEvent(id);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-22", roles = "ADMIN")
+    void getOccurrences_admin_returns200() {
+        // branch L195 — authenticated ADMIN caller: !identity.isAnonymous() is
+        // true AND identity.hasRole(ROLE_ADMIN) is true, so the
+        // `identity.hasRole(ADMIN)` operand evaluates its true leg and
+        // isAdmin=true is forwarded to getOccurrences. Still serves a published
+        // parent (200).
+        long id = persistPublishedEvent(UUID.randomUUID());
+        try {
+            given()
+                .when().get("/events/" + id + "/occurrences")
+                .then().statusCode(200);
+        } finally {
+            deleteEvent(id);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-21")
+    void getById_checkCoOrgOf_unresolvedCallerUuid_returns200() {
+        // branch L157 — authenticated (auth0Id != null) but the caller's
+        // profile is unresolved: TestCallerIdentity.getUuid() returns null when
+        // JwtTestContext is not set. effectiveCheck stays null (callerUuid ==
+        // null short-circuits the equals), the event is still served (200).
+        long id = persistPublishedEvent(UUID.randomUUID());
+        try {
+            given()
+                .queryParam("check-co-org-of", UUID.randomUUID().toString())
+                .when().get("/events/" + id)
+                .then().statusCode(200);
+        } finally {
+            deleteEvent(id);
+        }
     }
 }

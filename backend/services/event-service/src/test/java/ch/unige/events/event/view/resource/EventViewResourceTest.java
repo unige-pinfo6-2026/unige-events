@@ -143,4 +143,16 @@ class EventViewResourceTest {
         stageFreshUser();
         given().when().post("/events/9999985/view").then().statusCode(404);
     }
+
+    @Test
+    void recordView_emptyJsonBody_returns204_bodyNull() {
+        // branch L45 — application/json with an empty body deserializes to a
+        // null RecordViewRequest, so `body != null` is false and sessionId is
+        // null. Anonymous + null session → silent no-op, still 204.
+        long id = persistEvent();
+        given()
+            .contentType("application/json").body("")
+            .when().post("/events/" + id + "/view")
+            .then().statusCode(204);
+    }
 }

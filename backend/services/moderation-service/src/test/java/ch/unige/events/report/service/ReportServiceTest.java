@@ -317,6 +317,81 @@ class ReportServiceTest {
         assertNull(result.get(0).eventTitle());
     }
 
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_allCommentOnlyReports_returnsListWithoutNpe() {
+        // Regression for the bulkFetchEvents null-key NPE: a page consisting
+        // solely of comment-only reports (eventId == null) yields an empty
+        // eventIds set, so bulkFetchEvents returns an EMPTY MAP and the
+        // enrichment map() then does eventsById.get(null) — which must NOT
+        // throw (it did on the immutable Map.of(), giving the admin a 500).
+        // Covers the empty-set guard (308/309) and the eventId==null branch
+        // of the id-collection loop (236), without calling event-service.
+        Report c1 = buildReport(5L, null, reporterId, ReportStatus.PENDING);
+        Report c2 = buildReport(6L, null, reporterId, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(c1, c2));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(2, result.size());
+        assertNull(result.get(0).eventTitle());
+        verify(eventClient, never()).findByIds(any(), any());
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_nullReporterId_skipsUserEnrichment() {
+        // Legacy row with a null reporter_id: the userIds set stays empty so the
+        // enrichment loop never queries user-service. Covers the
+        // reporterId==null branch of the id-collection loop.
+        Report r1 = buildReport(6L, 204L, null, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(r1));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        when(eventClient.findByIds(any(List.class), eq(null))).thenReturn(List.of(
+                event(204L, EventStatus.PUBLISHED, creatorId)
+        ));
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        assertNotNull(result.get(0).eventTitle());
+        assertNull(result.get(0).reporterDisplayName());
+        verify(userClient, never()).getById(any(UUID.class));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_reporterHardDeleted_skipsUsersByIdEntry() {
+        // reporterId is set (so safeGetUser is queried) but user-service 404s,
+        // so safeGetUser returns null and usersById gets no entry. Covers the
+        // u==null branch of the enrichment loop.
+        Report r1 = buildReport(7L, 205L, reporterId, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(r1));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        when(eventClient.findByIds(any(List.class), eq(null))).thenReturn(List.of(
+                event(205L, EventStatus.PUBLISHED, creatorId)
+        ));
+        when(userClient.getById(reporterId)).thenThrow(new NotFoundException("gone"));
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        assertNotNull(result.get(0).eventTitle());
+        assertNull(result.get(0).reporterDisplayName());
+    }
+
 
     // ──────────────────────────────────────────────────────────────────
     // handle(...)

@@ -62,6 +62,24 @@ class IcsBuilderTest {
     }
 
     @Test
+    void buildIcsContent_eventStartPresentButEndNull_skipped() {
+        // Complement of buildIcsContent_eventMissingStartOrEnd_skipped: here
+        // startDate is non-null but endDate is null, so the second half of the
+        // `startDate() == null || endDate() == null` guard short-circuits the
+        // event out — still no BEGIN:VEVENT.
+        EventDTO partial = new EventDTO(3L, "NoEnd", "d", "l",
+                LocalDateTime.now(), null,
+                null, null, null, null,
+                EventStatus.PUBLISHED, null, false, false, null,
+                0L, null, 0L, 0L, 0L,
+                null, null, null,
+                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                null, null, null);
+        String ics = IcsBuilder.buildIcsContent(List.of(partial), "http://localhost:5173");
+        assertFalse(ics.contains("BEGIN:VEVENT"));
+    }
+
+    @Test
     void buildIcsContent_timezone_utcToZurichSummer() {
         // UTC+2 (DST) — 7h UTC → 9h Zurich
         EventDTO e = buildEvent(1L, "Summer", null, null, 2025, 6, 15, 7, 0);

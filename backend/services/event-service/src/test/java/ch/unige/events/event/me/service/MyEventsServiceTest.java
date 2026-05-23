@@ -104,6 +104,21 @@ class MyEventsServiceTest {
 
     @Test
     @TestTransaction
+    void getMyEvents_nullTagsEvent_yieldsEmptyTagList() {
+        // me/dto/EventDTO L105 tags==null arm — Event.tags defaults to an empty
+        // ArrayList, so it must be explicitly nulled. Driven through the
+        // @QuarkusTest service so jacoco counts the executed DTO bytecode.
+        Event e = create(userId, EventStatus.PUBLISHED);
+        e.tags = null;
+        em.flush();
+
+        List<EventDTO> list = service.getMyEvents("auth0|x", null, 0, 20);
+        assertEquals(1, list.size());
+        assertEquals(List.of(), list.get(0).tags());
+    }
+
+    @Test
+    @TestTransaction
     void getMyEvents_summariesNullClient_safe() {
         // P2: the bulk-summary client may return null (its @Fallback default).
         // toEventDTOs must coalesce to an empty map and enrich with zeroed

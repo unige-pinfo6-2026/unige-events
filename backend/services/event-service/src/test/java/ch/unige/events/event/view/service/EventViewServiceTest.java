@@ -6,6 +6,7 @@ import ch.unige.events.event.test.JwtTestHelper;
 import ch.unige.events.event.view.entity.EventView;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
+import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -24,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @QuarkusTest
 @TestSecurity(user = "auth0|view")
@@ -182,5 +185,28 @@ class EventViewServiceTest {
         UUID anonSession = UUID.randomUUID();
         assertThrows(NotFoundException.class,
                 () -> service.recordView(null, 99999L, anonSession));
+    }
+
+    @Test
+    @TestTransaction
+    void recordView_authenticatedButUnresolvedUuid_fallsThroughToSession() {
+        // branch L60 — auth0Id is non-null but callerIdentity.getUuid() returns
+        // null (profile not provisioned yet). The `userId != null` guard is
+        // false, so the method falls through to the anonymous session branch.
+        // Hand-wire the service via its public constructor with a CallerIdentity
+        // whose getUuid() returns null.
+        Event e = newEvent();
+        em.flush();
+        CallerIdentity nullUuidCaller = mock(CallerIdentity.class);
+        when(nullUuidCaller.getUuid()).thenReturn(null);
+        EventViewService handWired = new EventViewService(em, nullUuidCaller);
+
+        UUID anonSession = UUID.randomUUID();
+        handWired.recordView("auth0|unresolved", e.id, anonSession);
+        em.flush();
+
+        // Fell through to the session branch → anonymous row inserted.
+        long sessionRows = EventView.count("eventId = ?1 and sessionId = ?2", e.id, anonSession);
+        assertEquals(1L, sessionRows);
     }
 }

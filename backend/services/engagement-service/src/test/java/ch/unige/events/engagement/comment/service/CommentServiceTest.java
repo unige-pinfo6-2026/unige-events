@@ -89,7 +89,11 @@ class CommentServiceTest {
     }
 
     private static EventDTO event(Long id, EventStatus status, UUID creatorIdParam) {
-        return new EventDTO(id, "T", "d", "l",
+        return event(id, status, creatorIdParam, "T");
+    }
+
+    private static EventDTO event(Long id, EventStatus status, UUID creatorIdParam, String title) {
+        return new EventDTO(id, title, "d", "l",
                 LocalDateTime.now(), LocalDateTime.now().plusDays(1),
                 null, null, null,
                 creatorIdParam,
@@ -313,6 +317,91 @@ class CommentServiceTest {
     }
 
     @Test
+    void post_withMentions_nullEventTitle_safeEventTitleNull() {
+        // Event title is null → fanOutMentions line 165
+        // `eventTitle == null || eventTitle.isBlank()` first operand is true,
+        // safeEventTitle becomes null. The fan-out still reaches a real target.
+        EventDTO ev = event(62L, EventStatus.PUBLISHED, creatorId, /* title */ null);
+        when(eventClient.getByIdWithCoOrgCheck(eq(62L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 62L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withMentions_blankEventTitle_safeEventTitleNull() {
+        // Event title is blank ("  ") → fanOutMentions line 165 reaches the
+        // second operand `eventTitle.isBlank()` which is true, safeEventTitle
+        // becomes null (covers the isBlank()==true arm distinct from the
+        // null-title arm above).
+        EventDTO ev = event(63L, EventStatus.PUBLISHED, creatorId, /* title */ "   ");
+        when(eventClient.getByIdWithCoOrgCheck(eq(63L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 63L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withMentions_resolvedListContainsNullElement_skipped() {
+        // The resolved list contains a literal null element → fanOutMentions
+        // line 168 `target == null || target.id() == null` first operand is
+        // true, the element is skipped without NPE. A second valid target
+        // still gets fanned out so the loop continues past the null.
+        EventDTO ev = event(64L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(64L), any(UUID.class))).thenReturn(ev);
+        UUID bob = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.Arrays.asList(
+                        null,
+                        new ch.unige.events.shared.domain.dto.IdProjection(bob, "bob.smith")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 64L,
+                new CreateCommentRequest("hi @ghost.user and @bob.smith", null));
+
+        assertNotNull(dto);
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
+    void post_withMentions_authorUsernameBlank_usesGenericFallback() {
+        // authorLabel line 195 `username != null && !username.isBlank()`:
+        // username is blank ("  ") with a null displayName, so the first
+        // operand is true but the second (!isBlank()) is false — falls through
+        // to the generic FALLBACK_AUTHOR_LABEL. Distinct from the null-username
+        // case (post_withMentions_authorBothLabelsBlank, which makes the first
+        // operand false).
+        EventDTO ev = event(65L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(65L), any(UUID.class))).thenReturn(ev);
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+        when(userClient.getById(userId)).thenReturn(new UserPublicResponse(
+                userId, /* username */ "   ", /* displayName */ null, null, null, null,
+                java.util.List.of(), null, null, false, 0L, 0L, null));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 65L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+        org.mockito.Mockito.verify(userClient).getByUsernames(anyString());
+    }
+
+    @Test
     void post_userClientNotFound_succeedsWithNullAuthor() {
         // safeGetUser NotFoundException branch (author hard-deleted): the comment
         // must still post; the returned DTO simply has no author enrichment.
@@ -489,6 +578,24 @@ class CommentServiceTest {
     }
 
     @Test
+    void post_parentHasNullEventId_throws422_parentNotInEvent() {
+        // The parent comment was loaded with eventId==null — the first operand
+        // of `parent.eventId == null || !parent.eventId.equals(eventId)`
+        // (line 97) trips → 422 parent_comment_not_in_event.
+        EventDTO ev = event(13L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(13L), any(UUID.class))).thenReturn(ev);
+
+        Comment parent = comment(130L, /* eventId */ null, otherUserId, null);
+        PanacheMock.mock(Comment.class);
+        when(Comment.findByIdOptional(130L)).thenReturn(Optional.of(parent));
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.post("auth0|test-comment-user", 13L,
+                        new CreateCommentRequest("oops", 130L)));
+        assertEquals(422, ex.getResponse().getStatus());
+    }
+
+    @Test
     void post_anonymousJwt_throwsNotFound() {
         EventDTO ev = event(12L, EventStatus.PUBLISHED, creatorId);
         when(eventClient.getById(12L)).thenReturn(ev);
@@ -532,6 +639,56 @@ class CommentServiceTest {
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.delete("auth0|test-comment-user", 202L));
         assertEquals(403, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void delete_authorIdNull_byOrganizer_succeeds() {
+        // The comment's authorId is null (orphaned author) — the
+        // `comment.authorId != null` operand of isAuthor (line 210) is false,
+        // so isAuthor stays false. Caller is an organizer → delete authorized.
+        Comment c = spyDeletable(comment(203L, 23L, /* authorId */ null, null));
+        PanacheMock.mock(Comment.class);
+        when(Comment.findByIdOptional(203L)).thenReturn(Optional.of(c));
+        when(eventClient.getOrganizerUuids(23L)).thenReturn(List.of(userId));
+
+        service.delete("auth0|test-comment-user", 203L);
+    }
+
+    @Test
+    void delete_nonAuthorNonOrganizer_nullEventId_throwsForbidden() {
+        // The comment has a null eventId — the `comment.eventId != null`
+        // operand of the line-213 guard is false, so the organizer lookup is
+        // skipped (isOrganizer stays false) and a non-admin / non-author caller
+        // with a valid UUID falls through to the 403. Closes the
+        // comment.eventId==null=false arm of line 213 (the callerUuid==null=false
+        // arm is ceiling: delete() resolves callerUuid via requireUuid() which
+        // throws rather than returning null).
+        Comment c = spyDeletable(comment(205L, /* eventId */ null, otherUserId, null));
+        PanacheMock.mock(Comment.class);
+        when(Comment.findByIdOptional(205L)).thenReturn(Optional.of(c));
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.delete("auth0|test-comment-user", 205L));
+        assertEquals(403, ex.getResponse().getStatus());
+        // eventId==null short-circuits before any organizer lookup.
+        org.mockito.Mockito.verify(eventClient, org.mockito.Mockito.never())
+                .getOrganizerUuids(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|test-comment-admin", roles = "ADMIN")
+    void delete_byAdmin_succeeds() {
+        // Admin bypass (line 213/217): isAdmin=true short-circuits the organizer
+        // lookup and authorizes the delete regardless of authorship.
+        Comment c = spyDeletable(comment(204L, 24L, otherUserId, null));
+        PanacheMock.mock(Comment.class);
+        when(Comment.findByIdOptional(204L)).thenReturn(Optional.of(c));
+
+        service.delete("auth0|test-comment-admin", 204L);
+
+        // Admin never consults the organizer list.
+        org.mockito.Mockito.verify(eventClient, org.mockito.Mockito.never())
+                .getOrganizerUuids(org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
@@ -639,6 +796,57 @@ class CommentServiceTest {
 
         assertThrows(NotFoundException.class,
                 () -> service.getByEvent(35L, "auth0|test-comment-user", 0, 20));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    @TestSecurity(user = "auth0|test-comment-admin", roles = "ADMIN")
+    void getByEvent_byAdmin_draftEvent_bypassesVisibilityGate() {
+        // Admin caller (auth0Id != null && hasRole ADMIN) — line 226 sets
+        // isAdmin=true, and the visibility gate (line 348) short-circuits the
+        // non-PUBLISHED 404 for admins. A DRAFT event still returns its comments.
+        EventDTO ev = event(37L, EventStatus.DRAFT, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(37L), any(UUID.class))).thenReturn(ev);
+        when(eventClient.getOrganizerUuids(37L)).thenReturn(List.of(creatorId));
+
+        Comment top = comment(370L, 37L, userId, null);
+        PanacheMock.mock(Comment.class);
+        PanacheQuery topQuery = mock(PanacheQuery.class);
+        when(topQuery.page(0, 20)).thenReturn(topQuery);
+        when(topQuery.list()).thenReturn(List.of(top));
+        when(Comment.find(anyString(), any(Object[].class))).thenReturn(topQuery);
+        when(Comment.list(anyString(), any(Object[].class))).thenReturn(List.of());
+
+        List<CommentDTO> comments = service.getByEvent(37L, "auth0|test-comment-admin", 0, 20);
+        assertEquals(1, comments.size());
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void getByEvent_topLevelAndReplyWithNullAuthorId_omittedFromAuthorBatch() {
+        // A top-level comment AND a reply both carry authorId==null. The
+        // `authorId != null` arms (lines 252, 255, 271, 276) are false for both,
+        // so neither is added to the author batch nor flagged organizer — and the
+        // listing still renders without NPE.
+        EventDTO ev = event(38L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(38L), any(UUID.class))).thenReturn(ev);
+        when(eventClient.getOrganizerUuids(38L)).thenReturn(List.of(creatorId));
+
+        Comment top = comment(380L, 38L, /* authorId */ null, null);
+        Comment reply = comment(381L, 38L, /* authorId */ null, top);
+
+        PanacheMock.mock(Comment.class);
+        PanacheQuery topQuery = mock(PanacheQuery.class);
+        when(topQuery.page(0, 20)).thenReturn(topQuery);
+        when(topQuery.list()).thenReturn(List.of(top));
+        when(Comment.find(anyString(), any(Object[].class))).thenReturn(topQuery);
+        when(Comment.list(anyString(), any(Object[].class))).thenReturn(List.of(reply));
+
+        List<CommentDTO> comments = service.getByEvent(38L, "auth0|test-comment-user", 0, 20);
+        assertEquals(1, comments.size());
+        assertEquals(1, comments.get(0).replies().size());
+        // Null-author rows are never flagged organizer.
+        org.junit.jupiter.api.Assertions.assertFalse(comments.get(0).authorIsOrganizer());
     }
 
     @Test
