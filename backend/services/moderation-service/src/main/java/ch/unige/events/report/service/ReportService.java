@@ -306,7 +306,11 @@ public class ReportService {
 
     private Map<Long, ch.unige.events.shared.domain.dto.EventDTO> bulkFetchEvents(Set<Long> ids) {
         if (ids.isEmpty()) {
-            return Map.of();
+            // Must be a HashMap (not the immutable Map.of()): the caller does
+            // eventsById.get(r.eventId) where r.eventId is null for comment-only
+            // reports, and Map.of().get(null) throws NPE. A page consisting
+            // solely of comment-only reports yields an empty id-set here.
+            return new HashMap<>();
         }
         List<ch.unige.events.shared.domain.dto.EventDTO> events =
                 eventClient.findByIds(List.copyOf(ids), null);
