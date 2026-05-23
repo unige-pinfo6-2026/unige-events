@@ -652,6 +652,92 @@ class AttendanceServiceTest {
     }
 
     @Test
+    void getAttendees_projectionsNull_returnsAllAnonymizedRows() {
+        // RestClient fallback returns null (degraded mode) — fetchAttendeeProjections
+        // must treat it as an empty map (no NPE) and anonymize every row, mirroring
+        // the thrown-exception path but via the null short-circuit.
+        UUID caller = userId;
+        UUID someUser = UUID.randomUUID();
+        EventDTO ev = new EventDTO(38L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                caller, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, true);
+        when(eventClient.getByIdWithCoOrgCheck(eq(38L), any(UUID.class))).thenReturn(ev);
+
+        Attendance a = new Attendance();
+        a.id = 800L;
+        a.userId = someUser;
+        a.eventId = 38L;
+        a.status = AttendanceStatus.ATTENDING;
+        a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findByEvent(38L, 0, 20)).thenReturn(List.of(a));
+        when(userClient.getAttendeeProjections(any())).thenReturn(null);
+
+        List<AttendanceDTO> result = service.getAttendees("auth0|test-att-user", 38L, 0, 20);
+        assertEquals(1, result.size());
+        assertNull(result.get(0).displayName());
+        assertNull(result.get(0).userId());
+    }
+
+    @Test
+    void getAttendees_coOrgOfNull_nonCreator_fallsBackToOrganizerUuids() {
+        // coOrganizerOf is null (the self-check wasn't honored) and the caller is
+        // neither creator nor admin → the service must hit the getOrganizerUuids
+        // fallback. Caller is absent from the list → non-organizer view, so the
+        // private row stays anonymized.
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(39L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, /* coOrganizerOf */ null);
+        when(eventClient.getOrganizerUuids(39L)).thenReturn(List.of(creatorId));
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(39L, ev, otherUserId, privateUserId);
+
+        org.mockito.Mockito.verify(eventClient).getOrganizerUuids(39L);
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertNull(priv.displayName());
+        assertNull(priv.userId());
+    }
+
+    @Test
+    void getAttendees_coOrgOfNull_callerIsOrganizer_returnsRealIdentity() {
+        // coOrganizerOf is null and the caller IS in the organizer-uuids list →
+        // fallback resolves to organizer view, exposing the private row.
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(45L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, /* coOrganizerOf */ null);
+        when(eventClient.getOrganizerUuids(45L)).thenReturn(List.of(userId));
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(45L, ev, otherUserId, privateUserId);
+
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertEquals("Private-User", priv.displayName());
+        assertEquals(privateUserId, priv.userId());
+    }
+
+    @Test
     void getAttendees_unknownEvent_throwsNotFound() {
         when(eventClient.getByIdWithCoOrgCheck(eq(31L), any(UUID.class))).thenReturn(null);
         assertThrows(NotFoundException.class,
@@ -722,6 +808,43 @@ class AttendanceServiceTest {
         JwtTestContext.set(JwtTestHelper.anonymous());
         List<AttendanceDTO> mine = service.getMyAttendances("auth0|test-att-user");
         assertTrue(mine.isEmpty());
+    }
+
+    /**
+     * {@code safeGetUser} degradation paths — exercised through
+     * {@code getMyAttendances}, the simplest public entry that enriches a row
+     * via {@code userClient.getById}. A {@link NotFoundException} (user
+     * hard-deleted) and an infra {@link RuntimeException} (CB open / timeout)
+     * must both degrade to a null author <em>without</em> propagating: the
+     * attendance row is still returned, just unenriched.
+     */
+    @Test
+    void getMyAttendances_userClientNotFound_returnsRowWithNullAuthor() {
+        when(userClient.getById(userId)).thenThrow(new NotFoundException());
+        List<AttendanceDTO> mine = stageOneAttendanceAndGetMine();
+        assertEquals(1, mine.size());
+        assertNull(mine.get(0).displayName());
+    }
+
+    @Test
+    void getMyAttendances_userClientRuntimeFailure_returnsRowWithNullAuthor() {
+        when(userClient.getById(userId)).thenThrow(new RuntimeException("CB open"));
+        List<AttendanceDTO> mine = stageOneAttendanceAndGetMine();
+        assertEquals(1, mine.size());
+        assertNull(mine.get(0).displayName());
+    }
+
+    /** Stages a single ATTENDING row for {@code userId} and calls getMyAttendances. */
+    private List<AttendanceDTO> stageOneAttendanceAndGetMine() {
+        Attendance a = new Attendance();
+        a.id = 410L;
+        a.userId = userId;
+        a.eventId = 41L;
+        a.status = AttendanceStatus.ATTENDING;
+        a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
+        return service.getMyAttendances("auth0|test-att-user");
     }
 
     @Test

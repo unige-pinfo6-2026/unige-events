@@ -1,6 +1,8 @@
 package ch.unige.events.engagement.attendance.kafka;
 
 import ch.unige.events.shared.kafka.events.AttendanceCreatedEvent;
+
+import io.quarkus.test.junit.QuarkusTest;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,12 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+/**
+ * {@code @QuarkusTest} so the executed {@link AttendanceCreatedPublisher}
+ * bytecode (including the swallow {@code catch}) is captured by
+ * quarkus-jacoco — plain Mockito unit tests do not contribute coverage.
+ */
+@QuarkusTest
 class AttendanceCreatedPublisherTest {
 
     @SuppressWarnings("unchecked")

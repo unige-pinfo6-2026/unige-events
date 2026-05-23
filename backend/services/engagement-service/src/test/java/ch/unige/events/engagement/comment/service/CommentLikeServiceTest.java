@@ -8,21 +8,30 @@ import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.panache.mock.PanacheMock;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -176,6 +185,49 @@ class CommentLikeServiceTest {
         assertThrows(NotFoundException.class, () -> service.unlike(99_999L));
     }
 
+    /**
+     * Race-safe idempotent path : a concurrent like for the same
+     * {@code (commentId, userId)} wins the INSERT, so our {@code flush()}
+     * throws a {@link PersistenceException} (uq_comment_like). The catch block
+     * must return {@code created=false} with the unchanged counter rather than
+     * propagating. The pre-check {@code findByCommentAndUser} normally wins this
+     * race, so the only deterministic way to reach the catch is to make the
+     * flush throw — done here by wiring the service by hand with a mocked
+     * {@link EntityManager} (the {@code @QuarkusTest} captures the executed
+     * bytecode for jacoco).
+     */
+    @Test
+    void like_concurrentInsertRace_flushConflict_returnsNotCreated() {
+        UUID caller = UUID.randomUUID();
+        EntityManager em = mock(EntityManager.class);
+        CallerIdentity ci = mock(CallerIdentity.class);
+        EventServiceClient ec = mock(EventServiceClient.class);
+        when(ci.requireUuid()).thenReturn(caller);
+        when(ec.getByIdWithCoOrgCheck(EVENT_ID, caller)).thenReturn(visibleEvent());
+        CommentLikeService handWired = new CommentLikeService(ci, ec, em);
+
+        PanacheMock.mock(Comment.class);
+        Comment comment = new Comment();
+        comment.id = 4242L;
+        comment.eventId = EVENT_ID;
+        comment.likeCount = 3;
+        when(Comment.findByIdOptional(4242L)).thenReturn(Optional.of(comment));
+
+        PanacheMock.mock(CommentLike.class);
+        when(CommentLike.findByCommentAndUser(4242L, caller)).thenReturn(Optional.empty());
+        // flush() throws the UK violation → catch returns idempotent 200.
+        doThrow(new PersistenceException(
+                "duplicate key value violates unique constraint \"uq_comment_like\""))
+                .when(em).flush();
+
+        CommentLikeService.LikeResult result = handWired.like(4242L);
+
+        assertFalse(result.created(), "concurrent-insert race must yield an idempotent (not created) result");
+        assertEquals(3, result.likeCount(), "likeCount must stay unchanged when the insert was a no-op");
+        // The atomic increment UPDATE must NOT run when the row already exists.
+        org.mockito.Mockito.verify(em, org.mockito.Mockito.never()).createQuery(org.mockito.ArgumentMatchers.anyString());
+    }
+
     @Test
     void unlike_neverChecksEventVisibility() {
         // Décision : unlike removes the caller's own state — no visibility check
@@ -191,5 +243,19 @@ class CommentLikeServiceTest {
         // If unlike had called the eventClient, the next assertion would fail with
         // NullPointer or 404 in like() — but unlike completed cleanly.
         assertNotNull(commentId);
+    }
+
+    /**
+     * The empty-input guard on {@link CommentLike#findLikedCommentIdsByUser}
+     * avoids issuing a malformed {@code IN ()} query on PostgreSQL. Each of the
+     * three short-circuit conditions (null collection, empty collection, null
+     * user) must return {@link Set#of()} before any SQL is emitted.
+     */
+    @Test
+    void findLikedCommentIdsByUser_emptyOrNullInput_returnsEmptySetNoQuery() {
+        UUID user = UUID.randomUUID();
+        assertEquals(Set.of(), CommentLike.findLikedCommentIdsByUser(null, user));
+        assertEquals(Set.of(), CommentLike.findLikedCommentIdsByUser(List.of(), user));
+        assertEquals(Set.of(), CommentLike.findLikedCommentIdsByUser(List.of(1L, 2L), null));
     }
 }

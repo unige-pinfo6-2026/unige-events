@@ -2,6 +2,8 @@ package ch.unige.events.engagement.comment.dto;
 
 import ch.unige.events.engagement.comment.entity.Comment;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
+
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -14,6 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * {@code @QuarkusTest} so quarkus-jacoco credits the executed
+ * {@link CommentDTO} bytecode (the backward-compatible
+ * {@code fromTopLevelWithReplies} factory included) — plain unit tests do
+ * not contribute coverage.
+ */
+@QuarkusTest
 class CommentDTOTest {
 
     @Test
