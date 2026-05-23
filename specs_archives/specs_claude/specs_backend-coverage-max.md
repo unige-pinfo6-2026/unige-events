@@ -257,3 +257,35 @@ L'overall **Sonar** (union avec les 10 libs shared à 100 % L) sera **supérieur
 - [ ] **CI verte** : matrix (5 services) + `sonar-aggregate` ; **gate SonarCloud franchi** (new-code ≥ 80 %, duplication ≤ 3 %, ratings A).
 - [ ] **Couverture overall Sonar MAXIMISÉE** (≥ 99,5 % blend possédé visé) ; **plafond C documenté** dans la description de PR (Tier-1 + Tier-2-non-faits).
 - [ ] Aucun bug applicatif corrigé en douce ; tout bug rencontré est **signalé** dans la PR.
+
+---
+
+## 8. Résultat d'implémentation (post-CI — branche `feature/backend-coverage-max`, PR #200)
+
+Implémenté et **vérifié en CI** (run JaCoCo `26330136925`). ~70 cas de test ajoutés ; **0 fichier `src/main`**, **0 modif `openapi`/Flyway/pom**, **0 exclusion**. Gate **SonarCloud VERT** (new-code ≥ 80 %, duplication ≤ 3 %, ratings A). Les 5 jobs backend + `sonar-aggregate` verts. *(La seule rouge du run est `Build Frontend` — un test flaky `MentionAutocomplete` du frontend, hors périmètre : le diff de cette branche ne touche aucun fichier `frontend/`.)*
+
+**Couverture classes possédées :**
+
+| Métrique | Avant (post-#199) | **Après** |
+|---|---|---|
+| Lignes | 98,83 % (36 NC) | **99,81 % (6 NC)** |
+| Branches | 90,20 % (131 manquées) | **98,06 % (26 manquées)** |
+| Blend L+B possédé | 96,22 % | **99,28 %** |
+
+L'overall Sonar (union + 10 libs shared à 100 %) est **supérieur** (~99,5 %). Toutes les lignes/branches restantes sont **plafond documenté** (§8.2) — **aucun trou A/B honnête résiduel**.
+
+### 8.1 ⚠️ BUG APPLICATIF DÉTECTÉ — signalé, NON corrigé (règle d'or)
+**`ReportService.listByStatus` lève une `NullPointerException` quand une page de signalements ne contient QUE des reports « comment-only ».** `bulkFetchEvents` renvoie `Map.of()` (map **immuable**) quand `eventIds` est vide ; or `listByStatus` fait `eventsById.get(r.eventId)` et `r.eventId == null` pour un report comment-only → `Map.of().get(null)` **lève NPE** (les maps immuables refusent la clé null, contrairement à `HashMap`). Impact prod : 500 pour l'admin si une page de la modération ne liste que des reports de commentaire. **Correctif suggéré (à valider PO)** : `bulkFetchEvents` retourne `new HashMap<>()` au lieu de `Map.of()`, **ou** `listByStatus` : `r.eventId == null ? null : eventsById.get(r.eventId)`. **Conséquence couverture** : les lignes **308/309** (garde set-vide) ne sont atteignables que via ce chemin bogué → laissées en plafond jusqu'à correction. La branche `eventId==null` (236) est couverte sans risque via une page **mixte** (1 report event + 1 comment-only).
+
+### 8.2 Plafond final atteint (26 branches + 6 lignes — tout justifié, ZÉRO exclusion)
+
+| Catégorie | Items | Justification |
+|---|---|---|
+| **C pur** (refactor `src/main` seul — interdit) | `EventService:134` (filtre statut ajoute toujours ≥1 condition) · `EventService:265` (`normalizeTags` ne rend jamais null → bras `parent.tags==null` mort) · `EventLifecycleKafkaBridge:26` (default synthétique d'un switch enum exhaustif) · `EventResource:97` (Quarkus REST bind un `@QueryParam List` absent → liste vide, **jamais** null) | Aucune entrée/mock ne peut atteindre le bras ; pas de réflexion possible (var locale / binding framework / branche synthétique) |
+| **Garde privée à invariant amont** | `EventStatsService:52` · `CommentService:358` · `EventCoOrganizerService:222/223` (+ `264` legs impossibles) · `FeaturedService:67/129/139` | Le seul appelant garantit non-null/non-vide (orElseThrow / early-return / guard amont) ; atteignable seulement par réflexion artificielle |
+| **`requireUuid()` lève** (callerUuid jamais null via le vrai bean) | `CommentService:213` (bras callerUuid==null) · `EventService:797` (bras callerUuid==null) | `CallerIdentity.requireUuid()` lève au lieu de renvoyer null ; le bras `==null` est mort sur tout chemin honnête |
+| **Blanc non-null non livrable en HTTP** | `UserParticipationsResource:64` · `MyAttendancesResource:61` (`raw != null && raw.isBlank()`) | `parseTimeframe` est `private static` (non appelable) et un `@QueryParam` blanc non-null n'est pas livrable de façon fiable (RestAssured ré-encode) |
+| **Bug-blocked** | `ReportService:308/309` | Cf. §8.1 — atteignable seulement via le chemin qui lève la NPE prod |
+| **Tier-2 réflexion/forge — OPTIONNEL non écrit (D3)** | `UsernameGenerator:182/183/202` · `UserService:220/311` · `FollowResource:136` (callerAuth0Id==null) · `AttendanceService:442/443` (`safeGetUser(null)`) · `CommentService:382/383` (`safeGetUser(null)`) · `EventService:828` (overload `@SuppressWarnings("unused")` sans call-site) | Réflexion sur privé / forge d'état impossible — laissés ouverts par décision PO (D3) ; recettes en §6 |
+
+**Conclusion** : maximum atteint par tests honnêtes **sans aucune exclusion** = **99,28 % blend possédé** (≈ 99,5 % overall Sonar). 100 % reste structurellement impossible (les C purs + le bug + les Tier-2 artificiels écartés).
