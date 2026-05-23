@@ -36,7 +36,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import ch.unige.events.report.dto.ReportDTO;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -333,5 +336,90 @@ class ReportServiceUnitTest {
                 () -> svc.createForComment(901L, "auth0|x",
                         new CreateReportRequest(ReportReason.SPAM, "boom")));
         assertSame(raw, thrown);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // safeGetUser catch arms (328 / 331-336). A @RestClient userClient
+    // would be wrapped by Fault Tolerance @Fallback (the throw never reaches
+    // the service catch) — so we hand-wire a PLAIN Mockito userClient whose
+    // getById(...) throws for real. handle(DISMISSED) is the simplest entry:
+    // no Kafka fire / cascade, eventClient.getById is stubbed first (line 290)
+    // so we actually reach safeGetUser(report.reporterId) at line 291.
+    // ──────────────────────────────────────────────────────────────────
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void handle_safeGetUser_notFound_returnsNullReporter() throws Exception {
+        Long eventId = 5101L;
+        Report target = buildReport(110L, eventId, reporterId, ReportStatus.PENDING);
+
+        EventServiceClient eventClient = mock(EventServiceClient.class);
+        UserServiceClient userClient = mock(UserServiceClient.class);
+        ReportService svc = buildService(mock(Event.class), eventClient, userClient, adminId);
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(110L)).thenReturn(Optional.of(target));
+        when(eventClient.getById(eventId)).thenReturn(event(eventId, EventStatus.PUBLISHED, creatorId));
+        // Semantic absence (328): user hard-deleted / never existed → null.
+        when(userClient.getById(reporterId)).thenThrow(new NotFoundException("gone"));
+
+        ReportDTO dto = svc.handle(110L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.DISMISSED, "no reporter"));
+
+        assertNull(dto.reporterDisplayName());
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void handle_safeGetUser_infraFailure_returnsNullReporter() throws Exception {
+        Long eventId = 5102L;
+        Report target = buildReport(120L, eventId, reporterId, ReportStatus.PENDING);
+
+        EventServiceClient eventClient = mock(EventServiceClient.class);
+        UserServiceClient userClient = mock(UserServiceClient.class);
+        ReportService svc = buildService(mock(Event.class), eventClient, userClient, adminId);
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(120L)).thenReturn(Optional.of(target));
+        when(eventClient.getById(eventId)).thenReturn(event(eventId, EventStatus.PUBLISHED, creatorId));
+        // Infra failure (331-336): CB open / timeout → logged, returns null.
+        when(userClient.getById(reporterId)).thenThrow(new RuntimeException("CB open"));
+
+        ReportDTO dto = svc.handle(120L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.DISMISSED, "downstream down"));
+
+        assertNull(dto.reporterDisplayName());
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // bulkFetchEvents empty-set short-circuit (309). A comment-only report
+    // has eventId==null, so listByStatus never adds it to eventIds → the set
+    // stays empty and bulkFetchEvents returns Map.of() WITHOUT calling
+    // eventClient. ReportDTO.from tolerates the null event (eventsById.get(null)).
+    // ──────────────────────────────────────────────────────────────────
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Test
+    void listByStatus_commentOnlyReport_skipsBulkFetchEvents() throws Exception {
+        Report commentReport = buildReport(130L, null, reporterId, ReportStatus.PENDING);
+        commentReport.commentId = 7001L;
+
+        EventServiceClient eventClient = mock(EventServiceClient.class);
+        UserServiceClient userClient = mock(UserServiceClient.class);
+        ReportService svc = buildService(mock(Event.class), eventClient, userClient, adminId);
+
+        PanacheMock.mock(Report.class);
+        PanacheQuery pageQ = mock(PanacheQuery.class);
+        when(pageQ.page(eq(0), eq(20))).thenReturn(pageQ);
+        when(pageQ.list()).thenReturn(List.of(commentReport));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(pageQ);
+        when(userClient.getById(reporterId)).thenReturn(null);
+
+        List<ReportDTO> result = svc.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).eventTitle());
+        // Empty eventIds → bulkFetchEvents short-circuits, never hits eventClient.
+        verify(eventClient, never()).findByIds(any(), any());
     }
 }

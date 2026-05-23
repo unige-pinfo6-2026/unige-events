@@ -76,6 +76,19 @@ class MyAttendancesResourceTest {
     }
 
     @Test
+    void get_myParticipations_validTimeframe_parsedAndAccepted() {
+        // Exercises the Timeframe.valueOf(...) success branch of parseTimeframe
+        // (case-insensitive upper-casing) — distinct from the blank→null and
+        // invalid→400 branches already covered below.
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of());
+
+        given()
+            .when().get("/users/me/participations?timeframe=upcoming")
+            .then().statusCode(200);
+    }
+
+    @Test
     void get_myParticipations_invalidTimeframe_returns400() {
         given()
             .when().get("/users/me/participations?timeframe=NOT_A_VALUE")

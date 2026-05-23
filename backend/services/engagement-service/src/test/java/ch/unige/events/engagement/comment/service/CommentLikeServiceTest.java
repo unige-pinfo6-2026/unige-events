@@ -144,6 +144,18 @@ class CommentLikeServiceTest {
     }
 
     @Test
+    void like_unprovisionedCaller_throws404AntiOracle() {
+        // Comment exists but the caller has no resolvable UUID (not provisioned
+        // via GET /users/me). assertEventVisible's callerUuid==null guard fires
+        // → 404 anti-oracle, before any cross-service round-trip.
+        Long commentId = persistComment(UUID.randomUUID(), 0);
+        when(callerIdentity.requireUuid()).thenReturn(null);
+
+        assertThrows(NotFoundException.class, () -> service.like(commentId));
+        assertEquals(0L, CommentLike.count());
+    }
+
+    @Test
     void unlike_existingLike_returns204AndDecrementsLikeCount() {
         UUID caller = UUID.randomUUID();
         Long commentId = persistComment(UUID.randomUUID(), 0);

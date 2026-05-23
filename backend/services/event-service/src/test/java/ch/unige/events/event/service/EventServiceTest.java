@@ -470,6 +470,15 @@ class EventServiceTest {
 
     @Test
     @TestTransaction
+    void findByIds_noMatchingRows_returnsEmpty() {
+        // Non-empty ids that match nothing → the post-filter events.isEmpty()
+        // fallback short-circuits before the bulk-summary call.
+        List<EventDTO> all = service.findByIds(List.of(99999998L, 99999999L), null);
+        assertTrue(all.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
     void findByIds_summariesNullClient_safe() {
         // P2: the bulk-summary client may return null (its @Fallback default).
         // findByIds must coalesce to an empty map and enrich with zeroed
@@ -527,6 +536,18 @@ class EventServiceTest {
         EventDTO dto = service.update(e.id, "auth0|x", u);
         assertEquals("renamed", dto.title());
         assertEquals(List.of("tag1"), dto.tags());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withValidStatus_appliesStatus() {
+        // request.status() != null and is neither EXPIRED nor BANNED → the
+        // status assignment branch runs (event.status = request.status()).
+        Event e = persistEvent("o", EventStatus.DRAFT, creatorId);
+        em.flush();
+        UpdateEventRequest u = updateReqWith("repub", e.startDate, e.endDate, null, EventStatus.PUBLISHED);
+        EventDTO dto = service.update(e.id, "auth0|x", u);
+        assertEquals(EventStatus.PUBLISHED, dto.status());
     }
 
     @Test

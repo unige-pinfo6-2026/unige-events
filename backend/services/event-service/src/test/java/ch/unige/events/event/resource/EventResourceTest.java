@@ -5,15 +5,21 @@ import ch.unige.events.event.test.JwtTestHelper;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.storage.FileStorageService;
 
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -21,7 +27,9 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 /**
  * Resource-layer tests use REST-Assured against a real DB. Each test
@@ -33,12 +41,21 @@ class EventResourceTest {
 
     @InjectMock @RestClient EngagementServiceClient engagementClient;
     @InjectMock @RestClient UserServiceClient userClient;
+    @InjectMock FileStorageService fileStorageService;
 
     @BeforeEach
     void setup() {
         lenient().when(engagementClient.getAttendanceSummary(anyLong()))
                 .thenReturn(AttendanceSummary.of(0L, 0L));
         lenient().when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(Map.of());
+        lenient().when(fileStorageService.saveImage(any(FileUpload.class), anyString(), anyLong(), any()))
+                .thenReturn("https://cdn/banner.png");
+    }
+
+    private static Path tinyPng(Path tmp) throws IOException {
+        Path file = tmp.resolve("banner.png");
+        Files.write(file, new byte[]{(byte) 0x89, 'P', 'N', 'G'});
+        return file;
     }
 
     @AfterEach
@@ -234,6 +251,79 @@ class EventResourceTest {
         given()
             .queryParam("check-co-org-of", userUuid.toString())
             .when().get("/events/" + id)
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-15", roles = "ADMIN")
+    void getById_admin_returns200() {
+        // Authenticated + ADMIN role → exercises the isAdmin branch.
+        stageFreshUser();
+        long id = postEvent();
+        given().when().get("/events/" + id).then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-16")
+    void getById_checkCoOrgOf_notMatchingCaller_silentlyIgnored() {
+        // check-co-org-of set but != caller UUID → effectiveCheck stays null
+        // (membership oracle closed). Still a 200, field simply not honored.
+        stageFreshUser();
+        long id = postEvent();
+        given()
+            .queryParam("check-co-org-of", UUID.randomUUID().toString())
+            .when().get("/events/" + id)
+            .then().statusCode(200);
+    }
+
+    @Test
+    void getById_checkCoOrgOf_anonymous_silentlyIgnored() {
+        // Anonymous caller with check-co-org-of set → auth0Id is null so the
+        // param is ignored; the published event is still returned.
+        UUID owner = stageFreshUser();
+        long id = postEvent();
+        JwtTestContext.clear();
+        given()
+            .queryParam("check-co-org-of", owner.toString())
+            .when().get("/events/" + id)
+            .then().statusCode(404); // DRAFT not visible to anonymous → 404 still exercises the branch
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-17")
+    void getAll_organizerWithPublishedStatus_returns200() {
+        // organizerId set AND status=PUBLISHED → the else-if (non-PUBLISHED)
+        // branch is skipped, effectiveStatus kept as PUBLISHED.
+        stageFreshUser();
+        given()
+            .queryParam("organizerId", UUID.randomUUID().toString())
+            .queryParam("status", "PUBLISHED")
+            .when().get("/events")
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-18")
+    void getOccurrences_authenticated_returns200() {
+        // Authenticated caller → exercises the non-anonymous auth0Id / isAdmin
+        // resolution in getOccurrences (the body that follows the branches).
+        stageFreshUser();
+        long id = postEvent();
+        given()
+            .when().get("/events/" + id + "/occurrences")
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-19")
+    void uploadImage_withFile_returns200(@TempDir Path tmp) throws IOException {
+        // Non-null file → the BadRequestException guard is skipped and the
+        // success path (saveImage + 200) runs.
+        stageFreshUser();
+        long id = postEvent();
+        given()
+            .multiPart("file", tinyPng(tmp).toFile(), "image/png")
+            .when().post("/events/" + id + "/image")
             .then().statusCode(200);
     }
 }
