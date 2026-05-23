@@ -1063,24 +1063,11 @@ class EventServiceTest {
 
     // ---- ordinary-input branches ----
 
-    @Test
-    @TestTransaction
-    void createRecurring_endDateSetButStartDateNull_skipsBeforeCheck() {
-        // L162-164: endDate != null AND startDate == null → the
-        // `recurrence.endDate().isBefore(startDate)` operand is short-circuited
-        // (startDate==null), so no recurrence_end_before_start is thrown. The
-        // unbounded guard L158 is also satisfied (endDate present).
-        CreateEventRequest base = new CreateEventRequest(
-                "recNoStart", "desc", "loc", null, null,
-                EventCategory.ACADEMIC, null, null,
-                null, null, null, null, null,
-                null, null, null);
-        CreateEventRequest r = withRecurrence(base, new RecurrenceRequest(
-                RecurrenceFrequency.WEEKLY,
-                java.time.LocalDate.now().plusWeeks(4), null));
-        EventDTO parent = service.create("auth0|x", r);
-        assertNotNull(parent.id());
-    }
+    // NOTE: EventService L163 (`request.startDate() != null` FALSE leg of the
+    // recurrence end-before-start guard) is left as an accepted-ceiling branch:
+    // a null startDate is rejected by @NotNull at the resource layer, and a
+    // null reaching createRecurring NPEs in RecurrenceGenerator.generate before
+    // any honest assertion. Not coverable without an artificial reflection test.
 
     @Test
     @TestTransaction

@@ -86,7 +86,10 @@ class EventServiceHandWiredTest {
         source.status = EventStatus.PUBLISHED;
         when(Event.findByIdOptional(1L)).thenReturn(Optional.of(source));
         // Every existence check reports a collision → the loop never settles.
-        when(Event.count(anyString(), any(), any())).thenReturn(1L);
+        // Panache count(String, Object...) is varargs → match with a single
+        // Object[] matcher (per-element any() trips Mockito InvalidUseOfMatchers
+        // on varargs; this mirrors the ReportServiceTest convention).
+        when(Event.count(anyString(), any(Object[].class))).thenReturn(1L);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.duplicate(1L, "auth0|admin", true));
