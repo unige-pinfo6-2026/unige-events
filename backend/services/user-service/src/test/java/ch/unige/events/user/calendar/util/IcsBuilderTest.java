@@ -3,6 +3,7 @@ package ch.unige.events.user.calendar.util;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.enums.EventStatus;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@QuarkusTest
 class IcsBuilderTest {
 
     private static EventDTO buildEvent(Long id, String title, String location, String description,

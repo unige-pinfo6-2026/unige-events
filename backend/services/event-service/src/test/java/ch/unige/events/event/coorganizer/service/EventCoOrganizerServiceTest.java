@@ -36,6 +36,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -357,6 +358,46 @@ class EventCoOrganizerServiceTest {
                 () -> service.getCoOrganizers(99999L));
     }
 
+    /** Persist a co-organizer row in the given status for the invitee. */
+    private void persistCoOrg(Long eventId, CoOrganizerStatus status) {
+        EventCoOrganizer inv = new EventCoOrganizer();
+        inv.eventId = eventId;
+        inv.userId = inviteeId;
+        inv.status = status;
+        inv.persist();
+    }
+
+    // safeGetUser degradation — userClient.getById(...) failures must not
+    // propagate; the DTO is returned with a null user (P1).
+
+    @Test
+    @TestTransaction
+    void getCoOrganizers_userLookupNotFound_degradesToNullUser() {
+        Event e = createEvent(creatorId);
+        persistCoOrg(e.id, CoOrganizerStatus.ACCEPTED);
+        em.flush();
+        when(userClient.getById(inviteeId)).thenThrow(new NotFoundException("hard-deleted"));
+
+        List<CoOrganizerDTO> list = service.getCoOrganizers(e.id);
+        assertEquals(1, list.size());
+        assertNull(list.get(0).displayName(), "user-not-found must degrade to a null-enriched DTO");
+    }
+
+    @Test
+    @TestTransaction
+    void getCoOrganizers_userLookupInfraFailure_degradesToNullUser() {
+        Event e = createEvent(creatorId);
+        persistCoOrg(e.id, CoOrganizerStatus.ACCEPTED);
+        em.flush();
+        when(userClient.getById(inviteeId))
+                .thenThrow(new RuntimeException("CB open: user-service unreachable"));
+
+        List<CoOrganizerDTO> list = service.getCoOrganizers(e.id);
+        assertEquals(1, list.size());
+        assertNull(list.get(0).displayName(),
+                "infra failure must degrade to a null-enriched DTO, not propagate");
+    }
+
     // ---- getMyInvitations ----
 
     @Test
@@ -403,6 +444,25 @@ class EventCoOrganizerServiceTest {
     void getMyInvitations_emptyForUser() {
         List<CoOrganizerInvitationDTO> list = service.getMyInvitations("auth0|x", null, 0, 10);
         assertTrue(list.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getMyInvitations_summariesNullClient_safe() {
+        // findByIdsAsDTO defends against a null bulk-summary response (P2):
+        // the @Fallback default on the engagement client. The invitation
+        // must still resolve with zeroed attendance counts, no NPE.
+        Event e = createEvent(UUID.randomUUID());
+        EventCoOrganizer inv = new EventCoOrganizer();
+        inv.eventId = e.id;
+        inv.userId = creatorId;
+        inv.status = CoOrganizerStatus.PENDING;
+        inv.persist();
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<CoOrganizerInvitationDTO> list = service.getMyInvitations("auth0|x", null, 0, 10);
+        assertEquals(1, list.size());
     }
 
     // ---- isAcceptedFor ----

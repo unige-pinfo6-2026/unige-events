@@ -107,6 +107,48 @@ class UserFollowAcceptedConsumerTest {
     }
 
     @Test
+    void onFollowAccepted_nullFollowerId_skipped() {
+        consumer.onFollowAccepted(FollowLifecycleEvent.followAccepted(null, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
+    }
+
+    @Test
+    void onFollowAccepted_nullFollowedId_skipped() {
+        consumer.onFollowAccepted(FollowLifecycleEvent.followAccepted(UUID.randomUUID(), null));
+        assertEquals(0, Notification.count());
+    }
+
+    @Test
+    void onFollowAccepted_blankDisplayName_usesGenericMessage() {
+        // resolveMessage: acceptor resolved but displayName blank → the
+        // isBlank() sub-branch of line 87 falls back to the generic message.
+        UUID initiator = UUID.randomUUID();
+        UUID acceptor = UUID.randomUUID();
+        when(userClient.getById(acceptor)).thenReturn(userWithDisplayName(acceptor, "   "));
+
+        consumer.onFollowAccepted(FollowLifecycleEvent.followAccepted(initiator, acceptor));
+
+        List<Notification> notifs = Notification.<Notification>list("userId", initiator);
+        assertEquals(1, notifs.size());
+        assertEquals("Votre demande de suivi a été acceptée.", notifs.get(0).message);
+    }
+
+    @Test
+    void onFollowAccepted_nullDisplayName_usesGenericMessage() {
+        // resolveMessage: acceptor resolved but displayName null → the
+        // null sub-branch of line 87 falls back to the generic message.
+        UUID initiator = UUID.randomUUID();
+        UUID acceptor = UUID.randomUUID();
+        when(userClient.getById(acceptor)).thenReturn(userWithDisplayName(acceptor, null));
+
+        consumer.onFollowAccepted(FollowLifecycleEvent.followAccepted(initiator, acceptor));
+
+        List<Notification> notifs = Notification.<Notification>list("userId", initiator);
+        assertEquals(1, notifs.size());
+        assertEquals("Votre demande de suivi a été acceptée.", notifs.get(0).message);
+    }
+
+    @Test
     void onFollowAccepted_wrongType_skippedDefensive() {
         consumer.onFollowAccepted(FollowLifecycleEvent.followed(UUID.randomUUID(), UUID.randomUUID()));
         assertEquals(0, Notification.count());

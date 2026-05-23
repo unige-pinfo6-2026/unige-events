@@ -1,18 +1,19 @@
 package ch.unige.events.engagement.comment.service;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pure unit tests for {@link MentionParser}. {@code @QuarkusTest} is not
- * needed — the parser has no CDI / persistence dependencies, just a
- * static {@link java.util.regex.Pattern}.
+ * Unit tests for {@link MentionParser}. Annotated {@code @QuarkusTest} so the
+ * executed parser bytecode (including the null/blank short-circuit) is
+ * captured by quarkus-jacoco — plain unit tests do not contribute coverage.
  */
+@QuarkusTest
 class MentionParserTest {
 
     private final MentionParser parser = new MentionParser();

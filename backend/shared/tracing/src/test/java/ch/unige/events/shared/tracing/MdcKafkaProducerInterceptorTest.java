@@ -17,6 +17,7 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,6 +74,13 @@ class MdcKafkaProducerInterceptorTest {
         interceptor.onAcknowledgement(null, null);
         interceptor.close();
         interceptor.configure(java.util.Map.of());
+    }
+
+    @Test
+    void onAcknowledgement_nullMetadata_withException_logsUnknownWithoutThrowing() {
+        // metadata == null → the two ternaries fall to "(unknown)" / -1.
+        assertDoesNotThrow(() ->
+                interceptor.onAcknowledgement(null, new IOException("no metadata")));
     }
 
     @Test

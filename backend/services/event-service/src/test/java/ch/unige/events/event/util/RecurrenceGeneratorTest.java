@@ -1,6 +1,7 @@
 package ch.unige.events.event.util;
 
 import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -12,9 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * SCRUM-147 sentinels for the pure recurrence helper. Tests the canonical
- * legacy assertions ported into event-service (the helper is logic-pure,
- * no Quarkus runtime needed).
+ * legacy assertions ported into event-service. Annotated {@code @QuarkusTest}
+ * so the executed helper bytecode is captured by quarkus-jacoco (plain unit
+ * tests are not instrumented by the Quarkus JaCoCo extension).
  */
+@QuarkusTest
 @SuppressWarnings("java:S100")
 class RecurrenceGeneratorTest {
 

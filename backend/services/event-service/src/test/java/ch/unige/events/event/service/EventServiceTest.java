@@ -11,6 +11,7 @@ import ch.unige.events.event.test.JwtTestHelper;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
 import ch.unige.events.shared.domain.enums.EventCategory;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -28,6 +29,7 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +48,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Comprehensive unit-test coverage for {@link EventService}. Drives the
@@ -63,6 +69,9 @@ class EventServiceTest {
 
     @InjectMock @RestClient EngagementServiceClient engagementClient;
     @InjectMock @RestClient UserServiceClient userClient;
+    @InjectMock FileStorageService fileStorageService;
+
+    private static final String BANNERS_FOLDER = "events/banners";
 
     private final UUID creatorId = UUID.randomUUID();
     private final UUID otherId = UUID.randomUUID();
@@ -459,6 +468,29 @@ class EventServiceTest {
         assertEquals(1, only.size());
     }
 
+    @Test
+    @TestTransaction
+    void findByIds_noMatchingRows_returnsEmpty() {
+        // Non-empty ids that match nothing → the post-filter events.isEmpty()
+        // fallback short-circuits before the bulk-summary call.
+        List<EventDTO> all = service.findByIds(List.of(99999998L, 99999999L), null);
+        assertTrue(all.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void findByIds_summariesNullClient_safe() {
+        // P2: the bulk-summary client may return null (its @Fallback default).
+        // findByIds must coalesce to an empty map and enrich with zeroed
+        // counts rather than NPE.
+        Event e1 = persistEvent("inull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<EventDTO> all = service.findByIds(List.of(e1.id), null);
+        assertEquals(1, all.size());
+    }
+
     // ---- getOrganizerUuids ----
 
     @Test
@@ -504,6 +536,18 @@ class EventServiceTest {
         EventDTO dto = service.update(e.id, "auth0|x", u);
         assertEquals("renamed", dto.title());
         assertEquals(List.of("tag1"), dto.tags());
+    }
+
+    @Test
+    @TestTransaction
+    void update_withValidStatus_appliesStatus() {
+        // request.status() != null and is neither EXPIRED nor BANNED → the
+        // status assignment branch runs (event.status = request.status()).
+        Event e = persistEvent("o", EventStatus.DRAFT, creatorId);
+        em.flush();
+        UpdateEventRequest u = updateReqWith("repub", e.startDate, e.endDate, null, EventStatus.PUBLISHED);
+        EventDTO dto = service.update(e.id, "auth0|x", u);
+        assertEquals(EventStatus.PUBLISHED, dto.status());
     }
 
     @Test
@@ -768,6 +812,57 @@ class EventServiceTest {
 
         EventDTO dto = service.publish(e.id, "auth0|x", false);
         assertEquals(EventStatus.PUBLISHED, dto.status());
+    }
+
+    // ---- uploadImage ----
+
+    @Test
+    @TestTransaction
+    void uploadImage_byCreator_setsBannerUrl() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        FileUpload upload = mock(FileUpload.class);
+        when(fileStorageService.saveImage(eq(upload), eq(BANNERS_FOLDER),
+                eq(FileStorageService.MAX_BANNER_BYTES), any()))
+                .thenReturn("https://cdn/banner.png");
+
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", upload, false);
+
+        assertEquals("https://cdn/banner.png", dto.bannerUrl());
+        // Guard the storage call shape: correct folder + banner size cap.
+        verify(fileStorageService).saveImage(eq(upload), eq(BANNERS_FOLDER),
+                eq(FileStorageService.MAX_BANNER_BYTES), any());
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_unknownEvent_throws404() {
+        assertThrows(NotFoundException.class,
+                () -> service.uploadImage(99999L, "auth0|x", null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_byNonCreator_throws403() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
+        em.flush();
+        assertThrows(ForbiddenException.class,
+                () -> service.uploadImage(e.id, "auth0|x", null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_admin_canForce() {
+        Event e = persistEvent("img", EventStatus.PUBLISHED, otherId);
+        em.flush();
+        FileUpload upload = mock(FileUpload.class);
+        when(fileStorageService.saveImage(eq(upload), eq(BANNERS_FOLDER),
+                eq(FileStorageService.MAX_BANNER_BYTES), any()))
+                .thenReturn("https://cdn/admin.png");
+
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", upload, true);
+
+        assertEquals("https://cdn/admin.png", dto.bannerUrl());
     }
 
     // ---- normalizeTags ----

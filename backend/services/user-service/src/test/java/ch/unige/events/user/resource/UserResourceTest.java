@@ -82,6 +82,25 @@ class UserResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|ur-gbun-self")
+    void getByUsername_authedSelf_publicProfile_returnsFullProjection() {
+        // Authenticated, non-restricted (own public profile) → the resource
+        // serialises the FULL projection (followerCount/followingCount/followStatus),
+        // not the anonymous one.
+        User user = fixtures.persistUser("auth0|ur-gbun-self", "ur-gbun-self@example.com", true);
+        JwtTestContext.set(JwtTestHelper.jwtWithEmail(
+                "auth0|ur-gbun-self", "ur-gbun-self@example.com"));
+
+        given()
+            .when().get("/users/by-username/" + user.username)
+            .then()
+            .statusCode(200)
+            .body("id", equalTo(user.id.toString()))
+            .body("followerCount", equalTo(0))
+            .body("followingCount", equalTo(0));
+    }
+
+    @Test
     void getProfile_publicUser_anonymousCaller_returns200() {
         User user = fixtures.persistUser("auth0|ur-pub", "ur-pub@example.com", true);
 

@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @QuarkusTest
 @TestSecurity(user = "auth0|fav")
@@ -157,6 +158,22 @@ class FavoriteServiceTest {
     @TestTransaction
     void getFavorites_emptyForNewUser() {
         assertTrue(service.getFavorites("auth0|x", 0, 20).isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getFavorites_summariesNullClient_safe() {
+        // P2: the bulk-summary client may return null (its @Fallback
+        // default). getFavorites must coalesce to an empty map and enrich
+        // with zeroed counts rather than NPE.
+        Event e = create(EventStatus.PUBLISHED);
+        em.flush();
+        service.addFavorite("auth0|x", e.id);
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<EventDTO> list = service.getFavorites("auth0|x", 0, 20);
+        assertEquals(1, list.size());
     }
 
     @Test

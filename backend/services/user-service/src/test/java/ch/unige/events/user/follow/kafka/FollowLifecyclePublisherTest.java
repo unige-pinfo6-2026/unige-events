@@ -3,6 +3,7 @@ package ch.unige.events.user.follow.kafka;
 import ch.unige.events.shared.kafka.events.FollowLifecycleEvent;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+@QuarkusTest
 class FollowLifecyclePublisherTest {
 
     @SuppressWarnings("unchecked")

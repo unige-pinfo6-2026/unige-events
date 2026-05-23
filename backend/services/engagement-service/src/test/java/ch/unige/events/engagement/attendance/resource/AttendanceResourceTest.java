@@ -31,8 +31,10 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 /**
@@ -134,6 +136,31 @@ class AttendanceResourceTest {
         given()
             .when().delete("/events/1004/attend")
             .then().statusCode(404);
+    }
+
+    @Test
+    void delete_attend_existing_returns204() {
+        // Happy DELETE path → the resource returns 204 No Content. A WAITLISTED
+        // row keeps the service off the promotion query branch; the row is spied
+        // so the bound delete() is a no-op on the transient test instance.
+        Attendance raw = new Attendance();
+        raw.id = 4100L;
+        raw.userId = userId;
+        raw.eventId = 1010L;
+        raw.status = AttendanceStatus.WAITLISTED;
+        raw.createdAt = LocalDateTime.now();
+        Attendance attendance = spy(raw);
+        doNothing().when(attendance).delete();
+
+        PanacheMock.mock(Attendance.class);
+        @SuppressWarnings("rawtypes")
+        PanacheQuery q = queryWithFirst(Optional.of(attendance));
+        when(Attendance.find(anyString(), any(Object[].class))).thenReturn(q);
+        when(eventClient.getById(1010L)).thenReturn(event(1010L, EventStatus.PUBLISHED, 5, userId));
+
+        given()
+            .when().delete("/events/1010/attend")
+            .then().statusCode(204);
     }
 
     @Test

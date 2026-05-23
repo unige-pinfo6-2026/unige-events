@@ -59,6 +59,17 @@ class MdcKafkaConsumerInterceptorTest {
     }
 
     @Test
+    void onConsume_headerWithNullValue_doesNotPutMdc() {
+        // h != null but h.value() == null — the second arm of the guard.
+        ConsumerRecord<Object, Object> rec = new ConsumerRecord<>("t", 0, 0L, "k", "v");
+        rec.headers().add(new RecordHeader(MdcKafkaConsumerInterceptor.HEADER, (byte[]) null));
+        TopicPartition tp = new TopicPartition("t", 0);
+        ConsumerRecords<Object, Object> records = new ConsumerRecords<>(Map.of(tp, List.of(rec)));
+        interceptor.onConsume(records);
+        assertNull(MDC.get(MdcKafkaConsumerInterceptor.MDC_KEY));
+    }
+
+    @Test
     void noOpHooks_doNotThrow() {
         interceptor.onCommit(Map.of());
         interceptor.close();

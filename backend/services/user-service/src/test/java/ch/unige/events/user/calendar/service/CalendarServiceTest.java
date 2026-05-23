@@ -304,6 +304,70 @@ class CalendarServiceTest {
                 "non-OptimisticLock RuntimeException must short-circuit the retry loop");
     }
 
+    /**
+     * SCRUM-169 — the backoff between two optimistic-lock retries is
+     * interruptible: if the worker thread is interrupted while sleeping,
+     * {@code sleepBackoff} swallows the {@link InterruptedException} but
+     * re-asserts the interrupt flag (cooperative cancellation) and the loop
+     * still recovers on the next attempt.
+     */
+    @Test
+    void withOptimisticLockRetry_interruptedDuringBackoff_reassertsInterruptFlag() {
+        AtomicInteger attempts = new AtomicInteger();
+        UUID expected = UUID.randomUUID();
+        CalendarTokenResponse stub = new CalendarTokenResponse(expected,
+                "webcal://example/" + expected + ".ics",
+                "https://example/" + expected + ".ics");
+
+        Thread.currentThread().interrupt(); // pre-arm: Thread.sleep throws immediately
+        try {
+            CalendarTokenResponse result = calendarService.withOptimisticLockRetry("test",
+                    () -> {
+                        if (attempts.incrementAndGet() == 1) {
+                            throw new OptimisticLockException("simulated race");
+                        }
+                        return stub;
+                    });
+            assertEquals(expected, result.calendarToken());
+            assertEquals(2, attempts.get());
+            assertTrue(Thread.currentThread().isInterrupted(),
+                    "sleepBackoff must re-assert the interrupt flag after catching InterruptedException");
+        } finally {
+            Thread.interrupted(); // clear so the flag doesn't leak to sibling tests
+        }
+    }
+
+    /**
+     * SCRUM-169 — a vendor/Hibernate lock exception that is NOT a
+     * {@link OptimisticLockException} instance but whose class name carries
+     * the {@code OptimisticLock} marker is still recognised as a transient
+     * conflict and retried (the {@code className.contains(...)} branch of
+     * {@code isOptimisticLockConflict}).
+     */
+    @Test
+    void withOptimisticLockRetry_classNameMarkerWithoutInstanceof_retries() {
+        AtomicInteger attempts = new AtomicInteger();
+        UUID expected = UUID.randomUUID();
+        CalendarTokenResponse stub = new CalendarTokenResponse(expected,
+                "webcal://example/" + expected + ".ics",
+                "https://example/" + expected + ".ics");
+
+        CalendarTokenResponse result = calendarService.withOptimisticLockRetry("test",
+                () -> {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new VendorOptimisticLockException("dialect-specific lock failure");
+                    }
+                    return stub;
+                });
+        assertEquals(expected, result.calendarToken());
+        assertEquals(2, attempts.get());
+    }
+
+    /** Not a jakarta {@link OptimisticLockException}; only the name carries the marker. */
+    static class VendorOptimisticLockException extends RuntimeException {
+        VendorOptimisticLockException(String m) { super(m); }
+    }
+
     private User persistUser(String auth0Id, String email) {
         User user = new User();
         user.auth0Id = auth0Id;

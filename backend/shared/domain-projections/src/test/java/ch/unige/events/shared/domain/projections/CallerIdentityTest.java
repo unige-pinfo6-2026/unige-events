@@ -30,6 +30,17 @@ class CallerIdentityTest {
     }
 
     @Test
+    void getUuid_returnsResolvedUuidOnSuccess() {
+        UUID expected = UUID.randomUUID();
+        UserMeClient userMeClient = mock(UserMeClient.class);
+        when(userMeClient.getMe()).thenReturn(user(expected));
+
+        CallerIdentity identity = identity(userMeClient);
+
+        assertEquals(expected, identity.getUuid());
+    }
+
+    @Test
     void getUuid_returnsNullWhenUserMeCannotResolveCaller() {
         UserMeClient userMeClient = mock(UserMeClient.class);
         when(userMeClient.getMe()).thenThrow(new NotFoundException());
@@ -44,6 +55,18 @@ class CallerIdentityTest {
     void requireUuid_rejectsEmptyUserMeResponse() {
         UserMeClient userMeClient = mock(UserMeClient.class);
         when(userMeClient.getMe()).thenReturn(null);
+
+        CallerIdentity identity = identity(userMeClient);
+
+        assertNull(identity.getUuid());
+        assertThrows(NotFoundException.class, identity::requireUuid);
+    }
+
+    @Test
+    void requireUuid_rejectsResponseWithNullId() {
+        // me != null but me.id() == null — the second arm of the guard.
+        UserMeClient userMeClient = mock(UserMeClient.class);
+        when(userMeClient.getMe()).thenReturn(user(null));
 
         CallerIdentity identity = identity(userMeClient);
 

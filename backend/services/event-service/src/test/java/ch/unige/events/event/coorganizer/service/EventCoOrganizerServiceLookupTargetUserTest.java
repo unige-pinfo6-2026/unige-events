@@ -3,6 +3,7 @@ package ch.unige.events.event.coorganizer.service;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 
+import io.quarkus.test.junit.QuarkusTest;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServiceUnavailableException;
 import org.junit.jupiter.api.Test;
@@ -18,14 +19,15 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link EventCoOrganizerService#lookupTargetUser}.
  *
- * <p>Run as a plain JUnit unit test (no {@code @QuarkusTest}) so the
- * {@link UserServiceClient} mock is not wrapped by the MicroProfile FT
- * proxy that owns the {@code @Fallback} on
- * {@link UserServiceClient#getById}. The FT layer would otherwise swallow
- * every {@link RuntimeException} and return null, collapsing the 503
- * branch into the 404 branch — pinning D19 requires exercising the
- * {@code catch (RuntimeException)} path directly.
+ * <p>{@code @QuarkusTest} so the executed bytecode is captured by
+ * quarkus-jacoco (a plain unit test would pass but contribute zero
+ * coverage). The {@link UserServiceClient} is passed as a plain Mockito
+ * mock <em>argument</em> to the static method — it is never CDI-injected,
+ * so the MicroProfile FT {@code @Fallback} proxy never wraps it and the
+ * {@code catch (RuntimeException)} → 503 path (D19) is exercised directly,
+ * not collapsed into the 404/fallback branch.
  */
+@QuarkusTest
 class EventCoOrganizerServiceLookupTargetUserTest {
 
     @Test

@@ -5,6 +5,8 @@ import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.AttendeeProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.AttendanceStatus;
+
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -13,6 +15,12 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/**
+ * {@code @QuarkusTest} so quarkus-jacoco credits the executed
+ * {@link AttendanceDTOMapper} bytecode (the id-only {@code from(Attendance)}
+ * factory among them) — plain unit tests do not contribute coverage.
+ */
+@QuarkusTest
 class AttendanceDTOMapperTest {
 
     @Test

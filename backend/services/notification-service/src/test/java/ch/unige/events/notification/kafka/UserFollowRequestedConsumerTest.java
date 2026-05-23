@@ -79,6 +79,48 @@ class UserFollowRequestedConsumerTest {
     }
 
     @Test
+    void onFollowRequested_nullFollowerId_skipped() {
+        consumer.onFollowRequested(FollowLifecycleEvent.followRequested(null, UUID.randomUUID()));
+        assertEquals(0, Notification.count());
+    }
+
+    @Test
+    void onFollowRequested_nullFollowedId_skipped() {
+        consumer.onFollowRequested(FollowLifecycleEvent.followRequested(UUID.randomUUID(), null));
+        assertEquals(0, Notification.count());
+    }
+
+    @Test
+    void onFollowRequested_blankDisplayName_usesGenericMessage() {
+        // resolveMessage: follower resolved but displayName blank → the
+        // isBlank() sub-branch of line 70 falls back to the generic message.
+        UUID follower = UUID.randomUUID();
+        UUID followed = UUID.randomUUID();
+        when(userClient.getById(follower)).thenReturn(userWithDisplayName(follower, "   "));
+
+        consumer.onFollowRequested(FollowLifecycleEvent.followRequested(follower, followed));
+
+        List<Notification> notifs = Notification.<Notification>list("userId", followed);
+        assertEquals(1, notifs.size());
+        assertEquals("Un utilisateur vous a envoyé une demande de suivi.", notifs.get(0).message);
+    }
+
+    @Test
+    void onFollowRequested_nullDisplayName_usesGenericMessage() {
+        // resolveMessage: follower resolved but displayName null → the
+        // null sub-branch of line 70 falls back to the generic message.
+        UUID follower = UUID.randomUUID();
+        UUID followed = UUID.randomUUID();
+        when(userClient.getById(follower)).thenReturn(userWithDisplayName(follower, null));
+
+        consumer.onFollowRequested(FollowLifecycleEvent.followRequested(follower, followed));
+
+        List<Notification> notifs = Notification.<Notification>list("userId", followed);
+        assertEquals(1, notifs.size());
+        assertEquals("Un utilisateur vous a envoyé une demande de suivi.", notifs.get(0).message);
+    }
+
+    @Test
     void onFollowRequested_wrongType_skippedDefensive() {
         UUID a = UUID.randomUUID();
         UUID b = UUID.randomUUID();

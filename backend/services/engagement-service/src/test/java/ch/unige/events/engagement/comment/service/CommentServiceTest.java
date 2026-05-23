@@ -203,6 +203,26 @@ class CommentServiceTest {
     }
 
     @Test
+    void post_withMentions_authorNull_usesGenericLabelFallback() {
+        // safeGetUser returns null (author hard-deleted) AND the mention resolves
+        // to a real distinct target → fanOutMentions reaches authorLabel(null),
+        // exercising its null-author generic fallback branch.
+        EventDTO ev = event(59L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(59L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getById(userId)).thenThrow(new NotFoundException());
+        UUID alice = UUID.randomUUID();
+        when(userClient.getByUsernames(anyString()))
+                .thenReturn(java.util.List.of(
+                        new ch.unige.events.shared.domain.dto.IdProjection(alice, "alice.dosh")));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 59L,
+                new CreateCommentRequest("hi @alice.dosh", null));
+
+        assertNotNull(dto);
+        org.junit.jupiter.api.Assertions.assertNull(dto.authorDisplayName());
+    }
+
+    @Test
     void post_withSelfMention_skipsFanOut() {
         // Mention resolves to the comment author's own UUID → producer-side
         // self-mention filter (locked-in #11) excludes it from the fan-out.
@@ -290,6 +310,37 @@ class CommentServiceTest {
                 new CreateCommentRequest("hi @alice.dosh", null));
 
         assertNotNull(dto);
+    }
+
+    @Test
+    void post_userClientNotFound_succeedsWithNullAuthor() {
+        // safeGetUser NotFoundException branch (author hard-deleted): the comment
+        // must still post; the returned DTO simply has no author enrichment.
+        EventDTO ev = event(60L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(60L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getById(userId)).thenThrow(new NotFoundException());
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 60L,
+                new CreateCommentRequest("plain comment", null));
+
+        assertNotNull(dto);
+        assertEquals(userId, dto.authorId());
+        org.junit.jupiter.api.Assertions.assertNull(dto.authorDisplayName());
+    }
+
+    @Test
+    void post_userClientRuntimeFailure_succeedsWithNullAuthor() {
+        // safeGetUser RuntimeException branch (infra failure): degraded enrichment,
+        // not a failed post.
+        EventDTO ev = event(61L, EventStatus.PUBLISHED, creatorId);
+        when(eventClient.getByIdWithCoOrgCheck(eq(61L), any(UUID.class))).thenReturn(ev);
+        when(userClient.getById(userId)).thenThrow(new RuntimeException("CB open"));
+
+        CommentDTO dto = service.post("auth0|test-comment-user", 61L,
+                new CreateCommentRequest("plain comment", null));
+
+        assertNotNull(dto);
+        org.junit.jupiter.api.Assertions.assertNull(dto.authorDisplayName());
     }
 
     @Test
@@ -588,5 +639,19 @@ class CommentServiceTest {
 
         assertThrows(NotFoundException.class,
                 () -> service.getByEvent(35L, "auth0|test-comment-user", 0, 20));
+    }
+
+    @Test
+    void getByEvent_anonymous_draftEvent_throwsNotFound_nullCallerGuard() {
+        // Anonymous caller (auth0Id present but getUuid()==null) on a non-PUBLISHED
+        // event reaches assertEventVisibleAndLoad's visibility gate, which calls
+        // isCreatorOrAcceptedCoOrganizer(event, null). The null-callerUuid guard
+        // returns false → uniform 404 anti-oracle.
+        JwtTestContext.set(JwtTestHelper.anonymous());
+        EventDTO ev = event(36L, EventStatus.DRAFT, creatorId);
+        when(eventClient.getById(36L)).thenReturn(ev);
+
+        assertThrows(NotFoundException.class,
+                () -> service.getByEvent(36L, "auth0|test-comment-user", 0, 20));
     }
 }

@@ -128,4 +128,37 @@ class EventCoOrganizerResourceTest {
             .when().patch("/events/" + id + "/co-organizers/me/decline")
             .then().statusCode(422);
     }
+
+    /** Invite {@code target} (as the event creator) and return the event id. */
+    private long createEventAndInvite(UUID target) {
+        long id = createEvent();
+        given()
+            .contentType("application/json").body("{\"userId\":\"" + target + "\"}")
+            .when().post("/events/" + id + "/co-organizers")
+            .then().statusCode(201);
+        return id;
+    }
+
+    @Test
+    void accept_pendingInvitation_returns200() {
+        // Creator (callerUuid) invites inviteeUuid → PENDING. Then the
+        // invitee accepts, exercising the resource's success branch
+        // (Response.ok(accepted)).
+        long id = createEventAndInvite(inviteeUuid);
+        JwtTestContext.set(JwtTestHelper.jwtFor(inviteeUuid));
+        given()
+            .when().patch("/events/" + id + "/co-organizers/me/accept")
+            .then().statusCode(200);
+    }
+
+    @Test
+    void decline_pendingInvitation_returns204() {
+        // Same setup, but the invitee declines — exercises the resource's
+        // success branch (Response.noContent()).
+        long id = createEventAndInvite(inviteeUuid);
+        JwtTestContext.set(JwtTestHelper.jwtFor(inviteeUuid));
+        given()
+            .when().patch("/events/" + id + "/co-organizers/me/decline")
+            .then().statusCode(204);
+    }
 }

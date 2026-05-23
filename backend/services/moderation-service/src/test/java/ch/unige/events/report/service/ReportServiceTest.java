@@ -42,6 +42,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -315,6 +317,7 @@ class ReportServiceTest {
         assertNull(result.get(0).eventTitle());
     }
 
+
     // ──────────────────────────────────────────────────────────────────
     // handle(...)
     // ──────────────────────────────────────────────────────────────────
@@ -378,6 +381,42 @@ class ReportServiceTest {
         assertEquals(ReportStatus.DISMISSED, dto.status());
         assertEquals("false alarm", dto.moderationNote());
         assertEquals(adminId, dto.reviewedBy());
+    }
+
+    @Test
+    void handle_reporterHardDeleted_userClientNotFound_reporterNull() {
+        // safeGetUser NotFoundException catch: the reporter was hard-deleted
+        // (or never existed) — enrichment degrades silently to null, the DTO
+        // is still returned without propagating the 404.
+        Report r = buildReport(40L, 320L, reporterId, ReportStatus.PENDING);
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(40L)).thenReturn(Optional.of(r));
+        when(eventClient.getById(320L)).thenReturn(event(320L, EventStatus.PUBLISHED, creatorId));
+        when(userClient.getById(reporterId)).thenThrow(new NotFoundException("user gone"));
+
+        ReportDTO dto = service.handle(40L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.DISMISSED, null));
+        assertEquals(ReportStatus.DISMISSED, dto.status());
+        assertNull(dto.reporterDisplayName());
+    }
+
+    @Test
+    void handle_nullReporterId_safeGetUserShortCircuits() {
+        // safeGetUser(null) returns null up-front without touching user-service
+        // (a defensive guard for legacy rows with a null reporter_id).
+        Report r = buildReport(41L, 321L, null, ReportStatus.PENDING);
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(41L)).thenReturn(Optional.of(r));
+        when(eventClient.getById(321L)).thenReturn(event(321L, EventStatus.PUBLISHED, creatorId));
+
+        ReportDTO dto = service.handle(41L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.DISMISSED, null));
+        assertNull(dto.reporterDisplayName());
+        verify(userClient, never()).getById(any(UUID.class));
     }
 
     @Test

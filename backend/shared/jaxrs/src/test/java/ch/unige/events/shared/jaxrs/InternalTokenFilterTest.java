@@ -52,4 +52,13 @@ class InternalTokenFilterTest {
         ContainerRequestContext ctx = requestWithHeader("anything");
         assertThrows(NotFoundException.class, () -> f.filter(ctx));
     }
+
+    @Test
+    void noOverride_resolvesExpectedFromConfig_failsClosedWhenUnset() {
+        // expectedOverride left null → the ternary falls to resolveExpected(),
+        // which returns "" when unige.internal-token is unset → fail closed.
+        InternalTokenFilter f = new InternalTokenFilter();
+        ContainerRequestContext ctx = requestWithHeader("anything");
+        assertThrows(NotFoundException.class, () -> f.filter(ctx));
+    }
 }

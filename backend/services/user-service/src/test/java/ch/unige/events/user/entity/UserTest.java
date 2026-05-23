@@ -1,6 +1,7 @@
 package ch.unige.events.user.entity;
 
 import ch.unige.events.shared.domain.enums.Faculty;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@QuarkusTest
 class UserTest {
 
     @Test
