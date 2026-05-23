@@ -1,5 +1,6 @@
 package ch.unige.events.engagement.comment.entity;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Lifecycle + field-default coverage for {@link Comment}. The entity has
  * one JPA hook ({@code @PrePersist}) and a couple of public mutables that
  * we want exercised so jacoco reports them as L-covered.
+ *
+ * <p>{@code @QuarkusTest} so quarkus-jacoco counts the {@code @PrePersist}
+ * hook coverage (plain JUnit runs aren't captured by quarkus-jacoco). The
+ * assertions are pure in-memory method calls — {@code prePersist()} is a
+ * direct call, no transaction needed.
  */
+@QuarkusTest
 class CommentTest {
 
     @Test

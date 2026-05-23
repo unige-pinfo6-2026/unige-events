@@ -185,6 +185,39 @@ class CommentServiceSafeGetUserTest {
         verify(svc.commentCreatedEvent).fire(any(CommentCreatedEvent.class));
     }
 
+    // ── delete — callerUuid null sub-cases of lines 209/213 ───────────────
+
+    @Test
+    void delete_callerUuidNull_nonAdmin_throwsForbidden() {
+        // requireUuid() returns null (unprovisioned caller). isAuthor is false
+        // (the `callerUuid != null` operand of line 209 is false), and the
+        // organizer branch (line 213 `callerUuid != null`) is skipped. Neither
+        // admin, author nor organizer → forbidden 403.
+        CommentService svc = newService();
+        when(svc.identity.hasRole("ADMIN")).thenReturn(false);
+        when(svc.callerIdentity.requireUuid()).thenReturn(null);
+
+        Comment c = new Comment();
+        c.id = 9L;
+        c.eventId = 7L;
+        c.authorId = UUID.randomUUID();
+        c.content = "hi";
+        c.likeCount = 0;
+        c.createdAt = LocalDateTime.now();
+
+        PanacheMock.mock(Comment.class);
+        when(Comment.<Comment>findByIdOptional(9L)).thenReturn(java.util.Optional.of(c));
+
+        jakarta.ws.rs.WebApplicationException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        jakarta.ws.rs.WebApplicationException.class,
+                        () -> svc.delete("auth0|x", 9L));
+        assertEquals(403, ex.getResponse().getStatus());
+        // The organizer lookup must be skipped when callerUuid is null.
+        verify(svc.eventClient, never())
+                .getOrganizerUuids(org.mockito.ArgumentMatchers.anyLong());
+    }
+
     // ── post — authorId null guard (line 88) ──────────────────────────────
 
     @Test

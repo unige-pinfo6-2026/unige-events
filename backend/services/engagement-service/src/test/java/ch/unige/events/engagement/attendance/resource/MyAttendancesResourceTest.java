@@ -96,6 +96,20 @@ class MyAttendancesResourceTest {
     }
 
     @Test
+    void get_myParticipations_noTimeframeParam_acceptedAsNull() {
+        // No ?timeframe query param at all — parseTimeframe receives raw==null
+        // and returns null via the first operand of the line-61 guard (distinct
+        // from the blank arm exercised below).
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of());
+
+        given()
+            .when().get("/users/me/participations")
+            .then().statusCode(200)
+            .body("$", org.hamcrest.Matchers.empty());
+    }
+
+    @Test
     void get_myParticipations_emptyTimeframe_acceptedAsNull() {
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of());

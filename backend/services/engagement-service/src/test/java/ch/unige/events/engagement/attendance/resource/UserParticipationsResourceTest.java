@@ -142,6 +142,23 @@ class UserParticipationsResourceTest {
             .body("$", Matchers.empty());
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipations_selfWithBlankTimeframe_returns200() {
+        // Empty ?timeframe= on the self path — parseTimeframe's `raw.isBlank()`
+        // arm (line 64) returns null (no 400, no filtering).
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(callerId)).thenReturn(List.of(attending(callerId, 96L)));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(publishedEvent(96L)));
+
+        given()
+            .when().get("/users/" + callerId + "/participations?timeframe=")
+            .then().statusCode(200)
+            .body("size()", Matchers.is(1));
+    }
+
     @Test
     void getUserParticipations_invalidTimeframe_returns400() {
         given()

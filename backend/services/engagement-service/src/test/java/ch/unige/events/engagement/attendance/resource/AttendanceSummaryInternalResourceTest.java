@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -33,6 +34,17 @@ class AttendanceSummaryInternalResourceTest {
             .body("attending", equalTo(0))
             .body("waitlisted", equalTo(0))
             .body("interested", equalTo(0));
+    }
+
+    @Test
+    void getBulkAttendanceSummary_nullIds_returnsEmptyMap_directBeanCall() {
+        // JAX-RS never injects null for a @QueryParam List, so the ids==null
+        // arm of the line-61 guard is only reachable by a direct bean call.
+        // The null path returns Map.of() before touching the @Inject
+        // EntityManager, so a default-constructed instance is sufficient.
+        Map<Long, ch.unige.events.shared.domain.dto.AttendanceSummary> result =
+                new AttendanceSummaryInternalResource().getBulkAttendanceSummary(null);
+        org.junit.jupiter.api.Assertions.assertTrue(result.isEmpty());
     }
 
     @Test

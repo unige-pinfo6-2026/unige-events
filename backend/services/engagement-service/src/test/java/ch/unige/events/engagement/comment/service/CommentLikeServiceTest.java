@@ -241,6 +241,54 @@ class CommentLikeServiceTest {
     }
 
     @Test
+    void unlike_loadedCommentHasNullId_logsDefensiveStateNoThrow() {
+        // Defensive state branch (line 127-128): the loaded Comment has a null
+        // id. CommentLike.delete returns 0 so the decrement is skipped, then the
+        // `comment.id == null` guard logs a warning. No throw. Hand-wired service
+        // (plain mocks) so the forged Comment / CommentLike statics drive the path.
+        UUID caller = UUID.randomUUID();
+        EntityManager em = mock(EntityManager.class);
+        CallerIdentity ci = mock(CallerIdentity.class);
+        EventServiceClient ec = mock(EventServiceClient.class);
+        when(ci.requireUuid()).thenReturn(caller);
+        CommentLikeService handWired = new CommentLikeService(ci, ec, em);
+
+        PanacheMock.mock(Comment.class);
+        Comment c = new Comment();
+        c.id = null;
+        c.eventId = EVENT_ID;
+        when(Comment.findByIdOptional(123L)).thenReturn(Optional.of(c));
+
+        PanacheMock.mock(CommentLike.class);
+        // delete returns 0 → decrement skipped → reaches the null-id guard.
+        when(CommentLike.delete(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(0L);
+
+        handWired.unlike(123L);
+
+        // No EntityManager decrement update must run when nothing was deleted.
+        org.mockito.Mockito.verify(em, org.mockito.Mockito.never())
+                .createQuery(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void like_loadedCommentHasNullEventId_throws404() {
+        // assertEventVisible(null, caller) guard (line 138): the loaded Comment
+        // has eventId==null → 404 before any cross-service round-trip. The
+        // injected service is fine — the guard fires before the @RestClient call.
+        UUID caller = UUID.randomUUID();
+        when(callerIdentity.requireUuid()).thenReturn(caller);
+
+        PanacheMock.mock(Comment.class);
+        Comment c = new Comment();
+        c.id = 321L;
+        c.eventId = null;
+        when(Comment.findByIdOptional(321L)).thenReturn(Optional.of(c));
+
+        assertThrows(NotFoundException.class, () -> service.like(321L));
+    }
+
+    @Test
     void unlike_neverChecksEventVisibility() {
         // Décision : unlike removes the caller's own state — no visibility check
         // needed (no leak). The eventClient must NOT be invoked.
