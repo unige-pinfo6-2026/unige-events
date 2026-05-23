@@ -1,5 +1,6 @@
 package ch.unige.events.user.service;
 
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * any divergence between Java and PL/pgSQL would silently corrupt usernames at
  * scale, so we pin the shared semantics in one place.
  */
+@QuarkusTest
 class UsernameGeneratorTest {
 
     private static final Predicate<String> NEVER_TAKEN = c -> false;

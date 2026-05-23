@@ -312,6 +312,24 @@ class FollowServiceTest {
         assertEquals(1L, Follow.countFollowingOf(alice.id));
     }
 
+    // ── assertProfileVisible (ISSUE-93 anti-oracle) ────────────────────────
+
+    @Test
+    @TestTransaction
+    void assertProfileVisible_privateProfile_anonymousCaller_throwsNotFound() {
+        User priv = persistUser("auth0|fs-apv-anon", "fs-apv-anon@example.com", false);
+        // callerAuth0Id == null → isOwner false → private profile closes the oracle with 404.
+        assertThrows(NotFoundException.class,
+                () -> followService.assertProfileVisible(priv.id, null));
+    }
+
+    @Test
+    @TestTransaction
+    void assertProfileVisible_publicProfile_anonymousCaller_passes() {
+        User pub = persistUser("auth0|fs-apv-pub", "fs-apv-pub@example.com", true);
+        followService.assertProfileVisible(pub.id, null); // must not throw
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {

@@ -551,6 +551,33 @@ class UserServiceTest {
         assertEquals("alice.dupont2", created.username);
     }
 
+    // ── searchByUsernamePrefix (SCRUM-137) ─────────────────────────────────
+
+    @Test
+    @TestTransaction
+    void searchByUsernamePrefix_matchesPrefix_andHonoursExcludeAndLimit() {
+        User a = persistUser("auth0|sbp-a", "sbp-a@example.com", true);
+        a.username = "ztestalpha";
+        User b = persistUser("auth0|sbp-b", "sbp-b@example.com", true);
+        b.username = "ztestbeta";
+        entityManager.flush();
+
+        // excludeAuth0Id == null branch — both match the prefix.
+        List<User> all = userService.searchByUsernamePrefix("ztest", 10, null);
+        assertEquals(2, all.size());
+
+        // excludeAuth0Id != null branch — the caller is filtered out.
+        List<User> excl = userService.searchByUsernamePrefix("ztest", 10, "auth0|sbp-a");
+        assertEquals(1, excl.size());
+        assertEquals("ztestbeta", excl.get(0).username);
+
+        // limit <= 0 short-circuits to an empty list (no query).
+        assertTrue(userService.searchByUsernamePrefix("ztest", 0, null).isEmpty());
+        // null / blank prefix short-circuits too.
+        assertTrue(userService.searchByUsernamePrefix(null, 10, null).isEmpty());
+        assertTrue(userService.searchByUsernamePrefix("   ", 10, null).isEmpty());
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────
 
     private User persistUser(String auth0Id, String email, boolean profilePublic) {
