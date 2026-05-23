@@ -1,6 +1,7 @@
 package ch.unige.events.event.kafka;
 
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
+import io.quarkus.test.junit.QuarkusTest;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Annotated {@code @QuarkusTest} so the executed publisher bytecode is
+ * captured by quarkus-jacoco — the swallow {@code catch (RuntimeException)}
+ * in {@link EventLifecyclePublisher#send} is exercised once per emitter via
+ * {@link #emitFailure_perEmitter_isSwallowedNotPropagated}. The publisher
+ * is still constructed by hand with mocked emitters (no CDI wiring needed).
+ */
+@QuarkusTest
 class EventLifecyclePublisherTest {
 
     @SuppressWarnings("unchecked")
@@ -77,16 +86,35 @@ class EventLifecyclePublisherTest {
         verify(cancelledEmitter, never()).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
     }
 
-    @Test
-    void emitFailure_isSwallowedNotPropagated() {
-        // Mockito reports unchecked exceptions on Emitter.send(...) the
-        // same as if the broker rejected the message — assert the
-        // publisher catches them so a Kafka outage doesn't fail the
-        // user-facing transaction.
+    /**
+     * Mockito reports unchecked exceptions on {@code Emitter.send(...)} the
+     * same as if the broker rejected the message — assert the publisher
+     * swallows them on every routing branch so a Kafka outage doesn't fail
+     * the user-facing transaction. Parameterised over the 4 emitters so the
+     * single shared {@code catch (RuntimeException)} is reached from each
+     * fan-out method.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(EventLifecycleEvent.Type.class)
+    void emitFailure_perEmitter_isSwallowedNotPropagated(EventLifecycleEvent.Type type) {
+        Emitter<EventLifecycleEvent> failing = switch (type) {
+            case PUBLISHED -> publishedEmitter;
+            case CANCELLED -> cancelledEmitter;
+            case EXPIRED -> expiredEmitter;
+            case UPDATED -> updatedEmitter;
+        };
         doThrow(new RuntimeException("broker down"))
-                .when(publishedEmitter).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
+                .when(failing).send(org.mockito.ArgumentMatchers.any(EventLifecycleEvent.class));
 
-        assertDoesNotThrow(() -> publisher.published(1L, UUID.randomUUID()));
+        UUID creator = UUID.randomUUID();
+        assertDoesNotThrow(() -> {
+            switch (type) {
+                case PUBLISHED -> publisher.published(1L, creator);
+                case CANCELLED -> publisher.cancelled(1L, creator);
+                case EXPIRED -> publisher.expired(1L, creator);
+                case UPDATED -> publisher.updated(1L, creator);
+            }
+        });
     }
 
     @Test

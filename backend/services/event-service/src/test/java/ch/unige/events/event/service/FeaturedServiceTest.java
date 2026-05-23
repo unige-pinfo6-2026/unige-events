@@ -157,4 +157,25 @@ class FeaturedServiceTest {
         List<EventDTO> list = service.getFeatured(6);
         assertFalse(list.isEmpty());
     }
+
+    @Test
+    @TestTransaction
+    void getFeatured_phase2RankingCountsFavorites() {
+        // No featured rows → phase1Ids empty (the NOT IN clause is skipped),
+        // and the phase-2 filler ranks candidates by attending + favorites.
+        // Persisting a Favorite on a candidate exercises countFavorites'
+        // row-accumulation loop (the GROUP BY result mapping).
+        Event candidate = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        em.flush();
+        ch.unige.events.event.favorite.entity.Favorite fav =
+                new ch.unige.events.event.favorite.entity.Favorite();
+        fav.userId = UUID.randomUUID();
+        fav.eventId = candidate.id;
+        fav.persist();
+        em.flush();
+
+        List<EventDTO> list = service.getFeatured(6);
+        assertTrue(list.stream().anyMatch(d -> d.id().equals(candidate.id)),
+                "A favorited published candidate must surface in the phase-2 filler");
+    }
 }

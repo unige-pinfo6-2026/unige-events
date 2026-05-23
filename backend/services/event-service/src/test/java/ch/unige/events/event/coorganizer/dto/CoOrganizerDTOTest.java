@@ -3,6 +3,7 @@ package ch.unige.events.event.coorganizer.dto;
 import ch.unige.events.event.coorganizer.entity.EventCoOrganizer;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.CoOrganizerStatus;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+/**
+ * Annotated {@code @QuarkusTest} so the executed {@code CoOrganizerDTO.from}
+ * bytecode (including the null-user branch) is captured by quarkus-jacoco.
+ */
+@QuarkusTest
 @SuppressWarnings("java:S100")
 class CoOrganizerDTOTest {
 

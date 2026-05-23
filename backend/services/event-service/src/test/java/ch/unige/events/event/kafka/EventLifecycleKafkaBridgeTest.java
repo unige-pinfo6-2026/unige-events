@@ -1,6 +1,7 @@
 package ch.unige.events.event.kafka;
 
 import ch.unige.events.shared.kafka.events.EventLifecycleEvent;
+import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -11,8 +12,11 @@ import static org.mockito.Mockito.verify;
 /**
  * Pattern aligned with the 4 sibling bridge tests (CommentCreatedKafkaBridge,
  * CoOrganizerKafkaBridge, FollowLifecycleKafkaBridge, EventBannedKafka
- * Bridge): one observation per discriminated event type.
+ * Bridge): one observation per discriminated event type. Annotated
+ * {@code @QuarkusTest} so the executed bridge bytecode is captured by
+ * quarkus-jacoco.
  */
+@QuarkusTest
 class EventLifecycleKafkaBridgeTest {
 
     @Test

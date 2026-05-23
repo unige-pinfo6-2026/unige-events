@@ -1,6 +1,7 @@
 package ch.unige.events.event.coorganizer.kafka;
 
 import ch.unige.events.shared.kafka.events.CoOrganizerEvent;
+import io.quarkus.test.junit.QuarkusTest;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+/**
+ * Annotated {@code @QuarkusTest} so the publisher bytecode (including the
+ * swallow {@code catch (RuntimeException)} in {@link CoOrganizerPublisher#send})
+ * is captured by quarkus-jacoco. The publisher is still built by hand with
+ * mocked emitters.
+ */
+@QuarkusTest
 class CoOrganizerPublisherTest {
 
     @SuppressWarnings("unchecked")

@@ -468,6 +468,20 @@ class EventServiceTest {
         assertEquals(1, only.size());
     }
 
+    @Test
+    @TestTransaction
+    void findByIds_summariesNullClient_safe() {
+        // P2: the bulk-summary client may return null (its @Fallback default).
+        // findByIds must coalesce to an empty map and enrich with zeroed
+        // counts rather than NPE.
+        Event e1 = persistEvent("inull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<EventDTO> all = service.findByIds(List.of(e1.id), null);
+        assertEquals(1, all.size());
+    }
+
     // ---- getOrganizerUuids ----
 
     @Test
