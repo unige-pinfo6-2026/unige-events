@@ -265,6 +265,38 @@ class NewCommentConsumerTest {
     }
 
     @Test
+    void authorWithBlankDisplayName_fallsBackToAtUsername() {
+        // displayName present but blank → the !isBlank() sub-branch of 158
+        // is false, so we fall through to the @username branch (161 true).
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Workshop", creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "bob.smith", "   "));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("@bob.smith"));
+    }
+
+    @Test
+    void authorWithBlankDisplayNameAndBlankUsername_fallsBackToGeneric() {
+        // Both displayName and username blank → !isBlank() false on both
+        // branches (158 + 161), bottoming out on the generic label.
+        UUID creator = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        when(eventClient.getById(EVENT_ID)).thenReturn(eventOf("Workshop", creator));
+        when(userClient.getById(bob)).thenReturn(profile(bob, "  ", "  "));
+
+        consumer.onCommentCreated(ev(bob, null, "hi", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertTrue(rows.get(0).message.contains("Un utilisateur"));
+    }
+
+    @Test
     void authorWithBothLabelsBlank_fallsBackToGeneric() {
         // displayName + username both null on the resolved profile → the
         // fallback chain bottoms out on "Un utilisateur".
