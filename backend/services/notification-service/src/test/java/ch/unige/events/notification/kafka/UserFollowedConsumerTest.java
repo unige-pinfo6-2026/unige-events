@@ -90,6 +90,22 @@ class UserFollowedConsumerTest {
     }
 
     @Test
+    void onFollowed_nullDisplayName_usesGenericMessage() {
+        // follower resolved but displayName==null → the 2nd operand of the
+        // resolveMessage guard is true (covers the displayName()==null branch,
+        // distinct from the follower==null and isBlank() cases already pinned).
+        UUID follower = UUID.randomUUID();
+        UUID followed = UUID.randomUUID();
+        when(userClient.getById(follower)).thenReturn(userWithDisplayName(follower, null));
+
+        consumer.onFollowed(FollowLifecycleEvent.followed(follower, followed));
+
+        List<Notification> notifs = Notification.<Notification>list("userId", followed);
+        assertEquals(1, notifs.size());
+        assertEquals("Un utilisateur a commencé à vous suivre.", notifs.get(0).message);
+    }
+
+    @Test
     void onFollowed_blankDisplayName_usesGenericMessage() {
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();

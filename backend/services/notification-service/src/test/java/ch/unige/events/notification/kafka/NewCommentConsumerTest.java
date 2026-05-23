@@ -9,6 +9,8 @@ import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.kafka.events.CommentCreatedEvent;
 
+import ch.unige.events.notification.service.NotificationService;
+
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
@@ -25,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @SuppressWarnings("java:S1612")
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.when;
 class NewCommentConsumerTest {
 
     @Inject NewCommentConsumer consumer;
+    @Inject NotificationService notificationService;
     @InjectMock @RestClient EventServiceClient eventClient;
     @InjectMock @RestClient UserServiceClient userClient;
 
@@ -317,5 +321,38 @@ class NewCommentConsumerTest {
         // Helper short-circuit — even though the consumer always passes
         // a non-null authorId in production, the helper is null-safe.
         assertEquals("Un utilisateur", consumer.resolveAuthorLabel(null));
+    }
+
+    // ─── FT-bypass hand-wiring: the @InjectMock @RestClient beans are wrapped
+    //     by @Fallback, so thenThrow there returns null (→ the event==null /
+    //     author==null branches) and never reaches the catch blocks. Build the
+    //     consumer with plain (non-FT) mocks that throw straight in. ──────────
+
+    @Test
+    void eventClientThrowsToConsumer_handWired_catchSwallows() {
+        // Reaches the catch in onCommentCreated (event-service lookup failed).
+        UUID bob = UUID.randomUUID();
+        EventServiceClient evMock = mock(EventServiceClient.class);
+        UserServiceClient usrMock = mock(UserServiceClient.class);
+        when(evMock.getById(EVENT_ID)).thenThrow(new RuntimeException("event-service boom"));
+
+        NewCommentConsumer hw = new NewCommentConsumer(notificationService, usrMock, evMock);
+        QuarkusTransaction.requiringNew().run(() ->
+                hw.onCommentCreated(ev(bob, null, "hello", "Workshop")));
+
+        assertEquals(0, Notification.count("eventId", EVENT_ID));
+    }
+
+    @Test
+    void authorLookupThrowsToHelper_handWired_catchReturnsFallback() {
+        // Reaches the catch inside resolveAuthorLabel (user-service lookup
+        // failed) — returns the generic fallback label without crashing.
+        UUID bob = UUID.randomUUID();
+        EventServiceClient evMock = mock(EventServiceClient.class);
+        UserServiceClient usrMock = mock(UserServiceClient.class);
+        when(usrMock.getById(bob)).thenThrow(new RuntimeException("user-service boom"));
+
+        NewCommentConsumer hw = new NewCommentConsumer(notificationService, usrMock, evMock);
+        assertEquals("Un utilisateur", hw.resolveAuthorLabel(bob));
     }
 }

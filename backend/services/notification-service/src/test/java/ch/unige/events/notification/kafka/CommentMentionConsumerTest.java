@@ -80,6 +80,20 @@ class CommentMentionConsumerTest {
     }
 
     @Test
+    void nullAuthorId_skipsSelfMentionGuard_createsNotification() {
+        // authorId == null → the self-mention guard's first operand is false,
+        // so the && short-circuits and the notification is still created
+        // (covers the authorId==null branch of the self-mention guard).
+        UUID mentioned = UUID.randomUUID();
+
+        consumer.onCommentMention(ev(null, mentioned, "Bob", "Workshop"));
+
+        List<Notification> rows = Notification.<Notification>list("eventId", EVENT_ID);
+        assertEquals(1, rows.size());
+        assertEquals(mentioned, rows.get(0).userId);
+    }
+
+    @Test
     void selfMention_skippedDefensively() {
         // The producer is supposed to filter self-mentions ; if one slips
         // past (test wiring, broken producer), the consumer must still
