@@ -160,6 +160,58 @@ class FeaturedServiceTest {
 
     @Test
     @TestTransaction
+    void feature_singleSummaryNullClient_zeroCounts() {
+        // toSingleEventDTO L114/115 — the single-event summary client returns
+        // null → attending/waitlisted coalesce to 0 (no NPE).
+        Event e = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.feature(e.id);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void unfeature_singleSummaryNullClient_zeroCounts() {
+        // Same toSingleEventDTO L114/115 path via unfeature.
+        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.unfeature(e.id);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getFeatured_phase1BulkSummariesNullClient_safe() {
+        // toEventDTOs(List) L123/124 — a featured (phase-1) row with a null bulk
+        // summary response must coalesce to an empty map and still surface the
+        // featured event with zeroed counts.
+        Event f = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<EventDTO> list = service.getFeatured(12);
+        assertTrue(list.stream().anyMatch(d -> d.id().equals(f.id)));
+    }
+
+    @Test
+    @TestTransaction
+    void getFeatured_zeroLimit_emptyPhase1List() {
+        // effectiveLimit clamps to the requested 0 → phase-1 query yields an
+        // empty list, exercising the toEventDTOs empty-events short-circuit
+        // (L121). result.size()(0) < effectiveLimit(0) is false → phase-2 (and
+        // its candidates branch) is skipped.
+        List<EventDTO> list = service.getFeatured(0);
+        assertTrue(list.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
     void getFeatured_phase2RankingCountsFavorites() {
         // No featured rows → phase1Ids empty (the NOT IN clause is skipped),
         // and the phase-2 filler ranks candidates by attending + favorites.

@@ -109,4 +109,24 @@ class FavoriteServiceExceptionPathsTest {
         assertThrows(jakarta.ws.rs.NotFoundException.class,
                 () -> service.addFavorite("auth0|x", eventId));
     }
+
+    @Test
+    @TestTransaction
+    void addFavorite_constraintViolationWithNullName_rethrows() {
+        // isUniqueFavoriteConflict L90 — the wrapped ConstraintViolationException
+        // reports a null constraint name, so the `name != null` operand is
+        // false; the loop walks past it (no further cause) and returns false →
+        // the PersistenceException is rethrown rather than swallowed.
+        PanacheMock.mock(Event.class, Favorite.class);
+        when(Event.findByIdOptional(eventId)).thenReturn(Optional.of(new Event()));
+        when(Favorite.findByUserAndEvent(eq(userId), eq(eventId))).thenReturn(Optional.empty());
+        var hibCce = new org.hibernate.exception.ConstraintViolationException(
+                "anonymous", new java.sql.SQLException("dup", "23505"), (String) null);
+        PersistenceException boom = new PersistenceException("flush failed", hibCce);
+        doThrow(boom).when(em).flush();
+
+        PersistenceException thrown = assertThrows(PersistenceException.class,
+                () -> service.addFavorite("auth0|x", eventId));
+        assertSame(boom, thrown);
+    }
 }

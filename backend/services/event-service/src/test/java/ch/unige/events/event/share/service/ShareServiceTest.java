@@ -190,6 +190,38 @@ class ShareServiceTest {
                 () -> service.getShareInfo(e.id, auth0Of(otherId), false));
     }
 
+    // ---- anonymous caller (callerUuid == null) — L67/L68/L71 operand legs ----
+
+    @Test
+    @TestTransaction
+    void getShareInfo_anonymousOnPublished_throwsForbidden() {
+        // JWT cleared → callerUuid == null → isCreator/isAcceptedCoOrg both
+        // short-circuit to false on the null operand (L67/L68). On a PUBLISHED
+        // event the anti-oracle 404 (L71) is skipped (status == PUBLISHED) and
+        // the authorization check rejects with 403.
+        UUID creatorId = UUID.randomUUID();
+        Event e = create(creatorId, EventStatus.PUBLISHED);
+        em.flush();
+        JwtTestContext.clear();
+
+        assertThrows(ForbiddenException.class,
+                () -> service.getShareInfo(e.id, null, false));
+    }
+
+    @Test
+    @TestTransaction
+    void getShareInfo_anonymousOnDraft_throws404() {
+        // callerUuid == null + status != PUBLISHED + not admin → the L71
+        // anti-oracle branch fires (all operands false) → 404.
+        UUID creatorId = UUID.randomUUID();
+        Event e = create(creatorId, EventStatus.DRAFT);
+        em.flush();
+        JwtTestContext.clear();
+
+        assertThrows(NotFoundException.class,
+                () -> service.getShareInfo(e.id, null, false));
+    }
+
     @Test
     @TestTransaction
     void getShareInfo_doesNotPersistShareCode_whenForbidden() {

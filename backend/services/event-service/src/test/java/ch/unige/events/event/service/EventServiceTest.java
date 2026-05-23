@@ -947,4 +947,263 @@ class EventServiceTest {
         List<EventDTO> occ = service.getOccurrences(parent.id, "auth0|x", false, 0, 20);
         assertTrue(occ.isEmpty());
     }
+
+    // ---- summary==null degradation ternaries (engagement @Fallback null) ----
+    // EventService L319/320 (getById), L445/446 (update), L539/540 (cancel),
+    // L563/564 (restore), L705/706 (publish), L725/726 (uploadImage). Stub the
+    // single-event summary client to return null; attending/waitlisted must
+    // coalesce to 0 rather than NPE.
+
+    @Test
+    @TestTransaction
+    void getById_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.getById(e.id, "auth0|x", false);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void update_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.DRAFT, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        UpdateEventRequest u = updateReq("renamed", e.startDate, e.endDate);
+        EventDTO dto = service.update(e.id, "auth0|x", u);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void cancel_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.cancel(e.id, "auth0|x");
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void restore_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.CANCELLED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.restore(e.id, "auth0|x");
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.DRAFT, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+
+        EventDTO dto = service.publish(e.id, "auth0|x", false);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void uploadImage_summaryNullClient_zeroCounts() {
+        Event e = persistEvent("snull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
+        FileUpload upload = mock(FileUpload.class);
+        when(fileStorageService.saveImage(eq(upload), eq(BANNERS_FOLDER),
+                eq(FileStorageService.MAX_BANNER_BYTES), any()))
+                .thenReturn("https://cdn/banner.png");
+
+        EventDTO dto = service.uploadImage(e.id, "auth0|x", upload, false);
+        assertEquals(0L, dto.attendingCount());
+        assertEquals(0L, dto.waitlistedCount());
+    }
+
+    @Test
+    @TestTransaction
+    void getAll_bulkSummariesNullClient_zeroCounts() {
+        // toEventDTOs L758/759 — bulk summary client returns null → coalesce
+        // to an empty map and enrich with zeroed counts (no NPE).
+        Event e = persistEvent("bulknull", EventStatus.PUBLISHED, creatorId);
+        em.flush();
+        when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
+
+        List<EventDTO> all = service.getAll(0, 100, EventStatus.PUBLISHED, null, creatorId, null, null, null, null);
+        assertTrue(all.stream().anyMatch(d -> d.id().equals(e.id)));
+    }
+
+    // ---- DTO tags==null arm (dto/EventDTO L151) ----
+    // Event.tags defaults to an empty ArrayList; explicitly nulling it before
+    // build() exercises the `tags != null ? ... : List.of()` false arm. The
+    // DTO test class is plain JUnit (not @QuarkusTest), so the arm must be
+    // driven through a @QuarkusTest service path to be counted by jacoco.
+
+    @Test
+    @TestTransaction
+    void getById_nullTagsEvent_yieldsEmptyTagList() {
+        Event e = persistEvent("notags", EventStatus.PUBLISHED, creatorId);
+        e.tags = null;
+        em.flush();
+
+        EventDTO dto = service.getById(e.id, "auth0|x", false);
+        assertEquals(List.of(), dto.tags());
+    }
+
+    // ---- ordinary-input branches ----
+
+    @Test
+    @TestTransaction
+    void createRecurring_endDateSetButStartDateNull_skipsBeforeCheck() {
+        // L162-164: endDate != null AND startDate == null → the
+        // `recurrence.endDate().isBefore(startDate)` operand is short-circuited
+        // (startDate==null), so no recurrence_end_before_start is thrown. The
+        // unbounded guard L158 is also satisfied (endDate present).
+        CreateEventRequest base = new CreateEventRequest(
+                "recNoStart", "desc", "loc", null, null,
+                EventCategory.ACADEMIC, null, null,
+                null, null, null, null, null,
+                null, null, null);
+        CreateEventRequest r = withRecurrence(base, new RecurrenceRequest(
+                RecurrenceFrequency.WEEKLY,
+                java.time.LocalDate.now().plusWeeks(4), null));
+        EventDTO parent = service.create("auth0|x", r);
+        assertNotNull(parent.id());
+    }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_nonAdminDraftOccurrence_evaluatesCreatorCascade() {
+        // isOccurrenceVisible L210: a DRAFT occurrence with isAdmin=false →
+        // falls through to `isAdmin || isCreatorOrAcceptedCoOrganizer(...)`.
+        // Caller is the creator → occurrence stays visible.
+        Event parent = persistEvent("p", EventStatus.PUBLISHED, creatorId);
+        Event child = new Event();
+        child.title = "child";
+        child.description = "d";
+        child.location = "l";
+        child.startDate = LocalDateTime.now().plusDays(10);
+        child.endDate = child.startDate.plusHours(2);
+        child.category = EventCategory.ACADEMIC;
+        child.creatorId = creatorId;
+        child.status = EventStatus.DRAFT;
+        child.parentEventId = parent.id;
+        child.persist();
+        em.flush();
+
+        List<EventDTO> occ = service.getOccurrences(parent.id, "auth0|x", false, 0, 20);
+        assertEquals(1, occ.size());
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_parentTagsNull_occurrenceGetsEmptyTags() {
+        // persistOccurrence L265: parent.tags == null → occurrence.tags is a
+        // fresh empty ArrayList rather than a copy. Drive a recurring create
+        // whose parent carries null tags.
+        CreateEventRequest base = withTags(req("recNullTags"), null);
+        CreateEventRequest r = withRecurrence(base,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 2));
+        EventDTO parent = service.create("auth0|x", r);
+        em.flush();
+        long children = Event.count("parentEventId = ?1", parent.id());
+        assertTrue(children >= 1);
+        Event firstChild = Event.<Event>find("parentEventId = ?1", parent.id()).firstResult();
+        assertTrue(firstChild.tags.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getOrganizerUuids_creatorIdNull_skipsCreatorAdd() {
+        // L396: event.creatorId == null → the `ids.add(event.creatorId)` is
+        // skipped. The accepted co-organizer is still returned.
+        Event e = persistEvent("noCreator", EventStatus.PUBLISHED, null);
+        EventCoOrganizer co = new EventCoOrganizer();
+        co.eventId = e.id;
+        co.userId = otherId;
+        co.status = CoOrganizerStatus.ACCEPTED;
+        co.persist();
+        em.flush();
+
+        List<UUID> ids = service.getOrganizerUuids(e.id);
+        assertTrue(ids.contains(otherId));
+        assertFalse(ids.contains(null));
+    }
+
+    @Test
+    @TestTransaction
+    void duplicate_sourceTitleNull_usesBaseCopyPrefix() {
+        // L626: source.title == null → baseTitleRaw = "Copie de " (no NPE),
+        // and L661 source.tags handling. Set tags=null too to hit that arm.
+        Event src = persistEvent("willBeNull", EventStatus.DRAFT, creatorId);
+        src.title = null;
+        src.tags = null;
+        em.flush();
+
+        EventDTO clone = service.duplicate(src.id, "auth0|x", false);
+        assertEquals("Copie de ", clone.title());
+        assertEquals(EventStatus.DRAFT, clone.status());
+        assertEquals(List.of(), clone.tags());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_cancelledEvent_throws409() {
+        // L688-689: status != DRAFT and != PUBLISHED (CANCELLED) → conflict
+        // with the "current status is …" message.
+        Event e = persistEvent("c", EventStatus.CANCELLED, creatorId);
+        em.flush();
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.publish(e.id, "auth0|x", false));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void publish_blankFieldsAndPastStart_throws422() {
+        // collectPublishValidationErrors L732/735/741/746: blank (non-null)
+        // title + blank location + a non-null past startDate + endDate not
+        // after start → multiple validation errors, surfaced as 422.
+        Event e = persistEvent("d", EventStatus.DRAFT, creatorId);
+        e.title = "   ";
+        e.location = "   ";
+        e.startDate = LocalDateTime.now().minusDays(2);
+        e.endDate = e.startDate.minusHours(1);
+        em.flush();
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.publish(e.id, "auth0|x", false));
+        assertEquals(422, ex.getResponse().getStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void delete_eventCreatorIdNull_throws403() {
+        // isCreator L797: event.creatorId == null short-circuits to false →
+        // a non-null caller is rejected with 403.
+        Event e = persistEvent("noCreator", EventStatus.CANCELLED, null);
+        em.flush();
+        assertThrows(ForbiddenException.class,
+                () -> service.delete(e.id, "auth0|x"));
+    }
+
+    @Test
+    void isCreatorOrAcceptedCoOrganizer_nullOperands_returnFalse() {
+        // L811 public null-safe guard — both null-operand legs return false.
+        // No persistence needed: the guard short-circuits before any DB call.
+        Event transientEvent = new Event();
+        transientEvent.creatorId = creatorId;
+        assertFalse(service.isCreatorOrAcceptedCoOrganizer(null, creatorId));
+        assertFalse(service.isCreatorOrAcceptedCoOrganizer(transientEvent, null));
+    }
 }

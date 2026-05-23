@@ -313,4 +313,77 @@ class EventResourceTest {
             .when().post("/events/" + id + "/image")
             .then().statusCode(200);
     }
+
+    @Test
+    @TestSecurity(user = "auth0|er-20")
+    void getOrganizerUuids_publishedEvent_returns200WithCreator() {
+        // L184 happy path — publish an event then read its organizer UUIDs.
+        // The creator's resolved UUID must be present in the returned set.
+        UUID creator = stageFreshUser();
+        long id = postEvent();
+        given().when().patch("/events/" + id + "/publish").then().statusCode(200);
+
+        given()
+            .when().get("/events/" + id + "/organizer-uuids")
+            .then().statusCode(200)
+            .body("", org.hamcrest.Matchers.hasItem(creator.toString()));
+    }
+
+    @Test
+    void getById_anonymousWithCheckCoOrgOf_returns200() {
+        // branch L155 — checkCoOrgOf set but caller is anonymous (auth0Id ==
+        // null) → effectiveCheck stays null, the event is still served (200).
+        // Seed a published event via an authenticated request, then read it
+        // anonymously.
+        long id;
+        try {
+            stageFreshUser();
+            id = postEvent();
+            given().when().patch("/events/" + id + "/publish").then().statusCode(200);
+        } finally {
+            JwtTestContext.clear();
+        }
+        given()
+            .queryParam("check-co-org-of", UUID.randomUUID().toString())
+            .when().get("/events/" + id)
+            .then().statusCode(200);
+    }
+
+    @Test
+    void getOccurrences_anonymous_returns200() {
+        // branch L195 — anonymous caller resolves auth0Id=null / isAdmin=false
+        // in getOccurrences and still serves a published parent (200).
+        long id;
+        try {
+            stageFreshUser();
+            id = postEvent();
+            given().when().patch("/events/" + id + "/publish").then().statusCode(200);
+        } finally {
+            JwtTestContext.clear();
+        }
+        given()
+            .when().get("/events/" + id + "/occurrences")
+            .then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|er-21")
+    void getById_checkCoOrgOf_unresolvedCallerUuid_returns200() {
+        // branch L157 — authenticated (auth0Id != null) but the caller's
+        // profile is unresolved: TestCallerIdentity.getUuid() returns null when
+        // JwtTestContext is not set. effectiveCheck stays null (callerUuid ==
+        // null short-circuits the equals), the event is still served (200).
+        // Seed a published event in a separate JWT context, then clear it so
+        // the read happens with an unresolved caller UUID.
+        long id;
+        stageFreshUser();
+        id = postEvent();
+        given().when().patch("/events/" + id + "/publish").then().statusCode(200);
+        JwtTestContext.clear(); // getUuid() -> null while still @TestSecurity-authenticated
+
+        given()
+            .queryParam("check-co-org-of", UUID.randomUUID().toString())
+            .when().get("/events/" + id)
+            .then().statusCode(200);
+    }
 }
