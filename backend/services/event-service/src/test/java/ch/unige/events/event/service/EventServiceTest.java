@@ -1193,4 +1193,61 @@ class EventServiceTest {
         assertFalse(service.isCreatorOrAcceptedCoOrganizer(null, creatorId));
         assertFalse(service.isCreatorOrAcceptedCoOrganizer(transientEvent, null));
     }
+
+    @Test
+    @TestTransaction
+    void getOccurrences_nonAdminNonCreatorDraftOccurrence_filteredOut() {
+        // isOccurrenceVisible L210: a DRAFT occurrence with isAdmin=false where
+        // the caller is neither creator nor accepted co-organizer →
+        // `isAdmin || isCreatorOrAcceptedCoOrganizer(...)` is false/false → the
+        // occurrence is filtered out. Parent is PUBLISHED (so getById passes)
+        // but the DRAFT child belongs to `otherId`, while the caller is
+        // `creatorId`.
+        Event parent = persistEvent("p", EventStatus.PUBLISHED, otherId);
+        Event child = new Event();
+        child.title = "child";
+        child.description = "d";
+        child.location = "l";
+        child.startDate = LocalDateTime.now().plusDays(10);
+        child.endDate = child.startDate.plusHours(2);
+        child.category = EventCategory.ACADEMIC;
+        child.creatorId = otherId;
+        child.status = EventStatus.DRAFT;
+        child.parentEventId = parent.id;
+        child.persist();
+        em.flush();
+
+        List<EventDTO> occ = service.getOccurrences(parent.id, "auth0|x", false, 0, 20);
+        assertTrue(occ.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void createRecurring_parentTagsNonNull_occurrenceCopiesTags() {
+        // persistOccurrence L265: parent.tags != null → occurrence.tags is a
+        // fresh copy of the parent's normalized tags (the non-null arm).
+        CreateEventRequest base = withTags(req("recWithTags"), List.of("alpha", "beta"));
+        CreateEventRequest r = withRecurrence(base,
+                new RecurrenceRequest(RecurrenceFrequency.WEEKLY, null, 2));
+        EventDTO parent = service.create("auth0|x", r);
+        em.flush();
+        Event firstChild = Event.<Event>find("parentEventId = ?1", parent.id()).firstResult();
+        assertEquals(List.of("alpha", "beta"), firstChild.tags);
+    }
+
+    @Test
+    @TestTransaction
+    void publish_endDatePresentStartNull_throws422() {
+        // collectPublishValidationErrors L744/746: endDate != null (L744 false)
+        // and startDate == null → the `event.startDate != null` operand at L746
+        // short-circuits to false (its false leg) so the end-after-start error
+        // is NOT added; the missing start error (L741) still surfaces a 422.
+        Event e = persistEvent("d", EventStatus.DRAFT, creatorId);
+        e.startDate = null;
+        e.endDate = LocalDateTime.now().plusDays(3);
+        em.flush();
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.publish(e.id, "auth0|x", false));
+        assertEquals(422, ex.getResponse().getStatus());
+    }
 }

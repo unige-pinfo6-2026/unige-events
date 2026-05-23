@@ -398,6 +398,24 @@ class EventResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "auth0|er-22", roles = "ADMIN")
+    void getOccurrences_admin_returns200() {
+        // branch L195 — authenticated ADMIN caller: !identity.isAnonymous() is
+        // true AND identity.hasRole(ROLE_ADMIN) is true, so the
+        // `identity.hasRole(ADMIN)` operand evaluates its true leg and
+        // isAdmin=true is forwarded to getOccurrences. Still serves a published
+        // parent (200).
+        long id = persistPublishedEvent(UUID.randomUUID());
+        try {
+            given()
+                .when().get("/events/" + id + "/occurrences")
+                .then().statusCode(200);
+        } finally {
+            deleteEvent(id);
+        }
+    }
+
+    @Test
     @TestSecurity(user = "auth0|er-21")
     void getById_checkCoOrgOf_unresolvedCallerUuid_returns200() {
         // branch L157 — authenticated (auth0Id != null) but the caller's

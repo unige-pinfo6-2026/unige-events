@@ -118,4 +118,21 @@ class MyAttendancesResourceTest {
             .when().get("/users/me/participations?timeframe=")
             .then().statusCode(200);
     }
+
+    @Test
+    void get_myParticipations_whitespaceTimeframe_acceptedAsNull() {
+        // A whitespace-only (URL-encoded space) ?timeframe= binds to a NON-null
+        // but blank String, so parseTimeframe (line 61) evaluates the first
+        // operand `raw == null` to FALSE and reaches the second operand
+        // `raw.isBlank()` which is TRUE → returns null. This exercises the
+        // isBlank()==true arm, which an absent param (raw==null short-circuit)
+        // never reaches.
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(userId)).thenReturn(List.of());
+
+        given()
+            .when().get("/users/me/participations?timeframe=%20")
+            .then().statusCode(200)
+            .body("$", org.hamcrest.Matchers.empty());
+    }
 }

@@ -159,6 +159,27 @@ class UserParticipationsResourceTest {
             .body("size()", Matchers.is(1));
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipations_selfWithWhitespaceTimeframe_returns200() {
+        // A whitespace-only (URL-encoded space) ?timeframe= binds to a NON-null
+        // but blank String, so parseTimeframe (line 64) evaluates the first
+        // operand `raw == null` to FALSE and the second operand `raw.isBlank()`
+        // to TRUE → returns null. This covers the raw.isBlank()==true arm, which
+        // an absent param (raw==null short-circuit) leaves unexercised. Mirrors
+        // the structure of getUserParticipations_selfWithUpcomingTimeframe.
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(callerId)).thenReturn(List.of(attending(callerId, 97L)));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(publishedEvent(97L)));
+
+        given()
+            .when().get("/users/" + callerId + "/participations?timeframe=%20")
+            .then().statusCode(200)
+            .body("size()", Matchers.is(1));
+    }
+
     @Test
     void getUserParticipations_invalidTimeframe_returns400() {
         given()

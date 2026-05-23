@@ -222,6 +222,63 @@ class ShareServiceTest {
                 () -> service.getShareInfo(e.id, null, false));
     }
 
+    // ---- L71 anti-oracle operand legs on a non-PUBLISHED event ----
+    // The previous pass only ran admin/creator/accepted-co-org on PUBLISHED
+    // events, where `event.status != PUBLISHED` short-circuits L71 before the
+    // `!isAdmin`/`!isCreator`/`!isAcceptedCoOrg` operands. These three drive a
+    // DRAFT event so `status != PUBLISHED` is true and each of the negated
+    // flags evaluates its false leg → no 404 (and no 403 at L74), code returned.
+
+    @Test
+    @TestTransaction
+    void getShareInfo_byAdminOnDraft_returnsCode() {
+        // L71: status != PUBLISHED (true) but isAdmin → `!isAdmin` is false →
+        // anti-oracle 404 skipped; L74 also passes (admin) → code returned.
+        UUID creatorId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        Event e = create(creatorId, EventStatus.DRAFT);
+        em.flush();
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        ShareResponse resp = service.getShareInfo(e.id, auth0Of(adminId), true);
+        assertNotNull(resp.shortCode());
+    }
+
+    @Test
+    @TestTransaction
+    void getShareInfo_byCreatorOnDraft_returnsCode() {
+        // L71: status != PUBLISHED (true), not admin, but isCreator →
+        // `!isCreator` is false → anti-oracle 404 skipped; L74 passes too.
+        UUID creatorId = UUID.randomUUID();
+        Event e = create(creatorId, EventStatus.DRAFT);
+        em.flush();
+        JwtTestContext.set(JwtTestHelper.jwtFor(creatorId));
+
+        ShareResponse resp = service.getShareInfo(e.id, auth0Of(creatorId), false);
+        assertNotNull(resp.shortCode());
+    }
+
+    @Test
+    @TestTransaction
+    void getShareInfo_byAcceptedCoOrgOnDraft_returnsCode() {
+        // L71: status != PUBLISHED (true), not admin, not creator, but
+        // isAcceptedCoOrg → `!isAcceptedCoOrg` is false → anti-oracle 404
+        // skipped; L74 passes too → code returned.
+        UUID creatorId = UUID.randomUUID();
+        UUID coOrgId = UUID.randomUUID();
+        Event e = create(creatorId, EventStatus.DRAFT);
+        EventCoOrganizer co = new EventCoOrganizer();
+        co.eventId = e.id;
+        co.userId = coOrgId;
+        co.status = CoOrganizerStatus.ACCEPTED;
+        co.persist();
+        em.flush();
+        JwtTestContext.set(JwtTestHelper.jwtFor(coOrgId));
+
+        ShareResponse resp = service.getShareInfo(e.id, auth0Of(coOrgId), false);
+        assertNotNull(resp.shortCode());
+    }
+
     @Test
     @TestTransaction
     void getShareInfo_doesNotPersistShareCode_whenForbidden() {
