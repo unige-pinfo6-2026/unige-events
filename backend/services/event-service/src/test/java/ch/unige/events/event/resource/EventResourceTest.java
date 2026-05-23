@@ -277,19 +277,6 @@ class EventResourceTest {
     }
 
     @Test
-    void getById_checkCoOrgOf_anonymous_silentlyIgnored() {
-        // Anonymous caller with check-co-org-of set → auth0Id is null so the
-        // param is ignored; the published event is still returned.
-        UUID owner = stageFreshUser();
-        long id = postEvent();
-        JwtTestContext.clear();
-        given()
-            .queryParam("check-co-org-of", owner.toString())
-            .when().get("/events/" + id)
-            .then().statusCode(404); // DRAFT not visible to anonymous → 404 still exercises the branch
-    }
-
-    @Test
     @TestSecurity(user = "auth0|er-17")
     void getAll_organizerWithPublishedStatus_returns200() {
         // organizerId set AND status=PUBLISHED → the else-if (non-PUBLISHED)

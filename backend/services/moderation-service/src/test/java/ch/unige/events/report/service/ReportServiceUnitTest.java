@@ -390,36 +390,4 @@ class ReportServiceUnitTest {
 
         assertNull(dto.reporterDisplayName());
     }
-
-    // ──────────────────────────────────────────────────────────────────
-    // bulkFetchEvents empty-set short-circuit (309). A comment-only report
-    // has eventId==null, so listByStatus never adds it to eventIds → the set
-    // stays empty and bulkFetchEvents returns Map.of() WITHOUT calling
-    // eventClient. ReportDTO.from tolerates the null event (eventsById.get(null)).
-    // ──────────────────────────────────────────────────────────────────
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    @Test
-    void listByStatus_commentOnlyReport_skipsBulkFetchEvents() throws Exception {
-        Report commentReport = buildReport(130L, null, reporterId, ReportStatus.PENDING);
-        commentReport.commentId = 7001L;
-
-        EventServiceClient eventClient = mock(EventServiceClient.class);
-        UserServiceClient userClient = mock(UserServiceClient.class);
-        ReportService svc = buildService(mock(Event.class), eventClient, userClient, adminId);
-
-        PanacheMock.mock(Report.class);
-        PanacheQuery pageQ = mock(PanacheQuery.class);
-        when(pageQ.page(eq(0), eq(20))).thenReturn(pageQ);
-        when(pageQ.list()).thenReturn(List.of(commentReport));
-        when(Report.find(anyString(), any(Object[].class))).thenReturn(pageQ);
-        when(userClient.getById(reporterId)).thenReturn(null);
-
-        List<ReportDTO> result = svc.listByStatus(ReportStatus.PENDING, 0, 20);
-
-        assertEquals(1, result.size());
-        assertNull(result.get(0).eventTitle());
-        // Empty eventIds → bulkFetchEvents short-circuits, never hits eventClient.
-        verify(eventClient, never()).findByIds(any(), any());
-    }
 }

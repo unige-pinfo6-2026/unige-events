@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
  * <p>Model: user-service {@code UserServiceExceptionPathsTest}.
  */
 @QuarkusTest
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "rawtypes"})
 class CommentServiceSafeGetUserTest {
 
     private CommentService newService() {
@@ -107,8 +107,12 @@ class CommentServiceSafeGetUserTest {
                 .thenThrow(new RuntimeException("CB open"));
 
         PanacheMock.mock(Comment.class);
+        // Build the paged-query mock BEFORE the outer when(...) — calling
+        // pagedQuery() (which itself stubs q.page/q.list) inside .thenReturn(...)
+        // triggers Mockito UnfinishedStubbing.
+        PanacheQuery commentPage = pagedQuery(List.of(topLevel(1L, author)));
         when(Comment.<Comment>find(anyString(), any(Object[].class)))
-                .thenReturn(pagedQuery(List.of(topLevel(1L, author))));
+                .thenReturn(commentPage);
         when(Comment.<Comment>list(anyString(), any(Object[].class)))
                 .thenReturn(List.of());
 
@@ -132,8 +136,12 @@ class CommentServiceSafeGetUserTest {
                 .thenThrow(new jakarta.ws.rs.NotFoundException("hard-deleted"));
 
         PanacheMock.mock(Comment.class);
+        // Build the paged-query mock BEFORE the outer when(...) — calling
+        // pagedQuery() (which itself stubs q.page/q.list) inside .thenReturn(...)
+        // triggers Mockito UnfinishedStubbing.
+        PanacheQuery commentPage = pagedQuery(List.of(topLevel(1L, author)));
         when(Comment.<Comment>find(anyString(), any(Object[].class)))
-                .thenReturn(pagedQuery(List.of(topLevel(1L, author))));
+                .thenReturn(commentPage);
         when(Comment.<Comment>list(anyString(), any(Object[].class)))
                 .thenReturn(List.of());
 
