@@ -1,9 +1,12 @@
 package ch.unige.events.report.service;
 
+import ch.unige.events.report.dto.CreateReportRequest;
 import ch.unige.events.report.dto.HandleReportRequest;
 import ch.unige.events.report.entity.Report;
+import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.enums.ReportReason;
@@ -16,21 +19,30 @@ import io.quarkus.test.junit.QuarkusTest;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 
 import jakarta.enterprise.event.Event;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
+import org.hibernate.exception.ConstraintViolationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Field;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -83,16 +95,28 @@ class ReportServiceUnitTest {
         setField(svc, "bannedEvent", bannedEvent);
         setField(svc, "eventClient", eventClient);
         setField(svc, "userClient", userClient);
-        CallerIdentity callerIdentity = mock(CallerIdentity.class);
-        when(callerIdentity.requireUuid()).thenReturn(callerUuid);
-        setField(svc, "callerIdentity", callerIdentity);
+        setField(svc, "callerIdentity", mockCaller(callerUuid));
         return svc;
+    }
+
+    private static CallerIdentity mockCaller(UUID callerUuid) {
+        CallerIdentity callerIdentity = mock(CallerIdentity.class);
+        // The real RequestScoped CallerIdentity throws when no UUID resolves ;
+        // here we drive requireUuid()==null to reach the service-side
+        // "profile not found" guards (unreachable through the CDI proxy).
+        when(callerIdentity.requireUuid()).thenReturn(callerUuid);
+        return callerIdentity;
     }
 
     private static void setField(Object target, String name, Object value) throws Exception {
         Field f = ReportService.class.getDeclaredField(name);
         f.setAccessible(true);
         f.set(target, value);
+    }
+
+    @AfterEach
+    void resetPanache() {
+        PanacheMock.reset();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -206,5 +230,105 @@ class ReportServiceUnitTest {
                 () -> svc.handle(999L, "auth0|admin",
                         new HandleReportRequest(ReportStatus.REVIEWED, null)));
         verify(bannedEvent, never()).fire(any(EventBannedEvent.class));
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // requireUuid()==null guards — only reachable by driving CallerIdentity
+    // to return null (the RequestScoped bean throws instead). Each guard maps
+    // the missing-profile state to a 404 anti-oracle envelope.
+    // ──────────────────────────────────────────────────────────────────
+
+    @Test
+    void create_callerUuidNull_throwsProfileNotFound() throws Exception {
+        ReportService svc = buildService(mock(Event.class), mock(EventServiceClient.class),
+                mock(UserServiceClient.class), null);
+
+        assertThrows(NotFoundException.class,
+                () -> svc.create(800L, "auth0|ghost",
+                        new CreateReportRequest(ReportReason.SPAM, null)));
+    }
+
+    @Test
+    void handle_callerUuidNull_throwsProfileNotFound() throws Exception {
+        Report target = buildReport(80L, 801L, reporterId, ReportStatus.PENDING);
+        ReportService svc = buildService(mock(Event.class), mock(EventServiceClient.class),
+                mock(UserServiceClient.class), null);
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(80L)).thenReturn(Optional.of(target));
+
+        assertThrows(NotFoundException.class,
+                () -> svc.handle(80L, "auth0|ghost",
+                        new HandleReportRequest(ReportStatus.DISMISSED, null)));
+    }
+
+    @Test
+    void createForComment_callerUuidNull_throwsProfileNotFound() throws Exception {
+        ReportService svc = buildService(mock(Event.class), mock(EventServiceClient.class),
+                mock(UserServiceClient.class), null);
+
+        assertThrows(NotFoundException.class,
+                () -> svc.createForComment(810L, "auth0|ghost",
+                        new CreateReportRequest(ReportReason.SPAM, null)));
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // createForComment double-tap — the flush() PersistenceException branch
+    // (183-188). A real Postgres surfaces the partial-UK violation ; here a
+    // mocked EntityManager throws so both arms of the catch are covered.
+    // ──────────────────────────────────────────────────────────────────
+
+    private ReportService buildCommentService(EntityManager em,
+                                              EngagementServiceClient engagementClient,
+                                              UUID callerUuid) throws Exception {
+        ReportService svc = buildService(mock(Event.class), mock(EventServiceClient.class),
+                mock(UserServiceClient.class), callerUuid);
+        setField(svc, "engagementClient", engagementClient);
+        setField(svc, "entityManager", em);
+        return svc;
+    }
+
+    private static PersistenceException ukViolation(String constraintName) {
+        ConstraintViolationException cve = new ConstraintViolationException(
+                "duplicate key value violates unique constraint",
+                new SQLException("ERROR: duplicate key", "23505"),
+                constraintName);
+        return new PersistenceException(cve);
+    }
+
+    @Test
+    void createForComment_flushPartialUkConflict_throws409() throws Exception {
+        EntityManager em = mock(EntityManager.class);
+        EngagementServiceClient engagementClient = mock(EngagementServiceClient.class);
+        ReportService svc = buildCommentService(em, engagementClient, reporterId);
+
+        when(engagementClient.getCommentVisibility(eq(900L), any(UUID.class)))
+                .thenReturn(new CommentVisibilityProjection(900L, 1001L, creatorId, true));
+        PanacheMock.mock(Report.class);
+        doThrow(ukViolation("uq_report_comment_partial")).when(em).flush();
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> svc.createForComment(900L, "auth0|x",
+                        new CreateReportRequest(ReportReason.SPAM, "dup")));
+        assertEquals(409, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void createForComment_flushNonConflict_rethrows() throws Exception {
+        EntityManager em = mock(EntityManager.class);
+        EngagementServiceClient engagementClient = mock(EngagementServiceClient.class);
+        ReportService svc = buildCommentService(em, engagementClient, reporterId);
+
+        when(engagementClient.getCommentVisibility(eq(901L), any(UUID.class)))
+                .thenReturn(new CommentVisibilityProjection(901L, 1001L, creatorId, true));
+        PanacheMock.mock(Report.class);
+        // A genuine DB error (not the partial UK) must surface as-is, not 409.
+        PersistenceException raw = ukViolation("some_other_constraint");
+        doThrow(raw).when(em).flush();
+
+        PersistenceException thrown = assertThrows(PersistenceException.class,
+                () -> svc.createForComment(901L, "auth0|x",
+                        new CreateReportRequest(ReportReason.SPAM, "boom")));
+        assertSame(raw, thrown);
     }
 }
