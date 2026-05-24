@@ -255,31 +255,45 @@ Wrap inline (`MemoryRouter`/contexts) + mock des services/hooks consommés. Cibl
 
 ## §7. Checklist finale de validation
 
-- [ ] **0 nouvelle exclusion** : `sonar-project.properties` inchangé ; aucun `c8 ignore` / `istanbul ignore` / skip de couverture (D2).
-- [ ] **0 fichier `src/` applicatif modifié** (`git diff --stat origin/main` = uniquement `*.test.tsx` / `*.test.ts` + cette spec) — sauf bug **signalé + accordé**.
-- [ ] Titre PR `test(frontend): maximise coverage without exclusions` ; branche `feature/frontend-coverage-max` → `main` (D1).
-- [ ] `npm run lint` vert (ESLint + `tsc` strict, **pas de `any`**).
-- [ ] `npm run test:coverage` vert + lcov overall en hausse vs baseline (L → ~99 %, Br → ~97-98 %).
-- [ ] Duplication ≤ 3 % sur le nouveau code (helpers locaux factorisés, D4).
-- [ ] CI verte **sauf `Deploy / Deploy to Preview`** ; **gate SonarCloud `unige-events-frontend` franchi** (new-code ≥ 80 %, dup ≤ 3 %, ratings A).
-- [ ] Plafond (C) **documenté** en §6, aucun test bidon (D3).
-- [ ] §8 remplie avec le résultat chiffré.
+- [x] **0 nouvelle exclusion** : `sonar-project.properties` inchangé ; aucun `c8 ignore` / `istanbul ignore` / skip de couverture (D2).
+- [x] **0 fichier `src/` applicatif modifié** (`git diff --stat origin/main` = uniquement `*.test.tsx` / `*.test.ts` + cette spec).
+- [x] Titre PR `test(frontend): maximise coverage without exclusions` ; branche `feature/frontend-coverage-max` → `main` (D1).
+- [x] `npm run lint` (`eslint .`) vert + `tsc -b --noEmit` vert (TS strict, **pas de `any`**).
+- [x] `npm run test:coverage` vert + lcov overall en hausse (L 98,5 → **99,97 %**, Br 92,0 → **97,13 %**).
+- [ ] Duplication ≤ 3 % sur le nouveau code (helpers locaux factorisés, D4) — _confirmé par le gate SonarCloud en CI._
+- [ ] CI verte **sauf `Deploy / Deploy to Preview`** ; **gate SonarCloud `unige-events-frontend` franchi** (new-code ≥ 80 %, dup ≤ 3 %, ratings A) — _en cours de vérification._
+- [x] Plafond (C) **documenté** en §6 + §8.2, aucun test bidon (D3).
+- [x] §8 remplie avec le résultat chiffré.
 
 ---
 
 ## §8. Résultat d'implémentation
 
-> _À compléter par la conversation d'implémentation._
+Mesuré en local (`npm run test:coverage`, lcov overall) — **2185 tests verts / 163 fichiers** (avant : 2009 / 159 ; **+176 tests, +4 fichiers**). `eslint .` ✅, `tsc -b --noEmit` ✅, **0 fichier `src/` applicatif modifié**, **0 nouvelle exclusion**.
 
 | Métrique | Avant | Après |
 |---|---|---|
-| Lines | 98,50 % (3960/4020) | — |
-| Branches | 92,01 % (2661/2892) | — |
-| Blend type-Sonar | ≈ 95,84 % | — |
-| Gate SonarCloud `unige-events-frontend` | — | — |
+| Lines | 98,50 % (3960/4020) | **99,97 % (4029/4030)** |
+| Branches | 92,01 % (2661/2892) | **97,13 % (2816/2899)** |
+| Statements | 96,84 % (4388/4531) | **98,78 % (4486/4541)** |
+| Functions | 97,03 % (1178/1214) | **99,42 % (1213/1220)** |
+| Blend type-Sonar (L+Br)/(L+Br) | ≈ 95,84 % | **≈ 98,79 %** |
 
-### §8.1 Bug applicatif éventuel
-> _À documenter si rencontré (signalé / accordé / corrigé)._
+> Les dénominateurs montent légèrement (4020→4030 L, 2892→2899 Br) parce que des fichiers jusque-là **jamais chargés** par un test (`AuthProvider`, `FacultyMarquee`/`FacultyCard` + les SVG facultés) entrent désormais dans le rapport V8 — instrumentés **et** couverts.
 
-### §8.2 Plafond final atteint
-> _Liste finale des C résiduels + % blend atteint._
+### §8.1 Bug applicatif
+**Aucun bug applicatif détecté.** Chaque cible non couverte testée s'est comportée correctement ; aucun code applicatif n'a été modifié. (Note de sécurité validée au passage : la garde `isRelative` de `AuthProvider.onRedirectCallback` rejette correctement les `returnTo` protocol-relatifs `//` et absolus → pas d'open-redirect.)
+
+### §8.2 Plafond final atteint — **≈ 98,79 % blend** (99,97 % L / 97,13 % Br)
+Résiduel = **1 ligne + 83 branches**, 100 % classées **C** (jamais forcées, jamais exclues), regroupées par raison structurelle :
+
+| Catégorie C | Exemples (fichier @ ligne) | Raison |
+|---|---|---|
+| **Garde anti-course** `if (requestIdRef.current !== id) return` / `if (!isCurrent()) return` | MentionAutocomplete @106/108/116 · UsernameAutocomplete @127/131/136/141 · useFeed @105 · useAttendees @73 · useOccurrences @50 | Branche « requête périmée » — non-déterministe, un test forcerait une course flaky. |
+| **Garde montage tardif** `if (cancelled) return` / `if (!mountedRef.current) return` | useAttendance @160/186 · useUserProfile @67 · useUserParticipations @45 · ProfileEditPage @138/142 · FollowListPage @232/252 | Ne se déclenche qu'après démontage/redondance — inatteignable sans simuler un cycle de vie artificiel. |
+| **Garde bouton désactivé** `if (pending) return` derrière `disabled={…}` | EventEditPage @157 · FollowButton @73 · FollowRequestsPanel @128/140 · EventAttachmentsEditor @81/109 · ImageCropper @26 · CommentItem @84/161 | happy-dom/jsdom ne déclenche pas `onClick` sur un bouton désactivé → le re-entry guard est inatteignable par l'UI. |
+| **Garde de ref détachée** `if (!el/!t) return` | MentionAutocomplete @76/80/201 · CommentForm @56 · PendingAttachmentsEditor @61 · TagInput @20/29 | La ref reste montée pendant le test ; la branche nulle = démontage concurrent réel. |
+| **Branche interdite par le type / état impossible** | useEventForm @185 (`!datePart` ⇔ valeur en `T`) · @718 (`category \|\| "OTHER"`, validé requis) · EventDetailPage @75/419/431/445/460 · EventStatsPage @82 · EventSearchSidebar @23 · UserAvatar @23 / UserBanner @22 · CoOrganizersEditor `Array.isArray` else · ProfilePage @181/345/360 | Le typage TS (ou un invariant amont) rend la branche structurellement morte. |
+| **Repli inatteignable / défensif** | EventAttachmentsEditor @166 (`limitExceeded`, validate rejette d'abord) · EventCalendar @100/143 (react-big-calendar normalise `views`) · icsGenerator @39 (ligne vide, helper privé) · useAdminFeatured @75 · useEventStats @69 · Navbar @78 · AuthProvider @22 (fallback env `audience`) | Repli/fallback qu'aucun chemin réel n'emprunte (helper privé, dépendance externe, config env). |
+
+**100 % est inatteignable sans tests artificiels (interdit par D3).** Le seul résiduel de *ligne* (useEventForm:185) est une garde défensive morte ; tout le reste est branche. Objectif « max utile sans exclusion » **atteint**.
