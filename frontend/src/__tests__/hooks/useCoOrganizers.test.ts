@@ -141,6 +141,41 @@ describe('useCoOrganizers', () => {
     expect(result.current.coOrganizers).toEqual([alice, bob])
   })
 
+  it('invite short-circuits to event_missing when eventId is null (line 56)', async () => {
+    const { result } = renderHook(() => useCoOrganizers(null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite(UUID_ALICE))
+    expect(outcome).toEqual({ ok: false, error: 'event_missing' })
+    expect(mockInvite).not.toHaveBeenCalled()
+  })
+
+  it('remove is a no-op when eventId is null (line 72)', async () => {
+    const { result } = renderHook(() => useCoOrganizers(null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.remove(UUID_ALICE)
+    })
+    expect(mockRemove).not.toHaveBeenCalled()
+    expect(result.current.coOrganizers).toEqual([])
+  })
+
+  it('falls through to default error when response exists but has no status (line 90 — `?? null`)', async () => {
+    // `response` present but `status` undefined → extractHttpStatus returns null
+    // via the `?? null` branch → mapInviteError default message.
+    mockList.mockResolvedValue([alice])
+    mockInvite.mockRejectedValue({ response: {} })
+
+    const { result } = renderHook(() => useCoOrganizers(42))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const outcome = await act(async () => result.current.invite(UUID_BOB))
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toMatch(/erreur lors de l.invitation/i)
+    expect(result.current.coOrganizers).toEqual([alice])
+  })
+
   // ─── mapInviteError / extractHttpStatus coverage ─────────────────────────
 
   it('maps 409 to "déjà co-organisateur" message', async () => {

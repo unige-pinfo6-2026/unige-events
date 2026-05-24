@@ -53,6 +53,16 @@ describe('computeStripLayout', () => {
     expect(layout.showViewAll).toBe(true)
   })
 
+  it('still shows one card when the inner width goes non-positive after padding', () => {
+    // availableWidth = 20 is positive (so computeStripLayout does not early-return)
+    // but after the 32px horizontal padding innerWidth = -12 ≤ 0, driving
+    // slotsFor into its `usableWidth <= 0 → return 0` branch @line 18. The
+    // Math.max(1, …) floor then keeps a single card on screen.
+    const layout = computeStripLayout(20, 3)
+    expect(layout.displayCount).toBe(1)
+    expect(layout.showViewAll).toBe(true)
+  })
+
   it('keeps the "Voir tout" button from stealing a card slot on a medium container', () => {
     // Regression: on a container ~1024 px (SectionWrapper size="lg"), the old algorithm
     // reserved the button width before computing slots and collapsed from 2 cards to 1.

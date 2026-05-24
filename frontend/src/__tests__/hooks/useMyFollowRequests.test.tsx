@@ -153,6 +153,23 @@ describe('useMyFollowRequests', () => {
     expect(result.current.rows.length).toBe(1)
   })
 
+  it('reject() rolls back and rethrows when the API rejects (lines 102-103)', async () => {
+    mockGetRequests.mockResolvedValue([aliceRequest])
+    mockGetProfile.mockResolvedValue(aliceProfile)
+    mockReject.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useMyFollowRequests())
+    await waitFor(() => expect(result.current.rows.length).toBe(1))
+
+    await expect(
+      act(async () => { await result.current.reject(aliceRequest.id) }),
+    ).rejects.toThrow('boom')
+
+    // Optimistic removal was rolled back — the row is back.
+    expect(result.current.rows.length).toBe(1)
+    expect(result.current.rows[0].request.id).toBe(aliceRequest.id)
+  })
+
   it('refresh() re-fetches the list', async () => {
     mockGetRequests
       .mockResolvedValueOnce([aliceRequest])

@@ -256,6 +256,27 @@ describe('useSearch', () => {
     expect(result.current.suggestions).toEqual([])
   })
 
+  it('keeps existing suggestions when fetchSuggestions rejects with a CanceledError', async () => {
+    mockFetchSuggestions.mockResolvedValue(['A', 'B'])
+
+    const { result } = renderHook(() => useSearch(), { wrapper })
+
+    act(() => { result.current.setQuery('conf') })
+    await act(async () => { await vi.runAllTimersAsync() })
+    expect(result.current.suggestions).toHaveLength(2)
+
+    // An aborted request rejects with a CanceledError — the suggestions catch
+    // must early-return (line 97) WITHOUT clearing the existing suggestions.
+    const canceled = new Error('canceled')
+    canceled.name = 'CanceledError'
+    mockFetchSuggestions.mockRejectedValue(canceled)
+
+    act(() => { result.current.setQuery('confer') })
+    await act(async () => { await vi.runAllTimersAsync() })
+
+    expect(result.current.suggestions).toEqual(['A', 'B'])
+  })
+
   it('limits suggestions to 5 items', async () => {
     mockFetchSuggestions.mockResolvedValue(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
 

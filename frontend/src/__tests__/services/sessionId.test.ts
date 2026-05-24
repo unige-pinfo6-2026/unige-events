@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getOrCreateSessionId } from '@/services/sessionId'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -37,5 +37,18 @@ describe('sessionId', () => {
     const preset = '11111111-2222-4333-8444-555555555555'
     localStorage.setItem(KEY, preset)
     expect(getOrCreateSessionId()).toBe(preset)
+  })
+
+  it('falls back to a one-off UUID when localStorage throws (private mode / quota)', () => {
+    // happy-dom pitfall: spy the INSTANCE, not the prototype. Simulates a
+    // browser that throws on access (private mode, disabled storage).
+    const getItem = vi.spyOn(localStorage, 'getItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
+
+    const id = getOrCreateSessionId()
+    expect(UUID_RE.test(id)).toBe(true)
+
+    getItem.mockRestore()
   })
 })

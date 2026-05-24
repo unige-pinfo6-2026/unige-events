@@ -139,6 +139,28 @@ describe('useEvent', () => {
     expect(result.current.event?.title).toBe('Second')
   })
 
+  it('discards a stale rejection when id changes mid-flight (catch isCurrent guard)', async () => {
+    let rejectFirst: (e: Error) => void = () => {}
+    const firstPromise = new Promise<typeof mockEvent>((_, r) => { rejectFirst = r })
+    const secondEvent = { ...mockEvent, id: 2, title: 'Second' }
+    mockGetById
+      .mockReturnValueOnce(firstPromise)
+      .mockResolvedValueOnce(secondEvent)
+
+    const { result, rerender } = renderHook(({ id }) => useEvent(id), {
+      initialProps: { id: 1 },
+    })
+
+    rerender({ id: 2 })
+    await waitFor(() => expect(result.current.event?.title).toBe('Second'))
+
+    // Stale rejection for id=1 lands after id=2 loaded — the catch `!isCurrent()`
+    // guard (line 48) must discard it: no error surfaced for the live id=2.
+    await act(async () => { rejectFirst(new Error('Network error')) })
+    expect(result.current.event?.title).toBe('Second')
+    expect(result.current.error).toBeNull()
+  })
+
   it('does not setState after unmount', async () => {
     let resolve: (v: typeof mockEvent) => void = () => {}
     mockGetById.mockReturnValue(new Promise<typeof mockEvent>((r) => { resolve = r }))

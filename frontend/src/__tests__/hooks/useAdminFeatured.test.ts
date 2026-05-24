@@ -234,6 +234,26 @@ describe('useAdminFeatured — featureEvent', () => {
     expect(ok).toBe(true)
   })
 
+  it('returns true but does not mutate lists when the id is absent from searchResults (line 83 false branch)', async () => {
+    // featureEvent succeeds server-side, but the id was never in searchResults
+    // (e.g. results were cleared by a newer query) → `featured` is undefined,
+    // so neither featuredEvents nor searchResults change.
+    mockGetFeaturedEvents.mockResolvedValue([makeEvent(1)])
+    mockFeatureEvent.mockResolvedValue(undefined)
+
+    const { result } = renderHook(() => useAdminFeatured())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let ok: boolean | undefined
+    await act(async () => { ok = await result.current.featureEvent(404) })
+
+    expect(mockFeatureEvent).toHaveBeenCalledWith(404)
+    expect(ok).toBe(true)
+    // No event with id=404 existed in searchResults → lists untouched.
+    expect(result.current.featuredEvents).toEqual([makeEvent(1)])
+    expect(result.current.searchResults).toEqual([])
+  })
+
   it('returns false when featureEvent API fails', async () => {
     mockGetFeaturedEvents.mockResolvedValue([])
     mockFeatureEvent.mockRejectedValue(new Error('Forbidden'))
