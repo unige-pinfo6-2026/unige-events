@@ -32,7 +32,15 @@ const DEFAULT_NS = 'https://unige-events/roles'
 // Unset the env var before the first import of the module under test so the
 // `?? DEFAULT_NS` fallback branch runs at module-load time.
 beforeAll(() => {
+  // In Vitest 4, `stubEnv(name, undefined)` DELETES the key (it does not set the
+  // literal string "undefined"), so `import.meta.env.VITE_AUTH0_ROLES_CLAIM`
+  // becomes nullish and the `?? DEFAULT_NS` fallback fires.
   vi.stubEnv('VITE_AUTH0_ROLES_CLAIM', undefined as unknown as string)
+  // Drop any cached copy of AuthContext so the dynamic import in each test
+  // re-evaluates the module under THIS stub — deterministic even if another
+  // file in the same worker had imported it first (belt-and-braces on top of
+  // Vitest's per-file isolation).
+  vi.resetModules()
 })
 
 afterEach(() => {
