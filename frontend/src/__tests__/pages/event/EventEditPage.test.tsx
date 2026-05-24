@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventEditPage from '@/pages/event/EventEditPage'
 import { ToastProvider } from '@/contexts/ToastContext'
 import ToastsWrapper from '@/components/utils/Toast'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 vi.mock('@/services/eventApi', () => ({
   createEvent: vi.fn(),
@@ -15,6 +16,11 @@ vi.mock('@/services/eventApi', () => ({
 }))
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
+
+vi.mock('@/services/attachmentApi', () => ({
+  uploadEventAttachment: vi.fn(),
+  deleteEventAttachment: vi.fn(),
+}))
 
 vi.mock('@/components/utils/ImageCropper', () => ({
   default: ({ onCropComplete, onCancel, src }: { onCropComplete: (b: Blob) => void; onCancel: () => void; src: string }) => (
@@ -49,6 +55,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 import { deleteEvent, getById, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { uploadEventAttachment } from '@/services/attachmentApi'
 import { useAuth } from '@/hooks/useAuth'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 
@@ -56,6 +63,7 @@ const mockGetById = getById as ReturnType<typeof vi.fn>
 const mockUpdateEvent = updateEvent as ReturnType<typeof vi.fn>
 const mockUploadEventImage = uploadEventImage as ReturnType<typeof vi.fn>
 const mockDeleteEvent = deleteEvent as ReturnType<typeof vi.fn>
+const mockUploadEventAttachment = uploadEventAttachment as ReturnType<typeof vi.fn>
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
 const existingEvent = {
@@ -454,5 +462,108 @@ describe('EditEventPage', () => {
       setTimeout(r, 0)
     })
     // No crash = cancelled guard worked
+  })
+
+  describe('residual conditional branches', () => {
+    it('renders the skeleton with the light-theme colour token', () => {
+      // ThemeProvider seeds from localStorage; 'light' drives the non-dark
+      // branch of skeletonColor. getById never resolves → stays on the skeleton.
+      localStorage.setItem('theme', 'light')
+      mockGetById.mockReturnValue(new Promise(() => {}))
+
+      render(
+        <ThemeProvider>
+          <ToastProvider>
+            <ToastsWrapper />
+            <MemoryRouter initialEntries={['/events/42/edit']}>
+              <Routes>
+                <Route path='/events/:id/edit' element={<EventEditPage />} />
+              </Routes>
+            </MemoryRouter>
+          </ToastProvider>
+        </ThemeProvider>,
+      )
+
+      expect(document.querySelector('[data-boneyard="event-edit"]')).toBeTruthy()
+      localStorage.removeItem('theme')
+    })
+
+    it('treats a null auth user as a null callerId (still loads the event)', async () => {
+      // user === null → callerId resolves through the `?? null` fallback. The
+      // page still loads (the backend authorises via the route), it just never
+      // flags the viewer as creator.
+      mockUseAuth.mockReturnValue({ user: null, isAdmin: false })
+      mockGetById.mockResolvedValue(existingEvent)
+
+      renderPage()
+
+      await waitFor(() => expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy(), { timeout: 10000 })
+    })
+
+    it('hides the co-organizers management panel for a non-creator co-organizer', async () => {
+      // callerId !== creatorId → isCreator false → coOrganizersSection is undefined.
+      mockUseAuth.mockReturnValue({ user: { id: 'a-different-co-organizer' }, isAdmin: false })
+      mockGetById.mockResolvedValue(existingEvent)
+
+      renderPage()
+
+      await waitFor(() => expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy(), { timeout: 10000 })
+      // The "Co-organisateurs" management heading is creator-only.
+      expect(screen.queryByText(/Co-organisateurs/i)).toBeNull()
+    })
+
+    it('does not set an error after unmount when getById rejects (cancelled cleanup)', async () => {
+      let rejectGet!: (e: Error) => void
+      mockGetById.mockReturnValue(new Promise((_res, rej) => { rejectGet = rej }))
+
+      const { unmount } = renderPage()
+      unmount()
+
+      // Rejecting after unmount must hit the `if (!cancelled)` false branch in
+      // the catch — no setError, no act() warning, no crash.
+      await new Promise<void>((r) => {
+        rejectGet(new Error('boom'))
+        setTimeout(r, 0)
+      })
+    })
+
+    it('shows the "Brouillon sans titre" fallback in the delete modal when the draft has no title', async () => {
+      mockGetById.mockResolvedValue({ ...draftEvent, title: '' })
+
+      renderPage()
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Supprimer le brouillon' })).toBeTruthy(), { timeout: 10000 })
+      fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
+
+      expect(screen.getByText(/Brouillon sans titre/)).toBeTruthy()
+    })
+
+    it('merges a freshly uploaded attachment into the event via the editor onChange', async () => {
+      mockGetById.mockResolvedValue(existingEvent)
+      mockUploadEventAttachment.mockResolvedValue({
+        id: 3,
+        fileName: 'annexe.pdf',
+        fileUrl: 'http://minio:9000/bucket/event-attachments/annexe.pdf',
+        downloadUrl: '/api/events/42/attachments/3/download',
+        fileSize: 1024,
+        mimeType: 'application/pdf',
+        uploadedById: 'u-1',
+        uploadedAt: '2026-05-18T10:00:00Z',
+      })
+
+      renderPage()
+      await waitFor(() => expect(screen.getByDisplayValue(existingEvent.title)).toBeTruthy(), { timeout: 10000 })
+
+      const input = document.querySelector<HTMLInputElement>('#event-attachments-input')
+      if (!input) throw new Error('missing attachments input')
+      fireEvent.change(input, { target: { files: [new File(['x'], 'annexe.pdf', { type: 'application/pdf' })] } })
+
+      fireEvent.click(screen.getByRole('button', { name: /Uploader/ }))
+
+      // onChange([...attachments, uploaded]) → setEvent merges it into the
+      // event, so the uploaded file now appears in the "joints" list with its
+      // download anchor.
+      await waitFor(() => expect(screen.getByRole('link', { name: 'Télécharger annexe.pdf' })).toBeTruthy())
+    })
   })
 })

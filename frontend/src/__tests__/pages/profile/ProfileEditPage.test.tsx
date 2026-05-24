@@ -628,5 +628,78 @@ describe('ProfileEditPage', () => {
       expect(mockUpdateProfile).not.toHaveBeenCalled()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
+
+    it('falls back to the idle helper text when the username field is cleared', async () => {
+      // L116/117/118 — empty input short-circuits to 'idle' before any probe.
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: '' } })
+      // 'idle' renders the default helper copy and never hits the network.
+      expect(await screen.findByText(/caractères, lettres minuscules/)).toBeTruthy()
+      expect(mockCheckUsernameAvailable).not.toHaveBeenCalled()
+    })
+
+    it('shows "Vérification impossible. Réessayez." when the availability probe rejects', async () => {
+      // L142/143 — the live-check .catch flips the status to 'error'.
+      mockCheckUsernameAvailable.mockRejectedValue(new Error('network down'))
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+
+      fireEvent.change(input, { target: { value: 'probe.fails' } })
+      await waitFor(() => {
+        expect(mockCheckUsernameAvailable).toHaveBeenCalledWith('probe.fails')
+      })
+      expect(await screen.findByText('Vérification impossible. Réessayez.')).toBeTruthy()
+    })
+
+    it('blocks submit with a toast when the username is confirmed taken', async () => {
+      // L231/236/237 — usernameStatus === 'taken' short-circuits the submit.
+      mockCheckUsernameAvailable.mockResolvedValue(false)
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+
+      fireEvent.change(input, { target: { value: 'pris.handle' } })
+      expect(await screen.findByText('Déjà pris.')).toBeTruthy()
+
+      fireEvent.submit(document.querySelector('form')!)
+      expect(
+        await screen.findByText('Le nom d’utilisateur saisi est invalide. Corrigez-le avant d’enregistrer.'),
+      ).toBeTruthy()
+      expect(mockUpdateUsername).not.toHaveBeenCalled()
+      expect(mockUpdateProfile).not.toHaveBeenCalled()
+    })
+
+    it('blocks submit with a toast when the username is locally invalid', async () => {
+      // L231 (invalid branch) — pattern KO also short-circuits the submit.
+      renderProfileEditPage()
+      const input = await screen.findByPlaceholderText('jean.dupont')
+
+      fireEvent.change(input, { target: { value: 'ab' } })
+      expect(await screen.findByText(/Format invalide/)).toBeTruthy()
+
+      fireEvent.submit(document.querySelector('form')!)
+      expect(
+        await screen.findByText('Le nom d’utilisateur saisi est invalide. Corrigez-le avant d’enregistrer.'),
+      ).toBeTruthy()
+      expect(mockUpdateUsername).not.toHaveBeenCalled()
+    })
+
+    it('surfaces the generic error toast on a non-409 failure from updateUsername', async () => {
+      // L253[if #1] false + L258 — a non-AxiosError (or non-409) rethrows and
+      // is caught by the outer handler → generic error toast.
+      mockUpdateUsername.mockRejectedValue(new Error('500 boom'))
+      renderProfileEditPage()
+
+      const input = await screen.findByPlaceholderText('jean.dupont')
+      fireEvent.change(input, { target: { value: 'new.handle' } })
+      fireEvent.submit(document.querySelector('form')!)
+
+      await waitFor(() => {
+        expect(mockUpdateUsername).toHaveBeenCalledWith('new.handle')
+      })
+      expect(await screen.findByText('Une erreur est survenue. Veuillez réessayer.')).toBeTruthy()
+      expect(mockUpdateProfile).not.toHaveBeenCalled()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
   })
 })

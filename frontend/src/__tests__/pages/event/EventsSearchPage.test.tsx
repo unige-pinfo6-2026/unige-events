@@ -184,4 +184,55 @@ describe('EventsSearchPage', () => {
     renderPage()
     expect(document.querySelector('[data-boneyard="search-results"]')).toBeTruthy()
   })
+
+  it('forwards typing in the search input to setQuery', () => {
+    const setQuery = vi.fn()
+    mockUseSearch.mockReturnValue({ ...baseSearch, setQuery })
+    renderPage()
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Rechercher' }), { target: { value: 'conférence' } })
+    expect(setQuery).toHaveBeenCalledWith('conférence')
+  })
+
+  it('reopens the suggestions dropdown on focus when suggestions exist', () => {
+    mockUseSearch.mockReturnValue({ ...baseSearch, suggestions: ['FocusSuggestion'] })
+    renderPage()
+
+    // Close it first via Escape, then refocus to exercise the onFocus reopen branch.
+    const input = screen.getByRole('textbox', { name: 'Rechercher' })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+
+    fireEvent.focus(input)
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
+  it('does not open the dropdown on focus when there are no suggestions', () => {
+    mockUseSearch.mockReturnValue({ ...baseSearch, suggestions: [] })
+    renderPage()
+
+    fireEvent.focus(screen.getByRole('textbox', { name: 'Rechercher' }))
+    expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('keeps the suggestions dropdown open on a non-Escape key', () => {
+    mockUseSearch.mockReturnValue({ ...baseSearch, suggestions: ['ArrowSuggestion'] })
+    renderPage()
+
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Rechercher' }), { key: 'ArrowDown' })
+    // Non-Escape keys are ignored — the dropdown stays open.
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
+  it('keeps suggestions open when the mousedown lands inside the input (not an outside click)', () => {
+    mockUseSearch.mockReturnValue({ ...baseSearch, suggestions: ['InsideSuggestion'] })
+    renderPage()
+
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    // Clicking inside the input fails the `!inputRef.current.contains(target)`
+    // guard, so the outside-click handler returns without closing the dropdown.
+    fireEvent.mouseDown(screen.getByRole('textbox', { name: 'Rechercher' }))
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
 })

@@ -494,6 +494,17 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
   })
+
+  it('shows an error message when the legacy UUID lookup rejects', async () => {
+    // L309 — getUserById .catch sets the error state on the legacy path.
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserById.mockRejectedValue(new Error('Network error'))
+
+    renderProfilePage(OTHER_UUID)
+
+    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+  })
 })
 
 describe('ProfilePage — FollowRequestsPanel on /profile/me (SCRUM-110)', () => {

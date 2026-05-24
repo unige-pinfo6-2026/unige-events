@@ -16,7 +16,7 @@ vi.mock('@/hooks/useAuth', () => ({
 }))
 
 vi.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'dark', toggleTheme: vi.fn() }),
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
 }))
 
 vi.mock('@/components/feed/Timeline', () => ({
@@ -44,9 +44,11 @@ vi.mock('boneyard-js/react', () => ({
 
 import { useFeed } from '@/hooks/useFeed'
 import { useAuth } from '@/hooks/useAuth'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseFeed = useFeed as ReturnType<typeof vi.fn>
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 function defaultFeed(overrides: Partial<UseFeedResult> = {}): UseFeedResult {
   return {
@@ -94,6 +96,7 @@ function renderPage() {
 beforeEach(() => {
   // Default: an authenticated visitor (so the Tous / Mes abonnements toggle renders).
   mockUseAuth.mockReturnValue({ user: { id: 'u1' }, isLoading: false })
+  mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: vi.fn() })
   // IntersectionObserver is used with `new` → must be a class/constructor
   class MockIntersectionObserver {
     observe = vi.fn()
@@ -223,5 +226,50 @@ describe('FeedPage', () => {
     // Simulate intersection
     capturedCallback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)
     expect(loadMore).toHaveBeenCalledOnce()
+  })
+
+  it('does NOT call loadMore when the sentinel is reported as not intersecting', () => {
+    // L64[if #1] — the guard short-circuits when isIntersecting is false.
+    const loadMore = vi.fn()
+    const groups: FeedGroup[] = [
+      { date: '2026-04-28', events: [makeEvent(1)] },
+    ]
+    mockUseFeed.mockReturnValue(defaultFeed({ groups, hasMore: true, loadMore }))
+
+    let capturedCallback: IntersectionObserverCallback = () => {}
+    class CapturingObserver {
+      observe = vi.fn()
+      disconnect = vi.fn()
+      constructor(cb: IntersectionObserverCallback) { capturedCallback = cb }
+    }
+    vi.stubGlobal('IntersectionObserver', CapturingObserver)
+
+    renderPage()
+
+    capturedCallback([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver)
+    expect(loadMore).not.toHaveBeenCalled()
+  })
+
+  it('switches back to "Tous" after selecting "Mes abonnements"', () => {
+    // L99 — the "Tous" button onClick (only "Mes abonnements" was clicked before).
+    mockUseFeed.mockReturnValue(defaultFeed())
+    renderPage()
+    const tousBtn = screen.getByText('Tous').closest('button')!
+    const aboBtn = screen.getByText('Mes abonnements').closest('button')!
+
+    fireEvent.click(aboBtn)
+    expect(aboBtn.getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(tousBtn)
+    expect(tousBtn.getAttribute('aria-pressed')).toBe('true')
+    expect(aboBtn.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('renders under the light theme (light skeletonColor branch)', () => {
+    // L54[cond-expr #1] — the light branch of the skeletonColor ternary.
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockUseFeed.mockReturnValue(defaultFeed({ loading: true, groups: [] }))
+    renderPage()
+    expect(screen.getByTestId('skeleton')).toBeDefined()
   })
 })

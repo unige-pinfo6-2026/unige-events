@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import EventDetailPage from '@/pages/event/EventDetailPage'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }))
 vi.mock('@/hooks/useEvent', () => ({ useEvent: vi.fn() }))
@@ -1465,6 +1466,48 @@ describe('EventDetailPage', () => {
       await waitFor(() => expect(screen.getByText('Future session')).toBeTruthy())
       expect(screen.getByText('Publié')).toBeTruthy()
     })
+
+    it('shows the occurrences skeleton while the list is loading', () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY' })
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: enabled,
+        error: null,
+        data: null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      expect(document.querySelector('[data-boneyard="occurrences-list"]')).toBeTruthy()
+    })
+
+    it('surfaces an error message when the occurrences fetch fails', async () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY' })
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: enabled ? 'Impossible de charger les occurrences.' : null,
+        data: null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Impossible de charger les occurrences.')).toBeTruthy())
+    })
+
+    it('shows the empty placeholder when the parent has no sibling occurrences', async () => {
+      setupEvent({ recurrenceRule: 'FREQ=WEEKLY' })
+      mockUseOccurrences.mockImplementation((_p, { enabled }) => ({
+        loading: false,
+        error: null,
+        data: enabled ? [] : null,
+      }))
+
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Voir toutes les occurrences/i }))
+
+      await waitFor(() => expect(screen.getByText('Aucune occurrence à afficher.')).toBeTruthy())
+    })
   })
 
   describe('Documents section (SCRUM-149)', () => {
@@ -1583,6 +1626,145 @@ describe('EventDetailPage', () => {
       // Wait a tick so any effect would have had a chance to fire.
       await Promise.resolve()
       expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('residual conditional branches', () => {
+    it('renders the "favori" state of the favorite button (filled star + retirer label)', () => {
+      mockUseFavorite.mockReturnValue({ favorited: true, loading: false, toggle: vi.fn() })
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const favBtn = screen.getByRole('button', { name: /Retirer des favoris/ })
+      const star = favBtn.querySelector('.lucide-star') as SVGElement
+      // favorited === true → filled yellow star (#facc15).
+      expect(star.getAttribute('fill')).toBe('#facc15')
+      expect(star.getAttribute('stroke')).toBe('#facc15')
+    })
+
+    it('uses the singular "place disponible" label when exactly one spot remains', () => {
+      // The singular branch of getCapacityBadge is reachable only when 1 spot
+      // remains AND it isn't <=10% of capacity: capacity 8 keeps 1 > 0.8, so
+      // the "available" variant wins with the singular label.
+      const event = { ...mockEvent, capacity: 8, availableSpots: 1 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('1 place disponible')).toBeTruthy()
+    })
+
+    it('uses the singular "place" label in the capacity total row when capacity is 1', () => {
+      const event = { ...mockEvent, capacity: 1, availableSpots: 1 }
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      expect(screen.getByText('1 place au total')).toBeTruthy()
+    })
+
+    it('falls back to the organizer email when displayName is null', async () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue({ ...mockUser, displayName: null, email: 'org@unige.ch' })
+
+      renderPage()
+
+      await waitFor(() => expect(screen.getByText('org@unige.ch')).toBeTruthy())
+    })
+
+    it('treats an undefined :id route param as an invalid id (no route match)', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: null, loading: false, isInitialLoad: true, isRefetching: false, refetch: vi.fn(), error: null })
+
+      render(
+        <MemoryRouter>
+          <EventDetailPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+    })
+
+    it('runs handleAttendanceSuccess without refetching attendees for an unauthenticated viewer', async () => {
+      const refetchEvent = vi.fn().mockResolvedValue(undefined)
+      const refetchAttendees = vi.fn()
+      mockUseAttendees.mockReturnValue({ ...defaultAttendeesState, refetch: refetchAttendees })
+      mockUseFavorite.mockReturnValue({ favorited: false, loading: false, toggle: vi.fn() })
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: refetchEvent, error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      renderPage()
+
+      const favoriteCallWithOptions = mockUseFavorite.mock.calls.find(
+        ([, , opts]) => opts && typeof opts.onAfterSuccess === 'function',
+      )
+      const onAfterSuccess = favoriteCallWithOptions![2].onAfterSuccess as () => Promise<void>
+      await onAfterSuccess()
+
+      // user === null → isAuthenticated false → the attendees refetch branch is skipped.
+      expect(refetchEvent).toHaveBeenCalledTimes(1)
+      expect(refetchAttendees).not.toHaveBeenCalled()
+    })
+
+    it('renders the loading skeleton with the light-theme colour token', () => {
+      localStorage.setItem('theme', 'light')
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: null, loading: true, isInitialLoad: true, isRefetching: false, refetch: vi.fn(), error: null })
+      mockGetUserById.mockResolvedValue(null)
+
+      render(
+        <ThemeProvider>
+          <MemoryRouter initialEntries={['/events/1']}>
+            <Routes>
+              <Route path='/events/:id' element={<EventDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>,
+      )
+
+      expect(document.querySelector('[data-boneyard="event-detail"]')).toBeTruthy()
+      localStorage.removeItem('theme')
+    })
+
+    it('does not setOrganizer when getUserById resolves after the page unmounts', async () => {
+      let resolveUser!: (u: typeof mockUser | null) => void
+      mockGetUserById.mockReturnValue(new Promise((r) => { resolveUser = r as typeof resolveUser }))
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+
+      const { unmount } = renderPage()
+      unmount()
+
+      // Resolving after unmount must hit the `if (active)` false branch — no
+      // state update, no act() warning, no crash.
+      await new Promise<void>((r) => {
+        resolveUser(mockUser)
+        setTimeout(r, 0)
+      })
+    })
+
+    it('does not setOrganizer(null) when getUserById rejects after the page unmounts', async () => {
+      let rejectUser!: (e: Error) => void
+      mockGetUserById.mockReturnValue(new Promise((_res, rej) => { rejectUser = rej }))
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+
+      const { unmount } = renderPage()
+      unmount()
+
+      await new Promise<void>((r) => {
+        rejectUser(new Error('boom'))
+        setTimeout(r, 0)
+      })
     })
   })
 })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
@@ -18,7 +18,7 @@ vi.mock('@/services/statsApi', () => ({
 }))
 
 vi.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'light' }),
+  useTheme: vi.fn(() => ({ theme: 'light' })),
 }))
 
 vi.mock('recharts', () => ({
@@ -34,11 +34,13 @@ vi.mock('recharts', () => ({
 import { useAuth, useEvent } from '@/hooks'
 import { useEventStats } from '@/hooks/useEventStats'
 import { getEventAttendees } from '@/services/statsApi'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 const mockUseEvent = useEvent as ReturnType<typeof vi.fn>
 const mockUseEventStats = useEventStats as ReturnType<typeof vi.fn>
 const mockGetEventAttendees = getEventAttendees as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 const mockUser = { id: 'user-1', email: 'org@test.com', profilePublic: true, createdAt: '' }
 
@@ -70,6 +72,10 @@ function renderPage(eventId = '42') {
 }
 
 import EventStatsPage from '@/pages/event/EventStatsPage'
+
+beforeEach(() => {
+  mockUseTheme.mockReturnValue({ theme: 'light' })
+})
 
 afterEach(() => {
   cleanup()
@@ -400,5 +406,54 @@ describe('EventStatsPage', () => {
     // The rejection handler swallows the error — no unhandled rejection escapes.
     await new Promise(r => setTimeout(r, 0))
     expect(button).toBeTruthy()
+  })
+
+  // --- Residual conditional branches ---
+
+  it('shows the error-colour fill bar at a >=90% fill rate', async () => {
+    // attending 48 / capacity 50 → 96% ⇒ pct >= 90 ⇒ bg-error fill.
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, capacity: 50 }, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: { ...mockStats, attendingCount: 48 }, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('96%')).toBeTruthy())
+    expect(document.querySelector('.bg-error')).toBeTruthy()
+  })
+
+  it('shows the emerald fill bar at a <70% fill rate', async () => {
+    // attending 10 / capacity 50 → 20% ⇒ pct < 70 ⇒ bg-emerald-400 fill.
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, capacity: 50 }, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: { ...mockStats, attendingCount: 10 }, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() => expect(screen.getByText('20%')).toBeTruthy())
+    expect(document.querySelector('.bg-emerald-400')).toBeTruthy()
+  })
+
+  it('shows an invalid id message when the :id route param is undefined (no match)', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
+
+    render(
+      <MemoryRouter>
+        <EventStatsPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText(/identifiant/i)).toBeTruthy()
+  })
+
+  it('renders the skeleton with the dark-theme colour token', () => {
+    mockUseTheme.mockReturnValue({ theme: 'dark' })
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: null, loading: true, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: true, error: null })
+
+    renderPage()
+    expect(screen.getByText(/statistiques de/i)).toBeTruthy()
+    expect(document.querySelector('[data-boneyard="event-stats"]')).toBeTruthy()
   })
 })
