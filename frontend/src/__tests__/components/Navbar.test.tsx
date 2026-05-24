@@ -354,4 +354,51 @@ describe('Navbar', () => {
       expect(mesEvnementsInMobileMenu.parentElement).toBeTruthy()
     }
   })
+
+  it('marks a simple mobile sidebar link active on its own route (sidebarItemClass true side)', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    render(
+      <MemoryRouter initialEntries={['/calendar']}>
+        <ThemeProvider>
+          <Navbar />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    // "Calendrier" is a sub-link-less NavLink; on /calendar it is active and
+    // gets the accent classes (sidebarItemClass(true)).
+    const calendarLink = screen.getAllByText('Calendrier')
+      .map(el => el.closest('a'))
+      .find(a => a?.className.includes('rounded-xl'))
+    expect(calendarLink).toBeTruthy()
+    expect(calendarLink!.className).toContain('text-accent')
+  })
+
+  it('renders the admin sidebar item with inactive warning styles off the /admin route (adminSidebarItemClass false side)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      isAdmin: true,
+      logout: vi.fn(),
+      login: vi.fn(),
+    })
+    // Default route is "/", so the admin item is rendered but NOT active.
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    const adminLink = screen.getAllByText('Administration')
+      .map(el => el.closest('a'))
+      .find(a => a?.className.includes('rounded-xl'))
+    expect(adminLink).toBeTruthy()
+    // Inactive: warning text token without the active bg-warning/15 fill.
+    expect(adminLink!.className).toContain('text-warning')
+    expect(adminLink!.className).not.toContain('bg-warning/15')
+  })
+
+  it('renders the mobile identity card with a null user while Auth0 is loading (user ?? null)', () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    // The (isLoading || user) gate renders UserIdentity with user={null} —
+    // the card-variant skeleton appears in the mobile sidebar portal.
+    expect(document.querySelector('[data-boneyard="user-identity-card"]')).toBeTruthy()
+  })
 })

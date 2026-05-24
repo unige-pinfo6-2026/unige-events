@@ -95,4 +95,16 @@ describe('CoOrganizerInvitationsList', () => {
     render(<MemoryRouter><CoOrganizerInvitationsList /></MemoryRouter>)
     expect(screen.getByText('Boom')).toBeTruthy()
   })
+
+  it('renders the loading skeleton while loading (line 34)', () => {
+    setup({ loading: true, error: 'ignored-while-loading', invitations: [makeInvitation(1)] })
+    render(<MemoryRouter><CoOrganizerInvitationsList /></MemoryRouter>)
+    // The `loading && (...)` branch takes precedence: the section header still
+    // renders, but every `!loading`-gated branch (empty state, error, the
+    // invitation cards) is suppressed.
+    expect(screen.getByRole('region', { name: /invitations.*co-organiser/i })).toBeTruthy()
+    expect(screen.queryByText(/aucune invitation/i)).toBeNull()
+    expect(screen.queryByText('ignored-while-loading')).toBeNull()
+    expect(screen.queryByText('Mon event')).toBeNull()
+  })
 })

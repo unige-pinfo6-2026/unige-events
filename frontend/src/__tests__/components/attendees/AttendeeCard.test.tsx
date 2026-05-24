@@ -89,4 +89,14 @@ describe('AttendeeCard', () => {
     expect(screen.queryByRole('link')).toBeNull()
     expect(screen.getByText('Alice Martin')).toBeTruthy()
   })
+
+  it('renders a waitlist badge on the unlinkable-identity variant (no link + WAITLISTED @line 71)', () => {
+    // displayName present but no slug → unlinkable identity body; combined with
+    // WAITLISTED status to exercise the badge inside the no-link branch.
+    renderCard({ ...publicRow, userId: null, username: null, status: 'WAITLISTED' })
+
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText('Alice Martin')).toBeTruthy()
+    expect(screen.getByText("Liste d'attente")).toBeTruthy()
+  })
 })

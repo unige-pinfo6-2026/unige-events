@@ -123,6 +123,28 @@ describe('CalendarSubscribeButton', () => {
     })
   })
 
+  it('shows a regeneration error when regenerateCalendarToken rejects', async () => {
+    vi.mocked(userService.regenerateCalendarToken).mockRejectedValue(new Error('boom'))
+    render(<CalendarSubscribeButton />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Révoquer et régénérer le lien')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByText('Révoquer et régénérer le lien'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Impossible de régénérer le lien.')).toBeTruthy()
+    })
+
+    // The success confirmation must not appear on the failure path.
+    expect(
+      screen.queryByText(
+        'Lien régénéré — pensez à mettre à jour votre abonnement dans votre application calendrier',
+      ),
+    ).toBeNull()
+  })
+
   it('does not render URLs while loading', () => {
     vi.mocked(userService.getCalendarToken).mockReturnValue(new Promise(() => {}))
     render(<CalendarSubscribeButton />)
