@@ -89,4 +89,17 @@ describe('useFeaturedEvents', () => {
     // After unmount there should be no error logged and the snapshot before unmount stays
     expect(result.current.events).toHaveLength(0)
   })
+
+  it('does not set error when the fetch rejects after unmount (catch cancelled guard)', async () => {
+    let rejectFn: (e: Error) => void = () => {}
+    mockGetFeatured.mockImplementation(() => new Promise((_, reject) => { rejectFn = reject }))
+    const { result, unmount } = renderHook(() => useFeaturedEvents())
+    unmount()
+    // Rejection after unmount hits the catch `if (!cancelled)` false branch
+    // (line 27) — no error set, no throw.
+    rejectFn(new Error('late network error'))
+    await Promise.resolve()
+    expect(result.current.error).toBeNull()
+    expect(result.current.events).toHaveLength(0)
+  })
 })

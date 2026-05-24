@@ -107,4 +107,18 @@ describe('PendingAttachmentsEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retirer doc.pdf' }))
     expect(onRemove).toHaveBeenCalledWith('pick-me')
   })
+
+  it('ignores a change event with no files (null FileList early return)', () => {
+    const { onAdd } = renderEditor()
+    const input = document.querySelector<HTMLInputElement>('#pending-event-attachments-input')!
+    fireEvent.change(input, { target: { files: null } })
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+
+  it('ignores a change event with an empty file list (length === 0 early return)', () => {
+    const { onAdd } = renderEditor()
+    const input = document.querySelector<HTMLInputElement>('#pending-event-attachments-input')!
+    fireEvent.change(input, { target: { files: [] } })
+    expect(onAdd).not.toHaveBeenCalled()
+  })
 })

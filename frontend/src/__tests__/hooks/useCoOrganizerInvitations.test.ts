@@ -130,4 +130,32 @@ describe('useCoOrganizerInvitations', () => {
     expect(mockDecline).toHaveBeenCalledWith(1)
     expect(result.current.invitations).toHaveLength(0)
   })
+
+  it('surfaces an error when refresh fails (line 46)', async () => {
+    mockGet.mockRejectedValue(new Error('network'))
+
+    const { result } = renderHook(() => useCoOrganizerInvitations())
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe('Impossible de charger vos invitations.')
+    expect(result.current.invitations).toEqual([])
+  })
+
+  it('rolls back decline on error then refreshes the row back (lines 77-78)', async () => {
+    // Initial load returns the row; the post-rollback refresh returns it again.
+    mockGet.mockResolvedValue([invitation(1)])
+    mockDecline.mockRejectedValue(new Error('boom'))
+
+    const { result } = renderHook(() => useCoOrganizerInvitations())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.decline(1)
+    })
+
+    expect(mockDecline).toHaveBeenCalledWith(1)
+    // Optimistic removal was rolled back and refresh() re-fetched the row.
+    await waitFor(() => expect(result.current.invitations).toHaveLength(1))
+    expect(result.current.invitations[0].event.id).toBe(1)
+  })
 })

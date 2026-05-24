@@ -110,4 +110,22 @@ describe('useMyDrafts', () => {
     await new Promise(r => setTimeout(r, 0))
     expect(result.current.drafts).toEqual([])
   })
+
+  it('does not set the error state when the fetch rejects after unmount', async () => {
+    let reject: (e: Error) => void = () => {}
+    mockGetMyDrafts.mockReturnValue(
+      new Promise<Event[]>((_, r) => {
+        reject = r
+      }),
+    )
+    const { result, unmount } = renderHook(() => useMyDrafts('uuid-1'))
+    unmount()
+    // Rejecting after unmount hits the catch `if (cancelled) return` guard
+    // (line 45) — no error/empty-drafts state set, no warn.
+    reject(new Error('late boom'))
+    await new Promise(r => setTimeout(r, 0))
+    expect(result.current.error).toBeNull()
+    expect(result.current.drafts).toEqual([])
+    expect(console.warn).not.toHaveBeenCalled()
+  })
 })

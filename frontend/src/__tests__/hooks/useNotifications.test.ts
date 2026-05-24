@@ -148,6 +148,20 @@ describe('useNotifications — polling', () => {
     // mountedRef guard inside fetchNotifications.
     expect(result.current.notifications).toEqual([])
   })
+
+  it('ignores a fetch that rejects after unmount (catch mountedRef guard)', async () => {
+    let rejectFetch!: (e: Error) => void
+    mockGetNotifications.mockReturnValue(new Promise((_, rej) => { rejectFetch = rej }))
+
+    const { result, unmount } = renderHook(() => useNotifications())
+    unmount()
+    // Rejecting after unmount must hit the `if (!mountedRef.current) return`
+    // guard in the catch (line 38) — no error state set, no throw.
+    rejectFetch(new Error('late network failure'))
+    await Promise.resolve()
+    expect(result.current.error).toBeNull()
+    expect(result.current.notifications).toEqual([])
+  })
 })
 
 describe('useNotifications — markAllAsRead', () => {

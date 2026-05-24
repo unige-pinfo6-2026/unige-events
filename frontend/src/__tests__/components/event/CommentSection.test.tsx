@@ -154,6 +154,33 @@ describe('CommentSection', () => {
     expect(screen.getByText('Boom')).toBeTruthy()
   })
 
+  it('shows the loading skeleton on the first page (loading + no comments yet)', () => {
+    setupAuth(true)
+    setupComments({ loading: true, comments: [] })
+    rend()
+    // Skeleton placeholder is shown; the empty-state copy is suppressed while
+    // loading (covers the `loading && comments.length === 0` branch at line 104).
+    expect(screen.queryByText(/aucun commentaire/i)).toBeNull()
+  })
+
+  it('does not show the skeleton when loading a later page over existing comments', () => {
+    setupAuth(true)
+    setupComments({ loading: true, comments: [makeComment(1, 'Existing')] })
+    rend()
+    // loading is true but comments.length > 0 → skeleton suppressed, the
+    // already-fetched comments stay visible (line 104 second sub-condition).
+    expect(screen.getByText('Existing')).toBeTruthy()
+  })
+
+  it('passes a null currentUserId to comments rendered for an anonymous viewer', () => {
+    setupAuth(false)
+    setupComments({ comments: [makeComment(1, 'Anon-visible')] })
+    rend()
+    // Anonymous: user is null so user?.id is undefined → `?? null` branch (line 131).
+    expect(screen.getByText('Anon-visible')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /connectez-vous/i })).toBeTruthy()
+  })
+
   it('shows toast on post failure', async () => {
     const mockPost = vi.fn().mockResolvedValue({ ok: false })
     setupAuth(true)

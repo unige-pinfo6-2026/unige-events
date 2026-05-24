@@ -257,6 +257,29 @@ describe('useMyEvents', () => {
     expect(result.current.events).toHaveLength(1)
   })
 
+  it('publish() returns empty errors when axios response.data.errors is not an array', async () => {
+    const event = makeMockEvent(42, '2026-04-10T14:00:00')
+    mockGetMyEvents.mockResolvedValue([event])
+    // axios error WITH a response body, but `errors` is a string (not Array) —
+    // exercises the false branch of `Array.isArray(data.errors)` (line 15).
+    const axiosError = Object.assign(new Error('Request failed'), {
+      isAxiosError: true,
+      response: { status: 422, data: { error: 'validation_failed', errors: 'oops not a list' } },
+    })
+    mockPublishEvent.mockRejectedValue(axiosError)
+
+    const { result } = renderHook(() => useMyEvents('DRAFT'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let publishResult: { ok: boolean; errors?: string[] } | undefined
+    await act(async () => {
+      publishResult = await result.current.publish(42)
+    })
+
+    expect(publishResult).toEqual({ ok: false, errors: [] })
+    expect(result.current.events).toHaveLength(1)
+  })
+
   it('cancel() returns false when cancelEvent fails', async () => {
     const event = makeMockEvent(42, '2026-04-10T14:00:00')
     mockGetMyEvents.mockResolvedValue([event])

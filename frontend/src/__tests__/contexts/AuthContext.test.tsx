@@ -314,4 +314,22 @@ describe('AuthContext', () => {
     await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('Jean Dupont'))
     expect(screen.getByTestId('isAdmin').textContent).toBe('false')
   })
+
+  // Line 76 — while the Auth0 SDK is still initialising (`auth0IsLoading`), the
+  // bootstrap effect must early-return: no token fetch, no getMe, isLoading=true.
+  it('does not fetch token or user while Auth0 is still loading', async () => {
+    const getAccessTokenSilently = vi.fn()
+    mockUseAuth0.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: true,
+      user: { sub: 'auth0|1' },
+      loginWithRedirect: vi.fn(),
+      logout: vi.fn(),
+      getAccessTokenSilently,
+    })
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('true'))
+    expect(getAccessTokenSilently).not.toHaveBeenCalled()
+    expect(mockGetMe).not.toHaveBeenCalled()
+  })
 })

@@ -215,6 +215,26 @@ describe('useFeed', () => {
     )
   })
 
+  it('loadMore is a no-op while the initial page is still in flight (fetchingRef guard, lines 83/129)', async () => {
+    // Hold the page-0 request open so `fetchingRef` stays true; a concurrent
+    // loadMore() must short-circuit at line 129 (and never reach a 2nd getAll).
+    let resolvePage0!: (v: Event[]) => void
+    mockGetAll.mockImplementationOnce(
+      () => new Promise<Event[]>(r => { resolvePage0 = r }),
+    )
+
+    const { result } = renderHook(() => useFeed())
+    expect(result.current.loading).toBe(true)
+
+    act(() => { result.current.loadMore() })
+    // Guard hit: no second call was made while page 0 is pending.
+    expect(mockGetAll).toHaveBeenCalledTimes(1)
+
+    await act(async () => { resolvePage0(makeEvents(5)) })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetAll).toHaveBeenCalledTimes(1)
+  })
+
   it('ignores a stale in-flight response when followedOnly changes (no wrong-filter data)', async () => {
     const firstData = [makeEvent({ id: 1, startDate: '2026-04-28T10:00:00Z' })]
     const secondData = [makeEvent({ id: 2, startDate: '2026-04-29T10:00:00Z' })]

@@ -495,7 +495,11 @@ describe('EventForm', () => {
   })
 
   describe('recurrence section (SCRUM-151)', () => {
-    function renderForm(mode: 'create' | 'edit', overrides: Partial<EventFormValues> = {}) {
+    function renderForm(
+      mode: 'create' | 'edit',
+      overrides: Partial<EventFormValues> = {},
+      onFieldChange: (field: keyof EventFormValues, value: unknown) => void = vi.fn(),
+    ) {
       render(
         <EventForm
           mode={mode}
@@ -505,7 +509,7 @@ describe('EventForm', () => {
           submitting={false}
           imagePreview={null}
           selectedImageName={null}
-          onFieldChange={vi.fn()}
+          onFieldChange={onFieldChange}
           onImageChange={vi.fn()}
           {...cropDefaults}
           onSubmit={vi.fn(async () => undefined)}
@@ -657,6 +661,139 @@ describe('EventForm', () => {
       )
 
       expect(screen.getByText("Définissez une date de fin OU un nombre d'occurrences.")).toBeTruthy()
+    })
+
+    it('changing the frequency select patches recurrence.frequency', () => {
+      const onFieldChange = vi.fn()
+      renderForm('create', {
+        recurrence: { enabled: true, frequency: 'WEEKLY', endMode: 'date', endDate: '', maxOccurrences: '' },
+      }, onFieldChange)
+
+      fireEvent.change(screen.getByRole('combobox', { name: /Fréquence/i }), { target: { value: 'MONTHLY' } })
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ frequency: 'MONTHLY' }))
+    })
+
+    it('selecting the count radio patches recurrence.endMode', () => {
+      const onFieldChange = vi.fn()
+      renderForm('create', {
+        recurrence: { enabled: true, frequency: 'WEEKLY', endMode: 'date', endDate: '', maxOccurrences: '' },
+      }, onFieldChange)
+
+      fireEvent.click(screen.getByRole('radio', { name: "Nombre d'occurrences" }))
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ endMode: 'count' }))
+    })
+
+    it('selecting the date radio patches recurrence.endMode back to date', () => {
+      const onFieldChange = vi.fn()
+      renderForm('create', {
+        recurrence: { enabled: true, frequency: 'WEEKLY', endMode: 'count', endDate: '', maxOccurrences: '' },
+      }, onFieldChange)
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Date de fin' }))
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ endMode: 'date' }))
+    })
+
+    it('typing into the end-date input patches recurrence.endDate', () => {
+      const onFieldChange = vi.fn()
+      renderForm('create', {
+        recurrence: { enabled: true, frequency: 'WEEKLY', endMode: 'date', endDate: '', maxOccurrences: '' },
+      }, onFieldChange)
+
+      fireEvent.change(screen.getByLabelText('Date de fin de récurrence'), { target: { value: '2099-06-01' } })
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ endDate: '2099-06-01' }))
+    })
+
+    it('typing into the occurrences input patches recurrence.maxOccurrences', () => {
+      const onFieldChange = vi.fn()
+      renderForm('create', {
+        recurrence: { enabled: true, frequency: 'WEEKLY', endMode: 'count', endDate: '', maxOccurrences: '' },
+      }, onFieldChange)
+
+      fireEvent.change(screen.getByRole('spinbutton', { name: "Nombre d'occurrences" }), { target: { value: '5' } })
+
+      expect(onFieldChange).toHaveBeenCalledWith('recurrence', expect.objectContaining({ maxOccurrences: '5' }))
+    })
+  })
+
+  describe('faculty select + datetime edge cases', () => {
+    it('selecting Toutes facultés emits null and a real faculty emits its id', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={{ ...baseValues, faculty: 'LAW' }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      const facultySelect = screen.getByLabelText(/Faculté concernée/i)
+      // Real faculty id → emits the id.
+      fireEvent.change(facultySelect, { target: { value: 'SCIENCES' } })
+      expect(onFieldChange).toHaveBeenCalledWith('faculty', 'SCIENCES')
+      // Empty option ("Toutes facultés") → `|| null` kicks in.
+      fireEvent.change(facultySelect, { target: { value: '' } })
+      expect(onFieldChange).toHaveBeenCalledWith('faculty', null)
+    })
+
+    it('joinDateTime returns empty when the hour is set but the minute stays empty', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          // `T` with an empty minute part → splitDateTime yields datePart set,
+          // minutePart ''. Changing the hour keeps minutePart '' so joinDateTime
+          // hits its early `return ''`.
+          values={{ ...baseValues, startDate: '2099-04-10T08:' }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      // Date present, minute still '' → joinDateTime('2099-04-10', '20', '') === ''.
+      fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '20' } })
+      expect(onFieldChange).toHaveBeenCalledWith('startDate', '')
+    })
+
+    it('changing a time selector while the date is empty is a no-op (setTimePart guard)', () => {
+      const onFieldChange = vi.fn()
+      render(
+        <EventForm
+          mode="create"
+          submitLabel="Créer"
+          values={{ ...baseValues, startDate: '' }}
+          errors={{}}
+          submitting={false}
+          imagePreview={null}
+          selectedImageName={null}
+          onFieldChange={onFieldChange}
+          onImageChange={vi.fn()}
+          {...cropDefaults}
+          onSubmit={vi.fn(async () => undefined)}
+        />,
+      )
+
+      fireEvent.change(screen.getByLabelText('Heure de début'), { target: { value: '20' } })
+      // The `if (!datePart) return` guard fires — startDate is never emitted.
+      expect(onFieldChange).not.toHaveBeenCalledWith('startDate', expect.anything())
     })
   })
 })

@@ -151,6 +151,15 @@ describe('MyParticipationsPage', () => {
     expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 
+  it('renders the loading skeleton under the light theme (light skeletonColor branch)', () => {
+    // L83[cond-expr #1] — the light branch of the skeletonColor ternary.
+    localStorage.setItem('theme', 'light')
+    mockUseMyParticipations.mockReturnValue({ ...baseHook, loading: true })
+    renderWithProviders(<MyParticipationsPage />)
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
+    localStorage.removeItem('theme')
+  })
+
   it('shows error message when the hook returns an error', () => {
     mockUseMyParticipations.mockReturnValue({
       ...baseHook,

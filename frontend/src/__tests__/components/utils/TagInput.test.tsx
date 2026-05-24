@@ -96,6 +96,26 @@ describe('TagInput', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 
+  it('does nothing on blur when the input is empty (handleBlur falsy guard @line 40)', () => {
+    const onChange = vi.fn()
+    render(<TagInput value={['react']} onChange={onChange} />)
+    const input = screen.getByRole('textbox')
+    // No text typed → inputRef.current?.value is '' (falsy) → addTag must not run.
+    fireEvent.blur(input)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('adds a tag below maxTags without tripping the cap guard (addTag @line 18 false side)', () => {
+    const onChange = vi.fn()
+    // value.length (1) < maxTags (3): the input is rendered and addTag passes
+    // the `value.length >= maxTags` check (false side).
+    render(<TagInput value={['react']} onChange={onChange} maxTags={3} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'vitest' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith(['react', 'vitest'])
+  })
+
   it('trims whitespace from tag input', () => {
     const onChange = vi.fn()
     render(<TagInput value={[]} onChange={onChange} />)

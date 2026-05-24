@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Report } from '@/types/admin'
@@ -6,17 +6,19 @@ import type { Event } from '@/types/event'
 
 vi.mock('@/hooks/useAdminReports', () => ({ useAdminReports: vi.fn() }))
 vi.mock('@/hooks/useAdminFeatured', () => ({ useAdminFeatured: vi.fn() }))
-vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }))
+vi.mock('@/contexts/ThemeContext', () => ({ useTheme: vi.fn(() => ({ theme: 'dark' })) }))
 vi.mock('boneyard-js/react', () => ({
   Skeleton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
+import { useTheme } from '@/contexts/ThemeContext'
 import AdminPage from '@/pages/admin/AdminPage'
 
 const mockUseAdminReports = useAdminReports as ReturnType<typeof vi.fn>
 const mockUseAdminFeatured = useAdminFeatured as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report => ({
   id,
@@ -82,6 +84,10 @@ function renderPage() {
     </MemoryRouter>,
   )
 }
+
+beforeEach(() => {
+  mockUseTheme.mockReturnValue({ theme: 'dark' })
+})
 
 afterEach(() => {
   cleanup()
@@ -203,6 +209,37 @@ describe('AdminPage — reports section', () => {
     expect(setActiveTab).toHaveBeenCalledWith('PROCESSED')
   })
 
+  it('calls setActiveTab(PENDING) when the En attente tab is clicked', () => {
+    // L144 — the PENDING tab button onClick (only Traités was clicked before).
+    const setActiveTab = vi.fn()
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      activeTab: 'PROCESSED' as const,
+      setActiveTab,
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /En attente/ }))
+    expect(setActiveTab).toHaveBeenCalledWith('PENDING')
+  })
+
+  it('highlights the Traités tab and shows the processed empty copy when activeTab is PROCESSED', () => {
+    // L146[cond-expr #1] (PENDING tab inactive), L162[cond-expr #0] (PROCESSED
+    // tab active), L173[cond-expr #1] (processed empty copy).
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [],
+      activeTab: 'PROCESSED' as const,
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    const pendingTab = screen.getByRole('button', { name: /En attente/ })
+    const processedTab = screen.getByRole('button', { name: /Traités/ })
+    expect(pendingTab.className).not.toContain('bg-accent')
+    expect(processedTab.className).toContain('bg-accent')
+    expect(screen.getByText('Aucun signalement traité.')).toBeTruthy()
+  })
+
   it('shows error message when reports fetch fails', () => {
     mockUseAdminReports.mockReturnValue({
       ...defaultReports,
@@ -282,6 +319,18 @@ describe('AdminPage — featured section', () => {
     renderPage()
     expect(screen.getByText('Featured Event 1')).toBeTruthy()
     expect(screen.getByText('Featured Event 2')).toBeTruthy()
+  })
+
+  it('renders the banner thumbnail when the featured event has a bannerUrl', () => {
+    // L229[cond-expr #0] — the <img> branch of the FeaturedEventCard banner.
+    mockUseAdminReports.mockReturnValue(defaultReports)
+    mockUseAdminFeatured.mockReturnValue({
+      ...defaultFeatured,
+      featuredEvents: [{ ...makeEvent(1), bannerUrl: 'https://example.com/b.jpg' }],
+    })
+    renderPage()
+    const img = document.querySelector<HTMLImageElement>('img[src*="b.jpg"]')
+    expect(img).toBeTruthy()
   })
 
   it('calls unfeatureEvent when Retirer is clicked', () => {
@@ -385,5 +434,18 @@ describe('AdminPage — loading skeletons', () => {
     // Fixture contains 3 card placeholder divs
     const placeholders = document.querySelectorAll(String.raw`.h-\[72px\]`)
     expect(placeholders.length).toBe(3)
+  })
+})
+
+describe('AdminPage — light theme skeleton color', () => {
+  it('renders both sections under the light theme (light skeletonColor branch)', () => {
+    // L127[cond-expr #1] + L276[cond-expr #1] — the light branch of the
+    // per-section skeletonColor ternary, exercised while both are loading.
+    mockUseTheme.mockReturnValue({ theme: 'light' })
+    mockUseAdminReports.mockReturnValue({ ...defaultReports, loading: true })
+    mockUseAdminFeatured.mockReturnValue({ ...defaultFeatured, loading: true })
+    renderPage()
+    expect(document.querySelectorAll(String.raw`.h-\[68px\]`).length).toBe(5)
+    expect(document.querySelectorAll(String.raw`.h-\[72px\]`).length).toBe(3)
   })
 })

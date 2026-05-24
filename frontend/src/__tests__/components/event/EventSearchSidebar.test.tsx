@@ -215,6 +215,13 @@ describe('FilterSidebar', () => {
     expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ dateFrom: undefined }))
   })
 
+  it('clears dateTo when input is cleared', () => {
+    const setFilters = vi.fn()
+    renderSidebar({ includePast: false, dateTo: '2026-05-31' }, setFilters)
+    fireEvent.change(screen.getByLabelText('Au'), { target: { value: '' } })
+    expect(setFilters).toHaveBeenCalledWith(expect.objectContaining({ dateTo: undefined }))
+  })
+
   it('shows the current dateFrom value', () => {
     renderSidebar({ includePast: false, dateFrom: '2026-05-01' })
     const input = screen.getByLabelText('De') as HTMLInputElement

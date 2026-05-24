@@ -21,11 +21,19 @@ interface HostProps {
   initialValue?: string
   onSelect?: (user: { id: string; username: string }) => void
   excludeUsernames?: string[]
+  /** When true, omit the `inputId` prop so the component falls back to its
+   *  generated `useId` value (exercises the `inputId ?? generatedId` else). */
+  omitInputId?: boolean
 }
 
 // Tiny host that drives the controlled state — mirrors how the real editors
 // wire UsernameAutocomplete (parent owns the typed value).
-function Host({ initialValue = '', onSelect = () => {}, excludeUsernames = [] }: HostProps) {
+function Host({
+  initialValue = '',
+  onSelect = () => {},
+  excludeUsernames = [],
+  omitInputId = false,
+}: HostProps) {
   const [value, setValue] = useState(initialValue)
   return (
     <UsernameAutocomplete
@@ -33,7 +41,7 @@ function Host({ initialValue = '', onSelect = () => {}, excludeUsernames = [] }:
       onChange={setValue}
       onSelect={onSelect}
       excludeUsernames={excludeUsernames}
-      inputId="autocomplete-test"
+      inputId={omitInputId ? undefined : 'autocomplete-test'}
     />
   )
 }
@@ -282,5 +290,108 @@ describe('UsernameAutocomplete (SCRUM-137)', () => {
     // Only the initial "nex" fetch fired ; the selection didn't trigger
     // a redundant `searchUsernames("nexiumito")`.
     expect(mockSearchUsernames).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the generated useId when no inputId prop is passed (line 68)', () => {
+    // `id = inputId ?? generatedId` — without inputId the listbox id derives
+    // from the useId() value. We assert the input carries an aria-controls
+    // attribute that is NOT our fixed test id.
+    render(<Host omitInputId />)
+    const input = screen.getByRole('combobox')
+    const controls = input.getAttribute('aria-controls')
+    expect(controls).toBeTruthy()
+    expect(controls).not.toBe('autocomplete-test-listbox')
+    expect(controls?.endsWith('-listbox')).toBe(true)
+  })
+
+  it('evicts the oldest cache entry once the prefix count exceeds the limit (lines 129-131)', async () => {
+    // CACHE_LIMIT is 50. Resolve a distinct payload per prefix so each
+    // 2-char query is a fresh, non-cached round-trip. After 51 distinct
+    // prefixes the Map has overflowed and the oldest key is deleted.
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+
+    // 51 distinct two-letter prefixes ("aa"..) — more than CACHE_LIMIT (50).
+    const prefixes: string[] = []
+    for (let i = 0; i < 51; i++) {
+      const a = String.fromCharCode(97 + Math.floor(i / 10)) // a,b,c...
+      const b = String.fromCharCode(97 + (i % 10))           // a..j
+      prefixes.push(`${a}${b}`)
+    }
+    for (const p of prefixes) {
+      fireEvent.change(input, { target: { value: p } })
+      await flushAll()
+    }
+    // Every distinct prefix triggered exactly one fetch (none were cache hits).
+    expect(mockSearchUsernames).toHaveBeenCalledTimes(51)
+
+    // The very first prefix ("aa") was evicted by the overflow, so re-typing
+    // it now misses the cache and fires a fresh fetch (52nd call).
+    fireEvent.change(input, { target: { value: prefixes[0] } })
+    await flushAll()
+    expect(mockSearchUsernames).toHaveBeenCalledTimes(52)
+  })
+
+  it('clamps activeIndex at the last option when ArrowDown is pressed past the end (line 177)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+
+    // 3 results → 4 ArrowDown presses; the 4th would push past the end and is
+    // clamped to filteredResults.length - 1 (= 2).
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+
+    const items = screen.getAllByRole('option')
+    expect(items[items.length - 1].getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('Enter with no active option is a no-op (line 183 false branch)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    const onSelect = vi.fn()
+    render(<Host onSelect={onSelect} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+
+    // Dropdown is open but activeIndex is still -1 → the Enter guard
+    // (activeIndex >= 0) is false, so nothing is selected.
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onSelect).not.toHaveBeenCalled()
+    // Dropdown stays open — Enter did not commit a selection.
+    expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
+  it('ignores keys that are not Arrow/Enter/Escape (line 187 else chain)', async () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    const onSelect = vi.fn()
+    render(<Host onSelect={onSelect} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'nex' } })
+    await flushAll()
+
+    // A plain character key falls through every branch of handleKeyDown
+    // without preventing default or mutating selection state.
+    fireEvent.keyDown(input, { key: 'a' })
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    expect(screen.queryByRole('option', { selected: true })).toBeNull()
+  })
+
+  it('does not open the dropdown on focus while the query is too short (line 200 false branch)', () => {
+    mockSearchUsernames.mockResolvedValue(matches)
+    render(<Host initialValue="n" />)
+    const input = screen.getByRole('combobox')
+
+    // debounced ("n") is below MIN_QUERY_LENGTH, so handleFocus skips opening.
+    fireEvent.focus(input)
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input.getAttribute('aria-expanded')).toBe('false')
   })
 })

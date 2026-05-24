@@ -208,4 +208,29 @@ describe('useFollowList', () => {
 
     expect(result.current.users.map(u => u.id)).toEqual(['b-id'])
   })
+
+  it('discards a stale rejection from a prior targetId (catch requestId guard)', async () => {
+    let rejectFirst: (e: Error) => void = () => {}
+    mockGetFollowers
+      .mockImplementationOnce(() => new Promise<UserPublicResponse[]>((_, r) => { rejectFirst = r }))
+      .mockResolvedValueOnce([makeUser('b')])
+
+    const { result, rerender } = renderHook(
+      ({ id }) => useFollowList(id, 'followers'),
+      { initialProps: { id: 't1' } },
+    )
+
+    rerender({ id: 't2' })
+
+    await waitFor(() => expect(result.current.users.map(u => u.id)).toEqual(['b-id']))
+
+    // Late rejection of the t1 fetch hits the catch `requestIdRef !== myRequestId`
+    // guard (line 109) — it must NOT set error/isNotFound for the live t2 list.
+    rejectFirst(new Error('stale failure'))
+    await new Promise(r => setTimeout(r, 20))
+
+    expect(result.current.users.map(u => u.id)).toEqual(['b-id'])
+    expect(result.current.error).toBeNull()
+    expect(result.current.isNotFound).toBe(false)
+  })
 })

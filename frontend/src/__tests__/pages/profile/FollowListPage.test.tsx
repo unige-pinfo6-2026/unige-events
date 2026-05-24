@@ -42,11 +42,13 @@ vi.mock('boneyard-js/react', () => ({
 
 import { useAuth } from '@/hooks/useAuth'
 import { getUserByUsername } from '@/services/userService'
+import { useTheme } from '@/contexts/ThemeContext'
 import { FOLLOW_LIST_PAGE_SIZE, getFollowers, getFollowing } from '@/services/followApi'
 import FollowListPage from '@/pages/profile/FollowListPage'
 import type { UserPublicResponse } from '@/types/user'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetFollowers = getFollowers as ReturnType<typeof vi.fn>
 const mockGetFollowing = getFollowing as ReturnType<typeof vi.fn>
@@ -267,5 +269,52 @@ describe('FollowListPage — me', () => {
 
     expect(await screen.findByText(/Impossible de charger le profil/)).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the username as displayName when the /me user has none', async () => {
+    // L221[binary-expr #1] — currentUser.displayName ?? currentUser.username.
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, displayName: undefined },
+      isLoading: false,
+    })
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/me/followers')
+
+    expect(await screen.findByText(/Followers de me\.username/)).toBeTruthy()
+  })
+})
+
+describe('FollowListPage — edge cases', () => {
+  it('falls back to the username as displayName when the resolved profile has none', async () => {
+    // L245[binary-expr #1] — profile.displayName ?? profile.username.
+    mockGetUserByUsername.mockResolvedValue({ ...otherProfile, displayName: null })
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/other.user/followers')
+
+    expect(await screen.findByText(/Followers de other\.user/)).toBeTruthy()
+  })
+
+  it('stays on the skeleton while auth is still loading (effect early-returns)', () => {
+    // L202[if #0] — `if (!username || authLoading) return` short-circuits the
+    // fetch effect until auth resolves; the page shows the loading skeleton.
+    mockUseAuth.mockReturnValue({ user: null, isLoading: true })
+
+    renderAt('/profile/other.user/followers')
+
+    expect(screen.getByTestId('skeleton')).toBeTruthy()
+    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+    expect(mockGetFollowers).not.toHaveBeenCalled()
+  })
+
+  it('uses the light skeleton color when the theme is light', () => {
+    // L190[cond-expr #1] — light branch of the skeletonColor ternary.
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: vi.fn() })
+    mockGetUserByUsername.mockImplementation(() => new Promise(() => {}))
+
+    renderAt('/profile/other.user/followers')
+
+    expect(screen.getByTestId('skeleton')).toBeTruthy()
   })
 })

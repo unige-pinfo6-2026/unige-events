@@ -102,6 +102,16 @@ describe('MyFavoritesPage', () => {
     expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
   })
 
+  it('shows the loading skeleton under the light theme (light skeletonColor branch)', () => {
+    // L18[cond-expr #1] — the light branch of the skeletonColor ternary.
+    localStorage.setItem('theme', 'light')
+    mockGetFavorites.mockImplementation(() => new Promise(() => {})) // Never resolves
+
+    renderWithProviders(<MyFavoritesPage />)
+    expect(document.querySelector('[data-boneyard="event-cards"]')).toBeTruthy()
+    localStorage.removeItem('theme')
+  })
+
   it('shows error message when fetch fails', async () => {
     mockGetFavorites.mockRejectedValue(new Error('Network error'))
 

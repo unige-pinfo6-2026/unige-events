@@ -220,6 +220,44 @@ describe('MyPublicationsPage', () => {
     expect(screen.getByText('Annuler l\'événement ?')).toBeTruthy()
   })
 
+  it('uses the banner image as background when the event has a bannerUrl', () => {
+    // L153[cond-expr #0] — the bannerUrl branch of the card banner style.
+    mockUseMyEvents.mockReturnValue({
+      events: [{ ...makeMockEvent(1, 'PUBLISHED'), bannerUrl: 'https://example.com/pub.jpg' }],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    const banner = document.querySelector<HTMLElement>('[style*="pub.jpg"]')
+    expect(banner).toBeTruthy()
+    expect(banner!.style.backgroundImage).toContain('pub.jpg')
+  })
+
+  it('renders under the light theme (light skeletonColor branch)', () => {
+    // L330[cond-expr #1] — the light branch of the skeletonColor ternary.
+    localStorage.setItem('theme', 'light')
+    mockUseMyEvents.mockReturnValue({
+      events: [],
+      loading: true,
+      error: null,
+      refresh: vi.fn(),
+      publish: vi.fn(),
+      cancel: vi.fn(),
+      restore: vi.fn(),
+      permanentlyDelete: vi.fn(),
+    })
+
+    renderWithProviders(<MyPublicationsPage />)
+    expect(document.querySelector('[data-boneyard="my-publications"]')).toBeTruthy()
+    localStorage.removeItem('theme')
+  })
+
   it('displays FacultyBadge when faculty is set', () => {
     mockUseMyEvents.mockReturnValue({
       events: [{ ...makeMockEvent(1), faculty: 'SCIENCES' }],

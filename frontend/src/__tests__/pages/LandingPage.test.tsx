@@ -127,6 +127,34 @@ describe('LandingPage', () => {
     vi.useRealTimers()
   })
 
+  it('stops retrying once maxAttempts is reached and never scrolls (line 157 else)', () => {
+    // L157[if #1] — when the element is never found, the retry loop bails out
+    // after maxAttempts (10) instead of scheduling forever.
+    mockUseFeaturedEvents.mockReturnValue({ events: [], loading: false, error: null })
+    vi.useFakeTimers()
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+    // Element is never present.
+    vi.spyOn(document, 'getElementById').mockReturnValue(null)
+
+    render(
+      <MemoryRouter initialEntries={['/#never-there']}>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    // Initial 50 ms tick + 10 retries × 100 ms — well past the cap.
+    act(() => { vi.advanceTimersByTime(50 + 100 * 12) })
+
+    expect(mockScrollTo).not.toHaveBeenCalled()
+    // getElementById is called once per attempt and capped at maxAttempts (10):
+    // the initial tryScroll + 9 scheduled retries = 10 lookups, then it stops.
+    expect((document.getElementById as ReturnType<typeof vi.fn>).mock.calls.length).toBe(10)
+    // No further timers are pending — the loop has terminated.
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
+  })
+
   it('toggles FAQ answer on click', () => {
     renderPage()
 

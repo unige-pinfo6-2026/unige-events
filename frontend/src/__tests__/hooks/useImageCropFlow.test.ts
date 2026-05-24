@@ -14,10 +14,10 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function mockFileReader(result: string) {
+function mockFileReader(result: string | ArrayBuffer) {
   class MockReader {
     public onload: (() => void) | null = null
-    public result: string | null = null
+    public result: string | ArrayBuffer | null = null
     readAsDataURL() {
       this.result = result
       queueMicrotask(() => this.onload?.())
@@ -56,6 +56,21 @@ describe('useImageCropFlow', () => {
     })
 
     expect(result.current.cropSource).toBe('data:image/png;base64,abc')
+  })
+
+  it('n\'ouvre pas le cropper si reader.result n\'est pas une string', async () => {
+    // FileReader.result peut être un ArrayBuffer (readAsArrayBuffer) — le hook
+    // ne doit setCropSource que pour une dataURL string (branche else ligne 55).
+    mockFileReader(new ArrayBuffer(8))
+    const { result } = renderHook(() => useImageCropFlow({ aspect: 1 }))
+    const file = new File(['x'], 'photo.png', { type: 'image/png' })
+
+    await act(async () => {
+      result.current.handleFileSelect(fileSelectEvent(file))
+      await new Promise((r) => queueMicrotask(r as () => void))
+    })
+
+    expect(result.current.cropSource).toBeNull()
   })
 
   it('rejette le fichier si validate retourne un message + appelle onValidationError', () => {

@@ -32,12 +32,22 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(minusSeconds(14 * 24 * 60 * 60), NOW)).toBe('il y a 2 semaines')
   })
 
+  it('returns the singular week form (w === 1)', () => {
+    // 8 days = 1 week (floor), exercises the `w === 1` true branch @line 32.
+    expect(formatRelativeTime(minusSeconds(8 * 24 * 60 * 60), NOW)).toBe('il y a 1 semaine')
+  })
+
   it('returns months', () => {
     expect(formatRelativeTime(minusSeconds(60 * 24 * 60 * 60), NOW)).toBe('il y a 2 mois')
   })
 
   it('returns years', () => {
     expect(formatRelativeTime(minusSeconds(400 * 24 * 60 * 60), NOW)).toBe('il y a 1 an')
+  })
+
+  it('returns the plural year form (years > 1)', () => {
+    // 800 days = 2 years (floor), exercises the `years === 1` false branch @line 39.
+    expect(formatRelativeTime(minusSeconds(800 * 24 * 60 * 60), NOW)).toBe('il y a 2 ans')
   })
 
   it('returns empty string for invalid input', () => {

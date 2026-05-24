@@ -22,7 +22,7 @@ vi.mock('@/hooks/useMyDrafts', () => ({
 }))
 
 vi.mock('@/contexts/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'dark', toggleTheme: () => {} }),
+  useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: () => {} })),
 }))
 
 vi.mock('boneyard-js/react', () => ({
@@ -34,9 +34,11 @@ vi.mock('boneyard-js/react', () => ({
 }))
 
 import { useMyDrafts } from '@/hooks/useMyDrafts'
+import { useTheme } from '@/contexts/ThemeContext'
 import DraftsResumeStrip from '@/components/event/DraftsResumeStrip'
 
 const mockUseMyDrafts = vi.mocked(useMyDrafts)
+const mockUseTheme = vi.mocked(useTheme)
 
 function makeDraft(overrides: Partial<Event> = {}): Event {
   return {
@@ -114,6 +116,7 @@ beforeAll(() => {
 beforeEach(() => {
   mockNavigate.mockReset()
   mockUseMyDrafts.mockReset()
+  mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: () => {} } as ReturnType<typeof useTheme>)
   stubBoundingRect(2000)
 })
 
@@ -344,5 +347,83 @@ describe('DraftsResumeStrip', () => {
     render(<DraftsResumeStrip />)
     openPanel()
     expect(screen.queryByRole('button', { name: /Voir tous mes brouillons/ })).toBeNull()
+  })
+
+  it('renders the loading skeleton under a light theme (theme !== "dark" colour branch)', () => {
+    mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: () => {} } as ReturnType<typeof useTheme>)
+    stub([], { loading: true })
+    render(<DraftsResumeStrip />)
+    // Light theme picks the alternate skeleton colour (line 74 else branch);
+    // the skeleton placeholder still renders.
+    expect(screen.getByTestId('skeleton').getAttribute('data-name')).toBe('drafts-resume-strip')
+  })
+
+  it('moves focus with ArrowLeft to the previous card inside the open panel', () => {
+    stub([makeDraft({ id: 1, title: 'First' }), makeDraft({ id: 2, title: 'Second' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    const first = screen.getByRole('button', { name: /First/ })
+    const second = screen.getByRole('button', { name: /Second/ })
+    second.focus()
+    // ArrowLeft exercises the previousElementSibling branch (line 35).
+    fireEvent.keyDown(second.parentElement!, { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(first)
+  })
+
+  it('ignores arrow keys when the focused element is outside the card rail', () => {
+    stub([makeDraft({ id: 1, title: 'First' }), makeDraft({ id: 2, title: 'Second' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    const first = screen.getByRole('button', { name: /First/ })
+    const second = screen.getByRole('button', { name: /Second/ })
+    // The trigger sits outside the toolbar, so contains(active) is false → the
+    // handler returns without moving focus (line 34 guard).
+    getTrigger().focus()
+    fireEvent.keyDown(second.parentElement!, { key: 'ArrowRight' })
+    expect(document.activeElement).not.toBe(first)
+    expect(document.activeElement).not.toBe(second)
+  })
+
+  it('ignores non-arrow keys in the card rail (no focus change)', () => {
+    stub([makeDraft({ id: 1, title: 'First' }), makeDraft({ id: 2, title: 'Second' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    const first = screen.getByRole('button', { name: /First/ })
+    const second = screen.getByRole('button', { name: /Second/ })
+    first.focus()
+    // A key that is neither ArrowLeft nor ArrowRight returns early (line 32).
+    fireEvent.keyDown(first.parentElement!, { key: 'Enter' })
+    expect(document.activeElement).toBe(first)
+    expect(document.activeElement).not.toBe(second)
+  })
+
+  it('does not move focus past the last card on ArrowRight (no next sibling)', () => {
+    stub([makeDraft({ id: 1, title: 'First' }), makeDraft({ id: 2, title: 'Second' })])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    const second = screen.getByRole('button', { name: /Second/ })
+    second.focus()
+    // Last card has no nextElementSibling → sibling is null, the instanceof
+    // guard is false and focus stays put (line 36 false branch).
+    fireEvent.keyDown(second.parentElement!, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(second)
+  })
+
+  it('falls back to the category when the start date is non-empty but unparseable (DraftResumeCard NaN guard)', () => {
+    // location empty + a malformed (non-empty) startDate → formatShortDate
+    // parses to NaN and returns '' (DraftResumeCard line 32), so the meta
+    // line falls through to the category name.
+    stub([
+      makeDraft({
+        id: 1,
+        title: 'Bad date',
+        location: '',
+        startDate: 'not-a-real-date',
+        category: 'ACADEMIC',
+      }),
+    ])
+    render(<DraftsResumeStrip />)
+    openPanel()
+    expect(screen.getByText('Académique')).toBeTruthy()
   })
 })

@@ -57,6 +57,17 @@ describe('UserAvatar', () => {
     expect(container.querySelector('div')?.className).toContain('extra-class')
   })
 
+  it('renders the image with an empty alt when displayName is null (line 23 fallback)', () => {
+    // avatarUrl present → <img> branch — but displayName is null, exercising
+    // the `user?.displayName ?? ''` empty-string fallback inside the alt.
+    const user = { ...baseUser, displayName: null, avatarUrl: 'https://example.com/a.jpg' }
+    render(<UserAvatar user={user} />)
+    const img = document.querySelector('img') as HTMLImageElement
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('alt')).toBe('')
+    expect(img.src).toContain('example.com/a.jpg')
+  })
+
   it('shows initials when image fails to load (onError callback)', () => {
     const user = { ...baseUser, avatarUrl: 'https://invalid.example.com/avatar.jpg' }
     render(<UserAvatar user={user} />)

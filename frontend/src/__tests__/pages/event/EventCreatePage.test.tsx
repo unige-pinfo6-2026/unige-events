@@ -502,6 +502,60 @@ describe('CreateEventPage', () => {
       )
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
     })
+
+    it('falls back to the @username label in the failure toast when the staged invitee has no displayName', async () => {
+      // displayName null on the resolved user → the create-page failure toast
+      // uses the `@${username}` fallback instead of the (absent) display name.
+      mockCreateEvent.mockResolvedValue(createdEvent)
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'bb22cc33-dd44-ee55-ff66-778899001122',
+        username: 'bob.sansnom',
+        displayName: null,
+        avatarUrl: null,
+        email: 'bob@example.com',
+        auth0Id: 'auth0|bob',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+      mockInviteCoOrganizer.mockRejectedValue(new Error('409 already invited'))
+
+      renderPage()
+
+      fillRequiredFields()
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'bob.sansnom' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@bob.sansnom')).toBeTruthy())
+
+      fireEvent.click(screen.getByRole('button', { name: "Créer l'événement" }))
+
+      await waitFor(() =>
+        expect(screen.getByText(/Impossible d'inviter @bob\.sansnom/i)).toBeTruthy(),
+      )
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/42'))
+    })
+
+    it('removes a staged co-organizer when its × button is clicked', async () => {
+      mockGetUserByUsername.mockResolvedValue({
+        id: 'aa11bb22-cc33-dd44-ee55-ff6677889900',
+        username: 'alice.martin',
+        displayName: 'Alice',
+        avatarUrl: null,
+        email: 'alice@example.com',
+        auth0Id: 'auth0|alice',
+        profilePublic: true,
+        createdAt: '2026-05-14T10:00:00',
+      })
+
+      renderPage()
+
+      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+      fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+      await waitFor(() => expect(screen.getByText('@alice.martin')).toBeTruthy())
+
+      // removePendingCoOrganizer filters the staged list by userId.
+      fireEvent.click(screen.getByRole('button', { name: /Retirer Alice/ }))
+      expect(screen.queryByText('@alice.martin')).toBeNull()
+    })
   })
 
   describe('template pre-fill (location.state.template)', () => {
