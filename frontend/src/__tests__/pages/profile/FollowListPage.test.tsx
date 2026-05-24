@@ -130,7 +130,9 @@ describe('FollowListPage — others', () => {
 
     await waitFor(() => expect(screen.getByText(/Followers de Other User/)).toBeTruthy())
     expect(mockGetUserByUsername).toHaveBeenCalledWith('other.user')
-    expect(mockGetFollowers).toHaveBeenCalledWith(OTHER_UUID, 0, FOLLOW_LIST_PAGE_SIZE)
+    // The followers fetch fires in a later effect than the heading render —
+    // await it so the assertion isn't racy under load.
+    await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OTHER_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
     expect(await screen.findByText('User a')).toBeTruthy()
     expect(screen.getByText('User b')).toBeTruthy()
   })
@@ -142,7 +144,7 @@ describe('FollowListPage — others', () => {
     renderAt('/profile/other.user/following')
 
     await waitFor(() => expect(screen.getByText(/Abonnements de Other User/)).toBeTruthy())
-    expect(mockGetFollowing).toHaveBeenCalledWith(OTHER_UUID, 0, FOLLOW_LIST_PAGE_SIZE)
+    await waitFor(() => expect(mockGetFollowing).toHaveBeenCalledWith(OTHER_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
     expect(await screen.findByText('User z')).toBeTruthy()
   })
 
@@ -250,7 +252,7 @@ describe('FollowListPage — me', () => {
 
     await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
     expect(mockGetUserByUsername).not.toHaveBeenCalled()
-    expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE)
+    await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
   })
 
   it('treats /:ownUsername/followers as the /me route', async () => {
