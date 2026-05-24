@@ -266,4 +266,62 @@ describe('PendingCoOrganizersEditor', () => {
     // 1 caller + 1 staged → 2 handles passed to the dropdown.
     expect(screen.getByTestId('exclude-len').textContent).toBe('2')
   })
+
+  it('omits the caller from excludeUsernames when the auth user has no username (line 51 falsy branch)', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...CALLER_USER, username: undefined as unknown as string },
+      isAuthenticated: true,
+      isAdmin: false,
+      isLoading: false,
+      error: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      updateUser: vi.fn(),
+    })
+    render(
+      <PendingCoOrganizersEditor pending={[entry()]} onAdd={vi.fn()} onRemove={vi.fn()} />,
+    )
+    // Only the 1 staged entry — the caller handle is skipped (user?.username falsy).
+    expect(screen.getByTestId('exclude-len').textContent).toBe('1')
+  })
+
+  it('stages null displayName/avatarUrl when the resolved user omits them (line 76/77 ?? null)', async () => {
+    mockGetUserByUsername.mockResolvedValue(
+      resolved({ displayName: undefined, avatarUrl: undefined }),
+    )
+    const onAdd = vi.fn()
+    render(<PendingCoOrganizersEditor pending={[]} onAdd={onAdd} onRemove={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alice.martin' } })
+    fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+    await waitFor(() =>
+      expect(onAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ displayName: null, avatarUrl: null }),
+      ),
+    )
+  })
+
+  it('clears the field error when the user types again while an error is shown (line 110)', async () => {
+    render(<PendingCoOrganizersEditor pending={[]} onAdd={vi.fn()} onRemove={vi.fn()} />)
+    const input = screen.getByLabelText(/username/i)
+    // 1. Trigger a validation error (too short).
+    fireEvent.change(input, { target: { value: 'AB' } })
+    fireEvent.click(screen.getByRole('button', { name: /^ajouter$/i }))
+    await waitFor(() => expect(screen.getByText(/username invalide/i)).toBeTruthy())
+    // 2. Typing again while fieldError is set fires setFieldError(null).
+    fireEvent.change(input, { target: { value: 'alice' } })
+    await waitFor(() => expect(screen.queryByText(/username invalide/i)).toBeNull())
+  })
+
+  it('renders an avatar <img> for a staged entry that has an avatarUrl (line 149 truthy branch)', () => {
+    render(
+      <PendingCoOrganizersEditor
+        pending={[entry({ avatarUrl: 'https://example.com/alice.png' })]}
+        onAdd={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    )
+    const img = document.querySelector('img') as HTMLImageElement | null
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe('https://example.com/alice.png')
+  })
 })

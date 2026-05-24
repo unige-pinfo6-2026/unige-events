@@ -280,6 +280,33 @@ describe('CoOrganizersEditor', () => {
     })
   })
 
+  it('omits the caller from excludeUsernames when the auth user has no username', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...CALLER_USER, username: undefined as unknown as string },
+      isAuthenticated: true,
+      isAdmin: false,
+      isLoading: false,
+      error: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      updateUser: vi.fn(),
+    })
+    const alice: CoOrganizer = {
+      id: 1,
+      userId: UUID_VALID,
+      displayName: 'Alice',
+      avatarUrl: null,
+      username: 'alice.martin',
+      status: 'ACCEPTED',
+      invitedAt: '2026-05-14T10:00:00',
+    }
+    setupHook({ coOrganizers: [alice] })
+    render(<CoOrganizersEditor eventId={42} />)
+    // Only the 1 existing co-org handle — the caller handle is skipped
+    // because user?.username is falsy (line 49 branch).
+    expect(screen.getByTestId('exclude-len').textContent).toBe('1')
+  })
+
   it('passes the caller handle + accepted co-organizers to excludeUsernames', () => {
     const alice: CoOrganizer = {
       id: 1,
@@ -349,5 +376,51 @@ describe('CoOrganizersEditor', () => {
     const img = document.querySelector('img') as HTMLImageElement | null
     expect(img).toBeTruthy()
     expect(img?.src).toBe('https://example.com/avatar.png')
+  })
+
+  it('shows the hook error message when loading the co-organizers fails (line 127)', () => {
+    setupHook({ error: 'Impossible de charger les co-organisateurs.' })
+    render(<CoOrganizersEditor eventId={42} />)
+    expect(screen.getByText('Impossible de charger les co-organisateurs.')).toBeTruthy()
+    // The empty-state copy must not appear alongside an error.
+    expect(screen.queryByText(/aucun co-organisateur/i)).toBeNull()
+  })
+
+  it('falls back to the username for label, initials and handle when displayName is null (lines 149-151)', () => {
+    const noName: CoOrganizer = {
+      id: 1,
+      userId: UUID_VALID,
+      displayName: null,
+      avatarUrl: null,
+      username: 'bob.smith',
+      status: 'ACCEPTED',
+      invitedAt: '2026-05-14T10:00:00',
+    }
+    setupHook({ coOrganizers: [noName] })
+    render(<CoOrganizersEditor eventId={42} />)
+    // Label + handle both derive from the username.
+    expect(screen.getByText('bob.smith')).toBeTruthy()
+    expect(screen.getByText('@bob.smith')).toBeTruthy()
+    // Initials come from the username's first two chars, uppercased.
+    expect(screen.getByText('BO')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /retirer bob\.smith/i })).toBeTruthy()
+  })
+
+  it('falls back to the userId and "??" initials when both displayName and username are null (lines 149-151)', () => {
+    const bare: CoOrganizer = {
+      id: 2,
+      userId: UUID_VALID,
+      displayName: null,
+      avatarUrl: null,
+      username: null,
+      status: 'PENDING',
+      invitedAt: '2026-05-14T10:00:00',
+    }
+    setupHook({ coOrganizers: [bare] })
+    render(<CoOrganizersEditor eventId={42} />)
+    // Label and handle both fall through to the userId.
+    expect(screen.getAllByText(UUID_VALID).length).toBeGreaterThanOrEqual(1)
+    // Initials fall back to the literal '??'.
+    expect(screen.getByText('??')).toBeTruthy()
   })
 })

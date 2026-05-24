@@ -110,6 +110,39 @@ describe('EventOrganizerTeam', () => {
     expect(screen.queryByText('Declined')).toBeNull()
   })
 
+  it('renders the loading skeleton placeholder while co-organizers load', () => {
+    setupHook({ loading: true })
+    renderWithRouter(
+      <EventOrganizerTeam
+        eventId={42}
+        creatorId={CREATOR_UUID}
+        creatorUsername="charlie"
+        creatorDisplayName="Charlie"
+        creatorAvatarUrl={null}
+      />,
+    )
+    // Creator is always shown; the skeleton occupies an extra <li> in the
+    // co-organizer slot while loading is true (line 53 branch).
+    expect(screen.getByText('Charlie')).toBeTruthy()
+    expect(document.querySelectorAll('li').length).toBeGreaterThan(1)
+  })
+
+  it('renders an avatar <img> for the creator when an avatarUrl is provided', () => {
+    setupHook()
+    renderWithRouter(
+      <EventOrganizerTeam
+        eventId={42}
+        creatorId={CREATOR_UUID}
+        creatorUsername="charlie"
+        creatorDisplayName="Charlie"
+        creatorAvatarUrl="https://example.com/charlie.png"
+      />,
+    )
+    const img = document.querySelector('img') as HTMLImageElement | null
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe('https://example.com/charlie.png')
+  })
+
   it('falls back to the UUID prefix when displayName and username are null', () => {
     // SCRUM-169 — userDisplayLabel order : displayName > @username > UUID prefix.
     // Here both are absent → falls to the first 8 chars of CREATOR_UUID.

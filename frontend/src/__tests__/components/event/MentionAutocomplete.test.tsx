@@ -397,4 +397,55 @@ describe('MentionAutocomplete (component)', () => {
       fireEvent.keyDown(ta, { key: 'Enter' })
     }).not.toThrow()
   })
+
+  it('focuses the textarea and repositions the caret after a commit (rAF)', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.mouseDown(screen.getByText('@alice.dosh'))
+    await waitFor(() => expect(ta.value).toBe('@alice.dosh '))
+    // The requestAnimationFrame in commitSelection focuses the textarea and
+    // moves the caret past the inserted handle (lines 202-203). Assert on the
+    // caret position the rAF sets — deterministic once the frame has flushed.
+    // (We don't assert document.activeElement: happy-dom doesn't reliably track
+    // focus on a node React just re-rendered, but t.focus() still executes.)
+    await waitFor(() => expect(ta.selectionStart).toBe('@alice.dosh '.length), { timeout: 1000 })
+    expect(ta.selectionEnd).toBe('@alice.dosh '.length)
+  })
+
+  it('moving the caret back inside the just-inserted handle re-evaluates the reopen guard', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    fireEvent.mouseDown(screen.getByText('@alice.dosh'))
+    await waitFor(() => expect(ta.value).toBe('@alice.dosh '))
+    // Right after the commit the caret is at index 12 (past the trailing
+    // space): detectActiveMention returns null there → dropdown is closed.
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull(), { timeout: 2000 })
+    // Move the caret back to index 11 — just before the trailing space, i.e.
+    // INSIDE the inserted handle. Now `lastInsertedRef` is set and the value
+    // startsWith the inserted handle, so the guard at line 64 is entered and
+    // `insertedEnd` (line 65) is computed; caretPos (11) < insertedEnd (12)
+    // (branch 66-false), so the active mention is returned and the dropdown
+    // reopens for the stale handle.
+    ta.setSelectionRange(11, 11)
+    fireEvent.keyUp(ta)
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 2000 })
+  })
+
+  it('clears the results (no crash) when the search request rejects', async () => {
+    mockSearch.mockRejectedValueOnce(new Error('network down'))
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledWith('al', 8), { timeout: 1000 })
+    // The .catch path runs for the still-current request id → setResults([]) /
+    // setActiveIndex(-1), finally setLoading(false). The dropdown stays open
+    // (the @al mention is still active) and shows the empty-state row.
+    await waitFor(() => expect(screen.getByText('Aucun utilisateur.')).toBeTruthy(), { timeout: 1000 })
+  })
 })

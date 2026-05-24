@@ -8,6 +8,14 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: showToastMock }),
 }))
 
+// SCRUM-147 report flow — mock the hook so we control the boolean `submit`
+// resolves with (true → modal closes, false → stays open). `reporting` stays
+// false so the ReportModal's Signaler submit button is enabled.
+const submitReportMock = vi.fn<(body: unknown) => Promise<boolean>>()
+vi.mock('@/hooks/useReportComment', () => ({
+  useReportComment: () => ({ submitting: false, submit: submitReportMock }),
+}))
+
 vi.mock('@/services/commentApi', async () => {
   const actual = await vi.importActual<typeof import('@/services/commentApi')>('@/services/commentApi')
   return {
@@ -55,6 +63,8 @@ beforeEach(() => {
   showToastMock.mockReset()
   mockLike.mockReset()
   mockUnlike.mockReset()
+  submitReportMock.mockReset()
+  submitReportMock.mockResolvedValue(true)
   mockLike.mockResolvedValue({ liked: true, likeCount: 1 })
   mockUnlike.mockResolvedValue(undefined)
 })
@@ -554,6 +564,90 @@ describe('CommentItem', () => {
     expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /annuler/i }))
     expect(screen.queryByText('Signaler ce commentaire')).toBeNull()
+  })
+
+  it('closes the ReportModal when submit resolves true (handleReportSubmit)', async () => {
+    submitReportMock.mockResolvedValue(true)
+    renderItem(
+      <CommentItem
+        comment={makeComment({ id: 9, authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
+    fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'SPAM' } })
+    fireEvent.click(screen.getByRole('button', { name: /^signaler$/i }))
+
+    await waitFor(() => expect(submitReportMock).toHaveBeenCalledWith({ reason: 'SPAM', description: undefined }))
+    // shouldClose === true → modal goes away.
+    await waitFor(() => expect(screen.queryByText('Signaler ce commentaire')).toBeNull())
+  })
+
+  it('keeps the ReportModal open when submit resolves false (handleReportSubmit)', async () => {
+    submitReportMock.mockResolvedValue(false)
+    renderItem(
+      <CommentItem
+        comment={makeComment({ authorId: 'someone-else' })}
+        eventCreatorId="creator-uuid"
+        currentUserId="me"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /signaler/i }))
+    fireEvent.change(screen.getByLabelText(/Motif/i), { target: { value: 'OTHER' } })
+    fireEvent.click(screen.getByRole('button', { name: /^signaler$/i }))
+
+    await waitFor(() => expect(submitReportMock).toHaveBeenCalledWith({ reason: 'OTHER', description: undefined }))
+    // shouldClose === false → modal stays mounted.
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
+  })
+
+  it('closes the reply form via its Annuler button', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment()}
+        eventCreatorId="creator-uuid"
+        currentUserId="user-uuid"
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /répondre/i }))
+    expect(screen.getByLabelText(/contenu du commentaire/i)).toBeTruthy()
+    // The reply CommentForm renders an Annuler button (onCancel wired to
+    // setShowReplyForm(false)) — clicking it tears the form down.
+    fireEvent.click(screen.getByRole('button', { name: /^annuler$/i }))
+    expect(screen.queryByLabelText(/contenu du commentaire/i)).toBeNull()
+  })
+
+  it('clicking the like button as an anonymous user is a no-op', () => {
+    renderItem(
+      <CommentItem
+        comment={makeComment({ likeCount: 2, likedByMe: false })}
+        eventCreatorId="creator-uuid"
+        currentUserId={null}
+        isAdmin={false}
+        onReply={vi.fn().mockResolvedValue({ ok: true })}
+        onDelete={vi.fn().mockResolvedValue(undefined)}
+        posting={false}
+      />,
+    )
+    const btn = screen.getByRole('button', { name: /Aimer ce commentaire/i })
+    // canLike is false → the onClick guard `if (canLike) void toggle()` skips
+    // toggle. The optimistic count never moves and no like API runs.
+    fireEvent.click(btn)
+    expect(mockLike).not.toHaveBeenCalled()
+    expect(screen.getByText('2')).toBeTruthy()
   })
 
   // ─── Misc uncovered branches (avatar, delete completion, reply failure) ─

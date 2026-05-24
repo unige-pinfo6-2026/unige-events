@@ -1,8 +1,58 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
-import CommentForm from '@/components/event/CommentForm'
 
-afterEach(() => cleanup())
+// Stub every userService export (matches MentionAutocomplete.test.tsx) so the
+// inline mention autocomplete inside CommentForm hits our mocked searchUsernames
+// rather than the real implementation leaking through the fork pool.
+vi.mock('@/services/userService', () => ({
+  getMe: vi.fn(),
+  getUserById: vi.fn(),
+  getPublicProfile: vi.fn(),
+  getUserByUsername: vi.fn(),
+  updateProfile: vi.fn(),
+  updateUsername: vi.fn(),
+  searchUsernames: vi.fn(),
+  checkUsernameAvailable: vi.fn(),
+  uploadPhoto: vi.fn(),
+  uploadBanner: vi.fn(),
+  deleteBanner: vi.fn(),
+  getCalendarToken: vi.fn(),
+  regenerateCalendarToken: vi.fn(),
+}))
+
+import CommentForm from '@/components/event/CommentForm'
+import { searchUsernames } from '@/services/userService'
+import type { UserPublicResponse } from '@/types/user'
+
+const mockSearch = vi.mocked(searchUsernames)
+
+function publicUser(username: string, displayName: string | null = null): UserPublicResponse {
+  return {
+    id: `${username}-uuid`,
+    username,
+    displayName,
+    faculty: null,
+    studyLevel: null,
+    bio: null,
+    interests: [],
+    avatarUrl: null,
+    bannerUrl: null,
+    profilePublic: false,
+    followerCount: 0,
+    followingCount: 0,
+    followStatus: null,
+  }
+}
+
+beforeEach(() => {
+  mockSearch.mockReset()
+  mockSearch.mockResolvedValue([])
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
 
 describe('CommentForm', () => {
   it('renders textarea and submit button', () => {
@@ -137,5 +187,24 @@ describe('CommentForm', () => {
     render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting />)
     const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
     expect(input.disabled).toBe(true)
+  })
+
+  it('commits a mention suggestion through handleAutocompleteChange', async () => {
+    mockSearch.mockResolvedValue([publicUser('alice.dosh', 'Alice')])
+    render(<CommentForm onSubmit={vi.fn().mockResolvedValue({ ok: true })} submitting={false} />)
+    const input = screen.getByLabelText(/contenu du commentaire/i) as HTMLTextAreaElement
+
+    // Type an @prefix and place the caret at the end so MentionAutocomplete
+    // detects an active mention and runs the debounced search.
+    fireEvent.change(input, { target: { value: '@al' } })
+    input.setSelectionRange(3, 3)
+    fireEvent.keyUp(input)
+
+    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
+    // Selecting the row drives MentionAutocomplete.onChange → handleAutocompleteChange,
+    // which setContent(newValue) (line 72) and discards newCaretPos (line 76).
+    fireEvent.mouseDown(screen.getByText('@alice.dosh'))
+
+    await waitFor(() => expect(input.value).toBe('@alice.dosh '))
   })
 })

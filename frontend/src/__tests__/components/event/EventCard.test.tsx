@@ -68,6 +68,12 @@ describe('EventCard', () => {
     expect(screen.queryByText(/places/)).toBeNull()
   })
 
+  it('renders the singular "place" label when capacity is exactly 1', () => {
+    renderCard({ ...mockEvent, capacity: 1 })
+    expect(screen.getByText(/1 place$/)).toBeTruthy()
+    expect(screen.queryByText(/places/)).toBeNull()
+  })
+
   it('renders all event categories without error', () => {
     const categories: Event['category'][] = ['ACADEMIC', 'SPORTS', 'CULTURAL', 'SOCIAL', 'CONFERENCE', 'OTHER']
     for (const category of categories) {

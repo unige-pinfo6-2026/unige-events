@@ -83,6 +83,16 @@ describe('EventAttachmentsEditor', () => {
     expect(mockUpload).not.toHaveBeenCalled()
   })
 
+  it('ignores a change event with no files (null/empty FileList early return)', () => {
+    renderEditor()
+    const input = document.querySelector<HTMLInputElement>('#event-attachments-input')!
+    fireEvent.change(input, { target: { files: null } })
+    fireEvent.change(input, { target: { files: [] } })
+    // Nothing was staged → the "to upload" heading never appears.
+    expect(screen.queryByText('Fichiers à uploader')).toBeNull()
+    expect(mockUpload).not.toHaveBeenCalled()
+  })
+
   it('removes a staged file when its × button is clicked', () => {
     renderEditor()
     const file = new File(['x'], 'doc.pdf', { type: 'application/pdf' })
@@ -241,6 +251,17 @@ describe('EventAttachmentsEditor', () => {
     expect(await screen.findByText('Ce fichier dépasse la taille maximale autorisée (10.0 MB).')).toBeTruthy()
   })
 
+  it('maps the backend code attachment_limit_exceeded to the French limit message', async () => {
+    mockUpload.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 422, data: { code: 'attachment_limit_exceeded' } },
+    })
+    renderEditor()
+    pickFile(new File(['x'], 'doc.pdf', { type: 'application/pdf' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Uploader' }))
+    expect(await screen.findByText('Limite atteinte : 5 fichiers maximum par événement.')).toBeTruthy()
+  })
+
   it('maps a 415 response to the bad-type message', async () => {
     mockUpload.mockRejectedValueOnce({
       isAxiosError: true,
@@ -288,6 +309,20 @@ describe('EventAttachmentsEditor', () => {
 
   it('shows a generic delete-failure message when the backend gives no envelope', async () => {
     mockDelete.mockRejectedValueOnce(new Error('net'))
+    renderEditor({ attachments: [pdfAttachment()] })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer programme.pdf' }))
+
+    expect(await screen.findByText('La suppression du fichier a échoué.')).toBeTruthy()
+  })
+
+  it('falls back to the generic delete message when an axios error carries no usable message', async () => {
+    // axios error envelope present but message absent → the inner
+    // string/trim guard is false and we fall through to the generic copy.
+    mockDelete.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 500, data: {} },
+    })
     renderEditor({ attachments: [pdfAttachment()] })
 
     fireEvent.click(screen.getByRole('button', { name: 'Supprimer programme.pdf' }))
