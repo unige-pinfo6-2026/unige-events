@@ -25,9 +25,11 @@ describe('FacultyCard', () => {
     expect(container.querySelector('svg')).toBeTruthy()
   })
 
-  it('applies the passed className to the logo svg', () => {
+  it('renders the logo svg with the fixed default sizing class', () => {
+    // FacultyCard takes no className prop — it always renders
+    // <Logo className="w-auto h-24" />. Assert that fixed default class.
     const { container } = render(<FacultyCard faculty="SCIENCES" />)
     const svg = container.querySelector('svg')
-    expect(svg?.getAttribute('class')).toContain('h-24')
+    expect(svg?.getAttribute('class')).toContain('w-auto h-24')
   })
 })

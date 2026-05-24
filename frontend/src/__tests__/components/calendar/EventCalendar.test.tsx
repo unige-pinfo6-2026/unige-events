@@ -20,11 +20,14 @@ import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 
 const mockUseCalendarEvents = vi.mocked(useCalendarEvents)
 
-// Anchor every event inside the current month so react-big-calendar paints the
-// event bars (and therefore calls eventPropGetter — the line-160 target).
-const now = new Date()
+// Freeze "now" to a fixed instant (mid-month) so the component's render-time
+// `new Date()` (its initial `currentDate`) always lands in the same month as
+// the event fixtures below — react-big-calendar then paints the event bars
+// (calling eventPropGetter, the line-160 target). Without this freeze a run
+// crossing a month boundary could paint a different month → flaky assertions.
+const FIXED_NOW = new Date(2099, 5, 15, 9, 0, 0)
 function dayThisMonth(day: number, hour: number): Date {
-  return new Date(now.getFullYear(), now.getMonth(), day, hour, 0, 0)
+  return new Date(FIXED_NOW.getFullYear(), FIXED_NOW.getMonth(), day, hour, 0, 0)
 }
 
 function makeEvent(overrides: Partial<Event>): Event {
@@ -67,10 +70,15 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   mockNavigate.mockReset()
+  vi.useRealTimers()
 })
 
 describe('EventCalendar', () => {
   beforeEach(() => {
+    // Fake only `Date` (not timers/rAF, which react-big-calendar relies on) and
+    // pin it to FIXED_NOW so the component opens on the fixtures' month.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(FIXED_NOW)
     // Two events: one with a real category (left side of `category ?? 'OTHER'`)
     // and one whose category is nulled by the backend contract (right-side
     // fallback @line 160).

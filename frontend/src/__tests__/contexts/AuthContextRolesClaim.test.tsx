@@ -8,7 +8,7 @@
 // a `beforeAll`, in a file that NEVER statically imports AuthContext so the
 // only instance v8 instruments is the stubbed one.
 
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { useContext } from 'react'
@@ -38,6 +38,13 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+})
+
+// Revert the env stub + drop the cached (env-less) AuthContext module so this
+// file's setup cannot leak into other test files sharing the worker.
+afterAll(() => {
+  vi.unstubAllEnvs()
+  vi.resetModules()
 })
 
 describe('AuthContext — ROLES_CLAIM default fallback (VITE_AUTH0_ROLES_CLAIM unset)', () => {
