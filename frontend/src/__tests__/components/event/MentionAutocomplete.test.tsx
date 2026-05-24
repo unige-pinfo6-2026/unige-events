@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef, useState } from 'react'
 
 // Comprehensive stub — every exported function from userService is mocked
@@ -61,7 +61,23 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.useRealTimers()
 })
+
+// Debounce window of MentionAutocomplete (keep in sync with its DEBOUNCE_MS).
+const MENTION_DEBOUNCE_MS = 300
+
+// Keyboard-navigation tests freeze the clock so the debounced search — and the
+// single re-fire it triggers on the next render — settle deterministically
+// *before* any key is pressed. With real timers these were flaky: an async
+// search resolution could land mid-sequence and reset activeIndex back to 0
+// (observed as "expected '@al' to be '@alan.jones'" under CI load).
+// Requires vi.useFakeTimers() to be active.
+async function settleDebouncedSearch() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(MENTION_DEBOUNCE_MS + 50)
+  })
+}
 
 describe('detectActiveMention (pure)', () => {
   it('returns null when no @ before caret', () => {
@@ -208,34 +224,48 @@ describe('MentionAutocomplete (component)', () => {
   })
 
   it('ArrowDown / ArrowUp move the active row, Enter inserts it', async () => {
-    mockSearch.mockResolvedValue([
-      user('alice.dosh', 'Alice'),
-      user('alex.smith', 'Alex'),
-      user('alan.jones', 'Alan'),
-    ])
-    render(<Harness />)
-    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
-    typeIn(ta, '@al')
-    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
-    // Default active index is 0 (first row) — ArrowDown twice moves to row 2.
-    fireEvent.keyDown(ta, { key: 'ArrowDown' })
-    fireEvent.keyDown(ta, { key: 'ArrowDown' })
-    fireEvent.keyDown(ta, { key: 'Enter' })
-    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alan.jones '))
+    // Fake timers: the debounced search settles fully before the (synchronous)
+    // key presses, so no async re-search can reset activeIndex between them.
+    vi.useFakeTimers()
+    try {
+      mockSearch.mockResolvedValue([
+        user('alice.dosh', 'Alice'),
+        user('alex.smith', 'Alex'),
+        user('alan.jones', 'Alan'),
+      ])
+      render(<Harness />)
+      const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+      typeIn(ta, '@al')
+      await settleDebouncedSearch()
+      expect(screen.getByText('@alan.jones')).toBeTruthy()
+      // Default active index is 0 (first row) — ArrowDown twice moves to row 2.
+      // Synchronous presses → no microtask flush between them.
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'Enter' })
+      expect(ta.value).toBe('@alan.jones ')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('ArrowDown stops at the last row (no overflow)', async () => {
-    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
-    render(<Harness />)
-    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
-    typeIn(ta, '@al')
-    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
-    // 2 results — pressing ArrowDown thrice should clamp at index 1.
-    fireEvent.keyDown(ta, { key: 'ArrowDown' })
-    fireEvent.keyDown(ta, { key: 'ArrowDown' })
-    fireEvent.keyDown(ta, { key: 'ArrowDown' })
-    fireEvent.keyDown(ta, { key: 'Enter' })
-    await waitFor(() => expect((screen.getByTestId('ta') as HTMLTextAreaElement).value).toBe('@alex.smith '))
+    vi.useFakeTimers()
+    try {
+      mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
+      render(<Harness />)
+      const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+      typeIn(ta, '@al')
+      await settleDebouncedSearch()
+      // 2 results — pressing ArrowDown thrice should clamp at index 1.
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'ArrowDown' })
+      fireEvent.keyDown(ta, { key: 'Enter' })
+      expect(ta.value).toBe('@alex.smith ')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('ArrowUp does not crash when activeIndex is already at 0', async () => {
@@ -243,21 +273,24 @@ describe('MentionAutocomplete (component)', () => {
     // the first row stays active-selected (no overflow into negative
     // indices). Avoids chaining Enter — see the corresponding
     // "ArrowDown stops at the last row" test for the upper bound.
-    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
-    render(<Harness />)
-    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
-    typeIn(ta, '@al')
-    await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
-    // Pressing ArrowUp on the already-top row must not throw and must
-    // keep the first row aria-selected.
-    expect(() => {
-      fireEvent.keyDown(ta, { key: 'ArrowUp' })
-      fireEvent.keyDown(ta, { key: 'ArrowUp' })
-    }).not.toThrow()
-    await waitFor(() => {
+    vi.useFakeTimers()
+    try {
+      mockSearch.mockResolvedValue([user('alice.dosh', 'Alice'), user('alex.smith', 'Alex')])
+      render(<Harness />)
+      const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+      typeIn(ta, '@al')
+      await settleDebouncedSearch()
+      // Pressing ArrowUp on the already-top row must not throw and must
+      // keep the first row aria-selected.
+      expect(() => {
+        fireEvent.keyDown(ta, { key: 'ArrowUp' })
+        fireEvent.keyDown(ta, { key: 'ArrowUp' })
+      }).not.toThrow()
       const firstRow = screen.getByText('@alice.dosh').closest('li')
       expect(firstRow?.getAttribute('aria-selected')).toBe('true')
-    })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('Escape closes the dropdown', async () => {
