@@ -17,6 +17,7 @@ import {
   EVENT_TAG_MAX_LENGTH,
   EVENT_TAGS_MAX_ITEMS,
   EVENT_WEBSITE_URL_MAX_LENGTH,
+  type Event,
 } from '@/types/event'
 
 vi.mock('@/services/eventApi', () => ({
@@ -1469,6 +1470,198 @@ describe('useEventForm', () => {
       expect(mockUpdateEvent).toHaveBeenCalledTimes(1)
       const [, updatePayload] = mockUpdateEvent.mock.calls[0]
       expect((updatePayload as { recurrence?: unknown }).recurrence).toBeUndefined()
+    })
+  })
+
+  describe('coverage-max residuals (sans exclusion)', () => {
+    function fill(setFieldValue: ReturnType<typeof useEventForm>['setFieldValue']) {
+      setFieldValue('title', 'Forum')
+      setFieldValue('location', 'Uni Dufour')
+      setFieldValue('startDate', '2099-04-10T10:00')
+      setFieldValue('endDate', '2099-04-10T12:00')
+      setFieldValue('category', 'SOCIAL')
+    }
+    function fillRec(hook: ReturnType<typeof useEventForm>) {
+      hook.setFieldValue('title', 'Cours')
+      hook.setFieldValue('location', 'Uni Mail')
+      hook.setFieldValue('startDate', '2099-09-21T10:00')
+      hook.setFieldValue('endDate', '2099-09-21T12:00')
+      hook.setFieldValue('category', 'ACADEMIC')
+    }
+
+    it('normalizes a persisted recurrence object back into the form (create mode)', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, JSON.stringify({
+        title: 'Avec récurrence', location: 'Uni', category: 'SOCIAL',
+        recurrence: { enabled: true, frequency: 'MONTHLY', endMode: 'count', maxOccurrences: '5', endDate: '' },
+      }))
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.recurrence).toMatchObject({
+        enabled: true, frequency: 'MONTHLY', endMode: 'count', maxOccurrences: '5',
+      })
+    })
+
+    it('falls back to defaults and clears the key when the persisted draft is corrupt JSON', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      sessionStorage.setItem(DRAFT_FORM_KEY, '{ not valid json')
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.title).toBe('')
+      expect(sessionStorage.getItem(DRAFT_FORM_KEY)).toBeNull()
+      expect(warn).toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('ignores a persisted draft that is valid JSON but not an object', () => {
+      sessionStorage.setItem(DRAFT_FORM_KEY, '"just a string"')
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      expect(result.current.values.title).toBe('')
+    })
+
+    it('skips malformed validation details and coerces a non-string field to null', async () => {
+      mockCreateEvent.mockRejectedValue({ isAxiosError: true, response: { data: { details: [
+        'not an object',
+        { field: 'title', message: '   ' },
+        { field: 123, message: 'must not be blank' },
+      ] } } })
+      const onError = vi.fn()
+      const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+      act(() => { fill(result.current.setFieldValue) })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(onError).toHaveBeenCalledWith('Ce champ est requis.')
+    })
+
+    it.each([
+      ['double @', 'a@b@c.de'],
+      ['empty domain', 'a@'],
+      ['no dot in domain', 'a@bc'],
+      ['trailing dot in domain', 'a@bc.'],
+      ['tab inside local part', `a${String.fromCharCode(0x09)}b@example.com`],
+      ['nbsp inside local part', `a${String.fromCharCode(0xa0)}b@example.com`],
+      ['line separator inside local part', `a${String.fromCharCode(0x2028)}b@example.com`],
+    ])('rejects structurally invalid contact email (%s)', async (_label, email) => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => {
+        fill(result.current.setFieldValue)
+        result.current.setFieldValue('contactEmail', email)
+      })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.contactEmail).toBe("L'email de contact est invalide.")
+    })
+
+    it('rejects a recurrence endDate that cannot be parsed', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => {
+        fillRec(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence, enabled: true, endMode: 'date', endDate: 'not-a-date',
+        })
+      })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.recurrence).toBe('La date de fin de récurrence est invalide.')
+    })
+
+    it('requires a count when recurrence endMode is count with empty maxOccurrences', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => {
+        fillRec(result.current)
+        result.current.setFieldValue('recurrence', {
+          ...result.current.values.recurrence, enabled: true, endMode: 'count', maxOccurrences: '',
+        })
+      })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.recurrence).toBe("Définissez une date de fin OU un nombre d'occurrences.")
+    })
+
+    it('ignores a concurrent submit while one is already in flight', async () => {
+      let resolveCreate: (e: typeof baseEvent) => void = () => {}
+      mockCreateEvent.mockReturnValue(new Promise((r) => { resolveCreate = r }))
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => { fill(result.current.setFieldValue) })
+
+      let first: Promise<void> = Promise.resolve()
+      act(() => { first = result.current.triggerPublish() })
+      expect(result.current.submitting).toBe(true)
+
+      await act(async () => { await result.current.triggerDraftSave() })
+      expect(mockCreateEvent).toHaveBeenCalledTimes(1)
+
+      await act(async () => { resolveCreate(baseEvent); await first })
+    })
+
+    it('hydrates an edit event whose optional fields are all null/undefined', async () => {
+      const sparse = {
+        ...baseEvent, id: 7, description: null, capacity: null, allDay: undefined,
+        websiteUrl: null, contactEmail: null, registrationDeadline: null, tags: null, bannerUrl: null,
+      } as unknown as Event
+      const { result, rerender } = renderHook(
+        ({ initialEvent }) => useEventForm({ mode: 'edit', initialEvent }),
+        { initialProps: { initialEvent: null as Event | null } },
+      )
+      rerender({ initialEvent: sparse })
+      await waitFor(() => expect(result.current.values.title).toBe(baseEvent.title))
+      expect(result.current.values.description).toBe('')
+      expect(result.current.values.capacity).toBe('')
+      expect(result.current.values.websiteUrl).toBe('')
+      expect(result.current.values.contactEmail).toBe('')
+      expect(result.current.values.registrationDeadline).toBe('')
+      expect(result.current.values.tags).toEqual([])
+      expect(result.current.values.allDay).toBe(false)
+    })
+
+    it('fills template defaults when the template event optional fields are null', () => {
+      const sparseTemplate = {
+        ...baseEvent, id: 8, description: null, capacity: null, allDay: undefined,
+        websiteUrl: null, contactEmail: null, tags: null,
+      } as unknown as Event
+      const { result } = renderHook(() => useEventForm({ mode: 'create', templateEvent: sparseTemplate }))
+      expect(result.current.values.description).toBe('')
+      expect(result.current.values.capacity).toBe('')
+      expect(result.current.values.websiteUrl).toBe('')
+      expect(result.current.values.contactEmail).toBe('')
+      expect(result.current.values.tags).toEqual([])
+      expect(result.current.values.allDay).toBe(false)
+    })
+
+    it('localizes validation details without a field and alternate phrasings', async () => {
+      mockCreateEvent.mockRejectedValue({ isAxiosError: true, response: { data: { details: [
+        { message: 'must not be null' },
+        { message: 'must be a future date' },
+        { message: 'must be greater than 0' },
+        { message: 'must be greater than or equal to 1' },
+        { message: 'totally unknown english constraint' },
+      ] } } })
+      const onError = vi.fn()
+      const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+      act(() => { fill(result.current.setFieldValue) })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      const msg = onError.mock.calls[0][0] as string
+      expect(msg).toContain('Ce champ est requis.')
+      expect(msg).toContain('La date doit être dans le futur.')
+      expect(msg).toContain('La valeur doit être supérieure à 0.')
+      expect(msg).toContain('supérieure ou égale à 1')
+      expect(msg).toContain('totally unknown english constraint')
+    })
+
+    it('uses the generic fallback for a non-French top-level API message', async () => {
+      mockCreateEvent.mockRejectedValue({ isAxiosError: true, response: { data: { message: 'Internal server failure' } } })
+      const onError = vi.fn()
+      const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+      act(() => { fill(result.current.setFieldValue) })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(onError).toHaveBeenCalledWith("La création de l'événement a échoué. Veuillez réessayer.")
+    })
+
+    it('parses a registrationDeadline even when startDate is missing', async () => {
+      const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+      act(() => {
+        result.current.setFieldValue('title', 'Forum')
+        result.current.setFieldValue('location', 'Uni')
+        result.current.setFieldValue('endDate', '2099-04-10T12:00')
+        result.current.setFieldValue('category', 'SOCIAL')
+        result.current.setFieldValue('registrationDeadline', '2099-04-09T18:00')
+      })
+      await act(async () => { await result.current.handleSubmit(submitEvent()) })
+      expect(result.current.errors.startDate).toBeDefined()
+      expect(result.current.errors.registrationDeadline).toBeUndefined()
     })
   })
 })
