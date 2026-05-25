@@ -28,7 +28,7 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.35.3</quarkus.platform.version>
-        <smallrye-reactive-messaging.version>4.34.0</smallrye-reactive-messaging.version>
+        <smallrye-reactive-messaging.version>4.35.0</smallrye-reactive-messaging.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.5</surefire-plugin.version>
 
