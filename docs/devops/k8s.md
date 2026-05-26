@@ -17,11 +17,15 @@ sudo snap alias microk8s.kubectl kubectl
 sudo snap alias microk8s.helm helm
 ```
 
-5. Créer le namespace : `kubectl create namespace unige-events`
+5. Récupérer la configuration `KUBE_CONFIG` et l'encoder en base64, puis ajouter la valeur comme secret `KUBE_CONFIG` dans chaque environment GitHub (Settings → Environments → production / preview) :
 
-6. Récupérer la configuration `KUBE_CONFIG` : copier la sortie de `microk8s config`
+```bash
+microk8s config | base64 -w 0
+```
 
-7. Installer le webhook cert-manager pour DuckDNS (DNS-01 challenge Let's Encrypt) :
+> La pipeline décode ce secret avec `base64 -d` avant de l'écrire dans `$KUBECONFIG`. Ne pas coller la sortie brute de `microk8s config` — elle doit impérativement être encodée en base64.
+
+6. Installer le webhook cert-manager pour DuckDNS (DNS-01 challenge Let's Encrypt) :
 
 ```bash
 git clone https://github.com/ebrianne/cert-manager-webhook-duckdns.git
@@ -37,14 +41,14 @@ microk8s helm install cert-manager-webhook-duckdns \
 
 > Le token DuckDNS est géré via le secret `dns-secret` dans le namespace `cert-manager`, créé automatiquement par le CD à partir du secret GitHub `DUCKDNS_TOKEN`. Le `placeholder` ci-dessus est requis par le chart mais n'est pas utilisé.
 
-8. Vérifier que le webhook et cert-manager tournent correctement :
+7. Vérifier que le webhook et cert-manager tournent correctement :
 
 ```bash
 kubectl get pods -n cert-manager
 kubectl get certificate -n unige-events
 ```
 
-9. Installer l'opérateur Doppler (gestion des secrets) :
+8. Installer l'opérateur Doppler (gestion des secrets) :
 
 ```bash
 helm repo add doppler https://helm.doppler.com
@@ -52,6 +56,6 @@ helm install doppler doppler/doppler-kubernetes-operator \
   --namespace doppler-operator-system --create-namespace
 ```
 
-10. Générer les tokens Doppler depuis le dashboard Doppler → Service Tokens (un token `staging`, un token `prd`) et les ajouter comme secret `DOPPLER_TOKEN` dans chaque environment GitHub (Settings → Environments → staging / production).
+9. Générer les tokens Doppler depuis le dashboard Doppler → Service Tokens (un token `staging`, un token `prd`) et les ajouter comme secret `DOPPLER_TOKEN` dans chaque environment GitHub (Settings → Environments → staging / production).
 
-> La pipeline CD crée automatiquement le secret `doppler-token` dans chaque namespace. L'opérateur synchronise ensuite le secret `app-secrets` à partir des configs Doppler correspondantes.
+> Le chart Helm crée automatiquement le secret `doppler-token` dans chaque namespace au moment du déploiement (via `helm/templates/secrets.yaml`). L'opérateur synchronise ensuite le secret `app-secrets` à partir des configs Doppler correspondantes. Le namespace lui-même est créé par `helm upgrade --install --create-namespace` — aucune création manuelle n'est nécessaire.
