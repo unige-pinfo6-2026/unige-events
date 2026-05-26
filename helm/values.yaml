@@ -1,3 +1,8 @@
+secrets:
+  dopplerToken: ""
+  ghcrUsername: ""
+  ghcrPassword: ""
+
 cloudflared:
   enabled: true
   mode: named

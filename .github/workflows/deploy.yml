@@ -31,26 +31,6 @@ jobs:
       - name: Set kubectl context
         run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $KUBECONFIG
 
-      - name: Create namespace
-        run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create Doppler token secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-name: doppler-token
-          secret-type: generic
-          string-data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
-
-      - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.NAMESPACE }}
-          secret-name: ghcr-secret
-          container-registry-url: ${{ env.REGISTRY }}
-          container-registry-username: ${{ github.actor }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install Helm
         uses: azure/setup-helm@v5
 
@@ -61,6 +41,9 @@ jobs:
             --create-namespace \
             --set image.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
+            --set-string secrets.dopplerToken="${{ secrets.DOPPLER_TOKEN }}" \
+            --set-string secrets.ghcrUsername="${{ github.actor }}" \
+            --set-string secrets.ghcrPassword="${{ secrets.GITHUB_TOKEN }}" \
             --timeout 6m \
             --wait
 
@@ -95,26 +78,6 @@ jobs:
 
       - name: Set kubectl context
         run: echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $KUBECONFIG
-
-      - name: Create namespace
-        run: kubectl create namespace ${{ env.PR_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create Doppler token secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.PR_NAMESPACE }}
-          secret-name: doppler-token
-          secret-type: generic
-          string-data: '{"serviceToken":"${{ secrets.DOPPLER_TOKEN }}"}'
-
-      - name: Create GHCR secret
-        uses: azure/k8s-create-secret@v6
-        with:
-          namespace: ${{ env.PR_NAMESPACE }}
-          secret-name: ghcr-secret
-          container-registry-url: ${{ env.REGISTRY }}
-          container-registry-username: ${{ github.actor }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
         uses: azure/setup-helm@v5
@@ -172,6 +135,9 @@ jobs:
             --set ingress.host="${{ env.PR_HOST }}" \
             --set image.tag="${{ github.sha }}" \
             --set image.web.tag="${{ github.sha }}" \
+            --set-string secrets.dopplerToken="${{ secrets.DOPPLER_TOKEN }}" \
+            --set-string secrets.ghcrUsername="${{ github.actor }}" \
+            --set-string secrets.ghcrPassword="${{ secrets.GITHUB_TOKEN }}" \
             --timeout 6m \
             --wait
 
