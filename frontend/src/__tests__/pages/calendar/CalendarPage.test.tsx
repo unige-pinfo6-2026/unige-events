@@ -332,6 +332,34 @@ describe('CalendarPage', () => {
       expect(screen.getByText('Conf IA')).toBeTruthy()
     })
 
+    it('treats an event with category=undefined as OTHER when filtering', () => {
+      // Defensive : backend rows can arrive without a category. Filtering
+      // OTHER must hide such rows via the `?? 'OTHER'` fallback inside the
+      // filter callback (EventCalendar line 183).
+      const conference = makeCalendarEvent(1, 'Conf IA')
+      const orphan: CalendarEvent = {
+        ...makeCalendarEvent(2, 'Sans catégorie'),
+        resource: {
+          ...makeCalendarEvent(2, 'Sans catégorie').resource,
+          category: undefined as unknown as 'OTHER',
+        },
+      }
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({
+        events: [conference, orphan],
+        loading: false,
+        error: null,
+      })
+      renderPage()
+      // Both visible initially.
+      expect(screen.getByText('Sans catégorie')).toBeTruthy()
+      expect(screen.getByText('Conf IA')).toBeTruthy()
+      // Mask "Autre" → the categoryless row is filtered out via `?? 'OTHER'`.
+      fireEvent.click(screen.getByRole('button', { name: /Masquer la catégorie Autre/i }))
+      expect(screen.queryByText('Sans catégorie')).toBeNull()
+      expect(screen.getByText('Conf IA')).toBeTruthy()
+    })
+
     it('keeps independent toggles when multiple categories are hidden', () => {
       const conference = makeCalendarEvent(1, 'Conf IA')
       const sports = { ...makeCalendarEvent(2, 'Match foot'),
