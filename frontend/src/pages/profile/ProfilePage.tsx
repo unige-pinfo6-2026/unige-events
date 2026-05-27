@@ -247,10 +247,14 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
     let cancelled = false
     getUserByUsername(user.username)
       .then((data) => {
-        if (cancelled) return
+        if (cancelled || data === null) return
+        // userService.getUserByUsername is typed `User | null` but the endpoint
+        // returns the richer `UserPublicResponse` shape (followerCount etc.).
+        // Same boundary cast as the visitor-view fetch path below (line 352).
+        const publicData = data as unknown as UserPublicResponse
         setCounts({
-          followerCount: data.followerCount,
-          followingCount: data.followingCount,
+          followerCount: publicData.followerCount,
+          followingCount: publicData.followingCount,
         })
       })
       .catch(() => {
