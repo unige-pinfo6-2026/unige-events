@@ -18,7 +18,6 @@ import { GraduationCap, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
-import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
 
 /**
@@ -205,13 +204,12 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             {isMeRoute && <MyPublicationsPreview />}
           </div>
 
-          {/* Right column: calendar + co-organizer invitations + follow requests
-              (own profile only). FollowRequestsPanel sits directly below the
-              co-organizer invitations so both inbound-request widgets share the
-              same column. */}
+          {/* Right column: co-organizer invitations + follow requests
+              (own profile only). Both inbound-request widgets share this
+              column. Calendar subscription moved to /calendar (refactor —
+              cf. specs_archives/specs_claude/refactor_calendar-page-ux.md). */}
           {isMeRoute && (
             <div className="flex flex-col gap-6">
-              <CalendarSubscribeButton />
               <CoOrganizerInvitationsList />
               <FollowRequestsPanel />
             </div>

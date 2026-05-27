@@ -8,7 +8,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { Skeleton } from 'boneyard-js/react'
 import { useCalendarEvents, type CalendarEvent } from '@/hooks/useCalendarEvents'
 import { useTheme } from '@/contexts/ThemeContext'
-import { EVENT_CATEGORIES } from '@/types/event'
+import { EVENT_CATEGORIES, type EventCategory } from '@/types/event'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -148,7 +148,18 @@ function CustomToolbar({ label, onNavigate, onView, view, views }: Readonly<Tool
   )
 }
 
-export default function EventCalendar() {
+interface EventCalendarProps {
+  /**
+   * Set of categories to hide from the calendar. When provided, events whose
+   * `resource.category` is in the set are filtered out before being passed to
+   * react-big-calendar. Empty set / undefined → all events visible.
+   */
+  disabledCategories?: ReadonlySet<EventCategory>
+}
+
+export default function EventCalendar({
+  disabledCategories,
+}: Readonly<EventCalendarProps> = {}) {
   const navigate = useNavigate()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [currentView, setCurrentView] = useState<View>(Views.MONTH)
@@ -166,6 +177,12 @@ export default function EventCalendar() {
     [navigate],
   )
 
+  // Hide events whose category is currently masked by the filter bar.
+  // No-op when the set is empty/undefined to avoid unnecessary array allocs.
+  const visibleEvents = disabledCategories && disabledCategories.size > 0
+    ? events.filter((e) => !disabledCategories.has(e.resource.category ?? 'OTHER'))
+    : events
+
   if (loading) return (
     <Skeleton
       name="event-calendar"
@@ -179,9 +196,9 @@ export default function EventCalendar() {
 
   return (
     <div className="h-full bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border overflow-hidden">
-      <Calendar<CalendarEvent> 
+      <Calendar<CalendarEvent>
         localizer={localizer}
-        events={events}
+        events={visibleEvents}
         date={currentDate}
         onNavigate={setCurrentDate}
         view={currentView}
