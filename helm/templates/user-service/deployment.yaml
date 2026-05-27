@@ -47,6 +47,11 @@ spec:
               value: kafka:9092
             - name: S3_ENDPOINT
               value: http://minio:9000
+            # Public origin the browser uses to fetch uploaded objects, served
+            # by the unige-events-s3 ingress. Distinct from S3_ENDPOINT (the
+            # in-cluster S3 client target) so client-facing URLs stay reachable.
+            - name: S3_URL
+              value: https://{{ .Values.ingress.host }}/s3
           envFrom:
             - secretRef:
                 name: app-secrets
