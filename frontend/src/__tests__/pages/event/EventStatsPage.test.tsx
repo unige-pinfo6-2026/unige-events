@@ -101,16 +101,57 @@ describe('EventStatsPage', () => {
     expect(screen.getByText(/statistiques de/i)).toBeTruthy()
   })
 
-  it('shows access denied for non-organizer', async () => {
+  it('shows access denied for non-organizer non-admin', async () => {
     const otherUser = { ...mockUser, id: 'user-other' }
-    mockUseAuth.mockReturnValue({ user: otherUser })
-    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseAuth.mockReturnValue({ user: otherUser, isAdmin: false })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, coOrganizerOf: false }, loading: false, error: null })
     mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
 
     renderPage()
     await waitFor(() =>
-      expect(screen.getByText(/accès réservé/i)).toBeTruthy()
+      expect(screen.getByText(/accès réservé à l'équipe organisatrice/i)).toBeTruthy()
     )
+  })
+
+  it('grants access to an accepted co-organizer (event.coOrganizerOf === true)', async () => {
+    const coOrgUser = { ...mockUser, id: 'user-coorg' }
+    mockUseAuth.mockReturnValue({ user: coOrgUser, isAdmin: false })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: true },
+      loading: false,
+      error: null,
+    })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() =>
+      expect(screen.getAllByText('142').length).toBeGreaterThan(0),
+    )
+  })
+
+  it('grants access to a site admin (non-creator, non-co-organizer)', async () => {
+    const adminUser = { ...mockUser, id: 'user-admin' }
+    mockUseAuth.mockReturnValue({ user: adminUser, isAdmin: true })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: false },
+      loading: false,
+      error: null,
+    })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+
+    renderPage()
+    await waitFor(() =>
+      expect(screen.getAllByText('142').length).toBeGreaterThan(0),
+    )
+  })
+
+  it('passes user.id as second argument to useEvent for coOrganizerOf enrichment', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: false })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: mockStats, loading: false, error: null })
+
+    renderPage()
+    expect(mockUseEvent).toHaveBeenCalledWith(42, 'user-1')
   })
 
   it('shows error when event fails to load', async () => {

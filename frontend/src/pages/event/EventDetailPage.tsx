@@ -830,10 +830,11 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Lien statistiques organisateur — S6. Visible to both the creator
-              and accepted co-organizers (same authorisation set as the edit /
-              cancel / restore actions ; cf. EventStatsService). */}
-          {isOrganizer && (
+          {/* Lien statistiques — visible aux créateurs, co-organisateurs ACCEPTED,
+              et admins du site. Backend autorise les trois — cf. EventStatsService.
+              On élargit ici uniquement la condition du bouton stats, sans toucher
+              à `isOrganizer` (qui gate aussi edit/cancel/restore — hors scope). */}
+          {(isOrganizer || isAdmin) && (
             <div className="max-lg:order-10">
               <Link
                 to={`/events/${event.id}/stats`}

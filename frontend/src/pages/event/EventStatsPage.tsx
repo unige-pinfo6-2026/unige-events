@@ -218,35 +218,35 @@ function RefreshButton({ refetching, onRefresh }: Readonly<RefreshButtonProps>) 
 
 export default function EventStatsPage() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { theme } = useTheme()
 
   const parsedId = id !== undefined ? Number(id) : Number.NaN
   const eventId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
 
-  const { event, loading: eventLoading, error: eventError } = useEvent(eventId)
+  // Pass `user?.id` so the backend enriches `event.coOrganizerOf` (via
+  // `?check-co-org-of=<uuid>`) — same pattern as EventDetailPage.
+  const { event, loading: eventLoading, error: eventError } = useEvent(eventId, user?.id ?? null)
 
-  // Confirm organizer before fetching stats (avoids 403 noise for non-organizers).
-  // Caveat: the backend also lets ACCEPTED co-organizers view stats
-  // (cf. EventStatsService.getStats + isCreatorOrAcceptedCoOrganizerPublic),
-  // but the frontend has no co-organizer integration yet (no service, no
-  // hook, no ACCEPTED list to consult). Until that lands, accepted
-  // co-organizers see "Accès réservé à l'organisateur" even though the API
-  // would serve them. Tracked separately from review #90.
-  const isConfirmedOrganizer = event !== null && user !== null && user.id === event.creatorId
+  // Aligned with EventDetailPage and EventStatsService: creator OR accepted
+  // co-organizer OR site admin can view stats.
+  const isAcceptedCoOrganizer = event !== null && event.coOrganizerOf === true
+  const isCreator = user !== null && event !== null && user.id === event.creatorId
+  const isOrganizer = isCreator || isAcceptedCoOrganizer || isAdmin
+
   const {
     stats,
     loading: statsLoading,
     isRefetching: statsRefetching,
     error: statsError,
     refetch: refetchStats,
-  } = useEventStats(isConfirmedOrganizer ? eventId : null)
+  } = useEventStats(isOrganizer ? eventId : null)
 
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   if (eventId === null) return <InfoMessage type="error" message="Identifiant d'événement invalide." />
 
-  const loading = eventLoading || (isConfirmedOrganizer && statsLoading)
+  const loading = eventLoading || (isOrganizer && statsLoading)
 
   if (loading) {
     return (
@@ -266,8 +266,8 @@ export default function EventStatsPage() {
   if (eventError) return <InfoMessage type="error" message={eventError} />
   if (!event) return <InfoMessage type="error" message="Événement introuvable." />
 
-  if (!isConfirmedOrganizer) {
-    return <InfoMessage type="error" message="Accès réservé à l'organisateur de l'événement." />
+  if (!isOrganizer) {
+    return <InfoMessage type="error" message="Accès réservé à l'équipe organisatrice." />
   }
 
   if (statsError) return <InfoMessage type="error" message={statsError} />
