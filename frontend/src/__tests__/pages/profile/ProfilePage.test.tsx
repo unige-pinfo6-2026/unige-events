@@ -110,6 +110,15 @@ const otherProfile = {
 beforeEach(() => {
   mockGetAllEvents.mockResolvedValue([])
   mockGetUserParticipations.mockResolvedValue([])
+  // Default mock so `MeProfileView`'s background refetch on /me resolves
+  // quietly in every test. Tests that need a specific payload or a rejection
+  // override this with their own mockResolvedValue / mockRejectedValue.
+  mockGetUserByUsername.mockResolvedValue({
+    id: OWN_UUID, username: 'test.user', displayName: 'Test User',
+    faculty: null, studyLevel: null, bio: null, interests: [],
+    avatarUrl: null, bannerUrl: null, profilePublic: true,
+    followerCount: 0, followingCount: 0, followStatus: null,
+  })
 })
 
 afterEach(() => {
@@ -140,15 +149,78 @@ function findContentGrid(container: HTMLElement): HTMLElement | null {
 }
 
 describe('ProfilePage — /profile/me (owner)', () => {
-  it('renders the owner profile when slug is "me" — no API call', async () => {
+  it('renders the owner profile when slug is "me" — no fetch by id', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    // `MeProfileView` does a background `getUserByUsername(currentUser.username)`
+    // to surface real follower/following counts ; stub it so the effect resolves
+    // cleanly (resolved value irrelevant for this assertion).
+    mockGetUserByUsername.mockResolvedValue({
+      ...otherProfile, id: OWN_UUID, username: 'test.user', followerCount: 0, followingCount: 0,
+    })
 
     renderProfilePage('me')
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
     expect(screen.getByText('Modifier')).toBeTruthy()
-    expect(mockGetUserByUsername).not.toHaveBeenCalled()
     expect(mockGetUserById).not.toHaveBeenCalled()
+  })
+
+  it('renders ProfileStats with the followers/following counts fetched in background', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({
+      ...otherProfile,
+      id: OWN_UUID,
+      username: 'test.user',
+      followerCount: 42,
+      followingCount: 17,
+    })
+
+    renderProfilePage('me')
+
+    // Tiles always render — initially 0/0, then update once the fetch resolves.
+    expect(await screen.findByRole('link', { name: /Voir les followers \(42\)/i })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les abonnements \(17\)/i })).toBeTruthy()
+    // Links point at /profile/{currentUser.username}/{followers|following}.
+    expect(screen.getByRole('link', { name: /Voir les followers/i }).getAttribute('href'))
+      .toBe('/profile/test.user/followers')
+    expect(screen.getByRole('link', { name: /Voir les abonnements/i }).getAttribute('href'))
+      .toBe('/profile/test.user/following')
+  })
+
+  it('cancels the background counts fetch when the page unmounts before it resolves', async () => {
+    // Covers the `if (cancelled) return` guard in MeProfileView's useEffect.
+    // Without it, a late resolve would call `setCounts` on an unmounted
+    // component and React would warn — we want a clean no-op.
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    let resolveFetch: ((value: unknown) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((resolve) => { resolveFetch = resolve }),
+    )
+
+    const { unmount } = renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    // Unmount BEFORE the promise resolves → cancelled flips to true.
+    unmount()
+
+    // Watch console.error : if the guard fails, React logs
+    // "can't perform a React state update on an unmounted component".
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolveFetch({ followerCount: 99, followingCount: 99 })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('keeps ProfileStats at 0/0 when the background fetch fails (best-effort)', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockRejectedValue(new Error('boom'))
+
+    renderProfilePage('me')
+
+    // Page still renders, tiles are visible with 0 counts ; no toast.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les followers \(0\)/i })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les abonnements \(0\)/i })).toBeTruthy()
   })
 
   it('treats slug = current user username as owner route', async () => {
@@ -248,12 +320,15 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(document.querySelector('[data-boneyard="profile"]')).toBeTruthy()
   })
 
-  it('hides ProfileStats on /me (self payload UserProfileResponse does not carry follower counts)', async () => {
+  it('renders ProfileStats on /me — owner sees the same affordance as visitors', async () => {
+    // Owner used to be denied the followers/following tiles because /users/me
+    // doesn't carry counts ; we now refetch via getUserByUsername to populate
+    // them. Tiles are always present.
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     renderProfilePage('me')
     await screen.findByRole('heading', { level: 1, name: 'Test User' })
 
-    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
+    expect(screen.getByLabelText('Compteurs de suivi')).toBeTruthy()
   })
 })
 
