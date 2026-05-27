@@ -79,6 +79,18 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
 }))
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({ user: null })),
+}))
+
+// CalendarSubscribeButton imports these on mount when rendered (authenticated
+// branch). Provide quiet defaults so unrelated tests don't blow up if the
+// subscription block ever renders.
+vi.mock('@/services/userService', () => ({
+  getCalendarToken: vi.fn(() => new Promise(() => {})), // pending — keeps it in loading state
+  regenerateCalendarToken: vi.fn(),
+}))
+
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -87,10 +99,14 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 import { useCalendarEvents } from '@/hooks/useCalendarEvents'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useAuth } from '@/hooks/useAuth'
 import CalendarPage from '@/pages/calendar/CalendarPage'
 
 const mockUseCalendarEvents = useCalendarEvents as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+
+const mockUser = { id: 'user-1', email: 'u@test', profilePublic: true, createdAt: '' }
 
 const makeCalendarEvent = (id: number, title: string): CalendarEvent => ({
   title,
@@ -264,5 +280,91 @@ describe('CalendarPage', () => {
     mockUseCalendarEvents.mockReturnValue({ events: [], loading: true, error: null })
     renderPage()
     expect(document.querySelector('[data-boneyard="event-calendar"]')).toBeTruthy()
+  })
+
+  // ── Category filter bar ────────────────────────────────────────────────────
+
+  describe('category filter bar', () => {
+    it('renders one chip per EVENT_CATEGORIES entry with aria-pressed=true by default', () => {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+      renderPage()
+      // 6 categories, all active (aria-pressed=true) initially.
+      const chips = screen.getAllByRole('button', { pressed: true }).filter(
+        (b) => b.getAttribute('aria-label')?.includes('catégorie'),
+      )
+      expect(chips.length).toBe(6)
+      expect(screen.getByRole('button', { name: /catégorie Académique/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /catégorie Sports/i })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /catégorie Autre/i })).toBeTruthy()
+    })
+
+    it('hides events of a category when its chip is clicked', () => {
+      const conference = makeCalendarEvent(1, 'Conf IA')   // category CONFERENCE
+      const sports = { ...makeCalendarEvent(2, 'Match foot'),
+        resource: { ...makeCalendarEvent(2, 'Match foot').resource, category: 'SPORTS' as const } }
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({ events: [conference, sports], loading: false, error: null })
+      renderPage()
+
+      // Both visible initially.
+      expect(screen.getByText('Conf IA')).toBeTruthy()
+      expect(screen.getByText('Match foot')).toBeTruthy()
+
+      // Click "Masquer la catégorie Conférence" → only Match foot remains.
+      fireEvent.click(screen.getByRole('button', { name: /Masquer la catégorie Conférence/i }))
+      expect(screen.queryByText('Conf IA')).toBeNull()
+      expect(screen.getByText('Match foot')).toBeTruthy()
+      // The chip is now aria-pressed=false and labelled "Afficher".
+      expect(screen.getByRole('button', { name: /Afficher la catégorie Conférence/i })).toBeTruthy()
+    })
+
+    it('re-shows the events when the chip is clicked again', () => {
+      const conference = makeCalendarEvent(1, 'Conf IA')
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({ events: [conference], loading: false, error: null })
+      renderPage()
+      const chip = screen.getByRole('button', { name: /Masquer la catégorie Conférence/i })
+      fireEvent.click(chip) // hide
+      expect(screen.queryByText('Conf IA')).toBeNull()
+      // Same DOM node, label changed
+      fireEvent.click(screen.getByRole('button', { name: /Afficher la catégorie Conférence/i })) // re-show
+      expect(screen.getByText('Conf IA')).toBeTruthy()
+    })
+
+    it('keeps independent toggles when multiple categories are hidden', () => {
+      const conference = makeCalendarEvent(1, 'Conf IA')
+      const sports = { ...makeCalendarEvent(2, 'Match foot'),
+        resource: { ...makeCalendarEvent(2, 'Match foot').resource, category: 'SPORTS' as const } }
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({ events: [conference, sports], loading: false, error: null })
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: /Masquer la catégorie Conférence/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Masquer la catégorie Sports/i }))
+      expect(screen.queryByText('Conf IA')).toBeNull()
+      expect(screen.queryByText('Match foot')).toBeNull()
+      // Re-show only Conference — Sports stays hidden.
+      fireEvent.click(screen.getByRole('button', { name: /Afficher la catégorie Conférence/i }))
+      expect(screen.getByText('Conf IA')).toBeTruthy()
+      expect(screen.queryByText('Match foot')).toBeNull()
+    })
+  })
+
+  // ── Subscription block (gated on auth) ─────────────────────────────────────
+
+  describe('calendar subscription block', () => {
+    it('renders the subscription card when authenticated', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+      renderPage()
+      expect(screen.getByText(/s.abonner au calendrier/i)).toBeTruthy()
+    })
+
+    it('does NOT render the subscription card when unauthenticated', () => {
+      mockUseAuth.mockReturnValue({ user: null })
+      mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+      renderPage()
+      expect(screen.queryByText(/s.abonner au calendrier/i)).toBeNull()
+    })
   })
 })

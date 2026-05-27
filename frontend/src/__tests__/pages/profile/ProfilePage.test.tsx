@@ -17,12 +17,6 @@ vi.mock('@/services/userService', () => ({
   getMe: vi.fn(),
   getUserById: vi.fn(),
   getUserByUsername: vi.fn(),
-  getCalendarToken: vi.fn().mockResolvedValue({
-    calendarToken: 'test-token',
-    webcalUrl: 'webcal://example.com/cal.ics',
-    httpsUrl: 'https://example.com/cal.ics',
-  }),
-  regenerateCalendarToken: vi.fn(),
 }))
 
 vi.mock('@/services/eventApi', () => ({
@@ -69,7 +63,7 @@ vi.mock('@/components/user/CoOrganizerInvitationsList', () => ({
 }))
 
 import { useAuth } from '@/hooks/useAuth'
-import { getCalendarToken, getUserById, getUserByUsername } from '@/services/userService'
+import { getUserById, getUserByUsername } from '@/services/userService'
 import { getAll as getAllEvents } from '@/services/eventApi'
 import { getUserParticipations } from '@/services/attendanceApi'
 import { followUser, unfollowUser } from '@/services/followApi'
@@ -80,7 +74,6 @@ const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
 const mockGetUserParticipations = getUserParticipations as ReturnType<typeof vi.fn>
-const mockGetCalendarToken = getCalendarToken as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 const mockFollowUser = followUser as ReturnType<typeof vi.fn>
 const mockUnfollowUser = unfollowUser as ReturnType<typeof vi.fn>
@@ -115,11 +108,6 @@ const otherProfile = {
 }
 
 beforeEach(() => {
-  mockGetCalendarToken.mockResolvedValue({
-    calendarToken: 'test-token',
-    webcalUrl: 'webcal://example.com/cal.ics',
-    httpsUrl: 'https://example.com/cal.ics',
-  })
   mockGetAllEvents.mockResolvedValue([])
   mockGetUserParticipations.mockResolvedValue([])
 })
@@ -619,7 +607,7 @@ describe('ProfilePage — FollowButton wiring (SCRUM-110)', () => {
 })
 
 describe('ProfilePage — layout regressions', () => {
-  it('applies items-start on the about/calendar grid on /me', async () => {
+  it('applies items-start on the about/invitations grid on /me', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     const { container } = renderProfilePage('me')
 

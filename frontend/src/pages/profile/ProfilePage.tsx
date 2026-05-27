@@ -158,9 +158,9 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
           </div>
         )}
 
-        {/* Content grid: about/bio (left) + calendar+invitations (right, /me only).
-            When not on /me the layout collapses to a single column so the events
-            and participations sections below get the full width. */}
+        {/* Content grid: about/bio (left) + invitations+follow-requests (right,
+            /me only). When not on /me the layout collapses to a single column
+            so the events and participations sections below get the full width. */}
         <div className={`grid grid-cols-1 items-start gap-6 ${isMeRoute ? 'lg:grid-cols-2' : ''}`}>
 
           <div className="flex flex-col gap-6">
