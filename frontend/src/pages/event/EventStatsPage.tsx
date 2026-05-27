@@ -229,10 +229,19 @@ export default function EventStatsPage() {
   const { event, loading: eventLoading, error: eventError } = useEvent(eventId, user?.id ?? null)
 
   // Aligned with EventDetailPage and EventStatsService: creator OR accepted
-  // co-organizer OR site admin can view stats.
-  const isAcceptedCoOrganizer = event !== null && event.coOrganizerOf === true
-  const isCreator = user !== null && event !== null && user.id === event.creatorId
-  const isOrganizer = isCreator || isAcceptedCoOrganizer || isAdmin
+  // co-organizer OR site admin can view stats. The event-bound checks (creator,
+  // co-org) are guarded on `event.id === eventId` because `useEvent` keeps the
+  // previous `event` in state during a navigation A → B (it only `setEvent`s
+  // after the new response resolves). Without this guard, we'd briefly compute
+  // authorisation against the OLD event and call `useEventStats(eventId=B)` —
+  // tirant un 403 si l'utilisateur était organisateur de A mais pas de B
+  // (Copilot review #213). `isAdmin` reste event-indépendant mais on attend
+  // quand même que l'event courant ait chargé pour ne pas fetcher des stats
+  // sur un event qu'on n'a pas encore validé existant.
+  const isCurrentEvent = event !== null && event.id === eventId
+  const isAcceptedCoOrganizer = isCurrentEvent && event.coOrganizerOf === true
+  const isCreator = isCurrentEvent && user !== null && user.id === event.creatorId
+  const isOrganizer = isCurrentEvent && (isCreator || isAcceptedCoOrganizer || isAdmin)
 
   const {
     stats,

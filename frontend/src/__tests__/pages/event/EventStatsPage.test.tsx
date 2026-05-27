@@ -145,6 +145,27 @@ describe('EventStatsPage', () => {
     )
   })
 
+  it('does NOT grant access while the cached event is for a different id (stale event guard, Copilot review)', async () => {
+    // Reproduit le scénario A → B : la page est rendue avec eventId=42
+    // mais useEvent renvoie encore l'event A (id=999) du précédent paramètre.
+    // Même si le caller est admin / créateur / co-org de A, on ne doit PAS
+    // calculer l'autorisation sur l'event A ni fetcher les stats de 42 — sinon
+    // 403 noise contre B.
+    const staleEvent = { ...mockEvent, id: 999, creatorId: 'user-1' }
+    mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: true })
+    mockUseEvent.mockReturnValue({ event: staleEvent, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
+
+    renderPage('42')
+
+    // useEventStats doit avoir été appelé avec `null` (pas d'event "courant").
+    expect(mockUseEventStats).toHaveBeenCalledWith(null)
+    // L'accès reste fermé : message d'erreur affiché (event stale → non-organizer).
+    await waitFor(() =>
+      expect(screen.getByText(/accès réservé/i)).toBeTruthy()
+    )
+  })
+
   it('passes user.id as second argument to useEvent for coOrganizerOf enrichment', () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isAdmin: false })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null })
