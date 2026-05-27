@@ -358,6 +358,39 @@ describe('EventDetailPage', () => {
     expect(screen.getByRole('link', { name: /Voir les statistiques/ })).toBeTruthy()
   })
 
+  it('shows the stats button to a site admin who is neither creator nor co-organizer', () => {
+    // Admin = non-creator (user.id !== creatorId), coOrganizerOf !== true, isAdmin=true.
+    // The stats button is the ONLY admin-widened action ; edit/cancel/restore stay
+    // gated on `isOrganizer` (creator || co-org) and must NOT appear for admins.
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'site-admin' }, isAdmin: true })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: false },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByRole('link', { name: /Voir les statistiques/ })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /Modifier l'événement/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Annuler l'événement/ })).toBeNull()
+  })
+
+  it('hides the stats button from a non-organizer non-admin user', () => {
+    // Régression : un utilisateur lambda (ni créateur, ni co-org, ni admin)
+    // ne doit toujours pas voir le bouton stats.
+    mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'random-user' }, isAdmin: false })
+    mockUseEvent.mockReturnValue({
+      event: { ...mockEvent, coOrganizerOf: false },
+      loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null,
+    })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.queryByRole('link', { name: /Voir les statistiques/ })).toBeNull()
+  })
+
   it('hides Supprimer for co-organizers on CANCELLED events (creator-only delete)', () => {
     mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'co-org-user' } })
     mockUseEvent.mockReturnValue({

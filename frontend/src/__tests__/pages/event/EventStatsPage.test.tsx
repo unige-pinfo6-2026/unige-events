@@ -154,6 +154,16 @@ describe('EventStatsPage', () => {
     expect(mockUseEvent).toHaveBeenCalledWith(42, 'user-1')
   })
 
+  it('passes null to useEvent when user is null (defensive — PrivateRoute normally prevents this)', () => {
+    // Couvre la branche `user?.id ?? null` quand `user` est null.
+    mockUseAuth.mockReturnValue({ user: null, isAdmin: false })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, error: null })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
+
+    renderPage()
+    expect(mockUseEvent).toHaveBeenCalledWith(42, null)
+  })
+
   it('shows error when event fails to load', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: null, loading: false, error: 'Impossible de charger cet événement.' })
