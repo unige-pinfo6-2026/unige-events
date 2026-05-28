@@ -225,7 +225,7 @@ Constantes exportées (SCRUM-169) :
 
 ### StudyLevel
 
-Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`.
+Dérivé de `STUDY_LEVELS` (const object). Valeurs : `BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`.
 
 ### UserPublicResponse
 

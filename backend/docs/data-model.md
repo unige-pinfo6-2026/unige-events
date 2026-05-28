@@ -945,7 +945,7 @@ Valeurs attendues pour `faculty` (cohérentes avec les types TypeScript frontend
 | `GSI` | Global Studies Institute |
 
 Valeurs attendues pour `studyLevel` :
-`BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`
+`BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`
 
 > **Action Sprint 2 :** Quand `EventCategory` sera implémenté, créer un enum Java et l'utiliser dans l'entité. Pour `faculty`/`studyLevel`, évaluer si une contrainte enum DB est nécessaire ou si la validation frontend suffit.
 

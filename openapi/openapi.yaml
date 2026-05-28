@@ -270,7 +270,7 @@ components:
         studyLevel:
           $ref: '#/components/schemas/StudyLevel'
           nullable: true
-          # Valeurs : BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF
+          # Valeurs : BACHELOR, MASTER, DOCTORAT, POST_DOC
         bio:
           type: string
           maxLength: 2000
@@ -1058,7 +1058,7 @@ components:
 
     StudyLevel:
       type: string
-      enum: [BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF]
+      enum: [BACHELOR, MASTER, DOCTORAT, POST_DOC]
 
     EventCategory:
       type: string
