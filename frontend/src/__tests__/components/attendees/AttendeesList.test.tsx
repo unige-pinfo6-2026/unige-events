@@ -217,6 +217,126 @@ describe('AttendeesList', () => {
       expect(screen.queryByRole('button', { name: /Charger plus/ })).toBeNull()
     })
 
+    // ── "Voir tout" expander (INITIAL_VISIBLE = 5) ────────────────────────────
+
+    function makeAttendingRows(n: number): Attendance[] {
+      return Array.from({ length: n }, (_, i) => ({
+        id: i + 1,
+        userId: `user-${i + 1}`,
+        eventId: 42,
+        status: 'ATTENDING' as const,
+        createdAt: '2026-04-08T10:00:00.000Z',
+        displayName: `Participant ${i + 1}`,
+        avatarUrl: null,
+        username: `user${i + 1}`,
+      }))
+    }
+
+    it('shows at most 5 cards when the active tab has more than 5 attendees', () => {
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 8,
+        attendeesHook: makeHook({ attendees: makeAttendingRows(8) }),
+      })
+
+      // Only the first 5 names visible ; 6/7/8 hidden behind the expander.
+      expect(screen.getByText('Participant 1')).toBeTruthy()
+      expect(screen.getByText('Participant 5')).toBeTruthy()
+      expect(screen.queryByText('Participant 6')).toBeNull()
+      expect(screen.queryByText('Participant 8')).toBeNull()
+      expect(screen.getByRole('button', { name: /Voir tout \(3 de plus\)/ })).toBeTruthy()
+    })
+
+    it('does NOT show the expander when the list has exactly 5 or fewer items', () => {
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 5,
+        attendeesHook: makeHook({ attendees: makeAttendingRows(5) }),
+      })
+
+      expect(screen.queryByRole('button', { name: /Voir tout/ })).toBeNull()
+      // All 5 rendered.
+      for (let i = 1; i <= 5; i++) {
+        expect(screen.getByText(`Participant ${i}`)).toBeTruthy()
+      }
+    })
+
+    it('reveals the rest of the list when "Voir tout" is clicked, and shows a "Réduire" button', () => {
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 8,
+        attendeesHook: makeHook({ attendees: makeAttendingRows(8) }),
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /Voir tout/ }))
+
+      // All 8 rows visible.
+      for (let i = 1; i <= 8; i++) {
+        expect(screen.getByText(`Participant ${i}`)).toBeTruthy()
+      }
+      // « Voir tout » a été remplacé par « Réduire ».
+      expect(screen.queryByRole('button', { name: /Voir tout/ })).toBeNull()
+      expect(screen.getByRole('button', { name: /Réduire/ })).toBeTruthy()
+    })
+
+    it('collapses back to 5 cards when "Réduire" is clicked', () => {
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 8,
+        attendeesHook: makeHook({ attendees: makeAttendingRows(8) }),
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: /Voir tout/ }))
+      fireEvent.click(screen.getByRole('button', { name: /Réduire/ }))
+
+      expect(screen.getByText('Participant 5')).toBeTruthy()
+      expect(screen.queryByText('Participant 6')).toBeNull()
+      expect(screen.getByRole('button', { name: /Voir tout/ })).toBeTruthy()
+    })
+
+    it('keeps a separate collapsed/expanded state per tab', () => {
+      // 8 ATTENDING + 8 WAITLISTED. Expanding ATTENDING must not auto-expand WAITLISTED.
+      const attending = makeAttendingRows(8)
+      const waitlisted = makeAttendingRows(8).map((a) => ({
+        ...a,
+        id: a.id + 100,
+        status: 'WAITLISTED' as const,
+        displayName: `Waitlist ${a.id}`,
+      }))
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 8,
+        attendeesHook: makeHook({ attendees: [...attending, ...waitlisted] }),
+      })
+
+      // Expand ATTENDING.
+      fireEvent.click(screen.getByRole('button', { name: /Voir tout/ }))
+      expect(screen.queryByText('Participant 6')).toBeTruthy()
+
+      // Switch to WAITLISTED — should be COLLAPSED (« Voir tout » re-appears).
+      fireEvent.click(screen.getByRole('tab', { name: /Liste d'attente/ }))
+      expect(screen.getByRole('button', { name: /Voir tout/ })).toBeTruthy()
+      expect(screen.getByText('Waitlist 5')).toBeTruthy()
+      expect(screen.queryByText('Waitlist 6')).toBeNull()
+    })
+
+    it('hides "Charger plus" while collapsed even when hasMore is true', () => {
+      renderList({
+        isAuthenticated: true,
+        attendingCount: 8,
+        attendeesHook: makeHook({ attendees: makeAttendingRows(8), hasMore: true }),
+      })
+
+      // Collapsed → only « Voir tout » should be visible, not « Charger plus ».
+      expect(screen.getByRole('button', { name: /Voir tout/ })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /Charger plus/ })).toBeNull()
+
+      // After expanding, « Charger plus » re-appears next to « Réduire ».
+      fireEvent.click(screen.getByRole('button', { name: /Voir tout/ }))
+      expect(screen.getByRole('button', { name: /Charger plus/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Réduire/ })).toBeTruthy()
+    })
+
     it('disables "Charger plus" while loading another page', () => {
       renderList({
         isAuthenticated: true,

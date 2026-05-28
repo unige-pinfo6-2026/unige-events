@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { type UseAttendeesResult } from '@/hooks/useAttendees'
 import type { Attendance, AttendanceStatus } from '@/types/attendance'
 import AttendeeCard from './AttendeeCard'
@@ -73,9 +73,29 @@ function LoadingSkeleton() {
   )
 }
 
+/**
+ * Number of attendee cards rendered before the « Voir tout » expander
+ * kicks in. Above this threshold the list is collapsed visually and the
+ * user has to click to reveal the rest — keeps the event detail page
+ * scannable when an event has many participants.
+ */
+const INITIAL_VISIBLE = 5
+
 function AuthenticatedView({ attendeesHook }: Readonly<{ attendeesHook: UseAttendeesResult }>) {
   const { attendees, isLoading, error, hasMore, loadMore, refetch } = attendeesHook
   const [activeTab, setActiveTab] = useState<AttendanceStatus>('ATTENDING')
+  // Per-tab collapse state — the user opens / closes each list independently.
+  const [expandedTabs, setExpandedTabs] = useState<Set<AttendanceStatus>>(() => new Set())
+  const isExpanded = expandedTabs.has(activeTab)
+
+  const toggleExpanded = useCallback(() => {
+    setExpandedTabs((prev) => {
+      const next = new Set(prev)
+      if (next.has(activeTab)) next.delete(activeTab)
+      else next.add(activeTab)
+      return next
+    })
+  }, [activeTab])
 
   const counts = useMemo(() => {
     return attendees.reduce<Record<AttendanceStatus, number>>(
@@ -91,6 +111,14 @@ function AuthenticatedView({ attendeesHook }: Readonly<{ attendeesHook: UseAtten
     () => attendees.filter((a) => a.status === activeTab),
     [attendees, activeTab],
   )
+
+  // Collapsed view shows at most INITIAL_VISIBLE cards. « canCollapse » is
+  // false when there's nothing to hide — in that case the expander UI is
+  // skipped entirely (and any backend « Charger plus » takes its place).
+  const canCollapse = filtered.length > INITIAL_VISIBLE
+  const isCollapsed = canCollapse && !isExpanded
+  const visible = isCollapsed ? filtered.slice(0, INITIAL_VISIBLE) : filtered
+  const hiddenCount = filtered.length - visible.length
 
   if (error) {
     return (
@@ -137,13 +165,40 @@ function AuthenticatedView({ attendeesHook }: Readonly<{ attendeesHook: UseAtten
         <p className="text-sm text-foreground/50">{emptyMessages[activeTab]}</p>
       ) : (
         <div className="flex flex-col gap-3" role="tabpanel">
-          {filtered.map((attendance) => (
+          {visible.map((attendance) => (
             <AttendeeCard key={attendance.id} attendance={attendance} />
           ))}
         </div>
       )}
 
-      {hasMore && (
+      {/* Local expander — collapse the list past INITIAL_VISIBLE. Distinct
+          from the backend « Charger plus » below : this toggles the visible
+          slice of already-loaded rows, not the network pagination. */}
+      {isCollapsed && (
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={false}
+          className="self-center mt-1 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+        >
+          Voir tout ({hiddenCount} de plus)
+        </button>
+      )}
+      {canCollapse && isExpanded && (
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={true}
+          className="self-center mt-1 px-4 py-2 rounded-xl border border-border text-sm font-semibold text-foreground/60 hover:text-foreground hover:border-foreground/30 transition-colors cursor-pointer bg-transparent"
+        >
+          Réduire
+        </button>
+      )}
+
+      {/* Backend pagination — independent of the local collapse. Shown when
+          the server says it has more rows to fetch AND the list is either
+          short enough to not need collapsing, or already expanded. */}
+      {!isCollapsed && hasMore && (
         <button
           type="button"
           onClick={loadMore}
