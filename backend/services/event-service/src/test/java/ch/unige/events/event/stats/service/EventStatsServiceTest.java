@@ -112,6 +112,22 @@ class EventStatsServiceTest {
 
     @Test
     @TestTransaction
+    @TestSecurity(user = "auth0|admin-stats", roles = {"ADMIN"})
+    void getStats_byAdminNonCreator_returnsStats() {
+        // Admin is neither the creator nor a co-organizer; the ADMIN role
+        // alone authorises stats access.
+        UUID adminUuid = UUID.randomUUID();
+        JwtTestContext.set(JwtTestHelper.jwtFor(adminUuid));
+
+        Event e = create(UUID.randomUUID());
+        em.flush();
+
+        EventStatsDTO stats = service.getStats("auth0|admin-stats", e.id);
+        assertEquals(5L, stats.attendingCount());
+    }
+
+    @Test
+    @TestTransaction
     void getStats_anonymousCaller_throws404() {
         Event e = create(creatorId);
         em.flush();
