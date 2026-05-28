@@ -86,9 +86,17 @@ public class User extends PanacheEntityBase {
      * {@code UserProfileResponse} so the frontend can render role-driven
      * UI (currently the "Staff" badge on any admin's profile, regardless
      * of the viewer's own role).
+     *
+     * <p>Initialised to an empty list (matches Hibernate's hydration
+     * behaviour for {@code @ElementCollection} fields with no entry in
+     * the join table) so consumer DTOs and the role-sync helper can
+     * treat it as always-non-null and skip null guards. The Panache
+     * field-access rewrite makes those null guards unreachable at
+     * runtime anyway, which JaCoCo would otherwise report as a missed
+     * branch on every read site.
      */
     @ElementCollection(fetch = FetchType.EAGER)
-    public List<String> roles;
+    public List<String> roles = new java.util.ArrayList<>();
 
     public String avatarUrl;
     public String bannerUrl;

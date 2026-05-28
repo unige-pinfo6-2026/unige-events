@@ -102,7 +102,12 @@ public class UserService {
             newUser.firstName = jwt.getClaim("given_name");
             newUser.lastName = jwt.getClaim("family_name");
             newUser.avatarUrl = jwt.getClaim("picture");
-            newUser.roles = rolesFromToken != null ? new ArrayList<>(rolesFromToken) : new ArrayList<>();
+            // `newUser.roles` is initialised to an empty list by the entity
+            // declaration ; only seed it from the token when the caller
+            // actually wanted to sync (3-arg overload with a non-null set).
+            if (rolesFromToken != null) {
+                newUser.roles = new ArrayList<>(rolesFromToken);
+            }
             // SCRUM-169 — auto-generate a public-facing username from the
             // JWT identity claims at signup. The slug logic mirrors the V3
             // migration back-fill so legacy and new accounts share the same
@@ -135,7 +140,10 @@ public class UserService {
      * /me hits within the same session.
      */
     private void syncRolesIfChanged(User user, Set<String> rolesFromToken) {
-        Set<String> current = user.roles != null ? new HashSet<>(user.roles) : Collections.emptySet();
+        // No null guard on `user.roles` — the entity initialises the field
+        // to an empty list and Hibernate hydrates rows with no `user_roles`
+        // entries as empty collections, so the field is always non-null.
+        Set<String> current = new HashSet<>(user.roles);
         if (current.equals(rolesFromToken)) {
             return;
         }

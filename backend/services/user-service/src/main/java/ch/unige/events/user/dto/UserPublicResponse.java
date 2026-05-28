@@ -4,7 +4,6 @@ import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -75,7 +74,12 @@ public record UserPublicResponse(
     }
 
     private static List<String> rolesOrEmpty(User user) {
-        return user.roles != null ? List.copyOf(user.roles) : Collections.emptyList();
+        // `user.roles` is initialised to an empty list on the entity (cf.
+        // `User.roles` javadoc) and Hibernate hydrates rows with no
+        // matching `user_roles` entries as empty collections too — so we
+        // don't carry a null guard here. `List.copyOf` defensively
+        // re-wraps so the DTO can never alias the entity's mutable bag.
+        return List.copyOf(user.roles);
     }
 
     /**

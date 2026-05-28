@@ -77,6 +77,21 @@ class UserProfileResponseTest {
     }
 
     @Test
+    void from_userWithPopulatedRoles_propagatesRoles() {
+        User user = new User();
+        user.id = UUID.randomUUID();
+        user.auth0Id = "auth0|admin";
+        user.email = "admin@unige.ch";
+        user.username = "admin.user";
+        user.createdAt = LocalDateTime.now();
+        user.roles = List.of("ADMIN", "MODERATOR");
+
+        UserProfileResponse dto = UserProfileResponse.from(user);
+
+        assertEquals(List.of("ADMIN", "MODERATOR"), dto.roles());
+    }
+
+    @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         LocalDateTime t = LocalDateTime.of(2026, 1, 1, 0, 0);

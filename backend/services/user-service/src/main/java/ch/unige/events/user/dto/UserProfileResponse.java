@@ -5,7 +5,6 @@ import ch.unige.events.user.entity.User;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,7 +45,14 @@ public record UserProfileResponse(
                 user.bannerUrl,
                 user.profilePublic,
                 user.createdAt,
-                user.roles != null ? List.copyOf(user.roles) : Collections.emptyList()
+                rolesOrEmpty(user)
         );
+    }
+
+    private static List<String> rolesOrEmpty(User user) {
+        // No null guard — `User.roles` is always non-null (init + Hibernate
+        // hydration contract — see entity javadoc). Defensive copy so the
+        // DTO never aliases the entity's mutable bag.
+        return List.copyOf(user.roles);
     }
 }

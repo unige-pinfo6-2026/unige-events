@@ -83,7 +83,7 @@ class UserPublicResponseTest {
     }
 
     @Test
-    void from_userWithRoles_propagatesRoles() {
+    void from_userWithRoles_propagatesRolesAcrossAllProjections() {
         // Frontend reads `roles` to gate the Staff badge — must be present on
         // every projection path (full, with-counts, anonymous).
         User user = newUser(true);
@@ -94,13 +94,14 @@ class UserPublicResponseTest {
     }
 
     @Test
-    void from_userWithNullRoles_returnsEmptyList() {
-        // `User.roles` is nullable at the entity layer (legacy rows
-        // pre-V5 migration). The DTO must normalise to [] so the frontend
-        // can call .includes() unconditionally.
+    void from_userWithDefaultRoles_returnsEmptyListAcrossAllProjections() {
+        // `User.roles` is initialised to an empty list on the entity ; the
+        // DTO must propagate that as an empty list (never null) so the
+        // frontend can call .includes() unconditionally.
         User user = newUser(true);
-        user.roles = null;
+        // No explicit set — relies on the entity field initialiser.
         assertTrue(UserPublicResponse.from(user).roles().isEmpty());
+        assertTrue(UserPublicResponse.from(user, 0L, 0L, null).roles().isEmpty());
         assertTrue(UserPublicResponse.fromAnonymous(user).roles().isEmpty());
     }
 
