@@ -64,7 +64,6 @@ export const STUDY_LEVELS = {
   MASTER: { name: 'Master' },
   DOCTORAT: { name: 'Doctorat' },
   POST_DOC: { name: 'Post-doctorat' },
-  STAFF: { name: 'Staff' },
 } as const
 
 export type StudyLevel = keyof typeof STUDY_LEVELS
