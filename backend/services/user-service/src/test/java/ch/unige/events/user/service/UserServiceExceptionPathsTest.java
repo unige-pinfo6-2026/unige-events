@@ -112,6 +112,29 @@ class UserServiceExceptionPathsTest {
 
     @Test
     @TestTransaction
+    void getOrCreateUser_uniqueAuth0Race_refetchMissesToo_rethrowsOriginalException() {
+        // Worst-case race: the concurrent INSERT that triggered the unique
+        // conflict was rolled back (or its row deleted) before our post-flush
+        // refetch — `findByAuth0Id` returns empty a second time so
+        // `orElseThrow(() -> exception)` re-throws the original
+        // PersistenceException. Covers the lambda body that the happy-race
+        // test (refetchesExistingRow above) doesn't touch.
+        PanacheMock.mock(User.class);
+        when(User.findByAuth0Id("auth0|race-gone"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty());
+        when(User.findByUsername(anyString())).thenReturn(Optional.empty());
+        PersistenceException boom = new PersistenceException(
+                "duplicate key value violates unique constraint \"users_auth0_id_unique\"");
+        doThrow(boom).when(em).flush();
+
+        PersistenceException thrown = assertThrows(PersistenceException.class,
+                () -> service.getOrCreateUser("auth0|race-gone", jwt("auth0|race-gone")));
+        assertSame(boom, thrown);
+    }
+
+    @Test
+    @TestTransaction
     void getOrCreateUser_unrelatedPersistenceException_rethrows() {
         PanacheMock.mock(User.class);
         when(User.findByAuth0Id("auth0|pe")).thenReturn(Optional.empty());

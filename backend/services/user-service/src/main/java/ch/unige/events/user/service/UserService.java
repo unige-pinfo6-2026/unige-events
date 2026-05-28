@@ -25,7 +25,11 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -40,10 +44,48 @@ public class UserService {
     @Inject FileStorageService fileStorageService;
     @Inject Instance<EntityManager> entityManager;
 
+    /**
+     * Legacy 2-arg overload — kept for callers that don't have access to
+     * the security identity (e.g. background hydration). Does NOT sync
+     * roles : passing {@code null} for the role set is the explicit
+     * opt-out signal, distinct from "sync to empty set" (which would
+     * wipe legitimate admin badges if a background job happened to
+     * touch the row).
+     */
     @Transactional
     public User getOrCreateUser(String auth0Id, JsonWebToken jwt) {
+        return getOrCreateUser(auth0Id, jwt, null);
+    }
+
+    /**
+     * Variant called from {@code UserResource.me()} that also syncs the
+     * Auth0 roles from the caller's {@code SecurityIdentity} into the
+     * persisted {@code User.roles} list. Roles are mirrored so that
+     * {@code UserPublicResponse} can expose them on any profile (not
+     * just the viewer's own), which is what drives the "Staff" badge on
+     * the frontend profile page.
+     *
+     * <p>{@code rolesFromToken} semantics:
+     * <ul>
+     *   <li>{@code null} — opt out of sync entirely (leave whatever is
+     *       persisted untouched). Used by the 2-arg overload.</li>
+     *   <li>empty set — sync to empty (revoke all roles).</li>
+     *   <li>non-empty set — sync to this exact set.</li>
+     * </ul>
+     *
+     * <p>The sync is intentionally only wired on {@code GET /users/me} —
+     * the frontend bootstraps from this endpoint on every page load, so
+     * an Auth0 role change is picked up at the next session refresh.
+     * Wiring sync into every authenticated endpoint would amplify the
+     * write load with no real freshness benefit for this product.
+     */
+    @Transactional
+    public User getOrCreateUser(String auth0Id, JsonWebToken jwt, Set<String> rolesFromToken) {
         User existing = User.findByAuth0Id(auth0Id).orElse(null);
         if (existing != null) {
+            if (rolesFromToken != null) {
+                syncRolesIfChanged(existing, rolesFromToken);
+            }
             return existing;
         }
 
@@ -60,6 +102,12 @@ public class UserService {
             newUser.firstName = jwt.getClaim("given_name");
             newUser.lastName = jwt.getClaim("family_name");
             newUser.avatarUrl = jwt.getClaim("picture");
+            // `newUser.roles` is initialised to an empty list by the entity
+            // declaration ; only seed it from the token when the caller
+            // actually wanted to sync (3-arg overload with a non-null set).
+            if (rolesFromToken != null) {
+                newUser.roles = new ArrayList<>(rolesFromToken);
+            }
             // SCRUM-169 — auto-generate a public-facing username from the
             // JWT identity claims at signup. The slug logic mirrors the V3
             // migration back-fill so legacy and new accounts share the same
@@ -82,6 +130,26 @@ public class UserService {
             }
             throw exception;
         }
+    }
+
+    /**
+     * Mirrors the JWT roles claim onto {@code user.roles} when it has drifted
+     * from what's persisted. Comparison is set-based (order doesn't matter, the
+     * sorted serialisation is just for stable diff in tests) so the {@code
+     * UPDATE} is skipped when nothing changed — the common case for repeat
+     * /me hits within the same session.
+     */
+    private void syncRolesIfChanged(User user, Set<String> rolesFromToken) {
+        // No null guard on `user.roles` — the entity initialises the field
+        // to an empty list and Hibernate hydrates rows with no `user_roles`
+        // entries as empty collections, so the field is always non-null.
+        Set<String> current = new HashSet<>(user.roles);
+        if (current.equals(rolesFromToken)) {
+            return;
+        }
+        List<String> sorted = new ArrayList<>(rolesFromToken);
+        Collections.sort(sorted);
+        user.roles = sorted;
     }
 
     @Transactional

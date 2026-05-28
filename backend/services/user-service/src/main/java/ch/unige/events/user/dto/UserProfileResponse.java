@@ -24,7 +24,11 @@ public record UserProfileResponse(
     String avatarUrl,
     String bannerUrl,
     boolean profilePublic,
-    @Schema(readOnly = true) LocalDateTime createdAt
+    @Schema(readOnly = true) LocalDateTime createdAt,
+    @Schema(readOnly = true,
+            description = "Auth0 roles mirrored from the JWT claim. Synced on every /me hit. "
+                    + "Frontend uses this to render role-driven UI (Staff badge, Admin menu).")
+    List<String> roles
 ) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
@@ -40,7 +44,15 @@ public record UserProfileResponse(
                 user.avatarUrl,
                 user.bannerUrl,
                 user.profilePublic,
-                user.createdAt
+                user.createdAt,
+                rolesOrEmpty(user)
         );
+    }
+
+    private static List<String> rolesOrEmpty(User user) {
+        // No null guard — `User.roles` is always non-null (init + Hibernate
+        // hydration contract — see entity javadoc). Defensive copy so the
+        // DTO never aliases the entity's mutable bag.
+        return List.copyOf(user.roles);
     }
 }

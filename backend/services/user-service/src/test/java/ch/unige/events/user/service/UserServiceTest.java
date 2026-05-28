@@ -24,8 +24,10 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -110,6 +112,71 @@ class UserServiceTest {
         assertEquals("User", created.lastName);
         assertEquals("https://cdn.example.com/avatar.png", created.avatarUrl);
         assertFalse(created.profilePublic, "newly-created users default to private profile");
+    }
+
+    // ── role sync (drives the Staff badge on /profile/<username>) ──────────
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_newUser_persistsRolesFromToken() {
+        // New signup with the ADMIN role in the JWT claim — the role must
+        // round-trip into User.roles so /users/{id} can later badge this
+        // profile as Staff for any viewer.
+        User created = userService.getOrCreateUser("auth0|us-roles-new",
+                jwt("auth0|us-roles-new", Map.of("email", "rn@example.com", "name", "Roles New")),
+                Set.of("ADMIN"));
+
+        assertEquals(List.of("ADMIN"), created.roles);
+    }
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_existingUser_syncsRolesWhenChanged() {
+        // Pre-existing user with no roles — JWT now carries ADMIN. The sync
+        // path must lift the new role onto the row in the same transaction.
+        User existing = persistUser("auth0|us-roles-promote", "rp@example.com", false);
+        existing.roles = new java.util.ArrayList<>();
+        entityManager.flush();
+
+        User result = userService.getOrCreateUser("auth0|us-roles-promote",
+                jwt("auth0|us-roles-promote", Map.of("email", "rp@example.com")),
+                Set.of("ADMIN", "MODERATOR"));
+
+        assertEquals(new HashSet<>(List.of("ADMIN", "MODERATOR")), new HashSet<>(result.roles));
+    }
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_existingUser_clearsRolesWhenRemovedFromToken() {
+        // Role revoked in Auth0 between two /me hits → the sync must drop it
+        // from User.roles so the badge disappears on the next page load.
+        User existing = persistUser("auth0|us-roles-revoke", "rv@example.com", false);
+        existing.roles = new java.util.ArrayList<>(List.of("ADMIN"));
+        entityManager.flush();
+
+        User result = userService.getOrCreateUser("auth0|us-roles-revoke",
+                jwt("auth0|us-roles-revoke", Map.of("email", "rv@example.com")),
+                Set.of());
+
+        assertTrue(result.roles.isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void getOrCreateUser_twoArgOverload_keepsExistingRolesUntouched() {
+        // The 2-arg overload passes null for `rolesFromToken` (explicit
+        // opt-out, distinct from "sync to empty set"). Background callers
+        // without access to SecurityIdentity (e.g. internal hydration jobs)
+        // must NOT wipe legitimate admin badges off a row they just happen
+        // to touch — only /me-driven calls are authoritative for role sync.
+        User existing = persistUser("auth0|us-roles-legacy", "rl@example.com", false);
+        existing.roles = new java.util.ArrayList<>(List.of("ADMIN"));
+        entityManager.flush();
+
+        User result = userService.getOrCreateUser("auth0|us-roles-legacy",
+                jwt("auth0|us-roles-legacy", Map.of("email", "rl@example.com")));
+
+        assertEquals(List.of("ADMIN"), result.roles);
     }
 
     // ── getPublicProfile ───────────────────────────────────────────────────

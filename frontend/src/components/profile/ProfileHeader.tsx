@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import UserAvatar from '@/components/user/UserAvatar'
 import UserBanner from '@/components/user/UserBanner'
-import { STUDY_LEVELS, type StudyLevel, type UserPublicResponse } from '@/types/user'
+import StaffBadge from '@/components/profile/StaffBadge'
+import { STUDY_LEVELS, type StudyLevel, type UserPublicResponse, isStaff } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 
 interface ProfileHeaderProps {
@@ -23,6 +24,7 @@ interface ProfileHeaderProps {
  * compte, pas d'un état d'erreur).
  */
 export default function ProfileHeader({ profile, actions }: Readonly<ProfileHeaderProps>) {
+  const showStaffBadge = isStaff(profile.roles)
   const studyLevelName = profile.studyLevel
     ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name
     : null
@@ -43,9 +45,12 @@ export default function ProfileHeader({ profile, actions }: Readonly<ProfileHead
               <UserAvatar user={profile} className="size-28 relative ring-4 ring-background shadow-2xl" />
             </div>
             <div className="pb-2 min-w-0">
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
-                {profile.displayName}
-              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
+                  {profile.displayName}
+                </h1>
+                {showStaffBadge && <StaffBadge />}
+              </div>
               {profile.username && (
                 <p className="text-sm text-foreground/50 mt-0.5 font-medium">@{profile.username}</p>
               )}

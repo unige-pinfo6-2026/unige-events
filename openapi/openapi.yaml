@@ -61,12 +61,13 @@ components:
       description: |
         Profil complet de l'utilisateur authentifié (UserProfileResponse backend).
 
-        **Note SCRUM-94 (rôle ADMIN).** Le champ `admin` n'est PAS exposé sur ce profil.
-        Le rôle ADMIN est porté exclusivement par la claim Auth0
-        (`https://quarkus-security.com/roles`) et consommé côté backend via
-        `@RolesAllowed("ADMIN")`. Le frontend qui souhaite afficher un badge « Admin »
-        doit lire la claim depuis le token Auth0
-        (`auth.user['https://quarkus-security.com/roles']`), pas depuis ce payload profil.
+        **Rôles Auth0 (mis à jour).** Le champ `roles` mirorre la claim Auth0
+        (`OIDC_ROLE_NAMESPACE`) côté backend, synchronisé à chaque hit `GET /users/me`.
+        Pour les vérifications de permission *du viewer*, le frontend continue de lire
+        la claim depuis le token Auth0 (`auth.user['https://unige-events/roles']`).
+        Le champ `roles` exposé ici sert à driver l'UI dépendante du rôle du
+        **propriétaire du profil** affiché (badge « Staff » sur le profil de tout admin,
+        par ex.), où la claim Auth0 n'est pas accessible côté client.
       properties:
         id:
           type: string
@@ -124,6 +125,14 @@ components:
             fallback `firstName.lastName`, fallback `user`, suffixe numérique sur
             collision). Modifiable via `PATCH /users/me/username`. Blocklist : `me`,
             `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`.
+        roles:
+          type: array
+          items:
+            type: string
+          description: |
+            Rôles Auth0 mirrorés depuis la claim JWT à chaque hit `GET /users/me`.
+            Toujours présent (liste vide par défaut). Voir la description du schéma
+            pour le contrat de fraîcheur et l'usage côté frontend.
       example:
         id: "550e8400-e29b-41d4-a716-446655440000"
         auth0Id: "auth0|abc123"
@@ -140,6 +149,7 @@ components:
         profilePublic: true
         createdAt: "2026-03-01T09:00:00"
         username: "alice.martin"
+        roles: ["ADMIN"]
 
     UserPublicResponse:
       type: object
@@ -244,7 +254,18 @@ components:
             l'utilisateur cible. `null` si l'appelant est anonyme, sur son propre profil,
             ou s'il n'existe aucune row `Follow` pour le couple `(callerId, targetId)`.
             `PENDING` ou `ACCEPTED` sinon.
-      required: [id, username, profilePublic, followerCount, followingCount]
+        roles:
+          type: array
+          items:
+            type: string
+          description: |
+            Rôles Auth0 du profil cible, mirrorés en base via `UserService.syncRoles(...)`
+            au moment du `GET /users/me` du propriétaire. Toujours présent (liste vide
+            par défaut). Utilisé par le frontend pour gater des éléments d'UI dépendants
+            du rôle (badge "Staff" sur le profil de tout admin, par ex.) — exposé sur la
+            projection anonyme également (l'info n'est pas sensible : elle indique juste
+            "ce compte est staff", visible par tout viewer).
+      required: [id, username, profilePublic, followerCount, followingCount, roles]
 
     UpdateProfileRequest:
       type: object
@@ -270,7 +291,7 @@ components:
         studyLevel:
           $ref: '#/components/schemas/StudyLevel'
           nullable: true
-          # Valeurs : BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF
+          # Valeurs : BACHELOR, MASTER, DOCTORAT, POST_DOC
         bio:
           type: string
           maxLength: 2000
@@ -1058,7 +1079,7 @@ components:
 
     StudyLevel:
       type: string
-      enum: [BACHELOR, MASTER, DOCTORAT, POST_DOC, STAFF]
+      enum: [BACHELOR, MASTER, DOCTORAT, POST_DOC]
 
     EventCategory:
       type: string

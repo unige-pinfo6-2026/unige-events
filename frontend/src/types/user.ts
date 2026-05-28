@@ -34,6 +34,16 @@ export interface UserPublicResponse {
   followingCount: number
   /** État de la relation caller → cible. `null` si aucune row Follow. */
   followStatus?: FollowStatus | null
+  /**
+   * Rôles Auth0 du **profil affiché** (pas du viewer), mirrorés en base par
+   * le backend depuis le claim JWT du propriétaire à chaque hit `/me`.
+   * Toujours présent côté API (liste vide par défaut) — optionnel ici pour
+   * tolérer les mocks/payloads pré-existants. Utilisé pour driver les
+   * éléments d'UI dépendants du rôle de la cible (badge "Staff" sur le profil
+   * de tout admin, par ex.). Pour les permissions *du viewer*, lire la claim
+   * Auth0 via `useAuth().isAdmin` à la place.
+   */
+  roles?: string[]
 }
 
 export type User = {
@@ -57,6 +67,22 @@ export type User = {
   username: string
   profilePublic: boolean
   createdAt: string
+  /**
+   * Rôles Auth0 du user authentifié, mirrorés par le backend à chaque
+   * `/users/me`. Toujours présent côté API (liste vide par défaut) —
+   * optionnel ici pour tolérer les mocks existants. Pour driver l'UI
+   * dépendante du rôle d'un autre user, lire le champ `roles` sur
+   * `UserPublicResponse` à la place.
+   */
+  roles?: string[]
+}
+
+/** Rôle Auth0 qui déclenche le badge "Staff" sur le profil du propriétaire. */
+export const STAFF_ROLE = 'ADMIN'
+
+/** True si le profil possède au moins un rôle visible comme "staff". */
+export function isStaff(roles: string[] | undefined | null): boolean {
+  return Array.isArray(roles) && roles.includes(STAFF_ROLE)
 }
 
 export const STUDY_LEVELS = {
@@ -64,7 +90,6 @@ export const STUDY_LEVELS = {
   MASTER: { name: 'Master' },
   DOCTORAT: { name: 'Doctorat' },
   POST_DOC: { name: 'Post-doctorat' },
-  STAFF: { name: 'Staff' },
 } as const
 
 export type StudyLevel = keyof typeof STUDY_LEVELS

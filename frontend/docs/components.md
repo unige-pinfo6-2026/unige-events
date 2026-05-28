@@ -431,7 +431,14 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 - Composant `src/components/profile/ProfileHeader.tsx` partagé entre `PublicProfileView` et `ProfilePrivateState` — banner (avec fallback gradient) + avatar overlapping en bas-gauche + displayName + sous-titre faculté/niveau d'étude.
 - Props : `profile: UserPublicResponse`, `actions?: ReactNode` (slot droit pour `Modifier` / `FollowButton`).
+- Affiche un `<StaffBadge />` inline à côté du `displayName` quand `isStaff(profile.roles)` est vrai (cf. `@/types/user`). Le champ `roles` est porté par le profil affiché (mirroré par le backend depuis la claim Auth0 du propriétaire à chaque `GET /users/me`), pas par le viewer — donc le badge apparaît sur **n'importe quel** profil d'admin, indépendamment du rôle du viewer connecté.
 - Extrait pour garantir un cadre visuellement identique au pixel près entre la vue publique et la vue privée : la vue privée doit donner l'impression d'un vrai compte verrouillé, pas d'un état d'erreur.
+
+### StaffBadge
+
+- Composant `src/components/profile/StaffBadge.tsx` — chip amber (token `--color-warning`) rendu par `ProfileHeader` à côté du `displayName` quand le profil affiché a un rôle Auth0 qualifiant comme "staff" (cf. `STAFF_ROLE` et `isStaff(roles)` dans `@/types/user`).
+- Pas de props — le contrôle de visibilité vit chez l'appelant (`ProfileHeader`) qui consulte `profile.roles`.
+- Style aligné sur le badge "Brouillon" de `DraftResumeCard` (uppercase, tracking-widest, pill warning).
 
 ### ProfilePrivateState (SCRUM-141 redesign)
 

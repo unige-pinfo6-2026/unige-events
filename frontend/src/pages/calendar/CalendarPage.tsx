@@ -1,35 +1,56 @@
+import { useCallback, useState } from 'react'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
-import { EVENT_CATEGORIES } from '@/types/event'
+import { useAuth } from '@/hooks/useAuth'
 import EventCalendar from '@/components/calendar/EventCalendar'
+import CategoryFilterBar from '@/components/calendar/CategoryFilterBar'
+import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
+import type { EventCategory } from '@/types/event'
 
 export default function CalendarPage() {
+  const { user } = useAuth()
+
+  // Categories the user has masked via CategoryFilterBar. Empty Set = show all.
+  // Ephemeral state — not persisted across reloads (per spec decision Q4).
+  const [disabledCategories, setDisabledCategories] = useState<ReadonlySet<EventCategory>>(
+    () => new Set<EventCategory>(),
+  )
+
+  const handleToggleCategory = useCallback((category: EventCategory) => {
+    setDisabledCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }, [])
+
   return (
-    <SectionWrapper padding="sm" background={<BlobsSubtle />}>
-      <div className="flex flex-col lg:flex-row lg:justify-between gap-8">
+    <>
+      <SectionWrapper padding="sm" background={<BlobsSubtle />}>
         <SectionHeader
           align="left"
           title={<>Calendrier <mark>du campus</mark></>}
           subtitle="Visualisez et explorez tous les événements de la communauté."
         />
 
-        {/* Category legend */}
-        <div className="flex flex-wrap gap-2 lg:max-w-xs">
-          {Object.entries(EVENT_CATEGORIES).map(([key, cat]) => (
-            <div
-            key={key}
-            className="flex items-center gap-2 bg-background/60 backdrop-blur-sm border border-border rounded-full px-3 py-1.5"
-            >
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-            <span className="text-sm text-foreground/70 font-medium">{cat.name}</span>
-            </div>
-          ))}
+        <CategoryFilterBar
+          disabled={disabledCategories}
+          onToggle={handleToggleCategory}
+        />
+
+        <div className="flex flex-col h-[680px]">
+          <EventCalendar disabledCategories={disabledCategories} />
         </div>
-      </div>
-      
-      <div className="flex flex-col h-[680px]">
-        <EventCalendar />
-      </div>
-    </SectionWrapper>
+      </SectionWrapper>
+
+      {/* Subscription block — only for authenticated callers ; the backend
+          endpoints (/users/me/calendar-token*) are @Authenticated. */}
+      {user && (
+        <SectionWrapper padding="sm">
+          <CalendarSubscribeButton />
+        </SectionWrapper>
+      )}
+    </>
   )
 }

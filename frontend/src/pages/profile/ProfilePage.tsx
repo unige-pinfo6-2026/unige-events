@@ -18,7 +18,6 @@ import { GraduationCap, type LucideIcon } from 'lucide-react'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
-import CalendarSubscribeButton from '@/components/calendar/CalendarSubscribeButton'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
 
 /**
@@ -143,25 +142,24 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
 
       <div className="max-w-5xl mx-auto px-6 lg:px-8 pb-20">
 
-        {/* Stats row directly below the header.
-            Hidden on /profile/me — the self payload (UserProfileResponse)
-            doesn't carry followerCount / followingCount, so rendering the
-            tiles would display 0/0 for accounts that actually have real
-            follows. Owners get their counters via the dedicated followers /
-            following pages (SCRUM-142 / SCRUM-110 follow-ups) instead. */}
-        {!isMeRoute && (
-          <div className="mb-8">
-            <ProfileStats
-              followerCount={profile.followerCount}
-              followingCount={profile.followingCount}
-              linkUsername={profile.username}
-            />
-          </div>
-        )}
+        {/* Stats row directly below the header. Always rendered — owners and
+            visitors see the same affordance (clickable tiles to the followers /
+            following list pages). For /me the counts are populated by a refetch
+            of GET /users/by-username/{currentUser.username} in MeProfileView
+            (the /users/me payload doesn't carry them) ; until that resolves
+            the tiles show 0/0, which is also the correct value for fresh
+            accounts. */}
+        <div className="mb-8">
+          <ProfileStats
+            followerCount={profile.followerCount}
+            followingCount={profile.followingCount}
+            linkUsername={profile.username}
+          />
+        </div>
 
-        {/* Content grid: about/bio (left) + calendar+invitations (right, /me only).
-            When not on /me the layout collapses to a single column so the events
-            and participations sections below get the full width. */}
+        {/* Content grid: about/bio (left) + invitations+follow-requests (right,
+            /me only). When not on /me the layout collapses to a single column
+            so the events and participations sections below get the full width. */}
         <div className={`grid grid-cols-1 items-start gap-6 ${isMeRoute ? 'lg:grid-cols-2' : ''}`}>
 
           <div className="flex flex-col gap-6">
@@ -205,13 +203,12 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
             {isMeRoute && <MyPublicationsPreview />}
           </div>
 
-          {/* Right column: calendar + co-organizer invitations + follow requests
-              (own profile only). FollowRequestsPanel sits directly below the
-              co-organizer invitations so both inbound-request widgets share the
-              same column. */}
+          {/* Right column: co-organizer invitations + follow requests
+              (own profile only). Both inbound-request widgets share this
+              column. Calendar subscription moved to /calendar (refactor —
+              cf. specs_archives/specs_claude/refactor_calendar-page-ux.md). */}
           {isMeRoute && (
             <div className="flex flex-col gap-6">
-              <CalendarSubscribeButton />
               <CoOrganizerInvitationsList />
               <FollowRequestsPanel />
             </div>
@@ -236,12 +233,38 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated }: 
 /**
  * `/profile/me` — owner view. Falls back to the public view above with
  * `isMeRoute=true`, using the authenticated `User` from `useAuth` so the
- * page renders without a round-trip to `/users/{id}`. Counters and
- * followStatus are not in the self payload (UserProfileResponse) so we
- * default to 0 / null — coherent with the API contract for the caller's
- * own profile (followStatus is always null when caller = target).
+ * page renders immediately without a round-trip. We then refetch the public
+ * profile by username in the background to surface the real
+ * follower / following counts (the /users/me payload doesn't include them
+ * so a freshly-rendered /me would show 0/0 until this resolves). The fetch
+ * is best-effort: if it fails the tiles stay at 0/0 — no toast, no skeleton.
+ * followStatus is always null when caller = target (API contract).
  */
 function MeProfileView({ user }: Readonly<{ user: User }>) {
+  const [counts, setCounts] = useState<{ followerCount: number; followingCount: number } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getUserByUsername(user.username)
+      .then((data) => {
+        if (cancelled || data === null) return
+        // userService.getUserByUsername is typed `User | null` but the endpoint
+        // returns the richer `UserPublicResponse` shape (followerCount etc.).
+        // Same boundary cast as the visitor-view fetch path below (line 352).
+        const publicData = data as unknown as UserPublicResponse
+        setCounts({
+          followerCount: publicData.followerCount,
+          followingCount: publicData.followingCount,
+        })
+      })
+      .catch(() => {
+        // Best-effort: keep the 0/0 placeholder. The list pages still work.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user.username])
+
   const profile: UserPublicResponse = {
     id: user.id,
     username: user.username,
@@ -253,9 +276,12 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
     avatarUrl: user.avatarUrl,
     bannerUrl: user.bannerUrl,
     profilePublic: user.profilePublic,
-    followerCount: 0,
-    followingCount: 0,
+    followerCount: counts?.followerCount ?? 0,
+    followingCount: counts?.followingCount ?? 0,
     followStatus: null,
+    // Propagate the owner's roles so `ProfileHeader` can render the Staff
+    // badge on /me too (mirrors what /profile/<other-admin-username> does).
+    roles: user.roles ?? [],
   }
   // /me never renders the FollowButton — owner of the page.
   return <PublicProfileView profile={profile} isMeRoute={true} canFollow={false} />

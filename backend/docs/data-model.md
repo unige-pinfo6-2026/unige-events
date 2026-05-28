@@ -5,7 +5,7 @@
 > | Service propriétaire | DB physique (host:port) | Tables possédées |
 > |---|---|---|
 > | `event-service` | `postgres-event:5432` / DB `unige_events_events` | `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
-> | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `follows` |
+> | `user-service` | `postgres-user:5432` / DB `unige_events_users` | `users`, `user_interests`, `user_roles`, `follows` |
 > | `engagement-service` | `postgres-engagement:5432` / DB `unige_events_engagement` | `attendances`, `comments` |
 > | `moderation-service` | `postgres-moderation:5432` / DB `unige_events_moderation` | `reports`, `event_banned_outbox` (outbox transactionnel ADR-003) |
 > | `notification-service` | `postgres-notification:5432` / DB `unige_events_notifications` | `notifications` (SCRUM-99 — entité in-app + 3 Kafka consumers) |
@@ -16,7 +16,7 @@
 
 ### User
 
-Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollection).
+Owned by **user-service**. Tables : `users` + `user_interests` + `user_roles` (ElementCollections).
 
 | Champ Java | Nom JSON | Type Java | Colonne DB | Contraintes |
 |---|---|---|---|---|
@@ -31,6 +31,7 @@ Owned by **user-service**. Tables : `users` + `user_interests` (ElementCollectio
 | `studyLevel` | `studyLevel` | `String` | `study_level` | nullable |
 | `bio` | `bio` | `String` | `bio` | `@Column(columnDefinition="TEXT")` |
 | `interests` | `interests` | `List<String>` | `user_interests` | `@ElementCollection(fetch=EAGER)` |
+| `roles` | `roles` | `List<String>` | `user_roles` | `@ElementCollection(fetch=EAGER)` — mirrorés depuis la claim Auth0 (`OIDC_ROLE_NAMESPACE`) à chaque `GET /users/me` via `UserService.syncRolesIfChanged(...)`. Exposés dans `UserPublicResponse`/`UserProfileResponse` pour driver l'UI dépendante du rôle (badge "Staff" sur le profil de tout admin, par ex.). |
 | `avatarUrl` | `avatarUrl` | `String` | `avatar_url` | nullable |
 | `profilePublic` | `profilePublic` | `boolean` | `profile_public` | default `false` |
 | `createdAt` | `createdAt` | `LocalDateTime` | `created_at` | immutable, defaults to `now()` |
@@ -945,7 +946,7 @@ Valeurs attendues pour `faculty` (cohérentes avec les types TypeScript frontend
 | `GSI` | Global Studies Institute |
 
 Valeurs attendues pour `studyLevel` :
-`BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`, `STAFF`
+`BACHELOR`, `MASTER`, `DOCTORAT`, `POST_DOC`
 
 > **Action Sprint 2 :** Quand `EventCategory` sera implémenté, créer un enum Java et l'utiliser dans l'entité. Pour `faculty`/`studyLevel`, évaluer si une contrainte enum DB est nécessaire ou si la validation frontend suffit.
 

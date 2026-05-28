@@ -20,7 +20,15 @@ public record UserPublicResponse(
     boolean profilePublic,
     long followerCount,
     long followingCount,
-    FollowStatus followStatus
+    FollowStatus followStatus,
+    /**
+     * Auth0 roles owned by the profile (e.g. {@code ["ADMIN"]}). Exposed even
+     * on the anonymous projection — role info is not sensitive (it merely
+     * tells consumers "this account is staff") and the frontend renders the
+     * "Staff" badge on every profile, regardless of the viewer's auth state.
+     * Empty list (never {@code null}) when the user has no role mirrored yet.
+     */
+    List<String> roles
 ) {
 
     public static UserPublicResponse from(User user) {
@@ -37,7 +45,8 @@ public record UserPublicResponse(
                 user.profilePublic,
                 0L,
                 0L,
-                null
+                null,
+                rolesOrEmpty(user)
         );
     }
 
@@ -59,8 +68,18 @@ public record UserPublicResponse(
                 user.profilePublic,
                 followerCount,
                 followingCount,
-                followStatus
+                followStatus,
+                rolesOrEmpty(user)
         );
+    }
+
+    private static List<String> rolesOrEmpty(User user) {
+        // `user.roles` is initialised to an empty list on the entity (cf.
+        // `User.roles` javadoc) and Hibernate hydrates rows with no
+        // matching `user_roles` entries as empty collections too — so we
+        // don't carry a null guard here. `List.copyOf` defensively
+        // re-wraps so the DTO can never alias the entity's mutable bag.
+        return List.copyOf(user.roles);
     }
 
     /**
@@ -90,7 +109,8 @@ public record UserPublicResponse(
                 user.profilePublic,
                 0L,
                 0L,
-                null
+                null,
+                rolesOrEmpty(user)
         );
     }
 }
