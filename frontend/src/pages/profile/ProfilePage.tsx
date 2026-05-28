@@ -279,6 +279,9 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
     followerCount: counts?.followerCount ?? 0,
     followingCount: counts?.followingCount ?? 0,
     followStatus: null,
+    // Propagate the owner's roles so `ProfileHeader` can render the Staff
+    // badge on /me too (mirrors what /profile/<other-admin-username> does).
+    roles: user.roles ?? [],
   }
   // /me never renders the FollowButton — owner of the page.
   return <PublicProfileView profile={profile} isMeRoute={true} canFollow={false} />

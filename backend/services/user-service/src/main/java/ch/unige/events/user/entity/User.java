@@ -74,6 +74,22 @@ public class User extends PanacheEntityBase {
     @ElementCollection(fetch = FetchType.EAGER)
     public List<String> interests;
 
+    /**
+     * Auth0 roles mirrored from the JWT claim configured by
+     * {@code OIDC_ROLE_NAMESPACE}. Synced by
+     * {@code UserService.getOrCreateUser(...)} on every GET /users/me
+     * hit — the frontend bootstraps from /me on every page load, so any
+     * role change in Auth0 is picked up at the next session refresh
+     * (acceptable freshness for this product).
+     *
+     * <p>Exposed in {@code UserPublicResponse} and
+     * {@code UserProfileResponse} so the frontend can render role-driven
+     * UI (currently the "Staff" badge on any admin's profile, regardless
+     * of the viewer's own role).
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    public List<String> roles;
+
     public String avatarUrl;
     public String bannerUrl;
 

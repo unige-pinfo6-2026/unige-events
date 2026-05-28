@@ -4,6 +4,7 @@ import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +21,15 @@ public record UserPublicResponse(
     boolean profilePublic,
     long followerCount,
     long followingCount,
-    FollowStatus followStatus
+    FollowStatus followStatus,
+    /**
+     * Auth0 roles owned by the profile (e.g. {@code ["ADMIN"]}). Exposed even
+     * on the anonymous projection — role info is not sensitive (it merely
+     * tells consumers "this account is staff") and the frontend renders the
+     * "Staff" badge on every profile, regardless of the viewer's auth state.
+     * Empty list (never {@code null}) when the user has no role mirrored yet.
+     */
+    List<String> roles
 ) {
 
     public static UserPublicResponse from(User user) {
@@ -37,7 +46,8 @@ public record UserPublicResponse(
                 user.profilePublic,
                 0L,
                 0L,
-                null
+                null,
+                rolesOrEmpty(user)
         );
     }
 
@@ -59,8 +69,13 @@ public record UserPublicResponse(
                 user.profilePublic,
                 followerCount,
                 followingCount,
-                followStatus
+                followStatus,
+                rolesOrEmpty(user)
         );
+    }
+
+    private static List<String> rolesOrEmpty(User user) {
+        return user.roles != null ? List.copyOf(user.roles) : Collections.emptyList();
     }
 
     /**
@@ -90,7 +105,8 @@ public record UserPublicResponse(
                 user.profilePublic,
                 0L,
                 0L,
-                null
+                null,
+                rolesOrEmpty(user)
         );
     }
 }

@@ -21,10 +21,11 @@ class UserProfileResponseTest {
         UUID id = UUID.randomUUID();
         LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 10, 0);
         List<String> interests = List.of("hiking", "music");
+        List<String> roles = List.of("ADMIN");
         UserProfileResponse dto = new UserProfileResponse(
             id, "auth0|abc", "alice@unige.ch", "alice.martin", "Alice", Faculty.SCIENCES, "Master",
             "Hi there", interests, "https://avatars/a.png", "https://banners/a.png",
-            true, createdAt);
+            true, createdAt, roles);
 
         assertEquals(id, dto.id());
         assertEquals("auth0|abc", dto.auth0Id());
@@ -39,6 +40,7 @@ class UserProfileResponseTest {
         assertEquals("https://banners/a.png", dto.bannerUrl());
         assertTrue(dto.profilePublic());
         assertEquals(createdAt, dto.createdAt());
+        assertEquals(roles, dto.roles());
     }
 
     @Test
@@ -71,6 +73,7 @@ class UserProfileResponseTest {
         assertNull(dto.interests());
         assertFalse(dto.profilePublic());
         assertEquals(user.createdAt, dto.createdAt());
+        assertTrue(dto.roles().isEmpty());
     }
 
     @Test
@@ -78,11 +81,11 @@ class UserProfileResponseTest {
         UUID id = UUID.randomUUID();
         LocalDateTime t = LocalDateTime.of(2026, 1, 1, 0, 0);
         UserProfileResponse a = new UserProfileResponse(
-            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t, List.of());
         UserProfileResponse b = new UserProfileResponse(
-            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t, List.of());
         UserProfileResponse c = new UserProfileResponse(
-            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", false, t);
+            id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", false, t, List.of());
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());

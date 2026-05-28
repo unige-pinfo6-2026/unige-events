@@ -332,6 +332,57 @@ describe('ProfilePage — /profile/me (owner)', () => {
   })
 })
 
+describe('ProfilePage — Staff badge (driven by profile.roles)', () => {
+  // Surfaces the backend-mirrored Auth0 role on the rendered header. The
+  // badge is owned by the profile (not the viewer) — visible to anyone
+  // looking at an admin's profile, hidden on non-admin profiles even when
+  // the viewer themself is admin.
+
+  it('renders the badge on another user profile when roles includes ADMIN', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({ ...otherProfile, roles: ['ADMIN'] })
+
+    renderProfilePage('other.user')
+
+    expect(await screen.findByLabelText('Membre du staff')).toBeTruthy()
+  })
+
+  it('does NOT render the badge when roles is empty or missing on the target', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({ ...otherProfile, roles: [] })
+
+    renderProfilePage('other.user')
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.queryByLabelText('Membre du staff')).toBeNull()
+  })
+
+  it('renders the badge on /profile/me when the owner has ADMIN role', async () => {
+    // MeProfileView projects `user.roles` from useAuth into the UserPublicResponse
+    // it hands to ProfileHeader — covers the /me code path specifically.
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, roles: ['ADMIN'] },
+      isLoading: false,
+    })
+
+    renderProfilePage('me')
+
+    expect(await screen.findByLabelText('Membre du staff')).toBeTruthy()
+  })
+
+  it('does NOT render the badge on /profile/me when the owner has no admin role', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, roles: ['STUDENT'] },
+      isLoading: false,
+    })
+
+    renderProfilePage('me')
+
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    expect(screen.queryByLabelText('Membre du staff')).toBeNull()
+  })
+})
+
 describe('ProfilePage — /profile/:username (other user)', () => {
   it('fetches and renders another user public profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })

@@ -217,6 +217,11 @@ Garde défensive `isAcceptedAttachmentFile(file)` : accepte si **soit** `file.ty
 | bannerUrl     | string \| null | non |
 | profilePublic | boolean    | oui    |
 | createdAt     | string     | oui    |
+| roles         | string[]   | non    | Rôles Auth0 du user authentifié, mirrorés par le backend à chaque `/users/me`. Liste vide par défaut. |
+
+Helpers exportés (badge "Staff" sur les profils admins) :
+- `STAFF_ROLE = 'ADMIN'` — rôle qui déclenche le badge.
+- `isStaff(roles)` — guard `true` si la liste contient `STAFF_ROLE`, tolère `undefined`/`null`.
 
 Constantes exportées (SCRUM-169) :
 - `RESERVED_USERNAMES: Set<string>` — miroir de `UsernameGenerator.RESERVED` backend (`me`, `admin`, `api`, `login`, `logout`, `signup`, `register`, `settings`). Permet le live-check `reserved` côté form sans round-trip.
@@ -245,6 +250,7 @@ Profil public retourné par `GET /api/users/{id}` et `GET /api/users/by-username
 | followerCount  | number                        | oui    | Nombre de followers ACCEPTED (toujours présent, `0` pour anonyme). |
 | followingCount | number                        | oui    | Nombre d'abonnements ACCEPTED (toujours présent, `0` pour anonyme). |
 | followStatus   | FollowStatus \| null          | non    | État de la relation caller → cible. `null` si anonyme, sur son propre profil, ou aucune row `Follow`. |
+| roles          | string[]                      | non    | Rôles Auth0 **du profil affiché** (pas du viewer), mirrorés en base. Driver du badge "Staff" — `isStaff(profile.roles)`. Toujours présent côté API (liste vide par défaut). |
 
 ### FollowStatus
 

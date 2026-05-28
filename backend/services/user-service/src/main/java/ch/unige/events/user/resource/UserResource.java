@@ -104,7 +104,12 @@ public class UserResource {
     @Authenticated
     public UserProfileResponse me() {
         String auth0Id = identity.getPrincipal().getName();
-        User user = userService.getOrCreateUser(auth0Id, jwt.get());
+        // Pass `identity.getRoles()` so the service mirrors the JWT roles
+        // claim into `User.roles`. /me is the one sync point — the frontend
+        // bootstraps from it on every page load, so any Auth0 role change
+        // surfaces at the next session refresh without polluting every
+        // other authenticated endpoint with a write.
+        User user = userService.getOrCreateUser(auth0Id, jwt.get(), identity.getRoles());
         return UserProfileResponse.from(user);
     }
 

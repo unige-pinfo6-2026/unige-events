@@ -20,10 +20,11 @@ class UserPublicResponseTest {
     void canonicalConstructor_populatedFields_keepsAllValues() {
         UUID id = UUID.randomUUID();
         List<String> interests = List.of("art");
+        List<String> roles = List.of("ADMIN");
         UserPublicResponse dto = new UserPublicResponse(
             id, "alice.martin", "Alice", Faculty.SCIENCES, "Master", "bio",
             interests, "https://av/a.png", "https://bn/a.png", true,
-            12L, 5L, FollowStatus.ACCEPTED);
+            12L, 5L, FollowStatus.ACCEPTED, roles);
 
         assertEquals(id, dto.id());
         assertEquals("alice.martin", dto.username());
@@ -38,6 +39,7 @@ class UserPublicResponseTest {
         assertEquals(12L, dto.followerCount());
         assertEquals(5L, dto.followingCount());
         assertEquals(FollowStatus.ACCEPTED, dto.followStatus());
+        assertEquals(roles, dto.roles());
     }
 
     @Test
@@ -81,6 +83,28 @@ class UserPublicResponseTest {
     }
 
     @Test
+    void from_userWithRoles_propagatesRoles() {
+        // Frontend reads `roles` to gate the Staff badge — must be present on
+        // every projection path (full, with-counts, anonymous).
+        User user = newUser(true);
+        user.roles = List.of("ADMIN");
+        assertEquals(List.of("ADMIN"), UserPublicResponse.from(user).roles());
+        assertEquals(List.of("ADMIN"), UserPublicResponse.from(user, 0L, 0L, null).roles());
+        assertEquals(List.of("ADMIN"), UserPublicResponse.fromAnonymous(user).roles());
+    }
+
+    @Test
+    void from_userWithNullRoles_returnsEmptyList() {
+        // `User.roles` is nullable at the entity layer (legacy rows
+        // pre-V5 migration). The DTO must normalise to [] so the frontend
+        // can call .includes() unconditionally.
+        User user = newUser(true);
+        user.roles = null;
+        assertTrue(UserPublicResponse.from(user).roles().isEmpty());
+        assertTrue(UserPublicResponse.fromAnonymous(user).roles().isEmpty());
+    }
+
+    @Test
     void fromAnonymous_keepsUsername_stripsSensitiveFields() {
         // SCRUM-169 Décision E — username MUST be exposed even to anonymous
         // callers because it is the public-facing identifier of the profile.
@@ -117,11 +141,11 @@ class UserPublicResponseTest {
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
         UserPublicResponse a = new UserPublicResponse(
-            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 1L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 1L, 2L, FollowStatus.ACCEPTED, List.of());
         UserPublicResponse b = new UserPublicResponse(
-            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 1L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 1L, 2L, FollowStatus.ACCEPTED, List.of());
         UserPublicResponse c = new UserPublicResponse(
-            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 9L, 2L, FollowStatus.ACCEPTED);
+            id, "x.handle", "X", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, 9L, 2L, FollowStatus.ACCEPTED, List.of());
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());

@@ -5,6 +5,7 @@ import ch.unige.events.user.entity.User;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,7 +25,11 @@ public record UserProfileResponse(
     String avatarUrl,
     String bannerUrl,
     boolean profilePublic,
-    @Schema(readOnly = true) LocalDateTime createdAt
+    @Schema(readOnly = true) LocalDateTime createdAt,
+    @Schema(readOnly = true,
+            description = "Auth0 roles mirrored from the JWT claim. Synced on every /me hit. "
+                    + "Frontend uses this to render role-driven UI (Staff badge, Admin menu).")
+    List<String> roles
 ) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
@@ -40,7 +45,8 @@ public record UserProfileResponse(
                 user.avatarUrl,
                 user.bannerUrl,
                 user.profilePublic,
-                user.createdAt
+                user.createdAt,
+                user.roles != null ? List.copyOf(user.roles) : Collections.emptyList()
         );
     }
 }
