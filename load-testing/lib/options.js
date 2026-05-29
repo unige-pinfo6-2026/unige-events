@@ -79,20 +79,28 @@ export function buildOptions(profile) {
         writes: writesTrickle('80s', 8),
       };
       break;
-    case 'soak':
-      scenarios = { // 55m keeps total under the plan's 1h max-duration-per-test cap (incl. graceful stop)
-        browse: { executor: 'constant-vus', exec: 'browse', vus: 50, duration: '55m', tags: { scenario: 'browse' } },
-        writes: writesTrickle('55m', 6),
+    case 'soak': { // configurable; keep duration <= 1h plan cap. Gentle default recommended on this fragile prod.
+      const sv = Number(__ENV.SOAK_VUS || 50);
+      const sd = __ENV.SOAK_DURATION || '55m';
+      scenarios = {
+        browse: { executor: 'constant-vus', exec: 'browse', vus: sv, duration: sd, tags: { scenario: 'browse' } },
+        writes: writesTrickle(sd, 6),
       };
       break;
-    case 'cloud_capacity': // v2 — READ capacity ramp to the plan's 100-VU/test cap. Run: -e SKIP_AUTH=1 -e NO_THINK=1
+    }
+    case 'cloud_capacity': // v2 — READ capacity probe: CONTROLLED offered req/s (arrival-rate), gentle steps to
+      // map the knee without slamming. Abort (origin_errors) marks the knee. Run: -e SKIP_AUTH=1 -e NO_THINK=1
       scenarios = {
         reads: {
-          executor: 'ramping-vus', exec: 'browseReadOnly', startVUs: 0, tags: { scenario: 'reads' }, gracefulStop: '15s',
-          stages: [
-            { duration: '1m', target: 25 }, { duration: '2m', target: 50 },
-            { duration: '2m', target: Number(__ENV.MAX_VUS || 100) }, { duration: '3m', target: Number(__ENV.MAX_VUS || 100) },
-            { duration: '1m', target: 0 },
+          executor: 'ramping-arrival-rate', exec: 'browseReadOnly',
+          startRate: Number(__ENV.START_RATE || 10), timeUnit: '1s',
+          preAllocatedVUs: 20, maxVUs: Number(__ENV.MAX_VUS || 100),
+          tags: { scenario: 'reads' }, gracefulStop: '15s',
+          stages: [ // offered requests/second (not VUs); top capped modest to limit prod exposure
+            { duration: '45s', target: 20 }, { duration: '45s', target: 40 },
+            { duration: '45s', target: 60 }, { duration: '45s', target: 80 },
+            { duration: '1m', target: Number(__ENV.TOP_RATE || 100) },
+            { duration: '30s', target: 0 },
           ],
         },
       };
