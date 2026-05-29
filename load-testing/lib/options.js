@@ -12,16 +12,21 @@ const THRESHOLDS = {
   origin_errors: [{ threshold: 'rate<0.10', abortOnFail: true, delayAbortEval: '30s' }],
 };
 
-// v2 — Grafana Cloud fan-out across load zones (specs §10). A plain `k6 run` ignores options.cloud.
-// Zone IDs: verify against the current k6 load-zone list. EU-realistic + IP diversity.
+// v2 — Grafana Cloud load zone(s) (specs §10). A plain `k6 run` ignores options.cloud.
+// ⚠️ LIMITATION: the "Grafana Cloud Free Forever" plan allows only ONE load zone per test
+// (multi-zone needs a paid plan), so true multi-IP is NOT available here — documented limitation.
+// Single zone = Frankfurt (closest k6 zone to Geneva). The multi-zone fan-out below is kept for a
+// future paid run (set MULTI_ZONE=1 once the plan allows >1 zone).
 const CLOUD = {
   projectID: Number(__ENV.K6_CLOUD_PROJECT_ID || 7680240),
-  distribution: {
-    paris:     { loadZone: 'amazon:fr:paris',     percent: 30 },
-    frankfurt: { loadZone: 'amazon:de:frankfurt', percent: 30 },
-    dublin:    { loadZone: 'amazon:ie:dublin',    percent: 20 },
-    london:    { loadZone: 'amazon:gb:london',    percent: 20 },
-  },
+  distribution: __ENV.MULTI_ZONE
+    ? {
+        paris:     { loadZone: 'amazon:fr:paris',     percent: 30 },
+        frankfurt: { loadZone: 'amazon:de:frankfurt', percent: 30 },
+        dublin:    { loadZone: 'amazon:ie:dublin',    percent: 20 },
+        london:    { loadZone: 'amazon:gb:london',    percent: 20 },
+      }
+    : { frankfurt: { loadZone: 'amazon:de:frankfurt', percent: 100 } },
 };
 
 function browseRamping(stages) {
@@ -68,26 +73,25 @@ export function buildOptions(profile) {
       break;
     case 'spike':
       scenarios = {
-        browse: browseRamping([
-          { duration: '20s', target: 200 }, { duration: '40s', target: 200 }, { duration: '20s', target: 0 },
+        browse: browseRamping([ // 80 browse + 15 write maxVUs = 95 total, under the 100-VU/test plan cap
+          { duration: '20s', target: 80 }, { duration: '40s', target: 80 }, { duration: '20s', target: 0 },
         ]),
         writes: writesTrickle('80s', 8),
       };
       break;
     case 'soak':
-      scenarios = {
-        browse: { executor: 'constant-vus', exec: 'browse', vus: 50, duration: '1h', tags: { scenario: 'browse' } },
-        writes: writesTrickle('1h', 6),
+      scenarios = { // 55m keeps total under the plan's 1h max-duration-per-test cap (incl. graceful stop)
+        browse: { executor: 'constant-vus', exec: 'browse', vus: 50, duration: '55m', tags: { scenario: 'browse' } },
+        writes: writesTrickle('55m', 6),
       };
       break;
-    case 'cloud_capacity': // v2 — multi-IP READ capacity ramp (un-throttled endpoints). Run: -e SKIP_AUTH=1 -e NO_THINK=1
+    case 'cloud_capacity': // v2 — READ capacity ramp to the plan's 100-VU/test cap. Run: -e SKIP_AUTH=1 -e NO_THINK=1
       scenarios = {
         reads: {
-          executor: 'ramping-arrival-rate', exec: 'browseReadOnly', startRate: 20, timeUnit: '1s',
-          preAllocatedVUs: 50, maxVUs: Number(__ENV.MAX_VUS || 300), tags: { scenario: 'reads' }, gracefulStop: '15s',
+          executor: 'ramping-vus', exec: 'browseReadOnly', startVUs: 0, tags: { scenario: 'reads' }, gracefulStop: '15s',
           stages: [
-            { duration: '2m', target: 50 }, { duration: '3m', target: 150 },
-            { duration: '3m', target: 300 }, { duration: '3m', target: 500 },
+            { duration: '1m', target: 25 }, { duration: '2m', target: 50 },
+            { duration: '2m', target: Number(__ENV.MAX_VUS || 100) }, { duration: '3m', target: Number(__ENV.MAX_VUS || 100) },
             { duration: '1m', target: 0 },
           ],
         },
