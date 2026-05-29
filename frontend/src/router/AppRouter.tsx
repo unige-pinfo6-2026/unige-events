@@ -28,6 +28,8 @@ const AdminPage = lazy(() => import('@/pages/admin/AdminPage'))
 const FeedPage = lazy(() => import('@/pages/feed/FeedPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 const TermsPage = lazy(() => import('@/pages/legal/TermsPage'))
+const SupportPage = lazy(() => import('@/pages/support/SupportPage'))
+const RulesPage = lazy(() => import('@/pages/rules/RulesPage'))
 
 const AppRouter = () => {
   return (
@@ -59,6 +61,9 @@ const AppRouter = () => {
               <Route path="privacy" element={<PrivacyPage />} />
               <Route path="terms" element={<TermsPage />} />
             </Route>
+
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/rules" element={<RulesPage />} />
 
             <Route element={<PrivateRoute/>}>
               <Route path="/profile">
