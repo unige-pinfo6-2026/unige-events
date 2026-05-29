@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Seed N Auth0 test users for the load-test ROPC pool.
 #
-# Requires: curl. Reads config from load-testing/.env.
+# Requires: curl, jq. Reads config from load-testing/.env.
 # Needs an M2M app authorized for the Auth0 Management API with scope
 # create:users (set AUTH0_MGMT_CLIENT_ID / AUTH0_MGMT_CLIENT_SECRET in .env).
 #
@@ -49,7 +49,13 @@ created=0; existing=0; failed=0
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
 for i in $(seq 1 "$POOL_SIZE"); do
   email="${PREFIX}-${i}@${DOMAIN}"
-  body="{\"email\":\"${email}\",\"password\":\"${AUTH0_TEST_PASSWORD}\",\"connection\":\"${AUTH0_CONNECTION}\",\"email_verified\":true,\"app_metadata\":{\"loadtest\":true}}"
+  # Build the JSON body with jq so special chars in the password (", \, newlines) are safely escaped.
+  body="$(jq -n \
+    --arg email "$email" \
+    --arg password "$AUTH0_TEST_PASSWORD" \
+    --arg connection "$AUTH0_CONNECTION" \
+    '{email:$email,password:$password,connection:$connection,email_verified:true,app_metadata:{loadtest:true}}')"
+  : > "$tmp"   # truncate so a failed curl can't surface the previous iteration's body
   code="$(curl -sS -o "$tmp" -w '%{http_code}' --request POST \
     "https://${AUTH0_DOMAIN}/api/v2/users" \
     --header "authorization: Bearer ${MGMT_TOKEN}" \

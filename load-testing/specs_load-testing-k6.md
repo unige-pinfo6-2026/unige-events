@@ -403,7 +403,7 @@ load-testing/
 │   ├── spike.js                    # burst
 │   └── soak.js                     # optional, 1–2 h
 ├── main.js                         # combined scenarios (browse + writes), gated by __ENV.PROFILE
-└── results/                        # JSON + HTML output (git-ignored)
+└── results/                        # JSON output (git-ignored; create with `mkdir -p results`)
 ```
 
 `results/` and `.env` are git-ignored (see root `.gitignore`).
@@ -429,20 +429,22 @@ docker run --rm -i --env-file load-testing/.env \
 **Run (native; load .env into the environment first):**
 ```bash
 cd load-testing && set -a && . ./.env && set +a
+mkdir -p results                                 # handleSummary writes here; dir is git-ignored
 k6 run scenarios/smoke.js                       # 1) always smoke first
 k6 run scenarios/load.js                         # 2) nominal
 k6 run -e PROFILE=stress main.js                 # 3) stress 50→200
-# JSON + HTML report:
-k6 run --out json=results/stress-raw.json -e PROFILE=stress main.js   # handleSummary writes results/summary.html
+# Raw JSON stream + summary:
+k6 run --out json=results/stress-raw.json -e PROFILE=stress main.js   # handleSummary writes results/summary.json
 # Optional live metrics to Prometheus/Grafana:
 K6_PROMETHEUS_RW_SERVER_URL=http://<prom>:9090/api/v1/write \
 K6_PROMETHEUS_RW_TREND_STATS='p(95),p(99),min,max' \
 k6 run -o experimental-prometheus-rw -e PROFILE=load main.js
 ```
 
-**Reporting:** implement `handleSummary(data)` to emit `results/summary.html` (e.g. via
-`k6-reporter`) **and** `results/summary.json`, plus the console summary. Capture per-`{service,
-endpoint}` latency and the `rate_limited` counter in the report.
+**Reporting:** `handleSummary(data)` emits `results/summary.json` plus a compact console
+summary (see `lib/summary.js`) — self-contained, no remote imports. Per-`{service, endpoint}`
+latency and the `rate_limited` counter are captured in `summary.json` and the raw `--out json`
+stream. (An HTML report via `k6-reporter` was dropped to avoid a remote dependency.)
 
 **Sequence discipline:** smoke → load → (analyse) → stress → (analyse) → spike → (optional) soak.
 Re-mint tokens between long runs if TTL is exceeded.
@@ -491,7 +493,7 @@ vs a service vs DB). Document the knee; it is not pass/fail.
       requests tagged `{service, endpoint}`.
 - [ ] Custom metrics wired: `rate_limited` (per bucket), `unexpected_failures`, `notification_lag`.
 - [ ] Thresholds (§10) set; 429 excluded from the error SLO.
-- [ ] smoke → load → stress executed; `results/summary.html` + `summary.json` produced.
+- [ ] smoke → load → stress executed; `results/summary.json` produced (after `mkdir -p results`).
 - [ ] `teardown()` cleanup run; residual `[LOADTEST]` data reported.
 - [ ] Report includes per-service breakdown, the stress knee, the 429/rate-limit finding, and the
       tunnel/edge-vs-app caveat.

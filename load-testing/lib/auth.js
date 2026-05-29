@@ -4,6 +4,9 @@ import { sleep } from 'k6';
 import { AUTH0, POOL_SIZE } from './config.js';
 
 export function mintTokenPool() {
+  if (!Number.isInteger(POOL_SIZE) || POOL_SIZE < 1) {
+    throw new Error('POOL_SIZE must be a positive integer (check .env), got: ' + String(POOL_SIZE));
+  }
   const tokens = [];
   for (let i = 1; i <= POOL_SIZE; i++) {
     const res = http.post(
