@@ -88,14 +88,7 @@ public class UserResource {
         // organizer team) keeps the public-facing identifier visible.
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getPublicProfile(id, auth0Id, isAdmin);
-        UserPublicResponse body = (anonymous || view.restricted())
-                ? UserPublicResponse.fromAnonymous(view.user())
-                : UserPublicResponse.from(
-                        view.user(),
-                        view.followerCount(),
-                        view.followingCount(),
-                        view.followStatus()
-                  );
+        UserPublicResponse body = toResponse(anonymous, view);
         return Response.ok(body).build();
     }
 
@@ -251,14 +244,7 @@ public class UserResource {
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getByUsername(username, auth0Id, isAdmin);
-        UserPublicResponse body = (anonymous || view.restricted())
-                ? UserPublicResponse.fromAnonymous(view.user())
-                : UserPublicResponse.from(
-                        view.user(),
-                        view.followerCount(),
-                        view.followingCount(),
-                        view.followStatus()
-                  );
+        UserPublicResponse body = toResponse(anonymous, view);
         return Response.ok(body).build();
     }
 
@@ -276,5 +262,38 @@ public class UserResource {
     public Response existsByUsername(@PathParam("username") String username) {
         boolean exists = userService.existsByUsername(username);
         return Response.status(exists ? Response.Status.OK : Response.Status.NOT_FOUND).build();
+    }
+
+    /**
+     * Serialises a {@link PublicProfileView} to a {@link UserPublicResponse}
+     * applying the correct projection for the caller's visibility level:
+     *
+     * <ul>
+     *   <li><em>anonymous</em> — stripped payload, no follow status.</li>
+     *   <li><em>restricted</em> (authenticated non-owner non-admin viewing a
+     *       private profile, not yet an accepted follower) — same stripped
+     *       fields, but {@code followStatus} is preserved (PENDING or null)
+     *       so the frontend renders the correct FollowButton state.</li>
+     *   <li><em>full</em> — complete payload including counts and follow status
+     *       (owner self-view, admin bypass, or accepted follower of a private
+     *       account).</li>
+     * </ul>
+     */
+    private static UserPublicResponse toResponse(boolean anonymous, PublicProfileView view) {
+        if (anonymous) {
+            return UserPublicResponse.fromAnonymous(view.user());
+        }
+        if (view.restricted()) {
+            // Authenticated viewer of a private profile — strip private fields
+            // but preserve the real followStatus (PENDING/null) so the frontend
+            // shows "Demande envoyée" vs "Suivre" correctly.
+            return UserPublicResponse.fromRestricted(view.user(), view.followStatus());
+        }
+        return UserPublicResponse.from(
+                view.user(),
+                view.followerCount(),
+                view.followingCount(),
+                view.followStatus()
+        );
     }
 }

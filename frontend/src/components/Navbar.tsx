@@ -7,7 +7,7 @@ import UserIdentity from '@/components/user/UserIdentity'
 import { ButtonPrimary, IconButton } from '@/components/utils/Buttons'
 import { ThemeToggle } from '@/components/utils/ThemeToggle'
 import { NotificationsDropdown } from '@/components/utils/NotificationsDropdown'
-import CoOrganizerInvitationsBadge from '@/components/user/CoOrganizerInvitationsBadge'
+import { RequestsInboxDropdown } from '@/components/utils/RequestsInboxDropdown'
 import { Dropdown } from '@/components/utils/Dropdown'
 import { ActionLink } from '@/components/utils/Links'
 import { Banner } from '@/assets/Banner'
@@ -161,6 +161,13 @@ function DesktopNavItem({ link }: Readonly<{ link: NavItem }>) {
   )
 }
 
+/**
+ * Partie desktop de la navbar : boutons d'action + identité utilisateur.
+ * Les icônes partagées (ThemeToggle, NotificationsDropdown, RequestsInboxDropdown)
+ * sont remontées dans le composant Navbar parent pour n'être montées qu'une
+ * seule fois — évite le double-fire des hooks (notifications, follow requests)
+ * dû au split hidden lg:flex / flex lg:hidden qui les montait deux fois.
+ */
 function DesktopNav() {
   const { user, isAdmin, login, logout, isLoading } = useAuth()
 
@@ -170,9 +177,6 @@ function DesktopNav() {
         {actionButtons.map(({ to, icon, label }) => (
           <ActionLink key={to} to={to} icon={icon} label={label} />
         ))}
-        <ThemeToggle />
-        <NotificationsDropdown />
-        {user && <CoOrganizerInvitationsBadge />}
       </div>
       {isLoading && <UserIdentity user={null} loading />}
       {!isLoading && (user
@@ -293,6 +297,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { pathname } = useLocation()
+  const { user } = useAuth()
 
   useEffect(() => { setMobileMenuOpen(false) }, [pathname])
 
@@ -309,6 +314,16 @@ export default function Navbar() {
 
         {/* Right */}
         <div className="flex items-center gap-1">
+          {/* ThemeToggle, NotificationsDropdown and RequestsInboxDropdown live here
+              (outside the hidden lg:flex / flex lg:hidden split) so they are mounted
+              exactly once regardless of viewport. Rendering them in both DesktopNav
+              and the mobile toolbar caused their hooks (useNotifications,
+              useCoOrganizerInvitations, useMyFollowRequests) to fire twice — 4× in
+              dev due to StrictMode. */}
+          <ThemeToggle />
+          <NotificationsDropdown />
+          {user && <RequestsInboxDropdown />}
+
           <DesktopNav />
 
           {/* Mobile */}
@@ -317,10 +332,7 @@ export default function Navbar() {
               {actionButtons.map(({ to, icon, label }) => (
                 <ActionLink key={to} to={to} icon={icon} label={label} />
               ))}
-            </div> 
-
-            <ThemeToggle />
-            <NotificationsDropdown />
+            </div>
 
             <IconButton
               label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}

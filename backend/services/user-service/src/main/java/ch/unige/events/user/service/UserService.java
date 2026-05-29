@@ -363,7 +363,32 @@ public class UserService {
     private PublicProfileView enrichPublicProfile(User user, String callerAuth0Id, boolean isAdmin) {
         boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
         if (!user.profilePublic && !isOwner && !isAdmin) {
-            return PublicProfileView.restricted(user);
+            // Resolve the caller's UUID once so we can inspect the follow relationship.
+            UUID callerId = callerAuth0Id != null
+                    ? User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null)
+                    : null;
+
+            FollowStatus callerStatus = null;
+            if (callerId != null && !callerId.equals(user.id)) {
+                callerStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
+                        .map((Follow f) -> f.status)
+                        .orElse(null);
+            }
+
+            if (callerStatus == FollowStatus.ACCEPTED) {
+                // Accepted follower — bypass the private gate and return the full
+                // projection (same as for a public profile). The frontend renders
+                // the full profile view with an "Abonné / Se désabonner" button.
+                long followerCount = Follow.countFollowersOf(user.id);
+                long followingCount = Follow.countFollowingOf(user.id);
+                return new PublicProfileView(user, followerCount, followingCount, FollowStatus.ACCEPTED);
+            }
+
+            // Non-accepted caller (PENDING or no relationship) — return the
+            // restricted projection, but carry the real followStatus so the
+            // frontend can render the correct FollowButton state (e.g. "Demande
+            // envoyée" for PENDING instead of always showing "Suivre").
+            return new PublicProfileView(user, 0L, 0L, callerStatus, true);
         }
 
         if (callerAuth0Id == null) {

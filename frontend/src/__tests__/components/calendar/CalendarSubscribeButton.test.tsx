@@ -29,10 +29,13 @@ beforeEach(() => {
 })
 
 describe('CalendarSubscribeButton', () => {
-  it('shows loading state on mount', () => {
+  it('shows skeleton loading state on mount', () => {
     vi.mocked(userService.getCalendarToken).mockReturnValue(new Promise(() => {}))
     render(<CalendarSubscribeButton />)
-    expect(screen.getByText('Chargement…')).toBeTruthy()
+    // Skeleton: animated placeholder bars replace the "Chargement…" text.
+    // The container is aria-hidden so we query by class, not text.
+    expect(document.querySelector('.animate-pulse')).toBeTruthy()
+    expect(screen.queryByText('Chargement…')).toBeNull()
   })
 
   it('renders subscription links after token fetch', async () => {

@@ -12,6 +12,12 @@ interface ProfilePreviewSectionProps {
   /** Icon shown in the empty state. */
   emptyIcon: LucideIcon
   emptyMessage: string
+  /**
+   * Masque le titre interne (la section est alors labellisée via `aria-label`).
+   * Utilisé quand la section est rendue dans une barre d'onglets — l'onglet
+   * actif fait office de titre, le doublon serait redondant.
+   */
+  hideHeading?: boolean
 }
 
 function LoadingRows() {
@@ -45,15 +51,19 @@ export default function ProfilePreviewSection({
   error,
   emptyIcon: EmptyIcon,
   emptyMessage,
+  hideHeading = false,
 }: Readonly<ProfilePreviewSectionProps>) {
   return (
     <section
-      aria-labelledby={headingId}
+      aria-labelledby={hideHeading ? undefined : headingId}
+      aria-label={hideHeading ? title : undefined}
       className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6 flex flex-col gap-4"
     >
-      <h2 id={headingId} className="text-xs font-bold uppercase tracking-widest text-foreground/30">
-        {title}
-      </h2>
+      {!hideHeading && (
+        <h2 id={headingId} className="text-xs font-bold uppercase tracking-widest text-foreground/30">
+          {title}
+        </h2>
+      )}
 
       {loading && <LoadingRows />}
       {!loading && error && <p className="text-sm text-error">{error}</p>}

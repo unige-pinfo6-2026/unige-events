@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { Users } from 'lucide-react'
 
 interface ProfileStatsProps {
   followerCount: number
@@ -14,7 +13,7 @@ interface ProfileStatsProps {
 }
 
 const statTileBase =
-  'flex flex-col items-center gap-0.5 rounded-2xl border border-border bg-foreground/5 px-5 py-3'
+  'flex flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl px-7 py-5 min-w-[7.5rem] max-[583px]:flex-1'
 
 const statTileLink = `${statTileBase} no-underline transition-colors hover:border-accent/50 hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent`
 
@@ -32,9 +31,8 @@ interface StatTileProps {
 function StatTile({ count, label, to, ariaLabel }: Readonly<StatTileProps>) {
   const content = (
     <>
-      <span className="text-xl font-bold text-foreground">{formatCount(count)}</span>
-      <span className="text-xs font-semibold uppercase tracking-widest text-foreground/40 flex items-center gap-1.5">
-        <Users className="size-3.5" aria-hidden="true" />
+      <span className="text-3xl font-bold text-foreground leading-none">{formatCount(count)}</span>
+      <span className="text-xs font-semibold uppercase tracking-widest text-foreground/40">
         {label}
       </span>
     </>
@@ -51,9 +49,10 @@ function StatTile({ count, label, to, ariaLabel }: Readonly<StatTileProps>) {
 }
 
 /**
- * Followers / following counters for a public profile (SCRUM-141).
- * Each tile links to the dedicated list page (SCRUM-142) when
- * `linkUsername` is provided — otherwise it renders as a plain stat tile.
+ * Gros blocs « Abonnés » / « Abonnements » de la colonne droite du profil
+ * (SCRUM-141 redesign). Chaque bloc linke vers la page de liste dédiée
+ * (SCRUM-142) quand `linkUsername` est fourni — sinon il s'affiche en bloc
+ * statique non cliquable.
  */
 export default function ProfileStats({
   followerCount,
@@ -61,16 +60,19 @@ export default function ProfileStats({
   linkUsername,
 }: Readonly<ProfileStatsProps>) {
   return (
-    <div className="flex flex-wrap gap-3" aria-label="Compteurs de suivi">
+    <div
+      className="flex flex-wrap gap-3 w-full"
+      aria-label="Compteurs de suivi"
+    >
       <StatTile
         count={followerCount}
-        label={followerCount === 1 ? 'follower' : 'followers'}
+        label={followerCount === 1 ? 'Abonné' : 'Abonnés'}
         to={linkUsername ? `/profile/${linkUsername}/followers` : undefined}
-        ariaLabel={`Voir les followers (${formatCount(followerCount)})`}
+        ariaLabel={`Voir les abonnés (${formatCount(followerCount)})`}
       />
       <StatTile
         count={followingCount}
-        label="abonnements"
+        label={followingCount === 1 ? 'Abonnement' : 'Abonnements'}
         to={linkUsername ? `/profile/${linkUsername}/following` : undefined}
         ariaLabel={`Voir les abonnements (${formatCount(followingCount)})`}
       />

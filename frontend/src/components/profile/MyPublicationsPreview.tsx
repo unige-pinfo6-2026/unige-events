@@ -125,7 +125,7 @@ function ErrorState({ onRetry }: Readonly<ErrorStateProps>) {
   )
 }
 
-export default function MyPublicationsPreview() {
+export default function MyPublicationsPreview({ hideHeading = false }: Readonly<{ hideHeading?: boolean }>) {
   const [status, setStatus] = useState<EventStatus>('PUBLISHED')
   const { events, loading, error, refresh } = useMyEvents(status)
 
@@ -133,14 +133,17 @@ export default function MyPublicationsPreview() {
 
   return (
     <section
-      aria-labelledby="my-publications-preview-heading"
+      aria-labelledby={hideHeading ? undefined : 'my-publications-preview-heading'}
+      aria-label={hideHeading ? 'Mes publications' : undefined}
       className="bg-linear-to-br from-background/80 to-background/40 backdrop-blur-xl rounded-3xl border border-border p-6 flex flex-col gap-4"
     >
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 id="my-publications-preview-heading" className="text-xs font-bold uppercase tracking-widest text-foreground/30">
-          Mes publications
-        </h2>
-      </div>
+      {!hideHeading && (
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 id="my-publications-preview-heading" className="text-xs font-bold uppercase tracking-widest text-foreground/30">
+            Mes publications
+          </h2>
+        </div>
+      )}
 
       <Tabs active={status} count={events.length} onChange={setStatus} />
 
