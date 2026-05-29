@@ -23,6 +23,11 @@ nb-configuration.xml
 # Local environment
 .env
 
+# Load testing — never commit real secrets, token caches or results
+load-testing/.env
+load-testing/.tokens.json
+load-testing/results/
+
 # Metals (VS Code Java/Scala language server)
 .metals/
 .bloop/

@@ -113,9 +113,14 @@ data:
               - ~/api/events/(?:\d+)$
             strip_path: false
             preserve_host: true
-          - name: events-list
+          # /api/events split by method so the rate limit applies to CREATE only.
+          # Previously a single all-methods route throttled the public GET listing
+          # to 10/min per IP (unusable behind shared NAT) — see load-testing/RESULTS.md.
+          - name: events-create
             paths:
               - ~/api/events$
+            methods:
+              - POST
             strip_path: false
             preserve_host: true
             plugins:
@@ -125,6 +130,15 @@ data:
                   policy: local
                   fault_tolerant: true
                   hide_client_headers: false
+          - name: events-list
+            paths:
+              - ~/api/events$
+            methods:
+              - GET
+              - HEAD
+              - OPTIONS
+            strip_path: false
+            preserve_host: true
       - name: user-service
         url: http://user-service:8080
         connect_timeout: 5000
