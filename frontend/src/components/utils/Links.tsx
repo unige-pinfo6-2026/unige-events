@@ -14,9 +14,23 @@ export function ActionLink({ to, icon: Icon, label }: Readonly<{ to: string; ico
 }
 
 export function TextLink({ href, decorate = false, children }: Readonly<{ href: string, decorate?: boolean, children: React.ReactNode }>) {
+    const className = "text-sm text-overlay hover:text-foreground transition-colors inline-flex items-center gap-2 group"
+    const decoration = decorate && <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />
+
+    // Internal routes ("/support", "/rules"…) navigate via react-router and scroll to top,
+    // matching the legal links. Hash anchors ("#events") and external URLs stay plain <a>.
+    if (href.startsWith('/')) {
+        return (
+            <Link to={href} onClick={() => window.scrollTo({ top: 0 })} className={className}>
+                {decoration}
+                {children}
+            </Link>
+        )
+    }
+
     return (
-        <a href={href} className="text-sm text-overlay hover:text-foreground transition-colors inline-flex items-center gap-2 group">
-            {decorate && <span className="w-0 h-0.5 bg-linear-to-r from-accent to-pink-600 group-hover:w-4 transition-all duration-300" />}
+        <a href={href} className={className}>
+            {decoration}
             {children}
         </a>
     )

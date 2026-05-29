@@ -31,6 +31,8 @@ Model : src/hooks, src/contexts et src/types
 | /legal | redirect | — | redirect → /legal/privacy |
 | /legal/privacy | PrivacyPage | pages/legal/PrivacyPage.tsx | publique |
 | /legal/terms | TermsPage | pages/legal/TermsPage.tsx | publique |
+| /support | SupportPage | pages/support/SupportPage.tsx | publique |
+| /rules | RulesPage | pages/rules/RulesPage.tsx | publique |
 | /profile | redirect | — | redirect → /profile/me |
 | /profile/me/edit | ProfileEditPage | pages/profile/ProfileEditPage.tsx | PrivateRoute |
 | /profile/:username | ProfilePage | pages/profile/ProfilePage.tsx | PrivateRoute. SCRUM-169 — param renommé `username` (au lieu de `id`). Détection regex UUID v4 dans le composant + `<Navigate replace to=`/profile/${username}`>` pour résoudre les liens legacy en cache. L'alias `/profile/me` est résolu côté composant via la blocklist. |

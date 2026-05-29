@@ -23,6 +23,8 @@
 | /events/:id/stats | EventStatsPage | fait (S6) |
 | /legal/privacy | PrivacyPage | fait |
 | /legal/terms | TermsPage | fait |
+| /support | SupportPage | fait |
+| /rules | RulesPage | fait |
 
 ### LandingPage
 
@@ -120,6 +122,26 @@
 - Lien externe vers le dépôt GitHub (open source).
 - Mention explicite du caractère académique (projet PINFO).
 - Réutilise les mêmes helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalBackLink` que `PrivacyPage`.
+
+### SupportPage
+
+- Route `/support`, publique.
+- Centre d'aide statique (même layout que les pages légales : SectionWrapper size `md`, BlobsSubtle).
+- Contenu : guide d'utilisation + FAQ.
+- Sections : premiers pas, découvrir des événements, créer et gérer un événement, participer et suivre, co-organisation, profil et données, signaler un problème, questions fréquentes, contact.
+- Liens internes vers `/profile/me/edit`, `/legal/privacy` et `/rules`.
+- Réutilise les helpers `LegalSection` / `LegalParagraph` / `LegalList` / `LegalSubheading` / `LegalBackLink` partagés (`@/components/legal/`).
+- Cible des liens « Centre d'aide » du `Footer`.
+
+### RulesPage
+
+- Route `/rules`, publique.
+- Règles de la communauté (même layout que les pages légales).
+- Contenu inspiré du `CODE_OF_CONDUCT.md` du dépôt et de la section « Contenu utilisateur » des CGU.
+- Sections : notre engagement, comportements encouragés, comportements interdits, contenu des événements, signaler un contenu, modération et sanctions, application, contact.
+- Liens internes vers `/legal/terms` et `/support`.
+- Réutilise les mêmes helpers `LegalSection` & co. que `SupportPage`.
+- Cible des liens « Règles communauté » du `Footer`.
 
 ### CreateEventPage
 

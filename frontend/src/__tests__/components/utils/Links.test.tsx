@@ -1,30 +1,63 @@
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
-import { TextLink, IconLink, ContactLink } from '@/components/utils/Links'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { ActionLink, TextLink, IconLink, ContactLink } from '@/components/utils/Links'
 import { Mail } from 'lucide-react'
 
 afterEach(() => { cleanup() })
 
+describe('ActionLink', () => {
+  it('renders a router link with the correct href and accessible label', () => {
+    render(
+      <MemoryRouter>
+        <ActionLink to="/profile/me" icon={Mail} label="Mon profil" />
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: 'Mon profil' })
+    expect(link.getAttribute('href')).toBe('/profile/me')
+  })
+})
+
 describe('TextLink', () => {
-  it('renders a link with the correct href', () => {
-    render(<TextLink href="/about">À propos</TextLink>)
-    const link = screen.getByRole('link', { name: 'À propos' })
-    expect(link.getAttribute('href')).toBe('/about')
+  function renderRouted(ui: React.ReactNode) {
+    return render(<MemoryRouter>{ui}</MemoryRouter>)
+  }
+
+  it('renders an internal route as a router link with the correct href', () => {
+    renderRouted(<TextLink href="/support">Centre d'aide</TextLink>)
+    const link = screen.getByRole('link', { name: "Centre d'aide" })
+    expect(link.getAttribute('href')).toBe('/support')
+  })
+
+  it('renders a hash anchor as a plain anchor', () => {
+    render(<TextLink href="#events">Évènements</TextLink>)
+    const link = screen.getByRole('link', { name: 'Évènements' })
+    expect(link.getAttribute('href')).toBe('#events')
+  })
+
+  it('scrolls to top when an internal link is clicked', () => {
+    const mockScrollTo = vi.fn()
+    globalThis.scrollTo = mockScrollTo
+
+    renderRouted(<TextLink href="/rules">Règles</TextLink>)
+    fireEvent.click(screen.getByRole('link', { name: 'Règles' }))
+
+    expect(mockScrollTo).toHaveBeenCalledWith({ top: 0 })
   })
 
   it('renders children text', () => {
-    render(<TextLink href="/">Accueil</TextLink>)
+    renderRouted(<TextLink href="/">Accueil</TextLink>)
     expect(screen.getByText('Accueil')).toBeTruthy()
   })
 
   it('renders the decoration span when decorate is true', () => {
-    const { container } = render(<TextLink href="/" decorate>Lien</TextLink>)
+    const { container } = renderRouted(<TextLink href="/" decorate>Lien</TextLink>)
     expect(container.querySelector('span')).toBeTruthy()
   })
 
   it('does not render the decoration span when decorate is false', () => {
-    const { container } = render(<TextLink href="/">Lien</TextLink>)
+    const { container } = renderRouted(<TextLink href="/">Lien</TextLink>)
     expect(container.querySelector('span')).toBeNull()
   })
 })

@@ -44,6 +44,16 @@ describe('Footer', () => {
     expect(mockScrollTo).toHaveBeenCalledWith({ top: 0 })
   })
 
+  it('renders the resource links pointing to /support and /rules', () => {
+    renderFooter()
+
+    const support = screen.getByText("Centre d'aide")
+    const rules = screen.getByText('Règles communauté')
+
+    expect(support.getAttribute('href')).toBe('/support')
+    expect(rules.getAttribute('href')).toBe('/rules')
+  })
+
   it('renders the current year in the copyright', () => {
     renderFooter()
     const year = new Date().getFullYear()
