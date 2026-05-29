@@ -381,17 +381,27 @@ describe('CalendarPage', () => {
   // ── Subscription block (gated on auth) ─────────────────────────────────────
 
   describe('calendar subscription block', () => {
-    it('renders the subscription card when authenticated', () => {
+    it('shows the "S\'abonner" button when authenticated', () => {
       mockUseAuth.mockReturnValue({ user: mockUser })
       mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
       renderPage()
+      expect(screen.getByRole('button', { name: "S'abonner" })).toBeTruthy()
+    })
+
+    it('opens the subscription modal and shows the card on button click', () => {
+      mockUseAuth.mockReturnValue({ user: mockUser })
+      mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: "S'abonner" }))
+      // CalendarSubscribeButton header is always rendered (even while loading token)
       expect(screen.getByText(/s.abonner au calendrier/i)).toBeTruthy()
     })
 
-    it('does NOT render the subscription card when unauthenticated', () => {
+    it('does NOT render the "S\'abonner" button when unauthenticated', () => {
       mockUseAuth.mockReturnValue({ user: null })
       mockUseCalendarEvents.mockReturnValue({ events: [], loading: false, error: null })
       renderPage()
+      expect(screen.queryByRole('button', { name: "S'abonner" })).toBeNull()
       expect(screen.queryByText(/s.abonner au calendrier/i)).toBeNull()
     })
   })

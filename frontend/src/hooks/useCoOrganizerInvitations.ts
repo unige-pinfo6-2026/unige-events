@@ -19,9 +19,9 @@ interface UseCoOrganizerInvitationsResult {
 
 /**
  * Loads the caller's own pending co-organizer invitations. Idle when the user
- * is anonymous. Used by:
- *  - `CoOrganizerInvitationsBadge` in the navbar (compteur).
- *  - `CoOrganizerInvitationsList` in `ProfilePage` (self-view).
+ * is anonymous. Consommé par `RequestsInboxDropdown` (boîte de réception
+ * navbar) : `pendingCount` pour le badge, `invitations` + `accept`/`decline`
+ * pour le panneau.
  *
  * Optimistic mutations: accept/decline remove the invitation locally before
  * confirmation. On error, the row is restored via a refresh.

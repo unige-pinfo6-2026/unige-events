@@ -25,6 +25,13 @@ vi.mock('@/hooks/useNotifications', () => ({
   }),
 }))
 
+// The combined requests inbox mounts its own hooks (co-organizer invitations +
+// follow requests) and a toast — irrelevant to the navbar layout tests, so we
+// stub it out to keep them focused and free of unrelated providers.
+vi.mock('@/components/utils/RequestsInboxDropdown', () => ({
+  RequestsInboxDropdown: () => null,
+}))
+
 import { useAuth } from '@/hooks/useAuth'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
@@ -86,10 +93,9 @@ describe('Navbar', () => {
   it('toggles theme on button click', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn() })
     renderNavbar()
-    // Multiple ThemeToggle buttons exist (desktop + mobile toolbar)
-    const btn = screen.getAllByLabelText('Passer en mode clair')[0]
+    const btn = screen.getByLabelText('Passer en mode clair')
     fireEvent.click(btn)
-    expect(screen.getAllByLabelText('Passer en mode sombre')[0]).toBeTruthy()
+    expect(screen.getByLabelText('Passer en mode sombre')).toBeTruthy()
   })
 
   it('shows avatar image when user has avatarUrl', () => {

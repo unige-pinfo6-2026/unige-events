@@ -1,5 +1,6 @@
 import { Lock } from 'lucide-react'
 import ProfileHeader from '@/components/profile/ProfileHeader'
+import FollowButton from '@/components/user/FollowButton'
 import UserBanner from '@/components/user/UserBanner'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -14,6 +15,14 @@ interface ProfilePrivateStateProps {
    * générique sans avatar ni displayName.
    */
   profile?: UserPublicResponse | null
+  /**
+   * `true` quand le viewer est authentifié et ne regarde pas son propre
+   * profil — affiche alors un FollowButton pour qu'il puisse envoyer une
+   * demande de suivi même sur un compte privé.
+   */
+  canFollow?: boolean
+  /** Callback passé au FollowButton pour re-fetcher le profil après mutation. */
+  onProfileMutated?: () => void
 }
 
 /**
@@ -21,15 +30,28 @@ interface ProfilePrivateStateProps {
  *
  * Affiche le cadre visuel d'un profil public — bannière + avatar +
  * displayName — puis remplace toute la zone de contenu par un grand
- * cadenas centré accompagné du texte « Compte privé ». Aucune
- * information additionnelle n'est exposée (pas de bio, pas de compteurs,
- * pas de FollowButton, pas de badge PENDING).
+ * cadenas centré accompagné du texte « Compte privé ». Quand `canFollow`
+ * est vrai et que la projection restreinte contient l'`id`, un FollowButton
+ * est rendu dans le header (top-right) pour permettre l'envoi d'une demande.
  */
-export default function ProfilePrivateState({ profile }: Readonly<ProfilePrivateStateProps>) {
+export default function ProfilePrivateState({
+  profile,
+  canFollow = false,
+  onProfileMutated,
+}: Readonly<ProfilePrivateStateProps>) {
+  const followAction =
+    canFollow && profile ? (
+      <FollowButton
+        targetId={profile.id}
+        followStatus={profile.followStatus}
+        onMutated={onProfileMutated}
+      />
+    ) : null
+
   return (
     <div>
       {profile ? (
-        <ProfileHeader profile={profile} />
+        <ProfileHeader profile={profile} action={followAction} />
       ) : (
         <UserBanner user={null} className="h-52">
           <div className="absolute inset-0 bg-linear-to-t from-background/50 to-transparent" />

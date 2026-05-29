@@ -18,7 +18,6 @@ import _admin_featured from './admin-featured.bones.json'
 import _notification_panel from './notification-panel.bones.json'
 import _co_organizers_section from './co-organizers-section.bones.json'
 import _event_organizer_team from './event-organizer-team.bones.json'
-import _co_organizer_invitations from './co-organizer-invitations.bones.json'
 import _comments from './comments.bones.json'
 import _follow_list from './follow-list.bones.json'
 import _feed_timeline from './feed-timeline.bones.json'
@@ -40,7 +39,6 @@ registerBones({
   "notification-panel": _notification_panel,
   "co-organizers-section": _co_organizers_section,
   "event-organizer-team": _event_organizer_team,
-  "co-organizer-invitations": _co_organizer_invitations,
   "comments": _comments,
   "follow-list": _follow_list,
   "feed-timeline": _feed_timeline,

@@ -181,7 +181,7 @@ export function NotificationPanel({ notifications, loading, error, onMarkAllRead
 
       {/* Body */}
       {error ? (
-        <div className="px-4 py-6 text-xs text-center text-foreground/40">{error}</div>
+        <div className="px-4 py-6 text-xs text-center text-error">{error}</div>
       ) : notifications.length === 0 ? (
         <div className="px-4 py-6 text-xs text-center text-foreground/40">
           Aucune notification

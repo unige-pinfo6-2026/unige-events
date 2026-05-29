@@ -6,6 +6,7 @@ interface ProfileEventsListProps {
   events: Event[]
   loading: boolean
   error: string | null
+  hideHeading?: boolean
 }
 
 /**
@@ -13,7 +14,7 @@ interface ProfileEventsListProps {
  * the published events created by the profile owner, rendered through the
  * shared {@link ProfilePreviewSection} shell.
  */
-export default function ProfileEventsList({ events, loading, error }: Readonly<ProfileEventsListProps>) {
+export default function ProfileEventsList({ events, loading, error, hideHeading }: Readonly<ProfileEventsListProps>) {
   return (
     <ProfilePreviewSection
       headingId="profile-events-heading"
@@ -23,6 +24,7 @@ export default function ProfileEventsList({ events, loading, error }: Readonly<P
       error={error}
       emptyIcon={CalendarOff}
       emptyMessage="Aucun événement organisé pour le moment."
+      hideHeading={hideHeading}
     />
   )
 }

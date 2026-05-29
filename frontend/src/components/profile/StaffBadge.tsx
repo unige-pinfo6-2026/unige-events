@@ -12,14 +12,14 @@ import { Shield } from 'lucide-react'
  * viewer. Cela permet d'afficher le badge sur **n'importe quel** profil
  * d'admin, pas seulement celui du viewer connecté.
  *
- * **Style** : aligné sur le badge "Brouillon" (`DraftResumeCard`) — token
- * `--color-warning` (amber `rgb(245,158,11)`) déjà documenté dans
- * `frontend/AGENTS.md` comme la couleur des chips "à mettre en avant".
+ * **Style** : pill bleue via le token `--color-link` (sky
+ * `rgb(2,132,199)` light / `rgb(56,189,248)` dark), le seul token bleu du
+ * thème (cf. `frontend/AGENTS.md`).
  */
 export default function StaffBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border bg-warning/20 text-warning border-warning/40"
+      className="inline-flex items-center gap-1 shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border bg-link/20 text-link border-link/40"
       aria-label="Membre du staff"
     >
       <Shield className="w-3 h-3" aria-hidden="true" />
