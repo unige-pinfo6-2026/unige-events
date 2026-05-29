@@ -62,17 +62,26 @@ export default function CalendarPage() {
 
       {/* Calendar subscription modal */}
       {subscribeOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setSubscribeOpen(false)}
-        >
+        <>
+          {/* Backdrop — native button so keyboard/click both work */}
+          <button
+            type="button"
+            aria-label="Fermer"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 cursor-default"
+            onClick={() => setSubscribeOpen(false)}
+          />
+          {/* Dialog panel — pointer-events-none on wrapper lets the backdrop catch stray clicks */}
           <div
-            className="w-full max-w-lg"
-            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="S'abonner au calendrier"
+            className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none"
           >
-            <CalendarSubscribeButton />
+            <div className="w-full max-w-lg pointer-events-auto">
+              <CalendarSubscribeButton />
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   )

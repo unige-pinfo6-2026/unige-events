@@ -307,6 +307,11 @@ function MeProfileView({ user }: Readonly<{ user: User }>) {
   return <PublicProfileView profile={profile} isMeRoute={true} canFollow={false} statsLoading={countsLoading} />
 }
 
+/** Pure helper — extracted to keep ProfilePage's cognitive complexity within limits. */
+function resolveIsMeRoute(username: string | undefined, currentUser: User | null): boolean {
+  return username === 'me' || (currentUser !== null && username !== undefined && username === currentUser.username)
+}
+
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
@@ -327,9 +332,7 @@ export default function ProfilePage() {
   const isRefetchRef = useRef(false)
 
   // SCRUM-169 — `me` alias + match by username (lowercased server-side).
-  const isMeRoute =
-    username === 'me' ||
-    (currentUser !== null && username !== undefined && username === currentUser.username)
+  const isMeRoute = resolveIsMeRoute(username, currentUser)
 
   // SCRUM-169 — transient UUID v4 redirect (cf. Décision I, permanent). External
   // links / bookmarks pointing to the old `/profile/<uuid>` URLs land here, get

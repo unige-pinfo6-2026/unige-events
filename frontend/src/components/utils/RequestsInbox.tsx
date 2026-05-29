@@ -57,11 +57,13 @@ function ActionRow({ label, sublabel, href, leading, busy, acceptLabel, rejectLa
   )
 }
 
+const LOADING_ROW_KEYS = ['row-a', 'row-b', 'row-c'] as const
+
 function LoadingRows() {
   return (
     <div className="flex flex-col gap-2 p-3" aria-busy="true">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-2">
+      {LOADING_ROW_KEYS.map((key) => (
+        <div key={key} className="flex items-center gap-2">
           <div className="size-9 rounded-full bg-foreground/10 shrink-0 animate-pulse" />
           <div className="flex-1 h-4 rounded bg-foreground/10 animate-pulse" />
           <div className="size-7 rounded-lg bg-foreground/10 animate-pulse" />
@@ -105,72 +107,72 @@ export function RequestsInbox({
 
   const isEmpty = invitations.length === 0 && followRequests.length === 0
 
+  function renderBody() {
+    if (loading) return <LoadingRows />
+    if (error) return <div className="px-4 py-6 text-xs text-center text-error">{error}</div>
+    if (isEmpty) return <div className="px-4 py-6 text-xs text-center text-foreground/40">Aucune demande en attente</div>
+    return (
+      <div className="max-h-[360px] overflow-y-auto">
+        {invitations.length > 0 && (
+          <>
+            <p className={sectionTitleClass}>Invitations à co-organiser</p>
+            <ul className="flex flex-col">
+              {invitations.map((inv) => (
+                <ActionRow
+                  key={inv.id}
+                  href={`/events/${inv.event.id}`}
+                  label={inv.event.title}
+                  sublabel={formatEventDateTime(inv.event.startDate)}
+                  leading={
+                    <span className="flex items-center justify-center size-9 rounded-full bg-accent/15 text-accent">
+                      <CalendarDays className="size-4" aria-hidden="true" />
+                    </span>
+                  }
+                  busy={busy}
+                  acceptLabel={`Accepter l'invitation pour ${inv.event.title}`}
+                  rejectLabel={`Décliner l'invitation pour ${inv.event.title}`}
+                  onAccept={() => run(() => onAcceptInvitation(inv.event.id))}
+                  onReject={() => run(() => onDeclineInvitation(inv.event.id))}
+                />
+              ))}
+            </ul>
+          </>
+        )}
+
+        {followRequests.length > 0 && (
+          <>
+            <p className={sectionTitleClass}>Demandes de suivi</p>
+            <ul className="flex flex-col">
+              {followRequests.map((row) => {
+                const displayName = row.follower?.displayName ?? 'Utilisateur'
+                return (
+                  <ActionRow
+                    key={row.request.id}
+                    href={`/profile/${row.request.followerId}`}
+                    label={displayName}
+                    leading={<UserAvatar user={row.follower} className="size-9" />}
+                    busy={busy}
+                    acceptLabel={`Accepter la demande de ${displayName}`}
+                    rejectLabel={`Refuser la demande de ${displayName}`}
+                    onAccept={() => run(() => onAcceptFollow(row.request.id))}
+                    onReject={() => run(() => onRejectFollow(row.request.id))}
+                  />
+                )
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="w-80">
       <div className="flex items-center px-3 h-12">
         <span className="text-sm font-semibold text-foreground">Demandes reçues</span>
       </div>
       <div className="h-px bg-border" />
-
-      {loading ? (
-        <LoadingRows />
-      ) : error ? (
-        <div className="px-4 py-6 text-xs text-center text-error">{error}</div>
-      ) : isEmpty ? (
-        <div className="px-4 py-6 text-xs text-center text-foreground/40">Aucune demande en attente</div>
-      ) : (
-        <div className="max-h-[360px] overflow-y-auto">
-          {invitations.length > 0 && (
-            <>
-              <p className={sectionTitleClass}>Invitations à co-organiser</p>
-              <ul className="flex flex-col">
-                {invitations.map((inv) => (
-                  <ActionRow
-                    key={inv.id}
-                    href={`/events/${inv.event.id}`}
-                    label={inv.event.title}
-                    sublabel={formatEventDateTime(inv.event.startDate)}
-                    leading={
-                      <span className="flex items-center justify-center size-9 rounded-full bg-accent/15 text-accent">
-                        <CalendarDays className="size-4" aria-hidden="true" />
-                      </span>
-                    }
-                    busy={busy}
-                    acceptLabel={`Accepter l'invitation pour ${inv.event.title}`}
-                    rejectLabel={`Décliner l'invitation pour ${inv.event.title}`}
-                    onAccept={() => run(() => onAcceptInvitation(inv.event.id))}
-                    onReject={() => run(() => onDeclineInvitation(inv.event.id))}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
-
-          {followRequests.length > 0 && (
-            <>
-              <p className={sectionTitleClass}>Demandes de suivi</p>
-              <ul className="flex flex-col">
-                {followRequests.map((row) => {
-                  const displayName = row.follower?.displayName ?? 'Utilisateur'
-                  return (
-                    <ActionRow
-                      key={row.request.id}
-                      href={`/profile/${row.request.followerId}`}
-                      label={displayName}
-                      leading={<UserAvatar user={row.follower} className="size-9" />}
-                      busy={busy}
-                      acceptLabel={`Accepter la demande de ${displayName}`}
-                      rejectLabel={`Refuser la demande de ${displayName}`}
-                      onAccept={() => run(() => onAcceptFollow(row.request.id))}
-                      onReject={() => run(() => onRejectFollow(row.request.id))}
-                    />
-                  )
-                })}
-              </ul>
-            </>
-          )}
-        </div>
-      )}
+      {renderBody()}
     </div>
   )
 }
