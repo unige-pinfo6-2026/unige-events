@@ -52,7 +52,26 @@ export default function CalendarSubscribeButton() {
       </p>
 
       {loading && (
-        <p className="text-sm text-foreground/50">Chargement…</p>
+        <div className="flex flex-col gap-3 animate-pulse" aria-hidden>
+          {/* Row 1 — webcal + copy */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-44 rounded-xl bg-foreground/10" />
+              <div className="h-9 w-32 rounded-xl bg-foreground/10" />
+            </div>
+            <div className="h-3 w-64 rounded bg-foreground/8 ml-1" />
+          </div>
+          {/* Row 2 — Google Calendar */}
+          <div className="flex flex-col gap-1.5">
+            <div className="h-9 w-48 rounded-xl bg-foreground/10" />
+            <div className="h-3 w-72 rounded bg-foreground/8 ml-1" />
+          </div>
+          {/* Row 3 — Download */}
+          <div className="flex flex-col gap-1.5">
+            <div className="h-9 w-40 rounded-xl bg-foreground/10" />
+            <div className="h-3 w-52 rounded bg-foreground/8 ml-1" />
+          </div>
+        </div>
       )}
 
       {error && (

@@ -113,4 +113,34 @@ public record UserPublicResponse(
                 rolesOrEmpty(user)
         );
     }
+
+    /**
+     * Restricted projection for an authenticated non-owner non-admin viewer
+     * of a private profile. Same stripped payload as {@link #fromAnonymous}
+     * but carries the caller-relative {@code followStatus} (PENDING or
+     * {@code null}) so the frontend can render the correct FollowButton state
+     * ("Demande envoyée" vs "Suivre") without a separate round-trip.
+     *
+     * <p>Accepted followers bypass this projection entirely — they receive the
+     * full {@link #from(User, long, long, FollowStatus)} payload (see
+     * {@code UserService.enrichPublicProfile}).
+     */
+    public static UserPublicResponse fromRestricted(User user, FollowStatus followStatus) {
+        return new UserPublicResponse(
+                user.id,
+                user.username,
+                user.displayName,
+                null,
+                null,
+                null,
+                null,
+                user.avatarUrl,
+                null,
+                user.profilePublic,
+                0L,
+                0L,
+                followStatus,
+                rolesOrEmpty(user)
+        );
+    }
 }

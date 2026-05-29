@@ -26,7 +26,7 @@ $(addprefix backend-,$(SERVICES)):
 backend:
 	$(MAKE) -j$(words $(SERVICES)) $(addprefix backend-,$(SERVICES))
 
-frontend:
+frontend: install-frontend
 	cd frontend && npm run dev -- --mode $(MODE)
 
 dev:

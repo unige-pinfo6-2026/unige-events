@@ -407,38 +407,38 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 
 ### ProfileStats (SCRUM-141 + SCRUM-142)
 
-- Composant `src/components/profile/ProfileStats.tsx` rendu sous le header de `ProfilePage` pour tout profil public.
+- Composant `src/components/profile/ProfileStats.tsx` — gros blocs « Abonnés » / « Abonnements » de la **colonne droite** du header (SCRUM-141 redesign), au-dessus du bouton Suivre.
 - Props : `followerCount: number`, `followingCount: number`, `linkUsername?: string`.
-- Affiche deux tuiles compteur (followers / abonnements) avec valeur formatée fr-CH (séparateur U+202F entre milliers) + icône `Users`.
-- Quand `linkUsername` est fourni (SCRUM-142), les tuiles deviennent des `<Link>` vers `/profile/{linkUsername}/followers` et `/.../following` avec `aria-label="Voir les followers (N)"` / `"Voir les abonnements (N)"`. Quand `linkUsername` est omis, les tuiles restent inertes.
-- Singulier `follower` quand `followerCount === 1`, sinon pluriel `followers`. `abonnements` toujours au pluriel.
+- Affiche deux gros blocs glassmorphism (valeur en `text-3xl` formatée fr-CH, séparateur U+202F entre milliers).
+- Quand `linkUsername` est fourni (SCRUM-142), les blocs deviennent des `<Link>` vers `/profile/{linkUsername}/followers` et `/.../following` avec `aria-label="Voir les abonnés (N)"` / `"Voir les abonnements (N)"`. Quand `linkUsername` est omis, les blocs restent inertes.
+- Singulier `Abonné` / `Abonnement` quand le compteur === 1, sinon pluriel `Abonnés` / `Abonnements`.
 
 ### ProfileEventsList (SCRUM-141)
 
-- Composant `src/components/profile/ProfileEventsList.tsx` rendu en bas de `ProfilePage` (colonne gauche du grid 2-colonnes événements + participations).
-- Props : `events: Event[]`, `loading: boolean`, `error: string | null`.
+- Composant `src/components/profile/ProfileEventsList.tsx` rendu dans l'onglet « Événements organisés » de `ProfileTabs` (bas de `ProfilePage`).
+- Props : `events: Event[]`, `loading: boolean`, `error: string | null`, `hideHeading?: boolean` (passé `true` en mode onglet — le label de l'onglet fait office de titre).
 - Réutilise `PreviewRow` pour la cohérence visuelle avec `MyPublicationsPreview`.
 - États : skeleton de chargement (3 lignes), empty state ("Aucun événement organisé pour le moment.") avec icône `CalendarOff`, message d'erreur.
 - Consomme `useOrganizerEvents(id)` côté `ProfilePage` (qui appelle `GET /events?organizerId=…&status=PUBLISHED`).
 
 ### ProfileParticipations (SCRUM-141)
 
-- Composant `src/components/profile/ProfileParticipations.tsx` rendu en bas de `ProfilePage` (colonne droite du grid événements + participations).
-- Placeholder uniquement — affiche "Aucune participation publique à afficher." avec icône `Ticket`.
-- **TODO (follow-up ticket)** : le backend n'expose pas encore d'endpoint listant les participations publiques d'un utilisateur arbitraire (`/users/me/participations` existe mais est restreint au caller). Quand l'endpoint atterrira, brancher un hook `useUserParticipations(id)` qui appelle `/users/{id}/participations` (à créer côté backend, avec filtre de confidentialité miroir de `GET /events/{id}/attendees`).
+- Composant `src/components/profile/ProfileParticipations.tsx` rendu dans l'onglet « Participations publiques » de `ProfileTabs` (bas de `ProfilePage`).
+- Props : `events: Event[]`, `loading: boolean`, `error: string | null`, `hideHeading?: boolean`.
+- Réutilise le shell `ProfilePreviewSection` ; empty state "Aucune participation publique pour le moment." avec icône `Ticket`. Données via `useUserParticipations(id)` (`GET /users/{id}/participations`).
 
 ### ProfileHeader (SCRUM-141 redesign)
 
-- Composant `src/components/profile/ProfileHeader.tsx` partagé entre `PublicProfileView` et `ProfilePrivateState` — banner (avec fallback gradient) + avatar overlapping en bas-gauche + displayName + sous-titre faculté/niveau d'étude.
-- Props : `profile: UserPublicResponse`, `actions?: ReactNode` (slot droit pour `Modifier` / `FollowButton`).
-- Affiche un `<StaffBadge />` inline à côté du `displayName` quand `isStaff(profile.roles)` est vrai (cf. `@/types/user`). Le champ `roles` est porté par le profil affiché (mirroré par le backend depuis la claim Auth0 du propriétaire à chaque `GET /users/me`), pas par le viewer — donc le badge apparaît sur **n'importe quel** profil d'admin, indépendamment du rôle du viewer connecté.
+- Composant `src/components/profile/ProfileHeader.tsx` partagé entre `PublicProfileView` et `ProfilePrivateState` — banner (avec fallback gradient) puis layout 2 colonnes (`lg:grid-cols-[1fr_auto]`, `items-start`). **Colonne gauche** : avatar overlapping, puis bloc identité empilé (displayName, @username, `<StaffBadge />`), puis `children` (faculté + tags + bio). **Colonne droite** (slot `actions`) : gros blocs `ProfileStats` + `Modifier` / `FollowButton`, alignés à droite.
+- Props : `profile: UserPublicResponse`, `children?: ReactNode` (extras colonne gauche), `actions?: ReactNode` (colonne droite).
+- Affiche un `<StaffBadge />` sous le `@username` quand `isStaff(profile.roles)` est vrai (cf. `@/types/user`). Le champ `roles` est porté par le profil affiché (mirroré par le backend depuis la claim Auth0 du propriétaire à chaque `GET /users/me`), pas par le viewer — donc le badge apparaît sur **n'importe quel** profil d'admin, indépendamment du rôle du viewer connecté.
 - Extrait pour garantir un cadre visuellement identique au pixel près entre la vue publique et la vue privée : la vue privée doit donner l'impression d'un vrai compte verrouillé, pas d'un état d'erreur.
 
 ### StaffBadge
 
-- Composant `src/components/profile/StaffBadge.tsx` — chip amber (token `--color-warning`) rendu par `ProfileHeader` à côté du `displayName` quand le profil affiché a un rôle Auth0 qualifiant comme "staff" (cf. `STAFF_ROLE` et `isStaff(roles)` dans `@/types/user`).
+- Composant `src/components/profile/StaffBadge.tsx` — chip **bleu** (token `--color-link`) rendu par `ProfileHeader` sous le `@username` quand le profil affiché a un rôle Auth0 qualifiant comme "staff" (cf. `STAFF_ROLE` et `isStaff(roles)` dans `@/types/user`).
 - Pas de props — le contrôle de visibilité vit chez l'appelant (`ProfileHeader`) qui consulte `profile.roles`.
-- Style aligné sur le badge "Brouillon" de `DraftResumeCard` (uppercase, tracking-widest, pill warning).
+- Style : pill uppercase tracking-widest avec icône `Shield`, couleur `--color-link` (le seul token bleu du thème).
 
 ### ProfilePrivateState (SCRUM-141 redesign)
 
@@ -461,14 +461,15 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 - Erreurs : toast `error` "Impossible de mettre à jour le suivi." + rollback de l'état local.
 - Intégré dans `ProfilePage.tsx` : rendu **uniquement** sur `/profile/<uuid>` quand l'appelant est authentifié ET `uuid !== currentUser.id`. Pas affiché sur `/profile/me`, ni sur `/profile/<own-uuid>` (rendu en vue publique standard sans widgets owner), ni pour les viewers anonymes.
 
-### FollowRequestsPanel (SCRUM-110)
+### Demandes de suivi reçues (SCRUM-110 → SCRUM-141 redesign)
 
-- Composant `src/components/profile/FollowRequestsPanel.tsx` rendu uniquement sur `/profile/me`, après `MyPublicationsPreview` dans la colonne gauche.
-- Section card glassmorphism standard, heading "Demandes de suivi reçues" + badge compteur quand ≥ 1 demande.
-- Pour chaque ligne : avatar + displayName du demandeur (résolu via `getPublicProfile` par row côté hook — voir `useMyFollowRequests`) + boutons `Accepter` (emerald) / `Refuser` (neutre).
-- États : skeleton de chargement initial (2 lignes), empty state "Aucune demande de suivi en attente." avec icône `UserPlus`, error state, toasts d'erreur sur accept/reject.
-- Accept / Reject sont optimistes (suppression immédiate de la row), rollback si l'API échoue.
-- Limite connue (suivi follow-up) : après accept, le `followerCount` propre de l'owner sur `/profile/<own-uuid>` reste stale jusqu'au prochain reload — `useAuth` n'expose pas de `refresh` pour le `User` mis en cache.
+- Les demandes de suivi reçues ne sont **plus** affichées sur la page profil. Elles vivent désormais dans la boîte de réception navbar `RequestsInboxDropdown` (cf. section dédiée plus bas), aux côtés des invitations à co-organiser. Le hook `useMyFollowRequests` (accept/reject optimistes) reste la source de vérité.
+
+### ProfileTabs (SCRUM-141 redesign)
+
+- Composant `src/components/profile/ProfileTabs.tsx` — sélecteur de sections type Instagram en bas de `ProfilePage`. Une barre d'onglets (icône + label, `role="tab"`) avec un seul onglet actif à la fois ; le contenu de l'onglet actif est rendu dessous (`role="tabpanel"`).
+- Onglets : « Événements organisés » (`ProfileEventsList`), « Participations publiques » (`ProfileParticipations`), et « Mes publications » (`MyPublicationsPreview`) — ce dernier uniquement sur `/profile/me`.
+- Les sections passent `hideHeading` (le label de l'onglet actif fait office de titre) pour éviter le doublon.
 
 ### FollowListPage (SCRUM-142)
 
@@ -925,19 +926,11 @@ Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) �
 - Affiche le créateur principal (badge "Organisateur") + co-organisateurs ACCEPTED (badge "Co-organisateur"), chacun cliquable vers `/profile/{id}`.
 - Charge `listCoOrganizers(eventId)` au montage. Skeleton `event-organizer-team.bones.json` pendant loading.
 
-### CoOrganizerInvitationsBadge
+### RequestsInbox / RequestsInboxDropdown (boîte de réception — SCRUM-141 redesign)
 
-- `src/components/user/CoOrganizerInvitationsBadge.tsx` — petit badge rouge dans le dropdown user de la `Navbar`.
-- Affiche le compteur des invitations `PENDING` (issue de `useCoOrganizerInvitations`). Masqué si compteur = 0.
-- Clic → ouvre la liste (modale ou redirige vers `/profile/me`).
-
-### CoOrganizerInvitationsList
-
-- `src/components/user/CoOrganizerInvitationsList.tsx` — liste des invitations PENDING.
-- Une card par invitation : titre event + date + boutons Accepter / Décliner.
-- Optimistic update : retire la row de la liste avant confirmation serveur, rollback sur erreur.
-- Skeleton `co-organizer-invitations.bones.json` pendant loading.
-- Monté dans `ProfilePage` (uniquement si `isOwnProfile`) et potentiellement dans une modale navbar.
+- `src/components/utils/RequestsInboxDropdown.tsx` — dropdown navbar (au survol, comme `NotificationsDropdown`) monté pour les utilisateurs authentifiés (desktop + mobile). Trigger = icône `Inbox` avec badge du **compteur total** (invitations à co-organiser `pendingCount` + demandes de suivi reçues). Monte `useCoOrganizerInvitations` + `useMyFollowRequests`, câble les handlers accept/decline/reject et les toasts d'erreur.
+- `src/components/utils/RequestsInbox.tsx` — panneau présentationnel (w-80) à deux sections : « Invitations à co-organiser » (lignes event + date) et « Demandes de suivi » (lignes avatar + displayName), chaque ligne avec actions compactes Accepter / Refuser. États loading / error / empty. La logique optimiste vit dans les hooks ; le panneau ne gère qu'un flag `busy` global pour neutraliser les boutons pendant un aller-retour.
+- Remplace les anciens gros blocs `CoOrganizerInvitationsBadge`, `CoOrganizerInvitationsList` et `FollowRequestsPanel` (supprimés) : ces demandes ne vivent plus sur la page profil mais dans la boîte de réception navbar.
 
 ## Composants SCRUM-146 (commentaires UI)
 

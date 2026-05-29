@@ -24,16 +24,16 @@ describe('ProfileStats', () => {
     expect(screen.getByText('56')).toBeTruthy()
   })
 
-  it('uses the singular "follower" when followerCount === 1', () => {
+  it('uses the singular "Abonné" when followerCount === 1', () => {
     renderStats({ followerCount: 1, followingCount: 5 })
 
-    expect(screen.getByText('follower')).toBeTruthy()
+    expect(screen.getByText('Abonné')).toBeTruthy()
   })
 
-  it('uses the plural "followers" otherwise', () => {
+  it('uses the plural "Abonnés" otherwise', () => {
     renderStats({ followerCount: 2, followingCount: 0 })
 
-    expect(screen.getByText('followers')).toBeTruthy()
+    expect(screen.getByText('Abonnés')).toBeTruthy()
   })
 
   it('renders 0 / 0 for new accounts', () => {
@@ -66,7 +66,7 @@ describe('ProfileStats', () => {
   it('the linked tiles expose accessible labels matching the counts', () => {
     renderStats({ followerCount: 7, followingCount: 12, linkUsername: 'bob' })
 
-    expect(screen.getByLabelText('Voir les followers (7)')).toBeTruthy()
+    expect(screen.getByLabelText('Voir les abonnés (7)')).toBeTruthy()
     expect(screen.getByLabelText('Voir les abonnements (12)')).toBeTruthy()
   })
 })

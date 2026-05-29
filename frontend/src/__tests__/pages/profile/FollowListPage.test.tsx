@@ -245,23 +245,47 @@ describe('FollowListPage — others', () => {
 })
 
 describe('FollowListPage — me', () => {
-  it('uses the authenticated user when username = "me" without an extra fetch', async () => {
+  it('renders from useAuth on /me, then resolves the real counts in the background', async () => {
+    // The /me list renders the identity immediately from useAuth (uuid known
+    // synchronously, no blocking fetch), then fills the follower/following
+    // counts via a best-effort public-by-username resolve so the tab labels
+    // don't stay at 0/0 on one's own lists.
+    mockGetUserByUsername.mockResolvedValue({
+      ...otherProfile,
+      id: OWN_UUID,
+      username: mockUser.username,
+      displayName: 'Me',
+      followerCount: 5,
+      followingCount: 3,
+    })
     mockGetFollowers.mockResolvedValue([makeListUser('a')])
 
     renderAt('/profile/me/followers')
 
     await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
-    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+    // List uses the uuid from useAuth — it does not wait on the resolve.
     await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
+    // Counts are populated in the background from the resolved public profile.
+    expect(mockGetUserByUsername).toHaveBeenCalledWith(mockUser.username)
+    const followersTab = screen.getByRole('link', { name: /Followers/i })
+    await waitFor(() => expect(followersTab.textContent).toMatch(/5/))
+    expect(screen.getByRole('link', { name: /Abonnements/i }).textContent).toMatch(/3/)
   })
 
   it('treats /:ownUsername/followers as the /me route', async () => {
+    mockGetUserByUsername.mockResolvedValue({
+      ...otherProfile,
+      id: OWN_UUID,
+      username: mockUser.username,
+      displayName: 'Me',
+    })
     mockGetFollowers.mockResolvedValue([])
 
     renderAt(`/profile/${mockUser.username}/followers`)
 
     await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
-    expect(mockGetUserByUsername).not.toHaveBeenCalled()
+    // Identity (uuid) still comes from useAuth — the list fetch keys on it.
+    await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
   })
 
   it('renders an error placeholder on /me when useAuth has no user', async () => {
@@ -278,6 +302,11 @@ describe('FollowListPage — me', () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, displayName: undefined },
       isLoading: false,
+    })
+    mockGetUserByUsername.mockResolvedValue({
+      ...otherProfile,
+      id: OWN_UUID,
+      username: 'me.username',
     })
     mockGetFollowers.mockResolvedValue([])
 

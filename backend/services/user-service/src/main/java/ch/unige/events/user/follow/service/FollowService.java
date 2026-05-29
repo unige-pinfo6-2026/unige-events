@@ -136,20 +136,33 @@ public class FollowService {
     }
 
     /**
-     * ISSUE-93 anti-oracle visibility check : 404 when the target profile
-     * is private and the caller isn't the owner. Same envelope as
-     * "user does not exist" — closes the existence oracle.
+     * ISSUE-93 anti-oracle visibility check : 404 when the target profile is
+     * private and the caller is not the owner <em>nor</em> an accepted follower.
      *
-     * <p>ISSUE-93 anti-oracle check inline: user-service hosts both Follow
-     * and User entities post-finalization, so this lookup is a local query,
-     * not a REST call.
+     * <p>Accepted followers get the same access as if the profile were public —
+     * they can browse the followers / following lists. A PENDING or absent
+     * relationship still results in 404 (anti-oracle preserved for non-followers).
+     *
+     * <p>All lookups are local queries (user-service hosts Follow + User
+     * post-finalization) — no REST round-trip needed.
      */
     public void assertProfileVisible(UUID targetId, String callerAuth0Id) {
         User target = User.<User>findByIdOptional(targetId)
                 .orElseThrow(NotFoundException::new);
         boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(target.auth0Id);
         if (!target.profilePublic && !isOwner) {
-            throw new NotFoundException();
+            // Grant access to accepted followers — they can see the full follow
+            // lists of a private account they've been approved to follow.
+            UUID callerId = callerAuth0Id != null
+                    ? User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null)
+                    : null;
+            boolean isAcceptedFollower = callerId != null
+                    && Follow.findByFollowerAndFollowed(callerId, targetId)
+                             .map(f -> f.status == FollowStatus.ACCEPTED)
+                             .orElse(false);
+            if (!isAcceptedFollower) {
+                throw new NotFoundException();
+            }
         }
     }
 

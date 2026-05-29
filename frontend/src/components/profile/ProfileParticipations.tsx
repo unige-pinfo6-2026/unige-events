@@ -6,6 +6,7 @@ interface ProfileParticipationsProps {
   events: Event[]
   loading: boolean
   error: string | null
+  hideHeading?: boolean
 }
 
 /**
@@ -14,7 +15,7 @@ interface ProfileParticipationsProps {
  * (ATTENDING), fetched via `GET /users/{id}/participations` (privacy-gated
  * server-side), rendered through the shared {@link ProfilePreviewSection} shell.
  */
-export default function ProfileParticipations({ events, loading, error }: Readonly<ProfileParticipationsProps>) {
+export default function ProfileParticipations({ events, loading, error, hideHeading }: Readonly<ProfileParticipationsProps>) {
   return (
     <ProfilePreviewSection
       headingId="profile-participations-heading"
@@ -24,6 +25,7 @@ export default function ProfileParticipations({ events, loading, error }: Readon
       error={error}
       emptyIcon={Ticket}
       emptyMessage="Aucune participation publique pour le moment."
+      hideHeading={hideHeading}
     />
   )
 }

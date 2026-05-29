@@ -37,19 +37,25 @@ describe('FollowButton', () => {
       expect(btn.getAttribute('title')).toBe('Suivre')
     })
 
-    it('clicking POSTs and optimistically flips to "Demande envoyée"', async () => {
+    it('clicking POSTs, disables the button during the request, then calls onMutated', async () => {
+      // No optimistic flip — the button stays "Suivre" (disabled) while the
+      // request is in flight. The parent's onMutated refetch drives the final
+      // state (ACCEPTED for public targets, PENDING for private), avoiding the
+      // "Demande envoyée → Abonné" flash on public profiles.
       mockFollow.mockResolvedValue({
         id: 1, followerId: 'me', followedId: TARGET, status: 'PENDING', createdAt: 'x',
       })
       const onMutated = vi.fn()
       render(<FollowButton targetId={TARGET} followStatus={null} onMutated={onMutated} />)
 
-      fireEvent.click(screen.getByRole('button'))
+      const btn = screen.getByRole('button')
+      fireEvent.click(btn)
 
-      // Optimistic state visible immediately.
-      await waitFor(() => expect(screen.getByText('Demande envoyée')).toBeTruthy())
       expect(mockFollow).toHaveBeenCalledWith(TARGET)
       await waitFor(() => expect(onMutated).toHaveBeenCalledTimes(1))
+      // Button is re-enabled and still shows "Suivre" until parent updates prop.
+      await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false))
+      expect(screen.getByText('Suivre')).toBeTruthy()
     })
 
     it('rolls back to "Suivre" + toasts on server error', async () => {
@@ -82,16 +88,21 @@ describe('FollowButton', () => {
       expect(btn.getAttribute('title')).toBe('Cliquer pour annuler')
     })
 
-    it('clicking DELETEs and flips back to "Suivre"', async () => {
+    it('clicking DELETEs, calls onMutated, and shows "Suivre" after parent re-renders with null', async () => {
+      // No optimistic flip — button stays "Demande envoyée" until the parent
+      // refetch (via onMutated) re-renders with followStatus=null.
       mockUnfollow.mockResolvedValue(undefined)
       const onMutated = vi.fn()
-      render(<FollowButton targetId={TARGET} followStatus="PENDING" onMutated={onMutated} />)
+      const { rerender } = render(<FollowButton targetId={TARGET} followStatus="PENDING" onMutated={onMutated} />)
 
       fireEvent.click(screen.getByRole('button'))
 
-      await waitFor(() => expect(screen.getByText('Suivre')).toBeTruthy())
       expect(mockUnfollow).toHaveBeenCalledWith(TARGET)
       await waitFor(() => expect(onMutated).toHaveBeenCalledTimes(1))
+
+      // Simulate the parent refetch resolving with null (no longer following).
+      rerender(<FollowButton targetId={TARGET} followStatus={null} onMutated={onMutated} />)
+      await waitFor(() => expect(screen.getByText('Suivre')).toBeTruthy())
     })
 
     it('rolls back + toasts on cancel error', async () => {
@@ -118,24 +129,29 @@ describe('FollowButton', () => {
       expect(btn.className).toContain('group')
     })
 
-    it('clicking DELETEs and flips back to "Suivre"', async () => {
+    it('clicking DELETEs, calls onMutated, and shows "Suivre" after parent re-renders with null', async () => {
+      // No optimistic flip — button stays "Abonné" until the parent refetch
+      // (via onMutated) re-renders with followStatus=null.
       mockUnfollow.mockResolvedValue(undefined)
       const onMutated = vi.fn()
-      render(<FollowButton targetId={TARGET} followStatus="ACCEPTED" onMutated={onMutated} />)
+      const { rerender } = render(<FollowButton targetId={TARGET} followStatus="ACCEPTED" onMutated={onMutated} />)
 
       fireEvent.click(screen.getByRole('button'))
 
-      await waitFor(() => expect(screen.getByText('Suivre')).toBeTruthy())
       expect(mockUnfollow).toHaveBeenCalledWith(TARGET)
       await waitFor(() => expect(onMutated).toHaveBeenCalled())
+
+      // Simulate the parent refetch resolving with null (no longer following).
+      rerender(<FollowButton targetId={TARGET} followStatus={null} onMutated={onMutated} />)
+      await waitFor(() => expect(screen.getByText('Suivre')).toBeTruthy())
     })
   })
 
   describe('prop sync (real bug from Copilot review)', () => {
     it('adopts the parent followStatus when it changes (e.g. auto-ACCEPT on public target)', async () => {
-      // User clicks Suivre on a public profile → optimistic PENDING →
-      // server auto-ACCEPTs → parent refetches → followStatus prop flips to
-      // 'ACCEPTED'. Before the fix the button stayed stuck on PENDING.
+      // User clicks Suivre on a public profile → server auto-ACCEPTs →
+      // parent refetches → followStatus prop flips to 'ACCEPTED'. The button
+      // must adopt the new value (no optimistic state to fight it).
       const { rerender } = render(<FollowButton targetId={TARGET} followStatus={null} />)
       expect(screen.getByText('Suivre')).toBeTruthy()
 
@@ -143,7 +159,10 @@ describe('FollowButton', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Se désabonner' })).toBeTruthy())
     })
 
-    it('does NOT clobber the optimistic state while a mutation is in flight', async () => {
+    it('does NOT re-enable or reset the button while a mutation is in flight', async () => {
+      // Without an optimistic flip the button stays "Suivre" (disabled) during
+      // the round-trip. If the parent re-renders with the same stale prop the
+      // `pending` guard must prevent the effect from flipping state early.
       let resolveFn: () => void = () => {}
       mockFollow.mockImplementation(() => new Promise<unknown>(resolve => {
         resolveFn = () => resolve({
@@ -152,19 +171,20 @@ describe('FollowButton', () => {
       }))
 
       const { rerender } = render(<FollowButton targetId={TARGET} followStatus={null} />)
-      fireEvent.click(screen.getByRole('button'))
-      // Optimistic flip to PENDING ("Demande envoyée") happens immediately.
-      await waitFor(() => expect(screen.getByText('Demande envoyée')).toBeTruthy())
+      const btn = screen.getByRole('button') as HTMLButtonElement
+      fireEvent.click(btn)
+
+      // Button is disabled while the request is in-flight.
+      await waitFor(() => expect(btn.disabled).toBe(true))
 
       // Parent re-renders with the still-stale `null` prop mid-flight — the
-      // optimistic state must NOT be reset to "Suivre" while we're waiting
-      // for the API.
+      // button must stay disabled (not reset to "Suivre" enabled).
       rerender(<FollowButton targetId={TARGET} followStatus={null} />)
-      expect(screen.getByText('Demande envoyée')).toBeTruthy()
+      expect(btn.disabled).toBe(true)
 
-      // Once the mutation settles, prop sync re-engages.
+      // Once the mutation settles, prop sync re-engages and button re-enables.
       act(() => { resolveFn() })
-      await waitFor(() => expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false))
+      await waitFor(() => expect(btn.disabled).toBe(false))
     })
   })
 

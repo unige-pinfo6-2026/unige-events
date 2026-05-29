@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { followUser, unfollowUser } from '@/services/followApi'
 import { useToast } from '@/hooks/useToast'
+import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { FollowStatus } from '@/types/user'
 
 interface FollowButtonProps {
@@ -8,6 +9,12 @@ interface FollowButtonProps {
   followStatus?: FollowStatus | null
   /** Called after a successful mutation so the parent can refetch the profile. */
   onMutated?: () => void
+  /**
+   * Quand `true`, un clic sur "Se désabonner" ouvre une modale de confirmation
+   * avant d'envoyer la requête DELETE — utile pour les profils privés où
+   * se désabonner perd l'accès au contenu.
+   */
+  confirmOnUnfollow?: boolean
 }
 
 /**
@@ -20,9 +27,10 @@ interface FollowButtonProps {
  * - `'ACCEPTED'` → "Abonné" by default, "Se désabonner" on hover (CSS
  *   group/group-hover swap — no JS / animation lib). Click DELETEs.
  *
- * Optimistic UI: the local `status` flips on click, rolls back on error.
- * `onMutated` is invoked on success so the parent `useUserProfile` refetches
- * — that's what updates `followerCount` server-side numbers in the UI.
+ * No optimistic state flip on DELETE — the button stays in its current state
+ * (disabled) while the request is in flight, and the parent's refetch drives
+ * the final state. Avoids the PENDING→idle→PENDING flash that an optimistic
+ * flip causes when `pending` clears before the prop update arrives.
  *
  * DELETE is idempotent server-side (204 even when no row exists), so
  * "se désabonner" / "annuler la demande" never produce a 404 toast.
@@ -36,7 +44,7 @@ const followButtonVariants = {
 } as const
 
 const baseClass =
-  'inline-flex items-center justify-center gap-2 self-end px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+  'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background'
 
 function toLocalState(status: FollowStatus | null | undefined): LocalState {
   if (status === 'PENDING') return 'pending'
@@ -48,19 +56,18 @@ export default function FollowButton({
   targetId,
   followStatus,
   onMutated,
+  confirmOnUnfollow = false,
 }: Readonly<FollowButtonProps>) {
   const toast = useToast()
   const [state, setState] = useState<LocalState>(toLocalState(followStatus))
   const [pending, setPending] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   // Sync local state from the parent's followStatus prop while no mutation is
-  // in flight. The optimistic flip in handleClick takes priority *during* the
-  // round-trip (pending=true), then the parent's refetch lands and this
-  // effect adopts the server-truthy value — important for the auto-ACCEPT
-  // case where the user clicks "Suivre" on a public profile: local state
-  // optimistically becomes PENDING, the server resolves to ACCEPTED, the
-  // parent refetches, and we need to flip to ACCEPTED here without the user
-  // having to re-render the page.
+  // in flight. The parent's refetch lands and this effect adopts the
+  // server-authoritative value — important for the auto-ACCEPT case where the
+  // user clicks "Suivre" on a public profile: the server resolves to ACCEPTED,
+  // the parent refetches, and we flip to ACCEPTED here.
   useEffect(() => {
     if (pending) return
     setState(toLocalState(followStatus))
@@ -69,27 +76,45 @@ export default function FollowButton({
   // The button is idempotent on the server, but the UI carries an in-flight
   // guard so a double-click during the network round-trip can't queue two
   // mutations.
-  async function handleClick() {
+  async function handleUnfollow() {
     if (pending) return
     setPending(true)
     const previousState = state
     try {
-      if (state === 'idle') {
-        // Optimistic: assume PENDING (worst case for the user — it'll snap
-        // to ACCEPTED on the parent refetch if the target is public).
-        setState('pending')
-        await followUser(targetId)
-      } else {
-        // Both pending and accepted go through DELETE.
-        setState('idle')
-        await unfollowUser(targetId)
-      }
+      await unfollowUser(targetId)
       onMutated?.()
     } catch {
       setState(previousState)
       toast.showToast('error', 'Impossible de mettre à jour le suivi.')
     } finally {
       setPending(false)
+    }
+  }
+
+  async function handleFollow() {
+    if (pending) return
+    setPending(true)
+    const previousState = state
+    try {
+      // No optimistic flip — the server auto-accepts for public targets and
+      // returns PENDING for private ones. We let the parent refetch (via
+      // onMutated) drive the state so there's no "Demande envoyée" → "Abonné"
+      // flash on public profiles. The button stays disabled during the request.
+      await followUser(targetId)
+      onMutated?.()
+    } catch {
+      setState(previousState)
+      toast.showToast('error', 'Impossible de mettre à jour le suivi.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  function handleUnfollowClick() {
+    if (confirmOnUnfollow) {
+      setShowConfirm(true)
+    } else {
+      void handleUnfollow()
     }
   }
 
@@ -103,7 +128,7 @@ export default function FollowButton({
     return (
       <button
         type="button"
-        onClick={handleClick}
+        onClick={handleUnfollowClick}
         disabled={pending}
         aria-pressed={ariaPressed}
         aria-label="Annuler la demande de suivi"
@@ -117,25 +142,37 @@ export default function FollowButton({
 
   if (state === 'accepted') {
     return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        aria-pressed={ariaPressed}
-        aria-label="Se désabonner"
-        title="Se désabonner"
-        className={`group ${baseClass} ${followButtonVariants.accepted}`}
-      >
-        <span className="group-hover:hidden">Abonné</span>
-        <span className="hidden group-hover:inline">Se désabonner</span>
-      </button>
+      <>
+        <button
+          type="button"
+          onClick={handleUnfollowClick}
+          disabled={pending}
+          aria-pressed={ariaPressed}
+          aria-label="Se désabonner"
+          title="Se désabonner"
+          className={`group ${baseClass} ${followButtonVariants.accepted}`}
+        >
+          <span className="group-hover:hidden">Abonné</span>
+          <span className="hidden group-hover:inline">Se désabonner</span>
+        </button>
+        {showConfirm && (
+          <ConfirmDialog
+            title="Se désabonner ?"
+            message="Ce compte est privé. En vous désabonnant, vous perdrez l'accès à son profil et devrez envoyer une nouvelle demande pour le suivre à nouveau."
+            confirmLabel="Se désabonner"
+            pending={pending}
+            onConfirm={() => { setShowConfirm(false); void handleUnfollow() }}
+            onClose={() => setShowConfirm(false)}
+          />
+        )}
+      </>
     )
   }
 
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onClick={() => void handleFollow()}
       disabled={pending}
       aria-pressed={ariaPressed}
       aria-label="Suivre cet utilisateur"

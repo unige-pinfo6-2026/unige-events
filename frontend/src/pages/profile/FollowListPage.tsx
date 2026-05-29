@@ -212,9 +212,11 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
         setLoading(false)
         return
       }
-      // Self payload doesn't carry follower / following counts (cf.
-      // ProfilePage MeProfileView note). The tab labels render `0` here
-      // until SCRUM-110 follow-up exposes them on `useAuth`.
+      // Self payload (useAuth) doesn't carry follower / following counts (cf.
+      // ProfilePage MeProfileView note). Render immediately with the known
+      // identity (counts at 0), then resolve the real counts in the background
+      // via the public-by-username endpoint — the owner gets a 200 carrying
+      // the counters, so the tab labels stop showing 0/0 on one's own lists.
       setTarget({
         uuid: currentUser.id,
         username: currentUser.username,
@@ -223,7 +225,24 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
         followingCount: 0,
       })
       setLoading(false)
-      return
+
+      let cancelledMe = false
+      getUserByUsername(currentUser.username)
+        .then((data) => {
+          if (cancelledMe || data === null) return
+          const profile = data as unknown as UserPublicResponse
+          setTarget((prev) =>
+            prev
+              ? { ...prev, followerCount: profile.followerCount, followingCount: profile.followingCount }
+              : prev,
+          )
+        })
+        .catch(() => {
+          // Best-effort : on garde 0/0 si la résolution échoue.
+        })
+      return () => {
+        cancelledMe = true
+      }
     }
 
     let cancelled = false

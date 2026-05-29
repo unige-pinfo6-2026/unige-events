@@ -56,12 +56,6 @@ vi.mock('@/hooks/useMyEvents', () => ({
   })),
 }))
 
-// CoOrganizerInvitationsList ships from main and makes its own API calls;
-// stub it out so it doesn't pollute the /me path with unrelated fetches.
-vi.mock('@/components/user/CoOrganizerInvitationsList', () => ({
-  default: () => null,
-}))
-
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById, getUserByUsername } from '@/services/userService'
 import { getAll as getAllEvents } from '@/services/eventApi'
@@ -141,7 +135,7 @@ function findContentGrid(container: HTMLElement): HTMLElement | null {
   const candidates = container.querySelectorAll('div')
   for (const el of Array.from(candidates)) {
     const cls = el.className
-    if (typeof cls === 'string' && cls.includes('grid-cols-1') && cls.includes('lg:grid-cols-2')) {
+    if (typeof cls === 'string' && cls.includes('flex-wrap') && cls.includes('items-start') && cls.includes('gap-x-8')) {
       return el
     }
   }
@@ -178,10 +172,10 @@ describe('ProfilePage — /profile/me (owner)', () => {
     renderProfilePage('me')
 
     // Tiles always render — initially 0/0, then update once the fetch resolves.
-    expect(await screen.findByRole('link', { name: /Voir les followers \(42\)/i })).toBeTruthy()
+    expect(await screen.findByRole('link', { name: /Voir les abonnés \(42\)/i })).toBeTruthy()
     expect(screen.getByRole('link', { name: /Voir les abonnements \(17\)/i })).toBeTruthy()
     // Links point at /profile/{currentUser.username}/{followers|following}.
-    expect(screen.getByRole('link', { name: /Voir les followers/i }).getAttribute('href'))
+    expect(screen.getByRole('link', { name: /Voir les abonnés/i }).getAttribute('href'))
       .toBe('/profile/test.user/followers')
     expect(screen.getByRole('link', { name: /Voir les abonnements/i }).getAttribute('href'))
       .toBe('/profile/test.user/following')
@@ -219,7 +213,7 @@ describe('ProfilePage — /profile/me (owner)', () => {
 
     // Page still renders, tiles are visible with 0 counts ; no toast.
     expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Voir les followers \(0\)/i })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les abonnés \(0\)/i })).toBeTruthy()
     expect(screen.getByRole('link', { name: /Voir les abonnements \(0\)/i })).toBeTruthy()
   })
 
@@ -240,15 +234,17 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
   })
 
-  it('renders Mes publications preview on /me', async () => {
+  it('exposes the "Mes publications" tab on /me and renders its content when activated', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
 
     renderProfilePage('me')
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Mes publications' })).toBeTruthy()
+    const tab = await screen.findByRole('tab', { name: 'Mes publications' })
+    ;(tab as HTMLButtonElement).click()
+    expect(await screen.findByText('Voir toutes mes publications')).toBeTruthy()
   })
 
-  it('renders faculty + study level when present', async () => {
+  it('renders the faculty name when present', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, faculty: 'SCIENCES', studyLevel: 'MASTER' },
       isLoading: false,
@@ -256,8 +252,9 @@ describe('ProfilePage — /profile/me (owner)', () => {
 
     renderProfilePage('me')
 
-    expect(await screen.findByRole('img', { name: /Sciences/i })).toBeTruthy()
-    expect(screen.getAllByText(/Master/).length).toBeGreaterThan(0)
+    // Le redesign affiche le nom de la faculté (icône GraduationCap) — plus de
+    // logo ni de niveau d'étude dans la colonne gauche.
+    expect(await screen.findByText('Faculté des Sciences')).toBeTruthy()
   })
 
   it('renders bio when present', async () => {
@@ -413,7 +410,7 @@ describe('ProfilePage — /profile/:username (other user)', () => {
     renderProfilePage('other.user')
 
     await screen.findByRole('heading', { level: 1, name: 'Other User' })
-    expect(screen.queryByRole('heading', { level: 2, name: 'Mes publications' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Mes publications' })).toBeNull()
   })
 
   it('does NOT render the Modifier button on another user profile', async () => {
@@ -426,27 +423,28 @@ describe('ProfilePage — /profile/:username (other user)', () => {
     expect(screen.queryByText('Modifier')).toBeNull()
   })
 
-  it('renders the "Événements organisés" section', async () => {
+  it('renders the "Événements organisés" tab (active by default)', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(otherProfile)
 
     renderProfilePage('other.user')
 
-    expect(await screen.findByRole('heading', { name: 'Événements organisés' })).toBeTruthy()
+    expect(await screen.findByRole('tab', { name: 'Événements organisés' })).toBeTruthy()
     await waitFor(() => expect(mockGetAllEvents).toHaveBeenCalledWith(
       expect.objectContaining({ organizerId: OTHER_UUID, status: 'PUBLISHED' }),
     ))
   })
 
-  it('renders the "Participations publiques" section with the empty state when none', async () => {
+  it('renders the "Participations publiques" tab with the empty state when activated', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(otherProfile)
 
     renderProfilePage('other.user')
 
-    expect(await screen.findByRole('heading', { name: 'Participations publiques' })).toBeTruthy()
-    // getUserParticipations resolves [] → dedicated empty copy (SCRUM-141 follow-up),
-    // not the former "Bientôt disponible" placeholder.
+    // Onglet inactif par défaut (style Instagram) — on l'active pour révéler
+    // le contenu (état vide dédié, SCRUM-141 follow-up).
+    const tab = await screen.findByRole('tab', { name: 'Participations publiques' })
+    ;(tab as HTMLButtonElement).click()
     expect(await screen.findByText('Aucune participation publique pour le moment.')).toBeTruthy()
   })
 
@@ -532,7 +530,7 @@ describe('ProfilePage — private profile (SCRUM-141 redesign — restricted pro
     expect(screen.getByText('JP')).toBeTruthy()
   })
 
-  it('does NOT render bio / counters / events / participations / FollowButton on a private profile', async () => {
+  it('does NOT render bio / counters / events / participations on a private profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue({
       // Even if the backend leaked the fields (defense-in-depth), they
@@ -552,17 +550,28 @@ describe('ProfilePage — private profile (SCRUM-141 redesign — restricted pro
     expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Événements organisés' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Participations publiques' })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Suivre|Demande envoyée|Abonné|Se désabonner/ })).toBeNull()
   })
 
-  it('does NOT render the "Demande de suivi envoyée" PENDING badge when followStatus is PENDING', async () => {
+  it('renders a FollowButton on a private profile for an authenticated non-owner (followStatus null)', async () => {
+    // Authenticated viewer looking at someone else's private profile — they
+    // must be able to send a follow request even though the content is locked.
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({ ...privateProfile, followStatus: null })
+
+    renderProfilePage('jane.private')
+
+    await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    expect(screen.getByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
+  })
+
+  it('renders FollowButton as "Demande envoyée" when followStatus is PENDING on a private profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue({ ...privateProfile, followStatus: 'PENDING' })
 
     renderProfilePage('jane.private')
 
     await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
-    expect(screen.queryByText('Demande de suivi envoyée')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Annuler la demande de suivi' })).toBeTruthy()
   })
 
   it('renders the same locked view when followStatus is null', async () => {
@@ -572,6 +581,31 @@ describe('ProfilePage — private profile (SCRUM-141 redesign — restricted pro
     renderProfilePage('jane.private')
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+  })
+
+  it('shows the full public profile when followStatus is ACCEPTED (already following a private account)', async () => {
+    // Regression test : when the target switched from public → private AFTER
+    // the viewer was accepted as a follower, the viewer must still see the full
+    // profile (not the locked card). Without the fix the page rendered
+    // ProfilePrivateState + "Suivre" and a click produced a 409.
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({
+      ...privateProfile,
+      bio: 'Bio secrète',
+      followerCount: 5,
+      followingCount: 3,
+      followStatus: 'ACCEPTED',
+    })
+
+    renderProfilePage('jane.private')
+
+    // Full profile rendered — heading level 1 (displayName), NO lock heading.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jane Private' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Compte privé' })).toBeNull()
+    // Content is visible.
+    expect(screen.getByText('Bio secrète')).toBeTruthy()
+    // FollowButton is in "Se désabonner" state (ACCEPTED).
+    expect(screen.getByRole('button', { name: 'Se désabonner' })).toBeTruthy()
   })
 })
 
@@ -618,39 +652,6 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
     expect(mockGetUserByUsername).not.toHaveBeenCalled()
-  })
-})
-
-describe('ProfilePage — FollowRequestsPanel on /profile/me (SCRUM-110)', () => {
-  it('renders the panel only on /profile/me', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-
-    renderProfilePage('me')
-
-    expect(await screen.findByRole('heading', { name: 'Demandes de suivi reçues' })).toBeTruthy()
-  })
-
-  it('does NOT render the panel on /profile/<username>', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    mockGetUserByUsername.mockResolvedValue(otherProfile)
-
-    renderProfilePage('other.user')
-
-    await screen.findByRole('heading', { level: 1, name: 'Other User' })
-    expect(screen.queryByRole('heading', { name: 'Demandes de suivi reçues' })).toBeNull()
-  })
-
-  it('does NOT render the panel on /profile/<own-username> (treated as /me)', async () => {
-    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
-    // Own username is detected as /me before any API call — no fetch fires.
-
-    renderProfilePage('test.user')
-
-    await screen.findByRole('heading', { level: 1, name: 'Test User' })
-    // Own-username path renders the owner view, which DOES include the panel
-    // (it's the /me path under the hood). This test asserts the inverse of
-    // what the other-user path does.
-    expect(screen.getByRole('heading', { name: 'Demandes de suivi reçues' })).toBeTruthy()
   })
 })
 
