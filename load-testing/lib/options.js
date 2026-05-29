@@ -7,6 +7,21 @@ const THRESHOLDS = {
   unexpected_failures: ['rate<0.05'],   // expected 429/404 are excluded by the wrapper
   checks: ['rate>0.95'],
   notification_lag: ['p(95)<30000'],    // eventual consistency (ms)
+  // v2 — PROTECTIVE abort: stop only on ORIGIN trouble (excludes edge 520-527 & expected 429/404).
+  // Edge/Kong 429 and bot challenges are the ceiling we map, NOT a reason to abort.
+  origin_errors: [{ threshold: 'rate<0.10', abortOnFail: true, delayAbortEval: '30s' }],
+};
+
+// v2 — Grafana Cloud fan-out across load zones (specs §10). A plain `k6 run` ignores options.cloud.
+// Zone IDs: verify against the current k6 load-zone list. EU-realistic + IP diversity.
+const CLOUD = {
+  projectID: Number(__ENV.K6_CLOUD_PROJECT_ID || 7680240),
+  distribution: {
+    paris:     { loadZone: 'amazon:fr:paris',     percent: 30 },
+    frankfurt: { loadZone: 'amazon:de:frankfurt', percent: 30 },
+    dublin:    { loadZone: 'amazon:ie:dublin',    percent: 20 },
+    london:    { loadZone: 'amazon:gb:london',    percent: 20 },
+  },
 };
 
 function browseRamping(stages) {
@@ -65,6 +80,28 @@ export function buildOptions(profile) {
         writes: writesTrickle('1h', 6),
       };
       break;
+    case 'cloud_capacity': // v2 — multi-IP READ capacity ramp (un-throttled endpoints). Run: -e SKIP_AUTH=1 -e NO_THINK=1
+      scenarios = {
+        reads: {
+          executor: 'ramping-arrival-rate', exec: 'browseReadOnly', startRate: 20, timeUnit: '1s',
+          preAllocatedVUs: 50, maxVUs: Number(__ENV.MAX_VUS || 300), tags: { scenario: 'reads' }, gracefulStop: '15s',
+          stages: [
+            { duration: '2m', target: 50 }, { duration: '3m', target: 150 },
+            { duration: '3m', target: 300 }, { duration: '3m', target: 500 },
+            { duration: '1m', target: 0 },
+          ],
+        },
+      };
+      break;
+    case 'cloud_notify': // v2 — cross-VU notification_lag probe (A follows B, polls B's unread)
+      scenarios = {
+        notify: {
+          executor: 'constant-arrival-rate', exec: 'notifyProbe',
+          rate: Number(__ENV.NOTIFY_RATE || 10), timeUnit: '1m', duration: __ENV.NOTIFY_DURATION || '5m',
+          preAllocatedVUs: 10, maxVUs: 30, tags: { scenario: 'notify' }, gracefulStop: '30s',
+        },
+      };
+      break;
     case 'load':
     default:
       scenarios = {
@@ -77,6 +114,7 @@ export function buildOptions(profile) {
   return {
     scenarios: scenarios,
     thresholds: THRESHOLDS,
+    cloud: Object.assign({ name: 'UNIGE Events prod v2 — ' + profile }, CLOUD), // ignored by local `k6 run`
     discardResponseBodies: false,
     setupTimeout: '180s',
     teardownTimeout: '600s',
