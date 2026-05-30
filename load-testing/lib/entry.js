@@ -120,7 +120,7 @@ export function browseReadOnly(data) {
       req('GET', '/events/featured', { tags: E('/events/featured', 'event'), expect: [200] });
     }
   }
-  think(0.5, 2);
+  if (!__ENV.NO_THINK) think(0.5, 2); // v2: -e NO_THINK=1 removes pacing for the max-throughput capacity ramp
 }
 
 // ===================== WRITES (low rate; self-created content only) =====================
@@ -183,6 +183,31 @@ function probeNotification(t) {
     sleep(2);
     if (unread(t) > before) { notificationLag.add(Date.now() - t0); return; }
   }
+}
+
+// ===================== v2: cross-VU notification_lag (A follows B, poll B's unread) =====================
+// Self-actions don't notify the actor (RESULTS.md #6), so measure across DISTINCT pool users:
+// VU acts as user A on user B's account, then polls B's unread count for the produce->notify delay.
+export function notifyProbe(data) {
+  const n = data.tokens.length;
+  if (n < 2) return;
+  const aIdx = (exec.vu.idInTest - 1) % n;
+  const bIdx = (aIdx + 1) % n;          // deterministic distinct partner
+  const aTok = data.tokens[aIdx];
+  const bTok = data.tokens[bIdx];
+  const bId = data.poolUuids[bIdx];
+  if (!aTok || !bTok || !bId) return;
+
+  const before = unread(bTok);
+  const t0 = Date.now();
+  const f = req('POST', '/users/' + bId + '/follow', { token: aTok, tags: E('/users/{id}/follow', 'user', { bucket: 'follows.follow' }), expect: [201, 409, 422, 429, 404] });
+  if (f.status !== 201) return;         // only a NEW follow fans out a notification; 409/429 -> skip cleanly
+  for (let i = 0; i < 6; i++) {         // poll up to ~12s
+    sleep(2);
+    if (unread(bTok) > before) { notificationLag.add(Date.now() - t0, { trigger: 'follow' }); break; }
+  }
+  // inline cleanup so the pair can be re-measured next iteration (teardown() is the backstop)
+  req('DELETE', '/users/' + bId + '/follow', { token: aTok, tags: E('/users/{id}/follow', 'user'), expect: [204, 401, 404] });
 }
 
 // ===================== teardown: best-effort cleanup of test data =====================
