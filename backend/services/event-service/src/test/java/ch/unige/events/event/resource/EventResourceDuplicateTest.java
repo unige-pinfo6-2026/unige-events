@@ -224,9 +224,16 @@ class EventResourceDuplicateTest {
             .then().statusCode(201)
             .extract().jsonPath().getString("startDate");
 
+        // Compare as LocalDateTime values, not strings: LocalDateTime.toString()
+        // omits the seconds field when it is zero (e.g. "...T07:11"), whereas the
+        // JSON response always serialises it ("...T07:11:00"). Asserting on the
+        // string form made this test flaky (~1 run in 60) whenever the persisted
+        // startDate happened to land on a :00 second. Parsing both sides and
+        // comparing the temporal values is form-insensitive yet still exact.
         LocalDateTime expected = source.startDate.plusDays(7);
+        LocalDateTime actual = LocalDateTime.parse(responseStart);
         org.junit.jupiter.api.Assertions.assertEquals(
-                expected.toString(), responseStart,
+                expected, actual,
                 "startDate should be shifted exactly +7 days");
     }
 
