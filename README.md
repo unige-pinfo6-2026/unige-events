@@ -5,6 +5,7 @@ Centralized event platform for the UNIGE community : discover, create and manage
 [![CI/CD Pipeline](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml)
 [![Production Deployment](https://img.shields.io/github/deployments/unige-pinfo6-2026/unige-events/production?label=Production&logo=github)](https://pinfo6.p-info.net/)
 [![Preview Deployments](https://img.shields.io/github/deployments/unige-pinfo6-2026/unige-events/preview?label=Preview&logo=github)](https://github.com/unige-pinfo6-2026/unige-events/pulls)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/unige-pinfo6-2026/unige-events)
 
 ![Bannière UNIGE](./docs/assets/unige_banner.png)
 
