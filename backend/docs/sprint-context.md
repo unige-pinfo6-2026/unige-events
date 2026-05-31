@@ -1,6 +1,55 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-21 (SCRUM-168 — filtre followedOnly Sprint 9)
+Dernière mise à jour : 2026-05-31 (QA bug batch — vague V2 : notifs de suivi)
+
+---
+
+## 2026-05-31 — QA bug batch, vague V2 (demandes de suivi)
+
+Branche `fix/qa-bug-batch` (batch de correctifs QA front+back, empilé sur main ;
+V1 = polish frontend `/event/:id`, V2 = ci-dessous, V3 = modération + recherche
+utilisateur ; **une seule PR ouverte à la fin de V3**).
+
+### Bug ① — une demande de suivi ne double plus une notif cloche
+
+Avant : une demande de suivi vers un profil privé créait À LA FOIS une notif
+cloche `FOLLOW_REQUEST` **et** une entrée dans l'inbox « Demandes reçues » (les
+rows `Follow` PENDING) — doublon.
+
+- **notification-service** : `UserFollowRequestedConsumer` (+ son channel
+  `users-follow-requested` dans `application.properties`) **supprimé**. Une
+  demande de suivi ne vit plus que dans l'inbox. `NotificationType.FOLLOW_REQUEST`
+  reste dans l'enum + la CHECK DB (déprécié, rend les rows historiques) — **pas de
+  migration Flyway**. notification-service passe de **6 à 5 consumers** Kafka.
+- **user-service** : `FollowService.acceptRequest` fire désormais **deux** events
+  CDI post-commit : `followAccepted` (→ FOLLOW_ACCEPTED vers l'initiateur A,
+  inchangé) **et** `followed` (→ NEW_FOLLOWER vers l'acceptant B, « A a commencé à
+  vous suivre »). Le `reject` ne fire rien (row supprimée, A non notifié). Le
+  follow direct (profil public) ne fire toujours qu'un seul `followed`.
+- **Tests** : sentinels `FollowServiceTest` via un observer CDI de test
+  synchrone (`RecordingFollowLifecycleObserver`, phase IN_PROGRESS — le bridge
+  AFTER_SUCCESS ne tourne pas sous `@TestTransaction`) : accept fire
+  FOLLOWED+ACCEPTED aux bons UUIDs ; follow public = 1×FOLLOWED ; follow privé =
+  1×REQUESTED ; reject = 0 event. `UserFollowRequestedConsumerTest` supprimé.
+- **Frontend** : aucun changement requis — le mapping `FOLLOW_REQUEST` du
+  `NotificationPanel` est **conservé** (les types `NotificationType` /
+  `typeStyles` sont exhaustifs et des rows legacy peuvent exister). `NEW_FOLLOWER`
+  et `FOLLOW_ACCEPTED` ont déjà leur rendu.
+
+### Bug ② — l'inbox « Demandes reçues » s'auto-rafraîchit (frontend)
+
+- `useMyFollowRequests` poll désormais silencieusement toutes les
+  `INBOX_POLL_INTERVAL_MS` (30 s, `frontend/src/constants/polling.ts`, constante
+  partagée adoptée aussi par `useNotifications` — DRY), comme la cloche. Le
+  refetch périodique ne repasse pas `loading` à `true` (pas de clignotement).
+
+### Vérifications
+
+- **Frontend** : `npm run lint` ✅, `npx vitest run` ✅ 2275/2275, `npm run build` ✅.
+- **Backend** : `./mvnw -pl services/user-service,services/notification-service -am
+  test-compile` ✅ (compilation main+test). Les `@QuarkusTest` runtime nécessitent
+  Docker DevServices (Postgres éphémère) **indisponible dans l'environnement local**
+  → validation des sentinels FollowServiceTest **en CI**.
 
 ---
 
