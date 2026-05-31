@@ -22,13 +22,15 @@ import java.util.UUID;
  * their pending follow request ({@link FollowLifecycleEvent.Type#ACCEPTED}).
  *
  * <p><strong>Destinataire critique (Décision C).</strong> Contrairement à
- * {@link UserFollowedConsumer} et {@link UserFollowRequestedConsumer} qui
- * notifient {@code followedId} (la cible), ce consumer notifie
- * <strong>{@code followerId}</strong> (l'initiateur initial, qui voit sa
- * demande de suivi acceptée). L'acceptant ({@code followedId}) ne reçoit
- * rien — c'est lui qui a déclenché l'action. {@code relatedUserId} porte
- * l'UUID de l'acceptant pour permettre au frontend de rendre cliquable
- * son profil.
+ * {@link UserFollowedConsumer} qui notifie {@code followedId} (la cible), ce
+ * consumer notifie <strong>{@code followerId}</strong> (l'initiateur initial,
+ * qui voit sa demande de suivi acceptée). {@code relatedUserId} porte l'UUID de
+ * l'acceptant pour permettre au frontend de rendre cliquable son profil.
+ *
+ * <p>Depuis la QA bug batch (bug ①), l'ACCEPT émet AUSSI un {@code followed}
+ * (→ {@link UserFollowedConsumer} → {@link NotificationType#NEW_FOLLOWER} vers
+ * l'acceptant {@code followedId}). Les deux notifications sont donc créées sur
+ * un accept : FOLLOW_ACCEPTED → A (ici), NEW_FOLLOWER → B (l'autre consumer).
  *
  * <p>Inverser ces deux UUIDs est une faute fonctionnelle bloquante — cf.
  * sentinel test {@code UserFollowAcceptedConsumerTest.destinationIsInitiatorNotAcceptor}.

@@ -1,6 +1,7 @@
 package ch.unige.events.user.follow.service;
 
 import ch.unige.events.shared.domain.enums.FollowStatus;
+import ch.unige.events.shared.kafka.events.FollowLifecycleEvent;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.follow.entity.Follow;
 
@@ -10,6 +11,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.WebApplicationException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -32,6 +34,23 @@ class FollowServiceTest {
 
     @Inject FollowService followService;
     @Inject EntityManager entityManager;
+    @Inject RecordingFollowLifecycleObserver recorder;
+
+    @BeforeEach
+    void resetRecorder() {
+        recorder.reset();
+    }
+
+    private List<FollowLifecycleEvent.Type> firedTypes() {
+        return recorder.events().stream().map(FollowLifecycleEvent::type).toList();
+    }
+
+    private FollowLifecycleEvent firedOfType(FollowLifecycleEvent.Type type) {
+        return recorder.events().stream()
+                .filter(e -> e.type() == type)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no " + type + " event fired"));
+    }
 
     // ── follow ────────────────────────────────────────────────────────────
 
@@ -59,6 +78,29 @@ class FollowServiceTest {
         Follow row = followService.follow("auth0|fs-priv-a", bob.id);
 
         assertEquals(FollowStatus.PENDING, row.status);
+    }
+
+    @Test
+    @TestTransaction
+    void follow_publicProfile_firesSingleFollowedEvent() {
+        persistUser("auth0|fs-fire-pub-a", "fs-fire-pub-a@example.com", true);
+        User bob = persistUser("auth0|fs-fire-pub-b", "fs-fire-pub-b@example.com", true);
+
+        followService.follow("auth0|fs-fire-pub-a", bob.id);
+
+        // Public follow → exactly one FOLLOWED, never REQUESTED/ACCEPTED.
+        assertEquals(List.of(FollowLifecycleEvent.Type.FOLLOWED), firedTypes());
+    }
+
+    @Test
+    @TestTransaction
+    void follow_privateProfile_firesSingleRequestedEvent() {
+        persistUser("auth0|fs-fire-priv-a", "fs-fire-priv-a@example.com", true);
+        User bob = persistUser("auth0|fs-fire-priv-b", "fs-fire-priv-b@example.com", false);
+
+        followService.follow("auth0|fs-fire-priv-a", bob.id);
+
+        assertEquals(List.of(FollowLifecycleEvent.Type.REQUESTED), firedTypes());
     }
 
     @Test
@@ -130,6 +172,32 @@ class FollowServiceTest {
 
     @Test
     @TestTransaction
+    void acceptRequest_firesBothFollowedAndAcceptedToTheRightParties() {
+        // A = requester (alice), B = target/private (bob).
+        User alice = persistUser("auth0|fs-acc-fire-a", "fs-acc-fire-a@example.com", true);
+        User bob = persistUser("auth0|fs-acc-fire-b", "fs-acc-fire-b@example.com", false);
+        Follow pending = persistFollow(alice.id, bob.id, FollowStatus.PENDING);
+        recorder.reset();
+
+        followService.acceptRequest("auth0|fs-acc-fire-b", pending.id);
+
+        // Two notifications on accept: FOLLOW_ACCEPTED → A, NEW_FOLLOWER → B.
+        assertTrue(firedTypes().contains(FollowLifecycleEvent.Type.ACCEPTED), "ACCEPTED must fire");
+        assertTrue(firedTypes().contains(FollowLifecycleEvent.Type.FOLLOWED), "FOLLOWED must fire");
+
+        FollowLifecycleEvent accepted = firedOfType(FollowLifecycleEvent.Type.ACCEPTED);
+        assertEquals(alice.id, accepted.followerId());
+        assertEquals(bob.id, accepted.followedId());
+
+        // FOLLOWED carries follower=A, followed=B → UserFollowedConsumer targets B
+        // ("A a commencé à vous suivre").
+        FollowLifecycleEvent followed = firedOfType(FollowLifecycleEvent.Type.FOLLOWED);
+        assertEquals(alice.id, followed.followerId());
+        assertEquals(bob.id, followed.followedId());
+    }
+
+    @Test
+    @TestTransaction
     void acceptRequest_byNonTarget_throwsForbidden() {
         User alice = persistUser("auth0|fs-acc-nt-a", "fs-acc-nt-a@example.com", true);
         User bob = persistUser("auth0|fs-acc-nt-b", "fs-acc-nt-b@example.com", false);
@@ -174,6 +242,20 @@ class FollowServiceTest {
         followService.rejectRequest("auth0|fs-rej-b", pending.id);
 
         assertTrue(Follow.<Follow>findByIdOptional(pending.id).isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void rejectRequest_firesNoLifecycleEvent() {
+        User alice = persistUser("auth0|fs-rej-fire-a", "fs-rej-fire-a@example.com", true);
+        User bob = persistUser("auth0|fs-rej-fire-b", "fs-rej-fire-b@example.com", false);
+        Follow pending = persistFollow(alice.id, bob.id, FollowStatus.PENDING);
+        recorder.reset();
+
+        followService.rejectRequest("auth0|fs-rej-fire-b", pending.id);
+
+        // Reject just deletes the row — A is never notified.
+        assertTrue(recorder.events().isEmpty(), "reject must not fire any lifecycle event");
     }
 
     @Test
