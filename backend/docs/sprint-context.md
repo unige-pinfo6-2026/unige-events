@@ -1,6 +1,57 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-31 (QA bug batch — vague V2 : notifs de suivi)
+Dernière mise à jour : 2026-05-31 (QA bug batch — vague V3 : modération comment + recherche user)
+
+---
+
+## 2026-05-31 — QA bug batch, vague V3 (signalement commentaire + recherche utilisateur)
+
+Branche `fix/qa-bug-batch` (dernière vague — PR unique V1+V2+V3 ouverte à la fin de V3).
+
+### Bug ③ — signalement de commentaire : validation supprime le commentaire + affichage admin distinct
+
+Avant : valider (`REVIEWED`) un report de commentaire fire `EventBannedEvent.banned(report.eventId=null, …)`
+→ ban fantôme d'un event null. Et le dashboard admin supposait toujours un event
+(« Événement supprimé » + « Bannir l'événement » pour un commentaire).
+
+- **moderation-service** : `ReportService.handle` route selon la cible. Report event →
+  inchangé (ban + cascade par eventId). **Report commentaire → supprime le commentaire**
+  via engagement-service + cascade des signalements `PENDING` frères par commentId, **sans**
+  fire `EventBannedEvent`. `ReportDTO` gagne `targetType` (EVENT|COMMENT, dérivé) +
+  `commentContent` (enrichi en batch dans `listByStatus`). Enrichissement event guardé
+  (plus de `eventClient.getById(null)`).
+- **engagement-service** : 2 endpoints internes (`@Internal` X-Internal-Token, hors openapi) —
+  `DELETE /comments/{id}/_internal-moderation` (hard-delete, 404 idempotent) et
+  `GET /comments/_internal-by-ids?ids=` (projection contenu batch). `CommentService` gagne
+  `deleteForModeration` + `getContentByIds`.
+- **shared-domain-dtos** : `CommentContentProjection` (nouveau) ; `EngagementServiceClient`
+  gagne `deleteCommentForModeration` (abortOn/skipOn NotFoundException → 404 = succès
+  idempotent ; fallback 503) et `getCommentsByIds` (fallback `[]`).
+- **openapi** : `Report` schema gagne `targetType` (required) + `commentContent`, et la
+  description de `PATCH /admin/reports/{id}` documente l'effet `REVIEWED` par cible.
+  `internal-endpoints.md` entries #13/#14 ; data-model + architecture à jour.
+- **Frontend** : `Report` type (`targetType`/`commentId`/`commentContent`) ; `AdminPage`
+  `ReportRow` distingue (contenu du commentaire vs titre event ; « Supprimer le commentaire »
+  vs « Bannir l'événement » ; badge « Supprimé » vs « Banni » ; en-tête « Cible du signalement »).
+- **Tests** : sentinels `ModerationDomainSentinelsTest` (comment report ne fire pas de ban,
+  delete appelé) + `ReportServiceTest` (routing, 404 idempotent, enrichissement) + `ReportDTOTest`
+  (targetType/commentContent) + `CommentModerationInternalResourceTest` (delete/by-ids + token gate)
+  + `EngagementServiceClientFallbackTest` étendu. Frontend `AdminPage.test` + `useAdminReports.test`.
+
+### Bug ⑦ — recherche utilisateur (frontend, backend déjà prêt)
+
+- `EventsSearchPage` gagne un switch d'onglets « Événements | Utilisateurs » (`?tab=users`).
+  L'onglet Utilisateurs consomme `searchUsernames` (`GET /api/users/search`, `@Authenticated`,
+  déjà existant — **aucun backend ajouté**) via le nouveau hook `useUserSearch`, rend les
+  résultats en liste de `UserResultCard`, gère loading (skeleton `user-search-results`) /
+  error / empty / non-connecté (prompt login).
+
+### Vérifications
+
+- **Frontend** : `npm run lint` ✅, `npx vitest run` ✅ 2289/2289, `npm run build` ✅.
+- **Backend** : `./mvnw -pl services/moderation-service,services/engagement-service,shared/domain-dtos
+  -am test-compile` ✅ (main+test). `@QuarkusTest` runtime → **CI** (Docker DevServices absent
+  localement) — voir les sentinels listés ci-dessus.
 
 ---
 
