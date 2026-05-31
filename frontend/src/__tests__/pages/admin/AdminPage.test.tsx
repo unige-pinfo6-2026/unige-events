@@ -299,6 +299,21 @@ describe('AdminPage — reports section', () => {
     expect(screen.queryByText(/reported body 2/)).toBeNull()
   })
 
+  it('shows a type-specific empty state when the active filter matches no report', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeReport(1)], // EVENT only
+      activeTab: 'PENDING' as const,
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+
+    // Filtering to Commentaires hides the only (event) report → distinct empty copy.
+    fireEvent.click(screen.getByRole('button', { name: /Commentaires/ }))
+    expect(screen.getByText('Aucun signalement de ce type.')).toBeTruthy()
+    expect(screen.queryByText('Aucun signalement en attente.')).toBeNull()
+  })
+
   it('renders the human-readable French label for the reason enum', () => {
     mockUseAdminReports.mockReturnValue({
       ...defaultReports,
