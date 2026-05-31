@@ -270,7 +270,33 @@ describe('AdminPage — reports section', () => {
     })
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
-    expect(screen.getByText('3')).toBeTruthy()
+    // Scoped to the status tab — the target-type filter also renders count badges.
+    const pendingTab = screen.getByRole('button', { name: /En attente/ })
+    expect(pendingTab.textContent).toContain('3')
+  })
+
+  it('filters reports by target type via the Événements / Commentaires chips', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeReport(1), makeCommentReport(2)],
+      activeTab: 'PENDING' as const,
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+
+    // Both rows visible under "Tous".
+    expect(screen.getByText('Event 1')).toBeTruthy()
+    expect(screen.getByText(/reported body 2/)).toBeTruthy()
+
+    // Filter to Commentaires → only the comment report remains.
+    fireEvent.click(screen.getByRole('button', { name: /Commentaires/ }))
+    expect(screen.queryByText('Event 1')).toBeNull()
+    expect(screen.getByText(/reported body 2/)).toBeTruthy()
+
+    // Filter to Événements → only the event report remains.
+    fireEvent.click(screen.getByRole('button', { name: /Événements/ }))
+    expect(screen.getByText('Event 1')).toBeTruthy()
+    expect(screen.queryByText(/reported body 2/)).toBeNull()
   })
 
   it('renders the human-readable French label for the reason enum', () => {
