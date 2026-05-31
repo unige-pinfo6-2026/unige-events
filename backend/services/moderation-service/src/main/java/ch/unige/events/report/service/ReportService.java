@@ -9,6 +9,7 @@ import ch.unige.events.shared.domain.enums.ReportStatus;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.CommentContentProjection;
 import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -231,13 +232,16 @@ public class ReportService {
         }
 
         Set<Long> eventIds = new HashSet<>();
+        Set<Long> commentIds = new HashSet<>();
         Set<UUID> userIds = new HashSet<>();
         for (Report r : reports) {
             if (r.eventId != null) eventIds.add(r.eventId);
+            if (r.commentId != null) commentIds.add(r.commentId);
             if (r.reporterId != null) userIds.add(r.reporterId);
         }
 
         Map<Long, ch.unige.events.shared.domain.dto.EventDTO> eventsById = bulkFetchEvents(eventIds);
+        Map<Long, String> commentContentById = bulkFetchCommentContent(commentIds);
         Map<UUID, UserPublicResponse> usersById = new HashMap<>();
         for (UUID uid : userIds) {
             UserPublicResponse u = safeGetUser(uid);
@@ -245,7 +249,11 @@ public class ReportService {
         }
 
         return reports.stream()
-                .map(r -> ReportDTO.from(r, eventsById.get(r.eventId), usersById.get(r.reporterId)))
+                .map(r -> ReportDTO.from(
+                        r,
+                        eventsById.get(r.eventId),
+                        usersById.get(r.reporterId),
+                        r.commentId != null ? commentContentById.get(r.commentId) : null))
                 .toList();
     }
 
@@ -277,19 +285,48 @@ public class ReportService {
         report.reviewedAt = now;
         report.reviewedById = adminId;
 
-        // Décision H: validating a report fires the events.banned Kafka
-        // event ; event-service consumer applies status=BANNED locally
-        // (no more cross-schema mutation). The CDI fire is delivered
-        // AFTER_SUCCESS so a rollback aborts the propagation.
+        // Validating a report (REVIEWED) takes the moderation action and cascades
+        // the sibling PENDING reports against the SAME target to REVIEWED.
+        //  • event report  → fire events.banned (event-service applies BANNED
+        //    locally, Décision H — no cross-schema mutation) + cascade by eventId.
+        //  • comment report → hard-delete the comment via engagement-service
+        //    (QA bug batch, bug ③) + cascade by commentId. NEVER fire
+        //    EventBannedEvent here: report.eventId is null for a comment report,
+        //    which previously banned a phantom null event.
         if (request.status() == ReportStatus.REVIEWED) {
-            String reason = request.moderationNote() != null ? request.moderationNote() : "admin-ban";
-            bannedEvent.fire(EventBannedEvent.banned(report.eventId, adminId, reason));
-            cascadeSiblingReports(report, adminId, now);
+            if (report.commentId != null) {
+                deleteReportedComment(report.commentId);
+                cascadeSiblingCommentReports(report, adminId, now);
+            } else {
+                String reason = request.moderationNote() != null ? request.moderationNote() : "admin-ban";
+                bannedEvent.fire(EventBannedEvent.banned(report.eventId, adminId, reason));
+                cascadeSiblingReports(report, adminId, now);
+            }
         }
 
-        ch.unige.events.shared.domain.dto.EventDTO event = eventClient.getById(report.eventId);
+        // Enrichment for the response — only fetch the event for an event report
+        // (eventId is null for a comment report). The comment body is omitted
+        // here (it's gone after a REVIEWED delete, and the admin UI re-fetches
+        // the listing anyway).
+        ch.unige.events.shared.domain.dto.EventDTO event =
+                report.eventId != null ? eventClient.getById(report.eventId) : null;
         UserPublicResponse reporter = safeGetUser(report.reporterId);
-        return ReportDTO.from(report, event, reporter);
+        return ReportDTO.from(report, event, reporter, null);
+    }
+
+    /**
+     * Hard-deletes the reported comment via engagement-service when its report is
+     * validated (QA bug batch, bug ③). A 404 means the comment is already gone
+     * (the author or another admin deleted it meanwhile) — that's an idempotent
+     * success from the moderation standpoint, so we swallow it. Infra failures
+     * surface as 503 via the {@link EngagementServiceClient} fallback.
+     */
+    private void deleteReportedComment(Long commentId) {
+        try {
+            engagementClient.deleteCommentForModeration(commentId);
+        } catch (NotFoundException alreadyGone) {
+            Log.debugf("[REPORT_COMMENT_ALREADY_GONE] comment=%d already deleted at validate-time", commentId);
+        }
     }
 
     private void cascadeSiblingReports(Report validatedReport, UUID adminId, LocalDateTime now) {
@@ -297,6 +334,18 @@ public class ReportService {
                 "eventId = ?1 and status = ?2 and id <> ?3",
                 validatedReport.eventId, ReportStatus.PENDING, validatedReport.id
         ).list();
+        cascadeReviewed(siblings, adminId, now);
+    }
+
+    private void cascadeSiblingCommentReports(Report validatedReport, UUID adminId, LocalDateTime now) {
+        List<Report> siblings = Report.<Report>find(
+                "commentId = ?1 and status = ?2 and id <> ?3",
+                validatedReport.commentId, ReportStatus.PENDING, validatedReport.id
+        ).list();
+        cascadeReviewed(siblings, adminId, now);
+    }
+
+    private void cascadeReviewed(List<Report> siblings, UUID adminId, LocalDateTime now) {
         for (Report sibling : siblings) {
             sibling.status = ReportStatus.REVIEWED;
             sibling.reviewedAt = now;
@@ -318,6 +367,20 @@ public class ReportService {
         if (events != null) {
             for (ch.unige.events.shared.domain.dto.EventDTO e : events) {
                 byId.put(e.id(), e);
+            }
+        }
+        return byId;
+    }
+
+    private Map<Long, String> bulkFetchCommentContent(Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return new HashMap<>();
+        }
+        List<CommentContentProjection> projections = engagementClient.getCommentsByIds(List.copyOf(ids));
+        Map<Long, String> byId = new HashMap<>();
+        if (projections != null) {
+            for (CommentContentProjection p : projections) {
+                byId.put(p.id(), p.content());
             }
         }
         return byId;

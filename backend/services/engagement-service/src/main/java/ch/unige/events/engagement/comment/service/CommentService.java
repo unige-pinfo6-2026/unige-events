@@ -6,6 +6,7 @@ import ch.unige.events.engagement.comment.dto.CreateCommentRequest;
 import ch.unige.events.engagement.comment.entity.Comment;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.CommentContentProjection;
 import ch.unige.events.shared.domain.dto.IdProjection;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -220,6 +221,35 @@ public class CommentService {
         }
 
         comment.delete();
+    }
+
+    /**
+     * Hard-deletes a comment on behalf of moderation (QA bug batch, bug ③).
+     * Unlike {@link #delete}, no author/organizer/admin check is performed: the
+     * caller is moderation-service over the internal channel (X-Internal-Token
+     * gated), validating a comment report — the moderation analogue of an event
+     * BAN. 404 anti-oracle when the comment is already gone (idempotent for the
+     * caller, which swallows the NotFoundException).
+     */
+    @Transactional
+    public void deleteForModeration(Long commentId) {
+        Comment comment = Comment.<Comment>findByIdOptional(commentId)
+                .orElseThrow(() -> notFound("comment_not_found", "The comment does not exist."));
+        comment.delete();
+    }
+
+    /**
+     * Bulk content projection by id (QA bug batch, bug ③) — feeds the admin
+     * reports listing in moderation-service so a comment report renders its body
+     * + deep-links to its event. Unknown / deleted ids are silently omitted.
+     */
+    public List<CommentContentProjection> getContentByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return Comment.<Comment>list("id in ?1", ids).stream()
+                .map(c -> new CommentContentProjection(c.id, c.eventId, c.content))
+                .toList();
     }
 
     public List<CommentDTO> getByEvent(Long eventId, String auth0Id, int page, int size) {

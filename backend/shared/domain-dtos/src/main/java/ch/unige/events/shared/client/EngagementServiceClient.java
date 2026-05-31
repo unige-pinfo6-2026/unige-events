@@ -2,10 +2,12 @@ package ch.unige.events.shared.client;
 
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.dto.CommentContentProjection;
 import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import ch.unige.events.shared.tracing.RequestIdClientFilter;
 
 import io.quarkus.logging.Log;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -170,5 +172,62 @@ public interface EngagementServiceClient {
         throw new WebApplicationException(
                 "Comment visibility check unavailable",
                 Response.Status.SERVICE_UNAVAILABLE);
+    }
+
+    /**
+     * Internal endpoint (QA bug batch, bug ③) consumed by moderation-service when
+     * an admin VALIDATES (REVIEWED) a comment-bound report : the comment is hard
+     * deleted, the moderation analogue of an event BAN. Provider :
+     * {@code DELETE /comments/{commentId}/_internal-moderation} on
+     * engagement-service, gated {@code @Internal} (X-Internal-Token). Not in
+     * {@code openapi.yaml} — documented in {@code internal-endpoints.md}.
+     *
+     * <p>Resilience tuned for idempotency : a 404 means the comment is already
+     * gone (double-validate, or it was deleted by its author meanwhile) — that's
+     * a SUCCESS from the moderation standpoint, so {@code NotFoundException} is
+     * aborted/skipped (no retry, no CB trip) and propagated to the caller, which
+     * swallows it. The {@code @Fallback} throws 503 on genuine infra failure so
+     * the admin sees a meaningful error instead of a silently-not-deleted comment.
+     */
+    @DELETE
+    @Path("/comments/{commentId}/_internal-moderation")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS, abortOn = NotFoundException.class)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10, skipOn = NotFoundException.class)
+    @Fallback(fallbackMethod = "deleteCommentForModerationFallback", skipOn = NotFoundException.class)
+    void deleteCommentForModeration(@PathParam("commentId") Long commentId);
+
+    default void deleteCommentForModerationFallback(Long commentId) {
+        Log.errorf("[REST_FALLBACK_engagement-service] deleteCommentForModeration(comment=%d) — engagement-service unavailable ; surfacing as 503 to caller",
+                commentId);
+        throw new WebApplicationException(
+                "Comment moderation delete unavailable",
+                Response.Status.SERVICE_UNAVAILABLE);
+    }
+
+    /**
+     * Internal endpoint (QA bug batch, bug ③) consumed by moderation-service to
+     * enrich the admin reports listing with the reported comment's content +
+     * parent event id (so a comment report renders meaningfully and deep-links
+     * to its event). Provider :
+     * {@code GET /comments/_internal-by-ids?ids=1&ids=2} on engagement-service,
+     * gated {@code @Internal}. The {@code _internal-by-ids} segment is literal so
+     * it never collides with the {@code /{commentId}} path-param routes. Not in
+     * {@code openapi.yaml} — documented in {@code internal-endpoints.md}.
+     *
+     * <p>Fallback : empty list — a degraded enrichment shows the report without
+     * its comment body rather than failing the whole admin page.
+     */
+    @GET
+    @Path("/comments/_internal-by-ids")
+    @Retry(maxRetries = 3, delay = 200, delayUnit = ChronoUnit.MILLIS)
+    @Timeout(value = 2, unit = ChronoUnit.SECONDS)
+    @CircuitBreaker(failureRatio = 0.5, requestVolumeThreshold = 10)
+    @Fallback(fallbackMethod = "getCommentsByIdsFallback")
+    List<CommentContentProjection> getCommentsByIds(@QueryParam("ids") List<Long> ids);
+
+    default List<CommentContentProjection> getCommentsByIdsFallback(List<Long> ids) {
+        Log.warnf("[REST_FALLBACK_engagement-service] getCommentsByIds(ids=%d) — returning empty list (admin reports shown without comment body)", ids.size());
+        return List.of();
     }
 }

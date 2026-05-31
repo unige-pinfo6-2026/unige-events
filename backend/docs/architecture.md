@@ -86,7 +86,10 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   ↔ event (avec `?check-co-org-of=` pour cascade SCRUM-136), engagement
   ↔ user, moderation ↔ event, moderation ↔ user, **moderation ↔
   engagement (SCRUM-144 — `getCommentVisibility` pour
-  `POST /comments/{id}/report` anti-oracle)**. Resilience standard sur
+  `POST /comments/{id}/report` anti-oracle ; étendu QA bug batch bug ③ —
+  `deleteCommentForModeration` + `getCommentsByIds` pour la validation
+  d'un report de commentaire et l'enrichissement du dashboard admin)**.
+  Resilience standard sur
   tous les clients : `@Retry(maxRetries=3, delay=200)` + `@Timeout(2000)` +
   `@CircuitBreaker(failureRatio=0.5, requestVolumeThreshold=10)` +
   `@Fallback`. Endpoints **internes** (non Kong) documentés dans

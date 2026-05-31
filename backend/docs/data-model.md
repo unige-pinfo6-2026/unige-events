@@ -420,8 +420,14 @@ CHECK constraints :
 - `reports_reason_check` (posée par V9) : `reason IN ('SPAM', 'INAPPROPRIATE', 'FAKE', 'OTHER')`.
 - `report_target_xor` (posée par V4 SCRUM-144) : `(event_id IS NULL) <> (comment_id IS NULL)`.
 
-Le dashboard admin (`AdminReportResource`) distingue les deux types de reports par
-le champ id non-null (`event_id` vs `comment_id`).
+Le dashboard admin (`AdminReportResource`) distingue les deux types de reports via
+le champ `ReportDTO.targetType` (`"EVENT"` | `"COMMENT"`, dérivé de `commentId` — bug ③).
+Pour un report de commentaire, `ReportDTO.commentContent` porte le corps du commentaire
+(projeté par `ReportService.listByStatus` via l'endpoint interne engagement
+`GET /comments/_internal-by-ids` — cf. `internal-endpoints.md` #14). **Validation
+(`REVIEWED`)** : un report d'event bannit l'event (`events.banned`), un report de
+commentaire **supprime** le commentaire (`DELETE /comments/{id}/_internal-moderation` —
+#13). Dans les deux cas, les signalements `PENDING` frères de la même cible sont clôturés.
 
 #### Sémantique des champs
 

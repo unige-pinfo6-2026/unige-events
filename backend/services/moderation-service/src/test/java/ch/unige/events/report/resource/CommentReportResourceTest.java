@@ -48,7 +48,7 @@ class CommentReportResourceTest {
 
     private static ReportDTO sampleDto(Long commentId) {
         return new ReportDTO(
-                1L, null, commentId, null,
+                1L, "COMMENT", null, commentId, null, null,
                 UUID.randomUUID(), "Reporter-1",
                 ReportReason.SPAM, "spammy comment",
                 ReportStatus.PENDING, null,
