@@ -55,11 +55,13 @@ function SearchResultsFixture() {
   )
 }
 
+const USER_SKELETON_ROW_KEYS = ['urow-1', 'urow-2', 'urow-3', 'urow-4', 'urow-5', 'urow-6']
+
 function UserResultsFixture() {
   return (
     <div className="flex flex-col gap-3">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-3 rounded-2xl border border-border">
+      {USER_SKELETON_ROW_KEYS.map((key) => (
+        <div key={key} className="flex items-center gap-3 p-3 rounded-2xl border border-border">
           <div className="size-12 rounded-full bg-foreground/15 shrink-0" />
           <div className="flex-1 flex flex-col gap-2">
             <div className="h-4 w-40 rounded bg-foreground/15" />

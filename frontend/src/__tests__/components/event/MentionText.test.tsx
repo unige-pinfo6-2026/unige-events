@@ -66,7 +66,7 @@ describe('MentionText', () => {
 
   it('renders a URL and a @mention with their respective link styles', () => {
     const { container } = renderWithRouter('see https://x.com @daniel')
-    const url = container.querySelector('a[href="https://x.com/"]')
+    const url = container.querySelector('a[href="https://x.com"]')
     const mention = container.querySelector('a[href="/profile/daniel"]')
     expect(url?.className).toContain('text-link')
     expect(mention?.className).toContain('text-accent')

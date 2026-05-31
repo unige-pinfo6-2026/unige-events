@@ -73,8 +73,9 @@ function ReportTargetCell({ report }: Readonly<{ report: Report }>) {
       : <span className="block text-sm text-foreground/40 italic line-clamp-1">Commentaire supprimé</span>
   }
   const eventTitle = report.eventTitle ?? 'Événement supprimé'
-  return report.eventId !== null
-    ? (
+  return report.eventId === null
+    ? <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
+    : (
       <Link
         to={`/events/${report.eventId}`}
         className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
@@ -82,7 +83,6 @@ function ReportTargetCell({ report }: Readonly<{ report: Report }>) {
         {eventTitle}
       </Link>
     )
-    : <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
 }
 
 function ReportRow({

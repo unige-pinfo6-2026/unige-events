@@ -60,9 +60,9 @@ export function splitMentions(content: string): MentionSegment[] {
 
 export interface ContentSegment {
   kind: 'text' | 'mention' | 'url'
-  /** Raw text for `text` ; bare handle (no `@`) for `mention` ; the displayed
-   *  http(s) URL for `url` (already validated safe — the caller derives the
-   *  href via {@link safeHttpUrl}). */
+  /** Raw text for `text` ; bare handle (no `@`) for `mention` ; a safe http(s)
+   *  URL for `url` (validated by `safeHttpUrl` here, so the caller can render it
+   *  straight into an `href`). */
   value: string
 }
 
@@ -70,8 +70,18 @@ export interface ContentSegment {
  *  punctuation is trimmed afterwards so `https://x.com.` doesn't swallow the
  *  period. */
 const URL_RUN_REGEX = /https?:\/\/[^\s]+/gi
-/** Punctuation that commonly trails a URL in prose but isn't part of it. */
-const TRAILING_PUNCT_REGEX = /[.,!?;:)\]}'"]+$/
+/** Punctuation that commonly trails a URL in prose but isn't part of it.
+ *  Trimmed with a linear character scan rather than a `…+$` regex (which Sonar
+ *  flags as ReDoS-sensitive, S5852). */
+const TRAILING_PUNCT = new Set(['.', ',', '!', '?', ';', ':', ')', ']', '}', "'", '"'])
+
+/** Splits a matched URL run into its real URL + the trailing prose punctuation
+ *  (`https://x.com.` → `https://x.com` + `.`). O(n), no backtracking. */
+function trimTrailingPunctuation(run: string): { candidate: string; trailing: string } {
+  let end = run.length
+  while (end > 0 && TRAILING_PUNCT.has(run[end - 1])) end--
+  return { candidate: run.slice(0, end), trailing: run.slice(end) }
+}
 
 /**
  * Splits a plain-text run into {@code text} / {@code url} segments. Each URL
@@ -84,16 +94,12 @@ function splitUrls(text: string): ContentSegment[] {
   const re = new RegExp(URL_RUN_REGEX.source, 'gi')
   let match: RegExpExecArray | null
   while ((match = re.exec(text)) !== null) {
-    let candidate = match[0]
-    let trailing = ''
-    const tp = candidate.match(TRAILING_PUNCT_REGEX)
-    if (tp) {
-      trailing = candidate.slice(candidate.length - tp[0].length)
-      candidate = candidate.slice(0, candidate.length - tp[0].length)
-    }
-    // Unsafe / unparseable → leave the whole run as text (handled by the
-    // tail slice or the next match's leading-text slice).
-    if (!candidate || safeHttpUrl(candidate) === null) continue
+    const { candidate, trailing } = trimTrailingPunctuation(match[0])
+    // Unsafe / unparseable → leave the whole run as text (handled by the tail
+    // slice or the next match's leading-text slice). `candidate` always keeps
+    // its `http(s)://` scheme (only trailing prose punctuation is trimmed), so
+    // safeHttpUrl is the single gate here.
+    if (safeHttpUrl(candidate) === null) continue
     if (match.index > lastIndex) {
       segments.push({ kind: 'text', value: text.slice(lastIndex, match.index) })
     }

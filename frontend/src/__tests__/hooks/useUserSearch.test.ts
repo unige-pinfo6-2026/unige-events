@@ -65,4 +65,35 @@ describe('useUserSearch', () => {
     await waitFor(() => expect(result.current.error).toBe('Impossible de charger les utilisateurs.'), { timeout: 1000 })
     expect(result.current.results).toEqual([])
   })
+
+  it('swallows 401s without surfacing an error', async () => {
+    const err = Object.assign(new Error('unauthorized'), {
+      isAxiosError: true,
+      response: { status: 401 },
+    })
+    mockSearch.mockRejectedValue(err)
+    const { result } = renderHook(() => useUserSearch(true))
+    act(() => result.current.setQuery('dan'))
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled(), { timeout: 1000 })
+    await new Promise(r => setTimeout(r, 20))
+    expect(result.current.error).toBeNull()
+    expect(result.current.results).toEqual([])
+  })
+
+  it('ignores a response that resolves after the hook is disabled (stale guard)', async () => {
+    let resolveLate!: (v: UserPublicResponse[]) => void
+    mockSearch.mockImplementation(() => new Promise((res) => { resolveLate = res }))
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useUserSearch(enabled),
+      { initialProps: { enabled: true } },
+    )
+    act(() => result.current.setQuery('dan'))
+    await waitFor(() => expect(mockSearch).toHaveBeenCalled(), { timeout: 1000 })
+    // Disable → the reset effect bumps the request id; the in-flight response
+    // is now stale and must be dropped by the then-guard.
+    rerender({ enabled: false })
+    act(() => resolveLate([user('late.arrival')]))
+    await new Promise(r => setTimeout(r, 20))
+    expect(result.current.results).toEqual([])
+  })
 })
