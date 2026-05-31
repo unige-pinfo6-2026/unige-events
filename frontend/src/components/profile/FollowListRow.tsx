@@ -35,10 +35,12 @@ export default function FollowListRow({ user, onRemove }: Readonly<FollowListRow
   const displayName = user.displayName ?? user.username
 
   return (
-    <li className="flex items-center gap-2">
+    // The hover band lives on the whole row (incl. the "Retirer" button), not
+    // just the link, so the highlight spans the full width.
+    <li className="flex items-center gap-2 py-3 px-2 -mx-2 rounded-2xl transition-colors hover:bg-foreground/5">
       <Link
         to={`/profile/${user.username}`}
-        className="flex-1 min-w-0 flex items-center gap-3 py-3 px-2 -mx-2 rounded-2xl no-underline transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex-1 min-w-0 flex items-center gap-3 no-underline rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <UserAvatar user={user} className="size-12" />
         <div className="flex-1 min-w-0">
