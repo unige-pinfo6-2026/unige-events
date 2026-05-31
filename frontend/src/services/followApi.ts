@@ -32,6 +32,16 @@ export async function unfollowUser(targetId: string): Promise<void> {
 }
 
 /**
+ * Remove a follower from the caller's own followers list — the mirror of
+ * {@link unfollowUser}. Deletes the row where the caller is the `followed` and
+ * `followerId` is the `follower`. **Idempotent** (204 even if no row existed),
+ * silent (no notification to the dropped follower).
+ */
+export async function removeFollower(followerId: string): Promise<void> {
+  await api.delete(`/users/me/followers/${followerId}`)
+}
+
+/**
  * PENDING follow requests received by the authenticated user. The DTOs are
  * id-only; the panel resolves `getPublicProfile(followerId)` per row to
  * display avatar + displayName.

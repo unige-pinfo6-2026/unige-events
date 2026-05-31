@@ -157,6 +157,48 @@ class FollowServiceTest {
         // No exception expected.
     }
 
+    // ── removeFollower ────────────────────────────────────────────────────
+
+    @Test
+    @TestTransaction
+    void removeFollower_existingRow_deletesIt() {
+        // Alice follows Bob ; Bob removes Alice from his followers.
+        User alice = persistUser("auth0|fs-rf-a", "fs-rf-a@example.com", true);
+        User bob = persistUser("auth0|fs-rf-b", "fs-rf-b@example.com", true);
+        persistFollow(alice.id, bob.id, FollowStatus.ACCEPTED);
+
+        followService.removeFollower("auth0|fs-rf-b", alice.id);
+
+        assertTrue(Follow.findByFollowerAndFollowed(alice.id, bob.id).isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void removeFollower_noRow_isIdempotent() {
+        persistUser("auth0|fs-rf-no-a", "fs-rf-no-a@example.com", true);
+        User bob = persistUser("auth0|fs-rf-no-b", "fs-rf-no-b@example.com", true);
+
+        // Bob removes someone who isn't following him — no-op, no exception.
+        followService.removeFollower("auth0|fs-rf-no-b", UUID.randomUUID());
+        assertTrue(Follow.findFollowersOf(bob.id, 0, 20).isEmpty());
+    }
+
+    @Test
+    @TestTransaction
+    void removeFollower_onlyDropsTheInboundRow_notTheReverse() {
+        // Mutual follow: Alice→Bob and Bob→Alice. Bob removing Alice as a
+        // follower must delete only Alice→Bob, leaving Bob→Alice intact.
+        User alice = persistUser("auth0|fs-rf-mut-a", "fs-rf-mut-a@example.com", true);
+        User bob = persistUser("auth0|fs-rf-mut-b", "fs-rf-mut-b@example.com", true);
+        persistFollow(alice.id, bob.id, FollowStatus.ACCEPTED);
+        persistFollow(bob.id, alice.id, FollowStatus.ACCEPTED);
+
+        followService.removeFollower("auth0|fs-rf-mut-b", alice.id);
+
+        assertTrue(Follow.findByFollowerAndFollowed(alice.id, bob.id).isEmpty(), "inbound row dropped");
+        assertTrue(Follow.findByFollowerAndFollowed(bob.id, alice.id).isPresent(), "reverse row kept");
+    }
+
     // ── acceptRequest ─────────────────────────────────────────────────────
 
     @Test

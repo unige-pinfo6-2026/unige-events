@@ -13,6 +13,10 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
 }))
 
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}))
+
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
 }))
@@ -31,6 +35,7 @@ vi.mock('@/services/followApi', () => ({
   rejectFollowRequest: vi.fn(),
   getFollowers: vi.fn(),
   getFollowing: vi.fn(),
+  removeFollower: vi.fn(),
 }))
 
 // boneyard renders an SSR-style `<div>` with bones the test doesn't care

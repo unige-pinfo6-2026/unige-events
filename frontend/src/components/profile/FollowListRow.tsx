@@ -5,6 +5,9 @@ import { STUDY_LEVELS, type StudyLevel, type UserPublicResponse } from '@/types/
 
 interface FollowListRowProps {
   user: UserPublicResponse
+  /** When provided (own followers list), renders a "Retirer" action that drops
+   *  this user from the caller's followers. */
+  onRemove?: (userId: string) => void
 }
 
 /**
@@ -21,7 +24,7 @@ interface FollowListRowProps {
  * navigate to the target's profile where the FollowButton sees the
  * correct followStatus.
  */
-export default function FollowListRow({ user }: Readonly<FollowListRowProps>) {
+export default function FollowListRow({ user, onRemove }: Readonly<FollowListRowProps>) {
   const studyLevelName = user.studyLevel
     ? STUDY_LEVELS[user.studyLevel as StudyLevel]?.name
     : null
@@ -32,10 +35,10 @@ export default function FollowListRow({ user }: Readonly<FollowListRowProps>) {
   const displayName = user.displayName ?? user.username
 
   return (
-    <li>
+    <li className="flex items-center gap-2">
       <Link
         to={`/profile/${user.username}`}
-        className="flex items-center gap-3 py-3 px-2 -mx-2 rounded-2xl no-underline transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="flex-1 min-w-0 flex items-center gap-3 py-3 px-2 -mx-2 rounded-2xl no-underline transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <UserAvatar user={user} className="size-12" />
         <div className="flex-1 min-w-0">
@@ -48,6 +51,15 @@ export default function FollowListRow({ user }: Readonly<FollowListRowProps>) {
           </p>
         </div>
       </Link>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={() => onRemove(user.id)}
+          className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border text-foreground/60 hover:text-error hover:border-error/40 hover:bg-error/5 transition-colors cursor-pointer bg-transparent"
+        >
+          Retirer
+        </button>
+      )}
     </li>
   )
 }

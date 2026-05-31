@@ -509,7 +509,8 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 ### FollowListRow (SCRUM-142)
 
 - Composant `src/components/profile/FollowListRow.tsx`. Une ligne = `<UserAvatar>` 48px + `displayName` + `@username · studyLevel · facultyAbbr`.
-- Le row entier est un `<Link>` vers `/profile/{username}`. Pas de `FollowButton` (cf. note SCRUM-142 ci-dessus).
+- Le `<Link>` (avatar + identité) vers `/profile/{username}` prend `flex-1`. Pas de `FollowButton` (cf. note SCRUM-142 ci-dessus).
+- Prop optionnelle `onRemove?(userId)` : quand fournie (uniquement sur SA PROPRE liste de followers — `FollowListPage` compare `currentUser.id === target.uuid`), affiche un bouton **« Retirer »** qui retire ce follower via `useFollowList().remove` → `removeFollower` (`DELETE /api/users/me/followers/{id}`, optimiste, toast succès/erreur).
 
 ### MyPublicationsPreview
 

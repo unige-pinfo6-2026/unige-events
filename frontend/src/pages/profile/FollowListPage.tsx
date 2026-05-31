@@ -10,6 +10,7 @@ import ProfilePrivateState from '@/components/profile/ProfilePrivateState'
 import { ButtonSecondary } from '@/components/utils/Buttons'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useToast } from '@/hooks/useToast'
 import type { UserPublicResponse } from '@/types/user'
 
 interface FollowListPageProps {
@@ -73,8 +74,23 @@ const emptyMessages = {
 } as const
 
 function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
-  const { users, loading, loadingMore, isNotFound, error, hasMore, loadMore } =
+  const { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove } =
     useFollowList(target.uuid, mode)
+  const { user: currentUser } = useAuth()
+  const toast = useToast()
+
+  // "Retirer" is only offered on your OWN followers list — you can't kick a
+  // follower off someone else's profile.
+  const canRemoveFollowers = mode === 'followers' && !!currentUser && currentUser.id === target.uuid
+
+  const handleRemove = async (userId: string) => {
+    try {
+      await remove(userId)
+      toast.showToast('success', 'Follower retiré.', 3000)
+    } catch {
+      toast.showToast('error', 'Impossible de retirer ce follower.', 4000)
+    }
+  }
 
   if (isNotFound) {
     // Owner sees their own private list fine (200), so this only fires when
@@ -148,7 +164,11 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
         <>
           <ul className="flex flex-col divide-y divide-border/40">
             {users.map(user => (
-              <FollowListRow key={user.id} user={user} />
+              <FollowListRow
+                key={user.id}
+                user={user}
+                onRemove={canRemoveFollowers ? handleRemove : undefined}
+              />
             ))}
           </ul>
 

@@ -102,6 +102,22 @@ public class FollowService {
                 .ifPresent(Follow::delete);
     }
 
+    /**
+     * Removes a follower of the caller — the mirror of {@link #unfollow}. Where
+     * {@code unfollow} deletes the row where the caller is the <em>follower</em>,
+     * this deletes the row where the caller is the <em>followed</em> party and
+     * {@code followerId} is the (accepted or pending) follower being dropped.
+     * Lets a user kick someone off their followers list without waiting for that
+     * person to unfollow. Idempotent (no row → no-op). Fires no event — a silent
+     * removal, like a soft block (no notification to the dropped follower).
+     */
+    @Transactional
+    public void removeFollower(String targetAuth0Id, UUID followerId) {
+        UUID targetUserId = resolveUserId(targetAuth0Id);
+        Follow.findByFollowerAndFollowed(followerId, targetUserId)
+                .ifPresent(Follow::delete);
+    }
+
     @Transactional
     public Follow acceptRequest(String targetAuth0Id, Long followId) {
         UUID targetUserId = resolveUserId(targetAuth0Id);

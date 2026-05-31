@@ -2207,6 +2207,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /users/me/followers/{followerId}:
+    delete:
+      summary: Retirer un follower de sa propre liste
+      description: |
+        Supprime la row `Follow` où l'appelant authentifié est le `followed` et
+        `{followerId}` le `follower` — le **miroir de l'unfollow**. Permet de retirer
+        quelqu'un de sa liste de followers sans attendre qu'il se désabonne de lui-même.
+
+        **Idempotent** : retourne `204 No Content` même si aucune row n'existait. Action
+        **silencieuse** — aucune notification n'est envoyée au follower retiré.
+      operationId: removeFollower
+      x-owner-service: user-service
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: followerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Follower retiré ou no-op idempotent
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /users/{id}/followers:
     get:
       summary: Liste paginée des utilisateurs qui suivent la cible (SCRUM-138)

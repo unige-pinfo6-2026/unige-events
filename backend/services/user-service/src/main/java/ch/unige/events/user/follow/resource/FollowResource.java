@@ -71,6 +71,16 @@ public class FollowResource {
         return Response.noContent().build();
     }
 
+    @DELETE
+    @Path("/me/followers/{followerId}")
+    @Authenticated
+    @Consumes(MediaType.WILDCARD)
+    public Response removeFollower(@PathParam("followerId") UUID followerId) {
+        String auth0Id = identity.getPrincipal().getName();
+        followService.removeFollower(auth0Id, followerId);
+        return Response.noContent().build();
+    }
+
     @GET
     @Path("/{id}/followers")
     @Authenticated

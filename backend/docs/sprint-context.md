@@ -1,6 +1,41 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-31 (QA bug batch — vague V3 : modération comment + recherche user)
+Dernière mise à jour : 2026-05-31 (QA bug batch — feature « retirer un follower » + fixes infra locale)
+
+---
+
+## 2026-05-31 — QA bug batch, addendum (retirer un follower + drift infra local)
+
+Branche `fix/qa-bug-batch` (même PR #224).
+
+### Feature — retirer un de ses followers (miroir de l'unfollow)
+
+On pouvait se désabonner de quelqu'un, mais pas le **retirer de ses followers**.
+
+- **user-service** : `FollowService.removeFollower(targetAuth0Id, followerId)` supprime la
+  row `Follow{follower=followerId, followed=caller}` (idempotent, silencieux — aucun event
+  fired, donc aucune notif au follower retiré). Endpoint `DELETE /api/users/me/followers/{followerId}`
+  (`@Authenticated`) dans `FollowResource`. Sentinels `FollowServiceTest` (delete, idempotent,
+  ne touche pas la row inverse en cas de follow mutuel).
+- **Kong** : route `remove-follower` (`~/api/users/me/followers/[^/]+$`) ajoutée à
+  `docker/kong.yml` ET au configmap Helm (4 segments → pas de collision avec `follow-listings`).
+- **openapi** : path `DELETE /users/me/followers/{followerId}`.
+- **Frontend** : `removeFollower` (followApi), action optimiste `remove` sur `useFollowList`,
+  bouton « Retirer » sur `FollowListRow` (prop `onRemove`), affiché uniquement sur SA PROPRE
+  liste de followers (`FollowListPage` compare `currentUser.id === target.uuid`). Toasts succès/erreur.
+
+### Drift d'infra local corrigé (testing local de la PR)
+
+Plusieurs configs locales avaient divergé du chart Helm (prod OK, dev cassé) :
+- `docker/postgres-init.sql` créait `unige_events_notification` (singulier) au lieu de
+  `unige_events_notifications` (pluriel) → notification-service crashait au boot.
+- `docker/kong.yml` manquait le bloc `notification-service` + la route `report-comment`
+  → 404 gateway sur notifs + signalement commentaire.
+
+> **Note Kafka local** : user-service publie correctement les events de suivi (vérifié :
+> messages `ACCEPTED`/`FOLLOWED` présents dans Kafka — dual-fire V2 OK). Un souci runtime de
+> consommation Kafka de notification-service en dev local empêche la matérialisation des
+> notifications localement (tous types) — non reproduit en CI (consumers testés en in-memory).
 
 ---
 

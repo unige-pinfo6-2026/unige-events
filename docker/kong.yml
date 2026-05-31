@@ -161,6 +161,13 @@ services:
         paths: ['~/api/users/[^/]+/(?:followers|following)$']
         strip_path: false
         preserve_host: true
+      - name: remove-follower
+        # DELETE /api/users/me/followers/{followerId} — kick a follower off your
+        # own followers list (the mirror of unfollow). 4 segments so it doesn't
+        # collide with follow-listings (3 segments, anchored $).
+        paths: ['~/api/users/me/followers/[^/]+$']
+        strip_path: false
+        preserve_host: true
       - name: follow-requests
         paths: ['~/api/follow-requests/(?:\d+)/(?:accept|reject)$']
         strip_path: false

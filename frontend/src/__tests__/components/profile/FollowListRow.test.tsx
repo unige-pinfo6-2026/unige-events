@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FollowListRow from '@/components/profile/FollowListRow'
 import type { UserPublicResponse } from '@/types/user'
@@ -64,5 +64,23 @@ describe('FollowListRow', () => {
     renderRow(baseUser())
 
     expect(screen.queryByRole('button', { name: /suivre/i })).toBeNull()
+  })
+
+  it('renders no "Retirer" button when onRemove is omitted', () => {
+    renderRow(baseUser())
+    expect(screen.queryByRole('button', { name: 'Retirer' })).toBeNull()
+  })
+
+  it('renders a "Retirer" button calling onRemove with the user id when provided', () => {
+    const onRemove = vi.fn()
+    render(
+      <MemoryRouter>
+        <ul>
+          <FollowListRow user={baseUser({ id: 'x-id' })} onRemove={onRemove} />
+        </ul>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Retirer' }))
+    expect(onRemove).toHaveBeenCalledWith('x-id')
   })
 })
