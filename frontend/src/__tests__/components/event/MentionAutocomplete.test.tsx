@@ -470,6 +470,41 @@ describe('MentionAutocomplete (component)', () => {
     await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 2000 })
   })
 
+  it('bounds the dropdown height to the viewport (inline max-height + scrollable)', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    // Pin the textarea near the top of the viewport → plenty of room below.
+    ta.getBoundingClientRect = () =>
+      ({ top: 10, bottom: 50, left: 0, right: 100, width: 100, height: 40, x: 0, y: 10, toJSON: () => ({}) }) as DOMRect
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    act(() => { fireEvent(window, new Event('resize')) })
+    const listbox = screen.getByRole('listbox') as HTMLElement
+    // A concrete pixel cap is set inline (not an unbounded list) and the list
+    // stays scrollable so long result sets never overflow past the footer.
+    expect(listbox.style.maxHeight).toMatch(/^\d+px$/)
+    expect(listbox.className).toContain('overflow-y-auto')
+    // Room below → anchored under the textarea.
+    const container = listbox.parentElement as HTMLElement
+    expect(container.className).toContain('top-full')
+  })
+
+  it('flips above the textarea when there is no room below', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    // Pin the textarea near the bottom of the viewport so space-below is ~0.
+    ta.getBoundingClientRect = () =>
+      ({ top: window.innerHeight - 8, bottom: window.innerHeight - 4, left: 0, right: 100, width: 100, height: 4, x: 0, y: window.innerHeight - 8, toJSON: () => ({}) }) as DOMRect
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    // Trigger a recompute now that the rect override is in place.
+    act(() => { fireEvent(window, new Event('resize')) })
+    const container = (screen.getByRole('listbox') as HTMLElement).parentElement as HTMLElement
+    await waitFor(() => expect(container.className).toContain('bottom-full'))
+  })
+
   it('clears the results (no crash) when the search request rejects', async () => {
     mockSearch.mockRejectedValueOnce(new Error('network down'))
     render(<Harness />)

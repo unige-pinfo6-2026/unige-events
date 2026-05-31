@@ -997,6 +997,7 @@ Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) �
 - Navigation clavier ARIA combobox/listbox/option : ↑/↓ pour bouger l'active row, Enter pour insérer la suggestion sélectionnée, Esc pour fermer. Click-outside ferme aussi.
 - À la sélection, remplace `@<typedPrefix>` par `@<username> ` (avec espace final) et repositionne le caret juste après l'espace via `requestAnimationFrame`.
 - Le parser `detectActiveMention(value, caretPos)` vit dans `src/utils/mentions.ts` (pure function, unit-testable hors React) — gère les multi-`@` autour du caret, ignore `email@example.com`, accepte dash + dot dans la handle.
+- **Placement borné au viewport** : la hauteur du dropdown est plafonnée à l'espace disponible (`getBoundingClientRect` du textarea vs `window.innerHeight`, recalculé sur `scroll`/`resize`) et il bascule au-dessus du textarea (`bottom-full mb-1` au lieu de `top-full mt-1`) quand il manque de place en dessous. Il reste scrollable (`overflow-y-auto`) — il ne déborde donc plus le footer.
 
 ### MentionText — rendu du corps d'un commentaire (étendu liens)
 
