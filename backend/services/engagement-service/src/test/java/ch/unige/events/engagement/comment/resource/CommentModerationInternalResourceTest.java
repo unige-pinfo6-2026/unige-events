@@ -141,4 +141,17 @@ class CommentModerationInternalResourceTest {
             .when().get("/comments/_internal-by-ids")
             .then().statusCode(404);
     }
+
+    @Test
+    void byIds_noIdsParam_returnsEmptyList() {
+        // The empty-input guard (ids null/empty → List.of()) is the contract:
+        // EngagementServiceClient only calls this when there are comment reports,
+        // but an empty batch must short-circuit to an empty list, not query.
+        given()
+            .header("X-Internal-Token", token())
+            .when().get("/comments/_internal-by-ids")
+            .then()
+            .statusCode(200)
+            .body("$.size()", equalTo(0));
+    }
 }

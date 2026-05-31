@@ -380,6 +380,31 @@ class ReportServiceTest {
     }
 
     @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_commentReport_nullClientResponse_rendersWithoutContent() {
+        // Resilience (bulkFetchCommentContent null-guard): if engagement-service's
+        // batch returns null instead of its fallback's empty list, the enrichment
+        // degrades to an empty map — the comment report still lists, just without
+        // its body — rather than NPE-ing the whole admin page.
+        Report c = buildCommentReport(9L, 818L, reporterId, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(c));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        when(engagementClient.getCommentsByIds(any(List.class))).thenReturn(null);
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        ReportDTO dto = result.get(0);
+        assertEquals("COMMENT", dto.targetType());
+        assertEquals(818L, dto.commentId());
+        assertNull(dto.commentContent());
+    }
+
+    @Test
     void handle_commentReportReviewed_deletesCommentSkipsEventFetch() {
         // QA bug batch (bug ③) — REVIEWED on a comment report deletes the comment
         // via engagement-service and never fetches/bans an event (eventId null).

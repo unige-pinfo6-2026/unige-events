@@ -106,6 +106,41 @@ class FollowResourceTest {
             .statusCode(204);
     }
 
+    // ── DELETE /me/followers/{followerId} (remove a follower) ─────────────
+
+    @Test
+    @TestSecurity(user = "auth0|fr-rf-tgt")
+    void removeFollower_existingRow_returns204AndDropsFromFollowers() {
+        User follower = fixtures.persistUser("auth0|fr-rf-follower", "fr-rf-follower@example.com", true);
+        User target = fixtures.persistUser("auth0|fr-rf-tgt", "fr-rf-tgt@example.com", true);
+        fixtures.persistFollow(follower.id, target.id, FollowStatus.ACCEPTED);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|fr-rf-tgt"));
+
+        given()
+            .when().delete("/users/me/followers/" + follower.id)
+            .then()
+            .statusCode(204);
+
+        // The dropped follower no longer appears in the target's own list.
+        given()
+            .when().get("/users/" + target.id + "/followers")
+            .then()
+            .statusCode(200)
+            .body("$.size()", equalTo(0));
+    }
+
+    @Test
+    @TestSecurity(user = "auth0|fr-rf-no-tgt")
+    void removeFollower_noRow_isIdempotent204() {
+        fixtures.persistUser("auth0|fr-rf-no-tgt", "fr-rf-no-tgt@example.com", true);
+        JwtTestContext.set(JwtTestHelper.jwtFor("auth0|fr-rf-no-tgt"));
+
+        given()
+            .when().delete("/users/me/followers/" + UUID.randomUUID())
+            .then()
+            .statusCode(204);
+    }
+
     @Test
     @TestSecurity(user = "auth0|fr-followers-caller")
     void getFollowers_publicTarget_returns200() {
