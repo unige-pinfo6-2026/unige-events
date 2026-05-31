@@ -398,7 +398,7 @@ class ReportServiceTest {
         assertEquals(ReportStatus.REVIEWED, dto.status());
         assertEquals("COMMENT", dto.targetType());
         verify(engagementClient).deleteCommentForModeration(909L);
-        verify(eventClient, never()).getById(any());
+        verify(eventClient, never()).getById(anyLong());
     }
 
     @Test
