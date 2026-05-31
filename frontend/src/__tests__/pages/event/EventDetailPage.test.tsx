@@ -330,6 +330,20 @@ describe('EventDetailPage', () => {
     expect(screen.queryByRole('button', { name: /Remettre en brouillon/ })).toBeNull()
   })
 
+  it('renders the cancel button with the semantic error (red) color token, not orange', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    const cancelBtn = screen.getByRole('button', { name: /Annuler l'événement/ })
+    expect(cancelBtn.className).toContain('text-error')
+    expect(cancelBtn.className).toContain('border-error/40')
+    expect(cancelBtn.className).toContain('hover:bg-error/10')
+    expect(cancelBtn.className).not.toMatch(/orange/)
+  })
+
   it('hides organizer actions for another user', () => {
     mockUseAuth.mockReturnValue({ user: { ...mockUser, id: 'other-user' } })
     mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})

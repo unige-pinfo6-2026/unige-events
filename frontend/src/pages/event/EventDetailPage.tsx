@@ -795,7 +795,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
                     disabled={cancelling}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-orange-500/40 text-orange-400 bg-transparent text-sm font-semibold cursor-pointer hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-error/40 text-error bg-transparent text-sm font-semibold cursor-pointer hover:bg-error/10 transition-colors disabled:opacity-50"
                   >
                     <Ban className="w-4 h-4 shrink-0" />
                     Annuler l'événement
