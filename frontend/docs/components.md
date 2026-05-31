@@ -761,6 +761,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Retourne : `rows: FollowRequestRow[]` (`{ request: FollowDTO, follower: UserPublicResponse | null }`), `loading`, `error`, `accept(id)`, `reject(id)`, `refresh()`.
 - Per-row resolve via `Promise.allSettled` — un 404 / network failure sur un profil ne casse pas la liste, le row a `follower: null` et le composant affiche un fallback neutre "Utilisateur".
 - `accept(id)` / `reject(id)` : optimistes (suppression immédiate de la row), refresh sur succès, rollback si l'API échoue (re-throw pour que le composant toast).
+- **Auto-refresh** : poll silencieux toutes les `INBOX_POLL_INTERVAL_MS` (`src/constants/polling.ts`, 30 s — même cadence que `useNotifications`) pour que le badge de l'inbox se mette à jour sans reload. Le refetch périodique ne repasse pas `loading` à `true` (pas de clignotement).
 - Stale-response guard via `requestIdRef` monotone bumpé à chaque refresh / unmount.
 
 ### useFollowList (SCRUM-142)

@@ -5,6 +5,7 @@ import {
   rejectFollowRequest,
 } from '@/services/followApi'
 import { getPublicProfile } from '@/services/userService'
+import { INBOX_POLL_INTERVAL_MS } from '@/constants/polling'
 import type { FollowDTO } from '@/types/follow'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -46,9 +47,11 @@ export function useMyFollowRequests(): UseMyFollowRequestsResult {
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (silent = false) => {
     const myRequestId = ++requestIdRef.current
-    setLoading(true)
+    // Silent (poll) refetches keep the current rows on screen — no spinner
+    // flicker — exactly like the notification bell.
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const requests = await getMyFollowRequests()
@@ -74,7 +77,11 @@ export function useMyFollowRequests(): UseMyFollowRequestsResult {
 
   useEffect(() => {
     void fetchAll()
+    // Auto-refresh in lockstep with the notification bell so the inbox badge
+    // updates without a manual reload (silent — no spinner on each tick).
+    const interval = setInterval(() => void fetchAll(true), INBOX_POLL_INTERVAL_MS)
     return () => {
+      clearInterval(interval)
       // Bump on unmount so any late resolve is discarded.
       requestIdRef.current += 1
     }

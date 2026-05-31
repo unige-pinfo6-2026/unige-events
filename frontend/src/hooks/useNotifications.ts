@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { getNotifications, markAllRead, markNotificationRead } from '@/services/notificationApi'
+import { INBOX_POLL_INTERVAL_MS } from '@/constants/polling'
 import type { Notification } from '@/types/notification'
-
-const POLL_INTERVAL = 30_000
 
 interface UseNotificationsResult {
   notifications: Notification[]
@@ -47,7 +46,7 @@ export function useNotifications(): UseNotificationsResult {
 
   useEffect(() => {
     void fetchNotifications()
-    const interval = setInterval(() => void fetchNotifications(true), POLL_INTERVAL)
+    const interval = setInterval(() => void fetchNotifications(true), INBOX_POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [fetchNotifications])
 
