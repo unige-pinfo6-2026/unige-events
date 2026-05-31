@@ -172,6 +172,8 @@
 ### EventsSearchPage
 
 - Route `/events/search`, layout sidebar gauche + résultats droite.
+- **Onglets « Événements | Utilisateurs » (bug ⑦)** synchronisés à l'URL via `?tab=users` (`useSearchParams`, `replace`) pour le deep-link + retour navigateur. L'onglet Événements = comportement historique ci-dessous.
+- **Onglet Utilisateurs** (`UserSearchTab`, local) : recherche debounced via `useUserSearch(isAuthenticated)` → `searchUsernames(q, 20)` (`GET /api/users/search`, `@Authenticated`). Résultats en **liste verticale** de `UserResultCard`. États loading (skeleton `user-search-results`) / error / empty (« Aucun utilisateur trouvé. »). Non-connecté → message « Connecte-toi pour rechercher des utilisateurs » + `ButtonPrimary` qui appelle `login()` (l'endpoint exige l'auth).
 - Barre de recherche texte avec bouton loupe.
 - Dropdown d'autocomplétion : affiche jusqu'à 5 suggestions (debounce 300ms via useSearch), se ferme au clic extérieur ou Escape.
 - Cliquer une suggestion appelle `selectSuggestion` → déclenche immédiatement une recherche.
