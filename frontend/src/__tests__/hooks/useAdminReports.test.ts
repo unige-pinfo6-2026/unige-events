@@ -20,8 +20,11 @@ const mockUpdateReportStatus = updateReportStatus as ReturnType<typeof vi.fn>
 
 const makeReport = (id: number, status: Report['status'] = 'PENDING', createdAt = '2026-05-01T10:00:00'): Report => ({
   id,
+  targetType: 'EVENT',
   eventId: 100 + id,
+  commentId: null,
   eventTitle: `Event ${id}`,
+  commentContent: null,
   reporterId: `reporter-${id}`,
   reporterDisplayName: 'Alice',
   reason: 'SPAM',

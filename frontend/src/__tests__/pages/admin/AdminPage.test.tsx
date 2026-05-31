@@ -22,8 +22,11 @@ const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 
 const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report => ({
   id,
+  targetType: 'EVENT',
   eventId: 10 + id,
+  commentId: null,
   eventTitle: `Event ${id}`,
+  commentContent: null,
   reporterId: `reporter-${id}`,
   reporterDisplayName: 'Alice',
   reason: 'SPAM',
@@ -33,6 +36,15 @@ const makeReport = (id: number, status: Report['status'] = 'PENDING'): Report =>
   moderationNote: null,
   reviewedAt: null,
   reviewedBy: null,
+})
+
+const makeCommentReport = (id: number, status: Report['status'] = 'PENDING'): Report => ({
+  ...makeReport(id, status),
+  targetType: 'COMMENT',
+  eventId: null,
+  commentId: 100 + id,
+  eventTitle: null,
+  commentContent: `reported body ${id}`,
 })
 
 const makeEvent = (id: number): Event => ({
@@ -299,6 +311,36 @@ describe('AdminPage — reports section', () => {
     expect(screen.getByText('Compte supprimé')).toBeTruthy()
     // No anchor tag when event is gone
     expect(screen.queryByRole('link', { name: 'Événement supprimé' })).toBeNull()
+  })
+
+  it('renders a comment report with its body and a "Supprimer le commentaire" action (bug ③)', () => {
+    mockUseAdminReports.mockReturnValue({ ...defaultReports, reports: [makeCommentReport(1)] })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText(/reported body 1/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Supprimer le commentaire/ })).toBeTruthy()
+    // A comment report must NOT offer the event-ban action.
+    expect(screen.queryByRole('button', { name: /Bannir l'événement/ })).toBeNull()
+  })
+
+  it('falls back to "Commentaire supprimé" when a comment report has no body', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [{ ...makeCommentReport(2), commentContent: null }],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Commentaire supprimé')).toBeTruthy()
+  })
+
+  it('shows the "Supprimé" badge for a processed (REVIEWED) comment report', () => {
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      reports: [makeCommentReport(3, 'REVIEWED')],
+    })
+    mockUseAdminFeatured.mockReturnValue(defaultFeatured)
+    renderPage()
+    expect(screen.getByText('Supprimé')).toBeTruthy()
   })
 })
 

@@ -356,6 +356,33 @@ Réponse de `GET /api/users/me/calendar-token` et `POST /api/users/me/calendar-t
 
 ---
 
+## Types admin — `src/types/admin.ts`
+
+### Report
+
+Ligne du dashboard de modération (`GET /api/admin/reports`). Un signalement cible
+**exactement** un event OU un commentaire (XOR).
+
+| Champ | Type | Notes |
+|---|---|---|
+| `id` | number | |
+| `targetType` | `'EVENT' \| 'COMMENT'` | Discriminateur (bug ③) — le `ReportRow` affiche soit l'event, soit le commentaire selon ce champ, plutôt que d'inférer via les id null. |
+| `eventId` | number \| null | Renseigné pour un report d'event. |
+| `commentId` | number \| null | Renseigné pour un report de commentaire. |
+| `eventTitle` | string \| null | Titre projeté (report d'event). |
+| `commentContent` | string \| null | Corps du commentaire signalé (report de commentaire). |
+| `reporterId` / `reporterDisplayName` | string \| null | Signalant (null si compte supprimé). |
+| `reason` | `ReportReason` | Motif catégoriel partagé event+comment. |
+| `description` | string \| null | Texte libre. |
+| `status` | `ReportStatus` | `PENDING` \| `REVIEWED` \| `DISMISSED`. |
+| `moderationNote`, `createdAt`, `reviewedAt`, `reviewedBy` | | Audit. |
+
+**Validation (`REVIEWED`)** : un report d'event → bannit l'event ; un report de
+commentaire → **supprime** le commentaire (le `ReportRow` affiche « Bannir
+l'événement » vs « Supprimer le commentaire », badge « Banni » vs « Supprimé »).
+
+---
+
 ## Règles générales
 
 - Les types d'entités vivent dans `src/types/` et ne doivent pas être redéfinis ailleurs.

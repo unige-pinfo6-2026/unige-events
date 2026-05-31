@@ -1,6 +1,6 @@
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
-import { Ban, Search, Star, XCircle } from 'lucide-react'
+import { Ban, Search, Star, Trash2, XCircle } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
@@ -46,29 +46,60 @@ function AdminFeaturedFixture() {
 
 // ─── Report row ───────────────────────────────────────────────────────────────
 
+// Per-target labels for the validation action (bug ③) — validating an EVENT
+// report bans the event, a COMMENT report deletes the comment. Typed const map
+// rather than inline ternaries (cf. frontend/AGENTS.md).
+const reviewAction = {
+  EVENT: {
+    icon: Ban,
+    label: "Bannir l'événement",
+    title: "Confirme le signalement et bannit l'événement (action destructive : irréversible côté créateur).",
+    reviewedLabel: 'Banni',
+  },
+  COMMENT: {
+    icon: Trash2,
+    label: 'Supprimer le commentaire',
+    title: 'Confirme le signalement et supprime le commentaire (action destructive : irréversible).',
+    reviewedLabel: 'Supprimé',
+  },
+} as const
+
+/** Target cell — event title (deep-linked) or reported comment body. */
+function ReportTargetCell({ report }: Readonly<{ report: Report }>) {
+  if (report.targetType === 'COMMENT') {
+    const body = report.commentContent?.trim()
+    return body
+      ? <span className="block text-sm text-foreground/80 italic line-clamp-2">« {body} »</span>
+      : <span className="block text-sm text-foreground/40 italic line-clamp-1">Commentaire supprimé</span>
+  }
+  const eventTitle = report.eventTitle ?? 'Événement supprimé'
+  return report.eventId !== null
+    ? (
+      <Link
+        to={`/events/${report.eventId}`}
+        className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
+      >
+        {eventTitle}
+      </Link>
+    )
+    : <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
+}
+
 function ReportRow({
   report,
   onReview,
   onDismiss,
 }: Readonly<{ report: Report; onReview: (id: number) => void; onDismiss: (id: number) => void }>) {
-  const eventTitle = report.eventTitle ?? 'Événement supprimé'
   const reporterLabel = report.reporterDisplayName ?? 'Compte supprimé'
   const reasonLabel = REPORT_REASONS[report.reason]
   const description = report.description?.trim()
+  const action = reviewAction[report.targetType]
+  const ReviewIcon = action.icon
 
   return (
     <tr className="border-t border-border hover:bg-foreground/2 transition-colors align-top">
-      <td className="px-4 py-4">
-        {report.eventId !== null ? (
-          <Link
-            to={`/events/${report.eventId}`}
-            className="font-medium text-foreground hover:text-accent transition-colors text-sm line-clamp-1"
-          >
-            {eventTitle}
-          </Link>
-        ) : (
-          <span className="font-medium text-foreground/40 text-sm line-clamp-1">{eventTitle}</span>
-        )}
+      <td className="px-4 py-4 max-w-[280px]">
+        <ReportTargetCell report={report} />
       </td>
       <td className="px-4 py-4 text-sm max-w-[280px]">
         <span className="block font-medium text-foreground/80">{reasonLabel}</span>
@@ -88,11 +119,11 @@ function ReportRow({
             <button
               type="button"
               onClick={() => onReview(report.id)}
-              title="Confirme le signalement et bannit l'événement (action destructive : irréversible côté créateur)."
+              title={action.title}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-error/10 text-error hover:bg-error/20 transition-colors cursor-pointer border-0"
             >
-              <Ban className="size-3.5 shrink-0" />
-              Bannir l'événement
+              <ReviewIcon className="size-3.5 shrink-0" />
+              {action.label}
             </button>
             <button
               type="button"
@@ -110,7 +141,7 @@ function ReportRow({
                 ? 'bg-error/10 text-error'
                 : 'bg-foreground/5 text-foreground/50'
             }`}>
-              {report.status === 'REVIEWED' ? 'Banni' : 'Ignoré'}
+              {report.status === 'REVIEWED' ? action.reviewedLabel : 'Ignoré'}
             </span>
           </div>
         )}
@@ -178,7 +209,7 @@ function AdminReportsSection() {
             <thead>
               <tr className="bg-foreground/3">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/40 uppercase tracking-wider">
-                  Événement signalé
+                  Cible du signalement
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-foreground/40 uppercase tracking-wider">
                   Raison
