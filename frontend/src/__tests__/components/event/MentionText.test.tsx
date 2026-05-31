@@ -47,4 +47,28 @@ describe('MentionText', () => {
     const { container } = renderWithRouter('')
     expect(container.textContent).toBe('')
   })
+
+  it('renders an http(s) URL as a blue external link (text-link)', () => {
+    const { container } = renderWithRouter('check https://example.com/path now')
+    const link = container.querySelector('a[href="https://example.com/path"]')
+    expect(link).toBeTruthy()
+    expect(link?.className).toContain('text-link')
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(link?.textContent).toBe('https://example.com/path')
+  })
+
+  it('does NOT linkify an unsafe javascript: pseudo-URL', () => {
+    const { container } = renderWithRouter('javascript:alert(1)')
+    expect(container.querySelector('a')).toBeNull()
+    expect(container.textContent).toBe('javascript:alert(1)')
+  })
+
+  it('renders a URL and a @mention with their respective link styles', () => {
+    const { container } = renderWithRouter('see https://x.com @daniel')
+    const url = container.querySelector('a[href="https://x.com/"]')
+    const mention = container.querySelector('a[href="/profile/daniel"]')
+    expect(url?.className).toContain('text-link')
+    expect(mention?.className).toContain('text-accent')
+  })
 })

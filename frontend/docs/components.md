@@ -998,6 +998,14 @@ Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) �
 - À la sélection, remplace `@<typedPrefix>` par `@<username> ` (avec espace final) et repositionne le caret juste après l'espace via `requestAnimationFrame`.
 - Le parser `detectActiveMention(value, caretPos)` vit dans `src/utils/mentions.ts` (pure function, unit-testable hors React) — gère les multi-`@` autour du caret, ignore `email@example.com`, accepte dash + dot dans la handle.
 
+### MentionText — rendu du corps d'un commentaire (étendu liens)
+
+- `src/components/event/MentionText.tsx` — rend le `content` d'un commentaire en segmentant via `splitContent(content)` (`src/utils/mentions.ts`) :
+  - `@<handle>` → `<Link to=/profile/<handle>>` en `text-accent` (casse d'affichage préservée, cible lowercase).
+  - URL `http(s)` → `<a text-link hover:underline break-all target="_blank" rel="noopener noreferrer">` (bleu, identique au rendu `event.websiteUrl` de la page détail).
+  - tout le reste → texte brut (Fragment), `whitespace-pre-wrap` préservé.
+- Sécurité : `splitContent` détecte les URLs **avant** les mentions (un `@` dans une URL n'est pas découpé) et valide chaque URL via `safeHttpUrl` (`src/utils/url.ts`) — les schémas `javascript:`/`data:`/etc. restent du texte brut (anti-XSS/open-redirect). `safeHttpUrl` est l'util partagé réutilisé aussi par `EventDetailPage` pour `websiteUrl`.
+
 ### ReportModal (étendu SCRUM-147)
 
 - `src/components/event/ReportModal.tsx` — modal partagé event + comment.

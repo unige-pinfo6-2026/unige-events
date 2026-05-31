@@ -5,6 +5,8 @@
  * component export ; also makes the parser unit-testable without React.
  */
 
+import { safeHttpUrl } from '@/utils/url'
+
 /** Charset matching the SCRUM-169 username regex `[a-z0-9._-]{3,30}`, but
  *  accepted case-insensitively at type-time (the result is lowercased
  *  before any backend hit). */
@@ -52,6 +54,75 @@ export function splitMentions(content: string): MentionSegment[] {
   }
   if (lastIndex < content.length) {
     segments.push({ kind: 'text', value: content.slice(lastIndex) })
+  }
+  return segments
+}
+
+export interface ContentSegment {
+  kind: 'text' | 'mention' | 'url'
+  /** Raw text for `text` ; bare handle (no `@`) for `mention` ; the displayed
+   *  http(s) URL for `url` (already validated safe — the caller derives the
+   *  href via {@link safeHttpUrl}). */
+  value: string
+}
+
+/** Matches an absolute http(s) URL run (no whitespace). Trailing sentence
+ *  punctuation is trimmed afterwards so `https://x.com.` doesn't swallow the
+ *  period. */
+const URL_RUN_REGEX = /https?:\/\/[^\s]+/gi
+/** Punctuation that commonly trails a URL in prose but isn't part of it. */
+const TRAILING_PUNCT_REGEX = /[.,!?;:)\]}'"]+$/
+
+/**
+ * Splits a plain-text run into {@code text} / {@code url} segments. Each URL
+ * candidate is validated through {@link safeHttpUrl} — anything that isn't a
+ * real http(s) URL stays plain text (closes the `javascript:`/`data:` hole).
+ */
+function splitUrls(text: string): ContentSegment[] {
+  const segments: ContentSegment[] = []
+  let lastIndex = 0
+  const re = new RegExp(URL_RUN_REGEX.source, 'gi')
+  let match: RegExpExecArray | null
+  while ((match = re.exec(text)) !== null) {
+    let candidate = match[0]
+    let trailing = ''
+    const tp = candidate.match(TRAILING_PUNCT_REGEX)
+    if (tp) {
+      trailing = candidate.slice(candidate.length - tp[0].length)
+      candidate = candidate.slice(0, candidate.length - tp[0].length)
+    }
+    // Unsafe / unparseable → leave the whole run as text (handled by the
+    // tail slice or the next match's leading-text slice).
+    if (!candidate || safeHttpUrl(candidate) === null) continue
+    if (match.index > lastIndex) {
+      segments.push({ kind: 'text', value: text.slice(lastIndex, match.index) })
+    }
+    segments.push({ kind: 'url', value: candidate })
+    if (trailing) segments.push({ kind: 'text', value: trailing })
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) {
+    segments.push({ kind: 'text', value: text.slice(lastIndex) })
+  }
+  return segments
+}
+
+/**
+ * Splits a comment body into renderable {@code text} / {@code mention} /
+ * {@code url} segments. URLs are detected FIRST (over the whole string) so an
+ * {@code @handle} living inside a URL — e.g. {@code https://twitter.com/@dan}
+ * — is never carved out as a mention; {@link splitMentions} then runs only on
+ * the non-URL text runs.
+ */
+export function splitContent(content: string): ContentSegment[] {
+  if (!content) return []
+  const segments: ContentSegment[] = []
+  for (const run of splitUrls(content)) {
+    if (run.kind === 'url') {
+      segments.push(run)
+      continue
+    }
+    for (const m of splitMentions(run.value)) segments.push(m)
   }
   return segments
 }

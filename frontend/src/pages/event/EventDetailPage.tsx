@@ -11,6 +11,7 @@ import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
 import { formatEventDateTime, formatEventDateTimeCompact } from '@/utils/dateTime'
+import { safeHttpUrl } from '@/utils/url'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
@@ -282,18 +283,6 @@ function OccurrencesSection({ parentId, currentEventId, skeletonColor }: Occurre
       )}
     </div>
   )
-}
-
-// Whitelist pour le lien externe `websiteUrl` — le backend stocke l'URL avec @URL, qui
-// accepte d'autres schémas (p. ex. `javascript:`). On ne rend un <a href> que si l'URL
-// parse en http(s) ; sinon on affiche la chaîne brute pour éviter tout XSS/open-redirect.
-function safeExternalHref(value: string): string | null {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null
-  } catch {
-    return null
-  }
 }
 
 // ─── Page principale ───────────────────────────────────────────────────────────
@@ -578,7 +567,7 @@ export default function EventDetailPage() {
 
               <div className="flex flex-col gap-3">
                 {event.websiteUrl && (() => {
-                  const safeHref = safeExternalHref(event.websiteUrl)
+                  const safeHref = safeHttpUrl(event.websiteUrl)
                   return (
                     <InfoRow icon={Globe} color={category.color}>
                       {safeHref ? (
