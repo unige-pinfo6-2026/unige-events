@@ -31,7 +31,7 @@
         <smallrye-reactive-messaging.version>4.35.0</smallrye-reactive-messaging.version>
         <quarkus.dev.jvmArgs>-Xmx512m -XX:+UseSerialGC</quarkus.dev.jvmArgs>
         <skipITs>true</skipITs>
-        <surefire-plugin.version>3.5.5</surefire-plugin.version>
+        <surefire-plugin.version>3.5.6</surefire-plugin.version>
 
         <!-- Sonar -->
         <jacoco.version>0.8.14</jacoco.version>
