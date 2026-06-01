@@ -53,6 +53,21 @@ export async function getById(id: number, checkCoOrgOf?: string | null): Promise
   return response.data
 }
 
+/**
+ * Returns the UUIDs of the event's organizer team — the creator plus every
+ * ACCEPTED co-organizer (PENDING / DECLINED are never included). Public
+ * endpoint (`@PermitAll`, ADR-002), so it resolves for anonymous viewers too —
+ * unlike `GET /events/{id}/co-organizers` which is `@Authenticated`.
+ *
+ * Used by `EventOrganizerTeam` on the public event detail page to render the
+ * organizer team for everyone (the per-UUID name lookup goes through the
+ * equally-public `GET /users/{id}`).
+ */
+export async function getOrganizerUuids(id: number): Promise<string[]> {
+  const response = await api.get<string[]>('/events/' + id + '/organizer-uuids')
+  return response.data
+}
+
 export interface GetOccurrencesParams {
   page?: number
   size?: number
