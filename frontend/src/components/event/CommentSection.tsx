@@ -1,6 +1,7 @@
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
+import { useTheme } from '@/contexts/ThemeContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useComments } from '@/hooks/useComments'
 import { useToast } from '@/hooks/useToast'
@@ -33,6 +34,8 @@ export default function CommentSection({
   eventStatus,
 }: Readonly<Props>) {
   const { user, isAdmin } = useAuth()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const { showToast } = useToast()
   const {
     comments,
@@ -102,7 +105,7 @@ export default function CommentSection({
 
       {/* List area */}
       {loading && comments.length === 0 && (
-        <Skeleton name="comments" loading={true}>
+        <Skeleton name="comments" loading={true} animate="pulse" color={skeletonColor}>
           <div className="space-y-3">
             <div className="h-24 rounded-2xl" />
             <div className="h-24 rounded-2xl" />
