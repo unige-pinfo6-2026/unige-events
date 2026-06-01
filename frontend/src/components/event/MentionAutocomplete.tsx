@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useDebounce } from '@/hooks/useDebounce'
 import { searchUsernames } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
@@ -28,19 +29,31 @@ const MAX_DROPDOWN_PX = 288
 const MIN_DROPDOWN_PX = 96
 /** Breathing room kept between the dropdown and the viewport edge. */
 const VIEWPORT_MARGIN_PX = 8
+/** Gap between the textarea and the dropdown (matches the old `mt-1`/`mb-1`). */
+const ANCHOR_GAP_PX = 4
 
 interface DropdownPlacement {
   side: 'below' | 'above'
   maxHeight: number
+  /** Fixed-position coordinates (viewport-relative). The dropdown is portaled
+   *  to <body> so it escapes the comment card's backdrop-blur stacking context
+   *  and the page wrapper's overflow-hidden clip. */
+  left: number
+  width: number
+  /** Set when side === 'below' (anchor by top). */
+  top?: number
+  /** Set when side === 'above' (anchor by distance from the viewport bottom). */
+  bottom?: number
 }
 
 /**
- * Picks where to anchor the dropdown (under or over the textarea) and how tall
- * it may grow, so it never spills past the viewport / footer. Falls back to
- * "below, full height" when geometry can't be measured (e.g. detached ref).
+ * Picks where to anchor the dropdown (under or over the textarea), how tall it
+ * may grow (so it never spills past the viewport), and its fixed viewport
+ * coordinates. Falls back to "below, full height, top-left" when geometry
+ * can't be measured (e.g. detached ref).
  */
 function computePlacement(textarea: HTMLTextAreaElement | null): DropdownPlacement {
-  if (!textarea) return { side: 'below', maxHeight: MAX_DROPDOWN_PX }
+  if (!textarea) return { side: 'below', maxHeight: MAX_DROPDOWN_PX, left: 0, width: 0, top: 0 }
   const rect = textarea.getBoundingClientRect()
   const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN_PX
   const spaceAbove = rect.top - VIEWPORT_MARGIN_PX
@@ -48,7 +61,10 @@ function computePlacement(textarea: HTMLTextAreaElement | null): DropdownPlaceme
     spaceBelow >= MIN_DROPDOWN_PX || spaceBelow >= spaceAbove ? 'below' : 'above'
   const available = side === 'below' ? spaceBelow : spaceAbove
   const maxHeight = Math.max(MIN_DROPDOWN_PX, Math.min(MAX_DROPDOWN_PX, available))
-  return { side, maxHeight }
+  const base = { side, maxHeight, left: rect.left, width: rect.width }
+  return side === 'below'
+    ? { ...base, top: rect.bottom + ANCHOR_GAP_PX }
+    : { ...base, bottom: window.innerHeight - rect.top + ANCHOR_GAP_PX }
 }
 
 /**
@@ -79,7 +95,7 @@ export default function MentionAutocomplete({
   const [activeIndex, setActiveIndex] = useState(-1)
   const [caretPos, setCaretPos] = useState(0)
   const [isOpen, setIsOpen] = useState(true)
-  const [placement, setPlacement] = useState<DropdownPlacement>({ side: 'below', maxHeight: MAX_DROPDOWN_PX })
+  const [placement, setPlacement] = useState<DropdownPlacement>({ side: 'below', maxHeight: MAX_DROPDOWN_PX, left: 0, width: 0, top: 0 })
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const requestIdRef = useRef(0)
@@ -254,12 +270,24 @@ export default function MentionAutocomplete({
 
   if (!activeMention) return null
 
-  return (
+  // Portaled to <body> in `position: fixed` so the dropdown escapes (a) the
+  // CommentSection card's backdrop-blur stacking context — which would trap
+  // its z-index below the footer's z-10 content — and (b) the page wrapper's
+  // overflow-hidden clip. z-40 keeps it above the footer (z-10) yet below
+  // modals (z-50).
+  const dropdown = (
     <div
       ref={containerRef}
-      className={`absolute z-20 left-0 right-0 ${
-        placement.side === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'
-      }`}
+      data-side={placement.side}
+      style={{
+        position: 'fixed',
+        left: `${placement.left}px`,
+        width: `${placement.width}px`,
+        ...(placement.side === 'below'
+          ? { top: `${placement.top ?? 0}px` }
+          : { bottom: `${placement.bottom ?? 0}px` }),
+      }}
+      className="z-40"
     >
       <ul
         id={listboxId}
@@ -305,4 +333,6 @@ export default function MentionAutocomplete({
       </ul>
     </div>
   )
+
+  return createPortal(dropdown, document.body)
 }

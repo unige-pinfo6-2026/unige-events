@@ -476,7 +476,7 @@ describe('MentionAutocomplete (component)', () => {
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
     // Pin the textarea near the top of the viewport → plenty of room below.
     ta.getBoundingClientRect = () =>
-      ({ top: 10, bottom: 50, left: 0, right: 100, width: 100, height: 40, x: 0, y: 10, toJSON: () => ({}) }) as DOMRect
+      ({ top: 10, bottom: 50, left: 20, right: 120, width: 100, height: 40, x: 20, y: 10, toJSON: () => ({}) }) as DOMRect
     typeIn(ta, '@al')
     await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
     act(() => { fireEvent(window, new Event('resize')) })
@@ -485,9 +485,13 @@ describe('MentionAutocomplete (component)', () => {
     // stays scrollable so long result sets never overflow past the footer.
     expect(listbox.style.maxHeight).toMatch(/^\d+px$/)
     expect(listbox.className).toContain('overflow-y-auto')
-    // Room below → anchored under the textarea.
+    // Room below → anchored under the textarea via fixed `top`.
     const container = listbox.parentElement as HTMLElement
-    expect(container.className).toContain('top-full')
+    expect(container.getAttribute('data-side')).toBe('below')
+    expect(container.style.position).toBe('fixed')
+    expect(container.style.top).toBe('54px') // rect.bottom (50) + ANCHOR_GAP (4)
+    expect(container.style.left).toBe('20px')
+    expect(container.style.width).toBe('100px')
   })
 
   it('flips above the textarea when there is no room below', async () => {
@@ -502,7 +506,23 @@ describe('MentionAutocomplete (component)', () => {
     // Trigger a recompute now that the rect override is in place.
     act(() => { fireEvent(window, new Event('resize')) })
     const container = (screen.getByRole('listbox') as HTMLElement).parentElement as HTMLElement
-    await waitFor(() => expect(container.className).toContain('bottom-full'))
+    // No room below → anchored above the textarea via fixed `bottom`.
+    await waitFor(() => expect(container.getAttribute('data-side')).toBe('above'))
+    expect(container.style.position).toBe('fixed')
+    expect(container.style.bottom).toBe('12px') // innerHeight - rect.top(innerHeight-8) + 4
+  })
+
+  it('portals the dropdown to <body> with z-40 so it escapes the card stacking context', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    const { container: harnessContainer } = render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    const portalRoot = (screen.getByRole('listbox') as HTMLElement).parentElement as HTMLElement
+    // Rendered under document.body, NOT inside the harness/comment-card subtree.
+    expect(harnessContainer.contains(portalRoot)).toBe(false)
+    expect(document.body.contains(portalRoot)).toBe(true)
+    expect(portalRoot.className).toContain('z-40')
   })
 
   it('clears the results (no crash) when the search request rejects', async () => {
