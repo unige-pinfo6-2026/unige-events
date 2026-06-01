@@ -4,6 +4,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { searchUsernames } from '@/services/userService'
 import UserAvatar from '@/components/user/UserAvatar'
 import { detectActiveMention } from '@/utils/mentions'
+import { computePlacement, MAX_DROPDOWN_PX, type DropdownPlacement } from '@/components/event/mentionPlacement'
 import type { UserPublicResponse } from '@/types/user'
 
 interface MentionAutocompleteProps {
@@ -21,51 +22,6 @@ interface MentionAutocompleteProps {
 const MIN_PREFIX_LENGTH = 2
 const DEBOUNCE_MS = 300
 const FETCH_LIMIT = 8
-
-/** Hard ceiling for the dropdown (matches the old `max-h-72` = 18rem). */
-const MAX_DROPDOWN_PX = 288
-/** Smallest height worth showing — below this we still cap to the available
- *  space but accept a little scroll rather than a sliver. */
-const MIN_DROPDOWN_PX = 96
-/** Breathing room kept between the dropdown and the viewport edge. */
-const VIEWPORT_MARGIN_PX = 8
-/** Gap between the textarea and the dropdown (matches the old `mt-1`/`mb-1`). */
-const ANCHOR_GAP_PX = 4
-
-interface DropdownPlacement {
-  side: 'below' | 'above'
-  maxHeight: number
-  /** Fixed-position coordinates (viewport-relative). The dropdown is portaled
-   *  to <body> so it escapes the comment card's backdrop-blur stacking context
-   *  and the page wrapper's overflow-hidden clip. */
-  left: number
-  width: number
-  /** Set when side === 'below' (anchor by top). */
-  top?: number
-  /** Set when side === 'above' (anchor by distance from the viewport bottom). */
-  bottom?: number
-}
-
-/**
- * Picks where to anchor the dropdown (under or over the textarea), how tall it
- * may grow (so it never spills past the viewport), and its fixed viewport
- * coordinates. Falls back to "below, full height, top-left" when geometry
- * can't be measured (e.g. detached ref).
- */
-function computePlacement(textarea: HTMLTextAreaElement | null): DropdownPlacement {
-  if (!textarea) return { side: 'below', maxHeight: MAX_DROPDOWN_PX, left: 0, width: 0, top: 0 }
-  const rect = textarea.getBoundingClientRect()
-  const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN_PX
-  const spaceAbove = rect.top - VIEWPORT_MARGIN_PX
-  const side: DropdownPlacement['side'] =
-    spaceBelow >= MIN_DROPDOWN_PX || spaceBelow >= spaceAbove ? 'below' : 'above'
-  const available = side === 'below' ? spaceBelow : spaceAbove
-  const maxHeight = Math.max(MIN_DROPDOWN_PX, Math.min(MAX_DROPDOWN_PX, available))
-  const base = { side, maxHeight, left: rect.left, width: rect.width }
-  return side === 'below'
-    ? { ...base, top: rect.bottom + ANCHOR_GAP_PX }
-    : { ...base, bottom: window.innerHeight - rect.top + ANCHOR_GAP_PX }
-}
 
 /**
  * Inline mention autocomplete for a textarea — SCRUM-147 Décision E.
@@ -284,8 +240,8 @@ export default function MentionAutocomplete({
         left: `${placement.left}px`,
         width: `${placement.width}px`,
         ...(placement.side === 'below'
-          ? { top: `${placement.top ?? 0}px` }
-          : { bottom: `${placement.bottom ?? 0}px` }),
+          ? { top: `${placement.top}px` }
+          : { bottom: `${placement.bottom}px` }),
       }}
       className="z-40"
     >
