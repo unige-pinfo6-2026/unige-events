@@ -2,26 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-vi.mock('@/hooks/useCoOrganizers', () => ({
-  useCoOrganizers: vi.fn(),
+vi.mock('@/hooks/usePublicOrganizers', () => ({
+  usePublicOrganizers: vi.fn(),
 }))
 
-import { useCoOrganizers } from '@/hooks/useCoOrganizers'
+import { usePublicOrganizers, type PublicOrganizer } from '@/hooks/usePublicOrganizers'
 import EventOrganizerTeam from '@/components/event/EventOrganizerTeam'
-import type { CoOrganizer } from '@/types/coOrganizer'
 
-const mockUseCoOrganizers = vi.mocked(useCoOrganizers)
+const mockUsePublicOrganizers = vi.mocked(usePublicOrganizers)
 
 const CREATOR_UUID = '00000000-0000-0000-0000-000000000001'
 
-function setupHook(overrides: Partial<ReturnType<typeof useCoOrganizers>> = {}) {
-  mockUseCoOrganizers.mockReturnValue({
+function setupHook(overrides: Partial<ReturnType<typeof usePublicOrganizers>> = {}) {
+  mockUsePublicOrganizers.mockReturnValue({
     coOrganizers: [],
     loading: false,
-    error: null,
-    invite: vi.fn(),
-    remove: vi.fn(),
-    refresh: vi.fn(),
     ...overrides,
   })
 }
@@ -31,7 +26,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-beforeEach(() => mockUseCoOrganizers.mockReset())
+beforeEach(() => mockUsePublicOrganizers.mockReset())
 
 function renderWithRouter(ui: React.ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>)
@@ -53,15 +48,12 @@ describe('EventOrganizerTeam', () => {
     expect(screen.getByText('Organisateur')).toBeTruthy()
   })
 
-  it('renders ACCEPTED co-organizers with the right badge', () => {
-    const alice: CoOrganizer = {
-      id: 1,
+  it('renders co-organizers resolved by usePublicOrganizers with the right badge', () => {
+    const alice: PublicOrganizer = {
       userId: '00000000-0000-0000-0000-000000000002',
       displayName: 'Alice',
       avatarUrl: null,
       username: 'alice',
-      status: 'ACCEPTED',
-      invitedAt: '2026-05-14T10:00:00',
     }
     setupHook({ coOrganizers: [alice] })
     renderWithRouter(
@@ -77,26 +69,8 @@ describe('EventOrganizerTeam', () => {
     expect(screen.getByText('Co-organisateur')).toBeTruthy()
   })
 
-  it('filters out PENDING and DECLINED co-organizers (display ACCEPTED only)', () => {
-    const pending: CoOrganizer = {
-      id: 1,
-      userId: '00000000-0000-0000-0000-000000000010',
-      displayName: 'Pending',
-      avatarUrl: null,
-      username: 'pending',
-      status: 'PENDING',
-      invitedAt: '2026-05-14T10:00:00',
-    }
-    const declined: CoOrganizer = {
-      id: 2,
-      userId: '00000000-0000-0000-0000-000000000011',
-      displayName: 'Declined',
-      avatarUrl: null,
-      username: 'declined',
-      status: 'DECLINED',
-      invitedAt: '2026-05-14T10:00:00',
-    }
-    setupHook({ coOrganizers: [pending, declined] })
+  it('passes eventId and creatorId to the public-organizers hook (creator filtered out there)', () => {
+    setupHook()
     renderWithRouter(
       <EventOrganizerTeam
         eventId={42}
@@ -106,8 +80,7 @@ describe('EventOrganizerTeam', () => {
         creatorAvatarUrl={null}
       />,
     )
-    expect(screen.queryByText('Pending')).toBeNull()
-    expect(screen.queryByText('Declined')).toBeNull()
+    expect(mockUsePublicOrganizers).toHaveBeenCalledWith(42, CREATOR_UUID)
   })
 
   it('renders the loading skeleton placeholder while co-organizers load', () => {
@@ -122,7 +95,7 @@ describe('EventOrganizerTeam', () => {
       />,
     )
     // Creator is always shown; the skeleton occupies an extra <li> in the
-    // co-organizer slot while loading is true (line 53 branch).
+    // co-organizer slot while loading is true.
     expect(screen.getByText('Charlie')).toBeTruthy()
     expect(document.querySelectorAll('li').length).toBeGreaterThan(1)
   })
@@ -143,20 +116,22 @@ describe('EventOrganizerTeam', () => {
     expect(img?.getAttribute('src')).toBe('https://example.com/charlie.png')
   })
 
-  it('falls back to the UUID prefix when displayName and username are null', () => {
-    // SCRUM-169 — userDisplayLabel order : displayName > @username > UUID prefix.
-    // Here both are absent → falls to the first 8 chars of CREATOR_UUID.
-    // CREATOR_UUID starts with "00000000-".
+  it('falls back to the short UUID prefix — never @<full-uuid> — when creator name and username are null', () => {
+    // The EventDetailPage hardening passes username=null (not the raw UUID)
+    // while the creator fetch is pending. userDisplayLabel order:
+    // displayName > @username > UUID prefix → here the 8-char prefix.
     setupHook()
     renderWithRouter(
       <EventOrganizerTeam
         eventId={42}
         creatorId={CREATOR_UUID}
-        creatorUsername={null as unknown as string}
+        creatorUsername={null}
         creatorDisplayName={null}
         creatorAvatarUrl={null}
       />,
     )
     expect(screen.getByText(CREATOR_UUID.slice(0, 8))).toBeTruthy()
+    // The full UUID with an @ prefix must never appear.
+    expect(screen.queryByText('@' + CREATOR_UUID)).toBeNull()
   })
 })
