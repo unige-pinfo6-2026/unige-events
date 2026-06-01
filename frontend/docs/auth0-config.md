@@ -21,10 +21,10 @@ Réglages Auth0 Dashboard requis pour tous les environnements (dev, staging, pro
 | Reuse Interval | 0 s (recommandé) | |
 | Absolute Expiration | **Activé** — 30 jours | Durée de vie maximale absolue d'une session (force re-login après 30 j). |
 | Absolute Lifetime | 2 592 000 s (30 jours) | |
-| Inactivity Expiration | **Activé** — 7 jours | Révoque le refresh token si l'utilisateur est inactif 7 jours. |
-| Inactivity Lifetime | 604 800 s (7 jours) | |
+| Inactivity Expiration | **Activé** — 15 jours | Révoque le refresh token si l'utilisateur est inactif 15 jours. |
+| Inactivity Lifetime | 1 296 000 s (15 jours) | |
 
-> **Pourquoi ces réglages ?** Le frontend utilise `useRefreshTokens={true}` et `useRefreshTokensFallback={false}` dans `AuthProvider.tsx`. Sans la rotation activée côté tenant, `getAccessTokenSilently()` ne peut pas rafraîchir le token sur les navigateurs bloquant les cookies tiers (Safari, Firefox ETP). L'Absolute Expiration limite la durée de vie d'une session volée même en cas de rotation.
+> **Pourquoi ces réglages ?** Le frontend utilise `useRefreshTokens={true}` avec `cacheLocation="localstorage"` dans `AuthProvider.tsx`. Le refresh token (en rotation) est persisté pour maintenir la session après rechargement sur **tous** les navigateurs, y compris ceux bloquant les cookies tiers (Safari ITP, Firefox ETP) où le silent-auth par iframe est inopérant. La rotation révoque chaque token après usage unique, et l'Absolute Expiration limite la durée de vie d'une session volée.
 
 ## API — Token Expiration
 
@@ -50,17 +50,12 @@ Ce scope doit être autorisé sur l'API `unige-events-api` (**APIs > unige-event
 
 Ces réglages sont liés aux findings du pentest interne du 2026-04-17 :
 
-- **Finding 4.4** — `cacheLocation="localstorage"` exposait l'access token + id token dans `localStorage`, lisibles par tout JavaScript de l'origine. Résolu en passant au cache mémoire (`cacheLocation` retiré → défaut `memory`) avec refresh token rotation pour maintenir la session après rechargement.
+- **Finding 4.4** — les tokens stockés dans `localStorage` sont lisibles par tout JavaScript de l'origine (risque en cas de XSS). Le cache mémoire seul (`cacheLocation` retiré) a été testé mais casse la persistance de session au rechargement sur les navigateurs bloquant les cookies tiers (le refresh token, stocké en mémoire, est perdu et le fallback iframe est inutilisable). Compromis retenu : conserver `cacheLocation="localstorage"` avec **refresh token rotation** (jetons à usage unique, révoqués après usage) et un TTL access token court (1 h), ce qui réduit fortement l'impact d'un vol de token via XSS tout en garantissant la persistance cross-navigateur.
 - **Finding 4.27** — TTL de l'access token à 86 400 s (24 h) donnait 24 h d'accès à un token volé sans mécanisme de révocation côté frontend. Résolu en baissant le TTL à 3 600 s (1 h).
 
 ## Vérification
 
-Après login, la console navigateur doit retourner un tableau vide :
-
-```js
-Object.keys(localStorage).filter(k => k.includes('auth0'))
-// → []
-```
+La persistance de session se vérifie en rechargeant la page après login : l'utilisateur doit rester connecté (le refresh token en rotation rafraîchit l'access token via `getAccessTokenSilently()`).
 
 Le TTL de l'access token est vérifiable en décodant le JWT :
 

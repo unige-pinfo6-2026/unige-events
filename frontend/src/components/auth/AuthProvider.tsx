@@ -16,8 +16,8 @@ export default function AuthProvider({ children }: Readonly<{ children: ReactNod
     <Auth0Provider
       domain={import.meta.env.VITE_AUTH0_DOMAIN}
       clientId={import.meta.env.VITE_AUTH0_CLIENT_ID}
+      cacheLocation="localstorage"
       useRefreshTokens={true}
-      useRefreshTokensFallback={false}
       authorizationParams={{
         redirect_uri: `${globalThis.location.origin}/login/callback`,
         audience: import.meta.env.VITE_AUTH0_AUDIENCE || undefined,
