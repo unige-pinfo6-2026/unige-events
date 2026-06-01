@@ -12,7 +12,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import api from '@/services/api'
-import { cancelEvent, createEvent, deleteEvent, duplicateEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, publishEvent, restoreEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
+import { cancelEvent, createEvent, deleteEvent, duplicateEvent, getAll, getById, getFeatured, getMyDrafts, getMyEvents, getOccurrences, getOrganizerUuids, publishEvent, restoreEvent, updateEvent, uploadEventImage } from '@/services/eventApi'
 
 const mockApiGet = vi.mocked(api.get)
 const mockApiDelete = vi.mocked(api.delete)
@@ -48,6 +48,16 @@ afterEach(() => {
 })
 
 describe('eventApi', () => {
+  it('getOrganizerUuids hits the public organizer-uuids endpoint and returns the UUID list', async () => {
+    const uuids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+    mockApiGet.mockResolvedValue({ data: uuids } as Awaited<ReturnType<typeof api.get>>)
+
+    const result = await getOrganizerUuids(42)
+
+    expect(mockApiGet).toHaveBeenCalledWith('/events/42/organizer-uuids')
+    expect(result).toEqual(uuids)
+  })
+
   it('gets a paginated event list with query params', async () => {
     mockApiGet.mockResolvedValue({ data: [sampleEvent] } as Awaited<ReturnType<typeof api.get>>)
 

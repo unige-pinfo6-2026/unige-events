@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 vi.mock('@/services/eventApi', () => ({
   getOrganizerUuids: vi.fn(),
@@ -89,5 +89,70 @@ describe('usePublicOrganizers', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.coOrganizers).toEqual([])
     expect(mockGetUserById).not.toHaveBeenCalled()
+  })
+
+  it('degrades to a UUID-only row when getUserById fulfills with null', async () => {
+    // fulfilled-but-null branch (`r.value` falsy) — distinct from a rejection.
+    mockGetOrganizerUuids.mockResolvedValue([CREATOR, CO_A])
+    mockGetUserById.mockResolvedValue(null as unknown as Awaited<ReturnType<typeof getUserById>>)
+
+    const { result } = renderHook(() => usePublicOrganizers(42, CREATOR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.coOrganizers).toEqual([
+      { userId: CO_A, displayName: null, username: null, avatarUrl: null },
+    ])
+  })
+
+  it('maps a resolved user with null display fields to null (not undefined/empty)', async () => {
+    // Exercises the `?? null` coalescing branches : a real user row whose
+    // displayName/username/avatarUrl are all null.
+    mockGetOrganizerUuids.mockResolvedValue([CREATOR, CO_A])
+    mockGetUserById.mockResolvedValue({
+      id: CO_A, username: null, displayName: null, avatarUrl: null,
+    } as unknown as Awaited<ReturnType<typeof getUserById>>)
+
+    const { result } = renderHook(() => usePublicOrganizers(42, CREATOR))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.coOrganizers).toEqual([
+      { userId: CO_A, displayName: null, username: null, avatarUrl: null },
+    ])
+  })
+
+  it('does not set the empty list after unmount when organizer-uuids rejects late', async () => {
+    // Covers the `if (active)` guard inside the .catch() — unmount before the
+    // rejection settles.
+    let rejectUuids: (e: Error) => void = () => {}
+    mockGetOrganizerUuids.mockReturnValue(
+      new Promise<string[]>((_, reject) => { rejectUuids = reject }),
+    )
+
+    const { result, unmount } = renderHook(() => usePublicOrganizers(42, CREATOR))
+    unmount()
+    await act(async () => {
+      rejectUuids(new Error('late boom'))
+      await Promise.resolve()
+    })
+    expect(result.current.coOrganizers).toEqual([])
+  })
+
+  it('does not set state after unmount (cleanup flips the active guard)', async () => {
+    // Covers the cleanup `active = false` + the `if (!active) return` guard:
+    // unmount BEFORE the organizer-uuids promise resolves, then let it resolve.
+    let resolveUuids: (v: string[]) => void = () => {}
+    mockGetOrganizerUuids.mockReturnValue(
+      new Promise<string[]>((resolve) => { resolveUuids = resolve }),
+    )
+    mockGetUserById.mockResolvedValue(user(CO_A, 'Alice', 'alice'))
+
+    const { result, unmount } = renderHook(() => usePublicOrganizers(42, CREATOR))
+    unmount()
+    await act(async () => {
+      resolveUuids([CREATOR, CO_A])
+      await Promise.resolve()
+    })
+    // State never updated after unmount — stays at the initial empty list.
+    expect(result.current.coOrganizers).toEqual([])
   })
 })
