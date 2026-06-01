@@ -82,6 +82,56 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v5
 
+      # Capacity guard : max 2 concurrent previews enforced by counting live namespaces.
+      - name: Check preview slot
+        id: slot
+        env:
+          MAX_PREVIEWS: "2"
+        run: |
+          mapfile -t live < <(kubectl get ns -o name 2>/dev/null \
+            | sed 's#namespace/##' | grep -E '^unige-events-pr-[0-9]+$' || true)
+          active=${#live[@]}
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+          if printf '%s\n' "${live[@]}" | grep -qx "${{ env.PR_NAMESPACE }}"; then
+            echo "state=held" >> "$GITHUB_OUTPUT"
+          elif (( active < MAX_PREVIEWS )); then
+            echo "state=free" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=full" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment PR (queued)
+        if: steps.slot.outputs.state == 'full'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          number: ${{ env.PR_NUMBER }}
+          message: |
+            ## ⏳ Preview en file d'attente
+
+            ${{ steps.slot.outputs.active }}/2 environnements de preview sont déjà actifs.
+            Ce preview se déploiera automatiquement dès qu'un slot se libère (fermeture / merge d'une autre PR).
+
+      # Block until a preview slot frees up ; the global deploy-preview concurrency group makes this race-free.
+      - name: Wait for a free preview slot
+        if: steps.slot.outputs.state == 'full'
+        env:
+          MAX_PREVIEWS: "2"
+          WAIT_TIMEOUT_MIN: "45"
+        run: |
+          deadline=$(( $(date +%s) + WAIT_TIMEOUT_MIN * 60 ))
+          while : ; do
+            mapfile -t live < <(kubectl get ns -o name 2>/dev/null \
+              | sed 's#namespace/##' | grep -E '^unige-events-pr-[0-9]+$' || true)
+            active=${#live[@]}
+            if (( active < MAX_PREVIEWS )); then
+              echo "Free slot ($active/$MAX_PREVIEWS used) — proceeding"; break
+            fi
+            if (( $(date +%s) >= deadline )); then
+              echo "::error::No preview slot freed within ${WAIT_TIMEOUT_MIN}min ($active/$MAX_PREVIEWS busy)"; exit 1
+            fi
+            echo "::warning::All $MAX_PREVIEWS preview slots busy — waiting 30s…"; sleep 30
+          done
+
       # Self-heal stuck Helm release before upgrading.
       #
       # When a previous deploy run is interrupted (eg. cancelled mid-upgrade,

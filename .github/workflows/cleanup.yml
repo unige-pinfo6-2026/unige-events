@@ -12,8 +12,9 @@ jobs:
     name: Cleanup Preview
     runs-on: ubuntu-latest
     environment: preview
+    # Own group (not deploy-preview) so cleanup can free a slot while a deploy waits in the queue.
     concurrency:
-      group: deploy-preview
+      group: cleanup-preview
       cancel-in-progress: false
     env:
       PR_NAMESPACE: unige-events-pr-${{ github.event.pull_request.number }}
