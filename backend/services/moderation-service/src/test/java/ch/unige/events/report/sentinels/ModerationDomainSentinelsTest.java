@@ -8,6 +8,7 @@ import ch.unige.events.report.service.ModerationCleanupService;
 import ch.unige.events.report.service.ReportService;
 import ch.unige.events.report.test.JwtTestContext;
 import ch.unige.events.report.test.JwtTestHelper;
+import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
 import ch.unige.events.shared.domain.dto.EventDTO;
@@ -47,6 +48,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -82,6 +84,10 @@ class ModerationDomainSentinelsTest {
     @InjectMock
     @RestClient
     UserServiceClient userClient;
+
+    @InjectMock
+    @RestClient
+    EngagementServiceClient engagementClient;
 
     private final UUID reporterId = UUID.randomUUID();
     private final UUID adminId = UUID.randomUUID();
@@ -221,6 +227,48 @@ class ModerationDomainSentinelsTest {
         EventBannedEvent fired = captor.first();
         assertEquals(eventId.longValue(), fired.eventId());
         assertEquals(adminId, fired.bannedBy());
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void handle_commentReportReviewed_deletesCommentAndDoesNotBanEvent() {
+        // QA bug batch (bug ③) — validating a COMMENT report must NOT fire
+        // EventBannedEvent (report.eventId is null → it used to ban a phantom
+        // null event). Instead the comment is hard-deleted via engagement-service
+        // and the sibling PENDING comment-reports cascade to REVIEWED.
+        Long commentId = 555L;
+        Report target = buildCommentReport(50L, commentId, reporterId, ReportStatus.PENDING);
+        Report sibling = buildCommentReport(51L, commentId, UUID.randomUUID(), ReportStatus.PENDING);
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(50L)).thenReturn(Optional.of(target));
+        PanacheQuery siblings = mock(PanacheQuery.class);
+        when(siblings.list()).thenReturn(List.of(sibling));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(siblings);
+
+        ReportDTO dto = reportService.handle(50L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.REVIEWED, "abusive comment"));
+
+        assertEquals(ReportStatus.REVIEWED, dto.status());
+        assertEquals("COMMENT", dto.targetType());
+        assertTrue(captor.isEmpty(), "a comment report must NOT fire EventBannedEvent");
+        verify(engagementClient).deleteCommentForModeration(commentId);
+        // Sibling comment-report cascaded to REVIEWED in-place.
+        assertEquals(ReportStatus.REVIEWED, sibling.status);
+        assertEquals(adminId, sibling.reviewedById);
+    }
+
+    private static Report buildCommentReport(Long id, Long commentId, UUID reporter, ReportStatus status) {
+        Report r = new Report();
+        r.id = id;
+        r.eventId = null;
+        r.commentId = commentId;
+        r.reporterId = reporter;
+        r.reason = ReportReason.SPAM;
+        r.status = status;
+        r.createdAt = LocalDateTime.now();
+        return r;
     }
 
     @Test

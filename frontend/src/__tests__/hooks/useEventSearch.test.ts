@@ -53,6 +53,15 @@ afterEach(() => {
 })
 
 describe('useSearch', () => {
+  it('preserves an existing ?tab param when syncing the URL (bug ⑦)', () => {
+    const tabWrapper = ({ children }: { children: ReactNode }) =>
+      createElement(MemoryRouter, { initialEntries: ['/events/search?tab=users'] }, children)
+    const { result } = renderHook(useSearchAndParams, { wrapper: tabWrapper })
+    // The mount sync effect rebuilds the event keys but must keep the page's
+    // tab flag — otherwise the Utilisateurs tab reverts to Événements.
+    expect(result.current.searchParams.get('tab')).toBe('users')
+  })
+
   it('initializes with empty query and default filters', () => {
     const { result } = renderHook(() => useSearch(), { wrapper })
     expect(result.current.query).toBe('')

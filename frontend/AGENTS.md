@@ -362,6 +362,7 @@ Règle : ne jamais utiliser `red-400`, `red-500` ou autre valeur brute — utili
 | `follow-list` | `follow-list.bones.json` | `FollowListPage` (SCRUM-142) | manuel |
 | `notification-panel` | `notification-panel.bones.json` | `NotificationPanel` (SCRUM-80) | manuel |
 | `feed-timeline` | `feed-timeline.bones.json` | `FeedPage` (S9) | manuel |
+| `user-search-results` | `user-search-results.bones.json` | `EventsSearchPage` (onglet Utilisateurs — bug ⑦) | manuel |
 
 ---
 

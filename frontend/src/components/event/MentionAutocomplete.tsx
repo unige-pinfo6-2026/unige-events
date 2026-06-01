@@ -21,6 +21,36 @@ const MIN_PREFIX_LENGTH = 2
 const DEBOUNCE_MS = 300
 const FETCH_LIMIT = 8
 
+/** Hard ceiling for the dropdown (matches the old `max-h-72` = 18rem). */
+const MAX_DROPDOWN_PX = 288
+/** Smallest height worth showing — below this we still cap to the available
+ *  space but accept a little scroll rather than a sliver. */
+const MIN_DROPDOWN_PX = 96
+/** Breathing room kept between the dropdown and the viewport edge. */
+const VIEWPORT_MARGIN_PX = 8
+
+interface DropdownPlacement {
+  side: 'below' | 'above'
+  maxHeight: number
+}
+
+/**
+ * Picks where to anchor the dropdown (under or over the textarea) and how tall
+ * it may grow, so it never spills past the viewport / footer. Falls back to
+ * "below, full height" when geometry can't be measured (e.g. detached ref).
+ */
+function computePlacement(textarea: HTMLTextAreaElement | null): DropdownPlacement {
+  if (!textarea) return { side: 'below', maxHeight: MAX_DROPDOWN_PX }
+  const rect = textarea.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN_PX
+  const spaceAbove = rect.top - VIEWPORT_MARGIN_PX
+  const side: DropdownPlacement['side'] =
+    spaceBelow >= MIN_DROPDOWN_PX || spaceBelow >= spaceAbove ? 'below' : 'above'
+  const available = side === 'below' ? spaceBelow : spaceAbove
+  const maxHeight = Math.max(MIN_DROPDOWN_PX, Math.min(MAX_DROPDOWN_PX, available))
+  return { side, maxHeight }
+}
+
 /**
  * Inline mention autocomplete for a textarea — SCRUM-147 Décision E.
  *
@@ -49,6 +79,7 @@ export default function MentionAutocomplete({
   const [activeIndex, setActiveIndex] = useState(-1)
   const [caretPos, setCaretPos] = useState(0)
   const [isOpen, setIsOpen] = useState(true)
+  const [placement, setPlacement] = useState<DropdownPlacement>({ side: 'below', maxHeight: MAX_DROPDOWN_PX })
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const requestIdRef = useRef(0)
@@ -179,6 +210,22 @@ export default function MentionAutocomplete({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
 
+  // Keep the dropdown inside the viewport while it's open: cap its height to
+  // the available space and flip above the textarea when there's no room
+  // below (otherwise it would spill past the page footer). Recomputed on
+  // scroll / resize so it tracks the textarea as the page moves.
+  useEffect(() => {
+    if (!activeMention) return
+    const recompute = () => setPlacement(computePlacement(textareaRef.current))
+    recompute()
+    window.addEventListener('resize', recompute)
+    window.addEventListener('scroll', recompute, true)
+    return () => {
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('scroll', recompute, true)
+    }
+  }, [activeMention, textareaRef])
+
   function commitSelection(user: UserPublicResponse) {
     if (!activeMention) return
     const before = value.slice(0, activeMention.atIndex)
@@ -208,12 +255,18 @@ export default function MentionAutocomplete({
   if (!activeMention) return null
 
   return (
-    <div ref={containerRef} className="absolute z-20 top-full left-0 right-0 mt-1">
+    <div
+      ref={containerRef}
+      className={`absolute z-20 left-0 right-0 ${
+        placement.side === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'
+      }`}
+    >
       <ul
         id={listboxId}
         role="listbox"
         aria-label="Suggestions d'utilisateurs"
-        className="max-h-72 overflow-y-auto bg-background border border-border rounded-2xl shadow-xl"
+        style={{ maxHeight: `${placement.maxHeight}px` }}
+        className="overflow-y-auto bg-background border border-border rounded-2xl shadow-xl"
       >
         {loading && results.length === 0 && (
           <li className="px-3 py-3 text-xs text-foreground/50 italic">Recherche…</li>

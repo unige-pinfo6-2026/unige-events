@@ -172,6 +172,8 @@
 ### EventsSearchPage
 
 - Route `/events/search`, layout sidebar gauche + résultats droite.
+- **Onglets « Événements | Utilisateurs » (bug ⑦)** synchronisés à l'URL via `?tab=users` (`useSearchParams`, `replace`) pour le deep-link + retour navigateur. L'onglet Événements = comportement historique ci-dessous.
+- **Onglet Utilisateurs** (`UserSearchTab`, local) : recherche debounced via `useUserSearch(isAuthenticated)` → `searchUsernames(q, 20)` (`GET /api/users/search`, `@Authenticated`). Résultats en **liste verticale** de `UserResultCard`. États loading (skeleton `user-search-results`) / error / empty (« Aucun utilisateur trouvé. »). Non-connecté → message « Connecte-toi pour rechercher des utilisateurs » + `ButtonPrimary` qui appelle `login()` (l'endpoint exige l'auth).
 - Barre de recherche texte avec bouton loupe.
 - Dropdown d'autocomplétion : affiche jusqu'à 5 suggestions (debounce 300ms via useSearch), se ferme au clic extérieur ou Escape.
 - Cliquer une suggestion appelle `selectSuggestion` → déclenche immédiatement une recherche.
@@ -507,7 +509,8 @@ Toutes les variantes partagent `focus-visible:ring-2 focus-visible:ring-offset-2
 ### FollowListRow (SCRUM-142)
 
 - Composant `src/components/profile/FollowListRow.tsx`. Une ligne = `<UserAvatar>` 48px + `displayName` + `@username · studyLevel · facultyAbbr`.
-- Le row entier est un `<Link>` vers `/profile/{username}`. Pas de `FollowButton` (cf. note SCRUM-142 ci-dessus).
+- Le `<Link>` (avatar + identité) vers `/profile/{username}` prend `flex-1`. Pas de `FollowButton` (cf. note SCRUM-142 ci-dessus).
+- Prop optionnelle `onRemove?(userId)` : quand fournie (uniquement sur SA PROPRE liste de followers — `FollowListPage` compare `currentUser.id === target.uuid`), affiche un bouton **« Retirer »** qui retire ce follower via `useFollowList().remove` → `removeFollower` (`DELETE /api/users/me/followers/{id}`, optimiste, toast succès/erreur).
 
 ### MyPublicationsPreview
 
@@ -761,6 +764,7 @@ Garantit la **réinitialisation de l'input file** après confirm/cancel/erreur �
 - Retourne : `rows: FollowRequestRow[]` (`{ request: FollowDTO, follower: UserPublicResponse | null }`), `loading`, `error`, `accept(id)`, `reject(id)`, `refresh()`.
 - Per-row resolve via `Promise.allSettled` — un 404 / network failure sur un profil ne casse pas la liste, le row a `follower: null` et le composant affiche un fallback neutre "Utilisateur".
 - `accept(id)` / `reject(id)` : optimistes (suppression immédiate de la row), refresh sur succès, rollback si l'API échoue (re-throw pour que le composant toast).
+- **Auto-refresh** : poll silencieux toutes les `INBOX_POLL_INTERVAL_MS` (`src/constants/polling.ts`, 30 s — même cadence que `useNotifications`) pour que le badge de l'inbox se mette à jour sans reload. Le refetch périodique ne repasse pas `loading` à `true` (pas de clignotement).
 - Stale-response guard via `requestIdRef` monotone bumpé à chaque refresh / unmount.
 
 ### useFollowList (SCRUM-142)
@@ -997,6 +1001,15 @@ Utilitaire associé : `formatFileSize(bytes)` (`src/utils/formatFileSize.ts`) �
 - Navigation clavier ARIA combobox/listbox/option : ↑/↓ pour bouger l'active row, Enter pour insérer la suggestion sélectionnée, Esc pour fermer. Click-outside ferme aussi.
 - À la sélection, remplace `@<typedPrefix>` par `@<username> ` (avec espace final) et repositionne le caret juste après l'espace via `requestAnimationFrame`.
 - Le parser `detectActiveMention(value, caretPos)` vit dans `src/utils/mentions.ts` (pure function, unit-testable hors React) — gère les multi-`@` autour du caret, ignore `email@example.com`, accepte dash + dot dans la handle.
+- **Placement borné au viewport** : la hauteur du dropdown est plafonnée à l'espace disponible (`getBoundingClientRect` du textarea vs `window.innerHeight`, recalculé sur `scroll`/`resize`) et il bascule au-dessus du textarea (`bottom-full mb-1` au lieu de `top-full mt-1`) quand il manque de place en dessous. Il reste scrollable (`overflow-y-auto`) — il ne déborde donc plus le footer.
+
+### MentionText — rendu du corps d'un commentaire (étendu liens)
+
+- `src/components/event/MentionText.tsx` — rend le `content` d'un commentaire en segmentant via `splitContent(content)` (`src/utils/mentions.ts`) :
+  - `@<handle>` → `<Link to=/profile/<handle>>` en `text-accent` (casse d'affichage préservée, cible lowercase).
+  - URL `http(s)` → `<a text-link hover:underline break-all target="_blank" rel="noopener noreferrer">` (bleu, identique au rendu `event.websiteUrl` de la page détail).
+  - tout le reste → texte brut (Fragment), `whitespace-pre-wrap` préservé.
+- Sécurité : `splitContent` détecte les URLs **avant** les mentions (un `@` dans une URL n'est pas découpé) et valide chaque URL via `safeHttpUrl` (`src/utils/url.ts`) — les schémas `javascript:`/`data:`/etc. restent du texte brut (anti-XSS/open-redirect). `safeHttpUrl` est l'util partagé réutilisé aussi par `EventDetailPage` pour `websiteUrl`.
 
 ### ReportModal (étendu SCRUM-147)
 

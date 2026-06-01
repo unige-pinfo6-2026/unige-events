@@ -1,5 +1,5 @@
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SearchPage from '@/pages/event/EventsSearchPage'
@@ -22,11 +22,33 @@ vi.mock('@/hooks/useFavorite', () => ({
   useFavorite: () => ({ favorited: false, loading: false, toggle: vi.fn() }),
 }))
 
+vi.mock('@/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks')>()),
+  useAuth: vi.fn(),
+}))
+
+vi.mock('@/hooks/useUserSearch', () => ({
+  useUserSearch: vi.fn(),
+}))
+
 import { useSearch } from '@/hooks/useEventSearch'
+import { useAuth } from '@/hooks'
+import { useUserSearch } from '@/hooks/useUserSearch'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseSearch = useSearch as ReturnType<typeof vi.fn>
 const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseUserSearch = useUserSearch as ReturnType<typeof vi.fn>
+
+const inertUserSearch = {
+  query: '',
+  setQuery: vi.fn(),
+  results: [],
+  loading: false,
+  error: null,
+  searched: false,
+}
 
 const mockEvent: Event = {
   id: 1,
@@ -57,10 +79,30 @@ const baseSearch: UseSearchResult = {
   searchNow: vi.fn(),
 }
 
+beforeEach(() => {
+  // Safe defaults — the events tab never invokes these, but keep any
+  // incidental call from crashing on undefined.
+  mockUseAuth.mockReturnValue({ isAuthenticated: true, login: vi.fn() })
+  mockUseUserSearch.mockReturnValue({ ...inertUserSearch })
+})
+
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
 })
+
+function makeUser(username: string, displayName: string | null = username) {
+  return {
+    id: `${username}-id`,
+    username,
+    displayName,
+    avatarUrl: null,
+    profilePublic: true,
+    followerCount: 0,
+    followingCount: 0,
+    followStatus: null,
+  }
+}
 
 function renderPage() {
   return render(
@@ -234,5 +276,61 @@ describe('EventsSearchPage', () => {
     // guard, so the outside-click handler returns without closing the dropdown.
     fireEvent.mouseDown(screen.getByRole('textbox', { name: 'Rechercher' }))
     expect(screen.getByRole('listbox')).toBeTruthy()
+  })
+
+  // ── User search tab (bug ⑦) ──────────────────────────────────────────────
+
+  it('switches to the Utilisateurs tab and shows the user search input', () => {
+    mockUseSearch.mockReturnValue(baseSearch)
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Utilisateurs' }))
+    expect(screen.getByRole('textbox', { name: 'Rechercher un utilisateur' })).toBeTruthy()
+    // The events search bar is no longer mounted.
+    expect(screen.queryByRole('textbox', { name: 'Rechercher' })).toBeNull()
+  })
+
+  it('renders user result cards on the users tab', () => {
+    mockUseSearch.mockReturnValue(baseSearch)
+    mockUseUserSearch.mockReturnValue({
+      ...inertUserSearch,
+      query: 'dan',
+      searched: true,
+      results: [makeUser('daniel.dosh', 'Daniel Dosh')],
+    })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Utilisateurs' }))
+    expect(screen.getByText('Daniel Dosh')).toBeTruthy()
+    expect(screen.getByText('@daniel.dosh')).toBeTruthy()
+  })
+
+  it('shows the empty state on the users tab once a search returns nothing', () => {
+    mockUseSearch.mockReturnValue(baseSearch)
+    mockUseUserSearch.mockReturnValue({ ...inertUserSearch, query: 'zzz', searched: true, results: [] })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Utilisateurs' }))
+    expect(screen.getByText(/Aucun utilisateur trouvé/)).toBeTruthy()
+  })
+
+  it('prompts to log in on the users tab when unauthenticated', () => {
+    mockUseSearch.mockReturnValue(baseSearch)
+    const login = vi.fn()
+    mockUseAuth.mockReturnValue({ isAuthenticated: false, login })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Utilisateurs' }))
+    expect(screen.getByText(/Connecte-toi pour rechercher des utilisateurs/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }))
+    expect(login).toHaveBeenCalled()
+    // No user search input while logged out.
+    expect(screen.queryByRole('textbox', { name: 'Rechercher un utilisateur' })).toBeNull()
+  })
+
+  it('deep-links straight to the users tab via ?tab=users', () => {
+    mockUseSearch.mockReturnValue(baseSearch)
+    render(
+      <MemoryRouter initialEntries={['/events/search?tab=users']}>
+        <SearchPage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('textbox', { name: 'Rechercher un utilisateur' })).toBeTruthy()
   })
 })

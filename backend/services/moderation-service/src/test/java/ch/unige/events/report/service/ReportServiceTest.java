@@ -6,8 +6,10 @@ import ch.unige.events.report.dto.ReportDTO;
 import ch.unige.events.report.entity.Report;
 import ch.unige.events.report.test.JwtTestContext;
 import ch.unige.events.report.test.JwtTestHelper;
+import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.client.EventServiceClient;
 import ch.unige.events.shared.client.UserServiceClient;
+import ch.unige.events.shared.domain.dto.CommentContentProjection;
 import ch.unige.events.shared.domain.dto.EventDTO;
 import ch.unige.events.shared.domain.dto.UserPublicResponse;
 import ch.unige.events.shared.domain.enums.EventStatus;
@@ -64,6 +66,10 @@ class ReportServiceTest {
     @InjectMock
     @RestClient
     UserServiceClient userClient;
+
+    @InjectMock
+    @RestClient
+    EngagementServiceClient engagementClient;
 
     private final UUID reporterId = UUID.randomUUID();
     private final UUID adminId = UUID.randomUUID();
@@ -340,6 +346,118 @@ class ReportServiceTest {
         assertEquals(2, result.size());
         assertNull(result.get(0).eventTitle());
         verify(eventClient, never()).findByIds(any(), any());
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_commentReport_enrichesCommentContentAndTargetType() {
+        // QA bug batch (bug ③) — a comment-bound report (commentId set, eventId
+        // null) is enriched with its content via the engagement internal batch
+        // endpoint, and exposes targetType=COMMENT so the admin UI renders it
+        // distinctly from an event report.
+        Report c = buildCommentReport(8L, 808L, reporterId, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(c));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        when(engagementClient.getCommentsByIds(any(List.class))).thenReturn(List.of(
+                new CommentContentProjection(808L, 700L, "this is the reported body")
+        ));
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        ReportDTO dto = result.get(0);
+        assertEquals("COMMENT", dto.targetType());
+        assertEquals(808L, dto.commentId());
+        assertNull(dto.eventId());
+        assertNull(dto.eventTitle());
+        assertEquals("this is the reported body", dto.commentContent());
+        // No event enrichment for a comment-only page.
+        verify(eventClient, never()).findByIds(any(), any());
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listByStatus_commentReport_nullClientResponse_rendersWithoutContent() {
+        // Resilience (bulkFetchCommentContent null-guard): if engagement-service's
+        // batch returns null instead of its fallback's empty list, the enrichment
+        // degrades to an empty map — the comment report still lists, just without
+        // its body — rather than NPE-ing the whole admin page.
+        Report c = buildCommentReport(9L, 818L, reporterId, ReportStatus.PENDING);
+        PanacheMock.mock(Report.class);
+        PanacheQuery q = mock(PanacheQuery.class);
+        when(q.page(0, 20)).thenReturn(q);
+        when(q.list()).thenReturn(List.of(c));
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(q);
+
+        when(engagementClient.getCommentsByIds(any(List.class))).thenReturn(null);
+
+        List<ReportDTO> result = service.listByStatus(ReportStatus.PENDING, 0, 20);
+
+        assertEquals(1, result.size());
+        ReportDTO dto = result.get(0);
+        assertEquals("COMMENT", dto.targetType());
+        assertEquals(818L, dto.commentId());
+        assertNull(dto.commentContent());
+    }
+
+    @Test
+    void handle_commentReportReviewed_deletesCommentSkipsEventFetch() {
+        // QA bug batch (bug ③) — REVIEWED on a comment report deletes the comment
+        // via engagement-service and never fetches/bans an event (eventId null).
+        Report r = buildCommentReport(60L, 909L, reporterId, ReportStatus.PENDING);
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(60L)).thenReturn(Optional.of(r));
+        PanacheQuery siblingQ = mock(PanacheQuery.class);
+        when(siblingQ.list()).thenReturn(List.of());
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(siblingQ);
+
+        ReportDTO dto = service.handle(60L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.REVIEWED, "abusive"));
+
+        assertEquals(ReportStatus.REVIEWED, dto.status());
+        assertEquals("COMMENT", dto.targetType());
+        verify(engagementClient).deleteCommentForModeration(909L);
+        verify(eventClient, never()).getById(anyLong());
+    }
+
+    @Test
+    void handle_commentReportAlreadyDeleted_swallows404() {
+        // Idempotency: the comment was already gone (404) — deleteReportedComment
+        // swallows the NotFoundException, the report still transitions REVIEWED.
+        Report r = buildCommentReport(61L, 910L, reporterId, ReportStatus.PENDING);
+        JwtTestContext.set(JwtTestHelper.adminJwt(adminId));
+
+        PanacheMock.mock(Report.class);
+        when(Report.findByIdOptional(61L)).thenReturn(Optional.of(r));
+        PanacheQuery siblingQ = mock(PanacheQuery.class);
+        when(siblingQ.list()).thenReturn(List.of());
+        when(Report.find(anyString(), any(Object[].class))).thenReturn(siblingQ);
+        org.mockito.Mockito.doThrow(new NotFoundException("already gone"))
+                .when(engagementClient).deleteCommentForModeration(910L);
+
+        ReportDTO dto = service.handle(61L, "auth0|admin",
+                new HandleReportRequest(ReportStatus.REVIEWED, null));
+
+        assertEquals(ReportStatus.REVIEWED, dto.status());
+    }
+
+    private static Report buildCommentReport(Long id, Long commentId, UUID reporter,
+                                             ReportStatus status) {
+        Report r = new Report();
+        r.id = id;
+        r.eventId = null;
+        r.commentId = commentId;
+        r.reporterId = reporter;
+        r.reason = ReportReason.SPAM;
+        r.status = status;
+        r.createdAt = LocalDateTime.now();
+        return r;
     }
 
     @Test

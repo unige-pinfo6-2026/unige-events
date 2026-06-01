@@ -23,11 +23,18 @@ package ch.unige.events.notification.entity;
  * in this PR :
  * <ul>
  *   <li>{@link #NEW_FOLLOWER} — emitted by {@code UserFollowedConsumer} ←
- *       {@code users.followed}. Public-profile follow auto-accepted.
+ *       {@code users.followed}. Public-profile follow auto-accepted, <em>and</em>
+ *       (since the QA bug batch, bug ①) the ACCEPT of a private follow request —
+ *       {@code user-service.FollowService.acceptRequest} fires {@code followed} so
+ *       the acceptor sees "A a commencé à vous suivre".
  *       Destinataire = {@code followedId} ; {@code relatedUserId} = {@code followerId}.</li>
- *   <li>{@link #FOLLOW_REQUEST} — emitted by {@code UserFollowRequestedConsumer}
- *       ← {@code users.follow-requested}. Private-profile PENDING request.
- *       Destinataire = {@code followedId} ; {@code relatedUserId} = {@code followerId}.</li>
+ *   <li>{@link #FOLLOW_REQUEST} — <strong>DEPRECATED / no longer emitted</strong>.
+ *       Originally produced by {@code UserFollowRequestedConsumer} on a private-profile
+ *       PENDING request, but that doubled the dedicated "Demandes reçues" inbox, so the
+ *       consumer (and its {@code users.follow-requested} channel) was dropped in the QA
+ *       bug batch (bug ①). A follow request now lives ONLY in the inbox; on ACCEPT the
+ *       acceptor gets {@link #NEW_FOLLOWER} instead. The value is kept in the enum + DB
+ *       CHECK to keep rendering legacy rows — do not reuse it for new notifs.</li>
  *   <li>{@link #FOLLOW_ACCEPTED} — emitted by {@code UserFollowAcceptedConsumer}
  *       ← {@code users.follow-accepted}. <strong>Destinataire = {@code followerId}</strong>
  *       (l'initiateur initial, qui voit sa demande acceptée) ; {@code relatedUserId} =

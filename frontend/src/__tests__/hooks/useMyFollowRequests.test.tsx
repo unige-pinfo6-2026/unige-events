@@ -28,7 +28,10 @@ const mockGetProfile = getPublicProfile as ReturnType<typeof vi.fn>
 
 afterEach(() => {
   vi.resetAllMocks()
+  vi.useRealTimers()
 })
+
+const POLL_MS = 30_000
 
 const aliceRequest = {
   id: 1,
@@ -183,6 +186,35 @@ describe('useMyFollowRequests', () => {
 
     act(() => { result.current.refresh() })
     await waitFor(() => expect(result.current.rows.length).toBe(2))
+  })
+
+  it('auto-refreshes every 30 seconds silently (does not flip loading back on)', async () => {
+    vi.useFakeTimers()
+    mockGetRequests.mockResolvedValue([])
+
+    const { result } = renderHook(() => useMyFollowRequests())
+    await vi.waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetRequests).toHaveBeenCalledTimes(1)
+
+    await act(async () => { vi.advanceTimersByTime(POLL_MS) })
+    expect(mockGetRequests).toHaveBeenCalledTimes(2)
+    expect(result.current.loading).toBe(false) // silent — no spinner flicker
+
+    await act(async () => { vi.advanceTimersByTime(POLL_MS) })
+    expect(mockGetRequests).toHaveBeenCalledTimes(3)
+  })
+
+  it('clears the polling interval on unmount (no fetch after unmount)', async () => {
+    vi.useFakeTimers()
+    mockGetRequests.mockResolvedValue([])
+
+    const { result, unmount } = renderHook(() => useMyFollowRequests())
+    await vi.waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetRequests).toHaveBeenCalledTimes(1)
+
+    unmount()
+    await act(async () => { vi.advanceTimersByTime(POLL_MS * 5) })
+    expect(mockGetRequests).toHaveBeenCalledTimes(1)
   })
 
   it('discards a stale resolve on unmount', async () => {

@@ -102,6 +102,22 @@ public class FollowService {
                 .ifPresent(Follow::delete);
     }
 
+    /**
+     * Removes a follower of the caller — the mirror of {@link #unfollow}. Where
+     * {@code unfollow} deletes the row where the caller is the <em>follower</em>,
+     * this deletes the row where the caller is the <em>followed</em> party and
+     * {@code followerId} is the (accepted or pending) follower being dropped.
+     * Lets a user kick someone off their followers list without waiting for that
+     * person to unfollow. Idempotent (no row → no-op). Fires no event — a silent
+     * removal, like a soft block (no notification to the dropped follower).
+     */
+    @Transactional
+    public void removeFollower(String targetAuth0Id, UUID followerId) {
+        UUID targetUserId = resolveUserId(targetAuth0Id);
+        Follow.findByFollowerAndFollowed(followerId, targetUserId)
+                .ifPresent(Follow::delete);
+    }
+
     @Transactional
     public Follow acceptRequest(String targetAuth0Id, Long followId) {
         UUID targetUserId = resolveUserId(targetAuth0Id);
@@ -115,8 +131,16 @@ public class FollowService {
                     "Follow is already in status " + row.status + " — only PENDING follows can be accepted.");
         }
         row.status = FollowStatus.ACCEPTED;
-        // CDI fire — bridge publishes users.follow-accepted AFTER_SUCCESS.
+        // Two notifications on accept (bridge publishes both AFTER_SUCCESS) :
+        //  • FOLLOW_ACCEPTED → the original requester (followerId) — "B a accepté
+        //    votre demande de suivi".
+        //  • NEW_FOLLOWER → the acceptor (followedId) — the requester now follows
+        //    them, so we mirror the public-profile direct-follow path ("A a
+        //    commencé à vous suivre"). A bare follow-request no longer produces a
+        //    bell notification on its own (consumer dropped) — it only lives in
+        //    the "Demandes reçues" inbox until accepted here.
         lifecycleEvent.fire(FollowLifecycleEvent.followAccepted(row.followerId, row.followedId));
+        lifecycleEvent.fire(FollowLifecycleEvent.followed(row.followerId, row.followedId));
         return row;
     }
 

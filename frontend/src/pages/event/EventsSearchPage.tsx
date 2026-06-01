@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Search, SearchIcon } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import EventCard from '@/components/event/EventCard'
 import EventSearchSidebar from '@/components/event/EventSearchSidebar'
+import UserResultCard from '@/components/user/UserResultCard'
 import { useSearch } from '@/hooks/useEventSearch'
+import { useUserSearch } from '@/hooks/useUserSearch'
+import { useAuth } from '@/hooks'
 import { useTheme } from '@/contexts/ThemeContext'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
 import { InfoMessage } from '@/components/utils/InfoMessage'
+import { ButtonPrimary } from '@/components/utils/Buttons'
+
+type SearchTab = 'events' | 'users'
 
 function SearchResultsFixture() {
   return (
@@ -48,11 +55,94 @@ function SearchResultsFixture() {
   )
 }
 
+const USER_SKELETON_ROW_KEYS = ['urow-1', 'urow-2', 'urow-3', 'urow-4', 'urow-5', 'urow-6']
+
+function UserResultsFixture() {
+  return (
+    <div className="flex flex-col gap-3">
+      {USER_SKELETON_ROW_KEYS.map((key) => (
+        <div key={key} className="flex items-center gap-3 p-3 rounded-2xl border border-border">
+          <div className="size-12 rounded-full bg-foreground/15 shrink-0" />
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="h-4 w-40 rounded bg-foreground/15" />
+            <div className="h-3 w-24 rounded bg-foreground/10" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// User search tab (bug ⑦) — backed by `GET /api/users/search` (@Authenticated).
+function UserSearchTab({ skeletonColor }: Readonly<{ skeletonColor: string }>) {
+  const { isAuthenticated, login } = useAuth()
+  const { query, setQuery, results, loading, error, searched } = useUserSearch(isAuthenticated)
+
+  if (!isAuthenticated) {
+    return (
+      <div className="mt-8 py-12 flex flex-col items-center gap-4 text-center">
+        <p className="text-foreground/60 text-base">
+          Connecte-toi pour rechercher des utilisateurs.
+        </p>
+        <ButtonPrimary onClick={() => login()}>Se connecter</ButtonPrimary>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-8 flex flex-col gap-6">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Rechercher un utilisateur…"
+        aria-label="Rechercher un utilisateur"
+        className="w-full px-5 py-4 rounded-2xl border border-border bg-background/80 backdrop-blur-sm text-foreground placeholder:text-foreground/40 text-base outline-none focus:border-accent/60 transition-colors"
+      />
+
+      <div>
+        {loading && (
+          <Skeleton name="user-search-results" loading={true} animate="pulse" color={skeletonColor}>
+            <UserResultsFixture />
+          </Skeleton>
+        )}
+        {!loading && error && <InfoMessage type="error" message={error} />}
+        {!loading && !error && searched && results.length === 0 && (
+          <InfoMessage icon={SearchIcon} type="info" message="Aucun utilisateur trouvé." />
+        )}
+        {!loading && !error && results.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {results.map((user) => (
+              <UserResultCard key={user.id} user={user} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const SEARCH_TABS: ReadonlyArray<{ key: SearchTab; label: string }> = [
+  { key: 'events', label: 'Événements' },
+  { key: 'users', label: 'Utilisateurs' },
+]
+
 function SearchPage() {
   const { query, setQuery, filters, setFilters, results, suggestions, loading, error, resetFilters, selectSuggestion, searchNow } =
     useSearch()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab: SearchTab = searchParams.get('tab') === 'users' ? 'users' : 'events'
+  const setTab = useCallback((next: SearchTab) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev)
+      if (next === 'events') params.delete('tab')
+      else params.set('tab', next)
+      return params
+    }, { replace: true })
+  }, [setSearchParams])
 
   const [showSuggestions, setShowSuggestions] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -108,11 +198,37 @@ function SearchPage() {
       >
         <SectionHeader
           align='left'
-          title={<>Trouver <mark>un événement</mark></>}
-          subtitle={"Explorez les événements du campus par mots-clés, catégorie ou date."}
+          title={tab === 'users'
+            ? <>Trouver <mark>un utilisateur</mark></>
+            : <>Trouver <mark>un événement</mark></>}
+          subtitle={tab === 'users'
+            ? "Recherchez les membres de la communauté par nom ou nom d'utilisateur."
+            : "Explorez les événements du campus par mots-clés, catégorie ou date."}
         />
 
+        {/* Tab switcher — Événements | Utilisateurs */}
+        <div className="mt-8 flex gap-2">
+          {SEARCH_TABS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              aria-pressed={tab === key}
+              className={`h-9 px-4 rounded-xl text-sm font-medium transition-colors cursor-pointer border-0 ${
+                tab === key
+                  ? 'bg-accent text-white'
+                  : 'bg-foreground/5 text-foreground/60 hover:text-foreground hover:bg-foreground/10'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'users' && <UserSearchTab skeletonColor={skeletonColor} />}
+
         {/* Search bar + Search content */}
+        {tab === 'events' && (
         <div className="flex flex-col gap-8">
           {/* Search bar */}
           <div className="mt-8 relative flex gap-3">
@@ -202,6 +318,7 @@ function SearchPage() {
             </div>
           </div>
         </div>
+        )}
       </SectionWrapper>
     </div>
   )

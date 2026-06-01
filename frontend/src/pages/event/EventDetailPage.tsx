@@ -11,6 +11,7 @@ import UserAvatar from '@/components/user/UserAvatar'
 import type { User } from '@/types/user'
 import { EVENT_CATEGORIES, EVENT_STATUSES, type Event, type EventStatus } from '@/types/event'
 import { formatEventDateTime, formatEventDateTimeCompact } from '@/utils/dateTime'
+import { safeHttpUrl } from '@/utils/url'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
@@ -32,7 +33,7 @@ import { Ban, BarChart2, Calendar, CalendarClock, ChevronDown, ChevronUp, Flag, 
 
 function EventDetailFixture() {
   return (
-    <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+    <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 items-start max-lg:grid-cols-1">
       {/* Main column (order-2 on mobile) */}
       <div className="flex flex-col gap-5 max-lg:order-2">
         {/* Banner h-72 mobile / h-80 desktop */}
@@ -284,18 +285,6 @@ function OccurrencesSection({ parentId, currentEventId, skeletonColor }: Occurre
   )
 }
 
-// Whitelist pour le lien externe `websiteUrl` — le backend stocke l'URL avec @URL, qui
-// accepte d'autres schémas (p. ex. `javascript:`). On ne rend un <a href> que si l'URL
-// parse en http(s) ; sinon on affiche la chaîne brute pour éviter tout XSS/open-redirect.
-function safeExternalHref(value: string): string | null {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null
-  } catch {
-    return null
-  }
-}
-
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -490,7 +479,7 @@ export default function EventDetailPage() {
           de l'identité de l'événement et des informations clés avant la
           description, suivi de l'action immédiate (s'inscrire) avant les
           contenus secondaires. Le layout desktop reste identique. */}
-      <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+      <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 items-start max-lg:grid-cols-1">
 
         {/* Colonne principale */}
         <div className="flex flex-col gap-5 max-lg:contents">
@@ -578,7 +567,7 @@ export default function EventDetailPage() {
 
               <div className="flex flex-col gap-3">
                 {event.websiteUrl && (() => {
-                  const safeHref = safeExternalHref(event.websiteUrl)
+                  const safeHref = safeHttpUrl(event.websiteUrl)
                   return (
                     <InfoRow icon={Globe} color={category.color}>
                       {safeHref ? (
@@ -795,7 +784,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => setShowCancelConfirm(true)}
                     disabled={cancelling}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-orange-500/40 text-orange-400 bg-transparent text-sm font-semibold cursor-pointer hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-error/40 text-error bg-transparent text-sm font-semibold cursor-pointer hover:bg-error/10 transition-colors disabled:opacity-50"
                   >
                     <Ban className="w-4 h-4 shrink-0" />
                     Annuler l'événement

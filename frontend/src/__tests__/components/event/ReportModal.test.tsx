@@ -45,6 +45,22 @@ describe('ReportModal — rendering', () => {
     expect(screen.getByLabelText('Description')).toBeTruthy()
   })
 
+  it('omits the FAKE ("Faux événement") reason for a comment target', () => {
+    render(<ReportModal onClose={vi.fn()} onSubmit={vi.fn().mockResolvedValue(undefined)} submitting={false} target="comment" />)
+    expect(screen.getByText('Signaler ce commentaire')).toBeTruthy()
+    // A comment can't be a "fake event" → FAKE is hidden.
+    expect(screen.queryByRole('option', { name: REPORT_REASONS.FAKE })).toBeNull()
+    // The comment-appropriate reasons remain.
+    expect(screen.getByRole('option', { name: REPORT_REASONS.SPAM })).toBeTruthy()
+    expect(screen.getByRole('option', { name: REPORT_REASONS.INAPPROPRIATE })).toBeTruthy()
+    expect(screen.getByRole('option', { name: REPORT_REASONS.OTHER })).toBeTruthy()
+  })
+
+  it('keeps the FAKE reason for an event target', () => {
+    render(<ReportModal onClose={vi.fn()} onSubmit={vi.fn().mockResolvedValue(undefined)} submitting={false} target="event" />)
+    expect(screen.getByRole('option', { name: REPORT_REASONS.FAKE })).toBeTruthy()
+  })
+
   it('submit button is disabled when no reason selected', () => {
     renderModal()
     const submitBtn = screen.getByRole('button', { name: 'Signaler' })

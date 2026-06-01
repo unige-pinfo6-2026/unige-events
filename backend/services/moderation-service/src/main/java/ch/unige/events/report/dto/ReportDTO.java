@@ -22,14 +22,22 @@ import java.util.UUID;
  * <p>SCRUM-144 — {@code eventId} devient nullable et un nouveau champ
  * {@code commentId} (nullable) est exposé. Un report cible exactement
  * l'un des deux (XOR enforced en DB via {@code report_target_xor}).
- * Le {@code eventTitle} reste utilisable pour les reports event-bound ;
- * le frontend admin distingue les deux cas via les champs id non-null.
+ *
+ * <p>QA bug batch (bug ③) — discriminateur explicite {@code targetType}
+ * ("EVENT" | "COMMENT", dérivé de {@code commentId}) + {@code commentContent}
+ * (le corps du commentaire signalé, peuplé uniquement côté comment-report par
+ * {@code ReportService.listByStatus} via l'endpoint interne engagement
+ * {@code GET /comments/_internal-by-ids}). Le frontend admin n'a plus à
+ * inférer la cible à partir des id null — il lit {@code targetType} et affiche
+ * soit {@code eventTitle}, soit {@code commentContent}.
  */
 public record ReportDTO(
         Long id,
+        String targetType,
         Long eventId,
         Long commentId,
         String eventTitle,
+        String commentContent,
         UUID reporterId,
         String reporterDisplayName,
         ReportReason reason,
@@ -40,12 +48,18 @@ public record ReportDTO(
         LocalDateTime reviewedAt,
         UUID reviewedBy
 ) {
-    public static ReportDTO from(Report r, EventDTO event, UserPublicResponse reporter) {
+    /** Discriminator values exposed in {@link #targetType}. */
+    public static final String TARGET_EVENT = "EVENT";
+    public static final String TARGET_COMMENT = "COMMENT";
+
+    public static ReportDTO from(Report r, EventDTO event, UserPublicResponse reporter, String commentContent) {
         return new ReportDTO(
                 r.id,
+                r.commentId != null ? TARGET_COMMENT : TARGET_EVENT,
                 r.eventId,
                 r.commentId,
                 event != null ? event.title() : null,
+                commentContent,
                 r.reporterId,
                 reporter != null ? reporter.displayName() : null,
                 r.reason,
@@ -56,5 +70,10 @@ public record ReportDTO(
                 r.reviewedAt,
                 r.reviewedById
         );
+    }
+
+    /** Convenience overload for event-bound reports (no comment content). */
+    public static ReportDTO from(Report r, EventDTO event, UserPublicResponse reporter) {
+        return from(r, event, reporter, null);
     }
 }

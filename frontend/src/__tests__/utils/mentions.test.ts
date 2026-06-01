@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectActiveMention, splitMentions } from '@/utils/mentions'
+import { detectActiveMention, splitContent, splitMentions } from '@/utils/mentions'
 
 describe('detectActiveMention', () => {
   it('returns null when caret is at start of string', () => {
@@ -94,5 +94,78 @@ describe('splitMentions', () => {
     // Defensive — guarding against accidental reuse of a shared regex
     // with the global flag. Run twice and assert the result is the same.
     expect(splitMentions('@daniel hi')).toEqual(splitMentions('@daniel hi'))
+  })
+})
+
+describe('splitContent', () => {
+  it('returns an empty array for empty input', () => {
+    expect(splitContent('')).toEqual([])
+  })
+
+  it('returns a single text segment when there is nothing to linkify', () => {
+    expect(splitContent('hello world')).toEqual([
+      { kind: 'text', value: 'hello world' },
+    ])
+  })
+
+  it('detects a bare https URL', () => {
+    expect(splitContent('https://example.com/path')).toEqual([
+      { kind: 'url', value: 'https://example.com/path' },
+    ])
+  })
+
+  it('detects an http URL surrounded by text', () => {
+    expect(splitContent('see http://a.com here')).toEqual([
+      { kind: 'text', value: 'see ' },
+      { kind: 'url', value: 'http://a.com' },
+      { kind: 'text', value: ' here' },
+    ])
+  })
+
+  it('strips trailing sentence punctuation out of the URL', () => {
+    expect(splitContent('visit https://example.com.')).toEqual([
+      { kind: 'text', value: 'visit ' },
+      { kind: 'url', value: 'https://example.com' },
+      { kind: 'text', value: '.' },
+    ])
+  })
+
+  it('keeps an unsafe pseudo-URL as plain text', () => {
+    expect(splitContent('javascript:alert(1)')).toEqual([
+      { kind: 'text', value: 'javascript:alert(1)' },
+    ])
+  })
+
+  it('does NOT linkify a bare domain without scheme', () => {
+    expect(splitContent('go to example.com now')).toEqual([
+      { kind: 'text', value: 'go to example.com now' },
+    ])
+  })
+
+  it('handles a URL and a mention together (URL detected first)', () => {
+    expect(splitContent('see https://x.com @daniel')).toEqual([
+      { kind: 'text', value: 'see ' },
+      { kind: 'url', value: 'https://x.com' },
+      { kind: 'text', value: ' ' },
+      { kind: 'mention', value: 'daniel' },
+    ])
+  })
+
+  it('does NOT split an @ that lives inside a URL', () => {
+    expect(splitContent('https://twitter.com/@daniel')).toEqual([
+      { kind: 'url', value: 'https://twitter.com/@daniel' },
+    ])
+  })
+
+  it('still treats an email as plain text', () => {
+    expect(splitContent('foo@example.com')).toEqual([
+      { kind: 'text', value: 'foo@example.com' },
+    ])
+  })
+
+  it('is callable repeatedly without stateful regex leakage', () => {
+    expect(splitContent('see https://x.com @daniel')).toEqual(
+      splitContent('see https://x.com @daniel'),
+    )
   })
 })

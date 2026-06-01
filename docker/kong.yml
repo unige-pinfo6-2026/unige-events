@@ -161,6 +161,13 @@ services:
         paths: ['~/api/users/[^/]+/(?:followers|following)$']
         strip_path: false
         preserve_host: true
+      - name: remove-follower
+        # DELETE /api/users/me/followers/{followerId} — kick a follower off your
+        # own followers list (the mirror of unfollow). 4 segments so it doesn't
+        # collide with follow-listings (3 segments, anchored $).
+        paths: ['~/api/users/me/followers/[^/]+$']
+        strip_path: false
+        preserve_host: true
       - name: follow-requests
         paths: ['~/api/follow-requests/(?:\d+)/(?:accept|reject)$']
         strip_path: false
@@ -191,6 +198,13 @@ services:
     routes:
       - name: report-event
         paths: ['~/api/events/(?:\d+)/report$']
+        strip_path: false
+        preserve_host: true
+      - name: report-comment
+        # SCRUM-144 — POST /api/comments/{id}/report routes to moderation-service
+        # (engagement-service owns /api/comments/{id} + /like). Mirrors the helm
+        # configmap-routes.yaml block so local == prod.
+        paths: ['~/api/comments/(?:\d+)/report$']
         strip_path: false
         preserve_host: true
       - name: admin-reports
@@ -244,6 +258,29 @@ services:
               hide_client_headers: false
       - name: comment-direct
         paths: ['~/api/comments/(?:\d+)$']
+        strip_path: false
+        preserve_host: true
+
+  # ───── notification-service ──────────────────────────────────────────────────
+  # SCRUM-99 — in-app notifications. Mirrors the helm configmap-routes.yaml block
+  # (was missing locally, so /api/users/me/notifications 404'd at the gateway).
+  # Routes ordered most-specific-first to avoid prefix shadowing.
+  - name: notification-service
+    url: http://devcontainer:8085
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    routes:
+      - name: notifications-read-all
+        paths: ['~/api/users/me/notifications/read-all$']
+        strip_path: false
+        preserve_host: true
+      - name: notification-mark-read
+        paths: ['~/api/users/me/notifications/(?:\d+)/read$']
+        strip_path: false
+        preserve_host: true
+      - name: user-notifications
+        paths: ['~/api/users/me/notifications/?$']
         strip_path: false
         preserve_host: true
 

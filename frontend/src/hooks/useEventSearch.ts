@@ -61,24 +61,31 @@ export function useSearch(): UseSearchResult {
   // When true, the next 2000ms debounce tick is skipped (used after an immediate search)
   const skipNextDebounce = useRef(false)
 
-  // Sync state → URL (replace so browser history stays clean)
+  // Sync state → URL (replace so browser history stays clean). Rebuild only the
+  // event-search keys and preserve any param this hook doesn't own (e.g. the
+  // `tab` flag of the search page) — the functional updater reads the live
+  // params so we never clobber a tab set elsewhere (bug ⑦).
   useEffect(() => {
-    const next = new URLSearchParams()
     const trimmedQuery = query.trim()
-    if (trimmedQuery) next.set('q', trimmedQuery)
-    if (filters.category) next.set('category', filters.category)
-    if (filters.facultyNone) {
-      next.set('facultyNone', 'true')
-    } else if (filters.faculty) {
-      next.set('faculty', filters.faculty)
-    }
-    if (filters.tags && filters.tags.length > 0) {
-      filters.tags.forEach((t) => next.append('tags', t))
-    }
-    if (filters.dateFrom) next.set('dateFrom', filters.dateFrom)
-    if (filters.dateTo) next.set('dateTo', filters.dateTo)
-    if (filters.includePast) next.set('includePast', 'true')
-    setSearchParams(next, { replace: true })
+    setSearchParams((prev) => {
+      const next = new URLSearchParams()
+      const tab = prev.get('tab')
+      if (tab) next.set('tab', tab)
+      if (trimmedQuery) next.set('q', trimmedQuery)
+      if (filters.category) next.set('category', filters.category)
+      if (filters.facultyNone) {
+        next.set('facultyNone', 'true')
+      } else if (filters.faculty) {
+        next.set('faculty', filters.faculty)
+      }
+      if (filters.tags && filters.tags.length > 0) {
+        filters.tags.forEach((t) => next.append('tags', t))
+      }
+      if (filters.dateFrom) next.set('dateFrom', filters.dateFrom)
+      if (filters.dateTo) next.set('dateTo', filters.dateTo)
+      if (filters.includePast) next.set('includePast', 'true')
+      return next
+    }, { replace: true })
   }, [query, filters, setSearchParams])
 
   // 300ms debounce: query → suggestions (aborts stale in-flight suggestion requests)

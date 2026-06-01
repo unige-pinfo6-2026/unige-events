@@ -15,6 +15,7 @@ function Toast({
 }>) {
   const { dismiss } = useToast()
   const [hiding, setHiding] = useState(false)
+  const { className, icon: Icon } = TOAST_VARIANTS[variant]
 
   useEffect(() => {
     const t = setTimeout(() => setHiding(true), duration)
@@ -31,13 +32,14 @@ function Toast({
     <button
       type="button"
       className={[
-        'px-5 py-3.5 rounded-2xl text-sm font-medium shadow-2xl border backdrop-blur-xl bg-background/90 cursor-pointer text-left',
+        'flex items-center gap-2.5 px-5 py-4 rounded-2xl text-sm font-medium shadow-2xl border backdrop-blur-xl bg-background/90 cursor-pointer text-left',
         hiding ? 'animate-toast-out' : 'animate-toast-in',
-        TOAST_VARIANTS[variant],
+        className,
       ].join(' ')}
       onClick={() => setHiding(true)}
     >
-      {message}
+      <Icon className="size-5 shrink-0" aria-hidden="true" />
+      <span>{message}</span>
     </button>
   )
 }
@@ -46,7 +48,7 @@ export default function ToastsWrapper() {
   const { toasts } = useToast()
 
   return (
-    <div className="fixed z-50 top-3 right-3 flex flex-col gap-2 items-end">
+    <div className="fixed z-50 bottom-3 right-3 flex flex-col gap-2 items-end">
       {toasts.map(toast => (
         <Toast key={toast.id} {...toast} />
       ))}

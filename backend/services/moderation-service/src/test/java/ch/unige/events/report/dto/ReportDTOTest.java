@@ -24,15 +24,17 @@ class ReportDTOTest {
         LocalDateTime reviewed = LocalDateTime.of(2026, 5, 2, 9, 30);
 
         ReportDTO dto = new ReportDTO(
-                7L, 42L, null, "Some Event",
+                7L, "EVENT", 42L, null, "Some Event", null,
                 reporterId, "Alice",
                 ReportReason.SPAM, "Looks like spam",
                 ReportStatus.PENDING, "needs review",
                 created, reviewed, reviewedBy);
 
         assertEquals(7L, dto.id());
+        assertEquals("EVENT", dto.targetType());
         assertEquals(42L, dto.eventId());
         assertEquals("Some Event", dto.eventTitle());
+        assertNull(dto.commentContent());
         assertEquals(reporterId, dto.reporterId());
         assertEquals("Alice", dto.reporterDisplayName());
         assertEquals(ReportReason.SPAM, dto.reason());
@@ -49,19 +51,58 @@ class ReportDTOTest {
         UUID reporterId = UUID.randomUUID();
         LocalDateTime created = LocalDateTime.of(2026, 5, 1, 12, 0);
 
-        ReportDTO a = new ReportDTO(1L, 1L, null, "T", reporterId, "X",
+        ReportDTO a = new ReportDTO(1L, "EVENT", 1L, null, "T", null, reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
-        ReportDTO b = new ReportDTO(1L, 1L, null, "T", reporterId, "X",
+        ReportDTO b = new ReportDTO(1L, "EVENT", 1L, null, "T", null, reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
-        ReportDTO c = new ReportDTO(2L, 1L, null, "T", reporterId, "X",
+        ReportDTO c = new ReportDTO(2L, "EVENT", 1L, null, "T", null, reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
                 created, null, null);
 
         assertEquals(a, b);
         assertEquals(a.hashCode(), b.hashCode());
         assertNotEquals(a, c);
+    }
+
+    @Test
+    void from_eventReport_derivesTargetTypeEvent() {
+        Report r = new Report();
+        r.id = 5L;
+        r.eventId = 99L;
+        r.commentId = null;
+        r.reporterId = UUID.randomUUID();
+        r.reason = ReportReason.SPAM;
+        r.status = ReportStatus.PENDING;
+        r.createdAt = LocalDateTime.now();
+
+        ReportDTO dto = ReportDTO.from(r, null, null);
+
+        assertEquals("EVENT", dto.targetType());
+        assertEquals(99L, dto.eventId());
+        assertNull(dto.commentId());
+        assertNull(dto.commentContent());
+    }
+
+    @Test
+    void from_commentReport_derivesTargetTypeCommentAndCarriesContent() {
+        Report r = new Report();
+        r.id = 6L;
+        r.eventId = null;
+        r.commentId = 321L;
+        r.reporterId = UUID.randomUUID();
+        r.reason = ReportReason.INAPPROPRIATE;
+        r.status = ReportStatus.PENDING;
+        r.createdAt = LocalDateTime.now();
+
+        ReportDTO dto = ReportDTO.from(r, null, null, "the reported body");
+
+        assertEquals("COMMENT", dto.targetType());
+        assertEquals(321L, dto.commentId());
+        assertNull(dto.eventId());
+        assertNull(dto.eventTitle());
+        assertEquals("the reported body", dto.commentContent());
     }
 
     @Test

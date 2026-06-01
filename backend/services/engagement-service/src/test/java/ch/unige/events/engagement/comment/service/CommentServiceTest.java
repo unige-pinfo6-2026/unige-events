@@ -862,4 +862,12 @@ class CommentServiceTest {
         assertThrows(NotFoundException.class,
                 () -> service.getByEvent(36L, "auth0|test-comment-user", 0, 20));
     }
+
+    @Test
+    void getContentByIds_nullOrEmpty_returnsEmptyWithoutQuerying() {
+        // Defensive empty-input contract (QA bug batch, bug ③): a null or empty
+        // id batch short-circuits to an empty list and never touches Panache.
+        assertTrue(service.getContentByIds(null).isEmpty());
+        assertTrue(service.getContentByIds(List.of()).isEmpty());
+    }
 }

@@ -195,6 +195,13 @@ data:
               - ~/api/users/[^/]+/(?:followers|following)$
             strip_path: false
             preserve_host: true
+          - name: remove-follower
+            # DELETE /api/users/me/followers/{followerId} — remove a follower
+            # (mirror of unfollow). 4 segments → no clash with follow-listings.
+            paths:
+              - ~/api/users/me/followers/[^/]+$
+            strip_path: false
+            preserve_host: true
           - name: follow-requests
             paths:
               - ~/api/follow-requests/(?:\d+)/(?:accept|reject)$

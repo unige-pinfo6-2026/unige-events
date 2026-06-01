@@ -850,6 +850,15 @@ components:
         id:
           type: integer
           format: int64
+        targetType:
+          type: string
+          enum: [EVENT, COMMENT]
+          description: |
+            Discriminateur explicite de la cible (bug ③). `EVENT` quand le
+            signalement vise un événement (`eventId` renseigné, `eventTitle`
+            projeté), `COMMENT` quand il vise un commentaire (`commentId`
+            renseigné, `commentContent` projeté). Le dashboard admin lit ce champ
+            plutôt que d'inférer la cible à partir des id null.
         eventId:
           type: integer
           format: int64
@@ -868,7 +877,17 @@ components:
         eventTitle:
           type: string
           nullable: true
-          description: Titre de l'événement signalé, projeté pour l'affichage dans la table de modération.
+          description: Titre de l'événement signalé, projeté pour l'affichage dans la table de modération. `null` pour un report de commentaire.
+        commentContent:
+          type: string
+          nullable: true
+          description: |
+            Corps du commentaire signalé (bug ③), projeté pour l'affichage dans la
+            table de modération via l'endpoint interne engagement
+            `GET /comments/_internal-by-ids`. Peuplé uniquement par
+            `GET /admin/reports` pour un report de commentaire (`null` pour un
+            report d'événement, et `null` dans la réponse de `PATCH /admin/reports/{id}`
+            qui supprime le commentaire validé).
         reporterId:
           type: string
           format: uuid
@@ -910,7 +929,7 @@ components:
           format: uuid
           nullable: true
           description: UUID de l'admin qui a tranché. Null tant que PENDING.
-      required: [id, reason, status, createdAt]
+      required: [id, targetType, reason, status, createdAt]
 
     CreateReportRequest:
       type: object
@@ -932,6 +951,11 @@ components:
         Body de `PATCH /api/admin/reports/{id}`. `status` doit être `REVIEWED` ou
         `DISMISSED` — `PENDING` n'est pas un statut cible valide. `moderationNote` est
         optionnel (texte libre, limité à 2000 chars).
+
+        **Effet de `REVIEWED` selon la cible (bug ③).** Pour un report d'**événement**,
+        l'événement est banni (`EventStatus.BANNED`). Pour un report de **commentaire**,
+        le commentaire est **supprimé**. Dans les deux cas, les autres signalements
+        `PENDING` de la même cible sont clôturés (`REVIEWED`). `DISMISSED` est neutre.
       required: [status]
       properties:
         status:
@@ -2176,6 +2200,38 @@ paths:
       responses:
         '204':
           description: Suppression effective ou no-op idempotent
+        '401':
+          description: Token absent ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /users/me/followers/{followerId}:
+    delete:
+      summary: Retirer un follower de sa propre liste
+      description: |
+        Supprime la row `Follow` où l'appelant authentifié est le `followed` et
+        `{followerId}` le `follower` — le **miroir de l'unfollow**. Permet de retirer
+        quelqu'un de sa liste de followers sans attendre qu'il se désabonne de lui-même.
+
+        **Idempotent** : retourne `204 No Content` même si aucune row n'existait. Action
+        **silencieuse** — aucune notification n'est envoyée au follower retiré.
+      operationId: removeFollower
+      x-owner-service: user-service
+      tags: [users, follows]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: followerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Follower retiré ou no-op idempotent
         '401':
           description: Token absent ou invalide
           content:

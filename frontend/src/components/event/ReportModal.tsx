@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Flag, X } from 'lucide-react'
 import FormField, { Select, Textarea } from '@/components/utils/FormField'
 import { REPORT_REASONS } from '@/types/report'
@@ -8,15 +9,22 @@ interface ReportModalProps {
   onClose: () => void
   onSubmit: (reason: ReportReason, description?: string) => Promise<void>
   submitting: boolean
-  /** SCRUM-147 — change le titre du modal selon la cible. Backend
-   *  consomme la même shape (reason + description) pour event et
-   *  comment ; seul le wording change. */
+  /** SCRUM-147 — change le titre + les motifs proposés selon la cible. Le
+   *  backend consomme la même shape (reason + description) pour event et
+   *  comment ; seul le wording et la liste affichée changent. */
   target?: 'event' | 'comment'
 }
 
 const TITLES: Record<'event' | 'comment', string> = {
   event: 'Signaler cet événement',
   comment: 'Signaler ce commentaire',
+}
+
+// Motifs proposés par cible : un commentaire ne peut pas être un « Faux
+// événement » (FAKE), donc on ne l'expose pas côté commentaire.
+const REASONS_BY_TARGET: Record<'event' | 'comment', ReportReason[]> = {
+  event: ['SPAM', 'INAPPROPRIATE', 'FAKE', 'OTHER'],
+  comment: ['SPAM', 'INAPPROPRIATE', 'OTHER'],
 }
 
 export default function ReportModal({ onClose, onSubmit, submitting, target = 'event' }: Readonly<ReportModalProps>) {
@@ -29,8 +37,11 @@ export default function ReportModal({ onClose, onSubmit, submitting, target = 'e
     await onSubmit(reason, description.trim() || undefined)
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+  // Rendered through a portal on document.body so the fixed overlay isn't
+  // trapped by an ancestor with backdrop-blur/transform (the comment cards),
+  // which would otherwise confine + clip it to the comments section.
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-background border border-border rounded-3xl p-8 max-w-sm w-[90%] shadow-2xl">
 
         <div className="flex items-center justify-between mb-6">
@@ -59,8 +70,8 @@ export default function ReportModal({ onClose, onSubmit, submitting, target = 'e
               disabled={submitting}
             >
               <option value="">Sélectionner un motif</option>
-              {Object.entries(REPORT_REASONS).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+              {REASONS_BY_TARGET[target].map((key) => (
+                <option key={key} value={key}>{REPORT_REASONS[key]}</option>
               ))}
             </Select>
           </FormField>
@@ -96,6 +107,7 @@ export default function ReportModal({ onClose, onSubmit, submitting, target = 'e
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

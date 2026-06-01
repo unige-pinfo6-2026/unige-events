@@ -13,6 +13,11 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: vi.fn(() => ({ theme: 'dark', toggleTheme: vi.fn() })),
 }))
 
+const { mockShowToast } = vi.hoisted(() => ({ mockShowToast: vi.fn() }))
+vi.mock('@/hooks/useToast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}))
+
 vi.mock('@/services/userService', () => ({
   getUserByUsername: vi.fn(),
 }))
@@ -31,6 +36,7 @@ vi.mock('@/services/followApi', () => ({
   rejectFollowRequest: vi.fn(),
   getFollowers: vi.fn(),
   getFollowing: vi.fn(),
+  removeFollower: vi.fn(),
 }))
 
 // boneyard renders an SSR-style `<div>` with bones the test doesn't care
@@ -43,7 +49,7 @@ vi.mock('boneyard-js/react', () => ({
 import { useAuth } from '@/hooks/useAuth'
 import { getUserByUsername } from '@/services/userService'
 import { useTheme } from '@/contexts/ThemeContext'
-import { FOLLOW_LIST_PAGE_SIZE, getFollowers, getFollowing } from '@/services/followApi'
+import { FOLLOW_LIST_PAGE_SIZE, getFollowers, getFollowing, removeFollower } from '@/services/followApi'
 import FollowListPage from '@/pages/profile/FollowListPage'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -52,6 +58,7 @@ const mockUseTheme = useTheme as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetFollowers = getFollowers as ReturnType<typeof vi.fn>
 const mockGetFollowing = getFollowing as ReturnType<typeof vi.fn>
+const mockRemoveFollower = removeFollower as ReturnType<typeof vi.fn>
 
 const OWN_UUID = 'b1b1b1b1-b1b1-4b1b-9b1b-b1b1b1b1b1b1'
 const OTHER_UUID = 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c'
@@ -313,6 +320,58 @@ describe('FollowListPage — me', () => {
     renderAt('/profile/me/followers')
 
     expect(await screen.findByText(/Followers de me\.username/)).toBeTruthy()
+  })
+})
+
+describe('FollowListPage — remove a follower (own followers list)', () => {
+  // Own-followers list → the row exposes a "Retirer" action wired to
+  // useFollowList.remove → removeFollower, then a success/error toast.
+  const ownProfile = {
+    ...otherProfile,
+    id: OWN_UUID,
+    username: mockUser.username,
+    displayName: 'Me',
+  }
+
+  it('removes the follower optimistically and shows a success toast', async () => {
+    mockGetUserByUsername.mockResolvedValue(ownProfile)
+    mockGetFollowers.mockResolvedValue([makeListUser('a')])
+    mockRemoveFollower.mockResolvedValue(undefined)
+
+    renderAt(`/profile/${mockUser.username}/followers`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retirer' }))
+
+    await waitFor(() => expect(mockRemoveFollower).toHaveBeenCalledWith('a-id'))
+    // Optimistic: the row disappears immediately.
+    await waitFor(() => expect(screen.queryByText('User a')).toBeNull())
+    expect(mockShowToast).toHaveBeenCalledWith('success', 'Follower retiré.', 3000)
+  })
+
+  it('restores the row and shows an error toast when removeFollower fails', async () => {
+    mockGetUserByUsername.mockResolvedValue(ownProfile)
+    mockGetFollowers.mockResolvedValue([makeListUser('a')])
+    mockRemoveFollower.mockRejectedValue(new Error('boom'))
+
+    renderAt(`/profile/${mockUser.username}/followers`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retirer' }))
+
+    await waitFor(() =>
+      expect(mockShowToast).toHaveBeenCalledWith('error', 'Impossible de retirer ce follower.', 4000),
+    )
+    // Rollback: the row comes back after the rejection.
+    expect(screen.getByText('User a')).toBeTruthy()
+  })
+
+  it('does not offer a "Retirer" action on someone else’s followers list', async () => {
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+    mockGetFollowers.mockResolvedValue([makeListUser('a')])
+
+    renderAt('/profile/other.user/followers')
+
+    await waitFor(() => expect(screen.getByText('User a')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Retirer' })).toBeNull()
   })
 })
 

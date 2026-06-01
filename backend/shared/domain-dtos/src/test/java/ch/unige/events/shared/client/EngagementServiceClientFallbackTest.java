@@ -2,6 +2,7 @@ package ch.unige.events.shared.client;
 
 import ch.unige.events.shared.domain.dto.AttendanceDTO;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.dto.CommentContentProjection;
 import ch.unige.events.shared.domain.dto.CommentVisibilityProjection;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -28,6 +29,8 @@ class EngagementServiceClientFallbackTest {
         @Override public Map<Long, AttendanceSummary> getAttendanceSummariesBulk(List<Long> ids) { throw new UnsupportedOperationException(); }
         @Override public List<UUID> getAttendeeIds(Long eventId, String status) { throw new UnsupportedOperationException(); }
         @Override public CommentVisibilityProjection getCommentVisibility(Long commentId, UUID callerId) { throw new UnsupportedOperationException(); }
+        @Override public void deleteCommentForModeration(Long commentId) { throw new UnsupportedOperationException(); }
+        @Override public List<CommentContentProjection> getCommentsByIds(List<Long> ids) { throw new UnsupportedOperationException(); }
     };
 
     @Test
@@ -59,6 +62,27 @@ class EngagementServiceClientFallbackTest {
         // notification consumer's for-each loop skip cleanly.
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getCommentsByIdsFallback_returnsEmptyList() {
+        // QA bug batch (bug ③) — degraded enrichment: the admin reports listing
+        // is shown without the comment body rather than failing the whole page.
+        List<CommentContentProjection> result = CLIENT.getCommentsByIdsFallback(List.of(1L, 2L));
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void deleteCommentForModerationFallback_throws503() {
+        // QA bug batch (bug ③) — a genuine infra failure (not a 404) must surface
+        // as 503 so the admin sees a meaningful error instead of a silently
+        // un-deleted comment. The 404 idempotent path is handled by abortOn/skipOn
+        // (NotFoundException propagates, swallowed by ReportService).
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> CLIENT.deleteCommentForModerationFallback(42L));
+        assertEquals(Response.Status.SERVICE_UNAVAILABLE.getStatusCode(),
+                ex.getResponse().getStatus());
     }
 
     @Test

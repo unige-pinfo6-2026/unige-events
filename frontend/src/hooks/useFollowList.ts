@@ -4,6 +4,7 @@ import {
   FOLLOW_LIST_PAGE_SIZE,
   getFollowers,
   getFollowing,
+  removeFollower,
 } from '@/services/followApi'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -34,6 +35,12 @@ export interface UseFollowListResult {
    * once {@link hasMore} is `false`.
    */
   loadMore: () => void
+  /**
+   * Removes a follower of the caller (followers list of the own profile only).
+   * Optimistic: the row disappears immediately ; on API error it's restored and
+   * the rejection is rethrown so the caller can surface a toast.
+   */
+  remove: (userId: string) => Promise<void>
 }
 
 /**
@@ -135,5 +142,16 @@ export function useFollowList(
     setPage(prev => prev + 1)
   }, [])
 
-  return { users, loading, loadingMore, isNotFound, error, hasMore, loadMore }
+  const remove = useCallback(async (userId: string) => {
+    const previous = users
+    setUsers(prev => prev.filter(u => u.id !== userId))
+    try {
+      await removeFollower(userId)
+    } catch (e) {
+      setUsers(previous)
+      throw e
+    }
+  }, [users])
+
+  return { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove }
 }

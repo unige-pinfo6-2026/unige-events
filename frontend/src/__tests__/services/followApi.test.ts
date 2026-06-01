@@ -20,6 +20,7 @@ import {
   getFollowing,
   getMyFollowRequests,
   rejectFollowRequest,
+  removeFollower,
   unfollowUser,
 } from '@/services/followApi'
 
@@ -72,6 +73,20 @@ describe('followApi', () => {
     it('propagates network failures', async () => {
       mockDelete.mockRejectedValue(new Error('boom'))
       await expect(unfollowUser('uuid-x')).rejects.toThrow('boom')
+    })
+  })
+
+  describe('removeFollower', () => {
+    it('DELETEs /users/me/followers/{id} and resolves void', async () => {
+      mockDelete.mockResolvedValue({ status: 204 })
+
+      await expect(removeFollower('follower-uuid')).resolves.toBeUndefined()
+      expect(mockDelete).toHaveBeenCalledWith('/users/me/followers/follower-uuid')
+    })
+
+    it('propagates failures (e.g. 404 not a follower)', async () => {
+      mockDelete.mockRejectedValue(new Error('not found'))
+      await expect(removeFollower('x')).rejects.toThrow('not found')
     })
   })
 

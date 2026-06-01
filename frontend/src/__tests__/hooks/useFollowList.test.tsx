@@ -10,15 +10,17 @@ vi.mock('@/services/followApi', async () => {
     ...actual,
     getFollowers: vi.fn(),
     getFollowing: vi.fn(),
+    removeFollower: vi.fn(),
   }
 })
 
-import { FOLLOW_LIST_PAGE_SIZE, getFollowers, getFollowing } from '@/services/followApi'
+import { FOLLOW_LIST_PAGE_SIZE, getFollowers, getFollowing, removeFollower } from '@/services/followApi'
 import { useFollowList } from '@/hooks/useFollowList'
 import type { UserPublicResponse } from '@/types/user'
 
 const mockGetFollowers = getFollowers as ReturnType<typeof vi.fn>
 const mockGetFollowing = getFollowing as ReturnType<typeof vi.fn>
+const mockRemoveFollower = removeFollower as ReturnType<typeof vi.fn>
 
 afterEach(() => {
   vi.resetAllMocks()
@@ -232,5 +234,31 @@ describe('useFollowList', () => {
     expect(result.current.users.map(u => u.id)).toEqual(['b-id'])
     expect(result.current.error).toBeNull()
     expect(result.current.isNotFound).toBe(false)
+  })
+
+  it('remove() optimistically drops the row and calls removeFollower', async () => {
+    mockGetFollowers.mockResolvedValue([makeUser('a'), makeUser('b')])
+    mockRemoveFollower.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useFollowList('target', 'followers'))
+    await waitFor(() => expect(result.current.users.length).toBe(2))
+
+    await act(async () => { await result.current.remove('a-id') })
+
+    expect(mockRemoveFollower).toHaveBeenCalledWith('a-id')
+    expect(result.current.users.map(u => u.id)).toEqual(['b-id'])
+  })
+
+  it('remove() restores the row and rethrows when the API rejects', async () => {
+    mockGetFollowers.mockResolvedValue([makeUser('a')])
+    mockRemoveFollower.mockRejectedValue(new Error('boom'))
+    const { result } = renderHook(() => useFollowList('target', 'followers'))
+    await waitFor(() => expect(result.current.users.length).toBe(1))
+
+    await expect(
+      act(async () => { await result.current.remove('a-id') }),
+    ).rejects.toThrow('boom')
+
+    // Optimistic removal rolled back — the row is back.
+    expect(result.current.users.map(u => u.id)).toEqual(['a-id'])
   })
 })

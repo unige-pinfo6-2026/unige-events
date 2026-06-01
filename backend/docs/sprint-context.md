@@ -1,6 +1,141 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-21 (SCRUM-168 — filtre followedOnly Sprint 9)
+Dernière mise à jour : 2026-05-31 (QA bug batch — feature « retirer un follower » + fixes infra locale)
+
+---
+
+## 2026-05-31 — QA bug batch, addendum (retirer un follower + drift infra local)
+
+Branche `fix/qa-bug-batch` (même PR #224).
+
+### Feature — retirer un de ses followers (miroir de l'unfollow)
+
+On pouvait se désabonner de quelqu'un, mais pas le **retirer de ses followers**.
+
+- **user-service** : `FollowService.removeFollower(targetAuth0Id, followerId)` supprime la
+  row `Follow{follower=followerId, followed=caller}` (idempotent, silencieux — aucun event
+  fired, donc aucune notif au follower retiré). Endpoint `DELETE /api/users/me/followers/{followerId}`
+  (`@Authenticated`) dans `FollowResource`. Sentinels `FollowServiceTest` (delete, idempotent,
+  ne touche pas la row inverse en cas de follow mutuel).
+- **Kong** : route `remove-follower` (`~/api/users/me/followers/[^/]+$`) ajoutée à
+  `docker/kong.yml` ET au configmap Helm (4 segments → pas de collision avec `follow-listings`).
+- **openapi** : path `DELETE /users/me/followers/{followerId}`.
+- **Frontend** : `removeFollower` (followApi), action optimiste `remove` sur `useFollowList`,
+  bouton « Retirer » sur `FollowListRow` (prop `onRemove`), affiché uniquement sur SA PROPRE
+  liste de followers (`FollowListPage` compare `currentUser.id === target.uuid`). Toasts succès/erreur.
+
+### Drift d'infra local corrigé (testing local de la PR)
+
+Plusieurs configs locales avaient divergé du chart Helm (prod OK, dev cassé) :
+- `docker/postgres-init.sql` créait `unige_events_notification` (singulier) au lieu de
+  `unige_events_notifications` (pluriel) → notification-service crashait au boot.
+- `docker/kong.yml` manquait le bloc `notification-service` + la route `report-comment`
+  → 404 gateway sur notifs + signalement commentaire.
+
+> **Note Kafka local** : user-service publie correctement les events de suivi (vérifié :
+> messages `ACCEPTED`/`FOLLOWED` présents dans Kafka — dual-fire V2 OK). Un souci runtime de
+> consommation Kafka de notification-service en dev local empêche la matérialisation des
+> notifications localement (tous types) — non reproduit en CI (consumers testés en in-memory).
+
+---
+
+## 2026-05-31 — QA bug batch, vague V3 (signalement commentaire + recherche utilisateur)
+
+Branche `fix/qa-bug-batch` (dernière vague — PR unique V1+V2+V3 ouverte à la fin de V3).
+
+### Bug ③ — signalement de commentaire : validation supprime le commentaire + affichage admin distinct
+
+Avant : valider (`REVIEWED`) un report de commentaire fire `EventBannedEvent.banned(report.eventId=null, …)`
+→ ban fantôme d'un event null. Et le dashboard admin supposait toujours un event
+(« Événement supprimé » + « Bannir l'événement » pour un commentaire).
+
+- **moderation-service** : `ReportService.handle` route selon la cible. Report event →
+  inchangé (ban + cascade par eventId). **Report commentaire → supprime le commentaire**
+  via engagement-service + cascade des signalements `PENDING` frères par commentId, **sans**
+  fire `EventBannedEvent`. `ReportDTO` gagne `targetType` (EVENT|COMMENT, dérivé) +
+  `commentContent` (enrichi en batch dans `listByStatus`). Enrichissement event guardé
+  (plus de `eventClient.getById(null)`).
+- **engagement-service** : 2 endpoints internes (`@Internal` X-Internal-Token, hors openapi) —
+  `DELETE /comments/{id}/_internal-moderation` (hard-delete, 404 idempotent) et
+  `GET /comments/_internal-by-ids?ids=` (projection contenu batch). `CommentService` gagne
+  `deleteForModeration` + `getContentByIds`.
+- **shared-domain-dtos** : `CommentContentProjection` (nouveau) ; `EngagementServiceClient`
+  gagne `deleteCommentForModeration` (abortOn/skipOn NotFoundException → 404 = succès
+  idempotent ; fallback 503) et `getCommentsByIds` (fallback `[]`).
+- **openapi** : `Report` schema gagne `targetType` (required) + `commentContent`, et la
+  description de `PATCH /admin/reports/{id}` documente l'effet `REVIEWED` par cible.
+  `internal-endpoints.md` entries #13/#14 ; data-model + architecture à jour.
+- **Frontend** : `Report` type (`targetType`/`commentId`/`commentContent`) ; `AdminPage`
+  `ReportRow` distingue (contenu du commentaire vs titre event ; « Supprimer le commentaire »
+  vs « Bannir l'événement » ; badge « Supprimé » vs « Banni » ; en-tête « Cible du signalement »).
+- **Tests** : sentinels `ModerationDomainSentinelsTest` (comment report ne fire pas de ban,
+  delete appelé) + `ReportServiceTest` (routing, 404 idempotent, enrichissement) + `ReportDTOTest`
+  (targetType/commentContent) + `CommentModerationInternalResourceTest` (delete/by-ids + token gate)
+  + `EngagementServiceClientFallbackTest` étendu. Frontend `AdminPage.test` + `useAdminReports.test`.
+
+### Bug ⑦ — recherche utilisateur (frontend, backend déjà prêt)
+
+- `EventsSearchPage` gagne un switch d'onglets « Événements | Utilisateurs » (`?tab=users`).
+  L'onglet Utilisateurs consomme `searchUsernames` (`GET /api/users/search`, `@Authenticated`,
+  déjà existant — **aucun backend ajouté**) via le nouveau hook `useUserSearch`, rend les
+  résultats en liste de `UserResultCard`, gère loading (skeleton `user-search-results`) /
+  error / empty / non-connecté (prompt login).
+
+### Vérifications
+
+- **Frontend** : `npm run lint` ✅, `npx vitest run` ✅ 2289/2289, `npm run build` ✅.
+- **Backend** : `./mvnw -pl services/moderation-service,services/engagement-service,shared/domain-dtos
+  -am test-compile` ✅ (main+test). `@QuarkusTest` runtime → **CI** (Docker DevServices absent
+  localement) — voir les sentinels listés ci-dessus.
+
+---
+
+## 2026-05-31 — QA bug batch, vague V2 (demandes de suivi)
+
+Branche `fix/qa-bug-batch` (batch de correctifs QA front+back, empilé sur main ;
+V1 = polish frontend `/event/:id`, V2 = ci-dessous, V3 = modération + recherche
+utilisateur ; **une seule PR ouverte à la fin de V3**).
+
+### Bug ① — une demande de suivi ne double plus une notif cloche
+
+Avant : une demande de suivi vers un profil privé créait À LA FOIS une notif
+cloche `FOLLOW_REQUEST` **et** une entrée dans l'inbox « Demandes reçues » (les
+rows `Follow` PENDING) — doublon.
+
+- **notification-service** : `UserFollowRequestedConsumer` (+ son channel
+  `users-follow-requested` dans `application.properties`) **supprimé**. Une
+  demande de suivi ne vit plus que dans l'inbox. `NotificationType.FOLLOW_REQUEST`
+  reste dans l'enum + la CHECK DB (déprécié, rend les rows historiques) — **pas de
+  migration Flyway**. notification-service passe de **6 à 5 consumers** Kafka.
+- **user-service** : `FollowService.acceptRequest` fire désormais **deux** events
+  CDI post-commit : `followAccepted` (→ FOLLOW_ACCEPTED vers l'initiateur A,
+  inchangé) **et** `followed` (→ NEW_FOLLOWER vers l'acceptant B, « A a commencé à
+  vous suivre »). Le `reject` ne fire rien (row supprimée, A non notifié). Le
+  follow direct (profil public) ne fire toujours qu'un seul `followed`.
+- **Tests** : sentinels `FollowServiceTest` via un observer CDI de test
+  synchrone (`RecordingFollowLifecycleObserver`, phase IN_PROGRESS — le bridge
+  AFTER_SUCCESS ne tourne pas sous `@TestTransaction`) : accept fire
+  FOLLOWED+ACCEPTED aux bons UUIDs ; follow public = 1×FOLLOWED ; follow privé =
+  1×REQUESTED ; reject = 0 event. `UserFollowRequestedConsumerTest` supprimé.
+- **Frontend** : aucun changement requis — le mapping `FOLLOW_REQUEST` du
+  `NotificationPanel` est **conservé** (les types `NotificationType` /
+  `typeStyles` sont exhaustifs et des rows legacy peuvent exister). `NEW_FOLLOWER`
+  et `FOLLOW_ACCEPTED` ont déjà leur rendu.
+
+### Bug ② — l'inbox « Demandes reçues » s'auto-rafraîchit (frontend)
+
+- `useMyFollowRequests` poll désormais silencieusement toutes les
+  `INBOX_POLL_INTERVAL_MS` (30 s, `frontend/src/constants/polling.ts`, constante
+  partagée adoptée aussi par `useNotifications` — DRY), comme la cloche. Le
+  refetch périodique ne repasse pas `loading` à `true` (pas de clignotement).
+
+### Vérifications
+
+- **Frontend** : `npm run lint` ✅, `npx vitest run` ✅ 2275/2275, `npm run build` ✅.
+- **Backend** : `./mvnw -pl services/user-service,services/notification-service -am
+  test-compile` ✅ (compilation main+test). Les `@QuarkusTest` runtime nécessitent
+  Docker DevServices (Postgres éphémère) **indisponible dans l'environnement local**
+  → validation des sentinels FollowServiceTest **en CI**.
 
 ---
 

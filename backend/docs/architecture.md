@@ -8,7 +8,7 @@
 > (commits `b858196` → tip de la branche `refactor(backend)--migrate-to-microservices`,
 > puis fixes infra post-merge `f4b5968e`, `dd8ca635`, `60991692`).
 > **5 services métiers** tous actifs + 10 shared libs après consolidation 14→5 (Étape 2 de la finalization, Décision A).
-> Kong gateway DB-less + Kafka broker (12 topics post-SCRUM-99, 11 producteurs + **9 consumers post-SCRUM-145** — 1 historique event-service + 3 SCRUM-99 phase 1 + 3 SCRUM-140 phase 2 + 2 SCRUM-145 phase 3 notification-service ; les 2 phase 3 consomment le même topic `comments.created` sur des group-ids distincts) +
+> Kong gateway DB-less + Kafka broker (12 topics post-SCRUM-99, 11 producteurs + **8 consumers post-QA-bug-batch** — 1 historique event-service + 3 SCRUM-99 phase 1 + 2 SCRUM-140 phase 2 (le `UserFollowRequestedConsumer` a été retiré — bug ① : une demande de suivi ne produit plus de notif cloche) + 2 SCRUM-145 phase 3 notification-service ; les 2 phase 3 consomment le même topic `comments.created` sur des group-ids distincts) +
 > observabilité (logs JSON + Prometheus + X-Request-ID).
 > Plan archivé : [`specs_archives/specs_claude/specs_microservices_migration.md`](../../specs_archives/specs_claude/specs_microservices_migration.md).
 > Audit post-PR-158 : [`specs_archives/audit_pr158_microservices_migration.md`](../../specs_archives/audit_pr158_microservices_migration.md).
@@ -26,7 +26,7 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 |---|---|---|---|
 | **web** | Deployment | 1 / 1 | React 19 SPA servie par Nginx |
 | **kong** | Deployment | 2 / 1 | API Gateway DB-less, route `/api/*` vers le bon service via une table de routes déclarative |
-| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, **12 topics provisionnés** (post-SCRUM-99 : ajout de `events.updated` et `attendances.created` ; SCRUM-140 phase 2 ne crée AUCUN topic — les 3 `users.{followed,follow-requested,follow-accepted}` existaient déjà depuis Sprint 8 SCRUM-138 ; SCRUM-145 phase 3 ne crée AUCUN topic non plus — les 2 nouveaux consumers lisent le `comments.created` existant). **11 producteurs câblés** (event-service ×6 events.{published,cancelled,expired,updated} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×2 comments.created + attendances.created, moderation-service ×1 events.banned) + **9 consommateurs** (event-service ← `events.banned` ; notification-service ← `events.cancelled`, `events.updated`, `attendances.created` post-SCRUM-99 ; notification-service ← `users.followed`, `users.follow-requested`, `users.follow-accepted` post-SCRUM-140 phase 2 ; notification-service ← `comments.created` ×2 group-ids distincts post-SCRUM-145 phase 3 — `CommentMentionConsumer` + `NewCommentConsumer`). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
+| **kafka** | StatefulSet | 1 / 1 | Broker KRaft single-node, **12 topics provisionnés** (post-SCRUM-99 : ajout de `events.updated` et `attendances.created` ; SCRUM-140 phase 2 ne crée AUCUN topic — les 3 `users.{followed,follow-requested,follow-accepted}` existaient déjà depuis Sprint 8 SCRUM-138 ; SCRUM-145 phase 3 ne crée AUCUN topic non plus — les 2 nouveaux consumers lisent le `comments.created` existant). **11 producteurs câblés** (event-service ×6 events.{published,cancelled,expired,updated} + co-organizers.{invited,accepted}, user-service ×3 users.{followed,follow-requested,follow-accepted}, engagement-service ×2 comments.created + attendances.created, moderation-service ×1 events.banned) + **8 consommateurs** (event-service ← `events.banned` ; notification-service ← `events.cancelled`, `events.updated`, `attendances.created` post-SCRUM-99 ; notification-service ← `users.followed`, `users.follow-accepted` post-SCRUM-140 phase 2 — `users.follow-requested` n'est PLUS consommé (bug ①) ; notification-service ← `comments.created` ×2 group-ids distincts post-SCRUM-145 phase 3 — `CommentMentionConsumer` + `NewCommentConsumer`). Pattern uniforme CDI `@Observes(AFTER_SUCCESS)` + bridge |
 | **postgres-event** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `event-service`, DB `unige_events_events`. Owns : `events`, `event_tags`, `event_views`, `favorites`, `event_co_organizers` |
 | **postgres-user** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `user-service`, DB `unige_events_users`. Owns : `users`, `user_interests`, `follows` |
 | **postgres-engagement** | StatefulSet | 1 / 1 | PostgreSQL 16 dédié à `engagement-service`, DB `unige_events_engagement`. Owns : `attendances`, `comments` |
@@ -44,7 +44,7 @@ UNIGE Events est déployé dans Kubernetes (namespace `unige-events` en prod,
 | **user-service** | `/users/me`, `/users/{id}`, `/users/me/image`, `/users/me/banner`, `/users/{id}/follow*`, `/follow-requests/*`, `/users/me/follow-requests`, `/users/me/calendar-token*`, `/calendar/{token}.ics` | `users`, `user_interests`, `follows` | Sous-packages: follow, calendar. Auto-create depuis claims JWT + S3 upload avatar/banner. Producteur Kafka users.{followed,follow-requested,follow-accepted}. |
 | **engagement-service** | `/events/{id}/attend*`, `/users/me/attendances`, `/users/me/participations`, `/events/{id}/comments`, `/comments/{id}`, **`/comments/{id}/like` (SCRUM-144)**, **`/comments/{id}/_internal-visibility` (SCRUM-144, internal)** | `attendances`, `comments`, **`comment_likes` (SCRUM-144)** | Sous-packages: attendance, comment. PESSIMISTIC_WRITE pour capacity gating + auto-promotion WAITLISTED ; replies comments max 1 niveau ; cascade ISSUE-92 + SCRUM-136. Producteur Kafka comments.created. SCRUM-144 likes idempotents 201/200 ; batch fetch `likedByMe` (anti N+1) sur `GET /events/{id}/comments`. |
 | **moderation-service** | `/events/{id}/report`, **`/comments/{id}/report` (SCRUM-144)**, `/admin/reports*` | `reports` (élargi SCRUM-144 : `comment_id` nullable + XOR CHECK + 2 partial UKs) | + ModerationCleanupJob (cron 03:00 Europe/Zurich, replicas:1 strict). Producteur Kafka events.banned. REST client `EngagementServiceClient.getCommentVisibility` (SCRUM-144 Décision L) pour valider la visibilité d'un commentaire avant signalement (anti-oracle 404 propagé). |
-| **notification-service** | `/users/me/notifications/?$`, `/users/me/notifications/{id}/read`, `/users/me/notifications/read-all` | `notifications` (SCRUM-99 phase 1, élargi SCRUM-140 phase 2 — enum à 9 valeurs via V2 widening) | **6 consommateurs Kafka** : `EventCancelledConsumer` ← `events.cancelled`, `EventUpdatedConsumer` ← `events.updated`, `AttendanceCreatedConsumer` ← `attendances.created` (SCRUM-99 phase 1) ; **`UserFollowedConsumer` ← `users.followed`, `UserFollowRequestedConsumer` ← `users.follow-requested`, `UserFollowAcceptedConsumer` ← `users.follow-accepted` (SCRUM-140 phase 2)**. Composent les notifs in-app et fan-outent au bon destinataire (sentinel critique `FOLLOW_ACCEPTED` → notif vers l'initiateur, pas l'acceptant). REST clients sortants : `EventServiceClient`, `EngagementServiceClient`, `UserServiceClient` (résolution `auth0Id → userId` via endpoint interne ; résolution displayName via `getById` avec fallback générique). |
+| **notification-service** | `/users/me/notifications/?$`, `/users/me/notifications/{id}/read`, `/users/me/notifications/read-all` | `notifications` (SCRUM-99 phase 1, élargi SCRUM-140 phase 2 — enum à 9 valeurs via V2 widening ; `FOLLOW_REQUEST` désormais dépréciée/non émise) | **5 consommateurs Kafka** : `EventCancelledConsumer` ← `events.cancelled`, `EventUpdatedConsumer` ← `events.updated`, `AttendanceCreatedConsumer` ← `attendances.created` (SCRUM-99 phase 1) ; **`UserFollowedConsumer` ← `users.followed`, `UserFollowAcceptedConsumer` ← `users.follow-accepted` (SCRUM-140 phase 2)**. Le `UserFollowRequestedConsumer` (← `users.follow-requested`) a été **retiré** (bug ①) : une demande de suivi vit uniquement dans l'inbox « Demandes reçues », jamais en notif cloche ; le `NEW_FOLLOWER` vers l'acceptant est désormais émis à l'ACCEPT (`FollowService.acceptRequest` fire `followed` en plus de `followAccepted`). Composent les notifs in-app et fan-outent au bon destinataire (sentinel critique `FOLLOW_ACCEPTED` → notif vers l'initiateur, pas l'acceptant). REST clients sortants : `EventServiceClient`, `EngagementServiceClient`, `UserServiceClient` (résolution `auth0Id → userId` via endpoint interne ; résolution displayName via `getById` avec fallback générique). |
 
 ### Flux de trafic
 
@@ -86,7 +86,10 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   ↔ event (avec `?check-co-org-of=` pour cascade SCRUM-136), engagement
   ↔ user, moderation ↔ event, moderation ↔ user, **moderation ↔
   engagement (SCRUM-144 — `getCommentVisibility` pour
-  `POST /comments/{id}/report` anti-oracle)**. Resilience standard sur
+  `POST /comments/{id}/report` anti-oracle ; étendu QA bug batch bug ③ —
+  `deleteCommentForModeration` + `getCommentsByIds` pour la validation
+  d'un report de commentaire et l'enrichissement du dashboard admin)**.
+  Resilience standard sur
   tous les clients : `@Retry(maxRetries=3, delay=200)` + `@Timeout(2000)` +
   `@CircuitBreaker(failureRatio=0.5, requestVolumeThreshold=10)` +
   `@Fallback`. Endpoints **internes** (non Kong) documentés dans
@@ -107,13 +110,14 @@ Bearer <jwt>` vers le service amont qui le revalide localement via
   consumer group `notification-service` partagé entre les 3 channels —
   fan-out aux attendees `ATTENDING` pour EVENT_*, notif unique au
   créateur pour NEW_ATTENDEE) **+ SCRUM-140 phase 2 : `users.followed`,
-  `users.follow-requested`, `users.follow-accepted` (3 consumers
-  supplémentaires sur le même group, total 6 consumers
-  notification-service). Le consumer `UserFollowAcceptedConsumer` route
+  `users.follow-accepted` (2 consumers supplémentaires sur le même group,
+  total 5 consumers notification-service ; `users.follow-requested` n'est
+  plus consommé — bug ①). Le consumer `UserFollowAcceptedConsumer` route
   la notif vers l'INITIATEUR (`followerId`) et non l'acceptant
-  (`followedId`) — sentinel test critique. Subclass concrète
-  `FollowLifecycleEventDeserializer` (piège #7) partagée entre les 3
-  channels.** Pattern : CDI `@Observes(during =
+  (`followedId`) — sentinel test critique. À l'ACCEPT, user-service fire
+  EN PLUS un `followed` → `UserFollowedConsumer` crée le NEW_FOLLOWER vers
+  l'acceptant. Subclass concrète `FollowLifecycleEventDeserializer`
+  (piège #7) partagée entre les channels follow.** Pattern : CDI `@Observes(during =
   AFTER_SUCCESS)` + bridge `<Domain>KafkaBridge` qui appelle l'`Emitter`
   (Décision A — évite BUG-001/002 events fantômes sur rollback).
   Sémantique consumer : **at-least-once** acceptée (SCRUM-99 Décision D
