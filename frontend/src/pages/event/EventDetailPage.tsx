@@ -33,7 +33,7 @@ import { Ban, BarChart2, Calendar, CalendarClock, ChevronDown, ChevronUp, Flag, 
 
 function EventDetailFixture() {
   return (
-    <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+    <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 items-start max-lg:grid-cols-1">
       {/* Main column (order-2 on mobile) */}
       <div className="flex flex-col gap-5 max-lg:order-2">
         {/* Banner h-72 mobile / h-80 desktop */}
@@ -479,7 +479,7 @@ export default function EventDetailPage() {
           de l'identité de l'événement et des informations clés avant la
           description, suivi de l'action immédiate (s'inscrire) avant les
           contenus secondaires. Le layout desktop reste identique. */}
-      <div className="grid grid-cols-[3fr_2fr] gap-6 items-start max-lg:grid-cols-1">
+      <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 items-start max-lg:grid-cols-1">
 
         {/* Colonne principale */}
         <div className="flex flex-col gap-5 max-lg:contents">

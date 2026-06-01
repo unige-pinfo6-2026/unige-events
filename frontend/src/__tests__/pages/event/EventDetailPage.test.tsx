@@ -1267,7 +1267,7 @@ describe('EventDetailPage', () => {
       setupOrganizer()
       const { container } = renderPage()
 
-      const grid = container.querySelector('.grid.grid-cols-\\[3fr_2fr\\]')
+      const grid = container.querySelector('.grid.grid-cols-\\[minmax\\(0\\,3fr\\)_minmax\\(0\\,2fr\\)\\]')
       expect(grid).not.toBeNull()
       expect(grid!.className).toContain('items-start')
       expect(grid!.className).toContain('max-lg:grid-cols-1')
