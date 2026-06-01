@@ -7,7 +7,9 @@ import { userDisplayLabel, userInitials } from '@/utils/displayName'
 interface Props {
   eventId: number
   creatorId: string
-  creatorUsername: string
+  /** `null` when the creator profile fetch hasn't resolved — OrganizerRow then
+   *  falls back to the short UUID prefix instead of `@<full-uuid>`. */
+  creatorUsername: string | null
   creatorDisplayName?: string | null
   creatorAvatarUrl?: string | null
 }
