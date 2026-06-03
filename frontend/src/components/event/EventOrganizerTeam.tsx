@@ -1,13 +1,15 @@
 import { Users } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Link } from 'react-router-dom'
-import { useCoOrganizers } from '@/hooks/useCoOrganizers'
+import { usePublicOrganizers } from '@/hooks/usePublicOrganizers'
 import { userDisplayLabel, userInitials } from '@/utils/displayName'
 
 interface Props {
   eventId: number
   creatorId: string
-  creatorUsername: string
+  /** `null` when the creator profile fetch hasn't resolved — OrganizerRow then
+   *  falls back to the short UUID prefix instead of `@<full-uuid>`. */
+  creatorUsername: string | null
   creatorDisplayName?: string | null
   creatorAvatarUrl?: string | null
 }
@@ -18,8 +20,11 @@ interface Props {
  * - ACCEPTED co-organizers (PENDING + DECLINED filtered out — they're private
  *   to the creator and editing UI).
  *
- * If the API call fails silently (event is public, anyone can request), we
- * still render the creator alone — never a broken UI.
+ * Co-organizers are resolved via the PUBLIC organizer-uuids endpoint
+ * (`usePublicOrganizers`) so anonymous viewers see the full team — the
+ * `@Authenticated` `/co-organizers` endpoint (used by the editing UI) would
+ * 401 for them. If the call fails silently we still render the creator alone —
+ * never a broken UI.
  */
 export default function EventOrganizerTeam({
   eventId,
@@ -28,8 +33,7 @@ export default function EventOrganizerTeam({
   creatorDisplayName,
   creatorAvatarUrl,
 }: Readonly<Props>) {
-  const { coOrganizers, loading } = useCoOrganizers(eventId)
-  const accepted = coOrganizers.filter((c) => c.status === 'ACCEPTED')
+  const { coOrganizers, loading } = usePublicOrganizers(eventId, creatorId)
 
   return (
     <section
@@ -61,9 +65,9 @@ export default function EventOrganizerTeam({
           </li>
         )}
         {!loading &&
-          accepted.map((co) => (
+          coOrganizers.map((co) => (
             <OrganizerRow
-              key={co.id}
+              key={co.userId}
               userId={co.userId}
               username={co.username}
               displayName={co.displayName}

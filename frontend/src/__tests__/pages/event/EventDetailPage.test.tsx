@@ -32,14 +32,14 @@ const mockReportSubmit = vi.fn()
 vi.mock('@/hooks/useReport', () => ({
   useReport: vi.fn(),
 }))
-vi.mock('@/hooks/useCoOrganizers', () => ({
-  useCoOrganizers: vi.fn(() => ({
+// EventOrganizerTeam now resolves the team via usePublicOrganizers
+// (organizer-uuids + getUserById). Mock it so EventDetailPage tests stay
+// isolated from those network calls — same role the old useCoOrganizers
+// mock played before the anonymous-name-resolution refactor.
+vi.mock('@/hooks/usePublicOrganizers', () => ({
+  usePublicOrganizers: vi.fn(() => ({
     coOrganizers: [],
     loading: false,
-    error: null,
-    invite: vi.fn(),
-    remove: vi.fn(),
-    refresh: vi.fn(),
   })),
 }))
 vi.mock('@/hooks/useComments', () => ({

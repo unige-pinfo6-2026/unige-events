@@ -761,7 +761,11 @@ export default function EventDetailPage() {
             <EventOrganizerTeam
               eventId={event.id}
               creatorId={event.creatorId}
-              creatorUsername={organizer?.username ?? event.creatorId}
+              // Pass null (not the UUID) when the organizer fetch hasn't
+              // resolved — otherwise userDisplayLabel renders `@<full-uuid>`.
+              // With null it falls back to the short `userId.slice(0,8)`, and
+              // the normal case shows the real name once getUserById resolves.
+              creatorUsername={organizer?.username ?? null}
               creatorDisplayName={organizer?.displayName ?? null}
               creatorAvatarUrl={organizer?.avatarUrl ?? null}
             />
