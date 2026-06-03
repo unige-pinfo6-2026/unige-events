@@ -92,4 +92,33 @@ describe('ErrorBoundary', () => {
     consoleError.mockRestore()
     vi.restoreAllMocks()
   })
+
+  it('automatically calls window.location.reload when a chunk load error is caught', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reload = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload } as Location)
+
+    const sessionStorageMock = {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+    }
+    vi.stubGlobal('sessionStorage', sessionStorageMock)
+
+    function ChunkBomb() {
+      throw new TypeError('error loading dynamically imported module: some_chunk.js')
+    }
+
+    render(
+      <MemoryRouter>
+        <ErrorBoundary>
+          <ChunkBomb />
+        </ErrorBoundary>
+      </MemoryRouter>,
+    )
+
+    expect(reload).toHaveBeenCalled()
+
+    consoleError.mockRestore()
+    vi.restoreAllMocks()
+  })
 })
