@@ -67,7 +67,7 @@ describe('FavoritesPage', () => {
   it('shows an error message when loading fails', async () => {
     mockGetFavorites.mockRejectedValue(new Error('Network error'))
     renderPage()
-    await waitFor(() => expect(screen.getByText(/Impossible de charger vos favoris/)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('500')).toBeTruthy())
   })
 
   it('removes an event from the list when the favorite star is clicked', async () => {

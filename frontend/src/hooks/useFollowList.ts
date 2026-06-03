@@ -63,7 +63,7 @@ export interface UseFollowListResult {
 export function useFollowList(
   targetId: string | undefined,
   mode: FollowListMode,
-): UseFollowListResult {
+): UseFollowListResult & { refresh: () => void } {
   const [users, setUsers] = useState<UserPublicResponse[]>([])
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState<boolean>(true)
@@ -71,6 +71,7 @@ export function useFollowList(
   const [isNotFound, setIsNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState<boolean>(false)
+  const [reloadKey, setReloadKey] = useState(0)
   // Bumped on every fetch — late resolves from earlier fetches compare their
   // captured id against the current ref value and exit cleanly if outdated.
   const requestIdRef = useRef(0)
@@ -136,7 +137,7 @@ export function useFollowList(
       // Bump on unmount / dep change so any late resolve is discarded.
       requestIdRef.current += 1
     }
-  }, [targetId, mode, page])
+  }, [targetId, mode, page, reloadKey])
 
   const loadMore = useCallback(() => {
     setPage(prev => prev + 1)
@@ -153,5 +154,12 @@ export function useFollowList(
     }
   }, [users])
 
-  return { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove }
+  const refresh = useCallback(() => {
+    setPage(0)
+    setReloadKey(k => k + 1)
+    setLoading(true)
+    setError(null)
+  }, [])
+
+  return { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove, refresh }
 }

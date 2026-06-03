@@ -274,7 +274,7 @@ describe('EventDetailPage', () => {
 
     renderPage('abc')
 
-    expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+    expect(screen.getByText("Page introuvable")).toBeTruthy()
   })
 
   it('shows a localized load error', () => {
@@ -284,7 +284,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('Impossible de charger cet événement.')).toBeTruthy()
+    expect(screen.getByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
   })
 
   it('shows event not found when there is no event and no error', () => {
@@ -294,7 +294,7 @@ describe('EventDetailPage', () => {
 
     renderPage()
 
-    expect(screen.getByText('Événement introuvable.')).toBeTruthy()
+    expect(screen.getByText('Page introuvable')).toBeTruthy()
   })
 
   it('renders event details and organizer information', async () => {
@@ -1737,7 +1737,7 @@ describe('EventDetailPage', () => {
         </MemoryRouter>,
       )
 
-      expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+      expect(screen.getByText("Page introuvable")).toBeTruthy()
     })
 
     it('runs handleAttendanceSuccess without refetching attendees for an unauthenticated viewer', async () => {

@@ -10,12 +10,13 @@ import { deleteEvent, getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 import type { Attachment } from '@/types/attachment'
 import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
-import { InfoMessage } from '@/components/utils/InfoMessage'
 import { useToast } from '@/hooks/useToast'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ErrorPage from '@/pages/ErrorPage'
 
 function EventFormFixture() {
   return (
@@ -89,9 +90,12 @@ export default function EventEditPage() {
 
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  const refetch = () => setReloadKey(k => k + 1)
 
   // SCRUM-137 — the creator can manage co-organizers + delete the event ;
   // accepted co-organizers can edit but not invite, remove, or delete.
@@ -104,14 +108,14 @@ export default function EventEditPage() {
 
     async function loadEvent() {
       setLoading(true)
-      setError(null)
+      setError(false)
       try {
         // Pass `check-co-org-of=<caller>` so the backend fills coOrganizerOf
         // and downstream consumers know to keep the co-org-aware UI.
         const response = await getById(eventId!, callerId)
         if (!cancelled) setEvent(response)
       } catch {
-        if (!cancelled) setError('Impossible de charger cet événement.')
+        if (!cancelled) setError(true)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -122,7 +126,7 @@ export default function EventEditPage() {
     return () => {
       cancelled = true
     }
-  }, [eventId, callerId])
+  }, [eventId, callerId, reloadKey])
 
   const draftMode = event?.status === 'DRAFT'
 
@@ -154,10 +158,10 @@ export default function EventEditPage() {
   }
 
   async function confirmDeleteDraft() {
-    if (eventId === null || deleting) return
+    if (deleting) return
     setDeleting(true)
     try {
-      await deleteEvent(eventId)
+      await deleteEvent(eventId!)
       form.clearPersistedDraft()
       showToast('success', 'Brouillon supprimé.')
       navigate('/')
@@ -168,7 +172,7 @@ export default function EventEditPage() {
     }
   }
 
-  if (eventId === null) return <InfoMessage type="error" message="Identifiant d'événement invalide." />
+  if (eventId === null) return <NotFoundPage />
 
   if (loading) return (
     <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>
@@ -187,8 +191,8 @@ export default function EventEditPage() {
     </SectionWrapper>
   )
 
-  if (error) return <InfoMessage type="error" message={error} />
-  if (!event) return <InfoMessage type="error" message="Événement introuvable." />
+  if (error) return <ErrorPage onRetry={refetch} />
+  if (!event) return <NotFoundPage />
 
   const title = draftMode
     ? (<>Terminer votre <mark>brouillon</mark></>)

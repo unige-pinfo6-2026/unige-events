@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import axios from 'axios'
 import { getById } from '@/services/eventApi'
 import type { Event } from '@/types/event'
 
@@ -44,9 +45,14 @@ export function useEvent(id: number | null, checkCoOrgOf?: string | null): UseEv
         setEvent(data)
         hasLoadedOnceRef.current = true
       })
-      .catch(() => {
+      .catch((err) => {
         if (!isCurrent()) return
-        setError('Impossible de charger cet événement.')
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setError(null)
+          setEvent(null)
+        } else {
+          setError('Impossible de charger cet événement.')
+        }
       })
       .finally(() => {
         if (!isCurrent()) return

@@ -8,6 +8,9 @@ import { BlobsSubtle } from '@/components/utils/Blobs'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ForbiddenPage from '@/pages/ForbiddenPage'
+import ErrorPage from '@/pages/ErrorPage'
 import StatsChart from '@/components/event/StatsChart'
 import UserAvatar from '@/components/user/UserAvatar'
 import type { Attendance } from '@/types/attendance'
@@ -79,7 +82,7 @@ interface CapacityBarProps {
 }
 
 function CapacityBar({ attending, capacity }: Readonly<CapacityBarProps>) {
-  const pct = capacity > 0 ? Math.min(100, Math.round((attending / capacity) * 100)) : 0
+  const pct = Math.min(100, Math.round((attending / capacity) * 100))
 
   const fillColor =
     pct >= 90 ? 'bg-error' :
@@ -226,7 +229,7 @@ export default function EventStatsPage() {
 
   // Pass `user?.id` so the backend enriches `event.coOrganizerOf` (via
   // `?check-co-org-of=<uuid>`) — same pattern as EventDetailPage.
-  const { event, loading: eventLoading, error: eventError } = useEvent(eventId, user?.id ?? null)
+  const { event, loading: eventLoading, error: eventError, refetch: refetchEvent } = useEvent(eventId, user?.id ?? null)
 
   // Aligned with EventDetailPage and EventStatsService: creator OR accepted
   // co-organizer OR site admin can view stats. The event-bound checks (creator,
@@ -253,7 +256,7 @@ export default function EventStatsPage() {
 
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
-  if (eventId === null) return <InfoMessage type="error" message="Identifiant d'événement invalide." />
+  if (eventId === null) return <NotFoundPage />
 
   const loading = eventLoading || (isOrganizer && statsLoading)
 
@@ -272,15 +275,24 @@ export default function EventStatsPage() {
     )
   }
 
-  if (eventError) return <InfoMessage type="error" message={eventError} />
-  if (!event) return <InfoMessage type="error" message="Événement introuvable." />
-
-  if (!isOrganizer) {
-    return <InfoMessage type="error" message="Accès réservé à l'équipe organisatrice." />
+  const handleRetry = () => {
+    if (eventError) {
+      void refetchEvent()
+    }
+    if (statsError) {
+      void refetchStats()
+    }
   }
 
-  if (statsError) return <InfoMessage type="error" message={statsError} />
-  if (!stats) return <InfoMessage type="error" message="Statistiques indisponibles." />
+  if (eventError) return <ErrorPage onRetry={handleRetry} />
+  if (!event) return <NotFoundPage />
+
+  if (!isOrganizer) {
+    return <ForbiddenPage />
+  }
+
+  if (statsError) return <ErrorPage onRetry={handleRetry} />
+  if (!stats) return <ErrorPage onRetry={handleRetry} />
 
   return (
     <SectionWrapper padding="sm" size="lg" background={<BlobsSubtle />}>

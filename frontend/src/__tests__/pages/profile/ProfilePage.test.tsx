@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProfilePage from '@/pages/profile/ProfilePage'
 
@@ -217,6 +217,34 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(screen.getByRole('link', { name: /Voir les abonnements \(0\)/i })).toBeTruthy()
   })
 
+  it('cancels background count fetch when unmounted before reject', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+
+    const { unmount } = renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('handles null public data response from getUserByUsername for me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(null)
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les abonnés \(0\)/i })).toBeTruthy()
+  })
+
   it('treats slug = current user username as owner route', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
 
@@ -231,7 +259,7 @@ describe('ProfilePage — /profile/me (owner)', () => {
 
     renderProfilePage('me')
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
   })
 
   it('exposes the "Mes publications" tab on /me and renders its content when activated', async () => {
@@ -454,9 +482,7 @@ describe('ProfilePage — /profile/:username (other user)', () => {
 
     renderProfilePage('ghost.handle')
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
-    // 404 path — no profile data, no displayName heading rendered.
-    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+    expect(await screen.findByText('Page introuvable')).toBeTruthy()
   })
 
   it('renders an error message when getUserByUsername rejects', async () => {
@@ -465,7 +491,20 @@ describe('ProfilePage — /profile/:username (other user)', () => {
 
     renderProfilePage('other.user')
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
+  })
+
+  it('calls setReloadKey when retry is clicked on error page', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(otherProfile)
+
+    renderProfilePage('other.user')
+    const button = await screen.findByRole('button', { name: 'Réessayer' })
+    fireEvent.click(button)
+
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledTimes(2))
   })
 
   it('shows the profile skeleton while loading', () => {
@@ -640,7 +679,7 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     renderProfilePage(OTHER_UUID)
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    expect(await screen.findByText('Page introuvable')).toBeTruthy()
   })
 
   it('shows an error message when the legacy UUID lookup rejects', async () => {
@@ -650,7 +689,7 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     renderProfilePage(OTHER_UUID)
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
     expect(mockGetUserByUsername).not.toHaveBeenCalled()
   })
 })

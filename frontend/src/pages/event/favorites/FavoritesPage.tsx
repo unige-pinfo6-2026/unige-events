@@ -2,25 +2,25 @@ import { useCallback, useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
 import { getFavorites } from '@/services/favoriteApi'
 import EventCard from '@/components/event/EventCard'
-import { LoadingSpinner } from '@/components/utils/LoadingSpinner'
-import { InfoMessage } from '@/components/utils/InfoMessage'
+import LoadingPage from '@/pages/LoadingPage'
 import { SectionWrapper, SectionHeader } from '@/components/utils/Section'
 import { BlobsSubtle } from '@/components/utils/Blobs'
 import type { Event } from '@/types/event'
+import ErrorPage from '@/pages/ErrorPage'
 
 export default function FavoritesPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
 
   const fetchFavorites = useCallback(async () => {
     setLoading(true)
-    setError(null)
+    setError(false)
     try {
       const data = await getFavorites()
       setEvents(data)
     } catch {
-      setError('Impossible de charger vos favoris.')
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -34,7 +34,8 @@ export default function FavoritesPage() {
     setEvents(prev => prev.filter(e => e.id !== eventId))
   }
 
-  if (error) return <InfoMessage type="error" message={error} />
+  if (loading) return <LoadingPage />
+  if (error) return <ErrorPage onRetry={fetchFavorites} />
 
   return (
     <SectionWrapper padding="sm" background={<BlobsSubtle />}>
@@ -44,9 +45,7 @@ export default function FavoritesPage() {
         subtitle="Les événements que vous avez mis en favoris."
       />
 
-      {loading ? (
-        <LoadingSpinner />
-      ) : events.length === 0 ? (
+      {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
           <Star className="w-16 h-16 text-foreground/20" />
           <p className="text-foreground/50 text-lg font-medium">Vous n'avez aucun favori pour le moment</p>

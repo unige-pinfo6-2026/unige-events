@@ -14,10 +14,11 @@ import ProfileTabs, { type ProfileTab } from '@/components/profile/ProfileTabs'
 import { type User, type UserPublicResponse, STUDY_LEVELS, type StudyLevel } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { CalendarDays, GraduationCap, LayoutGrid, Tags, Ticket, type LucideIcon } from 'lucide-react'
-import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ErrorPage from '@/pages/ErrorPage'
 
 /**
  * UUID v4 regex — used to detect legacy `/profile/<uuid>` URLs still in
@@ -127,7 +128,7 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, st
   } = useUserParticipations(profile.id)
 
   const facultyName = profile.faculty ? FACULTIES[profile.faculty as Faculty]?.name ?? null : null
-  const studyLevelName = profile.studyLevel ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name ?? null : null
+  const studyLevelName = profile.studyLevel ? STUDY_LEVELS[profile.studyLevel as StudyLevel].name : null
   const interests = profile.interests ?? []
 
   // Colonne droite : gros blocs Abonnés/Abonnements + bouton Suivre (rose) /
@@ -319,7 +320,7 @@ export default function ProfilePage() {
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
   const [profile, setProfile] = useState<UserPublicResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [redirectTarget, setRedirectTarget] = useState<string | null>(null)
   const [isNotFound, setIsNotFound] = useState(false)
   // Monotonic counter bumped by `refetch()` (SCRUM-110 — FollowButton invokes
@@ -352,7 +353,7 @@ export default function ProfilePage() {
 
     if (!wasRefetch) {
       setLoading(true)
-      setError(null)
+      setError(false)
       setRedirectTarget(null)
       setIsNotFound(false)
       setProfile(null)
@@ -367,14 +368,14 @@ export default function ProfilePage() {
             setRedirectTarget(`/profile/${data.username}`)
           }
         })
-        .catch(() => setError('Impossible de charger le profil.'))
+        .catch(() => setError(true))
         .finally(() => setLoading(false))
       return
     }
 
     if (isMeRoute) {
       if (!currentUser) {
-        setError('Impossible de charger le profil.')
+        setError(true)
       }
       // Don't write to `profile` here — MeProfileView reads currentUser
       // directly through useAuth. We just exit the loading state.
@@ -394,7 +395,7 @@ export default function ProfilePage() {
           setProfile(data as unknown as UserPublicResponse)
         }
       })
-      .catch(() => setError('Impossible de charger le profil.'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [username, isMeRoute, isLegacyUuid, currentUser, authLoading, reloadKey])
 
@@ -403,7 +404,6 @@ export default function ProfilePage() {
   // Bumping `reloadKey` re-runs the effect above (cheaper than rebuilding the
   // whole hook), but only when we actually have a profile to refetch.
   const refetch = () => {
-    if (!username || isMeRoute || isLegacyUuid) return
     isRefetchRef.current = true
     setReloadKey(k => k + 1)
   }
@@ -416,24 +416,14 @@ export default function ProfilePage() {
     )
   }
   if (redirectTarget) return <Navigate to={redirectTarget} replace />
-  if (error) return <InfoMessage type="error" message={error} />
+  if (error) return <ErrorPage onRetry={isMeRoute ? undefined : () => setReloadKey(k => k + 1)} />
 
   if (isMeRoute) {
-    if (!currentUser) return <InfoMessage type="error" message="Impossible de charger le profil." />
-    return <MeProfileView user={currentUser} />
+    return <MeProfileView user={currentUser!} />
   }
 
-  // Two paths land on the private-state card:
-  //  - 404 from the backend (user does not exist) → no `profile` to display.
-  //  - 200 with a restricted projection (SCRUM-169 Décision E revised) :
-  //    backend returns id+username+displayName+avatarUrl+profilePublic=false
-  //    for a non-owner non-admin caller of a private profile. We pass the
-  //    payload through so the placeholder can render the user's banner
-  //    (gradient fallback), avatar, and displayName — same visual frame
-  //    as a public profile — with a centered « Compte privé » lock card
-  //    replacing the content area.
   if (isNotFound || profile === null) {
-    return <ProfilePrivateState />
+    return <NotFoundPage />
   }
   if (!profile.profilePublic) {
     // Si le visiteur est déjà abonné (ACCEPTED), le backend lui renvoie quand

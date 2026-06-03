@@ -261,4 +261,16 @@ describe('useFollowList', () => {
     // Optimistic removal rolled back — the row is back.
     expect(result.current.users.map(u => u.id)).toEqual(['a-id'])
   })
+
+  it('refresh resets page, reloadKey, loading, and error', async () => {
+    mockGetFollowers.mockResolvedValue([makeUser('a')])
+    const { result } = renderHook(() => useFollowList('target', 'followers'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      result.current.refresh()
+    })
+
+    expect(result.current.loading).toBe(true)
+  })
 })

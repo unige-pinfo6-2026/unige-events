@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useAdminReports } from '@/hooks/useAdminReports'
 import { useAdminFeatured } from '@/hooks/useAdminFeatured'
 import { SectionHeader, SectionWrapper } from '@/components/utils/Section'
-import { InfoMessage } from '@/components/utils/InfoMessage'
+import ErrorPage from '@/pages/ErrorPage'
 import { ButtonDestructive, ButtonNeutral } from '@/components/utils/Buttons'
 import { formatEventDateTime, parseApiUtcDateTime } from '@/utils/dateTime'
 import { REPORT_REASONS } from '@/types/report'
@@ -162,10 +162,21 @@ const TARGET_FILTERS = [
 ] as const
 type TargetFilter = (typeof TARGET_FILTERS)[number]['key']
 
-function AdminReportsSection() {
-  const { reports, loading, error, activeTab, setActiveTab, reviewReport, dismissReport } = useAdminReports()
-  const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+interface AdminReportsSectionProps {
+  reports: Report[]
+  activeTab: 'PENDING' | 'PROCESSED'
+  setActiveTab: (tab: 'PENDING' | 'PROCESSED') => void
+  reviewReport: (id: number) => Promise<boolean>
+  dismissReport: (id: number) => Promise<boolean>
+}
+
+function AdminReportsSection({
+  reports,
+  activeTab,
+  setActiveTab,
+  reviewReport,
+  dismissReport,
+}: Readonly<AdminReportsSectionProps>) {
   const [typeFilter, setTypeFilter] = useState<TargetFilter>('ALL')
 
   // Counts reflect the current status tab (e.g. how many comment vs event
@@ -178,16 +189,6 @@ function AdminReportsSection() {
   const visibleReports = typeFilter === 'ALL'
     ? reports
     : reports.filter(r => r.targetType === typeFilter)
-
-  if (loading) {
-    return (
-      <Skeleton name="admin-reports" loading animate="pulse" color={skeletonColor}>
-        <AdminReportsFixture />
-      </Skeleton>
-    )
-  }
-
-  if (error) return <InfoMessage type="error" message={error} />
 
   return (
     <div className="flex flex-col gap-3">
@@ -338,31 +339,25 @@ function FeaturedEventCard({
 
 // ─── Featured section ─────────────────────────────────────────────────────────
 
-function AdminFeaturedSection() {
-  const {
-    featuredEvents,
-    loading,
-    error,
-    searchQuery,
-    setSearchQuery,
-    searchResults,
-    searchLoading,
-    featureEvent,
-    unfeatureEvent,
-  } = useAdminFeatured()
-  const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+interface AdminFeaturedSectionProps {
+  featuredEvents: Event[]
+  searchQuery: string
+  setSearchQuery: (q: string) => void
+  searchResults: Event[]
+  searchLoading: boolean
+  featureEvent: (id: number) => Promise<boolean>
+  unfeatureEvent: (id: number) => Promise<boolean>
+}
 
-  if (loading) {
-    return (
-      <Skeleton name="admin-featured" loading animate="pulse" color={skeletonColor}>
-        <AdminFeaturedFixture />
-      </Skeleton>
-    )
-  }
-
-  if (error) return <InfoMessage type="error" message={error} />
-
+function AdminFeaturedSection({
+  featuredEvents,
+  searchQuery,
+  setSearchQuery,
+  searchResults,
+  searchLoading,
+  featureEvent,
+  unfeatureEvent,
+}: Readonly<AdminFeaturedSectionProps>) {
   const featuredIds = new Set(featuredEvents.map(e => e.id))
   const filteredSearchResults = searchResults.filter(e => !featuredIds.has(e.id))
 
@@ -439,6 +434,49 @@ function AdminFeaturedSection() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const reportsHook = useAdminReports()
+  const featuredHook = useAdminFeatured()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+
+  const loading = reportsHook.loading || featuredHook.loading
+  const error = reportsHook.error ?? featuredHook.error
+
+  const handleRetry = () => {
+    reportsHook.refresh()
+    featuredHook.refresh()
+  }
+
+  if (loading) {
+    return (
+      <SectionWrapper padding="sm">
+        <SectionHeader
+          title={<>Espace <mark>Administration</mark></>}
+          subtitle="Modération des signalements et gestion des événements mis en avant"
+          align="center"
+        />
+
+        <div className="flex flex-col gap-12">
+          <section className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold text-foreground">Modération des signalements</h2>
+            <Skeleton name="admin-reports" loading animate="pulse" color={skeletonColor}>
+              <AdminReportsFixture />
+            </Skeleton>
+          </section>
+
+          <section className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold text-foreground">Événements mis en avant</h2>
+            <Skeleton name="admin-featured" loading animate="pulse" color={skeletonColor}>
+              <AdminFeaturedFixture />
+            </Skeleton>
+          </section>
+        </div>
+      </SectionWrapper>
+    )
+  }
+
+  if (error) return <ErrorPage onRetry={handleRetry} />
+
   return (
     <SectionWrapper padding="sm">
       <SectionHeader
@@ -450,12 +488,26 @@ export default function AdminPage() {
       <div className="flex flex-col gap-12">
         <section className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold text-foreground">Modération des signalements</h2>
-          <AdminReportsSection />
+          <AdminReportsSection
+            reports={reportsHook.reports}
+            activeTab={reportsHook.activeTab}
+            setActiveTab={reportsHook.setActiveTab}
+            reviewReport={reportsHook.reviewReport}
+            dismissReport={reportsHook.dismissReport}
+          />
         </section>
 
         <section className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold text-foreground">Événements mis en avant</h2>
-          <AdminFeaturedSection />
+          <AdminFeaturedSection
+            featuredEvents={featuredHook.featuredEvents}
+            searchQuery={featuredHook.searchQuery}
+            setSearchQuery={featuredHook.setSearchQuery}
+            searchResults={featuredHook.searchResults}
+            searchLoading={featuredHook.searchLoading}
+            featureEvent={featuredHook.featureEvent}
+            unfeatureEvent={featuredHook.unfeatureEvent}
+          />
         </section>
       </div>
     </SectionWrapper>

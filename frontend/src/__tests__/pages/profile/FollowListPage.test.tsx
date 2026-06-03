@@ -180,12 +180,12 @@ describe('FollowListPage — others', () => {
     expect(await screen.findByText(/Aucun follower/)).toBeTruthy()
   })
 
-  it('renders the private-state placeholder when getUserByUsername returns null (404)', async () => {
+  it('renders the not-found page when getUserByUsername returns null (404)', async () => {
     mockGetUserByUsername.mockResolvedValue(null)
 
     renderAt('/profile/private.user/followers')
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    expect(await screen.findByText('404')).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 
@@ -194,7 +194,39 @@ describe('FollowListPage — others', () => {
 
     renderAt('/profile/other.user/followers')
 
-    expect(await screen.findByText(/Impossible de charger le profil/)).toBeTruthy()
+    expect(await screen.findByText('500')).toBeTruthy()
+  })
+
+  it('cancels getUserByUsername rejection when unmounted before reject', async () => {
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+
+    const { unmount } = renderAt('/profile/other.user/followers')
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('cancels getUserByUsername resolution when unmounted before resolve', async () => {
+    let resolveFetch: ((value: unknown) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((resolve) => { resolveFetch = resolve }),
+    )
+
+    const { unmount } = renderAt('/profile/other.user/followers')
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolveFetch(otherProfile)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
   })
 
   it('surfaces a list-specific error when getFollowers throws non-404', async () => {
@@ -203,7 +235,7 @@ describe('FollowListPage — others', () => {
 
     renderAt('/profile/other.user/followers')
 
-    expect(await screen.findByText('Impossible de charger les followers.')).toBeTruthy()
+    expect(await screen.findByText('500')).toBeTruthy()
   })
 
   it('flips to the private-state placeholder when getFollowers returns 404 mid-flow', async () => {
@@ -279,6 +311,60 @@ describe('FollowListPage — me', () => {
     expect(screen.getByRole('link', { name: /Abonnements/i }).textContent).toMatch(/3/)
   })
 
+  it('cancels background count fetch for /me when unmounted before resolve', async () => {
+    let resolveFetch: ((value: unknown) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((resolve) => { resolveFetch = resolve }),
+    )
+    mockGetFollowers.mockResolvedValue([])
+
+    const { unmount } = renderAt('/profile/me/followers')
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolveFetch(otherProfile)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('cancels background count fetch for /me when unmounted before reject', async () => {
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+    mockGetFollowers.mockResolvedValue([])
+
+    const { unmount } = renderAt('/profile/me/followers')
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('handles null background count response from getUserByUsername for /me', async () => {
+    mockGetUserByUsername.mockResolvedValue(null)
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/me/followers')
+
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+  })
+
+  it('handles background count fetch rejection for /me (best-effort)', async () => {
+    mockGetUserByUsername.mockRejectedValue(new Error('boom'))
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/me/followers')
+
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+  })
+
   it('treats /:ownUsername/followers as the /me route', async () => {
     mockGetUserByUsername.mockResolvedValue({
       ...otherProfile,
@@ -300,7 +386,7 @@ describe('FollowListPage — me', () => {
 
     renderAt('/profile/me/followers')
 
-    expect(await screen.findByText(/Impossible de charger le profil/)).toBeTruthy()
+    expect(await screen.findByText('500')).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 
