@@ -246,7 +246,7 @@ function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
 
   return createPortal(
     <div className="relative lg:hidden">
-      <div aria-hidden="true" className="fixed top-0 left-0 w-full h-screen backdrop-blur-lg z-40" onClick={onClose} />
+      <div aria-hidden="true" className="fixed top-0 left-0 w-full h-screen bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
 
       <div className="fixed top-0 left-0 h-dvh w-72 bg-background border-r rounded-r-xl border-border z-50 flex flex-col divide-y divide-border">
         {/* Header */}
