@@ -26,12 +26,14 @@ export function Dropdown({
   align = 'left',
   showChevron = true,
   forceOpen = false,
+  triggerLabel,
 }: Readonly<{
   trigger: React.ReactNode
   children: React.ReactNode
   align?: keyof typeof aligns
   showChevron?: boolean
   forceOpen?: boolean
+  triggerLabel?: string
 }>) {
   const ref = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -76,6 +78,7 @@ export function Dropdown({
       <div
         role="button"
         tabIndex={0}
+        aria-label={triggerLabel}
         className="flex items-center gap-1 cursor-pointer select-none"
         onClick={() => setIsOpen(prev => !prev)}
         onKeyDown={(e) => {
@@ -86,7 +89,7 @@ export function Dropdown({
         }}
       >
         {trigger}
-        {showChevron && <ChevronDown className="size-4 text-foreground/50 transition-transform duration-200 group-hover:rotate-180" />}
+        {showChevron && <ChevronDown className={`size-4 text-foreground/50 transition-transform duration-200 [@media(hover:hover)]:group-hover:rotate-180 ${isOpen ? 'rotate-180' : ''}`} />}
       </div>
 
       {/* Invisible bridge prevents the gap between trigger and panel from closing the hover */}
@@ -95,10 +98,13 @@ export function Dropdown({
         className={[
           'transition-all duration-150 absolute top-[calc(100%+0.5rem)] z-50',
           aligns[align],
-          // Base : invisible ; s'ouvre au hover et au focus-within.
-          'invisible group-hover:visible group-focus-within:visible',
-          'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
-          'translate-y-1 group-hover:translate-y-0 group-focus-within:translate-y-0',
+          // Hover-open est réservé au desktop via @media(hover:hover) : sur
+          // tactile iOS simule un :hover « collant » qui laissait le panneau
+          // ouvert. Le tactile et le clavier passent par `isOpen` ci-dessous
+          // (le focus-within a été retiré pour la même raison de collage).
+          'invisible [@media(hover:hover)]:group-hover:visible',
+          'opacity-0 [@media(hover:hover)]:group-hover:opacity-100',
+          'translate-y-1 [@media(hover:hover)]:group-hover:translate-y-0',
           // forceOpen ou isOpen : écrase les classes de visibilité avec !important pour garder
           // le panel visible.
           (isOpen || forceOpen) ? '!visible !opacity-100 !translate-y-0' : '',

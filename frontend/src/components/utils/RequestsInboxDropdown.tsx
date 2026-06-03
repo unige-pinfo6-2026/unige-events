@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { Inbox } from 'lucide-react'
 import { Dropdown } from '@/components/utils/Dropdown'
-import { IconButton } from '@/components/utils/Buttons'
 import { RequestsInbox } from '@/components/utils/RequestsInbox'
 import { useCoOrganizerInvitations } from '@/hooks/useCoOrganizerInvitations'
 import { useMyFollowRequests } from '@/hooks/useMyFollowRequests'
@@ -10,9 +9,12 @@ import { useToast } from '@/hooks/useToast'
 function InboxBell({ count }: Readonly<{ count: number }>) {
   return (
     <div className="relative">
-      <IconButton label="Demandes reçues" onClick={() => {}}>
+      {/* Presentational only — the control is the Dropdown trigger (role="button"
+          + aria-label) wrapping this bell. Avoids a button-in-button that taps
+          unreliably on iOS. Hover background gated to hover-capable devices. */}
+      <span className="flex p-2 rounded-lg text-foreground [@media(hover:hover)]:hover:bg-foreground/5 transition-colors">
         <Inbox className="size-5" />
-      </IconButton>
+      </span>
       {count > 0 && (
         <span
           aria-label={`${count} demande${count > 1 ? 's' : ''} en attente`}
@@ -107,7 +109,7 @@ export function RequestsInboxDropdown() {
   }
 
   return (
-    <Dropdown align="right" showChevron={false} forceOpen={forceOpen} trigger={<InboxBell count={totalPending} />}>
+    <Dropdown align="right" showChevron={false} forceOpen={forceOpen} triggerLabel="Demandes reçues" trigger={<InboxBell count={totalPending} />}>
       <RequestsInbox
         invitations={invites.invitations}
         followRequests={follows.rows}

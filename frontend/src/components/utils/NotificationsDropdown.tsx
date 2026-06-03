@@ -10,6 +10,7 @@ export function NotificationsDropdown() {
     <Dropdown
       align="right"
       showChevron={false}
+      triggerLabel="Notifications"
       trigger={<NotificationBell unreadCount={unreadCount} />}
     >
       <NotificationPanel

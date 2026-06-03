@@ -1,14 +1,17 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { NotificationBell } from '@/components/utils/NotificationBell'
 
 afterEach(() => { cleanup() })
 
 describe('NotificationBell', () => {
-  it('renders the notifications icon button', () => {
+  it('renders the bell as presentational, not a nested button', () => {
     render(<NotificationBell unreadCount={0} />)
-    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
+    // The interactive control is the Dropdown trigger that wraps this bell, so
+    // the bell itself must not be a button (avoids button-in-button on iOS).
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(document.querySelector('svg')).toBeTruthy()
   })
 
   it('shows no badge when unreadCount is 0', () => {
@@ -42,10 +45,5 @@ describe('NotificationBell', () => {
     render(<NotificationBell unreadCount={999} />)
     expect(screen.getByText('99+')).toBeTruthy()
     expect(screen.getByLabelText('999 notifications non lues')).toBeTruthy()
-  })
-
-  it('clicking the bell button does not throw', () => {
-    render(<NotificationBell unreadCount={0} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }))
   })
 })

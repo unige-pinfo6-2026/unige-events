@@ -157,4 +157,17 @@ describe('Dropdown', () => {
     fireEvent.keyDown(triggerWrapper, { key: 'a' })
     expect(panelWrapper?.className).not.toContain('!visible')
   })
+
+  it('uses triggerLabel as the accessible name of the trigger control', () => {
+    render(
+      <MemoryRouter>
+        <Dropdown trigger={<span>bell</span>} triggerLabel="Notifications">
+          <div>Dropdown Content</div>
+        </Dropdown>
+      </MemoryRouter>
+    )
+    // The role="button" wrapper carries the label so wrapped presentational
+    // triggers (e.g. the notification bell) still expose an accessible name.
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
+  })
 })
