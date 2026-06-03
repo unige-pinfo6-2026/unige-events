@@ -74,6 +74,7 @@ interface UseEventFormOptions {
 interface UseEventFormResult {
   values: EventFormValues
   errors: EventFormErrors
+  submitErrorNonce: number
   submitting: boolean
   draftSaving: boolean
   imagePreview: string | null
@@ -164,6 +165,16 @@ const FIELD_LABELS: Record<string, string> = {
   contactEmail: "L'email de contact",
   registrationDeadline: "La date limite d'inscription",
   tags: 'Les mots-clés',
+  image: 'La bannière',
+  recurrence: 'La récurrence',
+}
+
+// Toast shown when client-side validation blocks a submit. Lists the offending
+// fields by their human label so the user knows exactly what to complete/fix
+// instead of silently re-clicking submit.
+function buildValidationMessage(errors: EventFormErrors): string {
+  const labels = Object.keys(errors).map((key) => FIELD_LABELS[key] ?? key)
+  return `Veuillez compléter ou corriger : ${labels.join(', ')}.`
 }
 
 export const EVENT_TITLE_MAX_LENGTH = 120
@@ -420,6 +431,9 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
     return toFormValues(initialEvent)
   })
   const [errors, setErrors] = useState<EventFormErrors>({})
+  // Bumped each time a submit is blocked by client-side validation. Consumers
+  // (EventForm) watch it to scroll/focus the first invalid field.
+  const [submitErrorNonce, setSubmitErrorNonce] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [draftSaving, setDraftSaving] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(initialEvent?.bannerUrl ?? null)
@@ -554,7 +568,7 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
     imageCrop.cancelCrop()
   }
 
-  function validate(): boolean {
+  function validate(): EventFormErrors {
     const nextErrors: EventFormErrors = {}
 
     if (!values.title.trim()) {
@@ -684,7 +698,7 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
     }
 
     setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
+    return nextErrors
   }
 
   async function submitForm(kind: 'publish' | 'draft') {
@@ -696,7 +710,14 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
     const effectiveStatus: EventStatus = forcedStatusRef.current ?? values.status
     forcedStatusRef.current = null
 
-    if (!validate()) {
+    const validationErrors = validate()
+    if (Object.keys(validationErrors).length > 0) {
+      // Previously this returned silently — the inline errors were the only
+      // feedback, so a user who didn't see them (below the fold) kept
+      // re-clicking submit. Surface a toast listing the fields and bump the
+      // nonce so the form scrolls/focuses the first invalid field.
+      setSubmitErrorNonce((n) => n + 1)
+      onError?.(buildValidationMessage(validationErrors))
       return
     }
 
@@ -812,6 +833,7 @@ export function useEventForm({ mode, initialEvent, templateEvent, onSuccess, onE
   return {
     values,
     errors,
+    submitErrorNonce,
     submitting,
     draftSaving,
     imagePreview,

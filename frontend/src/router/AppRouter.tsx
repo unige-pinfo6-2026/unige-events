@@ -65,14 +65,17 @@ const AppRouter = () => {
             <Route path="/support" element={<SupportPage />} />
             <Route path="/rules" element={<RulesPage />} />
 
-            <Route element={<PrivateRoute/>}>
-              <Route path="/profile">
-                <Route index element={<Navigate to="/profile/me" replace />} />
+            <Route path="/profile">
+              <Route index element={<Navigate to="/profile/me" replace />} />
+              <Route path=":username" element={<ProfilePage />} />
+              <Route path=":username/followers" element={<FollowListPage mode="followers" />} />
+              <Route path=":username/following" element={<FollowListPage mode="following" />} />
+              <Route element={<PrivateRoute/>}>
                 <Route path="me/edit" element={<ProfileEditPage />} />
-                <Route path=":username" element={<ProfilePage />} />
-                <Route path=":username/followers" element={<FollowListPage mode="followers" />} />
-                <Route path=":username/following" element={<FollowListPage mode="following" />} />
               </Route>
+            </Route>
+
+            <Route element={<PrivateRoute/>}>
 
               <Route path="/events">
                 <Route path="new" element={<EventCreatePage />} />

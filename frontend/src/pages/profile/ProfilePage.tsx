@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
 import { useUserParticipations } from '@/hooks/useUserParticipations'
@@ -14,10 +14,11 @@ import ProfileTabs, { type ProfileTab } from '@/components/profile/ProfileTabs'
 import { type User, type UserPublicResponse, STUDY_LEVELS, type StudyLevel } from '@/types/user'
 import { FACULTIES, type Faculty } from '@/types/faculty'
 import { CalendarDays, GraduationCap, LayoutGrid, Tags, Ticket, type LucideIcon } from 'lucide-react'
-import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
 import MyPublicationsPreview from '@/components/profile/MyPublicationsPreview'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ErrorPage from '@/pages/ErrorPage'
 
 /**
  * UUID v4 regex — used to detect legacy `/profile/<uuid>` URLs still in
@@ -312,47 +313,30 @@ function resolveIsMeRoute(username: string | undefined, currentUser: User | null
   return username === 'me' || (currentUser !== null && username !== undefined && username === currentUser.username)
 }
 
-export default function ProfilePage() {
-  const { username } = useParams<{ username: string }>()
-  const { user: currentUser, isLoading: authLoading } = useAuth()
-  const { theme } = useTheme()
-  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+function useProfilePageState(
+  username: string | undefined,
+  currentUser: User | null,
+  authLoading: boolean,
+  isMeRoute: boolean,
+  isLegacyUuid: boolean
+) {
   const [profile, setProfile] = useState<UserPublicResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [redirectTarget, setRedirectTarget] = useState<string | null>(null)
   const [isNotFound, setIsNotFound] = useState(false)
-  // Monotonic counter bumped by `refetch()` (SCRUM-110 — FollowButton invokes
-  // it after follow/unfollow so followStatus + followerCount resync from the
-  // server). Re-runs the username-fetch effect without changing the URL param.
   const [reloadKey, setReloadKey] = useState(0)
-  // Tracks whether the current effect run was triggered by a refetch (not an
-  // initial navigation). When true, the effect skips setLoading(true) and
-  // setProfile(null) so the skeleton never flashes on follow/unfollow.
   const isRefetchRef = useRef(false)
-
-  // SCRUM-169 — `me` alias + match by username (lowercased server-side).
-  const isMeRoute = resolveIsMeRoute(username, currentUser)
-
-  // SCRUM-169 — transient UUID v4 redirect (cf. Décision I, permanent). External
-  // links / bookmarks pointing to the old `/profile/<uuid>` URLs land here, get
-  // the user's username from the API, and `<Navigate replace>` to the canonical
-  // `/profile/<username>` slug. AttendeeCard prefers username slugs but falls
-  // back to UUID for orphan/cached rows — that fallback path triggers this.
-  const isLegacyUuid = username !== undefined && UUID_V4_REGEX.test(username)
 
   useEffect(() => {
     if (!username || authLoading) return
 
-    // Refetch (follow/unfollow mutation) — keep the current profile visible,
-    // skip skeleton. Only a fresh navigation (username change / initial mount)
-    // triggers the full loading reset.
     const wasRefetch = isRefetchRef.current
     isRefetchRef.current = false
 
     if (!wasRefetch) {
       setLoading(true)
-      setError(null)
+      setError(false)
       setRedirectTarget(null)
       setIsNotFound(false)
       setProfile(null)
@@ -367,17 +351,15 @@ export default function ProfilePage() {
             setRedirectTarget(`/profile/${data.username}`)
           }
         })
-        .catch(() => setError('Impossible de charger le profil.'))
+        .catch(() => setError(true))
         .finally(() => setLoading(false))
       return
     }
 
     if (isMeRoute) {
-      if (!currentUser) {
-        setError('Impossible de charger le profil.')
-      }
-      // Don't write to `profile` here — MeProfileView reads currentUser
-      // directly through useAuth. We just exit the loading state.
+      // Unauthenticated `/me` redirects to /login at render time; an
+      // authenticated `/me` renders MeProfileView. Neither path surfaces an
+      // error from here — just stop the skeleton.
       setLoading(false)
       return
     }
@@ -387,26 +369,79 @@ export default function ProfilePage() {
         if (data === null) {
           setIsNotFound(true)
         } else {
-          // getUserByUsername is typed as `User | null` for backward-compat
-          // with SCRUM-169 callers, but the runtime response is actually a
-          // UserPublicResponse (carries follower counts / follow status —
-          // verified against OpenAPI). Cast at the boundary.
           setProfile(data as unknown as UserPublicResponse)
         }
       })
-      .catch(() => setError('Impossible de charger le profil.'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [username, isMeRoute, isLegacyUuid, currentUser, authLoading, reloadKey])
 
-  // SCRUM-110 — invoked by FollowButton.onMutated after a successful follow /
-  // unfollow so `followStatus` + `followerCount` resync from the server.
-  // Bumping `reloadKey` re-runs the effect above (cheaper than rebuilding the
-  // whole hook), but only when we actually have a profile to refetch.
   const refetch = () => {
-    if (!username || isMeRoute || isLegacyUuid) return
     isRefetchRef.current = true
     setReloadKey(k => k + 1)
   }
+
+  return {
+    profile,
+    loading,
+    error,
+    redirectTarget,
+    isNotFound,
+    refetch,
+    setReloadKey,
+  }
+}
+
+function ProfileViewSelector({
+  profile,
+  currentUser,
+  refetch,
+}: Readonly<{
+  profile: UserPublicResponse
+  currentUser: User | null
+  refetch: () => void
+}>) {
+  const canFollow = currentUser === null || currentUser.id !== profile.id
+
+  if (!profile.profilePublic && profile.followStatus !== 'ACCEPTED') {
+    return (
+      <ProfilePrivateState
+        profile={profile}
+        canFollow={canFollow}
+        onProfileMutated={refetch}
+      />
+    )
+  }
+
+  return (
+    <PublicProfileView
+      profile={profile}
+      isMeRoute={false}
+      canFollow={canFollow}
+      onProfileMutated={refetch}
+    />
+  )
+}
+
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
+  const location = useLocation()
+  const { theme } = useTheme()
+  const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
+
+  const isMeRoute = resolveIsMeRoute(username, currentUser)
+  const isLegacyUuid = username !== undefined && UUID_V4_REGEX.test(username)
+
+  const {
+    profile,
+    loading,
+    error,
+    redirectTarget,
+    isNotFound,
+    refetch,
+    setReloadKey,
+  } = useProfilePageState(username, currentUser, authLoading, isMeRoute, isLegacyUuid)
 
   if (loading || authLoading) {
     return (
@@ -415,67 +450,30 @@ export default function ProfilePage() {
       </Skeleton>
     )
   }
+
+  if (isMeRoute && !currentUser) {
+    return <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} replace />
+  }
+
   if (redirectTarget) return <Navigate to={redirectTarget} replace />
-  if (error) return <InfoMessage type="error" message={error} />
+  // `error` is only ever set on the public/legacy fetch paths — a `/me` route
+  // redirects to /login or renders MeProfileView before reaching here — so a
+  // retry is always meaningful.
+  if (error) return <ErrorPage onRetry={() => setReloadKey(k => k + 1)} />
 
   if (isMeRoute) {
-    if (!currentUser) return <InfoMessage type="error" message="Impossible de charger le profil." />
-    return <MeProfileView user={currentUser} />
+    return <MeProfileView user={currentUser!} />
   }
 
-  // Two paths land on the private-state card:
-  //  - 404 from the backend (user does not exist) → no `profile` to display.
-  //  - 200 with a restricted projection (SCRUM-169 Décision E revised) :
-  //    backend returns id+username+displayName+avatarUrl+profilePublic=false
-  //    for a non-owner non-admin caller of a private profile. We pass the
-  //    payload through so the placeholder can render the user's banner
-  //    (gradient fallback), avatar, and displayName — same visual frame
-  //    as a public profile — with a centered « Compte privé » lock card
-  //    replacing the content area.
   if (isNotFound || profile === null) {
-    return <ProfilePrivateState />
-  }
-  if (!profile.profilePublic) {
-    // Si le visiteur est déjà abonné (ACCEPTED), le backend lui renvoie quand
-    // même profilePublic=false dans la projection restreinte, mais il a le
-    // droit de voir le profil complet — on lui affiche donc PublicProfileView
-    // comme pour n'importe quel profil public. Sans ce check, il verrait la
-    // carte « Compte privé » et son clic sur "Suivre" se solderait par un 409.
-    if (profile.followStatus === 'ACCEPTED') {
-      const canFollow = currentUser !== null && currentUser.id !== profile.id
-      return (
-        <PublicProfileView
-          profile={profile}
-          isMeRoute={false}
-          canFollow={canFollow}
-          onProfileMutated={refetch}
-        />
-      )
-    }
-
-    // La projection restreinte contient `id` + `followStatus` — suffisant pour
-    // afficher un FollowButton et permettre à un visiteur authentifié d'envoyer
-    // une demande de suivi même sur un compte privé.
-    const canFollowPrivate = currentUser !== null && currentUser.id !== profile.id
-    return (
-      <ProfilePrivateState
-        profile={profile}
-        canFollow={canFollowPrivate}
-        onProfileMutated={refetch}
-      />
-    )
+    return <NotFoundPage />
   }
 
-  // canFollow: authenticated viewer AND looking at someone else's UUID.
-  // /profile/<own-uuid> is rendered as a regular public profile per SCRUM-141,
-  // but the viewer is the owner, so no FollowButton (you can't follow yourself).
-  const canFollow = currentUser !== null && currentUser.id !== profile.id
   return (
-    <PublicProfileView
+    <ProfileViewSelector
       profile={profile}
-      isMeRoute={false}
-      canFollow={canFollow}
-      onProfileMutated={refetch}
+      currentUser={currentUser}
+      refetch={refetch}
     />
   )
 }

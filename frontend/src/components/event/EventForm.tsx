@@ -1,4 +1,4 @@
-import { type ChangeEvent, type ComponentProps } from 'react'
+import { useEffect, useRef, type ChangeEvent, type ComponentProps } from 'react'
 import type { EventFormErrors, EventFormValues, RecurrenceFormValues } from '@/hooks/useEventForm'
 import { EVENT_TITLE_MAX_LENGTH, EVENT_DESCRIPTION_MAX_LENGTH, IMAGE_MAX_SIZE_MB } from '@/hooks/useEventForm'
 
@@ -26,6 +26,8 @@ interface EventFormProps {
   submitLabel: string
   values: EventFormValues
   errors: EventFormErrors
+  /** Bumped by useEventForm when a submit is blocked; scrolls to the 1st error. */
+  submitErrorNonce?: number
   submitting: boolean
   draftSaving?: boolean
   imagePreview: string | null
@@ -237,6 +239,7 @@ export default function EventForm({
   submitLabel,
   values,
   errors,
+  submitErrorNonce,
   submitting,
   draftSaving = false,
   imagePreview,
@@ -260,6 +263,18 @@ export default function EventForm({
   const startDateTime = splitDateTime(values.startDate)
   const endDateTime = splitDateTime(values.endDate)
   const busy = submitting || draftSaving || deleting
+
+  // On a blocked submit, scroll to (and focus) the first invalid field so the
+  // user isn't left re-clicking submit without seeing the inline errors.
+  const formRef = useRef<HTMLFormElement>(null)
+  useEffect(() => {
+    if (!submitErrorNonce) return
+    const firstInvalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
+    if (firstInvalid) {
+      firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      firstInvalid.focus({ preventScroll: true })
+    }
+  }, [submitErrorNonce])
 
   type DateTimeField = 'startDate' | 'endDate' | 'registrationDeadline'
 
@@ -365,7 +380,7 @@ export default function EventForm({
   }
 
   return (
-    <form id="event-form" onSubmit={onSubmit} noValidate className="flex flex-col gap-8">
+    <form id="event-form" ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-8">
 
       {/* Bande 1 — Bannière (gauche) | Titre + Description (droite) */}
       <div className="grid grid-cols-[2fr_3fr] gap-6 max-lg:grid-cols-1">

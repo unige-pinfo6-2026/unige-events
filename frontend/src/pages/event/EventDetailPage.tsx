@@ -16,6 +16,8 @@ import { BANNER_UPLOAD_ERROR_KEY } from '@/constants/sessionStorageKeys'
 import { InfoMessage } from '@/components/utils/InfoMessage'
 import { Skeleton } from 'boneyard-js/react'
 import { useTheme } from '@/contexts/ThemeContext'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ErrorPage from '@/pages/ErrorPage'
 import AttendanceButtons from '@/components/event/AttendanceButtons'
 import AttendeesList from '@/components/attendees/AttendeesList'
 import ReportModal from '@/components/event/ReportModal'
@@ -378,7 +380,7 @@ export default function EventDetailPage() {
     navigate(`/events/${event.id}/edit`, { replace: true })
   }, [event, user, isAdmin, navigate])
 
-  if (eventId === null) return <InfoMessage type='error' message="Identifiant d'événement invalide." />
+  if (eventId === null) return <NotFoundPage />
 
   // Only the very first fetch shows the full-page skeleton. Subsequent
   // refetches (after an attendance action, etc.) keep the page visible and
@@ -399,8 +401,8 @@ export default function EventDetailPage() {
     </SectionWrapper>
   )
 
-  if (error && event === null) return <InfoMessage type='error' message={error} />
-  if (!event) return <InfoMessage type='error' message="Événement introuvable." />
+  if (error && event === null) return <ErrorPage onRetry={refetchEvent} />
+  if (!event) return <NotFoundPage />
 
   const category = EVENT_CATEGORIES[event.category]
 

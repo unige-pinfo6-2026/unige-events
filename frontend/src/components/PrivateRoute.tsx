@@ -1,12 +1,12 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
-import { LoadingSpinner } from "./utils/LoadingSpinner"
+import LoadingPage from "@/pages/LoadingPage"
 
 export default function PrivateRoute() {
   const { isAuthenticated, isLoading } = useAuth()
   const location = useLocation()
 
-  if (isLoading) return <LoadingSpinner />
+  if (isLoading) return <LoadingPage />
 
   return isAuthenticated ? (
     <Outlet />

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProfilePage from '@/pages/profile/ProfilePage'
 
@@ -64,6 +64,26 @@ import { followUser, unfollowUser } from '@/services/followApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const origMockReturnValue = mockUseAuth.mockReturnValue;
+mockUseAuth.mockReturnValue = (val: Parameters<typeof origMockReturnValue>[0]) => {
+  const hasUser = val && typeof val === 'object' && 'user' in val && (val as Record<string, unknown>).user !== null && (val as Record<string, unknown>).user !== undefined;
+  return origMockReturnValue.call(mockUseAuth, {
+    isAuthenticated: !!hasUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...(val as Record<string, unknown> || {}),
+  } as unknown as ReturnType<typeof useAuth>);
+};
+const origMockReturnValueOnce = mockUseAuth.mockReturnValueOnce;
+mockUseAuth.mockReturnValueOnce = (val: Parameters<typeof origMockReturnValueOnce>[0]) => {
+  const hasUser = val && typeof val === 'object' && 'user' in val && (val as Record<string, unknown>).user !== null && (val as Record<string, unknown>).user !== undefined;
+  return origMockReturnValueOnce.call(mockUseAuth, {
+    isAuthenticated: !!hasUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...(val as Record<string, unknown> || {}),
+  } as unknown as ReturnType<typeof useAuth>);
+};
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
@@ -217,6 +237,34 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(screen.getByRole('link', { name: /Voir les abonnements \(0\)/i })).toBeTruthy()
   })
 
+  it('cancels background count fetch when unmounted before reject', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+
+    const { unmount } = renderProfilePage('me')
+    await screen.findByRole('heading', { level: 1, name: 'Test User' })
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('handles null public data response from getUserByUsername for me', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(null)
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Test User' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Voir les abonnés \(0\)/i })).toBeTruthy()
+  })
+
   it('treats slug = current user username as owner route', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
 
@@ -226,12 +274,12 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(screen.getByText('Modifier')).toBeTruthy()
   })
 
-  it('shows error when own profile user is null and auth is loaded', async () => {
+  it('redirects to login when own profile user is null and auth is loaded', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
 
     renderProfilePage('me')
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByTestId('post-redirect-route')).toBeTruthy()
   })
 
   it('exposes the "Mes publications" tab on /me and renders its content when activated', async () => {
@@ -255,6 +303,19 @@ describe('ProfilePage — /profile/me (owner)', () => {
     // Le redesign affiche le nom de la faculté (icône GraduationCap) — plus de
     // logo ni de niveau d'étude dans la colonne gauche.
     expect(await screen.findByText('Faculté des Sciences')).toBeTruthy()
+  })
+
+  it('does not crash on an unrecognised study level (defensive STUDY_LEVELS lookup)', async () => {
+    // A backend value outside STUDY_LEVELS used to throw on `…[level].name`.
+    // The optional chaining resolves it to null and the profile still renders.
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, studyLevel: 'PHD' },
+      isLoading: false,
+    })
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('link', { name: 'Modifier' })).toBeTruthy()
   })
 
   it('renders bio when present', async () => {
@@ -454,9 +515,7 @@ describe('ProfilePage — /profile/:username (other user)', () => {
 
     renderProfilePage('ghost.handle')
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
-    // 404 path — no profile data, no displayName heading rendered.
-    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+    expect(await screen.findByText('Page introuvable')).toBeTruthy()
   })
 
   it('renders an error message when getUserByUsername rejects', async () => {
@@ -465,7 +524,20 @@ describe('ProfilePage — /profile/:username (other user)', () => {
 
     renderProfilePage('other.user')
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
+  })
+
+  it('calls setReloadKey when retry is clicked on error page', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(otherProfile)
+
+    renderProfilePage('other.user')
+    const button = await screen.findByRole('button', { name: 'Réessayer' })
+    fireEvent.click(button)
+
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledTimes(2))
   })
 
   it('shows the profile skeleton while loading', () => {
@@ -640,7 +712,7 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     renderProfilePage(OTHER_UUID)
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    expect(await screen.findByText('Page introuvable')).toBeTruthy()
   })
 
   it('shows an error message when the legacy UUID lookup rejects', async () => {
@@ -650,7 +722,7 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     renderProfilePage(OTHER_UUID)
 
-    expect(await screen.findByText('Impossible de charger le profil.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
     expect(mockGetUserByUsername).not.toHaveBeenCalled()
   })
 })
@@ -665,14 +737,13 @@ describe('ProfilePage — FollowButton wiring (SCRUM-110)', () => {
     expect(await screen.findByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
   })
 
-  it('does NOT render the FollowButton for an unauthenticated viewer', async () => {
+  it('renders the FollowButton for an unauthenticated viewer as "Suivre"', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(otherProfile)
 
     renderProfilePage('other.user')
 
-    await screen.findByRole('heading', { level: 1, name: 'Other User' })
-    expect(screen.queryByRole('button', { name: /Suivre|Demande envoyée|Abonné|Se désabonner/ })).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
   })
 
   it('does NOT render the FollowButton when the viewer is looking at their own username (treated as /me)', async () => {

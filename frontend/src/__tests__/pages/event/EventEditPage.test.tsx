@@ -205,7 +205,7 @@ describe('EditEventPage', () => {
   it('shows an invalid id message for malformed routes', async () => {
     renderPage('/events/abc/edit')
 
-    expect(await screen.findByText('Identifiant d\'événement invalide.')).toBeTruthy()
+    expect(await screen.findByText("Page introuvable")).toBeTruthy()
   })
 
   it('shows a localized load error when the event cannot be loaded', async () => {
@@ -213,7 +213,7 @@ describe('EditEventPage', () => {
 
     renderPage()
 
-    expect(await screen.findByText('Impossible de charger cet événement.')).toBeTruthy()
+    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
   })
 
   it('navigates back to the detail page when cancel is clicked', async () => {
@@ -410,6 +410,33 @@ describe('EditEventPage', () => {
       expect(mockNavigate).not.toHaveBeenCalled()
     })
 
+    it('ignores duplicate delete clicks when already deleting', async () => {
+      mockGetById.mockResolvedValue(draftEvent)
+      let resolveDelete: () => void = () => {}
+      mockDeleteEvent.mockReturnValue(new Promise<void>(r => { resolveDelete = r }))
+
+      renderPage()
+      await screen.findByDisplayValue(draftEvent.title, {}, { timeout: 10000 })
+      fireEvent.click(screen.getByRole('button', { name: 'Supprimer le brouillon' }))
+
+      // Click confirm twice rapidly (bypassing disabled check to cover the JS safety guard)
+      const confirmBtn = screen.getByRole('button', { name: 'Confirmer' }) as HTMLButtonElement
+      fireEvent.click(confirmBtn)
+      const deletingBtn = screen.getAllByRole('button', { name: 'Suppression...' })
+        .find(btn => btn.className.includes('bg-error') && !btn.className.includes('bg-error/10')) as HTMLButtonElement
+      const reactPropsKey = Object.keys(deletingBtn).find(k => k.startsWith('__reactProps'))
+      if (reactPropsKey) {
+        const props = deletingBtn as unknown as Record<string, { onClick?: () => void }>
+        props[reactPropsKey]?.onClick?.()
+      }
+
+      // Verify deleteEvent was only called once
+      expect(mockDeleteEvent).toHaveBeenCalledTimes(1)
+
+      resolveDelete()
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
+    })
+
     it('keeps the main "Créer l\'événement" button label unchanged while deleting', async () => {
       mockGetById.mockResolvedValue(draftEvent)
       let resolveDelete: () => void = () => {}
@@ -441,13 +468,13 @@ describe('EditEventPage', () => {
         </MemoryRouter>
       </ToastProvider>,
     )
-    expect(screen.getByText("Identifiant d'événement invalide.")).toBeTruthy()
+    expect(screen.getByText("Page introuvable")).toBeTruthy()
   })
 
   it('shows event not found when getById returns null', async () => {
     mockGetById.mockResolvedValue(null)
     renderPage()
-    expect(await screen.findByText('Événement introuvable.')).toBeTruthy()
+    expect(await screen.findByText("Page introuvable")).toBeTruthy()
   })
 
   it('does not update state after unmount (cancelled cleanup)', async () => {

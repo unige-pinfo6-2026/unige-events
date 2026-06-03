@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AxiosError, AxiosHeaders } from 'axios'
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -107,6 +107,14 @@ function makeFullPage(prefix: string): UserPublicResponse[] {
   )
 }
 
+// Surfaces the `returnTo` state so a redirect to /login can be asserted both
+// on destination and on the carried-back path.
+function LoginProbe() {
+  const location = useLocation()
+  const state = location.state as { returnTo?: string } | null
+  return <div>login · returnTo={state?.returnTo ?? ''}</div>
+}
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -114,6 +122,7 @@ function renderAt(path: string) {
         <Route path="/profile/:username/followers" element={<FollowListPage mode="followers" />} />
         <Route path="/profile/:username/following" element={<FollowListPage mode="following" />} />
         <Route path="/profile/:username" element={<div>profile of {path}</div>} />
+        <Route path="/login" element={<LoginProbe />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -180,21 +189,59 @@ describe('FollowListPage — others', () => {
     expect(await screen.findByText(/Aucun follower/)).toBeTruthy()
   })
 
-  it('renders the private-state placeholder when getUserByUsername returns null (404)', async () => {
+  it('renders the not-found page when getUserByUsername returns null (404)', async () => {
     mockGetUserByUsername.mockResolvedValue(null)
 
     renderAt('/profile/private.user/followers')
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    expect(await screen.findByText('404')).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 
-  it('surfaces an error when getUserByUsername throws non-404', async () => {
+  it('surfaces an error when getUserByUsername throws non-404, and "Réessayer" refetches', async () => {
     mockGetUserByUsername.mockRejectedValue(new Error('boom'))
 
     renderAt('/profile/other.user/followers')
 
-    expect(await screen.findByText(/Impossible de charger le profil/)).toBeTruthy()
+    expect(await screen.findByText('500')).toBeTruthy()
+    expect(mockGetUserByUsername).toHaveBeenCalledTimes(1)
+
+    // Clicking "Réessayer" runs refetch() → bumps reloadKey → re-runs the
+    // resolve effect (the page-level retry, distinct from the list refresh).
+    fireEvent.click(screen.getByText('Réessayer'))
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledTimes(2))
+  })
+
+  it('cancels getUserByUsername rejection when unmounted before reject', async () => {
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+
+    const { unmount } = renderAt('/profile/other.user/followers')
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('cancels getUserByUsername resolution when unmounted before resolve', async () => {
+    let resolveFetch: ((value: unknown) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((resolve) => { resolveFetch = resolve }),
+    )
+
+    const { unmount } = renderAt('/profile/other.user/followers')
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolveFetch(otherProfile)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
   })
 
   it('surfaces a list-specific error when getFollowers throws non-404', async () => {
@@ -203,7 +250,7 @@ describe('FollowListPage — others', () => {
 
     renderAt('/profile/other.user/followers')
 
-    expect(await screen.findByText('Impossible de charger les followers.')).toBeTruthy()
+    expect(await screen.findByText('500')).toBeTruthy()
   })
 
   it('flips to the private-state placeholder when getFollowers returns 404 mid-flow', async () => {
@@ -279,6 +326,60 @@ describe('FollowListPage — me', () => {
     expect(screen.getByRole('link', { name: /Abonnements/i }).textContent).toMatch(/3/)
   })
 
+  it('cancels background count fetch for /me when unmounted before resolve', async () => {
+    let resolveFetch: ((value: unknown) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((resolve) => { resolveFetch = resolve }),
+    )
+    mockGetFollowers.mockResolvedValue([])
+
+    const { unmount } = renderAt('/profile/me/followers')
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    resolveFetch(otherProfile)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('cancels background count fetch for /me when unmounted before reject', async () => {
+    let rejectFetch: ((reason: Error) => void) = () => {}
+    mockGetUserByUsername.mockReturnValueOnce(
+      new Promise((_, reject) => { rejectFetch = reject }),
+    )
+    mockGetFollowers.mockResolvedValue([])
+
+    const { unmount } = renderAt('/profile/me/followers')
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+    unmount()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    rejectFetch(new Error('boom'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('handles null background count response from getUserByUsername for /me', async () => {
+    mockGetUserByUsername.mockResolvedValue(null)
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/me/followers')
+
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+  })
+
+  it('handles background count fetch rejection for /me (best-effort)', async () => {
+    mockGetUserByUsername.mockRejectedValue(new Error('boom'))
+    mockGetFollowers.mockResolvedValue([])
+
+    renderAt('/profile/me/followers')
+
+    await waitFor(() => expect(screen.getByText(/Followers de Me/)).toBeTruthy())
+  })
+
   it('treats /:ownUsername/followers as the /me route', async () => {
     mockGetUserByUsername.mockResolvedValue({
       ...otherProfile,
@@ -295,12 +396,14 @@ describe('FollowListPage — me', () => {
     await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
   })
 
-  it('renders an error placeholder on /me when useAuth has no user', async () => {
+  it('redirects to /login on /me when useAuth has no user', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
 
     renderAt('/profile/me/followers')
 
-    expect(await screen.findByText(/Impossible de charger le profil/)).toBeTruthy()
+    // Unauthenticated on a `/me` route: redirect to /login, carrying the
+    // attempted path so login can bounce the user back. No list fetch fires.
+    expect(await screen.findByText('login · returnTo=/profile/me/followers')).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 

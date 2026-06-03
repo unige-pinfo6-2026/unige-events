@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,10 +8,11 @@ import { useFollowList, type FollowListMode } from '@/hooks/useFollowList'
 import FollowListRow from '@/components/profile/FollowListRow'
 import ProfilePrivateState from '@/components/profile/ProfilePrivateState'
 import { ButtonSecondary } from '@/components/utils/Buttons'
-import { InfoMessage } from '@/components/utils/InfoMessage'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useToast } from '@/hooks/useToast'
 import type { UserPublicResponse } from '@/types/user'
+import NotFoundPage from '@/pages/NotFoundPage'
+import ErrorPage from '@/pages/ErrorPage'
 
 interface FollowListPageProps {
   mode: FollowListMode
@@ -74,7 +75,7 @@ const emptyMessages = {
 } as const
 
 function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
-  const { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove } =
+  const { users, loading, loadingMore, isNotFound, error, hasMore, loadMore, remove, refresh } =
     useFollowList(target.uuid, mode)
   const { user: currentUser } = useAuth()
   const toast = useToast()
@@ -97,7 +98,20 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
     // the target became private between the username resolve and the list
     // fetch (e.g. concurrent PATCH on `/users/me`). Fall back to the
     // private-state card to stay consistent with `/profile/:username`.
-    return <ProfilePrivateState />
+    return (
+      <ProfilePrivateState
+        profile={{
+          id: target.uuid,
+          username: target.username,
+          displayName: target.displayName,
+          profilePublic: false,
+          followerCount: target.followerCount,
+          followingCount: target.followingCount,
+          followStatus: null,
+          roles: []
+        }}
+      />
+    )
   }
 
   const count = mode === 'followers' ? target.followerCount : target.followingCount
@@ -152,7 +166,9 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
         </ul>
       )}
 
-      {!loading && error && <InfoMessage type="error" message={error} />}
+      {!loading && error && users.length === 0 && (
+        <ErrorPage onRetry={refresh} />
+      )}
 
       {!loading && !error && users.length === 0 && (
         <p className="text-foreground/50 text-sm py-6 text-center">
@@ -206,13 +222,17 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
 export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) {
   const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
+  const location = useLocation()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
   const [target, setTarget] = useState<ResolvedTarget | null>(null)
   const [loading, setLoading] = useState(true)
   const [isNotFound, setIsNotFound] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  const refetch = () => setReloadKey(k => k + 1)
 
   const isMeRoute =
     username === 'me' ||
@@ -223,12 +243,14 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
 
     setLoading(true)
     setIsNotFound(false)
-    setError(null)
+    setError(false)
     setTarget(null)
 
     if (isMeRoute) {
       if (!currentUser) {
-        setError('Impossible de charger le profil.')
+        // Not authenticated on a `/me` route: the render path redirects to
+        // /login (see below). Just stop the skeleton — there's no error to
+        // surface, so we don't set `error` here.
         setLoading(false)
         return
       }
@@ -251,11 +273,11 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
         .then((data) => {
           if (cancelledMe || data === null) return
           const profile = data as unknown as UserPublicResponse
-          setTarget((prev) =>
-            prev
-              ? { ...prev, followerCount: profile.followerCount, followingCount: profile.followingCount }
-              : prev,
-          )
+          setTarget((prev) => ({
+            ...prev!,
+            followerCount: profile.followerCount,
+            followingCount: profile.followingCount,
+          }))
         })
         .catch(() => {
           // Best-effort : on garde 0/0 si la résolution échoue.
@@ -289,13 +311,13 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
       })
       .catch(() => {
         if (cancelled) return
-        setError('Impossible de charger le profil.')
+        setError(true)
         setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [username, isMeRoute, currentUser, authLoading])
+  }, [username, isMeRoute, currentUser, authLoading, reloadKey])
 
   if (loading || authLoading) {
     return (
@@ -306,9 +328,14 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
       </div>
     )
   }
-  if (error) return <InfoMessage type="error" message={error} />
+
+  if (isMeRoute && !currentUser) {
+    return <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} replace />
+  }
+
+  if (error) return <ErrorPage onRetry={refetch} />
   if (isNotFound || target === null) {
-    return <ProfilePrivateState />
+    return <NotFoundPage />
   }
 
   return <FollowListBody target={target} mode={mode} />

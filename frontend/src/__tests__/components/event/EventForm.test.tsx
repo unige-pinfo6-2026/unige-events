@@ -796,4 +796,56 @@ describe('EventForm', () => {
       expect(onFieldChange).not.toHaveBeenCalledWith('startDate', expect.anything())
     })
   })
+
+  describe('scroll to first error on a blocked submit', () => {
+    const scrollBaseProps = {
+      mode: 'create' as const,
+      submitLabel: 'Créer',
+      values: baseValues,
+      submitting: false,
+      imagePreview: null as string | null,
+      selectedImageName: null as string | null,
+      onFieldChange: vi.fn(),
+      onImageChange: vi.fn(),
+      onSubmit: vi.fn(async () => undefined),
+      ...cropDefaults,
+    }
+
+    it('scrolls to and focuses the first invalid field when the nonce bumps', () => {
+      const scrollSpy = vi.fn()
+      const original = HTMLElement.prototype.scrollIntoView
+      HTMLElement.prototype.scrollIntoView = scrollSpy as unknown as typeof HTMLElement.prototype.scrollIntoView
+
+      const { rerender } = render(
+        <EventForm {...scrollBaseProps} errors={{ location: 'Le lieu est requis.' }} submitErrorNonce={0} />,
+      )
+      // No submit attempted yet (nonce 0) → no scroll.
+      expect(scrollSpy).not.toHaveBeenCalled()
+
+      // A blocked submit bumps the nonce → scroll to + focus the invalid field.
+      rerender(
+        <EventForm {...scrollBaseProps} errors={{ location: 'Le lieu est requis.' }} submitErrorNonce={1} />,
+      )
+
+      const locationInput = screen.getByLabelText(/Lieu/i) as HTMLInputElement
+      expect(locationInput.getAttribute('aria-invalid')).toBe('true')
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+      expect(document.activeElement).toBe(locationInput)
+
+      HTMLElement.prototype.scrollIntoView = original
+    })
+
+    it('is a no-op when the nonce bumps but no field is invalid', () => {
+      const scrollSpy = vi.fn()
+      const original = HTMLElement.prototype.scrollIntoView
+      HTMLElement.prototype.scrollIntoView = scrollSpy as unknown as typeof HTMLElement.prototype.scrollIntoView
+
+      const { rerender } = render(<EventForm {...scrollBaseProps} errors={{}} submitErrorNonce={0} />)
+      rerender(<EventForm {...scrollBaseProps} errors={{}} submitErrorNonce={1} />)
+
+      expect(scrollSpy).not.toHaveBeenCalled()
+
+      HTMLElement.prototype.scrollIntoView = original
+    })
+  })
 })

@@ -1,11 +1,13 @@
-// @vitest-environment jsdom
-
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('@/services/followApi', () => ({
   followUser: vi.fn(),
   unfollowUser: vi.fn(),
+}))
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
 }))
 
 const mockShowToast = vi.fn()
@@ -15,11 +17,21 @@ vi.mock('@/hooks/useToast', () => ({
 
 import { followUser, unfollowUser } from '@/services/followApi'
 import FollowButton from '@/components/user/FollowButton'
+import { useAuth } from '@/hooks/useAuth'
 
 const mockFollow = followUser as ReturnType<typeof vi.fn>
 const mockUnfollow = unfollowUser as ReturnType<typeof vi.fn>
+const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
 const TARGET = 'a4ab9d0a-3e1c-4b6e-9a8d-0c1e2f3a4b5c'
+
+beforeEach(() => {
+  mockUseAuth.mockReturnValue({
+    isAuthenticated: true,
+    login: vi.fn(),
+    logout: vi.fn(),
+  })
+})
 
 afterEach(() => {
   cleanup()
@@ -209,6 +221,29 @@ describe('FollowButton', () => {
 
       resolveFn()
       await waitFor(() => expect(btn.disabled).toBe(false))
+    })
+  })
+
+  describe('unauthenticated user', () => {
+    it('forces followStatus to idle and triggers login redirect on click', async () => {
+      const mockLogin = vi.fn()
+      mockUseAuth.mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+        logout: vi.fn(),
+      })
+
+      // Even if followStatus is passed as 'ACCEPTED', unauthenticated user should see 'Suivre'
+      render(<FollowButton targetId={TARGET} followStatus="ACCEPTED" />)
+
+      const btn = screen.getByRole('button', { name: 'Suivre cet utilisateur' })
+      expect(btn.textContent).toBe('Suivre')
+      expect(btn.getAttribute('aria-pressed')).toBe('false')
+
+      fireEvent.click(btn)
+
+      expect(mockLogin).toHaveBeenCalledTimes(1)
+      expect(mockFollow).not.toHaveBeenCalled()
     })
   })
 })

@@ -259,7 +259,25 @@ describe('AdminPage — reports section', () => {
     })
     mockUseAdminFeatured.mockReturnValue(defaultFeatured)
     renderPage()
-    expect(screen.getByText('Impossible de charger les signalements.')).toBeTruthy()
+    expect(screen.getByText('500')).toBeTruthy()
+  })
+
+  it('calls refresh on both hooks when clicking retry on the error page', () => {
+    const refreshReports = vi.fn()
+    const refreshFeatured = vi.fn()
+    mockUseAdminReports.mockReturnValue({
+      ...defaultReports,
+      error: 'Impossible de charger les signalements.',
+      refresh: refreshReports,
+    })
+    mockUseAdminFeatured.mockReturnValue({
+      ...defaultFeatured,
+      refresh: refreshFeatured,
+    })
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }))
+    expect(refreshReports).toHaveBeenCalled()
+    expect(refreshFeatured).toHaveBeenCalled()
   })
 
   it('shows report count badge on En attente tab when reports exist', () => {
@@ -485,7 +503,7 @@ describe('AdminPage — featured section', () => {
       error: 'Impossible de charger les événements mis en avant.',
     })
     renderPage()
-    expect(screen.getByText('Impossible de charger les événements mis en avant.')).toBeTruthy()
+    expect(screen.getByText('500')).toBeTruthy()
   })
 
   it('calls setSearchQuery when search input changes', () => {

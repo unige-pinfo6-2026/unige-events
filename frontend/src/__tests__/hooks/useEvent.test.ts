@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useEvent } from '@/hooks/useEvent'
+import { AxiosError, AxiosHeaders } from 'axios'
 
 vi.mock('@/services/eventApi', () => ({
   getById: vi.fn(),
@@ -24,6 +25,18 @@ const mockEvent = {
   status: 'PUBLISHED' as const,
   creatorId: 'user-1',
   createdAt: '2026-03-01T10:00:00',
+}
+
+// Mirrors the axios shape the hook inspects: `axios.isAxiosError(err)` plus
+// `err.response?.status`.
+function axiosErrorWithStatus(status: number): AxiosError {
+  return new AxiosError(
+    `Request failed with status code ${status}`,
+    undefined,
+    undefined,
+    undefined,
+    { status, data: {}, statusText: '', headers: {}, config: { headers: new AxiosHeaders() } },
+  )
 }
 
 afterEach(() => vi.resetAllMocks())
@@ -181,5 +194,21 @@ describe('useEvent', () => {
 
     expect(result.current.event).toEqual(mockEvent)
     expect(result.current.error).toBeNull()
+  })
+
+  it('treats a 404 as "not found": clears the event without surfacing an error', async () => {
+    mockGetById.mockRejectedValue(axiosErrorWithStatus(404))
+    const { result } = renderHook(() => useEvent(1))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBeNull()
+    expect(result.current.event).toBeNull()
+  })
+
+  it('surfaces the generic error for a non-404 axios error', async () => {
+    mockGetById.mockRejectedValue(axiosErrorWithStatus(500))
+    const { result } = renderHook(() => useEvent(1))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBe('Impossible de charger cet événement.')
+    expect(result.current.event).toBeNull()
   })
 })

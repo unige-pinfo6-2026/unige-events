@@ -3,6 +3,7 @@ import { followUser, unfollowUser } from '@/services/followApi'
 import { useToast } from '@/hooks/useToast'
 import ConfirmDialog from '@/components/utils/ConfirmDialog'
 import type { FollowStatus } from '@/types/user'
+import { useAuth } from '@/hooks/useAuth'
 
 interface FollowButtonProps {
   targetId: string
@@ -59,7 +60,10 @@ export default function FollowButton({
   confirmOnUnfollow = false,
 }: Readonly<FollowButtonProps>) {
   const toast = useToast()
-  const [state, setState] = useState<LocalState>(toLocalState(followStatus))
+  const { isAuthenticated, login } = useAuth()
+  const [state, setState] = useState<LocalState>(
+    isAuthenticated ? toLocalState(followStatus) : 'idle'
+  )
   const [pending, setPending] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -70,8 +74,8 @@ export default function FollowButton({
   // the parent refetches, and we flip to ACCEPTED here.
   useEffect(() => {
     if (pending) return
-    setState(toLocalState(followStatus))
-  }, [followStatus, pending])
+    setState(isAuthenticated ? toLocalState(followStatus) : 'idle')
+  }, [followStatus, pending, isAuthenticated])
 
   // The button is idempotent on the server, but the UI carries an in-flight
   // guard so a double-click during the network round-trip can't queue two
@@ -92,6 +96,10 @@ export default function FollowButton({
   }
 
   async function handleFollow() {
+    if (!isAuthenticated) {
+      login()
+      return
+    }
     if (pending) return
     setPending(true)
     const previousState = state

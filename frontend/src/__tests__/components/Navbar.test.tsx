@@ -407,4 +407,116 @@ describe('Navbar', () => {
     // the card-variant skeleton appears in the mobile sidebar portal.
     expect(document.querySelector('[data-boneyard="user-identity-card"]')).toBeTruthy()
   })
+
+  // ─── Notifications bell gated on auth ──────────────────────────────────────
+
+  it('does not render the notifications bell when logged out', () => {
+    // Gated behind `user`, so useNotifications never mounts and no
+    // GET /users/me/notifications (401) fires while unauthenticated.
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    expect(screen.queryByRole('button', { name: 'Notifications' })).toBeNull()
+  })
+
+  it('renders the notifications bell when logged in', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
+  })
+
+  // ─── Mobile drawer : côté droit + animation entrée/sortie ──────────────────
+
+  /** The slide-in panel — distinctive `w-72` width. */
+  const getDrawer = () => document.querySelector('.w-72') as HTMLElement | null
+
+  it('anchors the mobile drawer to the right and slides it in', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+
+    const drawer = getDrawer()
+    expect(drawer).toBeTruthy()
+    expect(drawer!.className).toContain('right-0')
+    expect(drawer!.className).toContain('border-l')
+    expect(drawer!.className).toContain('motion-safe:animate-drawer-in')
+  })
+
+  it('plays the slide-out animation then unmounts the drawer on animationend', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    expect(getDrawer()).toBeTruthy()
+
+    // Hamburger (first "Fermer le menu" in document order) toggles open → false.
+    fireEvent.click(screen.getAllByLabelText('Fermer le menu')[0])
+    const drawer = getDrawer()
+    expect(drawer).toBeTruthy() // still mounted, sliding out
+    expect(drawer!.className).toContain('motion-safe:animate-drawer-out')
+
+    fireEvent.animationEnd(drawer!)
+    expect(getDrawer()).toBeNull() // unmounted once the exit animation ends
+  })
+
+  it('keeps the drawer mounted when its own enter animation ends (still open)', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    const drawer = getDrawer()
+    expect(drawer).toBeTruthy()
+
+    fireEvent.animationEnd(drawer!) // enter animation finished while open
+    expect(getDrawer()).toBeTruthy()
+  })
+
+  it('ignores animationend bubbling from a child (only the drawer itself unmounts)', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    fireEvent.click(screen.getAllByLabelText('Fermer le menu')[0]) // closing
+
+    // A nested element's animationend (e.g. a collapsible) bubbles up but must
+    // NOT trigger the unmount — only the drawer's own animation does.
+    const banner = getDrawer()!.querySelector('a, button, svg') as HTMLElement
+    fireEvent.animationEnd(banner)
+    expect(getDrawer()).toBeTruthy()
+  })
+
+  it('unmounts the drawer immediately under prefers-reduced-motion (no animationend)', () => {
+    const mql = vi.spyOn(window, 'matchMedia').mockImplementation((q: string) => ({
+      matches: q.includes('reduced-motion'),
+      media: q,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }) as unknown as MediaQueryList)
+
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+    expect(getDrawer()).toBeTruthy()
+
+    fireEvent.click(screen.getAllByLabelText('Fermer le menu')[0])
+    expect(getDrawer()).toBeNull() // gone right away, no animation to wait for
+
+    mql.mockRestore()
+  })
+
+  it('closes the mobile menu when the overlay is clicked', () => {
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    fireEvent.click(screen.getByLabelText('Ouvrir le menu'))
+
+    const overlay = document.querySelector('.fixed[aria-hidden="true"]') as HTMLElement
+    expect(overlay).toBeTruthy()
+    fireEvent.click(overlay)
+
+    // Hamburger relabelled back to "Ouvrir le menu" → menu is closing/closed.
+    expect(screen.getByLabelText('Ouvrir le menu')).toBeTruthy()
+  })
 })

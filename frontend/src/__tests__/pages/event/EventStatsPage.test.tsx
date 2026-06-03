@@ -89,7 +89,7 @@ describe('EventStatsPage', () => {
     mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null })
 
     renderPage('abc')
-    expect(screen.getByText(/identifiant/i)).toBeTruthy()
+    expect(screen.getByText('404')).toBeTruthy()
   })
 
   it('shows skeleton while loading', () => {
@@ -109,7 +109,7 @@ describe('EventStatsPage', () => {
 
     renderPage()
     await waitFor(() =>
-      expect(screen.getByText(/accès réservé à l'équipe organisatrice/i)).toBeTruthy()
+      expect(screen.getByText('403')).toBeTruthy()
     )
   })
 
@@ -162,7 +162,7 @@ describe('EventStatsPage', () => {
     expect(mockUseEventStats).toHaveBeenCalledWith(null)
     // L'accès reste fermé : message d'erreur affiché (event stale → non-organizer).
     await waitFor(() =>
-      expect(screen.getByText(/accès réservé/i)).toBeTruthy()
+      expect(screen.getByText('403')).toBeTruthy()
     )
   })
 
@@ -192,8 +192,50 @@ describe('EventStatsPage', () => {
 
     renderPage()
     await waitFor(() =>
-      expect(screen.getByText(/impossible de charger/i)).toBeTruthy()
+      expect(screen.getByText('500')).toBeTruthy()
     )
+  })
+
+  it('calls refetchEvent and refetchStats when clicking retry on the error page', async () => {
+    const refetchEvent = vi.fn()
+    const refetchStats = vi.fn()
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, error: 'boom', refetch: refetchEvent })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: 'boom', refetch: refetchStats })
+
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Réessayer' })
+    fireEvent.click(button)
+    expect(refetchEvent).toHaveBeenCalled()
+    expect(refetchStats).toHaveBeenCalled()
+  })
+
+  it('calls only refetchEvent when statsError is false on retry', async () => {
+    const refetchEvent = vi.fn()
+    const refetchStats = vi.fn()
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: null, loading: false, error: 'boom', refetch: refetchEvent })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: null, refetch: refetchStats })
+
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Réessayer' })
+    fireEvent.click(button)
+    expect(refetchEvent).toHaveBeenCalled()
+    expect(refetchStats).not.toHaveBeenCalled()
+  })
+
+  it('calls only refetchStats when eventError is false on retry', async () => {
+    const refetchEvent = vi.fn()
+    const refetchStats = vi.fn()
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, error: null, refetch: refetchEvent })
+    mockUseEventStats.mockReturnValue({ stats: null, loading: false, error: 'boom', refetch: refetchStats })
+
+    renderPage()
+    const button = await screen.findByRole('button', { name: 'Réessayer' })
+    fireEvent.click(button)
+    expect(refetchEvent).not.toHaveBeenCalled()
+    expect(refetchStats).toHaveBeenCalled()
   })
 
   it('shows "événement introuvable" when event is null without error', async () => {
@@ -214,7 +256,7 @@ describe('EventStatsPage', () => {
 
     renderPage()
     await waitFor(() =>
-      expect(screen.getByText(/impossible de charger les statistiques/i)).toBeTruthy()
+      expect(screen.getByText('500')).toBeTruthy()
     )
   })
 
@@ -225,7 +267,7 @@ describe('EventStatsPage', () => {
 
     renderPage()
     await waitFor(() =>
-      expect(screen.getByText(/statistiques indisponibles/i)).toBeTruthy()
+      expect(screen.getByText('500')).toBeTruthy()
     )
   })
 
@@ -515,7 +557,7 @@ describe('EventStatsPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(/identifiant/i)).toBeTruthy()
+    expect(screen.getByText('404')).toBeTruthy()
   })
 
   it('renders the skeleton with the dark-theme colour token', () => {
