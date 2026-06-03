@@ -241,14 +241,38 @@ function MobileNavItem({ link, onClose }: Readonly<{ link: NavItem; onClose: () 
   )
 }
 
-function MobileMenu({ onClose }: Readonly<{ onClose: () => void }>) {
+function MobileMenu({ open, onClose }: Readonly<{ open: boolean; onClose: () => void }>) {
   const { user, isAdmin, login, logout, isLoading } = useAuth()
+  const [mounted, setMounted] = useState(open)
+
+  // Keep the drawer mounted while it slides out so the close animation is
+  // visible. Under prefers-reduced-motion no animation plays (animationend
+  // never fires), so unmount immediately in that case.
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      return
+    }
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduced) setMounted(false)
+  }, [open])
+
+  if (!mounted) return null
 
   return createPortal(
     <div className="relative lg:hidden">
-      <div aria-hidden="true" className="fixed top-0 left-0 w-full h-screen bg-black/20 backdrop-blur-sm z-40" onClick={onClose} />
+      <div
+        aria-hidden="true"
+        className={`fixed top-0 left-0 w-full h-dvh bg-black/20 backdrop-blur-sm z-40 ${open ? 'motion-safe:animate-overlay-in' : 'motion-safe:animate-overlay-out motion-reduce:opacity-0'}`}
+        onClick={onClose}
+      />
 
-      <div className="fixed top-0 left-0 h-dvh w-72 bg-background border-r rounded-r-xl border-border z-50 flex flex-col divide-y divide-border">
+      <div
+        // Only the drawer's own slide-out (not a nested collapsible animation)
+        // unmounts the menu.
+        onAnimationEnd={(e) => { if (e.target === e.currentTarget && !open) setMounted(false) }}
+        className={`fixed top-0 right-0 h-dvh w-72 bg-background border-l rounded-l-xl border-border z-50 flex flex-col divide-y divide-border pb-[env(safe-area-inset-bottom)] ${open ? 'motion-safe:animate-drawer-in' : 'motion-safe:animate-drawer-out motion-reduce:translate-x-full'}`}
+      >
         {/* Header */}
         <div className="relative">
           <div className="flex items-center justify-between px-4 shrink-0 h-navbar">
@@ -345,7 +369,7 @@ export default function Navbar() {
 
       </div>
 
-      {mobileMenuOpen && <MobileMenu onClose={() => setMobileMenuOpen(false)} />}
+      <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
     </nav>
   )
 }

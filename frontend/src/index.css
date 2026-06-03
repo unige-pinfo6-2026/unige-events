@@ -28,6 +28,10 @@
   --animate-drafts-panel-close: drafts-panel-close 0.2s ease-in;
   --animate-collapsible-open: collapsible-open 0.2s ease-out;
   --animate-collapsible-close: collapsible-close 0.2s ease-in;
+  --animate-drawer-in: drawer-in 0.3s ease-out;
+  --animate-drawer-out: drawer-out 0.25s ease-in forwards;
+  --animate-overlay-in: overlay-in 0.3s ease-out;
+  --animate-overlay-out: overlay-out 0.25s ease-in forwards;
 }
 
 [data-theme="dark"] {
@@ -45,6 +49,15 @@ html {
 
 body {
   background-color: var(--color-background);
+}
+
+/* iOS tap behaviour: kill the grey tap flash and the 300ms double-tap-zoom
+   delay on interactive controls (no size change). */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 mark {
@@ -91,6 +104,27 @@ mark {
 @keyframes collapsible-close {
   from { height: var(--radix-collapsible-content-height); }
   to { height: 0; }
+}
+
+/* Mobile drawer (navbar) — slides in from the right; overlay fades. */
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawer-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 /* ── react-big-calendar theme overrides ─────────────────────────────── */
