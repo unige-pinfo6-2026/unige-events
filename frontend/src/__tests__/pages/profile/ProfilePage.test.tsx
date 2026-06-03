@@ -72,7 +72,7 @@ mockUseAuth.mockReturnValue = (val: Parameters<typeof origMockReturnValue>[0]) =
     login: vi.fn(),
     logout: vi.fn(),
     ...(val as Record<string, unknown> || {}),
-  } as ReturnType<typeof useAuth>);
+  } as unknown as ReturnType<typeof useAuth>);
 };
 const origMockReturnValueOnce = mockUseAuth.mockReturnValueOnce;
 mockUseAuth.mockReturnValueOnce = (val: Parameters<typeof origMockReturnValueOnce>[0]) => {
@@ -82,7 +82,7 @@ mockUseAuth.mockReturnValueOnce = (val: Parameters<typeof origMockReturnValueOnc
     login: vi.fn(),
     logout: vi.fn(),
     ...(val as Record<string, unknown> || {}),
-  } as ReturnType<typeof useAuth>);
+  } as unknown as ReturnType<typeof useAuth>);
 };
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>

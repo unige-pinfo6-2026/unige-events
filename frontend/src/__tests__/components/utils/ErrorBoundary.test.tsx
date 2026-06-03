@@ -104,7 +104,7 @@ describe('ErrorBoundary', () => {
     }
     vi.stubGlobal('sessionStorage', sessionStorageMock)
 
-    function ChunkBomb() {
+    function ChunkBomb(): never {
       throw new TypeError('error loading dynamically imported module: some_chunk.js')
     }
 
