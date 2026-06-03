@@ -345,7 +345,7 @@ export default function Navbar() {
               useCoOrganizerInvitations, useMyFollowRequests) to fire twice — 4× in
               dev due to StrictMode. */}
           <ThemeToggle />
-          <NotificationsDropdown />
+          {user && <NotificationsDropdown />}
           {user && <RequestsInboxDropdown />}
 
           <DesktopNav />

@@ -408,6 +408,25 @@ describe('Navbar', () => {
     expect(document.querySelector('[data-boneyard="user-identity-card"]')).toBeTruthy()
   })
 
+  // ─── Notifications bell gated on auth ──────────────────────────────────────
+
+  it('does not render the notifications bell when logged out', () => {
+    // Gated behind `user`, so useNotifications never mounts and no
+    // GET /users/me/notifications (401) fires while unauthenticated.
+    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn(), login: vi.fn() })
+    renderNavbar()
+    expect(screen.queryByRole('button', { name: 'Notifications' })).toBeNull()
+  })
+
+  it('renders the notifications bell when logged in', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: '1', auth0Id: 'auth0|1', email: 'a@b.com', displayName: 'Jean Dupont', profilePublic: true, createdAt: '2024-01-01' },
+      logout: vi.fn(),
+    })
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
+  })
+
   // ─── Mobile drawer : côté droit + animation entrée/sortie ──────────────────
 
   /** The slide-in panel — distinctive `w-72` width. */
