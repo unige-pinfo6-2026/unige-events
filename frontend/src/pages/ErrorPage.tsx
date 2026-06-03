@@ -1,13 +1,13 @@
 import { Blobs } from '@/components/utils/Blobs'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
-import { Link } from 'react-router-dom'
 
 interface ErrorPageProps {
   statusCode?: number
   onRetry?: () => void
+  retryLabel?: string
 }
 
-export default function ErrorPage({ statusCode = 500, onRetry }: Readonly<ErrorPageProps>) {
+export default function ErrorPage({ statusCode = 500, onRetry, retryLabel = 'Réessayer' }: Readonly<ErrorPageProps>) {
   return (
     <div className="py-20 lg:py-32 relative overflow-hidden">
       <Blobs />
@@ -29,12 +29,12 @@ export default function ErrorPage({ statusCode = 500, onRetry }: Readonly<ErrorP
         <ButtonsWrapper>
           {onRetry && (
             <ButtonPrimary size="md" onClick={onRetry}>
-              Réessayer
+              {retryLabel}
             </ButtonPrimary>
           )}
-          <Link to="/">
+          <a href="/">
             <ButtonSecondary size="md">Retour à l'accueil</ButtonSecondary>
-          </Link>
+          </a>
         </ButtonsWrapper>
       </div>
     </div>
