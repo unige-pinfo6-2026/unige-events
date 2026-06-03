@@ -161,10 +161,22 @@ describe('AppRouter', () => {
     expect(await screen.findByText('ProfilePage')).toBeTruthy()
   })
 
+  it('shows profile page at /profile/:id when not authenticated', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/profile/auth0|123')
+    expect(await screen.findByText('ProfilePage')).toBeTruthy()
+  })
+
   it('shows profile edit page at /profile/me/edit', async () => {
     mockUseAuth.mockReturnValue(authenticated())
     renderAt('/profile/me/edit')
     expect(await screen.findByText('ProfileEditPage')).toBeTruthy()
+  })
+
+  it('blocks profile edit page at /profile/me/edit when not authenticated', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/profile/me/edit')
+    expect(await screen.findByText('LoginPage')).toBeTruthy()
   })
 
   it('shows event create page at /events/new', async () => {
@@ -187,7 +199,7 @@ describe('AppRouter', () => {
 
   it('blocks protected routes when not authenticated', async () => {
     mockUseAuth.mockReturnValue(unauthenticated())
-    renderAt('/profile/me')
+    renderAt('/events/new')
     expect(await screen.findByText('LoginPage')).toBeTruthy()
   })
 
@@ -234,8 +246,20 @@ describe('AppRouter', () => {
     expect(await screen.findByText('FollowListPage-followers')).toBeTruthy()
   })
 
+  it('shows followers list at /profile/:username/followers when not authenticated', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
+    renderAt('/profile/alice/followers')
+    expect(await screen.findByText('FollowListPage-followers')).toBeTruthy()
+  })
+
   it('shows following list at /profile/:username/following', async () => {
     mockUseAuth.mockReturnValue(authenticated())
+    renderAt('/profile/alice/following')
+    expect(await screen.findByText('FollowListPage-following')).toBeTruthy()
+  })
+
+  it('shows following list at /profile/:username/following when not authenticated', async () => {
+    mockUseAuth.mockReturnValue(unauthenticated())
     renderAt('/profile/alice/following')
     expect(await screen.findByText('FollowListPage-following')).toBeTruthy()
   })

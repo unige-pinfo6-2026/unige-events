@@ -64,6 +64,26 @@ import { followUser, unfollowUser } from '@/services/followApi'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const origMockReturnValue = mockUseAuth.mockReturnValue;
+mockUseAuth.mockReturnValue = (val: Parameters<typeof origMockReturnValue>[0]) => {
+  const hasUser = val && typeof val === 'object' && 'user' in val && (val as Record<string, unknown>).user !== null && (val as Record<string, unknown>).user !== undefined;
+  return origMockReturnValue.call(mockUseAuth, {
+    isAuthenticated: !!hasUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...(val as Record<string, unknown> || {}),
+  } as ReturnType<typeof useAuth>);
+};
+const origMockReturnValueOnce = mockUseAuth.mockReturnValueOnce;
+mockUseAuth.mockReturnValueOnce = (val: Parameters<typeof origMockReturnValueOnce>[0]) => {
+  const hasUser = val && typeof val === 'object' && 'user' in val && (val as Record<string, unknown>).user !== null && (val as Record<string, unknown>).user !== undefined;
+  return origMockReturnValueOnce.call(mockUseAuth, {
+    isAuthenticated: !!hasUser,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...(val as Record<string, unknown> || {}),
+  } as ReturnType<typeof useAuth>);
+};
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>
 const mockGetUserByUsername = getUserByUsername as ReturnType<typeof vi.fn>
 const mockGetAllEvents = getAllEvents as ReturnType<typeof vi.fn>
@@ -254,12 +274,12 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(screen.getByText('Modifier')).toBeTruthy()
   })
 
-  it('shows error when own profile user is null and auth is loaded', async () => {
+  it('redirects to login when own profile user is null and auth is loaded', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
 
     renderProfilePage('me')
 
-    expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
+    expect(await screen.findByTestId('post-redirect-route')).toBeTruthy()
   })
 
   it('exposes the "Mes publications" tab on /me and renders its content when activated', async () => {
@@ -704,14 +724,13 @@ describe('ProfilePage — FollowButton wiring (SCRUM-110)', () => {
     expect(await screen.findByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
   })
 
-  it('does NOT render the FollowButton for an unauthenticated viewer', async () => {
+  it('renders the FollowButton for an unauthenticated viewer as "Suivre"', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
     mockGetUserByUsername.mockResolvedValue(otherProfile)
 
     renderProfilePage('other.user')
 
-    await screen.findByRole('heading', { level: 1, name: 'Other User' })
-    expect(screen.queryByRole('button', { name: /Suivre|Demande envoyée|Abonné|Se désabonner/ })).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Suivre cet utilisateur' })).toBeTruthy()
   })
 
   it('does NOT render the FollowButton when the viewer is looking at their own username (treated as /me)', async () => {

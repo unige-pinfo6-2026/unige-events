@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { useAuth } from '@/hooks/useAuth'
@@ -222,6 +222,7 @@ function FollowListBody({ target, mode }: Readonly<FollowListBodyProps>) {
 export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) {
   const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
+  const location = useLocation()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
@@ -325,6 +326,11 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
       </div>
     )
   }
+
+  if (isMeRoute && !currentUser) {
+    return <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} replace />
+  }
+
   if (error) return <ErrorPage onRetry={refetch} />
   if (isNotFound || target === null) {
     return <NotFoundPage />

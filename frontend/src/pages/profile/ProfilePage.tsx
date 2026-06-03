@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents'
 import { useUserParticipations } from '@/hooks/useUserParticipations'
@@ -401,7 +401,7 @@ function ProfileViewSelector({
   currentUser: User | null
   refetch: () => void
 }>) {
-  const canFollow = currentUser !== null && currentUser.id !== profile.id
+  const canFollow = currentUser === null || currentUser.id !== profile.id
 
   if (!profile.profilePublic && profile.followStatus !== 'ACCEPTED') {
     return (
@@ -426,6 +426,7 @@ function ProfileViewSelector({
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const { user: currentUser, isLoading: authLoading } = useAuth()
+  const location = useLocation()
   const { theme } = useTheme()
   const skeletonColor = theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'
 
@@ -449,6 +450,11 @@ export default function ProfilePage() {
       </Skeleton>
     )
   }
+
+  if (isMeRoute && !currentUser) {
+    return <Navigate to="/login" state={{ returnTo: location.pathname + location.search + location.hash }} replace />
+  }
+
   if (redirectTarget) return <Navigate to={redirectTarget} replace />
   if (error) return <ErrorPage onRetry={isMeRoute ? undefined : () => setReloadKey(k => k + 1)} />
 
