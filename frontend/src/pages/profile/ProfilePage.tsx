@@ -357,9 +357,9 @@ function useProfilePageState(
     }
 
     if (isMeRoute) {
-      if (!currentUser) {
-        setError(true)
-      }
+      // Unauthenticated `/me` redirects to /login at render time; an
+      // authenticated `/me` renders MeProfileView. Neither path surfaces an
+      // error from here — just stop the skeleton.
       setLoading(false)
       return
     }
@@ -456,7 +456,10 @@ export default function ProfilePage() {
   }
 
   if (redirectTarget) return <Navigate to={redirectTarget} replace />
-  if (error) return <ErrorPage onRetry={isMeRoute ? undefined : () => setReloadKey(k => k + 1)} />
+  // `error` is only ever set on the public/legacy fetch paths — a `/me` route
+  // redirects to /login or renders MeProfileView before reaching here — so a
+  // retry is always meaningful.
+  if (error) return <ErrorPage onRetry={() => setReloadKey(k => k + 1)} />
 
   if (isMeRoute) {
     return <MeProfileView user={currentUser!} />

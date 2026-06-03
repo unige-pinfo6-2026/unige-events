@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AxiosError, AxiosHeaders } from 'axios'
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -107,6 +107,14 @@ function makeFullPage(prefix: string): UserPublicResponse[] {
   )
 }
 
+// Surfaces the `returnTo` state so a redirect to /login can be asserted both
+// on destination and on the carried-back path.
+function LoginProbe() {
+  const location = useLocation()
+  const state = location.state as { returnTo?: string } | null
+  return <div>login · returnTo={state?.returnTo ?? ''}</div>
+}
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -114,6 +122,7 @@ function renderAt(path: string) {
         <Route path="/profile/:username/followers" element={<FollowListPage mode="followers" />} />
         <Route path="/profile/:username/following" element={<FollowListPage mode="following" />} />
         <Route path="/profile/:username" element={<div>profile of {path}</div>} />
+        <Route path="/login" element={<LoginProbe />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -189,12 +198,18 @@ describe('FollowListPage — others', () => {
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 
-  it('surfaces an error when getUserByUsername throws non-404', async () => {
+  it('surfaces an error when getUserByUsername throws non-404, and "Réessayer" refetches', async () => {
     mockGetUserByUsername.mockRejectedValue(new Error('boom'))
 
     renderAt('/profile/other.user/followers')
 
     expect(await screen.findByText('500')).toBeTruthy()
+    expect(mockGetUserByUsername).toHaveBeenCalledTimes(1)
+
+    // Clicking "Réessayer" runs refetch() → bumps reloadKey → re-runs the
+    // resolve effect (the page-level retry, distinct from the list refresh).
+    fireEvent.click(screen.getByText('Réessayer'))
+    await waitFor(() => expect(mockGetUserByUsername).toHaveBeenCalledTimes(2))
   })
 
   it('cancels getUserByUsername rejection when unmounted before reject', async () => {
@@ -381,12 +396,14 @@ describe('FollowListPage — me', () => {
     await waitFor(() => expect(mockGetFollowers).toHaveBeenCalledWith(OWN_UUID, 0, FOLLOW_LIST_PAGE_SIZE))
   })
 
-  it('renders an error placeholder on /me when useAuth has no user', async () => {
+  it('redirects to /login on /me when useAuth has no user', async () => {
     mockUseAuth.mockReturnValue({ user: null, isLoading: false })
 
     renderAt('/profile/me/followers')
 
-    expect(await screen.findByText('500')).toBeTruthy()
+    // Unauthenticated on a `/me` route: redirect to /login, carrying the
+    // attempted path so login can bounce the user back. No list fetch fires.
+    expect(await screen.findByText('login · returnTo=/profile/me/followers')).toBeTruthy()
     expect(mockGetFollowers).not.toHaveBeenCalled()
   })
 

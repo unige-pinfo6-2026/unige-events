@@ -248,7 +248,9 @@ export default function FollowListPage({ mode }: Readonly<FollowListPageProps>) 
 
     if (isMeRoute) {
       if (!currentUser) {
-        setError(true)
+        // Not authenticated on a `/me` route: the render path redirects to
+        // /login (see below). Just stop the skeleton — there's no error to
+        // surface, so we don't set `error` here.
         setLoading(false)
         return
       }
