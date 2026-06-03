@@ -3,11 +3,11 @@ import { ThemeProvider } from "./contexts/ThemeContext"
 import { ToastProvider } from "./contexts/ToastContext"
 import { FavoritesProvider } from "./contexts/FavoritesContext"
 import AppRouter from "./router/AppRouter"
-import AppErrorBoundary from "./components/AppErrorBoundary"
+import ErrorBoundary from "./components/utils/ErrorBoundary"
 
 function App() {
   return (
-    <AppErrorBoundary>
+    <ErrorBoundary>
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
@@ -17,7 +17,7 @@ function App() {
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
-    </AppErrorBoundary>
+    </ErrorBoundary>
   )
 }
 

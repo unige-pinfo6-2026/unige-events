@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import AppErrorBoundary from '@/components/AppErrorBoundary'
+import ErrorBoundary from '@/components/utils/ErrorBoundary'
 
 vi.mock('@/components/utils/Blobs', () => ({
   Blobs: () => <div data-testid="blobs" />,
@@ -22,13 +22,13 @@ function Bomb({ shouldThrow }: { shouldThrow: boolean }) {
   return <div>OK</div>
 }
 
-describe('AppErrorBoundary', () => {
+describe('ErrorBoundary', () => {
   it('renders children when there is no error', () => {
     render(
       <MemoryRouter>
-        <AppErrorBoundary>
+        <ErrorBoundary>
           <Bomb shouldThrow={false} />
-        </AppErrorBoundary>
+        </ErrorBoundary>
       </MemoryRouter>,
     )
     expect(screen.getByText('OK')).toBeTruthy()
@@ -38,9 +38,9 @@ describe('AppErrorBoundary', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     render(
       <MemoryRouter>
-        <AppErrorBoundary>
+        <ErrorBoundary>
           <Bomb shouldThrow={true} />
-        </AppErrorBoundary>
+        </ErrorBoundary>
       </MemoryRouter>,
     )
     expect(screen.getByText(/Une erreur inattendue est survenue/)).toBeTruthy()
@@ -51,12 +51,12 @@ describe('AppErrorBoundary', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     render(
       <MemoryRouter>
-        <AppErrorBoundary>
+        <ErrorBoundary>
           <Bomb shouldThrow={true} />
-        </AppErrorBoundary>
+        </ErrorBoundary>
       </MemoryRouter>,
     )
-    expect(screen.getByText('Recharger la page')).toBeTruthy()
+    expect(screen.getByText('Réessayer')).toBeTruthy()
     expect(screen.getByText("Retour à l'accueil")).toBeTruthy()
     consoleError.mockRestore()
   })
@@ -65,9 +65,9 @@ describe('AppErrorBoundary', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     render(
       <MemoryRouter>
-        <AppErrorBoundary>
+        <ErrorBoundary>
           <Bomb shouldThrow={true} />
-        </AppErrorBoundary>
+        </ErrorBoundary>
       </MemoryRouter>,
     )
     expect(consoleError).toHaveBeenCalled()
@@ -81,12 +81,12 @@ describe('AppErrorBoundary', () => {
 
     render(
       <MemoryRouter>
-        <AppErrorBoundary>
+        <ErrorBoundary>
           <Bomb shouldThrow={true} />
-        </AppErrorBoundary>
+        </ErrorBoundary>
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByText('Recharger la page'))
+    fireEvent.click(screen.getByText('Réessayer'))
     expect(reload).toHaveBeenCalled()
 
     consoleError.mockRestore()
