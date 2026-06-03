@@ -128,7 +128,7 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, st
   } = useUserParticipations(profile.id)
 
   const facultyName = profile.faculty ? FACULTIES[profile.faculty as Faculty]?.name ?? null : null
-  const studyLevelName = profile.studyLevel ? STUDY_LEVELS[profile.studyLevel as StudyLevel].name : null
+  const studyLevelName = profile.studyLevel ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name ?? null : null
   const interests = profile.interests ?? []
 
   // Colonne droite : gros blocs Abonnés/Abonnements + bouton Suivre (rose) /

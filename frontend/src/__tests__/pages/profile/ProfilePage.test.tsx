@@ -305,6 +305,19 @@ describe('ProfilePage — /profile/me (owner)', () => {
     expect(await screen.findByText('Faculté des Sciences')).toBeTruthy()
   })
 
+  it('does not crash on an unrecognised study level (defensive STUDY_LEVELS lookup)', async () => {
+    // A backend value outside STUDY_LEVELS used to throw on `…[level].name`.
+    // The optional chaining resolves it to null and the profile still renders.
+    mockUseAuth.mockReturnValue({
+      user: { ...mockUser, studyLevel: 'PHD' },
+      isLoading: false,
+    })
+
+    renderProfilePage('me')
+
+    expect(await screen.findByRole('link', { name: 'Modifier' })).toBeTruthy()
+  })
+
   it('renders bio when present', async () => {
     mockUseAuth.mockReturnValue({
       user: { ...mockUser, bio: 'Passionné de recherche.' },
