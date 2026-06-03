@@ -1,4 +1,5 @@
 import type React from "react"
+import { Link } from "react-router-dom"
 
 interface ButtonsWrapperProps {
   children: React.ReactNode
@@ -10,6 +11,12 @@ interface ButtonProps {
   onClick?: () => void
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
+  /**
+   * When set, the control renders a single styled react-router `<Link>` instead
+   * of a `<button>`. Use this for navigation actions so callers don't nest a
+   * `<button>` inside an `<a>` (invalid interactive markup, breaks keyboard/SR).
+   */
+  to?: string
 }
 
 interface IconButtonProps {
@@ -51,13 +58,22 @@ function Button({
   onClick,
   type = 'button',
   disabled,
+  to,
 }: Readonly<ButtonProps & { variant: ButtonVariant }>) {
+  const className = buttonClass(variant, size)
+  if (to !== undefined) {
+    return (
+      <Link to={to} className={className}>
+        {children}
+      </Link>
+    )
+  }
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={buttonClass(variant, size)}
+      className={className}
     >
       {children}
     </button>

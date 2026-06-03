@@ -1,6 +1,5 @@
 import { Blobs } from '@/components/utils/Blobs'
 import { ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
-import { Link } from 'react-router-dom'
 
 interface ErrorPageProps {
   statusCode?: number
@@ -32,9 +31,7 @@ export default function ErrorPage({ statusCode = 500, onRetry }: Readonly<ErrorP
               Réessayer
             </ButtonPrimary>
           )}
-          <Link to="/">
-            <ButtonSecondary size="md">Retour à l'accueil</ButtonSecondary>
-          </Link>
+          <ButtonSecondary to="/" size="md">Retour à l'accueil</ButtonSecondary>
         </ButtonsWrapper>
       </div>
     </div>

@@ -1,6 +1,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { ButtonDestructive, ButtonNeutral, ButtonPrimary, ButtonSecondary, ButtonsWrapper } from '@/components/utils/Buttons'
 
 afterEach(() => { cleanup() })
@@ -91,6 +92,19 @@ describe('ButtonSecondary', () => {
   it('renders with lg size', () => {
     const { container } = render(<ButtonSecondary size="lg">Grand</ButtonSecondary>)
     expect(container.querySelector('button')?.className).toContain('px-8')
+  })
+
+  it('renders a single navigation link (no nested <a><button>) when `to` is set', () => {
+    render(
+      <MemoryRouter>
+        <ButtonSecondary to="/" size="md">Retour à l'accueil</ButtonSecondary>
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: "Retour à l'accueil" })
+    expect(link.getAttribute('href')).toBe('/')
+    // Styled like the button, but it is an anchor — not a <button> inside an <a>.
+    expect(link.className).toContain('rounded-xl')
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })
 
