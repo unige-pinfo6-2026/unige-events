@@ -74,8 +74,16 @@ export function Dropdown({
   return (
     <div ref={ref} className="group relative">
       <div
-        className="flex items-center gap-1 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        className="flex items-center gap-1 cursor-pointer select-none"
         onClick={() => setIsOpen(prev => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setIsOpen(prev => !prev)
+          }
+        }}
       >
         {trigger}
         {showChevron && <ChevronDown className="size-4 text-foreground/50 transition-transform duration-200 group-hover:rotate-180" />}
