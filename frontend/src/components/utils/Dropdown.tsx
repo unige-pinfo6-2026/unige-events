@@ -79,6 +79,8 @@ export function Dropdown({
         role="button"
         tabIndex={0}
         aria-label={triggerLabel}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
         className="flex items-center gap-1 cursor-pointer select-none"
         onClick={() => setIsOpen(prev => !prev)}
         onKeyDown={(e) => {

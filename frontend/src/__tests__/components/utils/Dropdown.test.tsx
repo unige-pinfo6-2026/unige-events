@@ -170,4 +170,20 @@ describe('Dropdown', () => {
     // triggers (e.g. the notification bell) still expose an accessible name.
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
   })
+
+  it('exposes aria-haspopup and reflects the open state via aria-expanded', () => {
+    render(
+      <MemoryRouter>
+        <Dropdown trigger={<span>menu</span>} triggerLabel="Menu">
+          <div>Dropdown Content</div>
+        </Dropdown>
+      </MemoryRouter>
+    )
+    const trigger = screen.getByRole('button', { name: 'Menu' })
+    expect(trigger.getAttribute('aria-haspopup')).toBe('true')
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+  })
 })
