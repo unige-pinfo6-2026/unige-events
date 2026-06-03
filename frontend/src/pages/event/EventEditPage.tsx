@@ -214,6 +214,7 @@ export default function EventEditPage() {
         submitLabel={draftMode ? "Créer l'événement" : 'Enregistrer'}
         values={form.values}
         errors={form.errors}
+        submitErrorNonce={form.submitErrorNonce}
         submitting={form.submitting}
         draftSaving={form.draftSaving}
         imagePreview={form.imagePreview}

@@ -132,6 +132,7 @@ export default function EventCreatePage() {
         submitLabel="Créer l'événement"
         values={form.values}
         errors={form.errors}
+        submitErrorNonce={form.submitErrorNonce}
         submitting={form.submitting}
         draftSaving={form.draftSaving}
         imagePreview={form.imagePreview}

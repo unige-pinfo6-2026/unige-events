@@ -127,6 +127,53 @@ describe('useEventForm', () => {
     expect(mockCreateEvent).not.toHaveBeenCalled()
   })
 
+  it('calls onError with the offending field labels when a submit is blocked', async () => {
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    expect(mockCreateEvent).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledTimes(1)
+    const message = onError.mock.calls[0][0] as string
+    expect(message).toContain('Le titre')
+    expect(message).toContain('Le lieu')
+    expect(message).toContain('La catégorie')
+  })
+
+  it('bumps submitErrorNonce on each blocked submit', async () => {
+    const { result } = renderHook(() => useEventForm({ mode: 'create' }))
+    expect(result.current.submitErrorNonce).toBe(0)
+
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(result.current.submitErrorNonce).toBe(1)
+
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+    expect(result.current.submitErrorNonce).toBe(2)
+  })
+
+  it('does not call onError or bump the nonce on a valid submit', async () => {
+    mockCreateEvent.mockResolvedValue(baseEvent)
+    const onError = vi.fn()
+    const { result } = renderHook(() => useEventForm({ mode: 'create', onError }))
+
+    act(() => {
+      result.current.setFieldValue('title', 'Forum')
+      result.current.setFieldValue('location', 'Uni Dufour')
+      result.current.setFieldValue('category', 'SOCIAL')
+      result.current.setFieldValue('startDate', '2099-04-10T08:00')
+      result.current.setFieldValue('endDate', '2099-04-10T10:00')
+    })
+
+    await act(async () => { await result.current.handleSubmit(submitEvent()) })
+
+    expect(mockCreateEvent).toHaveBeenCalledTimes(1)
+    expect(onError).not.toHaveBeenCalled()
+    expect(result.current.submitErrorNonce).toBe(0)
+  })
+
   it('blocks submission when the start date is in the past', async () => {
     const { result } = renderHook(() => useEventForm({ mode: 'create' }))
 

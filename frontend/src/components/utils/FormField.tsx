@@ -8,11 +8,11 @@ function inputClass(error?: string) {
 }
 
 export function Input({ error, className, ...props }: React.ComponentProps<'input'> & { error?: string }) {
-  return <input className={[inputClass(error), className].filter(Boolean).join(' ')} {...props} />
+  return <input aria-invalid={error ? true : undefined} className={[inputClass(error), className].filter(Boolean).join(' ')} {...props} />
 }
 
 export function Select({ error, className, children, ...props }: React.ComponentProps<'select'> & { error?: string }) {
-  return <select className={[inputClass(error), className].filter(Boolean).join(' ')} {...props}>{children}</select>
+  return <select aria-invalid={error ? true : undefined} className={[inputClass(error), className].filter(Boolean).join(' ')} {...props}>{children}</select>
 }
 
 // SCRUM-147 — Textarea forwards its ref so inline tools (e.g. mention
@@ -28,6 +28,7 @@ export function Textarea({
   return (
     <textarea
       ref={ref}
+      aria-invalid={error ? true : undefined}
       className={[inputClass(error), className].filter(Boolean).join(' ')}
       {...props}
     />
