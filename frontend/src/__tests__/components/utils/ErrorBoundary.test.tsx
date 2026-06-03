@@ -121,4 +121,69 @@ describe('ErrorBoundary', () => {
     consoleError.mockRestore()
     vi.restoreAllMocks()
   })
+
+  it('does not reload again when a chunk error recurs inside the 10s guard window', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reload = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload } as Location)
+
+    // A reload was recorded ~1s ago → still inside the 10s anti-loop window,
+    // so the boundary must NOT reload again (it would otherwise loop forever).
+    const sessionStorageMock = {
+      getItem: vi.fn().mockReturnValue(String(Date.now() - 1000)),
+      setItem: vi.fn(),
+    }
+    vi.stubGlobal('sessionStorage', sessionStorageMock)
+
+    function ChunkBomb(): never {
+      throw new TypeError('Failed to fetch dynamically imported module: app.js')
+    }
+
+    render(
+      <MemoryRouter>
+        <ErrorBoundary>
+          <ChunkBomb />
+        </ErrorBoundary>
+      </MemoryRouter>,
+    )
+
+    expect(reload).not.toHaveBeenCalled()
+    expect(sessionStorageMock.setItem).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith('Chunk load error loop prevented.')
+
+    consoleError.mockRestore()
+    vi.restoreAllMocks()
+  })
+
+  it('swallows and logs sessionStorage failures while handling a chunk error', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reload = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload } as Location)
+
+    // sessionStorage can throw (private mode / disabled storage): the handler
+    // must catch it so a chunk error never crashes the boundary itself.
+    const sessionStorageMock = {
+      getItem: vi.fn(() => { throw new Error('storage disabled') }),
+      setItem: vi.fn(),
+    }
+    vi.stubGlobal('sessionStorage', sessionStorageMock)
+
+    function ChunkBomb(): never {
+      throw new TypeError('error loading dynamically imported module: app.js')
+    }
+
+    render(
+      <MemoryRouter>
+        <ErrorBoundary>
+          <ChunkBomb />
+        </ErrorBoundary>
+      </MemoryRouter>,
+    )
+
+    expect(reload).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith('Failed to handle chunk load error:', expect.any(Error))
+
+    consoleError.mockRestore()
+    vi.restoreAllMocks()
+  })
 })

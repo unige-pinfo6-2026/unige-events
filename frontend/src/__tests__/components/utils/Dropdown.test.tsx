@@ -131,4 +131,30 @@ describe('Dropdown', () => {
     const panelWrapper = screen.getByText('Dropdown Content').parentElement?.parentElement
     expect(panelWrapper?.className).toContain('!visible')
   })
+
+  it('toggles via the keyboard (Enter / Space) on the trigger for accessibility', () => {
+    render(
+      <MemoryRouter>
+        <Dropdown trigger={<button>Open me</button>}>
+          <div>Dropdown Content</div>
+        </Dropdown>
+      </MemoryRouter>
+    )
+
+    const panelWrapper = screen.getByText('Dropdown Content').parentElement?.parentElement
+    // The keyboard-operable trigger is the role="button" wrapper around the slot.
+    const triggerWrapper = screen.getByText('Open me').parentElement as HTMLElement
+
+    // Enter opens.
+    fireEvent.keyDown(triggerWrapper, { key: 'Enter' })
+    expect(panelWrapper?.className).toContain('!visible')
+
+    // Space toggles back closed (and preventDefault stops the page from scrolling).
+    fireEvent.keyDown(triggerWrapper, { key: ' ' })
+    expect(panelWrapper?.className).not.toContain('!visible')
+
+    // Any other key is a no-op.
+    fireEvent.keyDown(triggerWrapper, { key: 'a' })
+    expect(panelWrapper?.className).not.toContain('!visible')
+  })
 })
