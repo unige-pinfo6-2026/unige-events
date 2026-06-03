@@ -26,6 +26,7 @@ vi.mock('@/services/userService', () => ({
 
 import { searchUsernames } from '@/services/userService'
 import MentionAutocomplete from '@/components/event/MentionAutocomplete'
+import { computePlacement } from '@/components/event/mentionPlacement'
 import { detectActiveMention } from '@/utils/mentions'
 import type { UserPublicResponse } from '@/types/user'
 
@@ -62,6 +63,7 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 // Debounce window of MentionAutocomplete (keep in sync with its DEBOUNCE_MS).
@@ -78,6 +80,35 @@ async function settleDebouncedSearch() {
     await vi.advanceTimersByTimeAsync(MENTION_DEBOUNCE_MS + 50)
   })
 }
+
+describe('computePlacement (pure)', () => {
+  function rect(partial: Partial<DOMRect>): HTMLTextAreaElement {
+    return {
+      getBoundingClientRect: () => ({
+        top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0,
+        toJSON: () => ({}), ...partial,
+      }),
+    } as unknown as HTMLTextAreaElement
+  }
+
+  it('falls back to a below/top-left placement when the textarea ref is null', () => {
+    const p = computePlacement(null)
+    expect(p).toEqual({ side: 'below', maxHeight: 288, left: 0, width: 0, top: 0 })
+  })
+
+  it('anchors below (fixed top) when there is room under the textarea', () => {
+    const p = computePlacement(rect({ top: 10, bottom: 50, left: 20, width: 100 }))
+    expect(p.side).toBe('below')
+    expect(p).toMatchObject({ left: 20, width: 100, top: 54 }) // bottom 50 + gap 4
+    if (p.side === 'below') expect(p.top).toBe(54)
+  })
+
+  it('flips above (fixed bottom) when space below is too small', () => {
+    const p = computePlacement(rect({ top: window.innerHeight - 8, bottom: window.innerHeight - 4, left: 0, width: 100 }))
+    expect(p.side).toBe('above')
+    if (p.side === 'above') expect(p.bottom).toBe(12) // innerHeight - (innerHeight-8) + 4
+  })
+})
 
 describe('detectActiveMention (pure)', () => {
   it('returns null when no @ before caret', () => {
@@ -432,13 +463,21 @@ describe('MentionAutocomplete (component)', () => {
   })
 
   it('focuses the textarea and repositions the caret after a commit (rAF)', async () => {
+    // Run requestAnimationFrame synchronously so the post-commit focus +
+    // setSelectionRange (commitSelection's rAF body) actually executes under
+    // happy-dom, which otherwise never flushes the frame.
+    const focusSpy = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { cb(0); return 0 })
     mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
     render(<Harness />)
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    ta.focus = focusSpy
     typeIn(ta, '@al')
     await waitFor(() => expect(screen.getByText('@alice.dosh')).toBeTruthy(), { timeout: 1000 })
     fireEvent.mouseDown(screen.getByText('@alice.dosh'))
     await waitFor(() => expect(ta.value).toBe('@alice.dosh '))
+    // The rAF body called t.focus() (line 265).
+    expect(focusSpy).toHaveBeenCalled()
     // The requestAnimationFrame in commitSelection focuses the textarea and
     // moves the caret past the inserted handle (lines 202-203). Assert on the
     // caret position the rAF sets — deterministic once the frame has flushed.
@@ -476,7 +515,7 @@ describe('MentionAutocomplete (component)', () => {
     const ta = screen.getByTestId('ta') as HTMLTextAreaElement
     // Pin the textarea near the top of the viewport → plenty of room below.
     ta.getBoundingClientRect = () =>
-      ({ top: 10, bottom: 50, left: 0, right: 100, width: 100, height: 40, x: 0, y: 10, toJSON: () => ({}) }) as DOMRect
+      ({ top: 10, bottom: 50, left: 20, right: 120, width: 100, height: 40, x: 20, y: 10, toJSON: () => ({}) }) as DOMRect
     typeIn(ta, '@al')
     await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
     act(() => { fireEvent(window, new Event('resize')) })
@@ -485,9 +524,13 @@ describe('MentionAutocomplete (component)', () => {
     // stays scrollable so long result sets never overflow past the footer.
     expect(listbox.style.maxHeight).toMatch(/^\d+px$/)
     expect(listbox.className).toContain('overflow-y-auto')
-    // Room below → anchored under the textarea.
+    // Room below → anchored under the textarea via fixed `top`.
     const container = listbox.parentElement as HTMLElement
-    expect(container.className).toContain('top-full')
+    expect(container.getAttribute('data-side')).toBe('below')
+    expect(container.style.position).toBe('fixed')
+    expect(container.style.top).toBe('54px') // rect.bottom (50) + ANCHOR_GAP (4)
+    expect(container.style.left).toBe('20px')
+    expect(container.style.width).toBe('100px')
   })
 
   it('flips above the textarea when there is no room below', async () => {
@@ -502,7 +545,23 @@ describe('MentionAutocomplete (component)', () => {
     // Trigger a recompute now that the rect override is in place.
     act(() => { fireEvent(window, new Event('resize')) })
     const container = (screen.getByRole('listbox') as HTMLElement).parentElement as HTMLElement
-    await waitFor(() => expect(container.className).toContain('bottom-full'))
+    // No room below → anchored above the textarea via fixed `bottom`.
+    await waitFor(() => expect(container.getAttribute('data-side')).toBe('above'))
+    expect(container.style.position).toBe('fixed')
+    expect(container.style.bottom).toBe('12px') // innerHeight - rect.top(innerHeight-8) + 4
+  })
+
+  it('portals the dropdown to <body> with z-40 so it escapes the card stacking context', async () => {
+    mockSearch.mockResolvedValue([user('alice.dosh', 'Alice')])
+    const { container: harnessContainer } = render(<Harness />)
+    const ta = screen.getByTestId('ta') as HTMLTextAreaElement
+    typeIn(ta, '@al')
+    await waitFor(() => expect(screen.getByRole('listbox')).toBeTruthy(), { timeout: 1000 })
+    const portalRoot = (screen.getByRole('listbox') as HTMLElement).parentElement as HTMLElement
+    // Rendered under document.body, NOT inside the harness/comment-card subtree.
+    expect(harnessContainer.contains(portalRoot)).toBe(false)
+    expect(document.body.contains(portalRoot)).toBe(true)
+    expect(portalRoot.className).toContain('z-40')
   })
 
   it('clears the results (no crash) when the search request rejects', async () => {
