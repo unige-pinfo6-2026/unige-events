@@ -426,7 +426,8 @@ describe('EditEventPage', () => {
         .find(btn => btn.className.includes('bg-error') && !btn.className.includes('bg-error/10')) as HTMLButtonElement
       const reactPropsKey = Object.keys(deletingBtn).find(k => k.startsWith('__reactProps'))
       if (reactPropsKey) {
-        (deletingBtn as any)[reactPropsKey].onClick()
+        const props = deletingBtn as unknown as Record<string, { onClick?: () => void }>
+        props[reactPropsKey]?.onClick?.()
       }
 
       // Verify deleteEvent was only called once
