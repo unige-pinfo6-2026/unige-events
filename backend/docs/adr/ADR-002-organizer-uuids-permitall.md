@@ -34,7 +34,9 @@ protégé par `@Internal`. Un anonyme peut donc invoquer
 ## Decision
 
 L'endpoint reste **`@PermitAll`**. Aucune annotation `@Internal` n'est ajoutée.
-Aucune route Kong-strip n'est posée.
+~~Aucune route Kong-strip n'est posée.~~ **(OBSOLÈTE depuis l'addendum 2026-06-04 —
+voir plus bas : une route Kong publique `events-organizer-uuids` a été ajoutée quand
+le frontend `usePublicOrganizers` est devenu consommateur de l'endpoint.)**
 
 ## Why this is necessary
 
