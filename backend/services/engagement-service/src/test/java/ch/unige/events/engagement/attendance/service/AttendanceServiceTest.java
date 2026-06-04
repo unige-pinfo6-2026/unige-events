@@ -600,6 +600,33 @@ class AttendanceServiceTest {
     }
 
     @Test
+    void getAttendees_byNonOrganizer_followedPrivateAttendee_exposesIdentity() {
+        // The caller (userId) follows the private attendee with ACCEPTED status →
+        // sees their real identity even though they're not the organizer
+        // (consistent with seeing that private account's participations).
+        UUID privateUserId = UUID.randomUUID();
+        EventDTO ev = new EventDTO(37L, "T", "d", "l",
+                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                null, null, null,
+                creatorId, EventStatus.PUBLISHED, 5,
+                false, false, null,
+                0L, 5L, 0L, 0L, 0L,
+                null, null, null,
+                List.of(),
+                LocalDateTime.now(), LocalDateTime.now(),
+                null, null, false);
+        when(eventClient.getOrganizerUuids(37L)).thenReturn(List.of(creatorId));
+        when(userClient.getFollowedIds(userId)).thenReturn(List.of(privateUserId));
+
+        List<AttendanceDTO> result = stageTwoAttendeesAndCall(37L, ev, otherUserId, privateUserId);
+
+        // Private row, but the caller follows them → real identity exposed.
+        AttendanceDTO priv = result.stream().filter(d -> d.id() == 301L).findFirst().orElseThrow();
+        assertEquals("Private-User", priv.displayName());
+        assertEquals(privateUserId, priv.userId());
+    }
+
+    @Test
     @TestSecurity(user = "auth0|test-att-admin", roles = "ADMIN")
     void getAttendees_byAdmin_returnsRealIdentityForPrivateRows() {
         UUID privateUserId = UUID.randomUUID();
@@ -1276,6 +1303,50 @@ class AttendanceServiceTest {
 
         List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
         assertTrue(result.isEmpty());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void getUserParticipationEvents_privateTarget_acceptedFollower_returnsList() {
+        // The caller (userId) follows the private target (otherUserId) with
+        // ACCEPTED → sees their participations (Instagram model).
+        Attendance a = new Attendance();
+        a.id = 815L; a.userId = otherUserId; a.eventId = 85L;
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(event(85L, EventStatus.PUBLISHED, 10, creatorId, null)));
+        // Target is private...
+        when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
+                new AttendeeProjection(otherUserId, "Other", null, false)));
+        // ...but the caller follows them (ACCEPTED).
+        when(userClient.getFollowedIds(userId)).thenReturn(List.of(otherUserId));
+
+        List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
+        assertEquals(1, result.size());
+        assertEquals(85L, result.get(0).id());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    @TestSecurity(user = "auth0|test-part-admin", roles = "ADMIN")
+    void getUserParticipationEvents_privateTarget_admin_returnsList() {
+        // An admin sees a private target's participations (moderation bypass),
+        // without needing a follow relationship — short-circuits the gate.
+        Attendance a = new Attendance();
+        a.id = 816L; a.userId = otherUserId; a.eventId = 86L;
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.now();
+        PanacheMock.mock(Attendance.class);
+        when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
+        when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
+        when(eventClient.findByIds(any(List.class), eq("PUBLISHED")))
+                .thenReturn(List.of(event(86L, EventStatus.PUBLISHED, 10, creatorId, null)));
+
+        List<EventDTO> result = service.getUserParticipationEvents(otherUserId, null);
+        assertEquals(1, result.size());
+        assertEquals(86L, result.get(0).id());
     }
 
     @Test

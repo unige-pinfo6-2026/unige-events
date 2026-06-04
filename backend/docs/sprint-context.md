@@ -30,6 +30,13 @@ On limite désormais ce strip aux **profils privés**.
   (événements organisés visibles aux anonymes) ; `GET /users/{id}/participations` reste
   `@Authenticated` (participations masquées aux anonymes) ; `GET /users/{id}/followers|following`
   reste `@Authenticated`.
+- **engagement-service (abonnés acceptés d'un compte privé)** : un abonné **accepté**
+  (ou un admin) voit désormais les **participations publiques** d'un compte privé
+  (`AttendanceService.getUserParticipationEvents` : garde = self ‖ admin ‖ public ‖
+  abonné-accepté via `userClient.getFollowedIds`) **et** l'**identité** de ce compte dans
+  les listes d'inscrits aux événements (`getAttendees` + `AttendanceDTOMapper.fromWithPrivacy`).
+  Avant : un abonné accepté voyait le profil complet mais des participations vides + l'inscrit
+  anonymisé (incohérent). Les non-abonnés / anonymes restent exclus (aucune fuite).
 - **openapi** : schéma `UserPublicResponse` + paths `/users/{id}` et
   `/users/by-username/{username}` réécrits (projection complète vs verrouillée).
 - **Sécurité** : `email` n'est jamais exposé par `UserPublicResponse` ; les profils privés
@@ -37,8 +44,9 @@ On limite désormais ce strip aux **profils privés**.
   volontairement le strip pentest 4.1b aux seuls profils privés.
 - **Tests** : `UserServiceTest` (vue complète anonyme + verrouillée avec compteurs réels),
   `UserResourceTest` (projection complète bout-en-bout vs verrouillée bannière+compteurs /
-  bio strippée), `UserPublicResponseTest` (signature `fromRestricted` + bannière + compteurs).
-  Helper `TestFixtures.setProfileDetails`.
+  bio strippée), `UserPublicResponseTest` (signature `fromRestricted` + bannière + compteurs),
+  helper `TestFixtures.setProfileDetails` ; `AttendanceServiceTest` + `AttendanceDTOMapperTest`
+  (engagement : abonné accepté / admin voient participations + identité d'un compte privé).
 
 ---
 
