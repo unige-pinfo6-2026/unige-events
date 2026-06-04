@@ -18,7 +18,7 @@ class EventDTOTest {
     @Test
     void recordExposesAllFields() {
         UUID creator = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 12, 0);
         EventDTO dto = new EventDTO(
                 42L, "Hackathon", "desc", "Uni-Mail", now, now.plusHours(2),
                 EventCategory.ACADEMIC, Faculty.SCIENCES, "banner.jpg", creator,

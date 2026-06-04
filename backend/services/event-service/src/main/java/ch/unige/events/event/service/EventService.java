@@ -37,6 +37,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -738,7 +739,7 @@ public class EventService {
         if (event.category == null) {
             errors.add("La catégorie est obligatoire");
         }
-        if (event.startDate == null || !event.startDate.isAfter(LocalDateTime.now())) {
+        if (event.startDate == null || !event.startDate.isAfter(LocalDateTime.now(ZoneId.systemDefault()))) {
             errors.add("La date de l'événement doit être dans le futur");
         }
         if (event.endDate == null) {

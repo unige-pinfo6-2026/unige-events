@@ -17,7 +17,7 @@ class FollowTest {
         Follow f = new Follow();
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         f.followerId = follower;
         f.followedId = followed;

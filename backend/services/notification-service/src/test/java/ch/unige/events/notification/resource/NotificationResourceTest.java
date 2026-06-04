@@ -61,7 +61,7 @@ class NotificationResourceTest {
         n.type = type;
         n.message = "msg-" + type;
         n.read = read;
-        n.createdAt = LocalDateTime.now();
+        n.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         QuarkusTransaction.requiringNew().run(n::persist);
         return n.id;
     }

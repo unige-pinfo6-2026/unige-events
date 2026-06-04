@@ -91,7 +91,7 @@ class EventDomainSentinelsTest {
     }
 
     private static CreateEventRequest baseRequest(String title, EventStatus status) {
-        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        LocalDateTime start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         return new CreateEventRequest(
                 title, "desc", "loc", start, start.plusHours(2),
                 EventCategory.ACADEMIC, null, null,
@@ -114,7 +114,7 @@ class EventDomainSentinelsTest {
         e.title = "Title";
         e.description = "desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.now().plusDays(2);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = creator;
@@ -135,7 +135,7 @@ class EventDomainSentinelsTest {
         e.title = "Title";
         e.description = "desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.now().plusDays(2);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = creator;
@@ -172,7 +172,7 @@ class EventDomainSentinelsTest {
         parent.title = "Parent";
         parent.description = "Body";
         parent.location = "Room A";
-        parent.startDate = LocalDateTime.now().plusDays(1);
+        parent.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
         parent.endDate = parent.startDate.plusHours(2);
         parent.category = EventCategory.ACADEMIC;
         parent.creatorId = creatorUuid;
@@ -192,7 +192,7 @@ class EventDomainSentinelsTest {
         occ.title = "Child";
         occ.description = "Body";
         occ.location = "Room A";
-        occ.startDate = LocalDateTime.now().plusDays(8);
+        occ.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(8);
         occ.endDate = occ.startDate.plusHours(2);
         occ.category = EventCategory.ACADEMIC;
         occ.creatorId = creatorUuid;
@@ -272,11 +272,11 @@ class EventDomainSentinelsTest {
         Event parent = newPersisted(EventStatus.PUBLISHED, creatorUuid, null);
 
         Event c1 = newPersisted(EventStatus.PUBLISHED, creatorUuid, parent.id);
-        c1.startDate = LocalDateTime.now().plusDays(20);
+        c1.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(20);
         c1.endDate = c1.startDate.plusHours(2);
 
         Event c2 = newPersisted(EventStatus.PUBLISHED, creatorUuid, parent.id);
-        c2.startDate = LocalDateTime.now().plusDays(10);
+        c2.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(10);
         c2.endDate = c2.startDate.plusHours(2);
 
         em.flush();

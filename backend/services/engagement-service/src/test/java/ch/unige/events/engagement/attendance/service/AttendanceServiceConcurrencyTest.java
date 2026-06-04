@@ -71,7 +71,7 @@ class AttendanceServiceConcurrencyTest {
         eventId = System.currentTimeMillis() % 1_000_000L + 90_000_000L;
         EventDTO publishedEventCap3 = new EventDTO(
                 eventId, "Cap3", "desc", "loc",
-                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
                 null, null, null,
                 UUID.randomUUID(),
                 EventStatus.PUBLISHED, 3, false, false, null,
@@ -79,7 +79,7 @@ class AttendanceServiceConcurrencyTest {
                 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
         lenient().when(eventClient.getById(anyLong())).thenReturn(publishedEventCap3);
         lenient().when(userClient.getById(any(UUID.class))).thenReturn(null);

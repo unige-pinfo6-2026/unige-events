@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -36,6 +37,6 @@ public record CommentMentionEvent(
                                          UUID mentionedUserId, String authorLabel,
                                          String eventTitle) {
         return new CommentMentionEvent(commentId, eventId, authorId, mentionedUserId,
-                authorLabel, eventTitle, Instant.now());
+                authorLabel, eventTitle, Instant.now(Clock.systemUTC()));
     }
 }

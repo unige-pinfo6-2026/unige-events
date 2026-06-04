@@ -136,8 +136,8 @@ class UserFollowedConsumerTest {
 
     @Test
     void onFollowed_nullIds_skipped() {
-        consumer.onFollowed(new FollowLifecycleEvent(FollowLifecycleEvent.Type.FOLLOWED, null, UUID.randomUUID(), java.time.Instant.now()));
-        consumer.onFollowed(new FollowLifecycleEvent(FollowLifecycleEvent.Type.FOLLOWED, UUID.randomUUID(), null, java.time.Instant.now()));
+        consumer.onFollowed(new FollowLifecycleEvent(FollowLifecycleEvent.Type.FOLLOWED, null, UUID.randomUUID(), java.time.Instant.parse("2025-01-01T12:00:00Z")));
+        consumer.onFollowed(new FollowLifecycleEvent(FollowLifecycleEvent.Type.FOLLOWED, UUID.randomUUID(), null, java.time.Instant.parse("2025-01-01T12:00:00Z")));
         assertEquals(0, Notification.count());
     }
 

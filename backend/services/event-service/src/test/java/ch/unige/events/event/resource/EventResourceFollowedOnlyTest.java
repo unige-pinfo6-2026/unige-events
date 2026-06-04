@@ -62,8 +62,8 @@ class EventResourceFollowedOnlyTest {
     }
 
     private static String eventBody(String title) {
-        String start = LocalDateTime.now().plusDays(3).withNano(0).toString();
-        String end   = LocalDateTime.now().plusDays(3).plusHours(2).withNano(0).toString();
+        String start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(3).withNano(0).toString();
+        String end   = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(3).plusHours(2).withNano(0).toString();
         return "{\"title\":\"" + title + "\",\"description\":\"d\",\"location\":\"loc\","
                 + "\"startDate\":\"" + start + "\",\"endDate\":\"" + end + "\","
                 + "\"category\":\"ACADEMIC\"}";

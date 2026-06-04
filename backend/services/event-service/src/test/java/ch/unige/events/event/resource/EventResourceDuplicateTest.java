@@ -74,8 +74,8 @@ class EventResourceDuplicateTest {
         e.title = title;
         e.description = "desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.now().plusDays(2).withNano(0);
-        e.endDate = LocalDateTime.now().plusDays(2).plusHours(2).withNano(0);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0);
+        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
         e.category = ch.unige.events.shared.domain.enums.EventCategory.ACADEMIC;
         e.creatorId = creatorId;
         e.status = status;
@@ -245,8 +245,8 @@ class EventResourceDuplicateTest {
         e.description = "desc";
         e.location = "loc";
         if (!nullDates) {
-            e.startDate = LocalDateTime.now().plusDays(2).withNano(0);
-            e.endDate = LocalDateTime.now().plusDays(2).plusHours(2).withNano(0);
+            e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0);
+            e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
         }
         e.category = ch.unige.events.shared.domain.enums.EventCategory.ACADEMIC;
         e.creatorId = creatorId;

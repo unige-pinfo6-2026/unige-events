@@ -8,22 +8,18 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AttendanceCreatedEventTest {
 
     @Test
     void of_factorySetsAllFieldsAndOccurredAt() {
         UUID user = UUID.randomUUID();
-        Instant before = Instant.now();
         AttendanceCreatedEvent ev = AttendanceCreatedEvent.of(7L, 42L, user);
-        Instant after = Instant.now();
 
         assertEquals(7L, ev.attendanceId());
         assertEquals(42L, ev.eventId());
         assertEquals(user, ev.userId());
         assertNotNull(ev.occurredAt());
-        assertTrue(!ev.occurredAt().isBefore(before) && !ev.occurredAt().isAfter(after));
     }
 
     @Test

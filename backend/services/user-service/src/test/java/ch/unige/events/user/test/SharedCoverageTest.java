@@ -104,7 +104,7 @@ class SharedCoverageTest {
     void dtoRecords_canonicalConstructors() {
         UUID id = UUID.randomUUID();
         AttendanceDTO a = new AttendanceDTO(1L, id, 2L, AttendanceStatus.ATTENDING,
-                LocalDateTime.now(), "name", null);
+                LocalDateTime.of(2025, 1, 1, 12, 0), "name", null);
         assertEquals(1L, a.id());
 
         UserPublicResponse u = new UserPublicResponse(id, "X", null, null, null, null,
@@ -123,7 +123,7 @@ class SharedCoverageTest {
         assertNotNull(CoOrganizerCheck.no());
 
         EventCoOrganizerDTO ecd = new EventCoOrganizerDTO(1L, 2L, id, "Bob", null,
-                CoOrganizerStatus.ACCEPTED, LocalDateTime.now());
+                CoOrganizerStatus.ACCEPTED, LocalDateTime.of(2025, 1, 1, 12, 0));
         assertEquals(CoOrganizerStatus.ACCEPTED, ecd.status());
 
         AttendanceCounts ac = new AttendanceCounts(1L, 2L, 0L);

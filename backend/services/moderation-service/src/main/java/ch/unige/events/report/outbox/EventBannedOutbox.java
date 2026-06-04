@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -48,7 +49,7 @@ public class EventBannedOutbox extends PanacheEntity {
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
-            createdAt = Instant.now();
+            createdAt = Instant.now(Clock.systemUTC());
         }
     }
 }

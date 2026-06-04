@@ -66,7 +66,7 @@ class CommentDirectResourceTest {
         c.eventId = 30L;
         c.authorId = userId;
         c.content = "x";
-        c.createdAt = LocalDateTime.now();
+        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         Comment spy = spy(c);
         doNothing().when(spy).delete();
 
@@ -95,7 +95,7 @@ class CommentDirectResourceTest {
         c.eventId = 31L;
         c.authorId = UUID.randomUUID();
         c.content = "x";
-        c.createdAt = LocalDateTime.now();
+        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         Comment spy = spy(c);
         doNothing().when(spy).delete();
 

@@ -36,7 +36,7 @@ class EventBannedConsumerTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.now().plusDays(1);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
@@ -51,7 +51,7 @@ class EventBannedConsumerTest {
         Event e = create(EventStatus.PUBLISHED);
         em.flush();
 
-        consumer.onBanned(new EventBannedEvent(e.id, UUID.randomUUID(), "spam", Instant.now()));
+        consumer.onBanned(new EventBannedEvent(e.id, UUID.randomUUID(), "spam", Instant.parse("2025-01-01T12:00:00Z")));
         em.flush();
         em.clear();
 
@@ -65,7 +65,7 @@ class EventBannedConsumerTest {
         Event e = create(EventStatus.BANNED);
         em.flush();
 
-        consumer.onBanned(new EventBannedEvent(e.id, UUID.randomUUID(), "spam", Instant.now()));
+        consumer.onBanned(new EventBannedEvent(e.id, UUID.randomUUID(), "spam", Instant.parse("2025-01-01T12:00:00Z")));
         em.flush();
         em.clear();
 
@@ -78,7 +78,7 @@ class EventBannedConsumerTest {
     void onBanned_unknownEvent_silentlyIgnored() {
         // Event 99999 doesn't exist — consumer should swallow without throwing
         assertDoesNotThrow(() ->
-            consumer.onBanned(new EventBannedEvent(99999L, UUID.randomUUID(), "spam", Instant.now())));
+            consumer.onBanned(new EventBannedEvent(99999L, UUID.randomUUID(), "spam", Instant.parse("2025-01-01T12:00:00Z"))));
     }
 
     @Test
@@ -95,7 +95,7 @@ class EventBannedConsumerTest {
         jul.addHandler(handler);
         jul.setLevel(Level.ALL);
         try {
-            consumer.onBanned(new EventBannedEvent(88888L, UUID.randomUUID(), "spam", Instant.now()));
+            consumer.onBanned(new EventBannedEvent(88888L, UUID.randomUUID(), "spam", Instant.parse("2025-01-01T12:00:00Z")));
 
             assertTrue(
                 captured.stream().anyMatch(r -> {

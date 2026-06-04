@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 /**
@@ -82,7 +83,7 @@ public class EventViewService {
                 "DO UPDATE SET viewed_at = EXCLUDED.viewed_at")
                 .setParameter("eventId", eventId)
                 .setParameter("userId", userId)
-                .setParameter("viewedAt", LocalDateTime.now())
+                .setParameter("viewedAt", LocalDateTime.now(ZoneId.systemDefault()))
                 .executeUpdate();
     }
 
@@ -95,7 +96,7 @@ public class EventViewService {
                 "DO UPDATE SET viewed_at = EXCLUDED.viewed_at")
                 .setParameter("eventId", eventId)
                 .setParameter("sessionId", sessionId)
-                .setParameter("viewedAt", LocalDateTime.now())
+                .setParameter("viewedAt", LocalDateTime.now(ZoneId.systemDefault()))
                 .executeUpdate();
     }
 }

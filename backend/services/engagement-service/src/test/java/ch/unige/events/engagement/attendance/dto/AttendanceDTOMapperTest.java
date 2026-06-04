@@ -53,7 +53,7 @@ class AttendanceDTOMapperTest {
         a.userId = userId;
         a.eventId = 99L;
         a.status = AttendanceStatus.WAITLISTED;
-        a.createdAt = LocalDateTime.now();
+        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         UserPublicResponse user = new UserPublicResponse(
             userId, "Alice", null, null, null, null,
@@ -73,7 +73,7 @@ class AttendanceDTOMapperTest {
         a.userId = UUID.randomUUID();
         a.eventId = 99L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.now();
+        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         AttendanceDTO dto = AttendanceDTOMapper.from(a, null);
 

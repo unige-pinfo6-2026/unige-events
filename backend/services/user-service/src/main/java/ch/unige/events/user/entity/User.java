@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -105,7 +106,7 @@ public class User extends PanacheEntityBase {
     public boolean profilePublic = false;
 
     @Column(nullable = false, updatable = false)
-    public LocalDateTime createdAt = LocalDateTime.now();
+    public LocalDateTime createdAt = LocalDateTime.now(ZoneId.systemDefault());
 
     @Version
     @Column(nullable = false)

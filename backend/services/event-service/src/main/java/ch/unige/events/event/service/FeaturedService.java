@@ -14,6 +14,7 @@ import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -31,7 +32,7 @@ public class FeaturedService {
     @Transactional
     public List<EventDTO> getFeatured(int limit) {
         int effectiveLimit = Math.min(limit, 12);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
 
         List<Event> phase1 = entityManager.createQuery(
                 "SELECT e FROM Event e WHERE e.featured = true AND e.status = :status " +
@@ -95,7 +96,7 @@ public class FeaturedService {
                 .orElseThrow(() -> new NotFoundException("Event not found"));
         if (!event.featured) {
             event.featured = true;
-            event.featuredAt = LocalDateTime.now();
+            event.featuredAt = LocalDateTime.now(ZoneId.systemDefault());
         }
         return toSingleEventDTO(event);
     }

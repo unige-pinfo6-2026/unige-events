@@ -9,6 +9,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,7 +44,7 @@ public class EventExpirationService {
         // for the lifetime of this @Transactional and released on commit
         // or rollback, serializing concurrent crons across pods.
         entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(0)").getSingleResult();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         List<Event> candidates = entityManager.createQuery(
                 "SELECT e FROM Event e " +
                 "WHERE e.status = :published AND e.endDate < :now",

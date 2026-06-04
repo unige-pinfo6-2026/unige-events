@@ -40,8 +40,8 @@ class AdminEventResourceTest {
     }
 
     private static String createBody() {
-        String start = LocalDateTime.now().plusDays(2).withNano(0).toString();
-        String end = LocalDateTime.now().plusDays(2).plusHours(2).withNano(0).toString();
+        String start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0).toString();
+        String end = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
         return "{\"title\":\"AdmT\",\"description\":\"d\",\"location\":\"l\","
                 + "\"startDate\":\"" + start + "\",\"endDate\":\"" + end + "\","
                 + "\"category\":\"ACADEMIC\"}";

@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -34,11 +35,11 @@ public record CommentCreatedEvent(
 
     /**
      * Factory used by the engagement-service producer. Sets {@code createdAt}
-     * to {@code Instant.now()} ; callers supply every other field.
+     * to {@code Instant.now(Clock.systemUTC())} ; callers supply every other field.
      */
     public static CommentCreatedEvent created(long commentId, long eventId, UUID authorId,
                                               Long parentCommentId, String content, String eventTitle) {
         return new CommentCreatedEvent(commentId, eventId, authorId, parentCommentId,
-                Instant.now(), content, eventTitle);
+                Instant.now(Clock.systemUTC()), content, eventTitle);
     }
 }

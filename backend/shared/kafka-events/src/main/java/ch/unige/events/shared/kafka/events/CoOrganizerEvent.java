@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -28,10 +29,10 @@ public record CoOrganizerEvent(
     }
 
     public static CoOrganizerEvent invited(long eventId, UUID userId) {
-        return new CoOrganizerEvent(Type.INVITED, eventId, userId, Instant.now());
+        return new CoOrganizerEvent(Type.INVITED, eventId, userId, Instant.now(Clock.systemUTC()));
     }
 
     public static CoOrganizerEvent accepted(long eventId, UUID userId) {
-        return new CoOrganizerEvent(Type.ACCEPTED, eventId, userId, Instant.now());
+        return new CoOrganizerEvent(Type.ACCEPTED, eventId, userId, Instant.now(Clock.systemUTC()));
     }
 }

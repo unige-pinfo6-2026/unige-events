@@ -80,8 +80,8 @@ class NotificationEntityTest {
     void findByUser_scopedToCaller_noLeak() {
         UUID alice = UUID.randomUUID();
         UUID bob = UUID.randomUUID();
-        persist(alice, NotificationType.EVENT_UPDATED, false, LocalDateTime.now());
-        persist(bob,   NotificationType.EVENT_UPDATED, false, LocalDateTime.now());
+        persist(alice, NotificationType.EVENT_UPDATED, false, LocalDateTime.of(2025, 1, 1, 12, 0));
+        persist(bob,   NotificationType.EVENT_UPDATED, false, LocalDateTime.of(2025, 1, 1, 12, 0));
 
         List<Notification> alicePage = Notification.findByUser(alice, 0, 10);
         assertEquals(1, alicePage.size());
@@ -93,7 +93,7 @@ class NotificationEntityTest {
     void findByIdAndUser_mismatchUser_returnsEmpty() {
         UUID alice = UUID.randomUUID();
         UUID bob = UUID.randomUUID();
-        Notification n = persist(alice, NotificationType.EVENT_UPDATED, false, LocalDateTime.now());
+        Notification n = persist(alice, NotificationType.EVENT_UPDATED, false, LocalDateTime.of(2025, 1, 1, 12, 0));
 
         assertTrue(Notification.findByIdAndUser(n.id, alice).isPresent());
         Optional<Notification> other = Notification.findByIdAndUser(n.id, bob);
@@ -104,9 +104,9 @@ class NotificationEntityTest {
     @TestTransaction
     void countUnreadByUser_ignoresRead() {
         UUID userId = UUID.randomUUID();
-        persist(userId, NotificationType.NEW_ATTENDEE, false, LocalDateTime.now());
-        persist(userId, NotificationType.EVENT_UPDATED, false, LocalDateTime.now());
-        persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.now());
+        persist(userId, NotificationType.NEW_ATTENDEE, false, LocalDateTime.of(2025, 1, 1, 12, 0));
+        persist(userId, NotificationType.EVENT_UPDATED, false, LocalDateTime.of(2025, 1, 1, 12, 0));
+        persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.of(2025, 1, 1, 12, 0));
         assertEquals(2, Notification.countUnreadByUser(userId));
     }
 
@@ -114,13 +114,13 @@ class NotificationEntityTest {
     @TestTransaction
     void markAllReadByUser_bulkUpdates_andSetsReadAt() {
         UUID userId = UUID.randomUUID();
-        Notification a = persist(userId, NotificationType.NEW_ATTENDEE,   false, LocalDateTime.now());
-        Notification b = persist(userId, NotificationType.EVENT_UPDATED,  false, LocalDateTime.now());
+        Notification a = persist(userId, NotificationType.NEW_ATTENDEE,   false, LocalDateTime.of(2025, 1, 1, 12, 0));
+        Notification b = persist(userId, NotificationType.EVENT_UPDATED,  false, LocalDateTime.of(2025, 1, 1, 12, 0));
         // Pre-staged read=true row should NOT be touched by the bulk update
         // (filter is read=false). We pin its readAt to a distinctive past
         // value so we can later assert it survived untouched.
         LocalDateTime distinctivePast = LocalDateTime.of(2020, 1, 1, 12, 0);
-        Notification c = persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.now());
+        Notification c = persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.of(2025, 1, 1, 12, 0));
         c.readAt = distinctivePast;
 
         int updated = Notification.markAllReadByUser(userId);
@@ -151,7 +151,7 @@ class NotificationEntityTest {
     @TestTransaction
     void markAllReadByUser_noUnread_returnsZero() {
         UUID userId = UUID.randomUUID();
-        persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.now());
+        persist(userId, NotificationType.EVENT_CANCELLED, true, LocalDateTime.of(2025, 1, 1, 12, 0));
         int updated = Notification.markAllReadByUser(userId);
         assertEquals(0, updated);
     }

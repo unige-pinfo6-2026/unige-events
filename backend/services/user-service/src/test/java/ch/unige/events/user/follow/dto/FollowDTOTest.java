@@ -52,7 +52,7 @@ class FollowDTOTest {
         f.followerId = UUID.randomUUID();
         f.followedId = UUID.randomUUID();
         f.status = FollowStatus.ACCEPTED;
-        f.createdAt = LocalDateTime.now();
+        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         FollowDTO dto = FollowDTO.from(f);
 

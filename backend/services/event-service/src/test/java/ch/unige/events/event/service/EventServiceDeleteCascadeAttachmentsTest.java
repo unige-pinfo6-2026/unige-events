@@ -81,8 +81,8 @@ class EventServiceDeleteCascadeAttachmentsTest {
         e.title = "T-delete";
         e.description = "d";
         e.location = "L";
-        e.startDate = LocalDateTime.now().plusDays(1);
-        e.endDate = LocalDateTime.now().plusDays(2);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
+        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = creatorId;
         e.status = status;

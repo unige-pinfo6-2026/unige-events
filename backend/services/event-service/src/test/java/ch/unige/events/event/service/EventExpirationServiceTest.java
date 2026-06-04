@@ -26,7 +26,7 @@ class EventExpirationServiceTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.now().minusDays(2);
+        e.startDate = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2);
         e.endDate = end;
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
@@ -38,7 +38,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_publishedPastEnd_flippedToExpired() {
-        Event e = create(EventStatus.PUBLISHED, LocalDateTime.now().minusHours(1));
+        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
         em.flush();
         Long id = e.id;
         int count = service.expireEvents();
@@ -52,7 +52,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_publishedFuture_unchanged() {
-        Event e = create(EventStatus.PUBLISHED, LocalDateTime.now().plusDays(1));
+        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1));
         em.flush();
         int count = service.expireEvents();
         assertEquals(0, count);
@@ -63,7 +63,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_draftPastEnd_unchanged() {
-        Event e = create(EventStatus.DRAFT, LocalDateTime.now().minusHours(1));
+        Event e = create(EventStatus.DRAFT, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
         em.flush();
         int count = service.expireEvents();
         assertEquals(0, count);
@@ -74,8 +74,8 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_multiple_processedAll() {
-        create(EventStatus.PUBLISHED, LocalDateTime.now().minusHours(1));
-        create(EventStatus.PUBLISHED, LocalDateTime.now().minusDays(2));
+        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
+        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2));
         em.flush();
         int count = service.expireEvents();
         assertEquals(2, count);

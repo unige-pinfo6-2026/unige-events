@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -21,6 +22,6 @@ public record EventBannedEvent(
 ) {
 
     public static EventBannedEvent banned(long eventId, UUID bannedBy, String reason) {
-        return new EventBannedEvent(eventId, bannedBy, reason, Instant.now());
+        return new EventBannedEvent(eventId, bannedBy, reason, Instant.now(Clock.systemUTC()));
     }
 }

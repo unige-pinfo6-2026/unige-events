@@ -49,7 +49,7 @@ class EventServiceHandWiredTest {
     private CallerIdentity callerIdentity;
 
     private CreateEventRequest req(String title) {
-        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        LocalDateTime start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         return new CreateEventRequest(
                 title, "desc", "loc", start, start.plusHours(2),
                 EventCategory.ACADEMIC, null, null,

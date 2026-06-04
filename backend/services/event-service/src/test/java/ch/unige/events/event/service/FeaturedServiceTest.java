@@ -52,13 +52,13 @@ class FeaturedServiceTest {
         e.title = "T-" + UUID.randomUUID();
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.now().plusDays(1);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
         e.endDate = end;
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
         e.status = status;
         e.featured = featured;
-        e.featuredAt = featured ? LocalDateTime.now() : null;
+        e.featuredAt = featured ? LocalDateTime.of(2025, 1, 1, 12, 0) : null;
         e.persist();
         return e;
     }
@@ -66,8 +66,8 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void getFeatured_featuredFirstThenFiller() {
-        Event f = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
-        Event nf = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event f = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
+        Event nf = create(false, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
 
         List<EventDTO> list = service.getFeatured(12);
@@ -80,7 +80,7 @@ class FeaturedServiceTest {
     @TestTransaction
     void getFeatured_limitCappedAt12() {
         for (int i = 0; i < 15; i++) {
-            create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+            create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         }
         em.flush();
         List<EventDTO> list = service.getFeatured(50);
@@ -90,8 +90,8 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void getFeatured_excludesPastAndDrafts() {
-        Event past = create(true, EventStatus.PUBLISHED, LocalDateTime.now().minusDays(1));
-        Event draft = create(true, EventStatus.DRAFT, LocalDateTime.now().plusDays(5));
+        Event past = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(1));
+        Event draft = create(true, EventStatus.DRAFT, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         // Result may include unrelated leftover-PUBLISHED events from other
         // test classes (drop-and-create runs once per app instance).
@@ -104,7 +104,7 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void feature_setsFlag() {
-        Event e = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event e = create(false, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         EventDTO dto = service.feature(e.id);
         assertTrue(dto.featured());
@@ -114,7 +114,7 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void feature_alreadyFeatured_idempotent() {
-        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         EventDTO dto = service.feature(e.id);
         assertTrue(dto.featured());
@@ -129,7 +129,7 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void unfeature_clearsFlag() {
-        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         EventDTO dto = service.unfeature(e.id);
         assertFalse(dto.featured());
@@ -151,7 +151,7 @@ class FeaturedServiceTest {
     @Test
     @TestTransaction
     void getFeatured_summariesNullClient_safe() {
-        create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        create(false, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
         List<EventDTO> list = service.getFeatured(6);
@@ -163,7 +163,7 @@ class FeaturedServiceTest {
     void feature_singleSummaryNullClient_zeroCounts() {
         // toSingleEventDTO L114/115 — the single-event summary client returns
         // null → attending/waitlisted coalesce to 0 (no NPE).
-        Event e = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event e = create(false, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
 
@@ -176,7 +176,7 @@ class FeaturedServiceTest {
     @TestTransaction
     void unfeature_singleSummaryNullClient_zeroCounts() {
         // Same toSingleEventDTO L114/115 path via unfeature.
-        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event e = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         when(engagementClient.getAttendanceSummary(anyLong())).thenReturn(null);
 
@@ -191,7 +191,7 @@ class FeaturedServiceTest {
         // toEventDTOs(List) L123/124 — a featured (phase-1) row with a null bulk
         // summary response must coalesce to an empty map and still surface the
         // featured event with zeroed counts.
-        Event f = create(true, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event f = create(true, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         when(engagementClient.getAttendanceSummariesBulk(any())).thenReturn(null);
 
@@ -217,7 +217,7 @@ class FeaturedServiceTest {
         // and the phase-2 filler ranks candidates by attending + favorites.
         // Persisting a Favorite on a candidate exercises countFavorites'
         // row-accumulation loop (the GROUP BY result mapping).
-        Event candidate = create(false, EventStatus.PUBLISHED, LocalDateTime.now().plusDays(5));
+        Event candidate = create(false, EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(5));
         em.flush();
         ch.unige.events.event.favorite.entity.Favorite fav =
                 new ch.unige.events.event.favorite.entity.Favorite();

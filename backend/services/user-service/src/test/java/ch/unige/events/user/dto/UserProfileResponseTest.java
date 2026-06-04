@@ -83,7 +83,7 @@ class UserProfileResponseTest {
         user.auth0Id = "auth0|admin";
         user.email = "admin@unige.ch";
         user.username = "admin.user";
-        user.createdAt = LocalDateTime.now();
+        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         user.roles = List.of("ADMIN", "MODERATOR");
 
         UserProfileResponse dto = UserProfileResponse.from(user);

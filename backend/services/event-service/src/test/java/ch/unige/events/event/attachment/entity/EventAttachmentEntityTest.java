@@ -46,8 +46,8 @@ class EventAttachmentEntityTest {
         e.title = "Test-Event";
         e.description = "for attachment test";
         e.location = "Geneva";
-        e.startDate = LocalDateTime.now().plusDays(1);
-        e.endDate = LocalDateTime.now().plusDays(2);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
+        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = UUID.randomUUID();
         e.status = EventStatus.PUBLISHED;
@@ -84,10 +84,10 @@ class EventAttachmentEntityTest {
         // First insert — explicit timestamp guarantees a deterministic order
         // regardless of @PrePersist millisecond resolution.
         EventAttachment first = newAttachment(ev.id, "early.pdf", 1024L, "application/pdf");
-        first.uploadedAt = LocalDateTime.now().minusMinutes(10);
+        first.uploadedAt = LocalDateTime.of(2000, 1, 1, 0, 0).minusMinutes(10);
         first.persist();
         EventAttachment second = newAttachment(ev.id, "late.pdf", 2048L, "application/pdf");
-        second.uploadedAt = LocalDateTime.now();
+        second.uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         second.persist();
         em.flush();
 

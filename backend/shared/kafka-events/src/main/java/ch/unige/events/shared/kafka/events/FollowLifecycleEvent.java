@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -28,14 +29,14 @@ public record FollowLifecycleEvent(
     }
 
     public static FollowLifecycleEvent followed(UUID followerId, UUID followedId) {
-        return new FollowLifecycleEvent(Type.FOLLOWED, followerId, followedId, Instant.now());
+        return new FollowLifecycleEvent(Type.FOLLOWED, followerId, followedId, Instant.now(Clock.systemUTC()));
     }
 
     public static FollowLifecycleEvent followRequested(UUID followerId, UUID followedId) {
-        return new FollowLifecycleEvent(Type.REQUESTED, followerId, followedId, Instant.now());
+        return new FollowLifecycleEvent(Type.REQUESTED, followerId, followedId, Instant.now(Clock.systemUTC()));
     }
 
     public static FollowLifecycleEvent followAccepted(UUID followerId, UUID followedId) {
-        return new FollowLifecycleEvent(Type.ACCEPTED, followerId, followedId, Instant.now());
+        return new FollowLifecycleEvent(Type.ACCEPTED, followerId, followedId, Instant.now(Clock.systemUTC()));
     }
 }

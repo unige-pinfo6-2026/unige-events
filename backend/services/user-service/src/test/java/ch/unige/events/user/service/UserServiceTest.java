@@ -737,7 +737,7 @@ class UserServiceTest {
                 candidate -> User.findByUsername(candidate).isPresent()
         );
         user.profilePublic = profilePublic;
-        user.createdAt = LocalDateTime.now();
+        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         entityManager.persist(user);
         entityManager.flush();
         return user;
@@ -748,7 +748,7 @@ class UserServiceTest {
         f.followerId = followerId;
         f.followedId = followedId;
         f.status = status;
-        f.createdAt = LocalDateTime.now();
+        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         entityManager.persist(f);
         entityManager.flush();
         return f;

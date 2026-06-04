@@ -89,14 +89,14 @@ class EngagementDomainSentinelsTest {
 
     private static EventDTO event(Long id, EventStatus status, UUID creatorIdParam) {
         return new EventDTO(id, "T", "d", "l",
-                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorIdParam,
                 status, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
     }
 
@@ -108,7 +108,7 @@ class EngagementDomainSentinelsTest {
         c.parentComment = parent;
         c.content = "content-" + id;
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.now();
+        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         return c;
     }
 
@@ -130,7 +130,7 @@ class EngagementDomainSentinelsTest {
         c.content = "Hello";
         c.prePersist();
         assertNotNull(c.createdAt);
-        assertTrue(c.createdAt.isAfter(LocalDateTime.now().minusSeconds(2)));
+        assertTrue(c.createdAt.isAfter(LocalDateTime.of(2000, 1, 1, 0, 0).minusSeconds(2)));
     }
 
     @Test
@@ -243,12 +243,12 @@ class EngagementDomainSentinelsTest {
         // CommentService.post must succeed (the cascade reads the
         // payload boolean, no local table lookup is performed).
         EventDTO ev = new EventDTO(150L, "T", "d", "l",
-                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
                 null, null, null, userAId,
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, /* coOrganizerOf */ Boolean.TRUE);
         when(eventClient.getByIdWithCoOrgCheck(eq(150L), any(UUID.class))).thenReturn(ev);
 

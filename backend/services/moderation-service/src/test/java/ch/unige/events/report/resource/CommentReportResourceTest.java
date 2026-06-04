@@ -52,7 +52,7 @@ class CommentReportResourceTest {
                 UUID.randomUUID(), "Reporter-1",
                 ReportReason.SPAM, "spammy comment",
                 ReportStatus.PENDING, null,
-                LocalDateTime.now(), null, null
+                LocalDateTime.of(2025, 1, 1, 12, 0), null, null
         );
     }
 

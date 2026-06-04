@@ -53,7 +53,7 @@ class EventAttachmentResourceTest {
                 1024L,
                 "application/pdf",
                 UUID.randomUUID(),
-                LocalDateTime.now()
+                LocalDateTime.of(2025, 1, 1, 12, 0)
         );
     }
 

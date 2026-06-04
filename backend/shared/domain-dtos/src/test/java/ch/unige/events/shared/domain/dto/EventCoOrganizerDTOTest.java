@@ -33,7 +33,7 @@ class EventCoOrganizerDTOTest {
     void canonicalConstructor_pendingStatus_avatarMayBeNull() {
         EventCoOrganizerDTO dto = new EventCoOrganizerDTO(
             null, 99L, UUID.randomUUID(), "Bob", null,
-            CoOrganizerStatus.PENDING, LocalDateTime.now());
+            CoOrganizerStatus.PENDING, LocalDateTime.of(2025, 1, 1, 12, 0));
         assertNull(dto.id());
         assertNull(dto.avatarUrl());
         assertEquals(CoOrganizerStatus.PENDING, dto.status());

@@ -86,7 +86,7 @@ class EventTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.now().plusDays(1);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
