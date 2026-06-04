@@ -150,11 +150,13 @@ class FollowServiceTest {
     @Test
     @TestTransaction
     void unfollow_noRow_isIdempotent() {
-        persistUser("auth0|fs-uf-no-a", "fs-uf-no-a@example.com", true);
+        User alice = persistUser("auth0|fs-uf-no-a", "fs-uf-no-a@example.com", true);
         User bob = persistUser("auth0|fs-uf-no-b", "fs-uf-no-b@example.com", true);
 
         followService.unfollow("auth0|fs-uf-no-a", bob.id);
-        // No exception expected.
+
+        // Idempotent no-op: there was no row, and none was created.
+        assertTrue(Follow.findByFollowerAndFollowed(alice.id, bob.id).isEmpty());
     }
 
     // ── removeFollower ────────────────────────────────────────────────────

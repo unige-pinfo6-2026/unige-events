@@ -217,7 +217,9 @@ class FileStorageServiceCoverageTest {
         when(s3.deleteObject(any(DeleteObjectRequest.class)))
                 .thenThrow(new RuntimeException("S3 down"));
         FileStorageService svc = newService(s3, stubConfig());
-        // Must NOT propagate (Log.warnf is best-effort).
+        // Must NOT propagate (Log.warnf is best-effort) — but the failing S3 delete
+        // is still attempted exactly once before the exception is swallowed.
         svc.deleteObject("https://s3.example.com/test-bucket/users/avatars/x.png", "users/avatars");
+        verify(s3, times(1)).deleteObject(any(DeleteObjectRequest.class));
     }
 }

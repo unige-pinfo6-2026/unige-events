@@ -335,6 +335,9 @@ class AttendanceServiceTest {
         when(eventClient.getById(21L)).thenReturn(event(21L, EventStatus.PUBLISHED, 5));
 
         service.removeAttendance("auth0|test-att-user", 21L);
+
+        // With no waitlist there is nothing to promote — the row is still deleted.
+        org.mockito.Mockito.verify(attending).delete();
     }
 
     @Test
@@ -357,6 +360,9 @@ class AttendanceServiceTest {
         when(eventClient.getById(27L)).thenReturn(event(27L, EventStatus.PUBLISHED, null));
 
         service.removeAttendance("auth0|test-att-user", 27L);
+
+        // Unlimited capacity short-circuits promotion; the row is still deleted.
+        org.mockito.Mockito.verify(attending).delete();
     }
 
     @Test
@@ -376,6 +382,9 @@ class AttendanceServiceTest {
         when(eventClient.getById(22L)).thenReturn(event(22L, EventStatus.PUBLISHED, 5));
 
         service.removeAttendance("auth0|test-att-user", 22L);
+
+        // Removing a WAITLISTED row deletes it and never triggers promotion.
+        org.mockito.Mockito.verify(waitlisted).delete();
     }
 
     @Test
@@ -395,6 +404,9 @@ class AttendanceServiceTest {
         when(eventClient.getById(23L)).thenReturn(event(23L, EventStatus.CANCELLED, 5));
 
         service.removeAttendance("auth0|test-att-user", 23L);
+
+        // Cancelled event → row deleted, promotion skipped.
+        org.mockito.Mockito.verify(attending).delete();
     }
 
     @Test

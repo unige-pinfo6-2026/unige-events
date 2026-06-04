@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ApiErrorResponseTest {
 
@@ -30,8 +31,8 @@ class ApiErrorResponseTest {
         String s = new ApiErrorResponse("not_found", "missing").toString();
         // Record toString format: ApiErrorResponse[error=not_found, message=missing]
         // We don't assert exact formatting (JDK-dependent) but require both fields to appear.
-        assert s.contains("not_found");
-        assert s.contains("missing");
+        assertTrue(s.contains("not_found"));
+        assertTrue(s.contains("missing"));
     }
 
     @Test

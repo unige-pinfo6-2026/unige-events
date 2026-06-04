@@ -87,6 +87,10 @@ class FavoriteServiceExceptionPathsTest {
 
         // Must NOT throw — the loser INSERT is an idempotent noop.
         service.addFavorite("auth0|x", eventId);
+
+        // The conflict path was actually exercised: flush() was attempted and its
+        // unique-violation swallowed (no exception propagated).
+        org.mockito.Mockito.verify(em).flush();
     }
 
     @Test

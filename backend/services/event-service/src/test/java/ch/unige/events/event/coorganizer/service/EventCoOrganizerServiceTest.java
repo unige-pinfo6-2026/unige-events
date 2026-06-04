@@ -314,8 +314,9 @@ class EventCoOrganizerServiceTest {
     void remove_byAdmin_succeeds() {
         Event e = createEvent(UUID.randomUUID());
         em.flush();
-        // No-op when no row exists (silently)
+        // Admin removal is a silent no-op when no invitation row exists.
         service.remove(e.id, "auth0|admin", inviteeId, true);
+        assertFalse(EventCoOrganizer.findByEventAndUser(e.id, inviteeId).isPresent());
     }
 
     @Test

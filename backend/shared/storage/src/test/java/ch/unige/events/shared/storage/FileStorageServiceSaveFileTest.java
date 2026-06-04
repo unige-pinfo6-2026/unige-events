@@ -209,7 +209,8 @@ class FileStorageServiceSaveFileTest {
         when(s3.deleteObject(any(DeleteObjectRequest.class)))
                 .thenThrow(new RuntimeException("transient S3 failure"));
         service(s3).deleteObject("http://s3/bucket/" + FOLDER + "/orphan.pdf");
-        // No exception bubbled — assertion-by-absence is the contract.
+        // No exception bubbled, yet the failing S3 delete was still attempted.
+        verify(s3).deleteObject(any(DeleteObjectRequest.class));
     }
 
     @Test

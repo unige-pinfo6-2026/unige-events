@@ -617,6 +617,9 @@ class CommentServiceTest {
         when(Comment.findByIdOptional(200L)).thenReturn(Optional.of(c));
 
         service.delete("auth0|test-comment-user", 200L);
+
+        // The author is authorized → the comment row is deleted.
+        org.mockito.Mockito.verify(c).delete();
     }
 
     @Test
@@ -627,6 +630,9 @@ class CommentServiceTest {
         when(eventClient.getOrganizerUuids(21L)).thenReturn(List.of(userId));
 
         service.delete("auth0|test-comment-user", 201L);
+
+        // The event organizer is authorized → the comment row is deleted.
+        org.mockito.Mockito.verify(c).delete();
     }
 
     @Test
@@ -652,6 +658,9 @@ class CommentServiceTest {
         when(eventClient.getOrganizerUuids(23L)).thenReturn(List.of(userId));
 
         service.delete("auth0|test-comment-user", 203L);
+
+        // Orphaned author + organizer caller → still authorized, row deleted.
+        org.mockito.Mockito.verify(c).delete();
     }
 
     @Test

@@ -71,9 +71,11 @@ class MdcKafkaProducerInterceptorTest {
 
     @Test
     void noOpHooks_doNotThrow() {
-        interceptor.onAcknowledgement(null, null);
-        interceptor.close();
-        interceptor.configure(java.util.Map.of());
+        assertDoesNotThrow(() -> {
+            interceptor.onAcknowledgement(null, null);
+            interceptor.close();
+            interceptor.configure(java.util.Map.of());
+        });
     }
 
     @Test
