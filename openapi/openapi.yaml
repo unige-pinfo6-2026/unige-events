@@ -179,8 +179,9 @@ components:
         `UserProfileResponse`).
 
         Le `404` est réservé à l'absence réelle (UUID ou username inexistant en
-        base). Le listing `GET /users/{id}/followers` reste `@Authenticated` + `403`
-        pour les profils privés non-owner — protection distincte intentionnelle : les
+        base). Le listing `GET /users/{id}/followers` reste `@Authenticated` et renvoie
+        `404` (anti-oracle `FollowService.assertProfileVisible`) pour un profil privé vu
+        par un non-owner non-abonné-accepté — protection distincte intentionnelle : les
         compteurs de la carte verrouillée ne sont donc pas cliquables côté frontend.
 
         **Note SCRUM-169.** Le champ `username` est toujours exposé (même verrouillé)
