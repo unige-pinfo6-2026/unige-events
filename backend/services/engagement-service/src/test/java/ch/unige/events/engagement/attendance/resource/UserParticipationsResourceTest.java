@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,11 +65,11 @@ class UserParticipationsResourceTest {
 
     private static EventDTO publishedEvent(long id) {
         return new EventDTO(id, "Title-" + id, "desc", "loc",
-                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
+                LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2),
                 null, null, null, UUID.randomUUID(),
                 EventStatus.PUBLISHED, 10, false, false, null,
                 0L, 10L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -78,7 +79,7 @@ class UserParticipationsResourceTest {
         a.userId = userId;
         a.eventId = eventId;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         return a;
     }
 

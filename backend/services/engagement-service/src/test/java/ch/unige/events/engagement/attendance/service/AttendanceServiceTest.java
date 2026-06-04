@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,7 @@ class AttendanceServiceTest {
     private static EventDTO event(Long id, EventStatus status, Integer capacity,
                                   UUID creatorId, LocalDateTime registrationDeadline) {
         return new EventDTO(id, "Title-" + id, "desc", "loc",
-                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
+                LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2),
                 null, null, null,
                 creatorId,
                 status, capacity, false, false, null,
@@ -115,7 +116,7 @@ class AttendanceServiceTest {
                 0L, 0L,
                 null, null, registrationDeadline,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -220,7 +221,7 @@ class AttendanceServiceTest {
     @Test
     void attend_registrationDeadlinePassed_throws409() {
         EventDTO past = event(12L, EventStatus.PUBLISHED, 5, creatorId,
-                LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(1));
+                LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(1));
         when(eventClient.getById(12L)).thenReturn(past);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
@@ -234,7 +235,7 @@ class AttendanceServiceTest {
         // (line 92, the now().isAfter(deadline) false-arm) does NOT trip, so
         // the attend proceeds to ATTENDING.
         EventDTO future = event(15L, EventStatus.PUBLISHED, 5, creatorId,
-                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1));
+                LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1));
         when(eventClient.getById(15L)).thenReturn(future);
 
         PanacheMock.mock(Attendance.class);
@@ -266,7 +267,7 @@ class AttendanceServiceTest {
         existing.userId = userId;
         existing.eventId = 14L;
         existing.status = AttendanceStatus.ATTENDING;
-        existing.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        existing.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         PanacheQuery q4__ = queryWithFirst(Optional.of(existing));
@@ -504,14 +505,14 @@ class AttendanceServiceTest {
         pub.userId = publicUserId;
         pub.eventId = eventId;
         pub.status = AttendanceStatus.ATTENDING;
-        pub.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        pub.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         Attendance priv = new Attendance();
         priv.id = 301L;
         priv.userId = privateUserId;
         priv.eventId = eventId;
         priv.status = AttendanceStatus.ATTENDING;
-        priv.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        priv.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(eventId, 0, 20)).thenReturn(List.of(pub, priv));
@@ -531,14 +532,14 @@ class AttendanceServiceTest {
         UUID caller = userId;
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(30L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 caller, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
 
         List<AttendanceDTO> result = stageTwoAttendeesAndCall(30L, ev, caller, privateUserId);
@@ -560,14 +561,14 @@ class AttendanceServiceTest {
         UUID privateUserId = UUID.randomUUID();
         // coOrganizerOf=true → caller is an ACCEPTED co-organizer
         EventDTO ev = new EventDTO(34L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
 
         List<AttendanceDTO> result = stageTwoAttendeesAndCall(34L, ev, otherUserId, privateUserId);
@@ -581,14 +582,14 @@ class AttendanceServiceTest {
     void getAttendees_byNonOrganizer_anonymizesPrivateRowsAndKeepsPublic() {
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(32L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, false);
         when(eventClient.getOrganizerUuids(32L)).thenReturn(List.of(creatorId));
 
@@ -618,14 +619,14 @@ class AttendanceServiceTest {
         // (consistent with seeing that private account's participations).
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(37L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, false);
         when(eventClient.getOrganizerUuids(37L)).thenReturn(List.of(creatorId));
         when(userClient.getFollowedIds(userId)).thenReturn(List.of(privateUserId));
@@ -643,14 +644,14 @@ class AttendanceServiceTest {
     void getAttendees_byAdmin_returnsRealIdentityForPrivateRows() {
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(35L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, false);
         when(eventClient.getOrganizerUuids(35L)).thenReturn(List.of(creatorId));
 
@@ -666,14 +667,14 @@ class AttendanceServiceTest {
         UUID caller = userId;
         UUID ghostId = UUID.randomUUID();
         EventDTO ev = new EventDTO(36L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 caller, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
         when(eventClient.getByIdWithCoOrgCheck(eq(36L), any(UUID.class))).thenReturn(ev);
 
@@ -682,7 +683,7 @@ class AttendanceServiceTest {
         orphan.userId = ghostId;
         orphan.eventId = 36L;
         orphan.status = AttendanceStatus.ATTENDING;
-        orphan.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        orphan.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(36L, 0, 20)).thenReturn(List.of(orphan));
@@ -702,14 +703,14 @@ class AttendanceServiceTest {
         UUID caller = userId;
         UUID someUser = UUID.randomUUID();
         EventDTO ev = new EventDTO(37L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 caller, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
         when(eventClient.getByIdWithCoOrgCheck(eq(37L), any(UUID.class))).thenReturn(ev);
 
@@ -718,7 +719,7 @@ class AttendanceServiceTest {
         a.userId = someUser;
         a.eventId = 37L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(37L, 0, 20)).thenReturn(List.of(a));
 
@@ -740,14 +741,14 @@ class AttendanceServiceTest {
         UUID caller = userId;
         UUID someUser = UUID.randomUUID();
         EventDTO ev = new EventDTO(38L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 caller, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
         when(eventClient.getByIdWithCoOrgCheck(eq(38L), any(UUID.class))).thenReturn(ev);
 
@@ -756,7 +757,7 @@ class AttendanceServiceTest {
         a.userId = someUser;
         a.eventId = 38L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(38L, 0, 20)).thenReturn(List.of(a));
         when(userClient.getAttendeeProjections(any())).thenReturn(null);
@@ -775,14 +776,14 @@ class AttendanceServiceTest {
         // private row stays anonymized.
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(39L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, /* coOrganizerOf */ null);
         when(eventClient.getOrganizerUuids(39L)).thenReturn(List.of(creatorId));
 
@@ -800,14 +801,14 @@ class AttendanceServiceTest {
         // fallback resolves to organizer view, exposing the private row.
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(45L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, /* coOrganizerOf */ null);
         when(eventClient.getOrganizerUuids(45L)).thenReturn(List.of(userId));
 
@@ -827,14 +828,14 @@ class AttendanceServiceTest {
         // organizer view, so private rows keep their real identity.
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(46L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 /* creatorId */ userId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, /* coOrganizerOf */ null);
 
         List<AttendanceDTO> result = stageTwoAttendeesAndCall(46L, ev, otherUserId, privateUserId);
@@ -856,14 +857,14 @@ class AttendanceServiceTest {
         UUID someUser = UUID.randomUUID();
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(47L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, /* coOrganizerOf */ null);
         // No callerUuid → service uses getById (no co-org self-check possible).
         when(eventClient.getById(47L)).thenReturn(ev);
@@ -873,14 +874,14 @@ class AttendanceServiceTest {
         pub.userId = someUser;
         pub.eventId = 47L;
         pub.status = AttendanceStatus.ATTENDING;
-        pub.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        pub.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         Attendance priv = new Attendance();
         priv.id = 471L;
         priv.userId = privateUserId;
         priv.eventId = 47L;
         priv.status = AttendanceStatus.ATTENDING;
-        priv.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        priv.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(47L, 0, 20)).thenReturn(List.of(pub, priv));
@@ -907,23 +908,23 @@ class AttendanceServiceTest {
         UUID ghostA = UUID.randomUUID();
         UUID ghostB = UUID.randomUUID();
         EventDTO ev = new EventDTO(48L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 caller, EventStatus.PUBLISHED, 5,
                 false, false, null,
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
         when(eventClient.getByIdWithCoOrgCheck(eq(48L), any(UUID.class))).thenReturn(ev);
 
         Attendance a1 = new Attendance();
         a1.id = 480L; a1.userId = ghostA; a1.eventId = 48L;
-        a1.status = AttendanceStatus.ATTENDING; a1.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a1.status = AttendanceStatus.ATTENDING; a1.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Attendance a2 = new Attendance();
         a2.id = 481L; a2.userId = ghostB; a2.eventId = 48L;
-        a2.status = AttendanceStatus.ATTENDING; a2.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a2.status = AttendanceStatus.ATTENDING; a2.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(48L, 0, 20)).thenReturn(List.of(a1, a2));
@@ -955,7 +956,7 @@ class AttendanceServiceTest {
         JwtTestContext.set(JwtTestHelper.anonymous());
         UUID someUser = UUID.randomUUID();
         EventDTO ev = new EventDTO(33L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorId,
                 EventStatus.PUBLISHED, 5,
@@ -963,7 +964,7 @@ class AttendanceServiceTest {
                 0L, 5L, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, false);
         // No callerUuid → falls back to getById (no co-org self-check possible)
         when(eventClient.getById(33L)).thenReturn(ev);
@@ -973,7 +974,7 @@ class AttendanceServiceTest {
         a.userId = someUser;
         a.eventId = 33L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(33L, 0, 20)).thenReturn(List.of(a));
         when(userClient.getAttendeeProjections(any())).thenReturn(List.of(
@@ -1000,7 +1001,7 @@ class AttendanceServiceTest {
         a.userId = userId;
         a.eventId = 40L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
 
@@ -1047,7 +1048,7 @@ class AttendanceServiceTest {
         a.userId = userId;
         a.eventId = 41L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
         return service.getMyAttendances("auth0|test-att-user");
@@ -1061,7 +1062,7 @@ class AttendanceServiceTest {
         a.userId = someUser;
         a.eventId = 50L;
         a.status = AttendanceStatus.WAITLISTED;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.list(anyString(), any(Object[].class)))
@@ -1080,7 +1081,7 @@ class AttendanceServiceTest {
         a.userId = someUser;
         a.eventId = 51L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.list(anyString(), any(Object[].class)))
@@ -1117,7 +1118,7 @@ class AttendanceServiceTest {
         a.userId = userId;
         a.eventId = 60L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class),
@@ -1143,18 +1144,18 @@ class AttendanceServiceTest {
         a.userId = userId;
         a.eventId = 61L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(10);
+        a.createdAt = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(10);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any()))
                 .thenReturn(Map.of());
 
         EventDTO past = new EventDTO(61L, "T", "d", "l",
-                LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(5), LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(4),
+                LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(5), LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(4),
                 null, null, null, creatorId,
                 EventStatus.PUBLISHED, 10, false, false, null,
                 0L, 10L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
         when(eventClient.findByIds(any(List.class), eq(null))).thenReturn(List.of(past));
 
@@ -1171,18 +1172,18 @@ class AttendanceServiceTest {
         a.userId = userId;
         a.eventId = 62L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(10);
+        a.createdAt = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(10);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any()))
                 .thenReturn(Map.of());
 
         EventDTO past = new EventDTO(62L, "T", "d", "l",
-                LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(5), LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(4),
+                LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(5), LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(4),
                 null, null, null, creatorId,
                 EventStatus.PUBLISHED, 10, false, false, null,
                 0L, 10L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
         when(eventClient.findByIds(any(List.class), eq(null))).thenReturn(List.of(past));
 
@@ -1199,14 +1200,14 @@ class AttendanceServiceTest {
         attending.userId = userId;
         attending.eventId = 70L;
         attending.status = AttendanceStatus.ATTENDING;
-        attending.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        attending.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         Attendance waitlisted = new Attendance();
         waitlisted.id = 701L;
         waitlisted.userId = userId;
         waitlisted.eventId = 71L;
         waitlisted.status = AttendanceStatus.WAITLISTED;
-        waitlisted.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        waitlisted.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(attending, waitlisted));
@@ -1269,7 +1270,7 @@ class AttendanceServiceTest {
         // caller == target (userId): the profilePublic gate does not apply.
         Attendance a = new Attendance();
         a.id = 800L; a.userId = userId; a.eventId = 80L;
-        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class),
@@ -1293,7 +1294,7 @@ class AttendanceServiceTest {
     void getUserParticipationEvents_publicTarget_returnsList() {
         Attendance a = new Attendance();
         a.id = 810L; a.userId = otherUserId; a.eventId = 81L;
-        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
@@ -1324,7 +1325,7 @@ class AttendanceServiceTest {
         // ACCEPTED → sees their participations (Instagram model).
         Attendance a = new Attendance();
         a.id = 815L; a.userId = otherUserId; a.eventId = 85L;
-        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
@@ -1349,7 +1350,7 @@ class AttendanceServiceTest {
         // without needing a follow relationship — short-circuits the gate.
         Attendance a = new Attendance();
         a.id = 816L; a.userId = otherUserId; a.eventId = 86L;
-        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.status = AttendanceStatus.ATTENDING; a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(otherUserId)).thenReturn(List.of(a));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());
@@ -1378,10 +1379,10 @@ class AttendanceServiceTest {
         // ATTENDING event id must reach the enrichment call.
         Attendance attending = new Attendance();
         attending.id = 820L; attending.userId = userId; attending.eventId = 82L;
-        attending.status = AttendanceStatus.ATTENDING; attending.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        attending.status = AttendanceStatus.ATTENDING; attending.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Attendance waitlisted = new Attendance();
         waitlisted.id = 821L; waitlisted.userId = userId; waitlisted.eventId = 83L;
-        waitlisted.status = AttendanceStatus.WAITLISTED; waitlisted.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        waitlisted.status = AttendanceStatus.WAITLISTED; waitlisted.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findAllByUser(userId)).thenReturn(List.of(attending, waitlisted));
         when(Attendance.countGroupedByStatus(any(List.class), any(), any())).thenReturn(Map.of());

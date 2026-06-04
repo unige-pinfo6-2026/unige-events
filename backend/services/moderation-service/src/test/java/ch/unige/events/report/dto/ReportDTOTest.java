@@ -8,6 +8,7 @@ import ch.unige.events.shared.domain.enums.ReportStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,8 +21,8 @@ class ReportDTOTest {
     void canonicalConstructor_pendingReport_keepsAllFields() {
         UUID reporterId = UUID.randomUUID();
         UUID reviewedBy = UUID.randomUUID();
-        LocalDateTime created = LocalDateTime.of(2026, 5, 1, 12, 0);
-        LocalDateTime reviewed = LocalDateTime.of(2026, 5, 2, 9, 30);
+        LocalDateTime created = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
+        LocalDateTime reviewed = LocalDateTime.of(2026, Month.MAY, 2, 9, 30);
 
         ReportDTO dto = new ReportDTO(
                 7L, "EVENT", 42L, null, "Some Event", null,
@@ -49,7 +50,7 @@ class ReportDTOTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID reporterId = UUID.randomUUID();
-        LocalDateTime created = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime created = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
 
         ReportDTO a = new ReportDTO(1L, "EVENT", 1L, null, "T", null, reporterId, "X",
                 ReportReason.FAKE, null, ReportStatus.PENDING, null,
@@ -75,7 +76,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.SPAM;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        r.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null);
 
@@ -94,7 +95,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.INAPPROPRIATE;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        r.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null, "the reported body");
 
@@ -115,8 +116,8 @@ class ReportDTOTest {
         r.description = "abusive";
         r.status = ReportStatus.REVIEWED;
         r.moderationNote = "removed";
-        r.createdAt = LocalDateTime.of(2026, 5, 1, 8, 0);
-        r.reviewedAt = LocalDateTime.of(2026, 5, 1, 10, 0);
+        r.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 8, 0);
+        r.reviewedAt = LocalDateTime.of(2026, Month.MAY, 1, 10, 0);
         r.reviewedById = UUID.randomUUID();
 
         EventDTO event = new EventDTO(
@@ -151,7 +152,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.OTHER;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        r.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null);
 

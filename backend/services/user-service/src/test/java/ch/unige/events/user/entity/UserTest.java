@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +34,7 @@ class UserTest {
         User user = new User();
         UUID id = UUID.randomUUID();
         UUID calendarToken = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.of(2026, 3, 19, 12, 0, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2026, Month.MARCH, 19, 12, 0, 0);
 
         user.id = id;
         user.auth0Id = "auth0|alice";

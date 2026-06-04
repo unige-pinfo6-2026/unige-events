@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -81,7 +82,7 @@ class EventCoOrganizerServiceTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = creator;

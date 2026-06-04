@@ -5,6 +5,7 @@ import ch.unige.events.shared.domain.enums.FollowStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,7 +18,7 @@ class FollowTest {
         Follow f = new Follow();
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();
-        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 12, 0);
+        LocalDateTime now = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         f.followerId = follower;
         f.followedId = followed;
@@ -40,7 +41,7 @@ class FollowTest {
     @Test
     void prePersist_preservesExistingCreatedAt() {
         Follow f = new Follow();
-        LocalDateTime fixed = LocalDateTime.of(2026, 1, 1, 12, 0);
+        LocalDateTime fixed = LocalDateTime.of(2026, Month.JANUARY, 1, 12, 0);
         f.createdAt = fixed;
         f.prePersist();
         assertEquals(fixed, f.createdAt);

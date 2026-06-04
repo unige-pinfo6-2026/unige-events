@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,8 +24,8 @@ class RecurrenceGeneratorTest {
 
     @Test
     void weekly_4Occurrences_returns3DatesSpacedBy7Days() {
-        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 1, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
 
         List<RecurrenceGenerator.DateRange> ranges = RecurrenceGenerator.generate(
                 start, end, RecurrenceFrequency.WEEKLY, null, 4);
@@ -39,8 +40,8 @@ class RecurrenceGeneratorTest {
 
     @Test
     void monthly_handlesShortFebruaryFromJanuary31() {
-        LocalDateTime start = LocalDateTime.of(2026, 1, 31, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 1, 31, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JANUARY, 31, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JANUARY, 31, 12, 0);
 
         List<RecurrenceGenerator.DateRange> ranges = RecurrenceGenerator.generate(
                 start, end, RecurrenceFrequency.MONTHLY, null, 3);
@@ -54,8 +55,8 @@ class RecurrenceGeneratorTest {
 
     @Test
     void bothNull_throwsIllegalArgumentException() {
-        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 1, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
 
         assertThrows(IllegalArgumentException.class,
                 () -> RecurrenceGenerator.generate(start, end, RecurrenceFrequency.WEEKLY, null, null));
@@ -63,11 +64,11 @@ class RecurrenceGeneratorTest {
 
     @Test
     void maxOccurrencesAbove52_cappedTo52() {
-        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 1, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
         // 200 requested, 52 is the global cap → 51 children (parent excluded).
         List<RecurrenceGenerator.DateRange> ranges = RecurrenceGenerator.generate(
-                start, end, RecurrenceFrequency.WEEKLY, LocalDate.of(2099, 1, 1), 200);
+                start, end, RecurrenceFrequency.WEEKLY, LocalDate.of(2099, Month.JANUARY, 1), 200);
         assertEquals(51, ranges.size());
     }
 }

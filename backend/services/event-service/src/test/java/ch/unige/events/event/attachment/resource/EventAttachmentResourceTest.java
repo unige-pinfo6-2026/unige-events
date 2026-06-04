@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -53,7 +54,7 @@ class EventAttachmentResourceTest {
                 1024L,
                 "application/pdf",
                 UUID.randomUUID(),
-                LocalDateTime.of(2025, 1, 1, 12, 0)
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0)
         );
     }
 

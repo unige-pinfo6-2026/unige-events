@@ -7,6 +7,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,7 +26,7 @@ class IcsBuilderTest {
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -50,12 +51,12 @@ class IcsBuilderTest {
     @Test
     void buildIcsContent_eventMissingStartOrEnd_skipped() {
         EventDTO partial = new EventDTO(2L, "Bad", "d", "l",
-                null, LocalDateTime.of(2025, 1, 1, 12, 0),
+                null, LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null, null,
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
         String ics = IcsBuilder.buildIcsContent(List.of(partial), "http://localhost:5173");
         assertFalse(ics.contains("BEGIN:VEVENT"));
@@ -68,12 +69,12 @@ class IcsBuilderTest {
         // `startDate() == null || endDate() == null` guard short-circuits the
         // event out — still no BEGIN:VEVENT.
         EventDTO partial = new EventDTO(3L, "NoEnd", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), null,
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), null,
                 null, null, null, null,
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
         String ics = IcsBuilder.buildIcsContent(List.of(partial), "http://localhost:5173");
         assertFalse(ics.contains("BEGIN:VEVENT"));

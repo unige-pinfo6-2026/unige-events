@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,7 +32,7 @@ class CommentLikeEntityTest {
 
     @Test
     void prePersist_keepsCreatedAt_whenAlreadySet() {
-        LocalDateTime fixed = LocalDateTime.of(2020, 1, 1, 0, 0);
+        LocalDateTime fixed = LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0);
         CommentLike like = new CommentLike();
         like.commentId = 1L;
         like.userId = java.util.UUID.randomUUID();

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,7 +67,7 @@ class CommentDirectResourceTest {
         c.eventId = 30L;
         c.authorId = userId;
         c.content = "x";
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Comment spy = spy(c);
         doNothing().when(spy).delete();
 
@@ -95,7 +96,7 @@ class CommentDirectResourceTest {
         c.eventId = 31L;
         c.authorId = UUID.randomUUID();
         c.content = "x";
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Comment spy = spy(c);
         doNothing().when(spy).delete();
 

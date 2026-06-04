@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,8 +75,8 @@ class EventResourceDuplicateTest {
         e.title = title;
         e.description = "desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0);
-        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).withNano(0);
+        e.endDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
         e.category = ch.unige.events.shared.domain.enums.EventCategory.ACADEMIC;
         e.creatorId = creatorId;
         e.status = status;
@@ -245,8 +246,8 @@ class EventResourceDuplicateTest {
         e.description = "desc";
         e.location = "loc";
         if (!nullDates) {
-            e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0);
-            e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
+            e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).withNano(0);
+            e.endDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
         }
         e.category = ch.unige.events.shared.domain.enums.EventCategory.ACADEMIC;
         e.creatorId = creatorId;

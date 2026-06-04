@@ -7,6 +7,7 @@ import ch.unige.events.shared.domain.enums.Faculty;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,8 +21,8 @@ class EventDTOTest {
     @Test
     void canonicalConstructor_keepsAllFields() {
         UUID creatorId = UUID.randomUUID();
-        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 1, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
         EventDTO dto = new EventDTO(
                 10L, "MyEvent", "D", "Geneva", start, end,
                 EventCategory.SOCIAL, Faculty.LETTERS, null,
@@ -64,7 +65,7 @@ class EventDTOTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 6, 1, 10, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
         EventDTO a = new EventDTO(1L, "T", null, "L", t, t, EventCategory.OTHER, null, null,
                 id, EventStatus.DRAFT, null, false, false, null,
                 0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null);
@@ -85,16 +86,16 @@ class EventDTOTest {
         e.title = "MyEvent";
         e.description = "D";
         e.location = "L";
-        e.startDate = LocalDateTime.of(2026, 6, 1, 10, 0);
-        e.endDate = LocalDateTime.of(2026, 6, 1, 12, 0);
+        e.startDate = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        e.endDate = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
         e.category = EventCategory.SOCIAL;
         e.faculty = Faculty.LETTERS;
         e.creatorId = UUID.randomUUID();
         e.status = EventStatus.PUBLISHED;
         e.capacity = 100;
         e.tags = List.of("x", "y");
-        e.createdAt = LocalDateTime.of(2026, 5, 1, 0, 0);
-        e.updatedAt = LocalDateTime.of(2026, 5, 1, 0, 0);
+        e.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 0, 0);
+        e.updatedAt = LocalDateTime.of(2026, Month.MAY, 1, 0, 0);
         return e;
     }
 }

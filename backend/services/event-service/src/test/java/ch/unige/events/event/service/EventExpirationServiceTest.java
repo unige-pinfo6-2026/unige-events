@@ -11,6 +11,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +27,7 @@ class EventExpirationServiceTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2);
+        e.startDate = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(2);
         e.endDate = end;
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
@@ -38,7 +39,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_publishedPastEnd_flippedToExpired() {
-        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
+        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusHours(1));
         em.flush();
         Long id = e.id;
         int count = service.expireEvents();
@@ -52,7 +53,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_publishedFuture_unchanged() {
-        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1));
+        Event e = create(EventStatus.PUBLISHED, LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1));
         em.flush();
         int count = service.expireEvents();
         assertEquals(0, count);
@@ -63,7 +64,7 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_draftPastEnd_unchanged() {
-        Event e = create(EventStatus.DRAFT, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
+        Event e = create(EventStatus.DRAFT, LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusHours(1));
         em.flush();
         int count = service.expireEvents();
         assertEquals(0, count);
@@ -74,8 +75,8 @@ class EventExpirationServiceTest {
     @Test
     @TestTransaction
     void expireEvents_multiple_processedAll() {
-        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusHours(1));
-        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2));
+        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusHours(1));
+        create(EventStatus.PUBLISHED, LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(2));
         em.flush();
         int count = service.expireEvents();
         assertEquals(2, count);

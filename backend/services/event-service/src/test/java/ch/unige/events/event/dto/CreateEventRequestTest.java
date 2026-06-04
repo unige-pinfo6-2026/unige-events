@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +23,8 @@ class CreateEventRequestTest {
     void canonicalConstructor_nullTags_normalisedToEmptyImmutableList() {
         CreateEventRequest req = new CreateEventRequest(
                 "T", "D", "L",
-                LocalDateTime.of(2099, 1, 1, 10, 0),
-                LocalDateTime.of(2099, 1, 1, 12, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 10, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 12, 0),
                 EventCategory.OTHER, null, null,
                 null, null, null, null, null,
                 null, null, null);
@@ -35,14 +36,14 @@ class CreateEventRequestTest {
 
     @Test
     void canonicalConstructor_populatedFields_keepsAllValues() {
-        RecurrenceRequest rec = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, LocalDate.of(2099, 6, 1), 5);
+        RecurrenceRequest rec = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, LocalDate.of(2099, Month.JUNE, 1), 5);
         CreateEventRequest req = new CreateEventRequest(
                 "My Title", "Body", "Geneva",
-                LocalDateTime.of(2099, 1, 1, 10, 0),
-                LocalDateTime.of(2099, 1, 1, 12, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 10, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 12, 0),
                 EventCategory.ACADEMIC, Faculty.SCIENCES, "https://banner",
                 50, Boolean.FALSE, "https://site", "a@b.c",
-                LocalDateTime.of(2098, 12, 1, 10, 0),
+                LocalDateTime.of(2098, Month.DECEMBER, 1, 10, 0),
                 List.of("t1", "t2"),
                 EventStatus.PUBLISHED, rec);
 
@@ -62,8 +63,8 @@ class CreateEventRequestTest {
         java.util.ArrayList<String> mutable = new java.util.ArrayList<>(List.of("a", "b"));
         CreateEventRequest req = new CreateEventRequest(
                 "T", null, "L",
-                LocalDateTime.of(2099, 1, 1, 10, 0),
-                LocalDateTime.of(2099, 1, 1, 12, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 10, 0),
+                LocalDateTime.of(2099, Month.JANUARY, 1, 12, 0),
                 EventCategory.OTHER, null, null,
                 null, null, null, null, null,
                 mutable, null, null);

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -177,7 +178,7 @@ class UserDomainSentinelsTest {
                 candidate -> ch.unige.events.user.entity.User.findByUsername(candidate).isPresent()
         );
         user.profilePublic = profilePublic;
-        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        user.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         entityManager.persist(user);
         entityManager.flush();
         return user;
@@ -188,7 +189,7 @@ class UserDomainSentinelsTest {
         f.followerId = followerId;
         f.followedId = followedId;
         f.status = status;
-        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        f.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         entityManager.persist(f);
         entityManager.flush();
         return f;

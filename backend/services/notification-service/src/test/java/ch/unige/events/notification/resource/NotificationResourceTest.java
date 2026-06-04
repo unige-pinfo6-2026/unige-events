@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -61,7 +62,7 @@ class NotificationResourceTest {
         n.type = type;
         n.message = "msg-" + type;
         n.read = read;
-        n.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        n.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         QuarkusTransaction.requiringNew().run(n::persist);
         return n.id;
     }

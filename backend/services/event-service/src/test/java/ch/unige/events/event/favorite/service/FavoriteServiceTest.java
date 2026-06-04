@@ -28,6 +28,7 @@ import org.hibernate.stat.Statistics;
 import java.lang.reflect.Method;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,7 @@ class FavoriteServiceTest {
         e.title = "T";
         e.description = "d";
         e.location = "l";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = UUID.randomUUID();
@@ -165,8 +166,8 @@ class FavoriteServiceTest {
         Event expired = create(EventStatus.EXPIRED);
         Event cancelled = create(EventStatus.CANCELLED);
         Event past = create(EventStatus.PUBLISHED);
-        past.startDate = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2);
-        past.endDate = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(1);
+        past.startDate = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(2);
+        past.endDate = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusDays(1);
         em.flush();
 
         service.addFavorite("auth0|x", pub.id);

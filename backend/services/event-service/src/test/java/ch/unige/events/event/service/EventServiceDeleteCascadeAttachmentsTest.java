@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -81,8 +82,8 @@ class EventServiceDeleteCascadeAttachmentsTest {
         e.title = "T-delete";
         e.description = "d";
         e.location = "L";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
-        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1);
+        e.endDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = creatorId;
         e.status = status;

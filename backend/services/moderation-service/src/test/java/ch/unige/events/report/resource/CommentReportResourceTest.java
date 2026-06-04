@@ -17,6 +17,7 @@ import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -52,7 +53,7 @@ class CommentReportResourceTest {
                 UUID.randomUUID(), "Reporter-1",
                 ReportReason.SPAM, "spammy comment",
                 ReportStatus.PENDING, null,
-                LocalDateTime.of(2025, 1, 1, 12, 0), null, null
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), null, null
         );
     }
 

@@ -13,6 +13,7 @@ import jakarta.ws.rs.WebApplicationException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,7 +50,7 @@ class EventServiceHandWiredTest {
     private CallerIdentity callerIdentity;
 
     private CreateEventRequest req(String title) {
-        LocalDateTime start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
+        LocalDateTime start = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2);
         return new CreateEventRequest(
                 title, "desc", "loc", start, start.plusHours(2),
                 EventCategory.ACADEMIC, null, null,

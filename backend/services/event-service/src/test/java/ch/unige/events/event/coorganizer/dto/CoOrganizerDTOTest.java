@@ -7,6 +7,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +25,7 @@ class CoOrganizerDTOTest {
     @Test
     void canonicalConstructor_keepsAllFields() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime invitedAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime invitedAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         CoOrganizerDTO dto = new CoOrganizerDTO(7L, userId, "Alice",
                 "https://avatar", CoOrganizerStatus.ACCEPTED, invitedAt);
 
@@ -42,7 +43,7 @@ class CoOrganizerDTOTest {
         entity.id = 11L;
         entity.userId = UUID.randomUUID();
         entity.status = CoOrganizerStatus.PENDING;
-        entity.invitedAt = LocalDateTime.of(2026, 5, 2, 10, 0);
+        entity.invitedAt = LocalDateTime.of(2026, Month.MAY, 2, 10, 0);
         UserPublicResponse user = UserPublicResponse.anonymous(
                 entity.userId, "Bob", "https://avatar/bob");
 
@@ -62,7 +63,7 @@ class CoOrganizerDTOTest {
         entity.id = 12L;
         entity.userId = UUID.randomUUID();
         entity.status = CoOrganizerStatus.DECLINED;
-        entity.invitedAt = LocalDateTime.of(2026, 5, 3, 9, 0);
+        entity.invitedAt = LocalDateTime.of(2026, Month.MAY, 3, 9, 0);
 
         CoOrganizerDTO dto = CoOrganizerDTO.from(entity, null);
 
@@ -75,7 +76,7 @@ class CoOrganizerDTOTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID uid = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         CoOrganizerDTO a = new CoOrganizerDTO(1L, uid, "X", null, CoOrganizerStatus.ACCEPTED, t);
         CoOrganizerDTO b = new CoOrganizerDTO(1L, uid, "X", null, CoOrganizerStatus.ACCEPTED, t);
         CoOrganizerDTO c = new CoOrganizerDTO(2L, uid, "X", null, CoOrganizerStatus.ACCEPTED, t);

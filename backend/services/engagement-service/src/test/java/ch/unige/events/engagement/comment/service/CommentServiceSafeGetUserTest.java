@@ -20,6 +20,7 @@ import jakarta.enterprise.event.Event;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -61,12 +62,12 @@ class CommentServiceSafeGetUserTest {
 
     private static EventDTO publishedEvent(UUID creator) {
         return new EventDTO(7L, "Concert", null, "loc",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusHours(2),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusHours(2),
                 null, null, null, creator, EventStatus.PUBLISHED, null,
                 false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null, List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, Boolean.FALSE);
     }
 
@@ -77,7 +78,7 @@ class CommentServiceSafeGetUserTest {
         c.authorId = author;
         c.content = "hello";
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         return c;
     }
 
@@ -203,7 +204,7 @@ class CommentServiceSafeGetUserTest {
         c.authorId = UUID.randomUUID();
         c.content = "hi";
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         PanacheMock.mock(Comment.class);
         when(Comment.<Comment>findByIdOptional(9L)).thenReturn(java.util.Optional.of(c));

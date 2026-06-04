@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.time.Month;
 
 @QuarkusTest
 class EventCoOrganizerTest {
@@ -50,7 +51,7 @@ class EventCoOrganizerTest {
         co.eventId = 142L;
         co.userId = userId;
         co.status = CoOrganizerStatus.PENDING;
-        java.time.LocalDateTime explicit = java.time.LocalDateTime.of(2024, 1, 2, 3, 4, 5);
+        java.time.LocalDateTime explicit = java.time.LocalDateTime.of(2024, Month.JANUARY, 2, 3, 4, 5);
         co.invitedAt = explicit;
         co.persist();
         em.flush();

@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import java.time.Month;
 
 @SuppressWarnings("java:S1612")
 @QuarkusTest
@@ -54,7 +55,7 @@ class NewCommentConsumerTest {
 
     private static EventDTO eventOf(String title, UUID creatorId) {
         return new EventDTO(EVENT_ID, title, "desc", "loc",
-                java.time.LocalDateTime.of(2025, 1, 1, 12, 0), java.time.LocalDateTime.of(2999, 1, 1, 0, 0).plusHours(2),
+                java.time.LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), java.time.LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusHours(2),
                 null, null, null, creatorId, EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null, List.of(), null, null, null, null, null);

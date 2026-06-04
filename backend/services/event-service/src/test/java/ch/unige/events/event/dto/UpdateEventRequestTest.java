@@ -6,6 +6,7 @@ import ch.unige.events.shared.domain.enums.Faculty;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,8 +21,8 @@ class UpdateEventRequestTest {
     void canonicalConstructor_nullTags_normalisedToEmptyImmutableList() {
         UpdateEventRequest req = new UpdateEventRequest(
                 "T", "D", "L",
-                LocalDateTime.of(2099, 2, 1, 10, 0),
-                LocalDateTime.of(2099, 2, 1, 12, 0),
+                LocalDateTime.of(2099, Month.FEBRUARY, 1, 10, 0),
+                LocalDateTime.of(2099, Month.FEBRUARY, 1, 12, 0),
                 EventCategory.SPORTS, null, null,
                 null, null, null, null, null,
                 null, null);
@@ -34,8 +35,8 @@ class UpdateEventRequestTest {
     void canonicalConstructor_populatedFields_keepsAllValues() {
         UpdateEventRequest req = new UpdateEventRequest(
                 "Updated", null, "Geneva",
-                LocalDateTime.of(2099, 2, 1, 10, 0),
-                LocalDateTime.of(2099, 2, 1, 12, 0),
+                LocalDateTime.of(2099, Month.FEBRUARY, 1, 10, 0),
+                LocalDateTime.of(2099, Month.FEBRUARY, 1, 12, 0),
                 EventCategory.SPORTS, Faculty.MEDICINE, null,
                 null, null, null, null, null,
                 null, EventStatus.CANCELLED);
@@ -51,8 +52,8 @@ class UpdateEventRequestTest {
         for (EventStatus s : EventStatus.values()) {
             UpdateEventRequest req = new UpdateEventRequest(
                     "T", null, "L",
-                    LocalDateTime.of(2099, 2, 1, 10, 0),
-                    LocalDateTime.of(2099, 2, 1, 12, 0),
+                    LocalDateTime.of(2099, Month.FEBRUARY, 1, 10, 0),
+                    LocalDateTime.of(2099, Month.FEBRUARY, 1, 12, 0),
                     EventCategory.SPORTS, null, null,
                     null, null, null, null, null,
                     List.of(), s);

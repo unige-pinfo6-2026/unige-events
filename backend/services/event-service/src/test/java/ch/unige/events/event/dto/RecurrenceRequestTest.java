@@ -4,6 +4,7 @@ import ch.unige.events.shared.domain.enums.RecurrenceFrequency;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -14,7 +15,7 @@ class RecurrenceRequestTest {
 
     @Test
     void canonicalConstructor_acceptsAllFields() {
-        LocalDate end = LocalDate.of(2099, 6, 1);
+        LocalDate end = LocalDate.of(2099, Month.JUNE, 1);
         RecurrenceRequest req = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, end, 12);
         assertEquals(RecurrenceFrequency.WEEKLY, req.frequency());
         assertEquals(end, req.endDate());
@@ -31,7 +32,7 @@ class RecurrenceRequestTest {
 
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
-        LocalDate end = LocalDate.of(2099, 6, 1);
+        LocalDate end = LocalDate.of(2099, Month.JUNE, 1);
         RecurrenceRequest a = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, end, 4);
         RecurrenceRequest b = new RecurrenceRequest(RecurrenceFrequency.WEEKLY, end, 4);
         RecurrenceRequest c = new RecurrenceRequest(RecurrenceFrequency.MONTHLY, end, 4);

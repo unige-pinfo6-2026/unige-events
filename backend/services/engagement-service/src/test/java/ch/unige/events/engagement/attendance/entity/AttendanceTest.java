@@ -8,6 +8,7 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,7 +37,7 @@ class AttendanceTest {
         a.status = AttendanceStatus.ATTENDING;
         a.prePersist();
         assertNotNull(a.createdAt);
-        assertTrue(a.createdAt.isAfter(LocalDateTime.of(2000, 1, 1, 0, 0).minusSeconds(2)));
+        assertTrue(a.createdAt.isAfter(LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusSeconds(2)));
     }
 
     @Test
@@ -46,7 +47,7 @@ class AttendanceTest {
         a.userId = user;
         a.eventId = 42L;
         a.status = AttendanceStatus.WAITLISTED;
-        a.createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         assertEquals(user, a.userId);
         assertEquals(42L, a.eventId);
         assertEquals(AttendanceStatus.WAITLISTED, a.status);

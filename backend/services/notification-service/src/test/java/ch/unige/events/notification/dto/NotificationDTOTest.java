@@ -5,6 +5,7 @@ import ch.unige.events.notification.entity.NotificationType;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +23,8 @@ class NotificationDTOTest {
         n.relatedUserId = UUID.randomUUID();
         n.message = "hello";
         n.read = true;
-        n.createdAt = LocalDateTime.of(2026, 1, 1, 12, 0);
-        n.readAt = LocalDateTime.of(2026, 1, 2, 12, 0);
+        n.createdAt = LocalDateTime.of(2026, Month.JANUARY, 1, 12, 0);
+        n.readAt = LocalDateTime.of(2026, Month.JANUARY, 2, 12, 0);
 
         NotificationDTO dto = NotificationDTO.from(n);
         assertEquals(n.id, dto.id());
@@ -47,7 +48,7 @@ class NotificationDTOTest {
         n.relatedUserId = null;
         n.message = "x";
         n.read = false;
-        n.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        n.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         n.readAt = null;
 
         NotificationDTO dto = NotificationDTO.from(n);

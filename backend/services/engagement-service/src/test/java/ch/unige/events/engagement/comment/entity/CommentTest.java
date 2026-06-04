@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,14 +33,14 @@ class CommentTest {
         c.prePersist();
 
         assertNotNull(c.createdAt);
-        assertTrue(c.createdAt.isAfter(LocalDateTime.of(2000, 1, 1, 0, 0).minusSeconds(2)));
+        assertTrue(c.createdAt.isAfter(LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusSeconds(2)));
     }
 
     @Test
     void prePersist_overrides_whenAlreadySet() {
         // The hook unconditionally sets createdAt = now() in this revision —
         // verifying the documented behaviour rather than assuming idempotence.
-        LocalDateTime stale = LocalDateTime.of(2020, 1, 1, 0, 0);
+        LocalDateTime stale = LocalDateTime.of(2020, Month.JANUARY, 1, 0, 0);
         Comment c = new Comment();
         c.eventId = 1L;
         c.authorId = UUID.randomUUID();

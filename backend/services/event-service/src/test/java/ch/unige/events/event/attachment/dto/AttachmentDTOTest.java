@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +39,7 @@ class AttachmentDTOTest {
     @Test
     void from_copiesAllScalarFieldsVerbatim() {
         UUID uploader = UUID.randomUUID();
-        LocalDateTime uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        LocalDateTime uploadedAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         EventAttachment entity = sampleEntity(10L, 99L);
         entity.fileName = "deck.pdf";
         entity.fileUrl = "http://minio:9000/bucket/event-attachments/abc.pdf";
@@ -78,7 +79,7 @@ class AttachmentDTOTest {
         a.fileSize = 1L;
         a.mimeType = "application/pdf";
         a.uploadedById = UUID.randomUUID();
-        a.uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.uploadedAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         return a;
     }
 }

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,8 +72,8 @@ class EventServiceDuplicateAttachmentsTest {
         e.title = "Source-Event";
         e.description = "desc";
         e.location = "Geneva";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0);
-        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).withNano(0);
+        e.endDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).plusHours(2).withNano(0);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = owner;
         e.status = EventStatus.PUBLISHED;

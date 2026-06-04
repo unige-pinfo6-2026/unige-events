@@ -5,6 +5,7 @@ import ch.unige.events.user.follow.entity.Follow;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,7 +18,7 @@ class FollowDTOTest {
     void canonicalConstructor_populatedFields_keepsAllValues() {
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
 
         FollowDTO dto = new FollowDTO(42L, follower, followed, FollowStatus.ACCEPTED, t);
 
@@ -35,7 +36,7 @@ class FollowDTOTest {
         f.followerId = UUID.randomUUID();
         f.followedId = UUID.randomUUID();
         f.status = FollowStatus.PENDING;
-        f.createdAt = LocalDateTime.of(2026, 4, 30, 9, 30);
+        f.createdAt = LocalDateTime.of(2026, Month.APRIL, 30, 9, 30);
 
         FollowDTO dto = FollowDTO.from(f);
 
@@ -52,7 +53,7 @@ class FollowDTOTest {
         f.followerId = UUID.randomUUID();
         f.followedId = UUID.randomUUID();
         f.status = FollowStatus.ACCEPTED;
-        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        f.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         FollowDTO dto = FollowDTO.from(f);
 
@@ -64,7 +65,7 @@ class FollowDTOTest {
     void recordEqualsAndHashCode_canonicalContract() {
         UUID follower = UUID.randomUUID();
         UUID followed = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.JANUARY, 1, 0, 0);
 
         FollowDTO a = new FollowDTO(1L, follower, followed, FollowStatus.ACCEPTED, t);
         FollowDTO b = new FollowDTO(1L, follower, followed, FollowStatus.ACCEPTED, t);

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,12 +69,12 @@ class AdminReportResourceTest {
 
     private static EventDTO event(Long id, EventStatus status, UUID creator) {
         return new EventDTO(id, "T-" + id, "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null, creator,
                 status, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -84,7 +85,7 @@ class AdminReportResourceTest {
         r.reporterId = reporterId;
         r.reason = ReportReason.SPAM;
         r.status = status;
-        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        r.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         return r;
     }
 

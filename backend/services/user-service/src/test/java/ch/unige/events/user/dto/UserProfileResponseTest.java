@@ -5,6 +5,7 @@ import ch.unige.events.user.entity.User;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ class UserProfileResponseTest {
     @Test
     void canonicalConstructor_populatedFields_keepsAllValues() {
         UUID id = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 10, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2026, Month.MAY, 1, 10, 0);
         List<String> interests = List.of("hiking", "music");
         List<String> roles = List.of("ADMIN");
         UserProfileResponse dto = new UserProfileResponse(
@@ -58,7 +59,7 @@ class UserProfileResponseTest {
         user.avatarUrl = null;
         user.bannerUrl = null;
         user.profilePublic = false;
-        user.createdAt = LocalDateTime.of(2025, 12, 31, 23, 59);
+        user.createdAt = LocalDateTime.of(2025, Month.DECEMBER, 31, 23, 59);
 
         UserProfileResponse dto = UserProfileResponse.from(user);
 
@@ -83,7 +84,7 @@ class UserProfileResponseTest {
         user.auth0Id = "auth0|admin";
         user.email = "admin@unige.ch";
         user.username = "admin.user";
-        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        user.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         user.roles = List.of("ADMIN", "MODERATOR");
 
         UserProfileResponse dto = UserProfileResponse.from(user);
@@ -94,7 +95,7 @@ class UserProfileResponseTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.JANUARY, 1, 0, 0);
         UserProfileResponse a = new UserProfileResponse(
             id, "a", "e", "u", "d", Faculty.SCIENCES, "s", "b", List.of(), "av", "bn", true, t, List.of());
         UserProfileResponse b = new UserProfileResponse(

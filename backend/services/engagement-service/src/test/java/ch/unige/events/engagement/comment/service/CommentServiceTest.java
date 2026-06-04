@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -94,14 +95,14 @@ class CommentServiceTest {
 
     private static EventDTO event(Long id, EventStatus status, UUID creatorIdParam, String title) {
         return new EventDTO(id, title, "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null,
                 creatorIdParam,
                 status, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -113,7 +114,7 @@ class CommentServiceTest {
         c.parentComment = parent;
         c.content = "content-" + id;
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         return c;
     }
 

@@ -10,6 +10,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +27,7 @@ class AttendanceDTOMapperTest {
     @Test
     void from_attendanceWithoutEnrichment_keepsAllIdFieldsButNullDisplayAndAvatar() {
         UUID userId = UUID.randomUUID();
-        LocalDateTime created = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime created = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         Attendance a = new Attendance();
         a.id = 7L;
         a.userId = userId;
@@ -53,7 +54,7 @@ class AttendanceDTOMapperTest {
         a.userId = userId;
         a.eventId = 99L;
         a.status = AttendanceStatus.WAITLISTED;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         UserPublicResponse user = new UserPublicResponse(
             userId, "Alice", null, null, null, null,
@@ -73,7 +74,7 @@ class AttendanceDTOMapperTest {
         a.userId = UUID.randomUUID();
         a.eventId = 99L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        a.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         AttendanceDTO dto = AttendanceDTOMapper.from(a, null);
 
@@ -91,7 +92,7 @@ class AttendanceDTOMapperTest {
         a.userId = userId;
         a.eventId = 42L;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.of(2026, 5, 14, 10, 0);
+        a.createdAt = LocalDateTime.of(2026, Month.MAY, 14, 10, 0);
         return a;
     }
 

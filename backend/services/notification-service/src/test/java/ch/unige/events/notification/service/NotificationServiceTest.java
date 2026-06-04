@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import java.time.Month;
 
 /**
  * Unit-flavor tests for {@link NotificationService} — wire the
@@ -118,7 +119,7 @@ class NotificationServiceTest {
         // can assert the second markRead leaves it untouched without relying
         // on Thread.sleep (Sonar S2925) to differentiate two now() calls.
         Notification n = service.create(CALLER, NotificationType.NEW_ATTENDEE, 1L, null, "x");
-        java.time.LocalDateTime distinctivePast = java.time.LocalDateTime.of(2020, 1, 1, 12, 0);
+        java.time.LocalDateTime distinctivePast = java.time.LocalDateTime.of(2020, Month.JANUARY, 1, 12, 0);
         n.read = true;
         n.readAt = distinctivePast;
 

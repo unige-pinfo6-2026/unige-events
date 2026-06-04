@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -78,8 +79,8 @@ class EventAttachmentServiceTest {
         e.title = "T-attach";
         e.description = "for attachment test";
         e.location = "Geneva";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
-        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1);
+        e.endDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = creator;
         e.status = EventStatus.PUBLISHED;
@@ -307,9 +308,9 @@ class EventAttachmentServiceTest {
     void getByEvent_returnsAttachmentsSortedByUploadedAt() {
         Event ev = persistEvent(callerId);
         EventAttachment first = persistAttachment(ev.id, callerId, "early.pdf");
-        first.uploadedAt = LocalDateTime.of(2000, 1, 1, 0, 0).minusMinutes(10);
+        first.uploadedAt = LocalDateTime.of(2000, Month.JANUARY, 1, 0, 0).minusMinutes(10);
         EventAttachment second = persistAttachment(ev.id, callerId, "late.pdf");
-        second.uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        second.uploadedAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         em.flush();
 
         List<AttachmentDTO> result = service.getByEvent(ev.id);

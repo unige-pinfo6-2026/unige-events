@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,8 +54,8 @@ class EventCoOrganizerResourceTest {
     }
 
     private long createEvent() {
-        String start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0).toString();
-        String end = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
+        String start = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).withNano(0).toString();
+        String end = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
         String body = "{\"title\":\"T\",\"description\":\"d\",\"location\":\"l\","
                 + "\"startDate\":\"" + start + "\",\"endDate\":\"" + end + "\","
                 + "\"category\":\"ACADEMIC\"}";

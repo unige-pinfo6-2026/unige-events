@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Map;
 import java.util.UUID;
 
@@ -68,8 +69,8 @@ class EventResourceTest {
     }
 
     private static String createBody() {
-        String start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0).toString();
-        String end = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
+        String start = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).withNano(0).toString();
+        String end = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
         return "{\"title\":\"T\",\"description\":\"d\",\"location\":\"l\","
                 + "\"startDate\":\"" + start + "\",\"endDate\":\"" + end + "\","
                 + "\"category\":\"ACADEMIC\"}";
@@ -105,7 +106,7 @@ class EventResourceTest {
             e.title = "anon-" + UUID.randomUUID();
             e.description = "d";
             e.location = "l";
-            e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
+            e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2);
             e.endDate = e.startDate.plusHours(2);
             e.category = EventCategory.ACADEMIC;
             e.creatorId = creator;

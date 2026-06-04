@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,7 +50,7 @@ class EventSearchServiceTest {
         e.title = title;
         e.description = title + " desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
+        e.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1);
         e.endDate = e.startDate.plusHours(2);
         e.category = cat;
         e.faculty = fac;
@@ -68,7 +69,7 @@ class EventSearchServiceTest {
         draft.title = "draft";
         draft.description = "d";
         draft.location = "l";
-        draft.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
+        draft.startDate = LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1);
         draft.endDate = draft.startDate.plusHours(2);
         draft.category = EventCategory.ACADEMIC;
         draft.creatorId = UUID.randomUUID();
@@ -145,7 +146,7 @@ class EventSearchServiceTest {
         // publish() puts the event at the FUTURE anchor (2999-01-02); the
         // search window must sit on the same anchor to contain it (the bound was
         // originally now()-relative, like the event's now().plusDays(1) startDate).
-        LocalDate today = LocalDate.of(2999, 1, 1);
+        LocalDate today = LocalDate.of(2999, Month.JANUARY, 1);
         List<EventDTO> r = service.search(null, null, null, null, null,
                 today, today.plusDays(30), 0, 20);
         assertFalse(r.isEmpty());
@@ -173,7 +174,7 @@ class EventSearchServiceTest {
         publish("a", EventCategory.SPORTS, null, null);
         em.flush();
         List<EventDTO> r = service.search(null, null, null, null, null,
-                LocalDate.of(2000, 1, 1).minusDays(1), null, 0, 20);
+                LocalDate.of(2000, Month.JANUARY, 1).minusDays(1), null, 0, 20);
         assertFalse(r.isEmpty());
     }
 
@@ -183,7 +184,7 @@ class EventSearchServiceTest {
         publish("a", EventCategory.SPORTS, null, null);
         em.flush();
         List<EventDTO> r = service.search(null, null, null, null, null,
-                null, LocalDate.of(2999, 1, 1).plusDays(30), 0, 20);
+                null, LocalDate.of(2999, Month.JANUARY, 1).plusDays(30), 0, 20);
         assertFalse(r.isEmpty());
     }
 

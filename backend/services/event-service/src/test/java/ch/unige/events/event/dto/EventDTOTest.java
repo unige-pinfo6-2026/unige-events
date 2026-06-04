@@ -7,6 +7,7 @@ import ch.unige.events.shared.domain.enums.Faculty;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,8 +22,8 @@ class EventDTOTest {
     @Test
     void canonicalConstructor_keepsAllFields() {
         UUID creatorId = UUID.randomUUID();
-        LocalDateTime start = LocalDateTime.of(2026, 6, 1, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 1, 12, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
         EventDTO dto = new EventDTO(
                 42L, "Title", "Desc", "Geneva", start, end,
                 EventCategory.ACADEMIC, Faculty.SCIENCES, "https://banner",
@@ -71,7 +72,7 @@ class EventDTOTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 6, 1, 10, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
         EventDTO a = new EventDTO(1L, "T", null, "Loc", t, t, EventCategory.OTHER,
                 null, null, id, EventStatus.DRAFT, null, false, false, null,
                 0L, null, 0L, null, null, null, null, null, List.of(), t, t, null, null, null, null);
@@ -92,8 +93,8 @@ class EventDTOTest {
         e.title = "T";
         e.description = "D";
         e.location = "L";
-        e.startDate = LocalDateTime.of(2026, 6, 1, 10, 0);
-        e.endDate = LocalDateTime.of(2026, 6, 1, 12, 0);
+        e.startDate = LocalDateTime.of(2026, Month.JUNE, 1, 10, 0);
+        e.endDate = LocalDateTime.of(2026, Month.JUNE, 1, 12, 0);
         e.category = EventCategory.SPORTS;
         e.faculty = Faculty.MEDICINE;
         e.bannerUrl = null;
@@ -107,8 +108,8 @@ class EventDTOTest {
         e.contactEmail = null;
         e.registrationDeadline = null;
         e.tags = List.of("a", "b");
-        e.createdAt = LocalDateTime.of(2026, 5, 1, 0, 0);
-        e.updatedAt = LocalDateTime.of(2026, 5, 1, 0, 0);
+        e.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 0, 0);
+        e.updatedAt = LocalDateTime.of(2026, Month.MAY, 1, 0, 0);
         e.parentEventId = null;
         e.recurrenceRule = null;
         return e;

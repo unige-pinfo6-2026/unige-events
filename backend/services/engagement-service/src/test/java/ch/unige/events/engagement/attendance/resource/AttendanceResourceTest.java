@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,12 +75,12 @@ class AttendanceResourceTest {
 
     private static EventDTO event(Long id, EventStatus status, Integer capacity, UUID creatorId) {
         return new EventDTO(id, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null, creatorId,
                 status, capacity, false, false, null,
                 0L, capacity != null ? capacity.longValue() : null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
     }
 
@@ -148,7 +149,7 @@ class AttendanceResourceTest {
         raw.userId = userId;
         raw.eventId = 1010L;
         raw.status = AttendanceStatus.WAITLISTED;
-        raw.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        raw.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Attendance attendance = spy(raw);
         doNothing().when(attendance).delete();
 
@@ -166,11 +167,11 @@ class AttendanceResourceTest {
     @Test
     void get_attendees_byCreator_returns200() {
         EventDTO ev = new EventDTO(1005L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null, userId,
                 EventStatus.PUBLISHED, 5, false, false, null,
                 0L, 5L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, true);
         when(eventClient.getByIdWithCoOrgCheck(1005L, userId)).thenReturn(ev);
 
@@ -205,11 +206,11 @@ class AttendanceResourceTest {
         UUID publicUserId = UUID.randomUUID();
         UUID privateUserId = UUID.randomUUID();
         EventDTO ev = new EventDTO(1007L, "T", "d", "l",
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1),
                 null, null, null, creatorId,
                 EventStatus.PUBLISHED, 5, false, false, null,
                 0L, 5L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                List.of(), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, false);
         when(eventClient.getByIdWithCoOrgCheck(1007L, userId)).thenReturn(ev);
         when(eventClient.getOrganizerUuids(1007L)).thenReturn(List.of(creatorId));
@@ -223,13 +224,13 @@ class AttendanceResourceTest {
         pub.userId = publicUserId;
         pub.eventId = 1007L;
         pub.status = AttendanceStatus.ATTENDING;
-        pub.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        pub.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         Attendance priv = new Attendance();
         priv.id = 5001L;
         priv.userId = privateUserId;
         priv.eventId = 1007L;
         priv.status = AttendanceStatus.ATTENDING;
-        priv.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        priv.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         PanacheMock.mock(Attendance.class);
         when(Attendance.findByEvent(1007L, 0, 20)).thenReturn(List.of(pub, priv));
 

@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -104,7 +105,7 @@ class SharedCoverageTest {
     void dtoRecords_canonicalConstructors() {
         UUID id = UUID.randomUUID();
         AttendanceDTO a = new AttendanceDTO(1L, id, 2L, AttendanceStatus.ATTENDING,
-                LocalDateTime.of(2025, 1, 1, 12, 0), "name", null);
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), "name", null);
         assertEquals(1L, a.id());
 
         UserPublicResponse u = new UserPublicResponse(id, "X", null, null, null, null,
@@ -123,7 +124,7 @@ class SharedCoverageTest {
         assertNotNull(CoOrganizerCheck.no());
 
         EventCoOrganizerDTO ecd = new EventCoOrganizerDTO(1L, 2L, id, "Bob", null,
-                CoOrganizerStatus.ACCEPTED, LocalDateTime.of(2025, 1, 1, 12, 0));
+                CoOrganizerStatus.ACCEPTED, LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0));
         assertEquals(CoOrganizerStatus.ACCEPTED, ecd.status());
 
         AttendanceCounts ac = new AttendanceCounts(1L, 2L, 0L);

@@ -13,6 +13,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.UUID;
 
 /**
@@ -54,7 +55,7 @@ public class TestFixtures {
         user.email = email;
         user.username = username;
         user.profilePublic = profilePublic;
-        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        user.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         em.persist(user);
         em.flush();
         return user;
@@ -66,7 +67,7 @@ public class TestFixtures {
         f.followerId = followerId;
         f.followedId = followedId;
         f.status = status;
-        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        f.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
         em.persist(f);
         em.flush();
         return f;

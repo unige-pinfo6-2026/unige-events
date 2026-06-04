@@ -23,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -71,7 +72,7 @@ class AttendanceServiceConcurrencyTest {
         eventId = System.currentTimeMillis() % 1_000_000L + 90_000_000L;
         EventDTO publishedEventCap3 = new EventDTO(
                 eventId, "Cap3", "desc", "loc",
-                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
+                LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, Month.JANUARY, 1, 0, 0).plusDays(2),
                 null, null, null,
                 UUID.randomUUID(),
                 EventStatus.PUBLISHED, 3, false, false, null,
@@ -79,7 +80,7 @@ class AttendanceServiceConcurrencyTest {
                 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0), LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0),
                 null, null, null);
         lenient().when(eventClient.getById(anyLong())).thenReturn(publishedEventCap3);
         lenient().when(userClient.getById(any(UUID.class))).thenReturn(null);

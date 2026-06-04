@@ -7,6 +7,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,7 +29,7 @@ class CommentDTOTest {
     @Test
     void canonicalConstructor_keepsAllFields() {
         UUID authorId = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         CommentDTO dto = new CommentDTO(
                 7L, "hello world", authorId, "Alice",
                 "https://avatars/alice.png", "alice.martin", true, 3, false,
@@ -51,7 +52,7 @@ class CommentDTOTest {
     @Test
     void from_commentWithAuthor_populatesDisplayNameAvatarAndUsername() {
         UUID authorId = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
 
         Comment c = new Comment();
         c.id = 11L;
@@ -91,7 +92,7 @@ class CommentDTOTest {
         c.authorId = UUID.randomUUID();
         c.content = "anonymous";
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
+        c.createdAt = LocalDateTime.of(2025, Month.JANUARY, 1, 12, 0);
 
         CommentDTO dto = CommentDTO.from(c, null, false);
 
@@ -112,7 +113,7 @@ class CommentDTOTest {
         top.authorId = topAuthorId;
         top.content = "top-level";
         top.likeCount = 2;
-        top.createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        top.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
 
         Comment reply = new Comment();
         reply.id = 51L;
@@ -121,7 +122,7 @@ class CommentDTOTest {
         reply.parentComment = top;
         reply.content = "reply-body";
         reply.likeCount = 0;
-        reply.createdAt = LocalDateTime.of(2026, 5, 1, 12, 1);
+        reply.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 1);
 
         UserPublicResponse topAuthor = new UserPublicResponse(
                 topAuthorId, "alice.martin", "Alice", null, null, null, null,
@@ -161,7 +162,7 @@ class CommentDTOTest {
         top.authorId = topAuthorId;
         top.content = "no-author-info";
         top.likeCount = 0;
-        top.createdAt = LocalDateTime.of(2026, 5, 1, 12, 0);
+        top.createdAt = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
 
         CommentDTO dto = CommentDTO.fromTopLevelWithReplies(
                 top, null, List.of(), java.util.Map.of(), false, java.util.Map.of());
@@ -175,7 +176,7 @@ class CommentDTOTest {
     @Test
     void recordEqualsAndHashCode_canonicalContract() {
         UUID id = UUID.randomUUID();
-        LocalDateTime t = LocalDateTime.of(2026, 5, 1, 12, 0);
+        LocalDateTime t = LocalDateTime.of(2026, Month.MAY, 1, 12, 0);
         CommentDTO a = new CommentDTO(1L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
         CommentDTO b = new CommentDTO(1L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
         CommentDTO c = new CommentDTO(2L, "x", id, "X", null, "x.user", false, 0, false, t, null, List.of());
