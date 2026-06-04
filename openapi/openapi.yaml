@@ -3350,6 +3350,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
 
+  /events/{id}/organizer-uuids:
+    get:
+      summary: Lister les UUIDs de l'équipe organisatrice d'un événement (ADR-002)
+      description: |
+        Retourne les UUIDs de l'équipe organisatrice : le créateur plus les
+        co-organisateurs au statut `ACCEPTED` (jamais `PENDING` / `DECLINED`, donc
+        rien de privé ne fuite). `@PermitAll` — accessible aux appelants anonymes :
+        c'est la primitive qui alimente la section « Équipe organisatrice » de la
+        page publique d'un événement (frontend `usePublicOrganizers`, qui résout
+        ensuite chaque UUID via `GET /users/{id}`). Décision : ADR-002
+        (`backend/docs/adr/ADR-002-organizer-uuids-permitall.md`).
+
+        Anti-oracle minimal : `404 not_found` si l'événement est `BANNED` ou
+        inexistant.
+      operationId: getEventOrganizerUuids
+      x-owner-service: event-service
+      tags: [events]
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: UUIDs de l'équipe organisatrice (créateur + co-organisateurs ACCEPTED).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+        '404':
+          description: Événement inexistant ou `BANNED` (anti-oracle minimal).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /events/{id}/cancel:
     patch:
       summary: Annuler un événement (DRAFT/PUBLISHED → CANCELLED)

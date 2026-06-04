@@ -1,5 +1,32 @@
 # Sprint Context — unige-events-api
 
+Dernière mise à jour : 2026-06-04 (fix prod : équipe organisatrice 404 — route Kong organizer-uuids manquante)
+
+---
+
+## 2026-06-04 — Fix prod : équipe organisatrice 404 (route Kong `organizer-uuids` manquante)
+
+Branche `fix/kong-organizer-uuids-route`.
+
+Sur la page d'un événement, la section « Équipe organisatrice » n'affichait que le
+créateur — les co-organisateurs `ACCEPTED` manquaient. Cause : le frontend
+`usePublicOrganizers` appelle `GET /api/events/{id}/organizer-uuids` (via Kong),
+mais cet endpoint — `@PermitAll` côté event-service (ADR-002) — n'avait **jamais**
+de route Kong (au moment de l'ADR il était consommé uniquement en cross-service par
+engagement-service). Kong renvoyait donc `404 no Route matched` (latence amont nulle).
+
+- **Kong** : route `events-organizer-uuids` (`~/api/events/(?:\d+)/organizer-uuids$`)
+  → event-service, ajoutée à `docker/kong.yml`, `helm/templates/kong/configmap-routes.yaml`
+  (chart déployé en prod via `deploy.yml`) et `k8s/templates/kong/configmap-routes.yaml`
+  (miroir). Déclarée **avant** `events-by-id` pour ne pas être avalée par la route
+  catch-all `~/api/events/(?:\d+)$`.
+- **openapi** : `GET /events/{id}/organizer-uuids` déclaré (l'endpoint devient un
+  contrat public — il alimente l'équipe organisatrice visible des anonymes).
+- **Docs** : ADR-002 addendum (la condition « When to revisit » #1 est atteinte — un
+  consommateur public a été ajouté ; décision `@PermitAll` maintenue, route Kong
+  désormais nécessaire), `internal-endpoints.md` entry #5 (n'est plus purement interne).
+- Aucun changement de code : l'endpoint event-service et le hook frontend existaient
+  déjà ; seul le routage Kong (+ le contrat openapi) manquait.
 Dernière mise à jour : 2026-06-04 (visibilité des profils publics pour les visiteurs anonymes)
 
 ---
