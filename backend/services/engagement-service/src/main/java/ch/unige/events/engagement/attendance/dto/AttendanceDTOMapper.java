@@ -39,25 +39,30 @@ public final class AttendanceDTOMapper {
      * Privacy-aware projection used by
      * {@code AttendanceService.getAttendees}.
      *
-     * <p>Organizer view ({@code isOrganizerView=true}) keeps real identity
-     * for every row including private profiles. Non-organizer view returns
-     * real identity only for public profiles; private-profile rows are
-     * anonymized with {@code displayName=null}, {@code avatarUrl=null}, and
-     * {@code userId=null} to prevent the caller from probing
-     * {@code GET /users/{id}} to de-anonymize the participant.
+     * <p>Organizer view ({@code isOrganizerView=true}) keeps real identity for
+     * every row including private profiles. Otherwise real identity is exposed
+     * only when the attendee's profile is public OR the caller is an accepted
+     * follower of that attendee ({@code callerFollowsAttendee=true}) —
+     * consistent with an accepted follower seeing the private account's
+     * participations. Every other private-profile row is anonymized with
+     * {@code displayName=null}, {@code avatarUrl=null}, and {@code userId=null}
+     * to prevent the caller from probing {@code GET /users/{id}} to de-anonymize
+     * the participant.
      *
      * <p>Deleted users ({@code projection=null}) are anonymized the same
      * way regardless of caller role — there is no real identity to expose.
      */
     public static AttendanceDTO fromWithPrivacy(
-            Attendance attendance, AttendeeProjection projection, boolean isOrganizerView) {
+            Attendance attendance, AttendeeProjection projection,
+            boolean isOrganizerView, boolean callerFollowsAttendee) {
         if (projection == null) {
             return new AttendanceDTO(
                     attendance.id, null, attendance.eventId,
                     attendance.status, attendance.createdAt,
                     null, null);
         }
-        boolean exposeIdentity = isOrganizerView || projection.profilePublic();
+        boolean exposeIdentity =
+                isOrganizerView || projection.profilePublic() || callerFollowsAttendee;
         return new AttendanceDTO(
                 attendance.id,
                 exposeIdentity ? attendance.userId : null,

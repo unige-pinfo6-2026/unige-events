@@ -470,6 +470,19 @@ export default function EventDetailPage() {
         align="left"
       />
 
+      {event.status === 'CANCELLED' && (
+        <div
+          role="alert"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-error/30 bg-error/10 px-5 py-4 text-error"
+        >
+          <Ban className="w-6 h-6 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-bold leading-tight">Événement annulé</p>
+            <p className="text-sm text-error/80">Cet événement a été annulé par l'organisateur.</p>
+          </div>
+        </div>
+      )}
+
       {/* Grille deux colonnes.
           Sur mobile (max-lg), les wrappers de colonne passent en `display: contents`
           afin que leurs enfants deviennent des items directs de la grille parent ;

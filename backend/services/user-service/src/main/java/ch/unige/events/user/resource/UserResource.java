@@ -81,14 +81,14 @@ public class UserResource {
         boolean anonymous = identity.isAnonymous();
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
         // REST-003 / ISSUE-93: admins read private profiles for
-        // moderation/support. SCRUM-169 revision: non-self non-admin
-        // callers of a private profile receive a restricted projection
-        // (id + username + displayName + avatarUrl) instead of the
-        // historical 404, so cross-service enrichment (comments,
-        // organizer team) keeps the public-facing identifier visible.
+        // moderation/support. A private profile viewed by a non-self
+        // non-admin caller (anonymous or authenticated) gets the locked
+        // projection (identity + banner + counts, private fields stripped)
+        // instead of the historical 404, so cross-service enrichment
+        // (comments, organizer team) keeps the public-facing identifier visible.
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getPublicProfile(id, auth0Id, isAdmin);
-        UserPublicResponse body = toResponse(anonymous, view);
+        UserPublicResponse body = toResponse(view);
         return Response.ok(body).build();
     }
 
@@ -230,11 +230,11 @@ public class UserResource {
 
     /**
      * SCRUM-169 — public profile lookup by username. Mirrors the security
-     * model of {@link #getProfile(UUID)} : {@code @PermitAll} entry point,
-     * stripped payload for anonymous callers (with {@code username} kept —
-     * cf. spec Décision E). SCRUM-169 revision: private profiles viewed by
-     * non-self non-admin callers now return the same stripped payload via
-     * the {@code restricted} flag, instead of the historical 404.
+     * model of {@link #getProfile(UUID)} : {@code @PermitAll} entry point.
+     * A public profile returns the full projection to everyone (including
+     * anonymous callers); a private profile returns the locked projection
+     * (identity + banner + counts) to non-owner / non-admin / non-accepted
+     * callers via the {@code restricted} flag, instead of the historical 404.
      */
     @GET
     @Path("/by-username/{username}")
@@ -244,7 +244,7 @@ public class UserResource {
         String auth0Id = anonymous ? null : identity.getPrincipal().getName();
         boolean isAdmin = !anonymous && identity.hasRole(ROLE_ADMIN);
         PublicProfileView view = userService.getByUsername(username, auth0Id, isAdmin);
-        UserPublicResponse body = toResponse(anonymous, view);
+        UserPublicResponse body = toResponse(view);
         return Response.ok(body).build();
     }
 
@@ -265,29 +265,28 @@ public class UserResource {
     }
 
     /**
-     * Serialises a {@link PublicProfileView} to a {@link UserPublicResponse}
-     * applying the correct projection for the caller's visibility level:
+     * Serialises a {@link PublicProfileView} to a {@link UserPublicResponse},
+     * picking the projection from {@link PublicProfileView#restricted()}:
      *
      * <ul>
-     *   <li><em>anonymous</em> — stripped payload, no follow status.</li>
-     *   <li><em>restricted</em> (authenticated non-owner non-admin viewing a
-     *       private profile, not yet an accepted follower) — same stripped
-     *       fields, but {@code followStatus} is preserved (PENDING or null)
-     *       so the frontend renders the correct FollowButton state.</li>
-     *   <li><em>full</em> — complete payload including counts and follow status
-     *       (owner self-view, admin bypass, or accepted follower of a private
-     *       account).</li>
+     *   <li><em>locked</em> ({@code restricted=true}) — a private profile viewed
+     *       by a non-owner / non-admin / non-accepted-follower (anonymous or
+     *       authenticated): public-facing identity + banner + counts, private
+     *       fields stripped, {@code followStatus} preserved (null for anonymous,
+     *       PENDING otherwise).</li>
+     *   <li><em>full</em> — a public profile (including for an anonymous viewer),
+     *       the owner's self-view, an admin, or an accepted follower of a private
+     *       account: complete payload with counts and follow status.</li>
      * </ul>
      */
-    private static UserPublicResponse toResponse(boolean anonymous, PublicProfileView view) {
-        if (anonymous) {
-            return UserPublicResponse.fromAnonymous(view.user());
-        }
+    private static UserPublicResponse toResponse(PublicProfileView view) {
         if (view.restricted()) {
-            // Authenticated viewer of a private profile — strip private fields
-            // but preserve the real followStatus (PENDING/null) so the frontend
-            // shows "Demande envoyée" vs "Suivre" correctly.
-            return UserPublicResponse.fromRestricted(view.user(), view.followStatus());
+            return UserPublicResponse.fromRestricted(
+                    view.user(),
+                    view.followerCount(),
+                    view.followingCount(),
+                    view.followStatus()
+            );
         }
         return UserPublicResponse.from(
                 view.user(),

@@ -6,6 +6,7 @@ import ch.unige.events.event.entity.Event;
 import ch.unige.events.event.favorite.entity.Favorite;
 import ch.unige.events.shared.client.EngagementServiceClient;
 import ch.unige.events.shared.domain.dto.AttendanceSummary;
+import ch.unige.events.shared.domain.enums.EventStatus;
 import ch.unige.events.shared.domain.projections.CallerIdentity;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,6 +17,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -124,9 +126,19 @@ public class FavoriteService {
         // issuing one findByIdOptional per favorite (N+1).
         Map<Long, Event> eventsById = Event.<Event>list("id IN ?1", eventIds).stream()
                 .collect(Collectors.toMap(e -> e.id, e -> e));
+        // Hide favorites the user can no longer act on: BANNED, system-EXPIRED,
+        // or simply past (endDate elapsed — "dépassé"). The endDate guard also
+        // covers the lag before EventExpirationJob flips a just-ended event to
+        // EXPIRED. CANCELLED upcoming events stay (rendered with an "Annulé"
+        // badge on the card). Mirrors the existing in-memory `Objects::nonNull`
+        // (deleted events) filter — no favorite row is deleted, just hidden.
+        LocalDateTime now = LocalDateTime.now();
         return favorites.stream()
                 .map(f -> eventsById.get(f.eventId))
                 .filter(Objects::nonNull)
+                .filter(e -> e.status != EventStatus.BANNED
+                        && e.status != EventStatus.EXPIRED
+                        && (e.endDate == null || !e.endDate.isBefore(now)))
                 .map(e -> {
                     AttendanceSummary s = finalSummaries.getOrDefault(
                             e.id, AttendanceSummary.of(0L, 0L));

@@ -156,6 +156,39 @@ class FavoriteServiceTest {
 
     @Test
     @TestTransaction
+    void getFavorites_hidesBannedExpiredAndPastEvents() {
+        // BANNED, system-EXPIRED, and past (endDate elapsed) favorites are
+        // hidden; an upcoming PUBLISHED stays, and an upcoming CANCELLED stays
+        // too (it's rendered with an "Annulé" badge, not removed from favorites).
+        Event pub = create(EventStatus.PUBLISHED);
+        Event banned = create(EventStatus.BANNED);
+        Event expired = create(EventStatus.EXPIRED);
+        Event cancelled = create(EventStatus.CANCELLED);
+        Event past = create(EventStatus.PUBLISHED);
+        past.startDate = LocalDateTime.now().minusDays(2);
+        past.endDate = LocalDateTime.now().minusDays(1);
+        em.flush();
+
+        service.addFavorite("auth0|x", pub.id);
+        service.addFavorite("auth0|x", banned.id);
+        service.addFavorite("auth0|x", expired.id);
+        service.addFavorite("auth0|x", cancelled.id);
+        service.addFavorite("auth0|x", past.id);
+        em.flush();
+
+        List<EventDTO> list = service.getFavorites("auth0|x", 0, 20);
+        assertTrue(list.stream().anyMatch(d -> d.id().equals(pub.id)));
+        assertTrue(list.stream().anyMatch(d -> d.id().equals(cancelled.id)),
+                "upcoming cancelled stays (shown with an Annulé badge)");
+        assertFalse(list.stream().anyMatch(d -> d.id().equals(banned.id)));
+        assertFalse(list.stream().anyMatch(d -> d.id().equals(expired.id)));
+        assertFalse(list.stream().anyMatch(d -> d.id().equals(past.id)),
+                "past (outdated) event is hidden");
+        assertEquals(2, list.size());
+    }
+
+    @Test
+    @TestTransaction
     void getFavorites_emptyForNewUser() {
         assertTrue(service.getFavorites("auth0|x", 0, 20).isEmpty());
     }

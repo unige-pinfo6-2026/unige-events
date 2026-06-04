@@ -201,8 +201,10 @@ public class AttendanceService {
      *   <li><b>Organizer view</b> (creator, ACCEPTED co-organizer, or admin)
      *       → real {@code displayName}, {@code avatarUrl}, {@code userId} for
      *       every row, including private profiles.</li>
-     *   <li><b>Other authenticated callers</b> → real identity only for
-     *       public-profile rows. Private-profile rows are anonymized with
+     *   <li><b>Other authenticated callers</b> → real identity for
+     *       public-profile rows and for private attendees the caller follows
+     *       with ACCEPTED status (consistent with seeing their participations).
+     *       Every other private-profile row is anonymized with
      *       {@code displayName=null}, {@code avatarUrl=null}, and
      *       {@code userId=null} so the caller cannot probe
      *       {@code GET /users/{id}} to de-anonymize the participant.</li>
@@ -250,9 +252,17 @@ public class AttendanceService {
         Map<UUID, AttendeeProjection> projectionsById =
                 fetchAttendeeProjections(userIds);
 
+        // Accepted followers of a (private) attendee see that attendee's real
+        // identity — consistent with seeing their participations. Organizers
+        // already see everyone, so skip the extra follow lookup for them.
+        Set<UUID> followedByCaller = (!isOrganizerView && callerUuid != null)
+                ? Set.copyOf(userClient.getFollowedIds(callerUuid))
+                : Set.of();
+
         return rows.stream()
                 .map(a -> AttendanceDTOMapper.fromWithPrivacy(
-                        a, projectionsById.get(a.userId), isOrganizerView))
+                        a, projectionsById.get(a.userId), isOrganizerView,
+                        followedByCaller.contains(a.userId)))
                 .toList();
     }
 
@@ -352,11 +362,13 @@ public class AttendanceService {
     /**
      * Public-profile variant of {@link #getMyParticipationEvents}: the PUBLISHED
      * events the {@code targetUserId} attends (ATTENDING only), shown on the
-     * public profile page (SCRUM-141 follow-up). Privacy gate: self is always
-     * allowed; a non-self caller only sees a target whose profile is public — a
-     * private non-owner target yields an empty list (mirrors the SCRUM-169
-     * posture: no 404 oracle). Fail-closed on degraded user-service enrichment
-     * (an indeterminate profile is treated as private).
+     * public profile page (SCRUM-141 follow-up). Privacy gate: visible to the
+     * target themselves, an admin, anyone when the target's profile is public,
+     * or an accepted follower of a private target (an accepted follower sees a
+     * private account's participations — Instagram model). Everyone else gets an
+     * empty list (mirrors the SCRUM-169 posture: no 404 oracle). Fail-closed on
+     * degraded user-service reads (an indeterminate profile / follow lookup is
+     * treated as private / non-follower).
      */
     @Transactional
     public List<ch.unige.events.shared.domain.dto.EventDTO> getUserParticipationEvents(
@@ -366,7 +378,15 @@ public class AttendanceService {
         }
         UUID callerUuid = callerIdentity.getUuid();
         boolean isSelf = targetUserId.equals(callerUuid);
-        if (!isSelf && !isTargetProfilePublic(targetUserId)) {
+        boolean isAdmin = identity.hasRole(ROLE_ADMIN);
+        // Gate: self, admins (moderation), a public target, or a target the
+        // caller follows with ACCEPTED status (an accepted follower sees a
+        // private account's participations — Instagram model). Anyone else gets
+        // an empty list (no 404 oracle). Ordered cheapest-first; the follow
+        // lookup only fires for a private target viewed by a non-self non-admin.
+        if (!isSelf && !isAdmin
+                && !isTargetProfilePublic(targetUserId)
+                && !callerFollowsTarget(callerUuid, targetUserId)) {
             return List.of();
         }
         List<Long> eventIds = Attendance.findAllByUser(targetUserId).stream()
@@ -401,6 +421,22 @@ public class AttendanceService {
     private boolean isTargetProfilePublic(UUID targetUserId) {
         AttendeeProjection p = fetchAttendeeProjections(Set.of(targetUserId)).get(targetUserId);
         return p != null && p.profilePublic();
+    }
+
+    /**
+     * Whether the authenticated caller follows {@code targetUserId} with an
+     * ACCEPTED status — the condition that lets a follower see a private
+     * account's participations. Resolved via the user-service
+     * {@code _internal-followed-ids} endpoint (internal-endpoints.md entry #11).
+     * Fail-closed: a degraded read returns an empty list, so a follower is
+     * treated as a non-follower rather than leaking a private account's
+     * participations.
+     */
+    private boolean callerFollowsTarget(UUID callerUuid, UUID targetUserId) {
+        if (callerUuid == null) {
+            return false;
+        }
+        return userClient.getFollowedIds(callerUuid).contains(targetUserId);
     }
 
     private static boolean matchesTimeframe(

@@ -120,12 +120,17 @@ interface PublicProfileViewProps {
  * co-organizer invitations).
  */
 function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, statsLoading = false }: Readonly<PublicProfileViewProps>) {
+  const { isAuthenticated } = useAuth()
   const { events, loading: eventsLoading, error: eventsError } = useOrganizerEvents(profile.id)
+  // "Participations publiques" is served by an @Authenticated endpoint, so it is
+  // only fetched for logged-in viewers. An anonymous viewer of a public profile
+  // sees everything else but not this tab — passing `undefined` keeps the hook
+  // idle (no request, no 401).
   const {
     events: participations,
     loading: participationsLoading,
     error: participationsError,
-  } = useUserParticipations(profile.id)
+  } = useUserParticipations(isAuthenticated ? profile.id : undefined)
 
   const facultyName = profile.faculty ? FACULTIES[profile.faculty as Faculty]?.name ?? null : null
   const studyLevelName = profile.studyLevel ? STUDY_LEVELS[profile.studyLevel as StudyLevel]?.name ?? null : null
@@ -145,7 +150,11 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, st
     <ProfileStats
       followerCount={profile.followerCount}
       followingCount={profile.followingCount}
-      linkUsername={profile.username}
+      // The count tiles link to the followers/following list pages, which are
+      // @Authenticated and only readable for a public profile (or self). For an
+      // anonymous viewer — or an accepted follower of a private account — render
+      // plain, non-clickable tiles by omitting the slug.
+      linkUsername={isMeRoute || (isAuthenticated && profile.profilePublic) ? profile.username : undefined}
     />
   )
 
@@ -209,7 +218,11 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, st
       icon: CalendarDays,
       content: <ProfileEventsList events={events} loading={eventsLoading} error={eventsError} hideHeading />,
     },
-    {
+  ]
+  // Public participations require auth (the endpoint is @Authenticated) — hide
+  // the tab entirely for anonymous viewers.
+  if (isAuthenticated) {
+    tabs.push({
       key: 'participations',
       label: 'Participations publiques',
       icon: Ticket,
@@ -221,8 +234,8 @@ function PublicProfileView({ profile, isMeRoute, canFollow, onProfileMutated, st
           hideHeading
         />
       ),
-    },
-  ]
+    })
+  }
   if (isMeRoute) {
     tabs.push({
       key: 'publications',

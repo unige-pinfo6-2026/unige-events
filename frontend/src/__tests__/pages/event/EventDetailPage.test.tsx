@@ -435,6 +435,26 @@ describe('EventDetailPage', () => {
     expect(deleteBtn.className).toContain('text-error')
   })
 
+  it('shows a prominent "Événement annulé" banner on a CANCELLED event', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.getByText('Événement annulé')).toBeTruthy()
+  })
+
+  it('does not show the cancelled banner on a non-cancelled event', () => {
+    mockUseAuth.mockReturnValue({ user: mockUser })
+    mockUseEvent.mockReturnValue({ event: mockEvent, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null })
+    mockGetUserById.mockResolvedValue(null)
+
+    renderPage()
+
+    expect(screen.queryByText('Événement annulé')).toBeNull()
+  })
+
   it('opens and closes the delete confirmation modal on CANCELLED events', () => {
     mockUseAuth.mockReturnValue({ user: mockUser })
     mockUseEvent.mockReturnValue({ event: { ...mockEvent, status: 'CANCELLED' as const }, loading: false, isInitialLoad: false, isRefetching: false, refetch: vi.fn(), error: null})

@@ -20,6 +20,10 @@ export interface UserPublicResponse {
   bio?: string | null
   interests?: string[]
   avatarUrl?: string | null
+  /**
+   * URL de la bannière. Présente dans la projection complète ET la projection
+   * verrouillée (carte « compte privé ») ; `null` si l'utilisateur n'en a pas.
+   */
   bannerUrl?: string | null
   /**
    * Flag de visibilité du profil cible (cf. SCRUM-169 Décision E). Toujours
@@ -28,9 +32,9 @@ export interface UserPublicResponse {
    * l'utilise pour basculer sur le placeholder « Compte privé ».
    */
   profilePublic: boolean
-  /** Nombre de followers ACCEPTED (toujours présent, `0` pour anonyme). */
+  /** Nombre de followers ACCEPTED — toujours présent, réel y compris pour un appelant anonyme ou une vue verrouillée. */
   followerCount: number
-  /** Nombre d'utilisateurs suivis ACCEPTED (toujours présent, `0` pour anonyme). */
+  /** Nombre d'abonnements ACCEPTED — toujours présent, réel y compris pour un appelant anonyme ou une vue verrouillée. */
   followingCount: number
   /** État de la relation caller → cible. `null` si aucune row Follow. */
   followStatus?: FollowStatus | null
