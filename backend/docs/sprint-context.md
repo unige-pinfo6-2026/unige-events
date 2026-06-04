@@ -1,6 +1,58 @@
 # Sprint Context — unige-events-api
 
-Dernière mise à jour : 2026-05-31 (QA bug batch — feature « retirer un follower » + fixes infra locale)
+Dernière mise à jour : 2026-06-04 (visibilité des profils publics pour les visiteurs anonymes)
+
+---
+
+## 2026-06-04 — Visibilité des profils publics pour les visiteurs anonymes (fix/public-profile-anonymous-visibility)
+
+Branche `fix/public-profile-anonymous-visibility`.
+
+Un visiteur **anonyme** d'un profil **public** ne recevait qu'un payload réduit
+(`id` + `username` + `displayName` + `avatarUrl`) — bannière, bio, intérêts, faculté
+et compteurs étaient `null`/`0` (strip hérité du hotfix pentest 4.1b, trop large).
+On limite désormais ce strip aux **profils privés**.
+
+- **user-service** : `UserService.enrichPublicProfile` calcule `followerCount` /
+  `followingCount` dans **tous** les cas (anonyme et verrouillé inclus ; avant : `0`).
+  Nouveau helper `resolveFollowStatus` (null si anonyme/owner).
+  `fullAccess = profilePublic || owner || admin || ACCEPTED` → vue complète ; sinon
+  vue **verrouillée** (`restricted=true`) mais avec compteurs + `followStatus`.
+- `UserPublicResponse.fromRestricted(user, followerCount, followingCount, followStatus)` :
+  la projection verrouillée inclut maintenant `bannerUrl` + compteurs réels
+  (bio / faculté / niveau / intérêts toujours strippés). `fromAnonymous` inchangée
+  (toujours utilisée par `GET /users/search` + le listing followers).
+- `UserResource.toResponse(view)` : ne dépend plus du flag `anonymous` — branche
+  uniquement sur `view.restricted()` (vaut pour `GET /users/{id}` ET
+  `GET /users/by-username/{username}`). Un anonyme sur profil public reçoit donc la
+  projection **complète**.
+- **Inchangé (vérifié)** : `GET /events?organizerId&status=PUBLISHED` reste `@PermitAll`
+  (événements organisés visibles aux anonymes) ; `GET /users/{id}/participations` reste
+  `@Authenticated` (participations masquées aux anonymes) ; `GET /users/{id}/followers|following`
+  reste `@Authenticated`.
+- **engagement-service (abonnés acceptés d'un compte privé)** : un abonné **accepté**
+  (ou un admin) voit désormais les **participations publiques** d'un compte privé
+  (`AttendanceService.getUserParticipationEvents` : garde = self ‖ admin ‖ public ‖
+  abonné-accepté via `userClient.getFollowedIds`) **et** l'**identité** de ce compte dans
+  les listes d'inscrits aux événements (`getAttendees` + `AttendanceDTOMapper.fromWithPrivacy`).
+  Avant : un abonné accepté voyait le profil complet mais des participations vides + l'inscrit
+  anonymisé (incohérent). Les non-abonnés / anonymes restent exclus (aucune fuite).
+- **event-service (favoris)** : `FavoriteService.getFavorites` filtre désormais les favoris
+  **BANNED**, **EXPIRED** et **dépassés** (`endDate` passée — couvre aussi le lag du
+  `EventExpirationJob`) → ils n'apparaissent plus dans `/favorites`. Un CANCELLED à venir reste
+  (rendu avec un badge « Annulé » côté front). Filtre in-memory comme l'existant
+  `Objects::nonNull` (events supprimés) — aucune row favorite supprimée. Test
+  `FavoriteServiceTest.getFavorites_hidesBannedExpiredAndPastEvents`.
+- **openapi** : schéma `UserPublicResponse` + paths `/users/{id}` et
+  `/users/by-username/{username}` réécrits (projection complète vs verrouillée).
+- **Sécurité** : `email` n'est jamais exposé par `UserPublicResponse` ; les profils privés
+  restent verrouillés (avatar + bannière + nom + compteurs uniquement). Restreint
+  volontairement le strip pentest 4.1b aux seuls profils privés.
+- **Tests** : `UserServiceTest` (vue complète anonyme + verrouillée avec compteurs réels),
+  `UserResourceTest` (projection complète bout-en-bout vs verrouillée bannière+compteurs /
+  bio strippée), `UserPublicResponseTest` (signature `fromRestricted` + bannière + compteurs),
+  helper `TestFixtures.setProfileDetails` ; `AttendanceServiceTest` + `AttendanceDTOMapperTest`
+  (engagement : abonné accepté / admin voient participations + identité d'un compte privé).
 
 ---
 

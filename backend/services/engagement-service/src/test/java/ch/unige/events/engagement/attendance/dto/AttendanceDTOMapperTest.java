@@ -102,7 +102,7 @@ class AttendanceDTOMapperTest {
 
         // Private profile → organizer still sees real identity.
         AttendeeProjection priv = new AttendeeProjection(uid, "Alice", "/avatars/a.png", false);
-        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, priv, true);
+        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, priv, true, false);
 
         assertEquals(uid, dto.userId());
         assertEquals("Alice", dto.displayName());
@@ -115,7 +115,7 @@ class AttendanceDTOMapperTest {
         Attendance a = row(uid);
         AttendeeProjection pub = new AttendeeProjection(uid, "Bob", "/avatars/b.png", true);
 
-        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, pub, false);
+        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, pub, false, false);
 
         assertEquals(uid, dto.userId());
         assertEquals("Bob", dto.displayName());
@@ -128,7 +128,7 @@ class AttendanceDTOMapperTest {
         Attendance a = row(uid);
         AttendeeProjection priv = new AttendeeProjection(uid, "Carol", "/avatars/c.png", false);
 
-        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, priv, false);
+        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, priv, false, false);
 
         // Anonymized contract — nothing exposed about the participant.
         assertNull(dto.userId(), "userId must be nulled to prevent /users/{id} de-anonymization probe");
@@ -141,11 +141,26 @@ class AttendanceDTOMapperTest {
     }
 
     @Test
+    void fromWithPrivacy_nonOrganizerView_privateProfile_callerFollows_exposesIdentity() {
+        // An accepted follower of a private attendee sees their real identity
+        // (consistent with seeing that private account's participations).
+        UUID uid = UUID.randomUUID();
+        Attendance a = row(uid);
+        AttendeeProjection priv = new AttendeeProjection(uid, "Dana", "/avatars/d.png", false);
+
+        AttendanceDTO dto = AttendanceDTOMapper.fromWithPrivacy(a, priv, false, true);
+
+        assertEquals(uid, dto.userId());
+        assertEquals("Dana", dto.displayName());
+        assertEquals("/avatars/d.png", dto.avatarUrl());
+    }
+
+    @Test
     void fromWithPrivacy_nullProjection_anonymizesRegardlessOfRole() {
         Attendance a = row(UUID.randomUUID());
 
-        AttendanceDTO asOrganizer = AttendanceDTOMapper.fromWithPrivacy(a, null, true);
-        AttendanceDTO asNonOrganizer = AttendanceDTOMapper.fromWithPrivacy(a, null, false);
+        AttendanceDTO asOrganizer = AttendanceDTOMapper.fromWithPrivacy(a, null, true, false);
+        AttendanceDTO asNonOrganizer = AttendanceDTOMapper.fromWithPrivacy(a, null, false, false);
 
         for (AttendanceDTO dto : new AttendanceDTO[]{asOrganizer, asNonOrganizer}) {
             assertNull(dto.userId());

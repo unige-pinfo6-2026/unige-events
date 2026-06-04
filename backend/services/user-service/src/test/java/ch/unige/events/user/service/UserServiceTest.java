@@ -285,6 +285,40 @@ class UserServiceTest {
         assertNull(view.followStatus());
     }
 
+    @Test
+    @TestTransaction
+    void getPublicProfile_anonymousCaller_publicProfile_returnsFullViewWithRealCounts() {
+        // Anonymous viewer of a PUBLIC profile now gets the full (non-restricted)
+        // view, and the follower/following counts are computed for real — they
+        // are no longer hard-zeroed for anonymous callers.
+        User target = persistUser("auth0|us-anon-pub-counts", "us-anon-pub-counts@example.com", true);
+        User follower = persistUser("auth0|us-anon-pub-follower", "anon-pub-follower@example.com", true);
+        persistFollow(follower.id, target.id, FollowStatus.ACCEPTED);
+
+        PublicProfileView view = userService.getPublicProfile(target.id, null);
+        assertFalse(view.restricted(), "a public profile is never locked");
+        assertEquals(1L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
+    }
+
+    @Test
+    @TestTransaction
+    void getPublicProfile_privateProfile_anonymous_lockedViewKeepsRealCounts() {
+        // The locked projection of a private profile still carries the real
+        // follower/following counts (Instagram-style "X abonnés" on a locked
+        // card) — they are no longer hard-zeroed.
+        User target = persistUser("auth0|us-priv-counts", "us-priv-counts@example.com", false);
+        User follower = persistUser("auth0|us-priv-counts-follower", "priv-counts-follower@example.com", true);
+        persistFollow(follower.id, target.id, FollowStatus.ACCEPTED);
+
+        PublicProfileView view = userService.getPublicProfile(target.id, null);
+        assertTrue(view.restricted());
+        assertEquals(1L, view.followerCount());
+        assertEquals(0L, view.followingCount());
+        assertNull(view.followStatus());
+    }
+
     // ── updateMyProfile ────────────────────────────────────────────────────
 
     @Test

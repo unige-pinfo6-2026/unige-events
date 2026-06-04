@@ -83,13 +83,14 @@ class UserPublicResponseTest {
     }
 
     @Test
-    void fromRestricted_stripsPrivateFields_butKeepsFollowStatus() {
-        // Authenticated non-owner non-admin viewer of a private profile —
-        // private fields must be stripped (same as fromAnonymous) but the
-        // real followStatus (PENDING or null) is preserved so the frontend
-        // can render the correct FollowButton state without a separate call.
+    void fromRestricted_keepsIdentityBannerAndCounts_stripsPrivateFields() {
+        // Locked projection (private profile, non-owner / non-admin /
+        // non-accepted-follower viewer, anonymous or authenticated): identity +
+        // banner + real counts are kept; the real followStatus (PENDING or null)
+        // is preserved so the frontend renders the correct FollowButton state;
+        // bio / faculty / studyLevel / interests are stripped.
         User user = newUser(false);
-        UserPublicResponse dtoPending = UserPublicResponse.fromRestricted(user, FollowStatus.PENDING);
+        UserPublicResponse dtoPending = UserPublicResponse.fromRestricted(user, 8L, 3L, FollowStatus.PENDING);
 
         assertEquals(user.id, dtoPending.id());
         assertEquals(user.username, dtoPending.username());
@@ -99,14 +100,14 @@ class UserPublicResponseTest {
         assertNull(dtoPending.bio());
         assertNull(dtoPending.interests());
         assertEquals(user.avatarUrl, dtoPending.avatarUrl());
-        assertNull(dtoPending.bannerUrl());
+        assertEquals(user.bannerUrl, dtoPending.bannerUrl());
         assertFalse(dtoPending.profilePublic());
-        assertEquals(0L, dtoPending.followerCount());
-        assertEquals(0L, dtoPending.followingCount());
+        assertEquals(8L, dtoPending.followerCount());
+        assertEquals(3L, dtoPending.followingCount());
         assertEquals(FollowStatus.PENDING, dtoPending.followStatus());
 
         // null followStatus (no relationship yet) — "Suivre" button.
-        UserPublicResponse dtoNull = UserPublicResponse.fromRestricted(user, null);
+        UserPublicResponse dtoNull = UserPublicResponse.fromRestricted(user, 0L, 0L, null);
         assertNull(dtoNull.followStatus());
     }
 
@@ -119,7 +120,7 @@ class UserPublicResponseTest {
         assertEquals(List.of("ADMIN"), UserPublicResponse.from(user).roles());
         assertEquals(List.of("ADMIN"), UserPublicResponse.from(user, 0L, 0L, null).roles());
         assertEquals(List.of("ADMIN"), UserPublicResponse.fromAnonymous(user).roles());
-        assertEquals(List.of("ADMIN"), UserPublicResponse.fromRestricted(user, null).roles());
+        assertEquals(List.of("ADMIN"), UserPublicResponse.fromRestricted(user, 0L, 0L, null).roles());
     }
 
     @Test

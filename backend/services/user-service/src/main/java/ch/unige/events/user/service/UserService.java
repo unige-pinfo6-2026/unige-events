@@ -350,64 +350,68 @@ public class UserService {
      * Factored projection used by both {@link #getPublicProfile} and
      * {@link #getByUsername}.
      *
-     * <p>SCRUM-169 revision — the original strict anti-oracle (404 when
-     * {@code !profilePublic && !isOwner && !isAdmin}) broke cross-service
-     * enrichment (engagement-service comments dropped the
-     * {@code authorUsername} and the frontend fell back to the raw UUID).
-     * The branch now returns a {@code restricted} projection that the
-     * resource layer serialises as the anonymous payload — exposing only
-     * the public-facing identifier (id, username, displayName, avatarUrl)
-     * and stripping every other field. Owner self-view and admin bypass
-     * fall through to the full projection unchanged.
+     * <p>A profile is served as a <strong>full</strong> projection (every field +
+     * real follower/following counts) when it is public, or the caller is its
+     * owner, an admin, or an accepted follower — <em>including anonymous callers
+     * of a public profile</em>: a public profile is meant to be visible to all.
+     *
+     * <p>Otherwise (a private profile viewed by a non-owner / non-admin /
+     * non-accepted-follower, anonymous or authenticated) it is served as a
+     * <strong>locked</strong> projection ({@code restricted=true}): the resource
+     * layer keeps the public-facing identity (id, username, displayName,
+     * avatarUrl), the cover banner and the counts, and strips faculty,
+     * studyLevel, bio and interests. The caller-relative {@code followStatus} is
+     * preserved so the FollowButton renders "Demande envoyée" for a PENDING
+     * request.
+     *
+     * <p>The {@code 404} is reserved for a genuinely missing user — never used as
+     * a privacy gate (cf. SCRUM-169 revision of ISSUE-93, which had broken
+     * cross-service enrichment by dropping the {@code authorUsername}).
      */
     private PublicProfileView enrichPublicProfile(User user, String callerAuth0Id, boolean isAdmin) {
         boolean isOwner = callerAuth0Id != null && callerAuth0Id.equals(user.auth0Id);
-        if (!user.profilePublic && !isOwner && !isAdmin) {
-            // Resolve the caller's UUID once so we can inspect the follow relationship.
-            UUID callerId = callerAuth0Id != null
-                    ? User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null)
-                    : null;
 
-            FollowStatus callerStatus = null;
-            if (callerId != null && !callerId.equals(user.id)) {
-                callerStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
-                        .map((Follow f) -> f.status)
-                        .orElse(null);
-            }
-
-            if (callerStatus == FollowStatus.ACCEPTED) {
-                // Accepted follower — bypass the private gate and return the full
-                // projection (same as for a public profile). The frontend renders
-                // the full profile view with an "Abonné / Se désabonner" button.
-                long followerCount = Follow.countFollowersOf(user.id);
-                long followingCount = Follow.countFollowingOf(user.id);
-                return new PublicProfileView(user, followerCount, followingCount, FollowStatus.ACCEPTED);
-            }
-
-            // Non-accepted caller (PENDING or no relationship) — return the
-            // restricted projection, but carry the real followStatus so the
-            // frontend can render the correct FollowButton state (e.g. "Demande
-            // envoyée" for PENDING instead of always showing "Suivre").
-            return new PublicProfileView(user, 0L, 0L, callerStatus, true);
-        }
-
-        if (callerAuth0Id == null) {
-            return PublicProfileView.anonymous(user);
-        }
-
+        // Counts are exposed on every projection now: a public profile shows them
+        // to anonymous viewers (a public profile is meant to be fully visible) and
+        // the locked "private" card shows them too (Instagram-style). The two
+        // COUNT queries therefore run on every profile read.
         long followerCount = Follow.countFollowersOf(user.id);
         long followingCount = Follow.countFollowingOf(user.id);
 
-        FollowStatus followStatus = null;
-        if (!isOwner) {
-            UUID callerId = User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null);
-            if (callerId != null && !callerId.equals(user.id)) {
-                followStatus = Follow.findByFollowerAndFollowed(callerId, user.id)
-                        .map((Follow f) -> f.status)
-                        .orElse(null);
-            }
+        // Caller-relative follow status — null for an anonymous caller and for the
+        // owner's self-view; otherwise the status of the (caller -> target) row.
+        FollowStatus followStatus = resolveFollowStatus(user, callerAuth0Id, isOwner);
+
+        // A private profile stays locked for everyone except its owner, an admin,
+        // or an accepted follower. The locked projection still carries the counts
+        // and the real followStatus so the frontend renders the correct counters
+        // and FollowButton state ("Demande envoyée" for PENDING).
+        boolean fullAccess = user.profilePublic || isOwner || isAdmin
+                || followStatus == FollowStatus.ACCEPTED;
+
+        return new PublicProfileView(user, followerCount, followingCount, followStatus, !fullAccess);
+    }
+
+    /**
+     * Resolves the caller-relative {@link FollowStatus} for the {@code (caller ->
+     * target)} couple. Returns {@code null} when the caller is anonymous, is the
+     * target themselves, or has no {@code Follow} row — the cases where the
+     * frontend renders a plain "Suivre" button (or routes an anonymous click to
+     * login).
+     */
+    private static FollowStatus resolveFollowStatus(User target, String callerAuth0Id, boolean isOwner) {
+        if (callerAuth0Id == null || isOwner) {
+            return null;
         }
-        return new PublicProfileView(user, followerCount, followingCount, followStatus);
+        // Self (caller == target) is already short-circuited by isOwner above, so
+        // a resolved callerId can never equal target.id here.
+        UUID callerId = User.findByAuth0Id(callerAuth0Id).map(u -> u.id).orElse(null);
+        if (callerId == null) {
+            return null;
+        }
+        return Follow.findByFollowerAndFollowed(callerId, target.id)
+                .map((Follow f) -> f.status)
+                .orElse(null);
     }
 
     private void flushEntityManager() {

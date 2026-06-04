@@ -115,17 +115,21 @@ public record UserPublicResponse(
     }
 
     /**
-     * Restricted projection for an authenticated non-owner non-admin viewer
-     * of a private profile. Same stripped payload as {@link #fromAnonymous}
-     * but carries the caller-relative {@code followStatus} (PENDING or
-     * {@code null}) so the frontend can render the correct FollowButton state
-     * ("Demande envoyée" vs "Suivre") without a separate round-trip.
+     * Locked projection for a private profile viewed by a caller that is neither
+     * the owner, an admin, nor an accepted follower (anonymous or authenticated).
+     * Exposes the public-facing identity (id, username, displayName, avatarUrl),
+     * the cover {@code bannerUrl}, the real follower/following counts and the
+     * caller-relative {@code followStatus} (PENDING or {@code null}) so the
+     * frontend renders the locked "Compte privé" card with working counters and
+     * the correct FollowButton state ("Demande envoyée" vs "Suivre"). Strips the
+     * private fields: faculty, studyLevel, bio, interests.
      *
      * <p>Accepted followers bypass this projection entirely — they receive the
      * full {@link #from(User, long, long, FollowStatus)} payload (see
      * {@code UserService.enrichPublicProfile}).
      */
-    public static UserPublicResponse fromRestricted(User user, FollowStatus followStatus) {
+    public static UserPublicResponse fromRestricted(
+            User user, long followerCount, long followingCount, FollowStatus followStatus) {
         return new UserPublicResponse(
                 user.id,
                 user.username,
@@ -135,10 +139,10 @@ public record UserPublicResponse(
                 null,
                 null,
                 user.avatarUrl,
-                null,
+                user.bannerUrl,
                 user.profilePublic,
-                0L,
-                0L,
+                followerCount,
+                followingCount,
                 followStatus,
                 rolesOrEmpty(user)
         );

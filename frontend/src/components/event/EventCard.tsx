@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Calendar, MapPin, RefreshCw, Users } from 'lucide-react'
+import { Ban, Calendar, MapPin, RefreshCw, Users } from 'lucide-react'
 import { EVENT_CATEGORIES, type Event } from '@/types/event'
 import { formatEventDateTimeCompact } from '@/utils/dateTime'
 import FacultyBadge from '@/components/faculty/FacultyBadge'
@@ -54,6 +54,12 @@ export default function EventCard({
 
           {/* Title overlaid on banner */}
           <div className="absolute bottom-0 left-0 right-0 p-5">
+            {event.status === 'CANCELLED' && (
+              <span className="inline-flex items-center gap-1.5 mb-2 bg-error text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                <Ban className="w-3.5 h-3.5" aria-hidden="true" />
+                Annulé
+              </span>
+            )}
             <h3 className="text-white text-lg font-bold leading-snug line-clamp-2 drop-shadow-sm wrap-anywhere">
               {event.title}
             </h3>
