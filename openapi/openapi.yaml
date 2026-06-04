@@ -156,36 +156,43 @@ components:
       description: |
         Profil public d'un utilisateur.
 
-        **Projection restreinte** — payload `id` + `username` + `displayName` +
-        `avatarUrl` uniquement, autres champs `null` / `0` — appliquée dans deux cas :
+        **Deux projections selon la visibilité de la cible et le droit de lecture
+        de l'appelant :**
 
-        1. **Appelant anonyme** (hotfix pentest 2026-04-17, finding 4.1b) : caller
-           sans JWT sur `GET /users/{id}` ou `GET /users/by-username/{username}`.
-        2. **Profil privé vu par non-owner non-admin** (SCRUM-169 Décision E revised,
-           de867a15) : caller authentifié mais ni propriétaire ni admin, sur une
-           cible avec `profilePublic = false`. Auparavant ce cas répondait `404`
-           (anti-oracle ISSUE-93) ; depuis de867a15 c'est `200` + projection
-           restreinte sur `GET /users/{id}` ET `GET /users/by-username/{username}`.
+        - **Projection complète** — tous les champs peuplés (`displayName`,
+          `faculty`, `studyLevel`, `bio`, `interests`, `avatarUrl`, `bannerUrl`,
+          compteurs). Retournée dès que la cible est **publique**
+          (`profilePublic = true`), ou que l'appelant est le propriétaire, un admin,
+          ou un abonné accepté — **y compris pour un appelant anonyme** : un profil
+          public est destiné à être vu de tous. (Révise le strip anonyme du hotfix
+          pentest 4.1b : il ne s'applique plus aux profils publics.)
+        - **Projection verrouillée** — `id`, `username`, `displayName`, `avatarUrl`,
+          `bannerUrl`, `profilePublic` (`false`), `followerCount`, `followingCount`,
+          `followStatus`, `roles` peuplés ; `faculty`, `studyLevel`, `bio`,
+          `interests` à `null`. Retournée quand la cible est **privée**
+          (`profilePublic = false`) et que l'appelant n'est ni le propriétaire, ni un
+          admin, ni un abonné accepté (anonyme ou authentifié). Expose l'avatar, la
+          bannière, le nom et les compteurs (carte « compte privé » verrouillée) sans
+          leak de la bio / des centres d'intérêt / de la faculté.
 
-        Dans les deux cas, `faculty`, `studyLevel`, `bio`, `interests`, `bannerUrl`
-        sont `null` ; `followerCount` et `followingCount` sont `0` ; `followStatus`
-        est `null`. Le `404` est désormais réservé à l'absence réelle (UUID ou
-        username inexistant en base). Le listing `GET /users/{id}/followers` reste
-        en `404` pour les profils privés non-owner — protection distincte
-        intentionnelle.
+        `email` n'est **jamais** exposé par ce schéma (réservé à `/users/me` →
+        `UserProfileResponse`).
 
-        **Note SCRUM-169.** Le champ `username` est exposé même en projection
-        restreinte — c'est l'identifiant public-facing du profil (utilisé dans
-        `/profile/{username}`) et donc le nullifier casserait l'usage premier du
-        champ.
+        Le `404` est réservé à l'absence réelle (UUID ou username inexistant en
+        base). Le listing `GET /users/{id}/followers` reste `@Authenticated` + `403`
+        pour les profils privés non-owner — protection distincte intentionnelle : les
+        compteurs de la carte verrouillée ne sont donc pas cliquables côté frontend.
 
-        **Compteurs et état de suivi** (SCRUM-138) : pour un appelant authentifié,
-        `followerCount` et `followingCount` reflètent les rows `Follow` ACCEPTED
-        impliquant l'utilisateur cible. `followStatus` est non-null **uniquement** s'il
-        existe une row `Follow` pour le couple `(callerId, targetId)` — il vaut alors
-        `PENDING` (demande envoyée par le caller, profil cible privé) ou `ACCEPTED`
-        (suivi actif). Sur son propre profil (caller = target), `followStatus` est
-        toujours `null`.
+        **Note SCRUM-169.** Le champ `username` est toujours exposé (même verrouillé)
+        — c'est l'identifiant public-facing du profil (`/profile/{username}`).
+
+        **Compteurs et état de suivi** (SCRUM-138) : `followerCount` /
+        `followingCount` reflètent les rows `Follow` ACCEPTED impliquant la cible —
+        **réels dans les deux projections** (y compris pour un appelant anonyme).
+        `followStatus` est non-null **uniquement** s'il existe une row `Follow` pour
+        le couple `(callerId, targetId)` — `PENDING` (demande envoyée, cible privée)
+        ou `ACCEPTED` (suivi actif) ; `null` pour un appelant anonyme ou sur son
+        propre profil (caller = target).
       properties:
         id:
           type: string
@@ -223,29 +230,34 @@ components:
           type: string
           format: uri
           nullable: true
+          description: |
+            URL S3 de la bannière. Peuplée dans la projection complète ET la
+            projection verrouillée (la carte « compte privé » affiche la bannière) ;
+            `null` uniquement si l'utilisateur n'a pas uploadé de bannière.
         profilePublic:
           type: boolean
           description: |
-            Indique si le profil cible est public. Toujours présent dans
-            `UserPublicResponse`. Vaut la valeur réelle du flag pour la projection
-            complète, et `false` pour la projection restreinte (caller anonyme OU
-            non-owner non-admin sur `profilePublic = false`) : le frontend l'utilise
-            pour afficher le placeholder « profil privé » sans avoir à deviner la
-            visibilité à partir de l'absence d'autres champs.
+            Indique si le profil cible est public. Toujours présent. Vaut la valeur
+            réelle du flag (`true` pour un profil public, même vu par un anonyme) ;
+            `false` dans la projection verrouillée (cible privée vue par un
+            non-owner / non-admin / non-abonné-accepté). Le frontend l'utilise pour
+            basculer sur la carte « compte privé ».
         followerCount:
           type: integer
           format: int64
           minimum: 0
           description: |
             Nombre de rows `Follow` ACCEPTED dont `followedId = id`. Toujours présent
-            (jamais null) ; vaut `0` pour un appelant anonyme ou un user sans followers.
+            (jamais null), réel dans les deux projections (y compris pour un appelant
+            anonyme) ; vaut `0` pour un user sans followers.
         followingCount:
           type: integer
           format: int64
           minimum: 0
           description: |
             Nombre de rows `Follow` ACCEPTED dont `followerId = id`. Toujours présent
-            (jamais null) ; vaut `0` pour un appelant anonyme ou un user qui ne suit personne.
+            (jamais null), réel dans les deux projections (y compris pour un appelant
+            anonyme) ; vaut `0` pour un user qui ne suit personne.
         followStatus:
           $ref: '#/components/schemas/FollowStatus'
           nullable: true
@@ -1865,15 +1877,12 @@ paths:
         `GET /users/{id}` du point de vue de l'autorisation, mais permet l'accès via
         l'identifiant lisible utilisé dans l'URL `/profile/{username}`.
 
-        **Autorisation (SCRUM-169 Décision E revised, de867a15) :**
-        - Profil `profilePublic = true` : payload complet pour appelant authentifié,
-          payload réduit (`id`, `username`, `displayName`, `avatarUrl` uniquement)
-          pour appelant anonyme.
-        - Profil `profilePublic = false`, caller = owner ou admin : payload complet.
-        - Profil `profilePublic = false`, caller ≠ owner ≠ admin : **projection
-          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
-          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
-          public-facing sans leak du reste du profil.
+        **Autorisation (cf. schéma `UserPublicResponse`) :**
+        - Cible `profilePublic = true` (ou caller owner / admin / abonné accepté) :
+          **projection complète**, y compris pour un appelant **anonyme**.
+        - Cible `profilePublic = false`, caller ni owner ni admin ni abonné accepté :
+          **projection verrouillée** (`200 OK` — avatar, bannière, nom, username,
+          compteurs ; bio / intérêts / faculté `null`).
         - Username inexistant : `404 not_found`.
 
         Le lookup est **case-insensitive** : `/by-username/Jean.Dupont` matche
@@ -1897,27 +1906,20 @@ paths:
       responses:
         '200':
           description: |
-            Profil public de l'utilisateur. Payload complet pour les appelants
-            authentifiés non-restreints (owner, admin, ou cible avec
-            `profilePublic = true`) ; payload réduit (`id`, `username`,
-            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
-            appelants anonymes.
-
-            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
-            quand `profilePublic` de la cible est `false` et que l'appelant n'est
-            ni le user lui-même ni un admin, la réponse est une **projection
-            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
-            peuplés ; les autres champs sont `null` / `0`. Cela expose
-            l'identifiant public-facing sans leak du reste du profil.
+            Profil public de l'utilisateur. **Projection complète** (tous les champs)
+            pour une cible publique ou un caller owner / admin / abonné accepté — y
+            compris pour un appelant anonyme. **Projection verrouillée** (avatar,
+            bannière, nom, username, compteurs ; bio / intérêts / faculté `null`) pour
+            une cible privée vue par un non-owner / non-admin / non-abonné-accepté.
+            Détails : schéma `UserPublicResponse`.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
         '404':
           description: |
-            Username introuvable (absence réelle en base). Depuis le hotfix
-            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
-            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            Username introuvable (absence réelle en base). Les profils privés ne
+            répondent pas 404 — ils renvoient `200` avec la projection verrouillée
             (cf. description du `200`).
           content:
             application/json:
@@ -2052,21 +2054,17 @@ paths:
       description: |
         Retourne le profil public d'un utilisateur.
 
-        **Règle d'autorisation** (hotfix pentest 2026-04-17 findings 4.1 + 4.1b,
-        révisé SCRUM-169 Décision E le 2026-05-15 / commit de867a15) :
-        - Profil avec `profilePublic=true` : accessible en lecture. Un appelant **anonyme**
-          reçoit un payload **réduit** (seuls `id`, `username`, `displayName`, `avatarUrl`
-          sont renseignés ; les autres champs sont `null`). Un appelant **authentifié**
-          reçoit le payload complet.
-        - Profil avec `profilePublic=false`, caller = owner ou admin : payload complet.
-        - Profil avec `profilePublic=false`, caller ≠ owner ≠ admin : **projection
-          restreinte** (200 OK avec uniquement `id`, `username`, `displayName`,
-          `avatarUrl` peuplés ; autres champs `null` / `0`). Expose l'identifiant
-          public-facing utilisé par `/profile/{username}` sans leak du reste du profil.
-          Auparavant cet endpoint renvoyait `404 not_found` dans ce cas
-          (anti-oracle strict ISSUE-93) — comportement aligné sur
-          `GET /users/by-username/{username}` depuis de867a15.
-        - UUID inexistant : `404 not_found` (absence réelle, inchangé).
+        **Règle d'autorisation** (cf. schéma `UserPublicResponse`) :
+        - Profil `profilePublic = true` (ou caller owner / admin / abonné accepté) :
+          **projection complète** — y compris pour un appelant **anonyme** (un profil
+          public est destiné à être vu de tous ; révise le strip anonyme du hotfix
+          pentest 4.1b, désormais limité aux profils privés).
+        - Profil `profilePublic = false`, caller ni owner ni admin ni abonné accepté :
+          **projection verrouillée** (`200 OK` — `id`, `username`, `displayName`,
+          `avatarUrl`, `bannerUrl`, `profilePublic = false`, compteurs, `followStatus`
+          peuplés ; `faculty`, `studyLevel`, `bio`, `interests` à `null`). Expose
+          l'identité publique + la bannière + les compteurs sans leak du reste.
+        - UUID inexistant : `404 not_found` (absence réelle).
       operationId: getPublicProfile
       x-owner-service: user-service
       tags: [users]
@@ -2083,27 +2081,20 @@ paths:
       responses:
         '200':
           description: |
-            Profil public de l'utilisateur. Payload complet pour les appelants
-            authentifiés non-restreints (owner, admin, ou cible avec
-            `profilePublic = true`) ; payload réduit (`id`, `username`,
-            `displayName`, `avatarUrl` uniquement, autres champs `null`) pour les
-            appelants anonymes.
-
-            **Projection restreinte (SCRUM-169 Décision E revised, de867a15) :**
-            quand `profilePublic` de la cible est `false` et que l'appelant n'est
-            ni le user lui-même ni un admin, la réponse est une **projection
-            restreinte** : seuls `id`, `username`, `displayName`, `avatarUrl` sont
-            peuplés ; les autres champs sont `null` / `0`. Cela expose
-            l'identifiant public-facing sans leak du reste du profil.
+            Profil public de l'utilisateur. **Projection complète** (tous les champs)
+            pour une cible publique ou un caller owner / admin / abonné accepté — y
+            compris pour un appelant anonyme. **Projection verrouillée** (avatar,
+            bannière, nom, username, compteurs ; bio / intérêts / faculté `null`) pour
+            une cible privée vue par un non-owner / non-admin / non-abonné-accepté.
+            Détails : schéma `UserPublicResponse`.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPublicResponse'
         '404':
           description: |
-            Utilisateur introuvable (UUID inexistant en base). Depuis le hotfix
-            de867a15 (SCRUM-169 Décision E revised), les profils privés ne
-            répondent plus 404 — ils renvoient `200` avec projection restreinte
+            Utilisateur introuvable (UUID inexistant en base). Les profils privés ne
+            répondent pas 404 — ils renvoient `200` avec la projection verrouillée
             (cf. description du `200`).
           content:
             application/json:

@@ -1,5 +1,6 @@
 package ch.unige.events.user.test;
 
+import ch.unige.events.shared.domain.enums.Faculty;
 import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.follow.entity.Follow;
@@ -69,6 +70,23 @@ public class TestFixtures {
         em.persist(f);
         em.flush();
         return f;
+    }
+
+    /**
+     * Sets the cover/profile detail fields on an already-persisted user so REST
+     * tests can assert which fields each projection exposes (e.g. the locked
+     * projection keeps {@code bannerUrl} but strips {@code bio} / {@code
+     * faculty}). Commits in its own transaction like the other fixtures.
+     */
+    @Transactional
+    public void setProfileDetails(UUID userId, String bannerUrl, String bio, Faculty faculty) {
+        User user = em.find(User.class, userId);
+        if (user != null) {
+            user.bannerUrl = bannerUrl;
+            user.bio = bio;
+            user.faculty = faculty;
+            em.flush();
+        }
     }
 
     @Transactional

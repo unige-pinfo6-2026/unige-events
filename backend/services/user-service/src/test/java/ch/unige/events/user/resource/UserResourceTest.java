@@ -1,5 +1,7 @@
 package ch.unige.events.user.resource;
 
+import ch.unige.events.shared.domain.enums.Faculty;
+import ch.unige.events.shared.domain.enums.FollowStatus;
 import ch.unige.events.shared.storage.FileStorageService;
 import ch.unige.events.user.entity.User;
 import ch.unige.events.user.test.JwtTestContext;
@@ -173,6 +175,48 @@ class UserResourceTest {
             .body("followerCount", equalTo(0))
             .body("followingCount", equalTo(0))
             .body("followStatus", nullValue());
+    }
+
+    @Test
+    void getProfile_publicUser_anonymous_returnsFullProjectionWithBannerBioAndCounts() {
+        // Anonymous viewer of a PUBLIC profile now receives the FULL projection:
+        // banner, bio, faculty AND real follower counts — a public profile is
+        // meant to be visible to everyone (revises the over-broad anonymous strip).
+        User user = fixtures.persistUser("auth0|ur-pub-full", "ur-pub-full@example.com", true);
+        fixtures.setProfileDetails(user.id, "https://cdn/banners/pub.png", "ma bio publique", Faculty.SCIENCES);
+        User follower = fixtures.persistUser("auth0|ur-pub-full-follower", "ur-pub-full-follower@example.com", true);
+        fixtures.persistFollow(follower.id, user.id, FollowStatus.ACCEPTED);
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("profilePublic", equalTo(true))
+            .body("bannerUrl", equalTo("https://cdn/banners/pub.png"))
+            .body("bio", equalTo("ma bio publique"))
+            .body("faculty", equalTo("SCIENCES"))
+            .body("followerCount", equalTo(1))
+            .body("followingCount", equalTo(0));
+    }
+
+    @Test
+    void getProfile_privateUser_anonymous_lockedProjectionExposesBannerAndCountsButStripsBio() {
+        // Locked projection: banner + counts are now exposed (carte « compte
+        // privé »), but bio / faculty / studyLevel / interests stay stripped.
+        User user = fixtures.persistUser("auth0|ur-priv-locked", "ur-priv-locked@example.com", false);
+        fixtures.setProfileDetails(user.id, "https://cdn/banners/priv.png", "bio secrète", Faculty.SCIENCES);
+        User follower = fixtures.persistUser("auth0|ur-priv-locked-follower", "ur-priv-locked-follower@example.com", true);
+        fixtures.persistFollow(follower.id, user.id, FollowStatus.ACCEPTED);
+
+        given()
+            .when().get("/users/" + user.id)
+            .then()
+            .statusCode(200)
+            .body("profilePublic", equalTo(false))
+            .body("bannerUrl", equalTo("https://cdn/banners/priv.png"))
+            .body("followerCount", equalTo(1))
+            .body("bio", nullValue())
+            .body("faculty", nullValue());
     }
 
     @Test
