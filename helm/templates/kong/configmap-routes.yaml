@@ -108,6 +108,16 @@ data:
               - ~/api/events/(?:\d+)/attachments(?:/(?:\d+)(?:/download)?)?$
             strip_path: false
             preserve_host: true
+          - name: events-organizer-uuids
+            # GET /api/events/{id}/organizer-uuids — @PermitAll (ADR-002). Public
+            # so the public event page resolves the organizer team (creator +
+            # ACCEPTED co-organizers) for anonymous viewers via usePublicOrganizers.
+            # Declared BEFORE events-by-id so the /organizer-uuids suffix is not
+            # swallowed by the catch-all id route. Mirrors docker/kong.yml.
+            paths:
+              - ~/api/events/(?:\d+)/organizer-uuids$
+            strip_path: false
+            preserve_host: true
           - name: events-by-id
             paths:
               - ~/api/events/(?:\d+)$

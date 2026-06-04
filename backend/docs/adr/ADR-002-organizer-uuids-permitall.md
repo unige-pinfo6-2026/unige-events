@@ -81,3 +81,26 @@ Aucune route Kong-strip n'est posée.
 - **Documentation interne-endpoints.** `backend/docs/internal-endpoints.md`
   référence ADR-002 dans la sous-section « `GET /events/{id}/organizer-uuids` »
   (mise à jour Étape 24.9.16).
+
+## Addendum 2026-06-04 — consommateur public ajouté → route Kong + openapi
+
+La condition « When to revisit » #1 (« si engagement-service cesse d'être le seul
+consommateur ») est désormais remplie : le **frontend** consomme l'endpoint via
+`usePublicOrganizers` pour afficher la section « Équipe organisatrice » de la page
+publique d'un événement (créateur + co-organisateurs `ACCEPTED`, y compris pour les
+visiteurs anonymes).
+
+Décision maintenue : l'endpoint **reste `@PermitAll`** (mêmes mitigations — filtre
+BANNED, UUIDs non corrélables sans user-service, équipe organisatrice destinée à
+être publique). En revanche, la phrase « Aucune route Kong-strip n'est posée » est
+**révisée** — une route Kong publique est désormais nécessaire, sinon le frontend
+reçoit `404 no Route matched` (bug observé en prod : l'équipe organisatrice
+n'affichait que le créateur). Conséquences :
+
+- Route Kong `events-organizer-uuids` (`~/api/events/(?:\d+)/organizer-uuids$`)
+  ajoutée à `docker/kong.yml`, `helm/templates/kong/configmap-routes.yaml` et
+  `k8s/templates/kong/configmap-routes.yaml`.
+- Endpoint déclaré dans `openapi/openapi.yaml` (contrat public).
+- La note de recon pentest « `organizer-uuids` → Kong 404 no Route matched » ne
+  tient plus : l'exposition publique est désormais intentionnelle (l'équipe
+  organisatrice est de toute façon affichée publiquement sur la page événement).
