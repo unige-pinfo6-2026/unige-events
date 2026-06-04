@@ -551,10 +551,10 @@ describe('ProfilePage — /profile/:username (other user)', () => {
 })
 
 describe('ProfilePage — private profile (SCRUM-141 redesign — restricted projection)', () => {
-  // SCRUM-169 Décision E revised : the backend returns a 200 restricted
-  // projection for a non-owner non-admin caller of a private profile
-  // (id + username + displayName + avatarUrl + profilePublic=false,
-  // bannerUrl / bio / faculty / studyLevel / interests stripped).
+  // The backend returns a 200 locked projection for a non-owner non-admin
+  // caller of a private profile (id + username + displayName + avatarUrl +
+  // bannerUrl + counts + profilePublic=false ; bio / faculty / studyLevel /
+  // interests stripped).
   const privateProfile = {
     id: OTHER_UUID,
     username: 'jane.private',
@@ -602,11 +602,9 @@ describe('ProfilePage — private profile (SCRUM-141 redesign — restricted pro
     expect(screen.getByText('JP')).toBeTruthy()
   })
 
-  it('does NOT render bio / counters / events / participations on a private profile', async () => {
+  it('renders counters but hides bio / events / participations on a private profile', async () => {
     mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
     mockGetUserByUsername.mockResolvedValue({
-      // Even if the backend leaked the fields (defense-in-depth), they
-      // must not appear in the rendered UI.
       ...privateProfile,
       bio: 'NEVER VISIBLE',
       faculty: 'SCIENCES',
@@ -618,10 +616,30 @@ describe('ProfilePage — private profile (SCRUM-141 redesign — restricted pro
     renderProfilePage('jane.private')
 
     await screen.findByRole('heading', { level: 2, name: 'Compte privé' })
+    // Counters ARE shown on the locked card (Instagram-style "+ compteurs").
+    expect(screen.getByLabelText('Compteurs de suivi')).toBeTruthy()
+    expect(screen.getByText('99')).toBeTruthy()
+    // The private content stays hidden.
     expect(screen.queryByText('NEVER VISIBLE')).toBeNull()
-    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Événements organisés' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Participations publiques' })).toBeNull()
+  })
+
+  it('renders the locked card (banner + counters) for an anonymous viewer of a private profile', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue({
+      ...privateProfile,
+      bannerUrl: 'https://cdn/locked-banner.png',
+      followerCount: 4,
+      followingCount: 1,
+    })
+
+    renderProfilePage('jane.private')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
+    expect(document.querySelector('img[src*="locked-banner.png"]')).toBeTruthy()
+    expect(screen.getByLabelText('Compteurs de suivi')).toBeTruthy()
+    expect(screen.getByText('4')).toBeTruthy()
   })
 
   it('renders a FollowButton on a private profile for an authenticated non-owner (followStatus null)', async () => {
@@ -724,6 +742,58 @@ describe('ProfilePage — legacy UUID redirect (SCRUM-169 Décision I)', () => {
 
     expect(await screen.findByText("Ce n'est pas vous, c'est nous.")).toBeTruthy()
     expect(mockGetUserByUsername).not.toHaveBeenCalled()
+  })
+})
+
+describe('ProfilePage — anonymous viewer of a public profile', () => {
+  // The full public projection is now served to anonymous callers too, so an
+  // anonymous viewer sees bio / banner / counters — everything EXCEPT the
+  // "Participations publiques" tab (its endpoint stays @Authenticated).
+  it('renders the full public profile (bio + counters) for an anonymous viewer', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Other User' })).toBeTruthy()
+    expect(screen.getByText('Bio publique')).toBeTruthy()
+    expect(screen.getByText('12')).toBeTruthy()
+    expect(screen.getByText('7')).toBeTruthy()
+  })
+
+  it('hides the "Participations publiques" tab and does not fetch it for an anonymous viewer', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    expect(await screen.findByRole('tab', { name: 'Événements organisés' })).toBeTruthy()
+    expect(screen.queryByRole('tab', { name: 'Participations publiques' })).toBeNull()
+    expect(mockGetUserParticipations).not.toHaveBeenCalled()
+  })
+
+  it('renders non-clickable counter tiles for an anonymous viewer (lists require auth)', async () => {
+    mockUseAuth.mockReturnValue({ user: null, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(screen.getByLabelText('Compteurs de suivi')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /Voir les abonnés/i })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Voir les abonnements/i })).toBeNull()
+  })
+
+  it('renders clickable counter tiles for an authenticated viewer of a public profile', async () => {
+    mockUseAuth.mockReturnValue({ user: mockUser, isLoading: false })
+    mockGetUserByUsername.mockResolvedValue(otherProfile)
+
+    renderProfilePage('other.user')
+
+    await screen.findByRole('heading', { level: 1, name: 'Other User' })
+    expect(
+      screen.getByRole('link', { name: /Voir les abonnés \(12\)/i }).getAttribute('href'),
+    ).toBe('/profile/other.user/followers')
   })
 })
 

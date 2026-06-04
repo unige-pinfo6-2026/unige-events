@@ -1,6 +1,29 @@
 # docs/sprint-context.md — État d'avancement
 
-Dernière mise à jour : 2026-05-21 (feature/s8-duplicate-error-handling — review fix Agon : drop redirects 403/404 + ajout firstName/lastName)
+Dernière mise à jour : 2026-06-04 (visibilité des profils publics pour les visiteurs anonymes)
+
+## 2026-06-04 — Visibilité des profils publics pour les visiteurs anonymes (fix/public-profile-anonymous-visibility)
+
+Un visiteur **non connecté** d'un profil **public** ne voyait que la photo + le nom
+(bannière / bio / intérêts / compteurs absents du DTO renvoyé par le backend). Le backend
+renvoie désormais la projection complète aux anonymes sur un profil public ; côté frontend :
+
+- **`ProfilePage` (`PublicProfileView`)** : lit `isAuthenticated` via `useAuth`. L'onglet
+  **« Participations publiques »** (endpoint `@Authenticated`) et le fetch
+  `useUserParticipations` ne sont activés **que** pour un viewer connecté — masqués pour un
+  anonyme. Les tuiles de compteurs ne sont cliquables que quand la liste est accessible
+  (`isMeRoute || (isAuthenticated && profilePublic)`) — sinon tuiles simples (les pages
+  followers / abonnements sont `@Authenticated`).
+- **`ProfilePrivateState`** : la carte « Compte privé » affiche maintenant les compteurs
+  (`ProfileStats` sans `linkUsername`, non cliquables) ; la bannière s'affiche automatiquement
+  via `UserBanner` dès que le backend la peuple.
+- **`types/user.ts`** : JSDoc `bannerUrl` / `followerCount` / `followingCount` mises à jour
+  (présents / réels y compris pour un anonyme et la vue verrouillée).
+- **Tests** : `ProfilePage.test` (anonyme + public complet, onglet participations absent +
+  non fetché, compteurs non cliquables, vue verrouillée anonyme bannière + compteurs),
+  `ProfilePrivateState.test` (compteurs non cliquables sur la carte verrouillée).
+
+---
 
 ## Sprint 8 — Bouton Dupliquer + AppErrorBoundary + champs profil étendus (feature/s8-duplicate-error-handling) — 2026-05-21
 

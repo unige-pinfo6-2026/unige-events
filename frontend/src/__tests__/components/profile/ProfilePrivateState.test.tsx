@@ -11,8 +11,8 @@ const privateProfile: UserPublicResponse = {
   id: 'u-1',
   username: 'jane.doe',
   displayName: 'Jane Doe',
-  // Restricted projection — bio / faculty / studyLevel / interests / bannerUrl
-  // are stripped by the backend (SCRUM-169 Décision E revised).
+  // Locked projection — bio / faculty / studyLevel / interests are stripped by
+  // the backend, but bannerUrl + counts are kept (carte « compte privé »).
   faculty: null,
   studyLevel: null,
   bio: null,
@@ -33,7 +33,7 @@ describe('ProfilePrivateState — locked view (with restricted profile)', () => 
     expect(screen.getByRole('heading', { level: 2, name: 'Compte privé' })).toBeTruthy()
   })
 
-  it('does NOT render bio, faculté, niveau d\'étude, counters, events or participations', () => {
+  it('does NOT render bio, faculté, niveau d\'étude, events or participations', () => {
     const profileWithExtras = {
       ...privateProfile,
       bio: 'Cette bio ne devrait JAMAIS apparaître',
@@ -45,10 +45,22 @@ describe('ProfilePrivateState — locked view (with restricted profile)', () => 
 
     expect(screen.queryByText('Cette bio ne devrait JAMAIS apparaître')).toBeNull()
     expect(screen.queryByText('Jazz')).toBeNull()
-    expect(screen.queryByLabelText('Compteurs de suivi')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Événements organisés' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Participations publiques' })).toBeNull()
     expect(screen.queryByText('À propos')).toBeNull()
+  })
+
+  it('renders the follower/following counters (non-clickable) on the locked view', () => {
+    render(<ProfilePrivateState profile={{ ...privateProfile, followerCount: 8, followingCount: 3 }} />)
+
+    // Counters are shown on the locked card (the "+ compteurs" decision)…
+    expect(screen.getByLabelText('Compteurs de suivi')).toBeTruthy()
+    expect(screen.getByText('8')).toBeTruthy()
+    expect(screen.getByText('3')).toBeTruthy()
+    // …but they are NOT clickable: the followers/following list pages are
+    // @Authenticated and gated to public profiles / self.
+    expect(screen.queryByRole('link', { name: /Voir les abonnés/i })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Voir les abonnements/i })).toBeNull()
   })
 
   it('does NOT render any FollowButton', () => {
