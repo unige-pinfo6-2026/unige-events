@@ -13,6 +13,7 @@ import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -97,7 +98,7 @@ public class NotificationService {
                 .orElseThrow(NotFoundException::new);
         if (!n.read) {
             n.read = true;
-            n.readAt = LocalDateTime.now();
+            n.readAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 

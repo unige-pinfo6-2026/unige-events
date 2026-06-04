@@ -40,8 +40,8 @@ class EventDTOAttachmentsTest {
         e.title = "T-" + id;
         e.description = "d";
         e.location = "L";
-        e.startDate = LocalDateTime.now();
-        e.endDate = LocalDateTime.now().plusDays(1);
+        e.startDate = LocalDateTime.of(2025, 1, 1, 12, 0);
+        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1);
         e.category = EventCategory.CONFERENCE;
         e.creatorId = UUID.randomUUID();
         e.status = EventStatus.PUBLISHED;
@@ -67,9 +67,9 @@ class EventDTOAttachmentsTest {
     @Test
     void fromWithAttachments_populatesField() {
         AttachmentDTO a1 = new AttachmentDTO(1L, "a.pdf", "url1", "/api/events/3/attachments/1/download",
-                100L, "application/pdf", UUID.randomUUID(), LocalDateTime.now());
+                100L, "application/pdf", UUID.randomUUID(), LocalDateTime.of(2025, 1, 1, 12, 0));
         AttachmentDTO a2 = new AttachmentDTO(2L, "b.pdf", "url2", "/api/events/3/attachments/2/download",
-                200L, "application/pdf", UUID.randomUUID(), LocalDateTime.now());
+                200L, "application/pdf", UUID.randomUUID(), LocalDateTime.of(2025, 1, 1, 12, 0));
         List<AttachmentDTO> list = List.of(a1, a2);
 
         EventDTO dto = EventDTO.fromWithAttachments(makeEvent(3L),

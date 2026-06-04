@@ -8,6 +8,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 /**
@@ -55,6 +56,6 @@ public class EventView extends PanacheEntity {
 
     @PrePersist
     public void prePersist() {
-        viewedAt = LocalDateTime.now();
+        viewedAt = LocalDateTime.now(ZoneId.systemDefault());
     }
 }

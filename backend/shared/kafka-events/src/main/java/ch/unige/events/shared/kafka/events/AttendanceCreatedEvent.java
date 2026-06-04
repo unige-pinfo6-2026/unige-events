@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -22,6 +23,6 @@ public record AttendanceCreatedEvent(
 ) {
 
     public static AttendanceCreatedEvent of(long attendanceId, long eventId, UUID userId) {
-        return new AttendanceCreatedEvent(attendanceId, eventId, userId, Instant.now());
+        return new AttendanceCreatedEvent(attendanceId, eventId, userId, Instant.now(Clock.systemUTC()));
     }
 }

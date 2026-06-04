@@ -1,5 +1,6 @@
 package ch.unige.events.shared.kafka.events;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -35,18 +36,18 @@ public record EventLifecycleEvent(
     }
 
     public static EventLifecycleEvent published(long eventId, UUID creatorId) {
-        return new EventLifecycleEvent(Type.PUBLISHED, eventId, creatorId, Instant.now());
+        return new EventLifecycleEvent(Type.PUBLISHED, eventId, creatorId, Instant.now(Clock.systemUTC()));
     }
 
     public static EventLifecycleEvent cancelled(long eventId, UUID creatorId) {
-        return new EventLifecycleEvent(Type.CANCELLED, eventId, creatorId, Instant.now());
+        return new EventLifecycleEvent(Type.CANCELLED, eventId, creatorId, Instant.now(Clock.systemUTC()));
     }
 
     public static EventLifecycleEvent expired(long eventId, UUID creatorId) {
-        return new EventLifecycleEvent(Type.EXPIRED, eventId, creatorId, Instant.now());
+        return new EventLifecycleEvent(Type.EXPIRED, eventId, creatorId, Instant.now(Clock.systemUTC()));
     }
 
     public static EventLifecycleEvent updated(long eventId, UUID creatorId) {
-        return new EventLifecycleEvent(Type.UPDATED, eventId, creatorId, Instant.now());
+        return new EventLifecycleEvent(Type.UPDATED, eventId, creatorId, Instant.now(Clock.systemUTC()));
     }
 }

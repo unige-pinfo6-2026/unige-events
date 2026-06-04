@@ -11,6 +11,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,7 +68,7 @@ public class Notification extends PanacheEntity {
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 
@@ -112,7 +113,7 @@ public class Notification extends PanacheEntity {
         return getEntityManager()
                 .createQuery("UPDATE Notification n SET n.read = true, n.readAt = :readAt"
                         + " WHERE n.userId = :userId AND n.read = false")
-                .setParameter("readAt", LocalDateTime.now())
+                .setParameter("readAt", LocalDateTime.now(ZoneId.systemDefault()))
                 .setParameter("userId", userId)
                 .executeUpdate();
     }

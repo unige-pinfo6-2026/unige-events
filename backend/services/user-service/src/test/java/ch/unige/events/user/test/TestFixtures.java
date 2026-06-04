@@ -54,7 +54,7 @@ public class TestFixtures {
         user.email = email;
         user.username = username;
         user.profilePublic = profilePublic;
-        user.createdAt = LocalDateTime.now();
+        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         em.persist(user);
         em.flush();
         return user;
@@ -66,7 +66,7 @@ public class TestFixtures {
         f.followerId = followerId;
         f.followedId = followedId;
         f.status = status;
-        f.createdAt = LocalDateTime.now();
+        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         em.persist(f);
         em.flush();
         return f;

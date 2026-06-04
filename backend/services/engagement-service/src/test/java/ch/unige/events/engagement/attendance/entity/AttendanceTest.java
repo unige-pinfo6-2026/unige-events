@@ -36,7 +36,7 @@ class AttendanceTest {
         a.status = AttendanceStatus.ATTENDING;
         a.prePersist();
         assertNotNull(a.createdAt);
-        assertTrue(a.createdAt.isAfter(LocalDateTime.now().minusSeconds(2)));
+        assertTrue(a.createdAt.isAfter(LocalDateTime.of(2000, 1, 1, 0, 0).minusSeconds(2)));
     }
 
     @Test

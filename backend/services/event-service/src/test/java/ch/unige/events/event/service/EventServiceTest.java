@@ -91,7 +91,7 @@ class EventServiceTest {
     }
 
     private CreateEventRequest req(String title) {
-        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        LocalDateTime start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         return new CreateEventRequest(
                 title, "desc", "loc", start, start.plusHours(2),
                 EventCategory.ACADEMIC, null, null,
@@ -145,7 +145,7 @@ class EventServiceTest {
         e.title = title;
         e.description = "desc";
         e.location = "loc";
-        e.startDate = LocalDateTime.now().plusDays(2);
+        e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
         e.endDate = e.startDate.plusHours(2);
         e.category = EventCategory.ACADEMIC;
         e.creatorId = creator;
@@ -297,7 +297,7 @@ class EventServiceTest {
         persistEvent("future", EventStatus.PUBLISHED, creatorId);
         em.flush();
         List<EventDTO> filtered = service.getAll(0, 20, null, null, null,
-                LocalDateTime.now(), null, null, null);
+                LocalDateTime.of(2025, 1, 1, 12, 0), null, null, null);
         assertFalse(filtered.isEmpty());
     }
 
@@ -306,7 +306,7 @@ class EventServiceTest {
     void getAll_featuredFilter() {
         Event e = persistEvent("f", EventStatus.PUBLISHED, creatorId);
         e.featured = true;
-        e.featuredAt = LocalDateTime.now();
+        e.featuredAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         em.flush();
 
         List<EventDTO> filtered = service.getAll(0, 100, null, null, null, null, null, null, true);
@@ -602,7 +602,7 @@ class EventServiceTest {
     @Test
     @TestTransaction
     void update_unknown_throws404() {
-        UpdateEventRequest u = updateReq("x", LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2));
+        UpdateEventRequest u = updateReq("x", LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2));
         assertThrows(NotFoundException.class,
                 () -> service.update(99999L, "auth0|x", u));
     }
@@ -914,7 +914,7 @@ class EventServiceTest {
         child.title = "child";
         child.description = "d";
         child.location = "l";
-        child.startDate = LocalDateTime.now().plusDays(10);
+        child.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(10);
         child.endDate = child.startDate.plusHours(2);
         child.category = EventCategory.ACADEMIC;
         child.creatorId = otherId;
@@ -935,7 +935,7 @@ class EventServiceTest {
         child.title = "child";
         child.description = "d";
         child.location = "l";
-        child.startDate = LocalDateTime.now().plusDays(10);
+        child.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(10);
         child.endDate = child.startDate.plusHours(2);
         child.category = EventCategory.ACADEMIC;
         child.creatorId = creatorId;
@@ -1080,7 +1080,7 @@ class EventServiceTest {
         child.title = "child";
         child.description = "d";
         child.location = "l";
-        child.startDate = LocalDateTime.now().plusDays(10);
+        child.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(10);
         child.endDate = child.startDate.plusHours(2);
         child.category = EventCategory.ACADEMIC;
         child.creatorId = creatorId;
@@ -1165,7 +1165,7 @@ class EventServiceTest {
         Event e = persistEvent("d", EventStatus.DRAFT, creatorId);
         e.title = "   ";
         e.location = "   ";
-        e.startDate = LocalDateTime.now().minusDays(2);
+        e.startDate = LocalDateTime.of(2000, 1, 1, 0, 0).minusDays(2);
         e.endDate = e.startDate.minusHours(1);
         em.flush();
         WebApplicationException ex = assertThrows(WebApplicationException.class,
@@ -1208,7 +1208,7 @@ class EventServiceTest {
         child.title = "child";
         child.description = "d";
         child.location = "l";
-        child.startDate = LocalDateTime.now().plusDays(10);
+        child.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(10);
         child.endDate = child.startDate.plusHours(2);
         child.category = EventCategory.ACADEMIC;
         child.creatorId = otherId;
@@ -1244,7 +1244,7 @@ class EventServiceTest {
         // is NOT added; the missing start error (L741) still surfaces a 422.
         Event e = persistEvent("d", EventStatus.DRAFT, creatorId);
         e.startDate = null;
-        e.endDate = LocalDateTime.now().plusDays(3);
+        e.endDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(3);
         em.flush();
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.publish(e.id, "auth0|x", false));

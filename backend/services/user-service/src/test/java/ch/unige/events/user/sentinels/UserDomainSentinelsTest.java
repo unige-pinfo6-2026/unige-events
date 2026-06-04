@@ -177,7 +177,7 @@ class UserDomainSentinelsTest {
                 candidate -> ch.unige.events.user.entity.User.findByUsername(candidate).isPresent()
         );
         user.profilePublic = profilePublic;
-        user.createdAt = LocalDateTime.now();
+        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         entityManager.persist(user);
         entityManager.flush();
         return user;
@@ -188,7 +188,7 @@ class UserDomainSentinelsTest {
         f.followerId = followerId;
         f.followedId = followedId;
         f.status = status;
-        f.createdAt = LocalDateTime.now();
+        f.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         entityManager.persist(f);
         entityManager.flush();
         return f;

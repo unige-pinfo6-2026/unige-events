@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,7 +52,7 @@ public class EventCoOrganizer extends PanacheEntity {
     @PrePersist
     public void prePersist() {
         if (invitedAt == null) {
-            invitedAt = LocalDateTime.now();
+            invitedAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 

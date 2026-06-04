@@ -71,12 +71,12 @@ class ReportServiceUnitTest {
 
     private static EventDTO event(Long id, EventStatus status, UUID creator) {
         return new EventDTO(id, "T-" + id, "d", "l",
-                LocalDateTime.now(), LocalDateTime.now().plusDays(1),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1),
                 null, null, null, creator,
                 status, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
-                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
     }
 
@@ -87,7 +87,7 @@ class ReportServiceUnitTest {
         r.reporterId = reporterId;
         r.reason = ReportReason.SPAM;
         r.status = status;
-        r.createdAt = LocalDateTime.now();
+        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         return r;
     }
 

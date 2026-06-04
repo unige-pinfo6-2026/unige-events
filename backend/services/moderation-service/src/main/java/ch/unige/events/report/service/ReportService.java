@@ -29,6 +29,7 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -279,7 +280,7 @@ public class ReportService {
                     "Admin profile not found — call GET /users/me first");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         report.status = request.status();
         report.moderationNote = request.moderationNote();
         report.reviewedAt = now;

@@ -91,7 +91,7 @@ class CommentDTOTest {
         c.authorId = UUID.randomUUID();
         c.content = "anonymous";
         c.likeCount = 0;
-        c.createdAt = LocalDateTime.now();
+        c.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         CommentDTO dto = CommentDTO.from(c, null, false);
 

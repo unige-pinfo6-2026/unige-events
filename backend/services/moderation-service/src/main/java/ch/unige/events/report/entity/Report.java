@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.Check;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 /**
@@ -100,6 +101,6 @@ public class Report extends PanacheEntity {
 
     @PrePersist
     public void prePersist() {
-        createdAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now(ZoneId.systemDefault());
     }
 }

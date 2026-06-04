@@ -47,7 +47,7 @@ class NotificationDTOTest {
         n.relatedUserId = null;
         n.message = "x";
         n.read = false;
-        n.createdAt = LocalDateTime.now();
+        n.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         n.readAt = null;
 
         NotificationDTO dto = NotificationDTO.from(n);

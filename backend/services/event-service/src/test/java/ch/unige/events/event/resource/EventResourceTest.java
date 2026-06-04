@@ -68,8 +68,8 @@ class EventResourceTest {
     }
 
     private static String createBody() {
-        String start = LocalDateTime.now().plusDays(2).withNano(0).toString();
-        String end = LocalDateTime.now().plusDays(2).plusHours(2).withNano(0).toString();
+        String start = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).withNano(0).toString();
+        String end = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2).plusHours(2).withNano(0).toString();
         return "{\"title\":\"T\",\"description\":\"d\",\"location\":\"l\","
                 + "\"startDate\":\"" + start + "\",\"endDate\":\"" + end + "\","
                 + "\"category\":\"ACADEMIC\"}";
@@ -105,7 +105,7 @@ class EventResourceTest {
             e.title = "anon-" + UUID.randomUUID();
             e.description = "d";
             e.location = "l";
-            e.startDate = LocalDateTime.now().plusDays(2);
+            e.startDate = LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2);
             e.endDate = e.startDate.plusHours(2);
             e.category = EventCategory.ACADEMIC;
             e.creatorId = creator;

@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -54,7 +55,7 @@ public class EventBannedOutboxPoller {
             try {
                 EventBannedEvent ev = objectMapper.readValue(row.payloadJson, EventBannedEvent.class);
                 emitter.send(ev).toCompletableFuture().get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                row.publishedAt = Instant.now();
+                row.publishedAt = Instant.now(Clock.systemUTC());
                 row.lastError = null;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

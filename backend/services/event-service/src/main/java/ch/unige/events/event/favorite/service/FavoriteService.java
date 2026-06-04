@@ -18,6 +18,7 @@ import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -132,7 +133,7 @@ public class FavoriteService {
         // EXPIRED. CANCELLED upcoming events stay (rendered with an "Annulé"
         // badge on the card). Mirrors the existing in-memory `Objects::nonNull`
         // (deleted events) filter — no favorite row is deleted, just hidden.
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         return favorites.stream()
                 .map(f -> eventsById.get(f.eventId))
                 .filter(Objects::nonNull)

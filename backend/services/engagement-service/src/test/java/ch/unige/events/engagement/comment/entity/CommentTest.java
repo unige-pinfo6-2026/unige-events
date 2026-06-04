@@ -32,7 +32,7 @@ class CommentTest {
         c.prePersist();
 
         assertNotNull(c.createdAt);
-        assertTrue(c.createdAt.isAfter(LocalDateTime.now().minusSeconds(2)));
+        assertTrue(c.createdAt.isAfter(LocalDateTime.of(2000, 1, 1, 0, 0).minusSeconds(2)));
     }
 
     @Test

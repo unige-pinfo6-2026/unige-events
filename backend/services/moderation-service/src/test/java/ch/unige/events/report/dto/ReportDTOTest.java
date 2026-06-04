@@ -75,7 +75,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.SPAM;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.now();
+        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null);
 
@@ -94,7 +94,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.INAPPROPRIATE;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.now();
+        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null, "the reported body");
 
@@ -151,7 +151,7 @@ class ReportDTOTest {
         r.reporterId = UUID.randomUUID();
         r.reason = ReportReason.OTHER;
         r.status = ReportStatus.PENDING;
-        r.createdAt = LocalDateTime.now();
+        r.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
 
         ReportDTO dto = ReportDTO.from(r, null, null);
 

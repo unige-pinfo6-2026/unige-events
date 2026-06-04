@@ -112,7 +112,7 @@ class EventBannedOutboxPollerTest {
         row.occurredAt = ev.bannedAt();
         row.payloadJson = objectMapper.writeValueAsString(ev);
         row.attempts = 0;
-        row.createdAt = Instant.now();
+        row.createdAt = Instant.parse("2025-01-01T12:00:00Z");
         row.persist();
         return row.id;
     }

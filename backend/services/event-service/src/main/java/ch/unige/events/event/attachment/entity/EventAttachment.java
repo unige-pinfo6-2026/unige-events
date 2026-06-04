@@ -10,6 +10,7 @@ import org.hibernate.annotations.Check;
 import org.hibernate.annotations.Checks;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -94,7 +95,7 @@ public class EventAttachment extends PanacheEntity {
     @PrePersist
     public void prePersist() {
         if (uploadedAt == null) {
-            uploadedAt = LocalDateTime.now();
+            uploadedAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 

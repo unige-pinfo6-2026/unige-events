@@ -38,7 +38,7 @@ class AttachmentDTOTest {
     @Test
     void from_copiesAllScalarFieldsVerbatim() {
         UUID uploader = UUID.randomUUID();
-        LocalDateTime uploadedAt = LocalDateTime.now();
+        LocalDateTime uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         EventAttachment entity = sampleEntity(10L, 99L);
         entity.fileName = "deck.pdf";
         entity.fileUrl = "http://minio:9000/bucket/event-attachments/abc.pdf";
@@ -78,7 +78,7 @@ class AttachmentDTOTest {
         a.fileSize = 1L;
         a.mimeType = "application/pdf";
         a.uploadedById = UUID.randomUUID();
-        a.uploadedAt = LocalDateTime.now();
+        a.uploadedAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         return a;
     }
 }

@@ -28,6 +28,7 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +90,7 @@ public class AttendanceService {
         }
 
         if (event.registrationDeadline() != null
-                && LocalDateTime.now().isAfter(event.registrationDeadline())) {
+                && LocalDateTime.now(ZoneId.systemDefault()).isAfter(event.registrationDeadline())) {
             throw new WebApplicationException(
                     Response.status(Response.Status.CONFLICT)
                             .entity(new ApiErrorResponse(
@@ -350,7 +351,7 @@ public class AttendanceService {
 
         List<ch.unige.events.shared.domain.dto.EventDTO> events =
                 eventClient.findByIds(eventIds, null);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         return events.stream()
                 .filter(e -> matchesTimeframe(e, timeframeFilter, now))
                 .map(e -> withCounts(e,
@@ -403,7 +404,7 @@ public class AttendanceService {
         // PUBLISHED-only: never expose a third party's DRAFT/CANCELLED events.
         List<ch.unige.events.shared.domain.dto.EventDTO> events =
                 eventClient.findByIds(eventIds, EventStatus.PUBLISHED.name());
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         return events.stream()
                 .filter(e -> matchesTimeframe(e, timeframeFilter, now))
                 .map(e -> withCounts(e,

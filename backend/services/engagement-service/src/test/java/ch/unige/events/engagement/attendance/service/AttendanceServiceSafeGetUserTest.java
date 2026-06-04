@@ -76,7 +76,7 @@ class AttendanceServiceSafeGetUserTest {
         a.userId = userId;
         a.eventId = eventId;
         a.status = status;
-        a.createdAt = LocalDateTime.now();
+        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         return a;
     }
 
@@ -135,12 +135,12 @@ class AttendanceServiceSafeGetUserTest {
         // Visible event, caller is neither creator nor co-organizer → non-organizer
         // view, so a failed projection fetch anonymizes every row.
         EventDTO event = new EventDTO(5L, "Title", null, "loc",
-                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
                 null, null, null, UUID.randomUUID(),
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null, List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, Boolean.FALSE);
         when(svc.eventClient.getByIdWithCoOrgCheck(5L, callerUuid)).thenReturn(event);
         when(svc.userClient.getAttendeeProjections(anyList()))
@@ -196,12 +196,12 @@ class AttendanceServiceSafeGetUserTest {
         // Event resolves & passes the published/deadline gates, but the caller
         // has no resolvable UUID → requireUuid() null → 104.
         EventDTO event = new EventDTO(3L, "Title", null, "loc",
-                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
                 null, null, null, UUID.randomUUID(),
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null, List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
         when(svc.eventClient.getById(3L)).thenReturn(event);
         when(svc.callerIdentity.requireUuid()).thenReturn(null);
@@ -258,12 +258,12 @@ class AttendanceServiceSafeGetUserTest {
         // Event has a null endDate → matchesTimeframe returns false (line 414)
         // under a non-null timeframe filter, so it is filtered out.
         EventDTO event = new EventDTO(5L, "Title", null, "loc",
-                LocalDateTime.now().plusDays(1), null,
+                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), null,
                 null, null, null, UUID.randomUUID(),
                 EventStatus.PUBLISHED, null, false, false, null,
                 0L, null, 0L, 0L, 0L,
                 null, null, null, List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
         when(svc.eventClient.findByIds(anyList(), any())).thenReturn(List.of(event));
 

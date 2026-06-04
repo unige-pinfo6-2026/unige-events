@@ -131,7 +131,7 @@ class CalendarServiceTest {
         entityManager.flush();
 
         AttendanceDTO orphan = new AttendanceDTO(1L, user.id, null, AttendanceStatus.ATTENDING,
-                LocalDateTime.now(), "U", null);
+                LocalDateTime.of(2025, 1, 1, 12, 0), "U", null);
         when(engagementClient.getUserAttendances(eq(user.id), anyString()))
                 .thenReturn(List.of(orphan));
 
@@ -148,7 +148,7 @@ class CalendarServiceTest {
         entityManager.flush();
 
         AttendanceDTO att = new AttendanceDTO(1L, user.id, 42L, AttendanceStatus.ATTENDING,
-                LocalDateTime.now(), "U", null);
+                LocalDateTime.of(2025, 1, 1, 12, 0), "U", null);
         when(engagementClient.getUserAttendances(eq(user.id), anyString()))
                 .thenReturn(List.of(att));
         when(eventClient.findByIds(anyList(), eq("PUBLISHED"))).thenReturn(null);
@@ -167,7 +167,7 @@ class CalendarServiceTest {
         entityManager.flush();
 
         AttendanceDTO att = new AttendanceDTO(1L, user.id, 99L, AttendanceStatus.ATTENDING,
-                LocalDateTime.now(), "U", null);
+                LocalDateTime.of(2025, 1, 1, 12, 0), "U", null);
         when(engagementClient.getUserAttendances(eq(user.id), anyString()))
                 .thenReturn(List.of(att));
 
@@ -179,7 +179,7 @@ class CalendarServiceTest {
                 0L, null, 0L, 0L, 0L,
                 null, null, null,
                 List.of(),
-                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
         when(eventClient.findByIds(anyList(), eq("PUBLISHED"))).thenReturn(List.of(ev));
 
@@ -414,7 +414,7 @@ class CalendarServiceTest {
                 candidate -> ch.unige.events.user.entity.User.findByUsername(candidate).isPresent()
         );
         user.profilePublic = true;
-        user.createdAt = LocalDateTime.now();
+        user.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         entityManager.persist(user);
         entityManager.flush();
         return user;

@@ -64,11 +64,11 @@ class UserParticipationsResourceTest {
 
     private static EventDTO publishedEvent(long id) {
         return new EventDTO(id, "Title-" + id, "desc", "loc",
-                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(1), LocalDateTime.of(2999, 1, 1, 0, 0).plusDays(2),
                 null, null, null, UUID.randomUUID(),
                 EventStatus.PUBLISHED, 10, false, false, null,
                 0L, 10L, 0L, 0L, 0L, null, null, null,
-                List.of(), LocalDateTime.now(), LocalDateTime.now(),
+                List.of(), LocalDateTime.of(2025, 1, 1, 12, 0), LocalDateTime.of(2025, 1, 1, 12, 0),
                 null, null, null);
     }
 
@@ -78,7 +78,7 @@ class UserParticipationsResourceTest {
         a.userId = userId;
         a.eventId = eventId;
         a.status = AttendanceStatus.ATTENDING;
-        a.createdAt = LocalDateTime.now();
+        a.createdAt = LocalDateTime.of(2025, 1, 1, 12, 0);
         return a;
     }
 
