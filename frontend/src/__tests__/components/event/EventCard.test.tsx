@@ -180,4 +180,16 @@ describe('EventCard', () => {
       expect(screen.queryByText('Récurrent')).toBeNull()
     })
   })
+
+  describe('cancelled badge', () => {
+    it('renders an "Annulé" badge when the event is CANCELLED', () => {
+      renderCard({ ...mockEvent, status: 'CANCELLED' })
+      expect(screen.getByText('Annulé')).toBeTruthy()
+    })
+
+    it('does not render the "Annulé" badge for a non-cancelled event', () => {
+      renderCard(mockEvent)
+      expect(screen.queryByText('Annulé')).toBeNull()
+    })
+  })
 })

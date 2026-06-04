@@ -19,9 +19,16 @@ renvoie désormais la projection complète aux anonymes sur un profil public ; c
   via `UserBanner` dès que le backend la peuple.
 - **`types/user.ts`** : JSDoc `bannerUrl` / `followerCount` / `followingCount` mises à jour
   (présents / réels y compris pour un anonyme et la vue verrouillée).
+- **Badge « Annulé » (CANCELLED)** : `EventCard` affiche un badge rouge « Annulé » sur la
+  bannière, et `EventDetailPage` un bandeau « Événement annulé » en haut de page, quand
+  `event.status === 'CANCELLED'` (les events annulés restent accessibles via
+  `/my-events/participations` mais n'avaient aucun indicateur clair — seulement un message
+  dans la zone commentaires). Côté backend (event-service), les favoris BANNED / EXPIRED /
+  dépassés sont retirés de `/favorites`.
 - **Tests** : `ProfilePage.test` (anonyme + public complet, onglet participations absent +
   non fetché, compteurs non cliquables, vue verrouillée anonyme bannière + compteurs),
-  `ProfilePrivateState.test` (compteurs non cliquables sur la carte verrouillée).
+  `ProfilePrivateState.test` (compteurs non cliquables sur la carte verrouillée),
+  `EventCard.test` + `EventDetailPage.test` (badge / bandeau « Annulé »).
 
 ---
 

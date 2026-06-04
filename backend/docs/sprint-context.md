@@ -37,6 +37,12 @@ On limite désormais ce strip aux **profils privés**.
   les listes d'inscrits aux événements (`getAttendees` + `AttendanceDTOMapper.fromWithPrivacy`).
   Avant : un abonné accepté voyait le profil complet mais des participations vides + l'inscrit
   anonymisé (incohérent). Les non-abonnés / anonymes restent exclus (aucune fuite).
+- **event-service (favoris)** : `FavoriteService.getFavorites` filtre désormais les favoris
+  **BANNED**, **EXPIRED** et **dépassés** (`endDate` passée — couvre aussi le lag du
+  `EventExpirationJob`) → ils n'apparaissent plus dans `/favorites`. Un CANCELLED à venir reste
+  (rendu avec un badge « Annulé » côté front). Filtre in-memory comme l'existant
+  `Objects::nonNull` (events supprimés) — aucune row favorite supprimée. Test
+  `FavoriteServiceTest.getFavorites_hidesBannedExpiredAndPastEvents`.
 - **openapi** : schéma `UserPublicResponse` + paths `/users/{id}` et
   `/users/by-username/{username}` réécrits (projection complète vs verrouillée).
 - **Sécurité** : `email` n'est jamais exposé par `UserPublicResponse` ; les profils privés
