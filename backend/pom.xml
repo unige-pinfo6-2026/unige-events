@@ -27,7 +27,7 @@
         <!-- Quarkus -->
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.36.0</quarkus.platform.version>
+        <quarkus.platform.version>3.36.2</quarkus.platform.version>
         <smallrye-reactive-messaging.version>4.35.0</smallrye-reactive-messaging.version>
         <quarkus.dev.jvmArgs>-Xmx512m -XX:+UseSerialGC</quarkus.dev.jvmArgs>
         <skipITs>true</skipITs>
