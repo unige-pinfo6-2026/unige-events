@@ -44,3 +44,6 @@ docs/superpowers/
 
 # Temporary files
 tmp/
+
+# K8S
+*.cluster
