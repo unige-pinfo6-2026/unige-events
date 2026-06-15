@@ -45,7 +45,7 @@ jobs:
             --set-string secrets.ghcrUsername="${{ github.actor }}" \
             --set-string secrets.ghcrPassword="${{ secrets.GITHUB_TOKEN }}" \
             --timeout 6m \
-            --wait
+            --wait=legacy
 
   # ─── Preview ──────────────────────────────────────────────────────────────
   deploy-preview:
@@ -162,7 +162,7 @@ jobs:
               # uninstall entirely so the next step can fresh-install.
               if ! helm rollback "${{ env.PR_NAMESPACE }}" \
                      --namespace "${{ env.PR_NAMESPACE }}" \
-                     --wait --timeout 2m ; then
+                     --wait=legacy --timeout 2m ; then
                 echo "Rollback failed — uninstalling stuck release"
                 helm uninstall "${{ env.PR_NAMESPACE }}" \
                   --namespace "${{ env.PR_NAMESPACE }}" \
@@ -189,7 +189,7 @@ jobs:
             --set-string secrets.ghcrUsername="${{ github.actor }}" \
             --set-string secrets.ghcrPassword="${{ secrets.GITHUB_TOKEN }}" \
             --timeout 6m \
-            --wait
+            --wait=legacy
 
       # Surface pod state on deploy failure to make root-cause analysis
       # tractable from the CI logs
