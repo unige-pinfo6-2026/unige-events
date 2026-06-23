@@ -3,6 +3,11 @@ secrets:
   ghcrUsername: ""
   ghcrPassword: ""
 
+# Operateur Doppler (sync des secrets en prod). Mettre false en local/offline
+# et fournir le Secret app-secrets manuellement.
+doppler:
+  enabled: true
+
 cloudflared:
   enabled: true
   mode: named

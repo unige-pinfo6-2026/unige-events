@@ -1,3 +1,4 @@
+{{- if .Values.doppler.enabled }}
 apiVersion: secrets.doppler.com/v1alpha1
 kind: DopplerSecret
 metadata:
@@ -9,3 +10,4 @@ spec:
   managedSecret:
     name: app-secrets
     namespace: {{ .Release.Namespace }}
+{{- end }}
