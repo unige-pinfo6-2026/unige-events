@@ -7,6 +7,12 @@ SERVICES = event user engagement moderation notification
 
 MODE = development
 
+# Port debug JDWP des services en dev. false par defaut : evite le conflit
+# de port 5005 quand les 5 services demarrent en parallele (make backend),
+# qui faisait crasher un service au hasard. Pour debugger un service precis :
+#   make backend-event DEBUG=5005
+DEBUG ?= false
+
 # ─── Install ────────────────────────────────────────────────────────────────
 install-backend:
 	cd backend && ./mvnw install -DskipTests
@@ -18,7 +24,7 @@ install: install-frontend install-backend
 
 # ─── Dev — services individuels ─────────────────────────────────────────────
 $(addprefix backend-,$(SERVICES)):
-	cd backend && set -a && . ./.env && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service
+	cd backend && set -a && . ./.env && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service -Ddebug=$(DEBUG)
 
 # ─── Dev — tous les services ─────────────────────────────────────────────────
 backend:
