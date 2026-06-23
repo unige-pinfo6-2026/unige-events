@@ -9,21 +9,16 @@ MODE = development
 
 # ─── Install ────────────────────────────────────────────────────────────────
 install-backend:
-	cd backend && ./mvnw install -DskipTests -T2
+	cd backend && ./mvnw install -DskipTests
 
 install-frontend:
 	cd frontend && npm install
 
-install:
-	$(MAKE) -j2 install-frontend install-backend
+install: install-frontend install-backend
 
 # ─── Dev — services individuels ─────────────────────────────────────────────
-# make backend-event | make backend-user | make backend-engagement | ...
-# Cap the Maven launcher JVM (dev targets only; the forked app JVM is capped via
-# quarkus.dev.jvmArgs in backend/pom.xml). Honors a pre-set MAVEN_OPTS.
-DEV_MAVEN_OPTS ?= -Xmx256m -XX:+UseSerialGC
 $(addprefix backend-,$(SERVICES)):
-	cd backend && set -a && . ./.env && MAVEN_OPTS="$${MAVEN_OPTS:-$(DEV_MAVEN_OPTS)}" ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service
+	cd backend && set -a && . ./.env && ./mvnw quarkus:dev -pl services/$(patsubst backend-%,%,$@)-service
 
 # ─── Dev — tous les services ─────────────────────────────────────────────────
 backend:
