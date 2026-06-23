@@ -26,7 +26,7 @@
                 "anthropic.claude-code"
             ],
             "settings": {
-                "java.jdt.ls.vmargs": "-XX:+UseSerialGC -Dsun.zip.disableMemoryMapping=true -Xmx512m -Xms64m -Xlog:disable"
+                "java.jdt.ls.vmargs": "-XX:+UseSerialGC -Xmx512m -Xms64m -Xlog:disable"
             }
         },
         "jetbrains": {
