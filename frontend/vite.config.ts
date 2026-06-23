@@ -26,7 +26,8 @@ export default defineConfig(() => {
           target: `http://kong:8000/`,
           changeOrigin: true
         }
-      }
+      },
+      allowedHosts: ["pinfo6.agonkolgeci.com"]
     },
     test: {
       environment: 'happy-dom',
