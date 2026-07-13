@@ -1,5 +1,8 @@
 # 📅 [UNIGE Events](https://pinfo6.p-info.net/)
 
+> [!NOTE]
+> **No live preview available here?** Watch a quick demo of the platform in action instead: **[▶️ YouTube Demo](https://youtu.be/Q7SBkecQm-0)**
+
 Centralized event platform for the UNIGE community : discover, create and manage university events.
 
 [![CI/CD Pipeline](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/unige-pinfo6-2026/unige-events/actions/workflows/ci-cd.yml)
